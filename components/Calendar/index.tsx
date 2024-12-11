@@ -186,11 +186,27 @@ import googleCalendarPlugin from "@fullcalendar/google-calendar";
 
 const Calendar = () => {
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
 
   const googleCalendarApiKey = process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY;
   const googleCalendarId = process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_ID;
 
   const closeTooltip = () => setSelectedEvent(null);
+
+  const handleEventClick = (info) => {
+    info.jsEvent.preventDefault();
+    const rect = info.jsEvent.target.getBoundingClientRect();
+    setTooltipPosition({
+      top: rect.top + window.scrollY,
+      left: rect.left + window.scrollX,
+    });
+    setSelectedEvent({
+      title: info.event.title,
+      start: info.event.startStr,
+      end: info.event.endStr,
+      url: info.event.url || "/",
+    });
+  };
 
   return (
     <div className="relative container mx-auto max-w-6xl">
@@ -216,15 +232,7 @@ const Calendar = () => {
                 slotMaxTime="33:00:00"
                 scrollTime="09:00:00"
                 height="auto"
-                eventClick={(info) => {
-                  info.jsEvent.preventDefault();
-                  setSelectedEvent({
-                    title: info.event.title,
-                    start: info.event.startStr,
-                    end: info.event.endStr,
-                    url: info.event.url || "/",
-                  });
-                }}
+                eventClick={handleEventClick}
               />
             </div>
           </div>
@@ -233,8 +241,14 @@ const Calendar = () => {
 
       {/* Tooltip */}
       {selectedEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="relative w-[350px] rounded-lg bg-white p-6 shadow-2xl">
+        <div
+          className="fixed z-50 bg-black/50"
+          style={{ top: 0, left: 0, right: 0, bottom: 0 }}
+        >
+          <div
+            className="absolute w-[250px] rounded-lg bg-white p-4 shadow-lg transform transition-transform duration-300 ease-in-out"
+            style={{ top: tooltipPosition.top, left: tooltipPosition.left }}
+          >
             {/* Close Button */}
             <button
               onClick={closeTooltip}
@@ -245,10 +259,10 @@ const Calendar = () => {
             </button>
 
             {/* Event Details */}
-            <h3 className="text-lg font-bold text-gray-900 mb-4">
+            <h3 className="text-sm font-bold text-gray-900 mb-2">
               {selectedEvent.title}
             </h3>
-            <div className="text-sm text-gray-700 mb-4">
+            <div className="text-xs text-gray-700 mb-2">
               <p>
                 <strong>Start:</strong>{" "}
                 {new Date(selectedEvent.start).toLocaleString()}
@@ -264,7 +278,7 @@ const Calendar = () => {
               href={selectedEvent.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="block w-full rounded-lg bg-blue-600 px-4 py-2 text-center text-white text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              className="block w-full rounded-lg bg-blue-600 px-3 py-1.5 text-center text-white text-xs font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             >
               Go to Calendar
             </a>
@@ -276,3 +290,5 @@ const Calendar = () => {
 };
 
 export default Calendar;
+
+
