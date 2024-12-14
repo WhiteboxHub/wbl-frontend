@@ -339,8 +339,20 @@ const UserDashboard = () => {
       <td className="px-3 py-2 text-xs font-bold text-black dark:text-white sm:px-6 sm:py-4 md:text-base">
         {label}
       </td>
-      <td className="rounded-4xl px-3 py-2 text-xs font-bold text-black dark:text-white sm:px-6 sm:py-4 md:text-base">
+      {/* <td className="rounded-4xl px-3 py-2 text-xs font-bold text-black dark:text-white sm:px-6 sm:py-4 md:text-base">
         {value}
+      </td> */}
+      <td className="rounded-4xl px-3 py-2 text-xs font-bold text-black dark:text-white sm:px-6 sm:py-4 md:text-base">
+        {label === "Email" ? (
+          <a
+            href={`mailto:${value}`}
+            className="no-underline hover:underline"
+          >
+            {value}
+          </a>
+        ) : (
+          value
+        )}
       </td>
     </tr>
   );
