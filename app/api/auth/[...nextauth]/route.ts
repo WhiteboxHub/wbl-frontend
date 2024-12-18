@@ -1,3 +1,24 @@
+import GoogleProvider from "next-auth/providers/google";
+import NextAuth, { NextAuthOptions } from "next-auth";
+import axios from "axios";
+
+// import GoogleProvider from "next-auth/providers/google";
+// import GoogleProvider from "next-auth/providers/google";
+// import GoogleProvider from "next-auth/providers/google";
+// import NextAuth, { NextAuthOptions } from "next-auth";
+// import axios from "axios";
+// import axios from "axios";
+// import axios from "axios";
+// import axios from "axios";
+// import { NextAuthOptions } from "next-auth";
+// import { NextAuthOptions } from "next-auth";
+
+// import GoogleProvider from "next-auth/providers/google";
+
+// import NextAuth, { NextAuthOptions, Session } from "next-auth";
+
+
+
 // // frntend/app/api/auth/[...nextauth]/route.ts
 // import NextAuth, { NextAuthOptions, Session } from "next-auth";
 // import GoogleProvider from "next-auth/providers/google";
@@ -553,11 +574,360 @@
 
 
 
-import NextAuth, { NextAuthOptions, Session } from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
-import axios from "axios";
+// import NextAuth, { NextAuthOptions, Session } from "next-auth";
+// import GoogleProvider from "next-auth/providers/google";
+// import axios from "axios";
+
+// // Extend the JWT type to include status and accessToken
+// declare module "next-auth/jwt" {
+//   interface JWT {
+//     id: string;
+//     name?: string;
+//     email?: string;
+//     status?: string;
+//     accessToken?: string;
+//   }
+// }
+
+// // Extend the Session type to include the id and status properties
+// declare module "next-auth" {
+//   interface Session {
+//     user: {
+//       id: string;
+//       name?: string;
+//       email?: string;
+//       image?: string;
+//       status?: string;
+//     };
+//     accessToken?: string;
+//   }
+// }
+
+// const authOptions: NextAuthOptions = {
+//   providers: [
+//     GoogleProvider({
+//       clientId: process.env.GOOGLE_CLIENT_ID as string,
+//       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+//     }),
+//   ],
+//   pages: {
+//     error: '/auth/error', // Custom error page for better UX on errors
+//   },
+//   callbacks: {
+//     async jwt({ token, user, account, profile, isNewUser }) {
+//       if (user) {
+//         console.log("User in jwt callback:", user);
+
+//         try {
+//           const { accessToken, status, message } = await handleUserRegistrationOrLogin(user);
+//           if (accessToken) {
+//             token.accessToken = accessToken;
+//           }
+//           token.id = user.id;
+//           token.name = user.name;
+//           token.email = user.email;
+//           token.status = status;
+//           console.log("JWT callback - Token after processing:", token);
+//           console.log("Status message:", message);
+//         } catch (error) {
+//           console.error("Error in jwt callback during user handling:", error);
+//           token.error = "Error during registration/login handling";
+//         }
+//       }
+//       return token;
+//     },
+//     async session({ session, token }) {
+//       console.log("Token in session callback:", token);
+
+//       session.user.id = token.id as string;
+//       session.user.name = token.name as string;
+//       session.user.email = token.email as string;
+//       session.accessToken = token.accessToken as string;
+//       session.user.status = token.status;
+
+//       console.log("Session in session callback:", session);
+
+//       return session;
+//     },
+//   },
+//   debug: true, // Enable debug mode for detailed logs
+//   secret: process.env.NEXTAUTH_SECRET as string,
+// };
+
+// const handler = NextAuth(authOptions);
+// export { handler as GET, handler as POST };
+
+// // Function to handle user registration or login
+// async function handleUserRegistrationOrLogin(user: any) {
+//   const payload = {
+//     email: user.email,
+//     name: user.name,
+//     google_id: user.id,
+//   };
+
+//   const maxRetries = 3;
+//   let retries = 0;
+
+//   while (retries < maxRetries) {
+//     try {
+//       const checkResponse = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/check_user/`, payload);
+//       console.log("Check user response:", checkResponse.data);
+
+//       if (!checkResponse.data.exists) {
+//         const registerResponse = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/google_users/`, payload);
+//         console.log("Register user response:", registerResponse.data);
+//         return {
+//           accessToken: null,
+//           status: 'registered',
+//           message: registerResponse.data.message
+//         };
+//       } else if (checkResponse.data.status === "active") {
+//         const loginResponse = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/google_login/`, payload);
+//         console.log("Login user response:", loginResponse.data);
+//         return { accessToken: loginResponse.data.access_token, status: 'active' };
+//       } else {
+//         return { accessToken: null, status: 'inactive' };
+//       }
+//     } catch (error) {
+//       console.error("Error during registration/login operation:", error.response?.data.detail || error.message);
+//       retries++;
+//       if (retries >= maxRetries) {
+//         return { accessToken: null, status: 'error' };
+//       }
+//       console.log(`Retrying... (${retries}/${maxRetries})`);
+//     }
+//   }
+// }
+
+// import GoogleProvider from "next-auth/providers/google";
+
 
 // Extend the JWT type to include status and accessToken
+// declare module "next-auth/jwt" {
+//   interface JWT {
+//     id: string;
+//     name?: string;
+//     email?: string;
+//     status?: string;
+//     accessToken?: string;
+//   }
+// }
+
+// // Extend the Session type to include the id and status properties
+// declare module "next-auth" {
+//   interface Session {
+//     user: {
+//       id: string;
+// // import axios from "axios";
+//       retries++;
+//     id: string;
+//     name?: string;
+//     email?: string;
+//     status?: string;
+//     accessToken?: string;
+//   }
+// }
+
+// // Extend the Session type to include the id and status properties
+// declare module "next-auth" {
+//   interface Session {
+//     user: {
+//       id: string;
+//       name?: string;
+//       email?: string;
+//       image?: string;
+//       status?: string;
+//     };
+//     accessToken?: string;
+//   }
+// }
+
+// const authOptions: NextAuthOptions = {
+//   providers: [
+//     GoogleProvider({
+//       clientId: process.env.GOOGLE_CLIENT_ID as string,
+//       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+//     }),
+//   ],
+//   pages: {
+//     error: '/auth/error', // Custom error page for better UX on errors
+//   },
+//   callbacks: {
+//     async jwt({ token, user, account, profile, isNewUser }) {
+//       if (user) {
+//         console.log("User in jwt callback:", user);
+
+//         try {
+//           const { accessToken, status, message } = await handleUserRegistrationOrLogin(user);
+//           if (accessToken) {
+//             token.accessToken = accessToken;
+//           }
+//           token.id = user.id;
+//           token.name = user.name;
+//           token.email = user.email;
+//           token.status = status;
+//           console.log("JWT callback - Token after processing:", token);
+//           console.log("Status message:", message);
+//         } catch (error) {
+//           console.error("Error in jwt callback during user handling:", error);
+//           token.error = "Error during registration/login handling";
+//         }
+//       }
+//       return token;
+//     },
+//     async session({ session, token }) {
+//       console.log("Token in session callback:", token);
+
+//       session.user.id = token.id as string;
+//       session.user.name = token.name as string;
+//       session.user.email = token.email as string;
+//       session.accessToken = token.accessToken as string;
+//       session.user.status = token.status;
+
+//       console.log("Session in session callback:", session);
+
+//       return session;
+//     },
+//   },
+//   debug: true, // Enable debug mode for detailed logs
+//   secret: process.env.NEXTAUTH_SECRET as string,
+// };
+
+// const handler = NextAuth(authOptions);
+// export { handler as GET, handler as POST };
+
+// async function handleUserRegistrationOrLogin(user: any) {
+//   const payload = {
+//     email: user.email,
+//     name: user.name,
+//     google_id: user.id,
+//   };
+
+//   try {
+//     // First, check if user exists
+//     const checkResponse = await axios.post(
+//       `${process.env.NEXT_PUBLIC_API_URL}/check_user/`,
+//       payload
+//     );
+
+//     if (!checkResponse.data.exists) {
+//       // User doesn't exist, try to register
+//       const registerResponse = await axios.post(
+//         `${process.env.NEXT_PUBLIC_API_URL}/google_users/`,
+//         payload
+//       );
+
+//       if (registerResponse.data.status === "pending") {
+//         return {
+//           accessToken: null,
+//           status: "pending",
+//           message: "Registration successful. Waiting for admin approval.",
+//         };
+//       }
+
+//       // If registration returns an access token, user was auto-activated
+//       if (registerResponse.data.access_token) {
+//         return {
+//           accessToken: registerResponse.data.access_token,
+//           status: "active",
+//           message: "Registration and login successful",
+//         };
+//       }
+//     } else {
+//       // User exists, try to login
+//       const loginResponse = await axios.post(
+//         `${process.env.NEXT_PUBLIC_API_URL}/google_login/`,
+//         payload
+//       );
+
+//       if (loginResponse.data.status === "inactive") {
+//         return {
+//           accessToken: null,
+//           status: "inactive",
+//           message: "Account inactive. Please contact admin.",
+//         };
+//       }
+
+//       if (loginResponse.data.access_token) {
+//         return {
+//           accessToken: loginResponse.data.access_token,
+//           status: "active",
+//           message: "Login successful",
+//         };
+//       }
+//     }
+
+//     throw new Error("Unexpected response from server");
+//   } catch (error) {
+//     console.error("Error during authentication:", error);
+//     throw new Error(
+//       error.response?.data?.detail || "An error occurred during authentication"
+//     );
+//   }
+// }
+
+// const authOptions: NextAuthOptions = {
+//   providers: [
+//     GoogleProvider({
+//       clientId: process.env.GOOGLE_CLIENT_ID as string,
+//       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+//     }),
+//   ],
+//   pages: {
+//     error: '/auth/error',
+//     signIn: '/auth/signin',
+//   },
+//   callbacks: {
+//     async signIn({ user, account }) {
+//       try {
+//         const result = await handleUserRegistrationOrLogin(user);
+        
+//         if (result.status === "active") {
+//           return true;
+//         }
+        
+//         // Store the status message in the account object to access it later
+//         account.error = result.message;
+//         return `/auth/status?message=${encodeURIComponent(result.message)}`;
+//       } catch (error) {
+//         console.error("Sign-in error:", error);
+//         return `/auth/error?error=${encodeURIComponent(error.message)}`;
+//       }
+//     },
+//     async jwt({ token, user, account }) {
+//       if (user) {
+//         try {
+//           const result = await handleUserRegistrationOrLogin(user);
+//           token.accessToken = result.accessToken;
+//           token.status = result.status;
+//           token.id = user.id;
+//           token.name = user.name;
+//           token.email = user.email;
+//         } catch (error) {
+//           console.error("JWT callback error:", error);
+//           token.error = error.message;
+//         }
+//       }
+//       return token;
+//     },
+//     async session({ session, token }) {
+//       session.user.id = token.id as string;
+//       session.user.name = token.name as string;
+//       session.user.email = token.email as string;
+//       session.accessToken = token.accessToken as string;
+//       session.user.status = token.status as string;
+//       return session;
+//     },
+//   },
+//   debug: process.env.NODE_ENV === 'development',
+//   secret: process.env.NEXTAUTH_SECRET,
+// };
+
+
+
+
+
+// Type declarations
 declare module "next-auth/jwt" {
   interface JWT {
     id: string;
@@ -565,10 +935,10 @@ declare module "next-auth/jwt" {
     email?: string;
     status?: string;
     accessToken?: string;
+    error?: string;
   }
 }
 
-// Extend the Session type to include the id and status properties
 declare module "next-auth" {
   interface Session {
     user: {
@@ -579,6 +949,7 @@ declare module "next-auth" {
       status?: string;
     };
     accessToken?: string;
+    error?: string;
   }
 }
 
@@ -590,53 +961,80 @@ const authOptions: NextAuthOptions = {
     }),
   ],
   pages: {
-    error: '/auth/error', // Custom error page for better UX on errors
+    signIn: '/auth/signin',
+    error: '/auth/error',
   },
   callbacks: {
-    async jwt({ token, user, account, profile, isNewUser }) {
-      if (user) {
-        console.log("User in jwt callback:", user);
+    async signIn({ user, account }) {
+      try {
+        if (!user?.email) {
+          throw new Error("No email provided by Google");
+        }
 
+        // Initial check and registration/login
+        const result = await handleUserRegistrationOrLogin(user);
+        
+        if (result.status === 'error') {
+          throw new Error(result.message || "Authentication failed");
+        }
+
+        if (result.status === 'inactive') {
+          return `/auth/error?error=${encodeURIComponent("Account is inactive. Please contact administrator.")}`;
+        }
+
+        return true;
+      } catch (error) {
+        console.error("Sign-in error:", error);
+        return `/auth/error?error=${encodeURIComponent(error.message)}`;
+      }
+    },
+
+    async jwt({ token, user, account }) {
+      // Only run this logic when initial sign in
+      if (account && user) {
         try {
-          const { accessToken, status, message } = await handleUserRegistrationOrLogin(user);
-          if (accessToken) {
-            token.accessToken = accessToken;
-          }
+          const result = await handleUserRegistrationOrLogin(user);
+          
+          token.accessToken = result.accessToken;
+          token.status = result.status;
           token.id = user.id;
           token.name = user.name;
           token.email = user.email;
-          token.status = status;
-          console.log("JWT callback - Token after processing:", token);
-          console.log("Status message:", message);
+
+          if (result.status === 'error' || result.status === 'inactive') {
+            token.error = result.message;
+          }
         } catch (error) {
-          console.error("Error in jwt callback during user handling:", error);
-          token.error = "Error during registration/login handling";
+          console.error("JWT callback error:", error);
+          token.error = error.message;
         }
       }
+      
+      // For subsequent requests, just return the token
       return token;
     },
+
     async session({ session, token }) {
-      console.log("Token in session callback:", token);
+      if (token.error) {
+        throw new Error(token.error);
+      }
 
       session.user.id = token.id as string;
       session.user.name = token.name as string;
       session.user.email = token.email as string;
+      session.user.status = token.status as string;
       session.accessToken = token.accessToken as string;
-      session.user.status = token.status;
-
-      console.log("Session in session callback:", session);
 
       return session;
     },
   },
-  debug: true, // Enable debug mode for detailed logs
-  secret: process.env.NEXTAUTH_SECRET as string,
+  debug: process.env.NODE_ENV === 'development',
+  secret: process.env.NEXTAUTH_SECRET,
 };
 
 const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };
 
-// Function to handle user registration or login
 async function handleUserRegistrationOrLogin(user: any) {
   const payload = {
     email: user.email,
@@ -644,36 +1042,65 @@ async function handleUserRegistrationOrLogin(user: any) {
     google_id: user.id,
   };
 
-  const maxRetries = 3;
-  let retries = 0;
+  try {
+    // Add retry logic for network issues
+    const maxRetries = 3;
+    let attempt = 0;
+    
+    while (attempt < maxRetries) {
+      try {
+        const checkResponse = await axios.post(
+          `${process.env.NEXT_PUBLIC_API_URL}/check_user/`,
+          payload,
+          { timeout: 5000 } // 5 second timeout
+        );
 
-  while (retries < maxRetries) {
-    try {
-      const checkResponse = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/check_user/`, payload);
-      console.log("Check user response:", checkResponse.data);
+        if (!checkResponse.data.exists) {
+          const registerResponse = await axios.post(
+            `${process.env.NEXT_PUBLIC_API_URL}/google_users/`,
+            payload,
+            { timeout: 5000 }
+          );
+          
+          return {
+            accessToken: null,
+            status: 'registered',
+            message: registerResponse.data.message
+          };
+        }
 
-      if (!checkResponse.data.exists) {
-        const registerResponse = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/google_users/`, payload);
-        console.log("Register user response:", registerResponse.data);
+        if (checkResponse.data.status === "active") {
+          const loginResponse = await axios.post(
+            `${process.env.NEXT_PUBLIC_API_URL}/google_login/`,
+            payload,
+            { timeout: 5000 }
+          );
+          
+          return {
+            accessToken: loginResponse.data.access_token,
+            status: 'active',
+            message: 'Login successful'
+          };
+        }
+
         return {
           accessToken: null,
-          status: 'registered',
-          message: registerResponse.data.message
+          status: 'inactive',
+          message: 'Account is inactive'
         };
-      } else if (checkResponse.data.status === "active") {
-        const loginResponse = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/google_login/`, payload);
-        console.log("Login user response:", loginResponse.data);
-        return { accessToken: loginResponse.data.access_token, status: 'active' };
-      } else {
-        return { accessToken: null, status: 'inactive' };
+
+      } catch (error) {
+        attempt++;
+        if (attempt === maxRetries) throw error;
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
       }
-    } catch (error) {
-      console.error("Error during registration/login operation:", error.response?.data.detail || error.message);
-      retries++;
-      if (retries >= maxRetries) {
-        return { accessToken: null, status: 'error' };
-      }
-      console.log(`Retrying... (${retries}/${maxRetries})`);
     }
+  } catch (error) {
+    console.error("Authentication error:", error.response?.data || error);
+    return {
+      accessToken: null,
+      status: 'error',
+      message: error.response?.data?.detail || error.message
+    };
   }
 }
