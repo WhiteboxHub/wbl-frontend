@@ -1,6 +1,6 @@
-import GoogleProvider from "next-auth/providers/google";
-import NextAuth, { NextAuthOptions } from "next-auth";
-import axios from "axios";
+// import GoogleProvider from "next-auth/providers/google";
+// import NextAuth, { NextAuthOptions } from "next-auth";
+// import axios from "axios";
 
 // import GoogleProvider from "next-auth/providers/google";
 // import GoogleProvider from "next-auth/providers/google";
@@ -925,7 +925,249 @@ import axios from "axios";
 
 
 
+// import GoogleProvider from "next-auth/providers/google";
+// import NextAuth, { NextAuthOptions } from "next-auth";
+// import axios from "axios";
+// import winston from "winston";
 
+// // Step 1: Set up Winston logger
+// const logger = winston.createLogger({
+//   level: 'info', // Log level (info, warn, error, etc.)
+//   format: winston.format.combine(
+//     winston.format.timestamp(), // Add a timestamp
+//     winston.format.json() // Log in JSON format
+//   ),
+//   transports: [
+//     // Log to the console
+//     new winston.transports.Console(),
+//     // Log to a file
+//     new winston.transports.File({ 
+//       filename: 'all-logs.log', // All logs will go to this file
+//       level: 'info', // Log level for the file
+//     })
+//   ]
+// });
+
+
+
+// // Type declarations
+// declare module "next-auth/jwt" {
+//   interface JWT {
+//     id: string;
+//     name?: string;
+//     email?: string;
+//     status?: string;
+//     accessToken?: string;
+//     error?: string;
+//   }
+// }
+
+// declare module "next-auth" {
+//   interface Session {
+//     user: {
+//       id: string;
+//       name?: string;
+//       email?: string;
+//       image?: string;
+//       status?: string;
+//     };
+//     accessToken?: string;
+//     error?: string;
+//   }
+// }
+
+// const authOptions: NextAuthOptions = {
+//   providers: [
+//     GoogleProvider({
+//       clientId: process.env.GOOGLE_CLIENT_ID as string,
+//       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+//     }),
+//   ],
+//   pages: {
+//     signIn: '/auth/signin',
+//     error: '/auth/error',
+//   },
+//   callbacks: {
+//     async signIn({ user, account }) {
+//       logger.log("User:", user);
+//       console.log("Account:", account);
+
+//       try {
+//         if (!user?.email) {
+//           console.error(" Error: No email provided by Google");
+
+//           throw new Error("No email provided by Google");
+//         }
+
+//         // Initial check and registration/login
+
+//         const result = await handleUserRegistrationOrLogin(user);
+//         console.log("Registration/Login Result:", result);
+        
+//         if (result.status === 'error') {
+
+//           console.log('Error during registration/login:', result);
+//           return `/auth/error?error=${encodeURIComponent(result.message || "Authentication failed")}`;
+          
+//         }
+
+//         if (result.status === 'inactive') {
+//           console.warn('Inactive account:', result);
+//           return `/auth/error?error=${encodeURIComponent("Account is inactive. Please contact administrator.")}`;
+//         }
+        
+
+//         return true;
+//       } catch (error) {
+//         console.error("Sign-in error:", error);
+//         return `/auth/error?error=${encodeURIComponent(error.message || "An unknown error occurred")}`;
+//       }
+//     },
+
+//     async jwt({ token, user, account }) {
+
+//       // Only run this logic when initial sign in
+//       if (account && user) {
+//         try {
+//           const result = await handleUserRegistrationOrLogin(user);
+//           console.log("JWT Callback Result:", result);
+          
+//           token.accessToken = result.accessToken;
+//           token.status = result.status;
+//           token.id = user.id;
+//           token.name = user.name;
+//           token.email = user.email;
+
+//           if (result.status === 'error' || result.status === 'inactive') {
+
+
+//             token.error = result.message;
+//           }
+//         } catch (error) {
+//           console.error("JWT callback error:", error);
+//           token.error = error.message;
+//         }
+//       }
+      
+//       // For subsequent requests, just return the token
+//       return token;
+//     },
+
+//     async session({ session, token }) {
+//       if (token.error) {
+//         throw new Error(token.error);
+//       }
+
+//       session.user.id = token.id as string;
+//       session.user.name = token.name as string;
+//       session.user.email = token.email as string;
+//       session.user.status = token.status as string;
+//       session.accessToken = token.accessToken as string;
+//       return session;
+//     },
+//   },
+//   debug: process.env.NODE_ENV === 'development',
+//   secret: process.env.NEXTAUTH_SECRET,
+// };
+// export default authOptions;
+
+// const handler = NextAuth(authOptions);
+// export { handler as GET, handler as POST };
+
+// async function handleUserRegistrationOrLogin(user: any) {
+//   const payload = {
+//     email: user.email,
+//     name: user.name,
+//     google_id: user.id,
+//   };
+
+//   try {
+//     // Add retry logic for network issues
+//     const maxRetries = 3;
+//     let attempt = 0;
+    
+//     while (attempt < maxRetries) {
+//       try {
+//         const checkResponse = await axios.post(
+//           `${process.env.NEXT_PUBLIC_API_URL}/check_user/`,
+//           payload,
+//           { timeout: 5000 } // 5 second timeout
+//         );
+
+//         if (!checkResponse.data.exists) {
+//           const registerResponse = await axios.post(
+//             `${process.env.NEXT_PUBLIC_API_URL}/google_users/`,
+//             payload,
+//             { timeout: 5000 }
+//           );
+          
+//           return {
+//             accessToken: null,
+//             status: 'registered',
+//             message: registerResponse.data.message
+//           };
+//         }
+
+//         if (checkResponse.data.status === "active") {
+//           const loginResponse = await axios.post(
+//             `${process.env.NEXT_PUBLIC_API_URL}/google_login/`,
+//             payload,
+//             { timeout: 5000 }
+//           );
+          
+//           return {
+//             accessToken: loginResponse.data.access_token,
+//             status: 'active',
+//             message: 'Login successful'
+//           };
+//         }
+
+//         return {
+//           accessToken: null,
+//           status: 'inactive',
+//           message: 'Account is inactive'
+//         };
+
+//       } catch (error) {
+//         attempt++;
+//         if (attempt === maxRetries) throw error;
+//         await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+//       }
+//     }
+//   } catch (error) {
+//     console.error("Authentication error:", error.response?.data || error);
+//     return {
+//       accessToken: null,
+//       status: 'error',
+//       message: error.response?.data?.detail || error.message
+//     };  
+//   }
+// }
+
+
+
+
+
+
+
+
+import GoogleProvider from "next-auth/providers/google";
+import NextAuth, { NextAuthOptions } from "next-auth";
+import axios from "axios";
+import winston from "winston";
+
+// Step 1: Set up Winston logger
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.Console(),
+    new winston.transports.File({ filename: 'all-logs.json', level: 'info' })
+  ]
+});
 
 // Type declarations
 declare module "next-auth/jwt" {
@@ -966,35 +1208,40 @@ const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async signIn({ user, account }) {
+      logger.info({ timestamp: new Date().toISOString(), message: "User signing in", user, account });
+
       try {
         if (!user?.email) {
+          logger.error({ timestamp: new Date().toISOString(), message: "Error: No email provided by Google" });
           throw new Error("No email provided by Google");
         }
 
-        // Initial check and registration/login
         const result = await handleUserRegistrationOrLogin(user);
-        
+        logger.info({ timestamp: new Date().toISOString(), message: "Registration/Login Result", result });
+
         if (result.status === 'error') {
-          throw new Error(result.message || "Authentication failed");
+          logger.error({ timestamp: new Date().toISOString(), message: 'Error during registration/login', result });
+          return `/auth/error?error=${encodeURIComponent(result.message || "Authentication failed")}`;
         }
 
         if (result.status === 'inactive') {
+          logger.warn({ timestamp: new Date().toISOString(), message: 'Inactive account', result });
           return `/auth/error?error=${encodeURIComponent("Account is inactive. Please contact administrator.")}`;
         }
 
         return true;
       } catch (error) {
-        console.error("Sign-in error:", error);
-        return `/auth/error?error=${encodeURIComponent(error.message)}`;
+        logger.error({ timestamp: new Date().toISOString(), message: "Sign-in error", error });
+        return `/auth/error?error=${encodeURIComponent(error.message || "An unknown error occurred")}`;
       }
     },
 
     async jwt({ token, user, account }) {
-      // Only run this logic when initial sign in
       if (account && user) {
         try {
           const result = await handleUserRegistrationOrLogin(user);
-          
+          logger.info({ timestamp: new Date().toISOString(), message: "JWT Callback Result", result });
+
           token.accessToken = result.accessToken;
           token.status = result.status;
           token.id = user.id;
@@ -1005,12 +1252,10 @@ const authOptions: NextAuthOptions = {
             token.error = result.message;
           }
         } catch (error) {
-          console.error("JWT callback error:", error);
+          logger.error({ timestamp: new Date().toISOString(), message: "JWT callback error", error });
           token.error = error.message;
         }
       }
-      
-      // For subsequent requests, just return the token
       return token;
     },
 
@@ -1024,13 +1269,13 @@ const authOptions: NextAuthOptions = {
       session.user.email = token.email as string;
       session.user.status = token.status as string;
       session.accessToken = token.accessToken as string;
-
       return session;
     },
   },
   debug: process.env.NODE_ENV === 'development',
   secret: process.env.NEXTAUTH_SECRET,
 };
+export default authOptions;
 
 const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };
@@ -1043,7 +1288,6 @@ async function handleUserRegistrationOrLogin(user: any) {
   };
 
   try {
-    // Add retry logic for network issues
     const maxRetries = 3;
     let attempt = 0;
     
@@ -1052,7 +1296,7 @@ async function handleUserRegistrationOrLogin(user: any) {
         const checkResponse = await axios.post(
           `${process.env.NEXT_PUBLIC_API_URL}/check_user/`,
           payload,
-          { timeout: 5000 } // 5 second timeout
+          { timeout: 5000 }
         );
 
         if (!checkResponse.data.exists) {
@@ -1061,7 +1305,7 @@ async function handleUserRegistrationOrLogin(user: any) {
             payload,
             { timeout: 5000 }
           );
-          
+
           return {
             accessToken: null,
             status: 'registered',
@@ -1075,7 +1319,7 @@ async function handleUserRegistrationOrLogin(user: any) {
             payload,
             { timeout: 5000 }
           );
-          
+
           return {
             accessToken: loginResponse.data.access_token,
             status: 'active',
@@ -1088,15 +1332,14 @@ async function handleUserRegistrationOrLogin(user: any) {
           status: 'inactive',
           message: 'Account is inactive'
         };
-
       } catch (error) {
         attempt++;
         if (attempt === maxRetries) throw error;
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
       }
     }
   } catch (error) {
-    console.error("Authentication error:", error.response?.data || error);
+    logger.error({ timestamp: new Date().toISOString(), message: "Authentication error", error: error.response?.data || error });
     return {
       accessToken: null,
       status: 'error',
