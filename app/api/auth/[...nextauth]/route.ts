@@ -1230,7 +1230,7 @@ const authOptions: NextAuthOptions = {
         }
 
         return true;
-      } catch (error) {
+      } catch (error: any) {
         logger.error({ timestamp: new Date().toISOString(), message: "Sign-in error", error });
         return `/auth/error?error=${encodeURIComponent(error.message || "An unknown error occurred")}`;
       }
@@ -1251,7 +1251,7 @@ const authOptions: NextAuthOptions = {
           if (result.status === 'error' || result.status === 'inactive') {
             token.error = result.message;
           }
-        } catch (error) {
+        } catch (error: any) {
           logger.error({ timestamp: new Date().toISOString(), message: "JWT callback error", error });
           token.error = error.message;
         }
@@ -1275,12 +1275,22 @@ const authOptions: NextAuthOptions = {
   debug: process.env.NODE_ENV === 'development',
   secret: process.env.NEXTAUTH_SECRET,
 };
-export default authOptions;
-
+// export default authOptions;
 const handler = NextAuth(authOptions);
-export { handler as GET, handler as POST };
+// const handler = NextAuth(authOptions);
+// export { handler as GET, handler as POST };
 
-async function handleUserRegistrationOrLogin(user: any) {
+export const GET = NextAuth(authOptions);
+export const POST = NextAuth(authOptions);
+
+
+interface User {
+  id: string;
+  email?: string;
+  name?: string;
+}
+
+async function handleUserRegistrationOrLogin(user: User) {
   const payload = {
     email: user.email,
     name: user.name,
@@ -1332,13 +1342,13 @@ async function handleUserRegistrationOrLogin(user: any) {
           status: 'inactive',
           message: 'Account is inactive'
         };
-      } catch (error) {
+      } catch (error: any) {
         attempt++;
         if (attempt === maxRetries) throw error;
         await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     logger.error({ timestamp: new Date().toISOString(), message: "Authentication error", error: error.response?.data || error });
     return {
       accessToken: null,
