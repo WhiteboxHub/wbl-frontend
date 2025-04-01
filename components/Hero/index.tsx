@@ -308,8 +308,8 @@ const Hero = () => {
                 </h1>
                 <Carousel />
                 <p className="mt-16   text-base font-medium !leading-relaxed text-body-color dark:text-white dark:opacity-90 sm:text-lg md:text-xl">
-                  A comprehensive learning ecosystem tailored for developers,
-                  machine learning enthusiasts, and data engineers.
+                  A comprehensive learning ecosystem tailored for Engineers and
+                  Machine Learning enthusiasts.
                 </p>
               </div>
             </div>

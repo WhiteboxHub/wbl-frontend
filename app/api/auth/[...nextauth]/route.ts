@@ -1150,7 +1150,7 @@
 
 
 
-
+// whiteboxLearning-wbl\app\api\auth\[...nextauth]\route.ts
 import GoogleProvider from "next-auth/providers/google";
 import NextAuth, { NextAuthOptions } from "next-auth";
 import axios from "axios";
@@ -1281,9 +1281,9 @@ const handler = NextAuth(authOptions);
 export const GET = handler;
 export const POST = handler;
 
-export async function generateStaticParams() {
-  return [];
-}
+// export async function generateStaticParams() {
+//   return [];
+// }
 
 interface User {
   id: string;
