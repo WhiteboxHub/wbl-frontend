@@ -5,7 +5,7 @@ import data_engineer from "@/public/images/courses/data_engineer.jpg"; // Replac
 
 export default function Cards() {
   return (
-    <div className="container  mx-auto px-20 py-10 border ">
+    <div className="container  mx-auto px-20 py-10  ">
       <div className="grid  gap-28 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 ">
         {/* 1st testimonial */}
         <div
