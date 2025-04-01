@@ -1275,14 +1275,15 @@ const authOptions: NextAuthOptions = {
   debug: process.env.NODE_ENV === 'development',
   secret: process.env.NEXTAUTH_SECRET,
 };
-// export default authOptions;
+
 const handler = NextAuth(authOptions);
-// const handler = NextAuth(authOptions);
-// export { handler as GET, handler as POST };
 
-export const GET = NextAuth(authOptions);
-export const POST = NextAuth(authOptions);
+export const GET = handler;
+export const POST = handler;
 
+export async function generateStaticParams() {
+  return [];
+}
 
 interface User {
   id: string;
