@@ -10,6 +10,16 @@
   }
 }
 
+@keyframes fadeInOut {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.animate-fadeInOut {
+  animation: fadeInOut 3s ease-in-out infinite;
+}
+
+
 @layer components {
   input[type="checkbox"]:checked ~ label span svg {
     @apply inline-flex;
@@ -31,4 +41,28 @@
     @apply opacity-100;
   }
 }
+
+
+/* @keyframes fadeInOut {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+.animate-fadeInOut {
+  animation: fadeInOut 2.5s ease-in-out infinite;
+} */
+
+@keyframes fadeInOutColor {
+  0%, 100% {
+    color: rgb(212, 211, 211); /* Start with white */
+  }
+  50% {
+    color: black; /* Change to black in the middle */
+  }
+}
+
+.animate-fadeInOutColor {
+  animation: fadeInOutColor 2.5s ease-in-out infinite;
+}
+
 
