@@ -1,0 +1,38 @@
+# Node.js modules directory (local development dependencies)
+node_modules
+
+# Environment variable files (not needed in Docker build context)
+# .env
+# .env.development
+# .env.production
+
+# Logs and other runtime files
+*.log
+
+# Temporary files
+tmp/
+*.tmp
+
+# Git and other version control directories
+.git
+.gitignore
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Build directories and artifacts
+build/
+dist/
+
+# Coverage reports
+coverage/
+
+# IDE/editor configurations
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# npm debug log
+npm-debug.log*

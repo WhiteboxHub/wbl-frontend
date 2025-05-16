@@ -1,0 +1,6 @@
+User-agent: *
+Disallow: /recording
+Disallow: /presentation
+
+# Sitemap location
+Sitemap: https://whitebox-learning.com/sitemap.xml
