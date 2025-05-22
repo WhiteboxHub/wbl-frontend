@@ -52,3 +52,43 @@ export default function RootLayout({
     </html>
   );
 }
+
+// import "../styles/index.css"; // Tailwind + external styles (e.g. modal-video)
+// import { SessionProvider } from "next-auth/react";
+// import { Providers } from "./providers";
+// import { AuthProvider } from "@/utils/AuthContext";
+// import LayoutShell from "@/components/LayoutShell";
+// import { Inter } from "next/font/google";
+
+// // Load font using Next.js Font Optimization
+// const inter = Inter({ subsets: ["latin"] });
+
+// export const metadata = {
+//   title: "Whitebox-Learning",
+//   description:
+//     "A comprehensive learning ecosystem tailored for developers, machine learning enthusiasts, and data engineers.",
+//   icons: {
+//     icon: "/favicon.ico",
+//   },
+//   viewport: "width=device-width, initial-scale=1",
+//   alternates: {
+//     canonical: "https://whitebox-learning.com/",
+//   },
+// };
+
+// export default function RootLayout({ children }: { children: React.ReactNode }) {
+//   return (
+//     <html lang="en" suppressHydrationWarning>
+//       <head />
+//       <body className={`${inter.className} dark:bg-black`}>
+//         <SessionProvider>
+//           <AuthProvider>
+//             <Providers>
+//               <LayoutShell>{children}</LayoutShell>
+//             </Providers>
+//           </AuthProvider>
+//         </SessionProvider>
+//       </body>
+//     </html>
+//   );
+// }
