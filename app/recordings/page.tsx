@@ -4,9 +4,9 @@ import { useRouter } from "next/navigation";
 import Layout from "@/components/Common/Layout";
 import { isAuthenticated } from "@/utils/auth";
 // import Modal from "@/components/Common/Modal"; // Import the Modal component
-import ClassComp from "@/components/Recording/ClassComp";
-import SearchComp from "@/components/Recording/SearchComp";
-import SessionComp from "@/components/Recording/SessionComp";
+import ClassComp from "@/components/recording/ClassComp";
+import SearchComp from "@/components/recording/SearchComp";
+import SessionComp from "@/components/recording/SessionComp";
 import CourseNavigation from "@/components/Common/CourseNavigation";
 // import InternalComp from "@/components/Recording/InternalComp";
 

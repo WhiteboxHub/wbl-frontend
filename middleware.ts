@@ -75,6 +75,10 @@ export async function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
+// export const config = {
+//   matcher: ['/((?!_next|favicon.ico|login|auth|api|static).*)'],
+// };
 export const config = {
-  matcher: ['/((?!_next|favicon.ico|login|auth|api|static).*)'],
+  matcher: ['/recording/:path*', '/presentation/:path*', '/resume/:path*'],
 };
+
