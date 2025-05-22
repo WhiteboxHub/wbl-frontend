@@ -1,8 +1,13 @@
+"use client";
+
 import SectionTitle from "../Common/SectionTitle";
 import SingleFeature from "./SingleFeature";
 import featuresData from "./featuresData";
+import { useAuth } from "@/utils/AuthContext";
 
 const Features = () => {
+  const { isAuthenticated } = useAuth();
+  
   return (
     <>
       <section
@@ -13,7 +18,7 @@ const Features = () => {
           <SectionTitle
             title="What is Whitebox Learning?"
             paragraph="Whitebox Learning (WBL) is a classroom and online based training
-              for developers and ML & data engineers."
+              for Engineers and Machine Learning enthusiasts."
             center
           />
 

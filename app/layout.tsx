@@ -56,11 +56,13 @@ import LayoutContent from "@/components/LayoutContent";
 import "react-modal-video/css/modal-video.css";
 import "../styles/index.css";
 
+
 export const metadata: Metadata = {
   title: "Whitebox-Learning",
   description:
     "A comprehensive learning ecosystem tailored for developers, machine learning enthusiasts, and data engineers.",
 };
+
 
 export default function RootLayout({
   children,
@@ -70,7 +72,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="dark:bg-black">
+
         <LayoutContent>{children}</LayoutContent>
+
       </body>
     </html>
   );

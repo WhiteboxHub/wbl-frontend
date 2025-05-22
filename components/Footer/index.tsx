@@ -1,6 +1,11 @@
+"use client";
+
 import { useEffect } from "react";
 import Link from "next/link";
+import { useAuth } from "@/utils/AuthContext";
+
 const Footer = () => {
+  const { isAuthenticated } = useAuth();
   const currentYear = new Date().getFullYear();
   const address = "6500 Dublin Blvd., Ste.214(B), Dublin, CA, 94568";
   const googleMapsLink = `https://www.google.com/maps?q=${encodeURIComponent(
@@ -28,15 +33,15 @@ const Footer = () => {
   return (
     <>
       <footer
-        className="wow   fadeInUp  relative z-10  bg-primary bg-opacity-5  pt-6 shadow-2xl shadow-black md:pt-8"
+        className="wow fadeInUp relative z-10 bg-primary bg-opacity-5 pt-6 shadow-2xl shadow-black md:pt-8"
         data-wow-delay=".1s"
       >
-        <div className="container  ">
-          <div className="-mx-4 flex  flex-wrap  justify-around  ">
-            <div className="flex w-full   items-center justify-center  text-center  sm:w-1/2 lg:w-4/12">
-              <div className=" mb-12  max-w-[360px] ">
+        <div className="container">
+          <div className="-mx-4 flex flex-wrap justify-around">
+            <div className="flex w-full items-center justify-center text-center sm:w-1/2 lg:w-4/12">
+              <div className="mb-12 max-w-[360px]">
                 <Link href="/" className="inline-block">
-                  <div className="mb-4 text-2xl  font-bold text-black dark:text-white sm:mb-8">
+                  <div className="mb-4 text-2xl font-bold text-black dark:text-white sm:mb-8">
                     Whitebox Learning
                   </div>
                 </Link>
@@ -46,7 +51,7 @@ const Footer = () => {
                     target="_blank"
                     rel="noreferrer"
                     aria-label="Twitter"
-                    className="mr-5  text-[#858691] duration-500 hover:text-[#316ff6] dark:text-gray-700 dark:hover:text-[#316ff6]"
+                    className="mr-5 text-[#858691] duration-500 hover:text-[#316ff6] dark:text-gray-700 dark:hover:text-[#316ff6]"
                   >
                     <svg
                       width="40"
@@ -63,7 +68,7 @@ const Footer = () => {
                     target="_blank"
                     rel="noreferrer"
                     aria-label="social-link"
-                    className="mr-5  text-[#858691] duration-500 hover:text-red-600 dark:text-gray-700 dark:hover:text-red-600"
+                    className="mr-5 text-[#858691] duration-500 hover:text-red-600 dark:text-gray-700 dark:hover:text-red-600"
                   >
                     <svg
                       width="40"
@@ -79,7 +84,7 @@ const Footer = () => {
                     target="_blank"
                     rel="noreferrer"
                     aria-label="Linkedin"
-                    className="mr-5  text-[#858691] duration-500 hover:text-blue-700 dark:text-gray-700 dark:hover:text-blue-700"
+                    className="mr-5 text-[#858691] duration-500 hover:text-blue-700 dark:text-gray-700 dark:hover:text-blue-700"
                   >
                     <svg
                       width="40"
@@ -93,14 +98,14 @@ const Footer = () => {
                 </div>
               </div>
             </div>
-            <div className="hidden  w-full  text-center  sm:w-1/2  sm:text-left md:flex md:justify-center lg:w-4/12">
-              <div className="mb-6 ">
-                <div className="mb-8 ">
+            <div className="hidden w-full text-center sm:w-1/2 sm:text-left md:flex md:justify-center lg:w-4/12">
+              <div className="mb-6">
+                <div className="mb-8">
                   <a
                     href={"/contact"}
                     target="_self"
                     rel="noopener noreferrer"
-                    className="text-2xl font-bold text-black  dark:text-white"
+                    className="text-2xl font-bold text-black dark:text-white"
                   >
                     Contact us
                   </a>
@@ -111,14 +116,14 @@ const Footer = () => {
                       href={googleMapsLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-md  text-black duration-500  hover:text-blue-600 dark:text-white dark:hover:text-blue-600  "
+                      className="text-md text-black duration-500 hover:text-blue-600 dark:text-white dark:hover:text-blue-600"
                     >
                       {address}
                     </a>
                   </li>
-                  <li className=" mb-3">
+                  <li className="mb-3">
                     <a
-                      className="text-md  text-black duration-500  hover:text-blue-600 dark:text-white dark:hover:text-blue-600"
+                      className="text-md text-black duration-500 hover:text-blue-600 dark:text-white dark:hover:text-blue-600"
                       href="tel:+19255571053"
                     >
                       +1 925-557-1053
@@ -126,13 +131,13 @@ const Footer = () => {
                   </li>
                   <li className="mb-3">
                     <a
-                      className="text-md mb-1 block  text-black duration-500  hover:text-blue-600 dark:text-white dark:hover:text-blue-600 "
+                      className="text-md mb-1 block text-black duration-500 hover:text-blue-600 dark:text-white dark:hover:text-blue-600"
                       href="mailto:info@whitebox-learning.com"
                     >
                       info@whitebox-learning.com
                     </a>
                     <a
-                      className="text-md  text-black duration-500  hover:text-blue-600 dark:text-white dark:hover:text-blue-600 "
+                      className="text-md text-black duration-500 hover:text-blue-600 dark:text-white dark:hover:text-blue-600"
                       href="mailto:recruiting@whitebox-learning.com"
                     >
                       recruiting@whitebox-learning.com
@@ -146,18 +151,18 @@ const Footer = () => {
 
         {/* Copyrights note */}
 
-        <div className="flex h-10 items-center  bg-gray-300  py-10 dark:bg-primary/10 ">
-          <div className="container  flex">
-            <div className=" sm:text-md text-bl ackdark:text-white  text-center text-sm font-semibold sm:w-11/12 sm:text-right lg:text-xl">
+        <div className="flex h-10 items-center bg-gray-300 py-10 dark:bg-primary/10">
+          <div className="container flex">
+            <div className="sm:text-md text-bl ackdark:text-white text-center text-sm font-semibold sm:w-11/12 sm:text-right lg:text-xl">
               &copy; {currentYear}{" "}
               <Link href="/" className="inline-block">
-                <div className="  text-blue-600 dark:text-blue-500">
+                <div className="text-blue-600 dark:text-blue-500">
                   Whitebox Learning,Inc.
                 </div>
               </Link>{" "}
               All rights reserved.
             </div>
-            <div className="hidden sm:flex  sm:w-1/2 sm:justify-end">
+            <div className="hidden sm:flex sm:w-1/2 sm:justify-end">
               <div className="" id="siteseal"></div>
             </div>
           </div>

@@ -4,29 +4,26 @@ import Image from "next/image";
 import { BsChevronCompactLeft, BsChevronCompactRight } from "react-icons/bs";
 import { RxDotFilled } from "react-icons/rx";
 import ml1 from "public/images/Carousel/ML 1.jpeg";
-import html_css_js from "public/images/Carousel/html-css-JS.webp";
-import js_libs from "public/images/Carousel/js-libs.png";
+// import html_css_js from "public/images/Carousel/html-css-JS.webp";
 import GenAI from "public/images/Carousel/GenAI.jpg";
 import DL1 from "public/images/Carousel/DL1.jpg";
 import DL2 from "public/images/Carousel/DL2.jpg";
 import DL3 from "public/images/Carousel/DL3.jpg";
-// import GenAI2 from "public/images/Carousel/GenAI2.jpg";
-import ml from "public/images/Carousel/mll.png";
-import ntt from "public/images/Carousel/next-tailwind-TS.avif";
-import de1 from "public/images/Carousel/DE 1.jpeg";
-import tlJ from "public/images/Carousel/testing-libs-JS.png";
 import ml3 from "public/images/Carousel/ML 3.jpeg";
-import ml2 from "public/images/Carousel/ml2.jpeg";
+import ds1 from "public/images/Carousel/ds1.jpg";
+import ds2 from "public/images/Carousel/ds2.jpg";
 
 function Carousel() {
   const slides = [
     { url: ml1 },
     { url: DL1 },
     { url: GenAI },
+    { url: ds2 },
     { url: ml3 },
     { url: DL2 },
     { url: DL3 },
-    { url: html_css_js },
+    { url: ds1 },
+    // { url: html_css_js },
     // { url: GenAI2 },
     // { url: ml },
     // { url: de1 },
