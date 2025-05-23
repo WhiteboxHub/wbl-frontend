@@ -51,11 +51,6 @@
 
 
 
-
-// --*-*--*-*-*-*-*-*-*---**-*----*-*------*----*-*--*--*-*---*-*---*-----*-----*-*-*---*--*-*-******-------******-------*****----
-
-
-
 // frontend/app/layout.tsx
 "use client";
 
@@ -89,7 +84,7 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" />
         <link rel="canonical" href="https://whitebox-learning.com/" />
 
-        {/* ✅ Font performance optimization */}
+        {/* Font performance optimization */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
