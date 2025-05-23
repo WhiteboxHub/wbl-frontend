@@ -4,13 +4,14 @@
 // import "../styles/index.css";
 // import Footer from "@/components/Footer";
 // import Header from "@/components/Header";
-// import Sidebar from "@/components/Sidebar";
 // import ScrollToTop from "@/components/ScrollToTop";
 // import { SessionProvider } from "next-auth/react";
 // import { usePathname } from "next/navigation";
 // import { Providers } from "./providers";
 // import { AuthProvider } from "@/utils/AuthContext";
+
 // import { useAuth } from "@/utils/AuthContext";
+
 
 // export default function RootLayout({
 //   children,
@@ -39,10 +40,14 @@
 //         <AuthProvider>
 //           <Providers>
 //             {!isViewSection && <Header />} {/* Conditionally render Header */}
+
 //             <Sidebar />
 //             <main className="w-full">
 //               {children}
 //             </main>
+
+//             {children}
+
 //             {!isViewSection && <Footer />} {/* Conditionally render Footer */}
 //             {!isViewSection && <ScrollToTop />} {/* Conditionally render ScrollToTop */}
 //           </Providers>
@@ -52,6 +57,10 @@
 //     </html>
 //   );
 // }
+
+
+
+
 
 // app/layout.tsx
 import "../styles/index.css";
