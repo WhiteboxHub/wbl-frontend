@@ -19,7 +19,7 @@ export default function Faq() {
           <div className="rounded-lg bg-white dark:bg-transparent">
             <Accordion
               title="What are the courses Whitebox-Learning Offers?"
-              content="AIML (Artificial Intelligence & Machine Learning), Full Stack Development"
+              content="AIML (Artificial Intelligence & Machine Learning) "
             />
             <Accordion
               title="Do you provide corporate training?"
