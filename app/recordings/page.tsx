@@ -6,7 +6,7 @@ import { isAuthenticated } from "@/utils/auth";
 // import Modal from "@/components/Common/Modal"; // Import the Modal component
 import ClassComp from "@/components/recording/ClassComp";
 import SearchComp from "@/components/recording/SearchComp";
-import SessionComp from "@/components/recording/SessionComp";
+import SessionComp from "@/components/recording/SessionCom";
 import CourseNavigation from "@/components/Common/CourseNavigation";
 // import InternalComp from "@/components/Recording/InternalComp";
 
