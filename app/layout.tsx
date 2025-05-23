@@ -53,19 +53,11 @@
 //   );
 // }
 
-
-
 // app/layout.tsx
-import type { Metadata } from "next";
-import LayoutContent from "@/components/LayoutContent";
-import "react-modal-video/css/modal-video.css";
 import "../styles/index.css";
-
-export const metadata: Metadata = {
-  title: "Whitebox-Learning",
-  description:
-    "A comprehensive learning ecosystem tailored for developers, machine learning enthusiasts, and data engineers.",
-};
+import "react-modal-video/css/modal-video.css";
+import ClientProviders from "@/components/ClientProviders";
+import ClientLayout from "@/components/ClientLayout";
 
 export default function RootLayout({
   children,
@@ -73,9 +65,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html suppressHydrationWarning lang="en">
+      <head>
+        <title>Whitebox-Learning</title>
+        <meta content="width=device-width, initial-scale=1" name="viewport" />
+        <meta
+          name="description"
+          content="A comprehensive learning ecosystem tailored for developers, machine learning enthusiasts, and data engineers."
+        />
+        <link rel="icon" href="/favicon.ico" />
+        <link rel="canonical" href="https://whitebox-learning.com/" />
+      </head>
       <body className="dark:bg-black">
-        <LayoutContent>{children}</LayoutContent>
+        <ClientProviders>
+          <ClientLayout>{children}</ClientLayout>
+        </ClientProviders>
       </body>
     </html>
   );
