@@ -10,6 +10,9 @@
 // import { Providers } from "./providers";
 // import { AuthProvider } from "@/utils/AuthContext";
 
+// import { useAuth } from "@/utils/AuthContext";
+
+
 // export default function RootLayout({
 //   children,
 // }: {
@@ -37,7 +40,14 @@
 //         <AuthProvider>
 //           <Providers>
 //             {!isViewSection && <Header />} {/* Conditionally render Header */}
+
+//             <Sidebar />
+//             <main className="w-full">
+//               {children}
+//             </main>
+
 //             {children}
+
 //             {!isViewSection && <Footer />} {/* Conditionally render Footer */}
 //             {!isViewSection && <ScrollToTop />} {/* Conditionally render ScrollToTop */}
 //           </Providers>
@@ -47,6 +57,7 @@
 //     </html>
 //   );
 // }
+
 
 
 
