@@ -35,6 +35,7 @@
     ".next/types/**/*.ts",
     "**/*.ts",
     "**/*.tsx",
+    "**/*.js"
     // "app/notfound.js",
     // "app/login/main.js"
   ],
