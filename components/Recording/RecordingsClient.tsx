@@ -2,9 +2,9 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Layout from "@/components/Common/Layout";
-import ClassComp from "@/components/recording/ClassComp";
-import SearchComp from "@/components/recording/SearchComp";
-import SessionComp from "@/components/recording/SessionComp";
+import ClassComp from "@/components/Recording/ClassComp";
+import SearchComp from "@/components/Recording/SearchComp";
+import SessionComp from "@/components/Recording/SessionComp";
 import CourseNavigation from "@/components/Common/CourseNavigation";
 
 type ComponentType = "class" | "search" | "session";
