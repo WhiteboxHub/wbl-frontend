@@ -35,8 +35,9 @@
     ".next/types/**/*.ts",
     "**/*.ts",
     "**/*.tsx",
-    "app/notfound.js",
-    "app/login/main.js"
+    "**/*.js"
+    // "app/notfound.js",
+    // "app/login/main.js"
   ],
   "exclude": [
     "node_modules"
