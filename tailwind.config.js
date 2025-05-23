@@ -1,3 +1,67 @@
+// /** @type {import('tailwindcss').Config} */
+// module.exports = {
+//   content: [
+//     "./app/**/*.{js,ts,jsx,tsx}",
+//     "./pages/**/*.{js,ts,jsx,tsx}",
+//     "./components/**/*.{js,ts,jsx,tsx}",
+//   ],
+//   darkMode: "class",
+//   theme: {
+//     container: {
+//       center: true,
+//       padding: "1rem",
+//     },
+   
+//     screens: {
+//       xs: "450px",
+//       // => @media (min-width: 450px) { ... }
+
+//       sm: "575px",
+//       // => @media (min-width: 576px) { ... }
+
+//       md: "768px",
+//       // => @media (min-width: 768px) { ... }
+
+//       lg: "992px",
+//       // => @media (min-width: 992px) { ... }
+
+//       xl: "1200px",
+//       // => @media (min-width: 1200px) { ... }
+
+//       "2xl": "1400px",
+//       // => @media (min-width: 1400px) { ... }
+//     },
+//     extend: {
+//       colors: {
+//         current: "currentColor",
+//         transparent: "transparent",
+//         white: "#FFFFFF",
+//         black: "#121723",
+//         dark: "#1D2144",
+//         darklight: "#333756",
+//         primary: "#4A6CF7",
+//         primarylight: "#5c7af7",
+//         yellow: "#FBB040",
+//         "body-color": "#959CB1",
+//       },
+//       boxShadow: {
+//         zero: "0px 5px 10px rgba(4, 10, 34, 0.2)",
+//         one: "0px 2px 3px rgba(7, 7, 77, 0.05)",
+//         sticky: "inset 0 -1px 0 0 rgba(0, 0, 0, 0.1)",
+//       },
+//       animation: {
+//         "spin-slow": "spin 0.5s linear 1",
+//       },
+//       fontFamily: {
+//         comic: ['"Comic Sans MS"', 'cursive']
+//       },
+//     },
+//   },
+//   plugins: [],
+// };
+
+
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
@@ -11,25 +75,13 @@ module.exports = {
       center: true,
       padding: "1rem",
     },
-   
     screens: {
       xs: "450px",
-      // => @media (min-width: 450px) { ... }
-
       sm: "575px",
-      // => @media (min-width: 576px) { ... }
-
       md: "768px",
-      // => @media (min-width: 768px) { ... }
-
       lg: "992px",
-      // => @media (min-width: 992px) { ... }
-
       xl: "1200px",
-      // => @media (min-width: 1200px) { ... }
-
       "2xl": "1400px",
-      // => @media (min-width: 1400px) { ... }
     },
     extend: {
       colors: {
@@ -53,7 +105,8 @@ module.exports = {
         "spin-slow": "spin 0.5s linear 1",
       },
       fontFamily: {
-        comic: ['"Comic Sans MS"', 'cursive']
+        sans: ["Inter", "sans-serif"], // Or your actual font
+        comic: ['"Comic Sans MS"', "cursive"],
       },
     },
   },
