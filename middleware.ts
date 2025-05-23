@@ -54,6 +54,8 @@
 //   matcher: ['/((?!login).*)'], // Exclude /login from being protected
 // };
 // middleware.ts
+
+// middleware.ts
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
@@ -75,10 +77,6 @@ export async function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-// export const config = {
-//   matcher: ['/((?!_next|favicon.ico|login|auth|api|static).*)'],
-// };
 export const config = {
-  matcher: ['/recording/:path*', '/presentation/:path*', '/resume/:path*'],
+  matcher: ['/((?!_next|favicon.ico|login|auth|api|static|images|fonts).*)'],
 };
-
