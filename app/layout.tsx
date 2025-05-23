@@ -51,27 +51,17 @@
 
 
 
-// frontend/app/layout.tsx
-"use client";
-
-import "node_modules/react-modal-video/css/modal-video.css";
+// app/layout.tsx
 import "../styles/index.css";
-import Footer from "@/components/Footer";
-import Header from "@/components/Header";
-import ScrollToTop from "@/components/ScrollToTop";
-import { SessionProvider } from "next-auth/react";
-import { usePathname } from "next/navigation";
-import { Providers } from "./providers";
-import { AuthProvider } from "@/utils/AuthContext";
+import "react-modal-video/css/modal-video.css";
+import ClientProviders from "@/components/ClientProviders";
+import ClientLayout from "@/components/ClientLayout";
 
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
-  const isViewSection = pathname.startsWith("/view");
-
   return (
     <html suppressHydrationWarning lang="en">
       <head>
@@ -83,27 +73,11 @@ export default function RootLayout({
         />
         <link rel="icon" href="/favicon.ico" />
         <link rel="canonical" href="https://whitebox-learning.com/" />
-
-        {/* Font performance optimization */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
-        <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
-        
-        {/* Optional: Load Google Font if used */}
-        {/* <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" /> */}
       </head>
-      <body className="dark:bg-black font-sans">
-        <SessionProvider>
-          <AuthProvider>
-            <Providers>
-              {!isViewSection && <Header />}
-              {children}
-              {!isViewSection && <Footer />}
-              {!isViewSection && <ScrollToTop />}
-            </Providers>
-          </AuthProvider>
-        </SessionProvider>
+      <body className="dark:bg-black">
+        <ClientProviders>
+          <ClientLayout>{children}</ClientLayout>
+        </ClientProviders>
       </body>
     </html>
   );
