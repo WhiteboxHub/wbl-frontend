@@ -103,4 +103,8 @@ module.exports = nextConfig;
 //   },
 // };
 
+ <<<<<<< mahendar_dev
 // module.exports = nextConfig;
+ =======
+ module.exports = nextConfig;
+ >>>>>>> main
