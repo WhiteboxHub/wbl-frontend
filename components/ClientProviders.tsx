@@ -18,7 +18,6 @@
 
 // -------------
 
-
 "use client";
 
 import { useEffect } from "react";
@@ -29,6 +28,7 @@ import { Providers } from "@/app/providers";
 export default function ClientProviders({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     document.documentElement.classList.add("hydrated");
+    document.body.classList.remove("hydrated-hidden");
   }, []);
 
   return (
