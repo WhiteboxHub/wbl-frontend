@@ -106,11 +106,7 @@ import { Inter } from "next/font/google";
 
 const inter = Inter({ subsets: ["latin"] });
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={inter.className} suppressHydrationWarning>
       <head>
@@ -122,7 +118,6 @@ export default function RootLayout({
         />
         <link rel="icon" href="/favicon.ico" />
         <link rel="canonical" href="https://whitebox-learning.com/" />
-        {/* Early dark mode script to prevent flicker */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -141,7 +136,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="dark:bg-black">
+      <body className="hydrated-hidden dark:bg-black">
         <ClientProviders>
           <ClientLayout>{children}</ClientLayout>
         </ClientProviders>
