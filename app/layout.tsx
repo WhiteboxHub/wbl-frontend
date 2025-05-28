@@ -62,53 +62,19 @@
 
 
 
-// // app/layout.tsx
-// import "../styles/index.css";
-// import "react-modal-video/css/modal-video.css";
-// import ClientProviders from "@/components/ClientProviders";
-// import ClientLayout from "@/components/ClientLayout";
-
-// export default function RootLayout({
-//   children,
-// }: {
-//   children: React.ReactNode;
-// }) {
-//   return (
-//     <html suppressHydrationWarning lang="en">
-//       <head>
-//         <title>Whitebox-Learning</title>
-//         <meta content="width=device-width, initial-scale=1" name="viewport" />
-//         <meta
-//           name="description"
-//           content="A comprehensive learning ecosystem tailored for developers, machine learning enthusiasts, and data engineers."
-//         />
-//         <link rel="icon" href="/favicon.ico" />
-//         <link rel="canonical" href="https://whitebox-learning.com/" />
-//       </head>
-//       <body className="dark:bg-black">
-//         <ClientProviders>
-//           <ClientLayout>{children}</ClientLayout>
-//         </ClientProviders>
-//       </body>
-//     </html>
-//   );
-// }
-
-
-
-// ------------------*********************--
-
+// app/layout.tsx
 import "../styles/index.css";
 import "react-modal-video/css/modal-video.css";
 import ClientProviders from "@/components/ClientProviders";
 import ClientLayout from "@/components/ClientLayout";
-import { Inter } from "next/font/google";
 
-const inter = Inter({ subsets: ["latin"] });
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="en" className={inter.className} suppressHydrationWarning>
+    <html suppressHydrationWarning lang="en">
       <head>
         <title>Whitebox-Learning</title>
         <meta content="width=device-width, initial-scale=1" name="viewport" />
@@ -118,25 +84,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
         <link rel="icon" href="/favicon.ico" />
         <link rel="canonical" href="https://whitebox-learning.com/" />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  const theme = localStorage.getItem('theme');
-                  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                  if (theme === 'dark' || (!theme && prefersDark)) {
-                    document.documentElement.classList.add('dark');
-                  } else {
-                    document.documentElement.classList.remove('dark');
-                  }
-                } catch (_) {}
-              })();
-            `,
-          }}
-        />
       </head>
-      <body className="hydrated-hidden dark:bg-black">
+      <body className="dark:bg-black">
         <ClientProviders>
           <ClientLayout>{children}</ClientLayout>
         </ClientProviders>
