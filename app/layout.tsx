@@ -98,47 +98,50 @@
 
 // ------------------*********************--
 
-
-// app/layout.tsx
-import "@/styles/index.css";
+import "../styles/index.css";
 import "react-modal-video/css/modal-video.css";
 import ClientProviders from "@/components/ClientProviders";
 import ClientLayout from "@/components/ClientLayout";
-import { ReactNode } from "react";
+import { Inter } from "next/font/google";
 
-export const metadata = {
-  title: "Whitebox-Learning",
-  description:
-    "A comprehensive learning ecosystem tailored for developers, machine learning enthusiasts, and data engineers.",
-};
+const inter = Inter({ subsets: ["latin"] });
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={inter.className} suppressHydrationWarning>
       <head>
-        {/* Prevent dark mode flash */}
+        <title>Whitebox-Learning</title>
+        <meta content="width=device-width, initial-scale=1" name="viewport" />
+        <meta
+          name="description"
+          content="A comprehensive learning ecosystem tailored for developers, machine learning enthusiasts, and data engineers."
+        />
+        <link rel="icon" href="/favicon.ico" />
+        <link rel="canonical" href="https://whitebox-learning.com/" />
+        {/* Early dark mode script to prevent flicker */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
                 try {
-                  const theme = localStorage.theme;
-                  if (
-                    theme === 'dark' ||
-                    (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)
-                  ) {
+                  const theme = localStorage.getItem('theme');
+                  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                  if (theme === 'dark' || (!theme && prefersDark)) {
                     document.documentElement.classList.add('dark');
+                  } else {
+                    document.documentElement.classList.remove('dark');
                   }
                 } catch (_) {}
               })();
             `,
           }}
         />
-        <link rel="icon" href="/favicon.ico" />
-        <link rel="canonical" href="https://whitebox-learning.com/" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
-      <body className="min-h-screen bg-white text-black dark:bg-black dark:text-white">
+      <body className="dark:bg-black">
         <ClientProviders>
           <ClientLayout>{children}</ClientLayout>
         </ClientProviders>

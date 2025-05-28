@@ -1,11 +1,36 @@
-// components/ClientProviders.tsx
-'use client';
+// // components/ClientProviders.tsx
+// 'use client';
 
+// import { SessionProvider } from "next-auth/react";
+// import { AuthProvider } from "@/utils/AuthContext";
+// import { Providers } from "@/app/providers";
+
+// export default function ClientProviders({ children }: { children: React.ReactNode }) {
+//   return (
+//     <SessionProvider>
+//       <AuthProvider>
+//         <Providers>{children}</Providers>
+//       </AuthProvider>
+//     </SessionProvider>
+//   );
+
+// }
+
+// -------------
+
+
+"use client";
+
+import { useEffect } from "react";
 import { SessionProvider } from "next-auth/react";
 import { AuthProvider } from "@/utils/AuthContext";
 import { Providers } from "@/app/providers";
 
 export default function ClientProviders({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    document.documentElement.classList.add("hydrated");
+  }, []);
+
   return (
     <SessionProvider>
       <AuthProvider>
@@ -13,6 +38,4 @@ export default function ClientProviders({ children }: { children: React.ReactNod
       </AuthProvider>
     </SessionProvider>
   );
-
 }
-
