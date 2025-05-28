@@ -32,7 +32,7 @@ const Hero = () => {
             <div className="w-full px-4 sm:px-0">
               <div className="wow  fadeInUp text-center" data-wow-delay=".2s">
                 <h1 className="mb-8 text-3xl font-bold leading-tight text-black dark:text-white sm:text-4xl sm:leading-tight md:text-5xl md:leading-tight">
-                  Whitebox Learning
+                  Whitebox-Learning- -
                 </h1>
                 <Carousel />
                 <p className="mt-16   text-base font-medium !leading-relaxed text-body-color dark:text-white dark:opacity-90 sm:text-lg md:text-xl">
