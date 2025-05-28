@@ -4,9 +4,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Added this block to prevent transition flickering before hydration */
+html:not(.hydrated) *,
+html:not(.hydrated) {
+  transition: none !important;
+}
+
 @layer base {
   body {
     font-family: "Inter", sans-serif;
+    @apply bg-white dark:bg-black; /* Added for dark mode background */
   }
 }
 
@@ -160,5 +167,3 @@
 .pulse-animation {
   animation: pulse 1.5s infinite;
 }
-
-
