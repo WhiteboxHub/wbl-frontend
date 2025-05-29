@@ -1,4 +1,3 @@
-
 // components/ClientLayout.tsx
 'use client';
 
@@ -17,7 +16,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   useEffect(()=>{
     setTimeout(()=>{
       setHoldLoad(true)
-    },500)
+    },300)
   },[])
 
   return (
