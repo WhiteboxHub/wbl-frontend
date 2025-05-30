@@ -36,12 +36,12 @@ const CourseContentTable = (props: any) => {
               <td className="border border-primary px-4 py-2 text-center text-black dark:border-blue-900 dark:text-white">
                 <p>{subject.AIML}</p>
               </td>
-              <td className="border border-primary px-4 py-2 text-center text-black dark:border-blue-900 dark:text-white">
+              {/* <td className="border border-primary px-4 py-2 text-center text-black dark:border-blue-900 dark:text-white">
                 <p>{subject.UI}</p>
               </td>
               <td className="border border-primary px-4 py-2 text-center text-black dark:border-blue-900 dark:text-white">
                 <p>{subject.QE}</p>
-              </td>
+              </td> */}
             </tr>
           ))}
         </tbody>
