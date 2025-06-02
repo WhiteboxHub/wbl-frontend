@@ -27,7 +27,7 @@ const Sidebar = () => {
   useEffect(() => {
     // If user was authenticated and now is not (logout occurred)
     if (prevAuthState.current === true && isAuthenticated === false) {
-      console.log("Logout detected - resetting first login flags");
+      // console.log("Logout detected - resetting first login flags");
       localStorage.removeItem("hasLoggedIn");
       setIsFirstLogin(false);
       setHasCheckedLogin(false);
@@ -45,14 +45,14 @@ const Sidebar = () => {
       
       if (!hasLoggedInBefore) {
         // First time login - sidebar should be open
-        console.log("First time login detected - opening sidebar");
+        // console.log("First time login detected - opening sidebar");
         setIsOpen(true);
         localStorage.setItem("hasLoggedIn", "true");
         setIsFirstLogin(true);
       } else {
         // Returning user - get their previous sidebar state
         const savedSidebarState = localStorage.getItem("sidebarOpen");
-        console.log("Returning user - sidebar state:", savedSidebarState);
+        // console.log("Returning user - sidebar state:", savedSidebarState);
         setIsOpen(savedSidebarState === "true");
       }
       

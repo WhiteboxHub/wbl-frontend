@@ -48,7 +48,7 @@ export const isAuthenticated = async () => {
 
     return { valid: true, message: "" };
   } catch (error) {
-    console.error("Error validating token:", error);
+    // console.error("Error validating token:", error);
     return {
       valid: false,
       message: "An error occurred while validating the token",
