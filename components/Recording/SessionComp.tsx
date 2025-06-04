@@ -688,7 +688,7 @@ const SessionComp = () => {
         setIsLoadingSessionTypes(false); // Stop loading when data is fetched
     })
     .catch((error) => {
-        console.error('Error fetching session types:', error); // Log the error for debugging
+        // console.error('Error fetching session types:', error); // Log the error for debugging
         setError("Error fetching session types.");
         setIsLoadingSessionTypes(false); // Stop loading even if there's an error
     });
@@ -718,7 +718,7 @@ const SessionComp = () => {
         setIsLoadingSessions(false); // Stop loading when data is fetched
       })
       .catch((error) => {
-        console.error('Error fetching sessions:', error); // Log the error for debugging
+        // console.error('Error fetching sessions:', error); // Log the error for debugging
         setError("Error fetching sessions.");
         setIsLoadingSessions(false); // Stop loading even if there's an error
       });

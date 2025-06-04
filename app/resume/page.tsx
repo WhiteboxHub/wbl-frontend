@@ -3676,23 +3676,49 @@ export default function Assignment() {
     };
   }, [renderTemplate]);
 
-  useEffect(() => {
-    const checkAuthentication = async () => {
-      try {
-        const { valid } = await isAuthenticated();
-        if (!valid) {
-          router.push("/login");
-        } else {
-          setLoading(false);
-        }
-      } catch (error) {
-        // console.error("Error checking authentication:", error);
-        router.push("/login");
-      }
-    };
+  // useEffect(() => {
+  //   const checkAuthentication = async () => {
+  //     try {
+  //       const { valid } = await isAuthenticated();
+  //       if (!valid) {
+  //         router.push("/login");
+  //       } else {
+  //         setLoading(false);
+  //       }
+  //     } catch (error) {
+  //       // console.error("Error checking authentication:", error);
+  //       router.push("/login");
+  //     }
+  //   };
 
-    checkAuthentication();
+  //   checkAuthentication();
+  // }, [router]);
+
+  
+  useEffect(() => {
+      const checkAuthentication = async () => {
+        try {
+          // Introduce an intentional delay (500ms)
+          
+
+          const { valid } = await isAuthenticated();
+          await new Promise((resolve) => setTimeout(resolve, 200));
+
+          if (!valid) {
+            router.push("/login");
+          } else {
+            setLoading(false);
+          }
+        } catch (error) {
+          router.push("/login");
+        }
+      };
+  
+      checkAuthentication();
   }, [router]);
+    
+
+
 
   // Cleanup
   useEffect(() => {
@@ -3716,9 +3742,13 @@ export default function Assignment() {
     setShowModal(false);
   };
 
-  // if (loading) {
-  //   return <div>Loading...</div>;
-  // }
+  if (loading) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center">
+        <p className="text-lg text-gray-500"></p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">

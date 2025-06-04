@@ -1281,9 +1281,9 @@ const handler = NextAuth(authOptions);
 export const GET = handler;
 export const POST = handler;
 
-// export async function generateStaticParams() {
-//   return [];
-// }
+export async function generateStaticParams() {
+  return [];
+}
 
 interface User {
   id: string;
