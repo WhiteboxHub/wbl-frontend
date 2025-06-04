@@ -4,10 +4,16 @@
 @tailwind components;
 @tailwind utilities;
 
+
 @layer base {
   body {
     font-family: "Inter", sans-serif;
   }
+}
+
+/* Hide content until hydration */
+.hydrated-hidden {
+  visibility: hidden;
 }
 
 @keyframes fadeInOut {
@@ -160,5 +166,3 @@
 .pulse-animation {
   animation: pulse 1.5s infinite;
 }
-
-
