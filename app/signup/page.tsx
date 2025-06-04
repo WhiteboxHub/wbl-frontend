@@ -2268,8 +2268,8 @@ const SignupPage = () => {
                         <option value="">Select Education</option>
                         <option value="High School">High School</option>
                         <option value="Associate Degree">Associate Degree</option>
-                        <option value="Bachelor's Degree">Bachelor's Degree</option>
-                        <option value="Master's Degree">Master's Degree</option>
+                        <option value="Bachelor&#39;s Degree">Bachelor&#39;s Degree</option>
+                        <option value="Master&#39;s Degree">Master&#39;s Degree</option>
                         <option value="PhD">PhD</option>
                         <option value="Other">Other</option>
                       </select>
