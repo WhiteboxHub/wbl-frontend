@@ -3481,29 +3481,7 @@ export default function Assignment() {
       Math.min(prevIndex + 1, basics.profiles.length - 1)
     );
   };
-  // Function to add a new profile
-  // const handleAddProfile = () => {
-  //   setBasics((prev) => ({
-  //     ...prev,
-  //     profiles: [...prev.profiles, { network: "", username: "", url: "" }],
-  //   }));
-  //   setCurrentProfileIndex(basics.profiles.length);
-  // };
-
-  // // Function to remove a profile
-  // const handleRemoveProfile = (index: number) => {
-  //   if (basics.profiles.length > 1) {
-  //     setBasics((prev) => ({
-  //       ...prev,
-  //       profiles: prev.profiles.filter((_, i) => i !== index),
-  //     }));
-  //     if (currentProfileIndex >= basics.profiles.length - 1) {
-  //       setCurrentProfileIndex(basics.profiles.length - 2);
-  //     }
-  //   }
-  // };
-  // Updated Skills Section
-
+  
   // Phone Number Handlers
   const handleCountryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedValue = e.target.value;
@@ -3676,25 +3654,6 @@ export default function Assignment() {
     };
   }, [renderTemplate]);
 
-  // useEffect(() => {
-  //   const checkAuthentication = async () => {
-  //     try {
-  //       const { valid } = await isAuthenticated();
-  //       if (!valid) {
-  //         router.push("/login");
-  //       } else {
-  //         setLoading(false);
-  //       }
-  //     } catch (error) {
-  //       // console.error("Error checking authentication:", error);
-  //       router.push("/login");
-  //     }
-  //   };
-
-  //   checkAuthentication();
-  // }, [router]);
-
-  
   useEffect(() => {
       const checkAuthentication = async () => {
         try {
@@ -3962,38 +3921,31 @@ export default function Assignment() {
                       </label>
 
                       <div className="flex space-x-2">
+                        
                         <select
-                          id="country-code"
-                          name="country-code"
-                          className="w-1/3 rounded-md border border-gray-300 bg-white py-3 px-2 text-xs text-gray-700 shadow-sm transition duration-150 ease-in-out focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
-                          value={countryCode}
-                          onChange={handleCountryChange}
-                          required
-                        >
-                          {/* Ensure US is the first option */}
-
-                          <option
-                            value="+1"
-                            className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                            id="country-code"
+                            name="country-code"
+                            className="w-1/3 rounded-md border border-gray-300 bg-white py-3 px-2 text-xs text-gray-700 shadow-sm transition duration-150 ease-in-out focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                            value={countryCode}
+                            onChange={handleCountryChange}
+                            required
                           >
-                            US +1
-                          </option>
+                            <option value="+1" key="US" className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
+                              US +1
+                            </option>
+                            {countries.all
+                              .filter((country) => country.alpha2 !== "US")
+                              .map((country) => (
+                                <option
+                                  key={`${country.alpha2}-${country.countryCallingCodes[0]}`} // Use a combination of alpha2 and countryCallingCodes as the unique key
+                                  value={country.countryCallingCodes[0] || ""}
+                                  className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                                >
+                                  {country.alpha2} {country.countryCallingCodes[0] || ""}
+                                </option>
+                              ))}
+                          </select>
 
-                          {countries.all
-
-                            .filter((country) => country.alpha2 !== "US")
-
-                            .map((country) => (
-                              <option
-                                key={country.alpha2}
-                                value={country.countryCallingCodes[0] || ""}
-                                className="bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
-                              >
-                                {country.alpha2}{" "}
-                                {country.countryCallingCodes[0] || ""}
-                              </option>
-                            ))}
-                        </select>
 
                         <input
                           type="tel"
@@ -4552,17 +4504,6 @@ export default function Assignment() {
               </div>
             )}
 
-            {/* Education Section */}
-
-            {/* -------------------------------------------------- */}
-
-            {/* // Skills Section */}
-
-            {/* ----------------------------------------------------- */}
-            {/* // Languages Section */}
-
-            {/* // Updated Languages Section */}
-
             {activeSection === "languages" && (
               <div className="flex flex-col rounded-lg border border-gray-300 bg-white p-6 shadow-md dark:border-gray-600 dark:bg-gray-700">
                 {/* Header with Navigation */}
@@ -5001,6 +4942,3 @@ export default function Assignment() {
   );
 }
 
-// -------------------working fine code--------------------------------
-
-// -------------------new

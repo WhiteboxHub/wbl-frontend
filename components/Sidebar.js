@@ -550,7 +550,7 @@ const Sidebar = ({ isOpen: propIsOpen, toggleSidebar: propToggleSidebar }) => {
       >
         <div className="flex flex-col h-full pb-32">
           <div className={`py-4 text-center border-b ${isDark ? 'border-gray-700 bg-black/30' : 'border-white/10 bg-black/20'} backdrop-blur-sm sticky top-0 z-10`}>
-            <h2 className={`font-bold text-2xl ${isDark ? 'bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent' : 'bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent'}`}>Sunil</h2>
+            <h2 className={`font-bold text-2xl ${isDark ? 'bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent' : 'bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent'}`}>Dashboard</h2>
           </div>
 
           <nav className="mt-6 flex-grow px-6">
