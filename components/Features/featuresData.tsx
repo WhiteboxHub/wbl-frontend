@@ -22,7 +22,7 @@ const featuresData: Feature[] = [
       " Elevate your skills with our engaging instructor-led classroom training sessions, designed to foster meaningful learning experiences.",
   },
   {
-    id: 1,
+    id: 2,
 
     icon: (
       <svg
@@ -43,7 +43,7 @@ const featuresData: Feature[] = [
       " Gain convenient access to valuable knowledge through interactivewebinars, empowering you to learn anytime, anywhere.",
   },
   {
-    id: 1,
+    id: 3,
     icon: (
       <svg
         width="40"
@@ -63,7 +63,7 @@ const featuresData: Feature[] = [
       " Explore dedicated portals for each course, providing seamless access to comprehensive resources and materials tailored to your learning journey.",
   },
   {
-    id: 1,
+    id: 4,
     icon: (
       <svg
         width="40"
@@ -83,7 +83,7 @@ const featuresData: Feature[] = [
       "Access our library of online recordings, ensuring you never miss     a session and can review course material at your convenience.",
   },
   {
-    id: 1,
+    id: 5,
     icon: (
       <svg
         width="40"
@@ -103,7 +103,7 @@ const featuresData: Feature[] = [
       " Engage in timed quizzes and video interviews, sharpening your skills and preparing you for real-world challenges with  interactive assessments.",
   },
   {
-    id: 1,
+    id: 6,
     icon: (
       <svg
         width="40"

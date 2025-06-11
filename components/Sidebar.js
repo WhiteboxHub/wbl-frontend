@@ -380,7 +380,7 @@ const Sidebar = ({ isOpen: propIsOpen, toggleSidebar: propToggleSidebar }) => {
 
   useEffect(() => {
     if (prevAuthState.current === true && isAuthenticated === false) {
-      console.log("Logout detected - resetting first login flags");
+      // console.log("Logout detected - resetting first login flags");
       localStorage.removeItem("hasLoggedIn");
       setIsFirstLogin(false);
       setHasCheckedLogin(false);
@@ -388,7 +388,7 @@ const Sidebar = ({ isOpen: propIsOpen, toggleSidebar: propToggleSidebar }) => {
     prevAuthState.current = isAuthenticated;
   }, [isAuthenticated]);
   useEffect(() => {
-  console.log('Sidebar state changed:', isOpen);
+  // console.log('Sidebar state changed:', isOpen);
 }, [isOpen]);
 
 
@@ -397,13 +397,13 @@ const Sidebar = ({ isOpen: propIsOpen, toggleSidebar: propToggleSidebar }) => {
       const hasLoggedInBefore = localStorage.getItem("hasLoggedIn");
 
       if (!hasLoggedInBefore) {
-        console.log("First time login detected - opening sidebar");
+        // console.log("First time login detected - opening sidebar");
         setInternalIsOpen(true);
         localStorage.setItem("hasLoggedIn", "true");
         setIsFirstLogin(true);
       } else {
         const savedSidebarState = localStorage.getItem("sidebarOpen");
-        console.log("Returning user - sidebar state:", savedSidebarState);
+        // console.log("Returning user - sidebar state:", savedSidebarState);
         setInternalIsOpen(savedSidebarState === "true");
       }
       setHasCheckedLogin(true);
@@ -435,8 +435,8 @@ const Sidebar = ({ isOpen: propIsOpen, toggleSidebar: propToggleSidebar }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen, hasCheckedLogin, toggleSidebar]);
   useEffect(() => {
-    console.log('Toggle button ref:', toggleBtnRef.current);
-    console.log('Sidebar ref:', sidebarRef.current);
+    // console.log('Toggle button ref:', toggleBtnRef.current);
+    // console.log('Sidebar ref:', sidebarRef.current);
   }, [toggleBtnRef, sidebarRef]);
 
 
@@ -550,7 +550,7 @@ const Sidebar = ({ isOpen: propIsOpen, toggleSidebar: propToggleSidebar }) => {
       >
         <div className="flex flex-col h-full pb-32">
           <div className={`py-4 text-center border-b ${isDark ? 'border-gray-700 bg-black/30' : 'border-white/10 bg-black/20'} backdrop-blur-sm sticky top-0 z-10`}>
-            <h2 className={`font-bold text-2xl ${isDark ? 'bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent' : 'bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent'}`}>Sunil</h2>
+            <h2 className={`font-bold text-2xl ${isDark ? 'bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent' : 'bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent'}`}>Dashboard</h2>
           </div>
 
           <nav className="mt-6 flex-grow px-6">
