@@ -46,7 +46,7 @@ function Carousel() {
     setCurrentIndex(newIndex);
   };
 
-  const goToSlide = (slideIndex) => {
+  const goToSlide = (slideIndex: React.SetStateAction<number>) => {
     setCurrentIndex(slideIndex);
   };
 
