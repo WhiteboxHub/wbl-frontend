@@ -67,7 +67,7 @@ export default function LayoutContent({ children }: { children: React.ReactNode 
       <AuthProvider>
         <Providers>
           {!isViewSection && <Header />}
-          <Sidebar />
+          {/* <Sidebar /> */}
           <main className="w-full">{children}</main>
           {!isViewSection && <Footer />}
           {!isViewSection && <ScrollToTop />}

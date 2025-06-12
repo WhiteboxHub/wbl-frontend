@@ -1157,7 +1157,7 @@ import WBLdark from "@/public/images/wbl-dark.png";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/utils/AuthContext";
 
-const Header = ({ toggleSidebar, isOpen }) => {
+const Header = ({ toggleSidebar, isOpen }: {toggleSidebar?: () => void; isOpen?: boolean}) =>{
   const { isAuthenticated, logout } = useAuth();
   const router = useRouter();
   const [sticky, setSticky] = useState(false);

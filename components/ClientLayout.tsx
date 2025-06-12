@@ -1,30 +1,69 @@
-// components/ClientLayout.tsx
+// // components/ClientLayout.tsx
+// 'use client';
+
+// import { usePathname } from "next/navigation";
+// import Header from "@/components/Header";
+// import Footer from "@/components/Footer";
+// import ScrollToTop from "@/components/ScrollToTop";
+// import Sidebar from "@/components/Sidebar";
+// import {useState, useEffect } from "react";
+
+// export default function ClientLayout({ children }: { children: React.ReactNode }) {
+//   const pathname = usePathname();
+//   const isViewSection = pathname.startsWith("/view");
+  
+//   const [holdLoad,setHoldLoad] = useState<Boolean>(false)
+
+//   useEffect(()=>{
+//     setTimeout(()=>{
+//       setHoldLoad(true)
+//     },300)
+//   },[])
+
+//   return (
+//     holdLoad ? <>
+//     {!isViewSection && <Header />}
+//       {children}
+//       {!isViewSection && <Footer />}
+//       {!isViewSection && <ScrollToTop />}
+//    </> : <></>
+//   );
+// }
+
+
+// ClientLayout.tsx
 'use client';
 
 import { usePathname } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
-import {useState, useEffect } from "react";
+import Sidebar from "@/components/Sidebar";
+import { useState, useEffect, useMemo, useCallback } from "react";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isViewSection = pathname.startsWith("/view");
-  
-  const [holdLoad,setHoldLoad] = useState<Boolean>(false)
 
-  useEffect(()=>{
-    setTimeout(()=>{
-      setHoldLoad(true)
-    },300)
-  },[])
+  const [holdLoad, setHoldLoad] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  return (
-    holdLoad ? <>
-    {!isViewSection && <Header />}
-      {children}
+  const toggleSidebar = useCallback(() => {
+    setSidebarOpen((prev) => !prev);
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setHoldLoad(true), 300);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return holdLoad ? (
+    <>
+      {!isViewSection && <Header />}
+      <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
+      <main className="w-full">{children}</main>
       {!isViewSection && <Footer />}
       {!isViewSection && <ScrollToTop />}
-   </> : <></>
-  );
+    </>
+  ) : null;
 }
