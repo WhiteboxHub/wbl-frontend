@@ -3027,7 +3027,7 @@ import Handlebars from "handlebars";
 import Layout from "@/components/Common/Layout";
 import Modal from "@/components/Common/Modal";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import ResumePreview from "./ResumeView";
+// import ResumePreview from "./ResumeView";
 import debounce from "lodash/debounce";
 import moment from "moment";
 import { countries } from "country-data";
@@ -4898,7 +4898,7 @@ export default function Assignment() {
 
           {/* Preview Section */}
           <div className="sticky top-24 col-span-1 lg:col-span-4 lg:pl-8">
-            <ResumePreview
+            {/* <ResumePreview
               renderedHtml={renderedHtml}
               getJson={() => {
                 const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
@@ -4926,7 +4926,7 @@ export default function Assignment() {
                 skills,
                 languages,
               }}
-            />
+            /> */}
           </div>
         </div>
       </main>
