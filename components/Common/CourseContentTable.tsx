@@ -67,12 +67,14 @@ const CourseContentTable = (props: any) => {
             <th className="mb-1 w-1/4 border border-gray-500 bg-primary px-4 py-2 text-white">
               AIML (Artificial Intelligence & Machine Learning)
             </th>
-            {/* <th className="mb-1 w-1/4 border border-gray-500 bg-primary px-4 py-2 text-white">
+            {/* 
+            <th className="mb-1 w-1/4 border border-gray-500 bg-primary px-4 py-2 text-white">
               Fullstack Development
             </th>
             <th className="mb-1 w-1/4 border border-gray-500 bg-primary px-4 py-2 text-white">
               Quality Engineering
-            </th> */}
+            </th> 
+            */}
           </tr>
         </thead>
         <tbody>
@@ -91,12 +93,14 @@ const CourseContentTable = (props: any) => {
               <td className="border border-primary px-4 py-2 text-center text-black dark:border-blue-900 dark:text-white">
                 <p>{subject.AIML}</p>
               </td>
-              {/* <td className="border border-primary px-4 py-2 text-center text-black dark:border-blue-900 dark:text-white">
+              {/* 
+              <td className="border border-primary px-4 py-2 text-center text-black dark:border-blue-900 dark:text-white">
                 <p>{subject.UI}</p>
               </td>
               <td className="border border-primary px-4 py-2 text-center text-black dark:border-blue-900 dark:text-white">
                 <p>{subject.QE}</p>
-              </td> */}
+              </td> 
+              */}
             </tr>
           ))}
         </tbody>

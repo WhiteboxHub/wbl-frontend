@@ -380,7 +380,7 @@ const Sidebar = ({ isOpen: propIsOpen, toggleSidebar: propToggleSidebar }) => {
 
   useEffect(() => {
     if (prevAuthState.current === true && isAuthenticated === false) {
-      console.log("Logout detected - resetting first login flags");
+      // console.log("Logout detected - resetting first login flags");
       localStorage.removeItem("hasLoggedIn");
       setIsFirstLogin(false);
       setHasCheckedLogin(false);
@@ -388,7 +388,7 @@ const Sidebar = ({ isOpen: propIsOpen, toggleSidebar: propToggleSidebar }) => {
     prevAuthState.current = isAuthenticated;
   }, [isAuthenticated]);
   useEffect(() => {
-  console.log('Sidebar state changed:', isOpen);
+  // console.log('Sidebar state changed:', isOpen);
 }, [isOpen]);
 
 
@@ -397,13 +397,13 @@ const Sidebar = ({ isOpen: propIsOpen, toggleSidebar: propToggleSidebar }) => {
       const hasLoggedInBefore = localStorage.getItem("hasLoggedIn");
 
       if (!hasLoggedInBefore) {
-        console.log("First time login detected - opening sidebar");
+        // console.log("First time login detected - opening sidebar");
         setInternalIsOpen(true);
         localStorage.setItem("hasLoggedIn", "true");
         setIsFirstLogin(true);
       } else {
         const savedSidebarState = localStorage.getItem("sidebarOpen");
-        console.log("Returning user - sidebar state:", savedSidebarState);
+        // console.log("Returning user - sidebar state:", savedSidebarState);
         setInternalIsOpen(savedSidebarState === "true");
       }
       setHasCheckedLogin(true);
@@ -435,8 +435,8 @@ const Sidebar = ({ isOpen: propIsOpen, toggleSidebar: propToggleSidebar }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen, hasCheckedLogin, toggleSidebar]);
   useEffect(() => {
-    console.log('Toggle button ref:', toggleBtnRef.current);
-    console.log('Sidebar ref:', sidebarRef.current);
+    // console.log('Toggle button ref:', toggleBtnRef.current);
+    // console.log('Sidebar ref:', sidebarRef.current);
   }, [toggleBtnRef, sidebarRef]);
 
 

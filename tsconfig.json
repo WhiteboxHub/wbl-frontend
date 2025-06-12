@@ -70,15 +70,6 @@
     ]
     // Removed invalid comment
   },
-  // "include": [
-  //   "next-env.d.ts",
-  //   ".next/types/**/*.ts",
-  //   "**/*.ts",
-  //   "**/*.tsx",
-  //   "**/*.js"
-  //   // "app/notfound.js",
-  //   // "app/login/main.js"
-  // ],
     "include": [
     "next-env.d.ts",
     ".next/types/**/*.ts",
@@ -86,8 +77,10 @@
     "**/*.tsx",
     "app/notfound.js",
 
+
     "app/login/main.js"
   ],
   "exclude": ["node_modules"]
+
 
 }

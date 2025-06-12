@@ -62,12 +62,14 @@ const ThemeToggler = () => {
       onClick={toggleTheme}
       className="bg-gray-2 dark:bg-dark-bg flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-black dark:text-white md:h-14 md:w-14"
       name="theme_button"
+      aria-label="Toggle theme"
     >
       {/* Light mode icon (Moon) - shown in light mode */}
       <svg
         viewBox="0 0 23 23"
         className="h-5 w-5 stroke-current dark:hidden md:h-6 md:w-6"
         fill="none"
+        xmlns="http://www.w3.org/2000/svg"
       >
         <path
           d="M9.55 1.5C5.8 1.5 1.3 5.25 1.3 11.25C1.3 17.25 5.8 21.75 11.8 21.75C17.8 21.75 21.55 17.25 21.55 13.5C13.3 18.75 4.3 9.75 9.55 1.5Z"

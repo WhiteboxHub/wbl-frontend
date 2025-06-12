@@ -23,6 +23,7 @@ const featuresData: Feature[] = [
   },
   {
     id: 2,
+
     icon: (
       <svg
         width="40"

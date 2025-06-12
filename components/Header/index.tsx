@@ -1151,7 +1151,7 @@ import WBLdark from "@/public/images/wbl-dark.png";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/utils/AuthContext";
 
-const Header = ({ toggleSidebar, isOpen }) => {
+const Header = ({ toggleSidebar, isOpen }: {toggleSidebar?: () => void; isOpen?: boolean}) =>{
   const { isAuthenticated, logout } = useAuth();
   const router = useRouter();
   const [sticky, setSticky] = useState(false);
@@ -1159,11 +1159,7 @@ const Header = ({ toggleSidebar, isOpen }) => {
   const [openIndex, setOpenIndex] = useState(-1);
 
   const handleStickyNavbar = () => {
-    if (window.scrollY >= 80) {
-      setSticky(true);
-    } else {
-      setSticky(false);
-    }
+    setSticky(window.scrollY >= 80);
   };
 
   useEffect(() => {
@@ -1182,11 +1178,7 @@ const Header = ({ toggleSidebar, isOpen }) => {
   };
 
   const handleSubmenu = (index) => {
-    if (openIndex === index) {
-      setOpenIndex(-1);
-    } else {
-      setOpenIndex(index);
-    }
+    setOpenIndex(openIndex === index ? -1 : index);
   };
 
   const handleLogout = () => {
@@ -1436,3 +1428,4 @@ const Header = ({ toggleSidebar, isOpen }) => {
 };
 
 export default Header;
+
