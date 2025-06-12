@@ -1,3 +1,4 @@
+
 // // frntend\app\layout.tsx
 // "use client";
 // import "node_modules/react-modal-video/css/modal-video.css";
@@ -168,4 +169,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </body>
     </html>
   );
+
 }
+
+
