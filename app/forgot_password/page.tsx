@@ -263,6 +263,7 @@ const ForgotPasswordPage = () => {
     } catch (error: any) {
       setResponseStatus("error");
       setMessage(error.message || "An error occurred while sending reset link");
+      // setMessage((error as Error).message || "An error occurred while sending reset link");
     } finally {
       setLoading(false);
     }

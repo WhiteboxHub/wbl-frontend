@@ -1144,7 +1144,8 @@ const SigninPage = () => {
     setGoogleMessage("");
   }, []);
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e) => {
+    // const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (loading) return;
     setLoading(true);
@@ -1176,7 +1177,8 @@ const SigninPage = () => {
       }
     } catch (error) {
       setResponseStatus("error");
-      setMessage("An error occurred during login");
+      setMessage(error.detail || "An error occurred during login");
+      // setMessage((error as any).detail || "An error occurred during login");
     } finally {
       setLoading(false);
     }

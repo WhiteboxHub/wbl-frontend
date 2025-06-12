@@ -1922,7 +1922,7 @@ const SignupPage = () => {
                           type="text"
                           name="firstName"
                           id="firstName"
-                          placeholder="Enter your first name"
+                          placeholder="Enter your first Name"
                           className="dark:shadow-signUp w-full rounded-xl border py-2 px-5 text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:border-transparent sm:py-3"
                           value={firstName}
                           onChange={(e) => setFirstName(e.target.value)}
@@ -1939,7 +1939,7 @@ const SignupPage = () => {
                           type="text"
                           name="lastName"
                           id="lastName"
-                          placeholder="Enter your last name"
+                          placeholder="Enter your last Name"
                           className="dark:shadow-signUp w-full rounded-xl border py-2 px-5 text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:border-transparent sm:py-3"
                           value={lastName}
                           onChange={(e) => setLastName(e.target.value)}
@@ -1960,6 +1960,7 @@ const SignupPage = () => {
 
                           {/* Wrapper with focus effect */}
                           <div
+                          id="phone"
                             className={`group flex w-full rounded-xl border border-gray-300 bg-white shadow-one dark:shadow-signUp focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all`}
                           >
                             {/* Country Code Dropdown */}
@@ -1985,7 +1986,7 @@ const SignupPage = () => {
                             {/* Phone Number Input */}
                             <input
                               type="tel"
-                              id="phone"
+                              
                               name="phone"
                               placeholder="Enter your phone number"
                               className="w-full rounded-r-xl border-none bg-transparent py-2 px-3 sm:py-3 text-body-color placeholder-body-color outline-none dark:bg-white"

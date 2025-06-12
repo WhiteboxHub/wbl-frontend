@@ -1400,10 +1400,9 @@ const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        // Call register or login based on the user status
+
         const { accessToken, status } = await handleUserRegistrationOrLogin(user);
 
-        // Attach the access token and status to the JWT token
         if (accessToken) {
           token.accessToken = accessToken;
         }

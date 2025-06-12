@@ -30,12 +30,12 @@ const menuData: Menu[] = [
         path: "/presentation",
         newTab: false,
       },
-      {
-        id: 43,
-        title: "Resume ",
-        path: "/resume",
-        newTab: false,
-      },
+      // {
+      //   id: 43,
+      //   title: "Resume ",
+      //   path: "/resume",
+      //   newTab: false,
+      // },
     ],
   },
   {

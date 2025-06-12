@@ -830,6 +830,7 @@ const ResetPasswordPage = () => {
       setResponseStatus("error");
       setMessage(
         error.message || "An error occurred while resetting the password"
+        // (error as Error).message || "An error occurred while resetting the password"
       );
     } finally {
       setLoading(false);

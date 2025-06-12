@@ -32,7 +32,7 @@ const CourseNavigation = () => {
   //   }
   // }, []);
 
-  const handleNavigation = (course) => {
+  const handleNavigation = (course: string) => {
     const selectedCourse = courseOptions.find((opt) => opt.short === course);
     setSelectedOption(selectedCourse.full);
     setIsOpen(false); // Close the dropdown after selection

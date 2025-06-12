@@ -25,6 +25,7 @@ export default function Unsubscribe() {
           );
           setMessage(response.data.message);
         } catch (error) {
+          if (axios.isAxiosError(error))
           setMessage(error.response?.data?.detail || "An error occurred");
         } finally {
           setLoading(false);
