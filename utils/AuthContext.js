@@ -104,3 +104,116 @@ export const AuthProvider = ({ children }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
+
+// "use client";
+
+// import { useSession, signOut } from "next-auth/react";
+// import { useRouter } from "next/navigation";
+// import { createContext, useContext, useEffect, useState } from "react";
+// import { isTokenExpired } from "./auth";
+
+// const AuthContext = createContext();
+
+// export const AuthProvider = ({ children }) => {
+//   const [authToken, setAuthToken] = useState(null);
+//   const [isAuthenticated, setIsAuthenticated] = useState(false);
+//   const { data: session } = useSession();
+//   const router = useRouter();
+
+//   // Initial auth check
+//   useEffect(() => {
+//     if (typeof window !== "undefined") {
+//       const token = localStorage.getItem("access_token");
+//       if (token) checkToken(token);
+//     }
+
+//     // Check token expiration every 60 seconds
+//     const interval = setInterval(() => {
+//       if (typeof window !== "undefined" && authToken) {
+//         checkToken(authToken);
+//       }
+//     }, 60 * 1000);
+
+//     return () => clearInterval(interval);
+//   }, [authToken]);
+
+//   // Check token and set state
+//   const checkToken = (token) => {
+//     if (isTokenExpired(token)) {
+//       handleTokenExpiration();
+//     } else {
+//       setAuthToken(token);
+//       setIsAuthenticated(true);
+//     }
+//   };
+
+//   // Handle expired token
+//   const handleTokenExpiration = () => {
+//     logout();
+
+//     if (typeof window !== "undefined") {
+//       const currentPath = window.location.pathname;
+//       if (currentPath === "/") {
+//         localStorage.removeItem("access_token");
+//         sessionStorage.clear();
+//         setAuthToken(null);
+//         setIsAuthenticated(false);
+//         alert("Session expired. Please login again.");
+//       } else {
+//         router.push("/login");
+//       }
+//     }
+//   };
+
+//   // Automatically login if NextAuth session token is present
+//   useEffect(() => {
+//     if (session?.accessToken) {
+//       login(session.accessToken);
+//     }
+//   }, [session]);
+
+//   // Login method
+//   const login = (token) => {
+//     if (typeof window !== "undefined") {
+//       localStorage.setItem("access_token", token);
+//     }
+//     setAuthToken(token);
+//     setIsAuthenticated(true);
+//   };
+
+//   // Logout method
+//   const logout = () => {
+//     if (typeof window !== "undefined") {
+//       localStorage.removeItem("access_token");
+//       sessionStorage.clear();
+//     }
+
+//     setAuthToken(null);
+//     setIsAuthenticated(false);
+//     clearNextAuthCookies();
+//     signOut({ redirect: false }); // Prevents redirect on sign out
+//   };
+
+//   // Clear cookies created by next-auth
+//   const clearNextAuthCookies = () => {
+//     if (typeof window !== "undefined") {
+//       const cookies = [
+//         "next-auth.session-token",
+//         "next-auth.callback-url",
+//         "next-auth.csrf-token",
+//       ];
+//       cookies.forEach((cookie) => {
+//         document.cookie = `${cookie}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+//       });
+//     }
+//   };
+
+//   return (
+//     <AuthContext.Provider value={{ isAuthenticated, authToken, login, logout }}>
+//       {children}
+//     </AuthContext.Provider>
+//   );
+// };
+
+// Hook to use authentication context
+// export const useAuth = () => useContext(AuthContext);
