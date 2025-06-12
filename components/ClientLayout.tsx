@@ -21,7 +21,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   return (
     holdLoad ? <>
-    {!isViewSection && <Header />}
+    {!isViewSection && <Header toggleSidebar={undefined} isOpen={undefined} />}
       {children}
       {!isViewSection && <Footer />}
       {!isViewSection && <ScrollToTop />}

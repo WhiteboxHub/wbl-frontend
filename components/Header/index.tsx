@@ -549,7 +549,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { SetStateAction, useEffect, useState } from "react";
 import ThemeToggler from "./ThemeToggler";
 import menuData from "./menuData";
 import WBLlight from "@/public/images/wbl-light.png";
@@ -587,7 +587,7 @@ const Header = ({ toggleSidebar, isOpen }) => {
     setNavbarOpen(false);
   };
 
-  const handleSubmenu = (index) => {
+  const handleSubmenu = (index: SetStateAction<number>) => {
     if (openIndex === index) {
       setOpenIndex(-1);
     } else {

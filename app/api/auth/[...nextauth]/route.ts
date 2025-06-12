@@ -37,18 +37,20 @@ const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        // Call register or login based on the user status
+
         const { accessToken, status } = await handleUserRegistrationOrLogin(user);
 
-        // Attach the access token and status to the JWT token
         if (accessToken) {
           token.accessToken = accessToken;
         }
-        
+
         token.id = user.id;
-        token.name = user.name;
-        token.email = user.email;
-        token.status = status; // Attach user status (inactive, active, etc.)
+        // token.name = user.name;
+        // token.email = user.email;
+        token.name = user.name ?? undefined; 
+        token.email = user.email ?? undefined;
+        token.status = status;
+
       }
       return token;
     },
@@ -56,8 +58,10 @@ const authOptions: NextAuthOptions = {
       session.user.id = token.id as string;
       session.user.name = token.name as string;
       session.user.email = token.email as string;
+
       session.accessToken = token.accessToken as string; // Pass the access token to the session
       session.user.status = token.status; // Pass user status to session
+
       return session;
     },
   },
@@ -76,6 +80,7 @@ async function handleUserRegistrationOrLogin(user: any) {
   };
 
   try {
+
     const checkResponse = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/check_user/`, payload);
 
     if (!checkResponse.data.exists) { 

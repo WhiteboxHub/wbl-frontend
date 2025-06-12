@@ -10,6 +10,7 @@ const ForgotPasswordPage = () => {
   const router = useRouter();
 
   const handleSubmit = async (e) => {
+    // const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (loading) return;
     setLoading(true);
@@ -40,6 +41,7 @@ const ForgotPasswordPage = () => {
     } catch (error) {
       setResponseStatus("error");
       setMessage(error.message || "An error occurred while sending reset link");
+      // setMessage((error as Error).message || "An error occurred while sending reset link");
     } finally {
       setLoading(false);
     }
