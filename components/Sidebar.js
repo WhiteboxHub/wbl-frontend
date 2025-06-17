@@ -353,11 +353,13 @@ const Sidebar = ({ isOpen: propIsOpen, toggleSidebar: propToggleSidebar }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const placementsResponse = await axios.get('http://localhost:8000/api/recent-placements');
+        const placementsResponse = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/placements`);
         setPlacementsData(placementsResponse.data);
+        console.log(placementsResponse.data);
 
-        const interviewsResponse = await axios.get('http://localhost:8000/api/recent-interviews');
+        const interviewsResponse = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/interviews`);
         setInterviewsData(interviewsResponse.data);
+        console.log(interviewsResponse.data);
       } catch (error) {
         console.error('Error fetching data:', error);
       }
