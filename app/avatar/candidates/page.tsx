@@ -1,11 +1,21 @@
+// wbl\app\avatar\candidates\page.tsx
 "use client";
+import "@/styles/admin.css";
+import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable";
 import { Badge } from "@/components/admin_ui/badge";
+import { Input } from "@/components/admin_ui/input";
+import { Label } from "@/components/admin_ui/label";
+import { SearchIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 
 export default function CandidatesPage() {
-  const candidates = [
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredCandidates, setFilteredCandidates] = useState([]);
+
+  // All candidates data
+  const allCandidates = [
     {
       id: 1,
       fullName: "Alice Johnson",
@@ -450,6 +460,33 @@ export default function CandidatesPage() {
     },
   ];
 
+  // Auto-search functionality
+  const filterCandidates = useCallback((searchTerm: string) => {
+    if (searchTerm.trim() === "") {
+      return allCandidates;
+    } else {
+      return allCandidates.filter((candidate) => {
+        const searchLower = searchTerm.toLowerCase();
+        return (
+          candidate.fullName.toLowerCase().includes(searchLower) ||
+          candidate.email.toLowerCase().includes(searchLower) ||
+          candidate.contact.includes(searchTerm) ||
+          candidate.visaStatus.toLowerCase().includes(searchLower) ||
+          candidate.education.toLowerCase().includes(searchLower) ||
+          candidate.status.toLowerCase().includes(searchLower) ||
+          candidate.address.toLowerCase().includes(searchLower) ||
+          candidate.referredBy.toLowerCase().includes(searchLower) ||
+          candidate.pincode.includes(searchTerm)
+        );
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    const filtered = filterCandidates(searchTerm);
+    setFilteredCandidates(filtered);
+  }, [searchTerm, filterCandidates]);
+
   const StatusRenderer = (params: any) => {
     const { value } = params;
     const getStatusColor = (status: string) => {
@@ -500,7 +537,7 @@ export default function CandidatesPage() {
 
   const columnDefs: ColDef[] = useMemo(
     () => [
-      { field: "id", headerName: "ID", width: 80, pinned: "left" },
+      { field: "id", headerName: "ID", width: 80, pinned: "left", checkboxSelection: true },
       { field: "fullName", headerName: "Full Name", width: 180, minWidth: 150 },
       { field: "email", headerName: "Email", width: 220, minWidth: 180 },
       { field: "contact", headerName: "Contact", width: 150, minWidth: 120 },
@@ -563,6 +600,15 @@ export default function CandidatesPage() {
     []
   );
 
+  const handleRowUpdated = (updatedRow) => {
+    setFilteredCandidates((prev) =>
+      prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
+    );
+  };
+  const handleRowDeleted = (id) => {
+    setFilteredCandidates((prev) => prev.filter((row) => row.id !== id));
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -575,14 +621,44 @@ export default function CandidatesPage() {
           </p>
         </div>
       </div>
+
+      {/* Search Input */}
+      <div className="max-w-md">
+        <Label
+          htmlFor="search"
+          className="text-sm font-medium text-gray-700 dark:text-gray-300"
+        >
+          Search Candidates
+        </Label>
+        <div className="relative mt-1">
+          <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            id="search"
+            type="text"
+            placeholder="Search by name, email, visa status, education..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        {searchTerm && (
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            {filteredCandidates.length} candidate(s) found
+          </p>
+        )}
+      </div>
+
       <div className="flex justify-center w-full">
         <div className="w-full max-w-7xl">
           <AGGridTable
-            rowData={candidates}
+            rowData={filteredCandidates}
             columnDefs={columnDefs}
-            title={`All Candidates (${candidates.length})`}
+            title={`All Candidates (${filteredCandidates.length})`}
             height="calc(70vh)"
+            showSearch={false}
             onRowClicked={(event) => console.log("Row clicked:", event.data)}
+            onRowUpdated={handleRowUpdated}
+            onRowDeleted={handleRowDeleted}
           />
         </div>
       </div>

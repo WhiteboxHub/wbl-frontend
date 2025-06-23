@@ -10,6 +10,9 @@ import { usePathname } from "next/navigation";
 import { Providers } from "./providers";
 import { AuthProvider } from "@/utils/AuthContext";
 import { useState } from "react";
+import "ag-grid-community/styles/ag-grid.css";
+import "ag-grid-community/styles/ag-theme-alpine.css";
+// import { AGGridTable } from "@/components/AGGridTable";
 
 export default function RootLayout({
   children,
@@ -19,6 +22,12 @@ export default function RootLayout({
   const pathname = usePathname();
   const isAvatarSection = pathname.startsWith("/avatar");
   const [isOpen, setIsOpen] = useState(false);
+
+  const rowData = [{ id: 1, name: "Test User" }];
+  const columnDefs = [
+    { headerName: "ID", field: "id" },
+    { headerName: "Name", field: "name" },
+  ];
 
   return (
     <html suppressHydrationWarning lang="en">

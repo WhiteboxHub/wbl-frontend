@@ -48,11 +48,12 @@ export function ConfirmDialog({
         </div>
 
         <DialogFooter className="flex items-center justify-end space-x-2">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" size="lg" onClick={onClose}>
             {cancelText}
           </Button>
           <Button
             variant="destructive"
+            size="lg"
             onClick={handleConfirm}
             className="bg-red-600 hover:bg-red-700 text-white"
           >

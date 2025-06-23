@@ -198,23 +198,70 @@ export default function VendorsSearch() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Vendor Search
+            Search Vendors
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Search and filter vendors
+            Search through all vendors with real-time results
           </p>
         </div>
       </div>
-      {/* AG Grid Table */}
-      <AGGridTable
-        rowData={filteredVendors.length > 0 ? filteredVendors : allVendors}
-        columnDefs={columnDefs}
-        title={`Vendors (${filteredVendors.length > 0 ? filteredVendors.length : allVendors.length})`}
-        height="calc(50vh)"
-        onRowClicked={(event) => {
-          console.log("Row clicked:", event.data);
-        }}
-      />
+
+      {/* Search Input */}
+      <div className="max-w-md">
+        <Label
+          htmlFor="search"
+          className="text-sm font-medium text-gray-700 dark:text-gray-300"
+        >
+          Search Vendors
+        </Label>
+        <div className="relative mt-1">
+          <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            id="search"
+            type="text"
+            placeholder="Search by company, contact, email, services..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        {searchTerm && (
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            {filteredVendors.length} vendor(s) found
+          </p>
+        )}
+      </div>
+
+      {/* Results Table */}
+      {searchTerm && (
+        <div className="flex justify-center w-full">
+          <div className="w-full max-w-7xl">
+            <AGGridTable
+              rowData={filteredVendors}
+              columnDefs={columnDefs}
+              title={`Search Results (${filteredVendors.length})`}
+              height="calc(50vh)"
+              showSearch={false} // Disable built-in search since we have custom search
+              onRowClicked={(event) => {
+                console.log("Row clicked:", event.data);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {!searchTerm && (
+        <div className="text-center py-12">
+          <SearchIcon className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+            Start typing to search
+          </h3>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Enter a company name, contact, or any other vendor information to
+            see results
+          </p>
+        </div>
+      )}
     </div>
   );
 }

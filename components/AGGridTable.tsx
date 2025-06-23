@@ -1,5 +1,7 @@
+// wbl\components\AGGridTable.tsx
 "use client";
-
+import { ModuleRegistry, ClientSideRowModelModule } from "ag-grid-community";
+ModuleRegistry.registerModules([ClientSideRowModelModule]);
 import { AgGridReact } from "ag-grid-react";
 import { ColDef, GridReadyEvent, GridApi } from "ag-grid-community";
 import { useCallback, useRef, useState, useEffect } from "react";
@@ -78,11 +80,11 @@ export function AGGridTable({
   const onFilterTextBoxChanged = useCallback(
     (value: string) => {
       setSearchText(value);
-      if (gridApi) {
-            gridApi.setGridOption("quickFilterText", value);
+      if (gridApi && typeof (gridApi as any).setQuickFilter === "function") {
+        (gridApi as any).setQuickFilter(value);
       }
     },
-    [gridApi],
+    [gridApi]
   );
 
   const toggleExpand = useCallback(() => {
@@ -174,6 +176,20 @@ export function AGGridTable({
     floatingFilter: false,
   };
 
+  const onRowClickedHandler = useCallback(
+    (event: any) => {
+      setSelectedRowData(event.data);
+      if (onRowClicked) {
+        onRowClicked(event);
+      }
+      if (gridApi && event.node) {
+        gridApi.deselectAll();
+        event.node.setSelected(true, false);
+      }
+    },
+    [onRowClicked, gridApi]
+  );
+
   return (
     <div
       className={`mx-auto space-y-4 ${isExpanded ? "w-full" : "w-full max-w-7xl"}`}
@@ -264,7 +280,7 @@ export function AGGridTable({
             columnDefs={columnDefs} // Use original column definitions without actions
             defaultColDef={defaultColDef}
             onGridReady={onGridReady}
-            onRowClicked={onRowClicked}
+            onRowClicked={onRowClickedHandler}
             onSelectionChanged={handleRowSelection}
             animateRows={true}
             rowSelection="single"
@@ -273,6 +289,7 @@ export function AGGridTable({
             paginationPageSize={isExpanded ? 50 : 20}
             suppressCellFocus={false}
             theme="legacy"
+            
           />
         </div>
       </div>

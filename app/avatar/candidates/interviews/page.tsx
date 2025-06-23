@@ -1,14 +1,21 @@
 "use client";
+import "@/styles/admin.css";
+import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable";
 import { Button } from "@/components/admin_ui/button";
 import { Badge } from "@/components/admin_ui/badge";
-import { PlusIcon } from "lucide-react";
+import { Input } from "@/components/admin_ui/input";
+import { Label } from "@/components/admin_ui/label";
+import { SearchIcon, PlusIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 
 export default function CandidatesInterviews() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredCandidates, setFilteredCandidates] = useState([]);
+
   // Sample interview data - candidates in interview stage
-  const interviewCandidates = [
+  const allCandidates = [
     {
       id: 3,
       fullName: "Carol Davis",
@@ -42,6 +49,33 @@ export default function CandidatesInterviews() {
       secondaryEmergencyContact: "+1 (555) 666-7777",
     },
   ];
+
+  // Auto-search functionality
+  const filterCandidates = useCallback((searchTerm: string) => {
+    if (searchTerm.trim() === "") {
+      return allCandidates;
+    } else {
+      return allCandidates.filter((candidate) => {
+        const searchLower = searchTerm.toLowerCase();
+        return (
+          candidate.fullName.toLowerCase().includes(searchLower) ||
+          candidate.email.toLowerCase().includes(searchLower) ||
+          candidate.contact.includes(searchTerm) ||
+          candidate.visaStatus.toLowerCase().includes(searchLower) ||
+          candidate.education.toLowerCase().includes(searchLower) ||
+          candidate.status.toLowerCase().includes(searchLower) ||
+          candidate.address.toLowerCase().includes(searchLower) ||
+          candidate.referredBy.toLowerCase().includes(searchLower) ||
+          candidate.pincode.includes(searchTerm)
+        );
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    const filtered = filterCandidates(searchTerm);
+    setFilteredCandidates(filtered);
+  }, [searchTerm, filterCandidates]);
 
   const StatusRenderer = (params: any) => {
     const { value } = params;
@@ -89,7 +123,7 @@ export default function CandidatesInterviews() {
 
   const columnDefs: ColDef[] = useMemo(
     () => [
-      { field: "id", headerName: "ID", width: 80, pinned: "left" },
+      { field: "id", headerName: "ID", width: 80, pinned: "left", checkboxSelection: true },
       { field: "fullName", headerName: "Full Name", width: 180, minWidth: 150 },
       { field: "email", headerName: "Email", width: 220, minWidth: 180 },
       { field: "contact", headerName: "Contact", width: 150, minWidth: 120 },
@@ -151,13 +185,23 @@ export default function CandidatesInterviews() {
     [],
   );
 
+  const handleRowUpdated = (updatedRow) => {
+    setFilteredCandidates((prev) =>
+      prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
+    );
+  };
+
+  const handleRowDeleted = (id) => {
+    setFilteredCandidates((prev) => prev.filter((row) => row.id !== id));
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Interviews</h1>
-          <p className="text-gray-600">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Interviews</h1>
+          <p className="text-gray-600 dark:text-gray-400">
             Candidates scheduled for interviews and assessment sessions
           </p>
         </div>
@@ -166,18 +210,50 @@ export default function CandidatesInterviews() {
           Schedule Interview
         </Button>
       </div>
+
+      {/* Search Input */}
+      <div className="max-w-md">
+        <Label
+          htmlFor="search"
+          className="text-sm font-medium text-gray-700 dark:text-gray-300"
+        >
+          Search Candidates
+        </Label>
+        <div className="relative mt-1">
+          <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            id="search"
+            type="text"
+            placeholder="Search by name, email, visa status, education..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        {searchTerm && (
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            {filteredCandidates.length} candidate(s) found
+          </p>
+        )}
+      </div>
+
       {/* AG Grid Table - Centered and expandable */}
       <div className="flex justify-center w-full">
         <div className="w-full max-w-7xl">
-          <AGGridTable
-            rowData={interviewCandidates}
-            columnDefs={columnDefs}
-            title={`Interviews (${interviewCandidates.length})`}
-            height="calc(60vh)"
-            onRowClicked={(event) => {
-              console.log("Row clicked:", event.data);
-            }}
-          />
+          <div style={{ height: 500, width: "100%" }}>
+            <AGGridTable
+              rowData={filteredCandidates}
+              columnDefs={columnDefs}
+              title={`Interviews (${filteredCandidates.length})`}
+              height="500px"
+              showSearch={false}
+              onRowClicked={(event) => {
+                console.log("Row clicked:", event.data);
+              }}
+              onRowUpdated={handleRowUpdated}
+              onRowDeleted={handleRowDeleted}
+            />
+          </div>
         </div>
       </div>
     </div>

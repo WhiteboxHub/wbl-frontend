@@ -1,12 +1,19 @@
 "use client";
+import "@/styles/admin.css";
+import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable";
 import { Button } from "@/components/admin_ui/button";
 import { Badge } from "@/components/admin_ui/badge";
-import { PlusIcon } from "lucide-react";
+import { Input } from "@/components/admin_ui/input";
+import { Label } from "@/components/admin_ui/label";
+import { SearchIcon, PlusIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 
 export default function Vendors() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredVendors, setFilteredVendors] = useState([]);
+
   const vendors = [
     {
       id: 1,
@@ -63,6 +70,31 @@ export default function Vendors() {
     },
   ];
 
+  // Auto-search functionality
+  const filterVendors = useCallback((searchTerm: string) => {
+    if (searchTerm.trim() === "") {
+      return vendors;
+    } else {
+      return vendors.filter((vendor) => {
+        const searchLower = searchTerm.toLowerCase();
+        return (
+          vendor.company.toLowerCase().includes(searchLower) ||
+          vendor.contact.toLowerCase().includes(searchLower) ||
+          vendor.email.toLowerCase().includes(searchLower) ||
+          vendor.phone.includes(searchTerm) ||
+          vendor.services.toLowerCase().includes(searchLower) ||
+          vendor.location.toLowerCase().includes(searchLower) ||
+          vendor.partnership.toLowerCase().includes(searchLower)
+        );
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    const filtered = filterVendors(searchTerm);
+    setFilteredVendors(filtered);
+  }, [searchTerm, filterVendors]);
+
   const PartnershipRenderer = (params: any) => {
     const { value } = params;
     const getPartnershipColor = (partnership: string) => {
@@ -96,7 +128,7 @@ export default function Vendors() {
 
   const columnDefs: ColDef[] = useMemo(
     () => [
-      { field: "id", headerName: "ID", width: 80, pinned: "left" },
+      { field: "id", headerName: "ID", width: 80, pinned: "left", checkboxSelection: true },
       { field: "company", headerName: "Company", flex: 1, minWidth: 200 },
       {
         field: "contact",
@@ -133,6 +165,16 @@ export default function Vendors() {
     [],
   );
 
+  const handleRowUpdated = (updatedRow) => {
+    setFilteredVendors((prev) =>
+      prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
+    );
+  };
+
+  const handleRowDeleted = (id) => {
+    setFilteredVendors((prev) => prev.filter((row) => row.id !== id));
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -145,17 +187,50 @@ export default function Vendors() {
             Manage your partner vendors and daily communications
           </p>
         </div>
+        <Button className="bg-whitebox-600 hover:bg-whitebox-700">
+          <PlusIcon className="h-4 w-4 mr-2" />
+          Add Vendor
+        </Button>
+      </div>
+
+      {/* Search Input */}
+      <div className="max-w-md">
+        <Label
+          htmlFor="search"
+          className="text-sm font-medium text-gray-700 dark:text-gray-300"
+        >
+          Search Vendors
+        </Label>
+        <div className="relative mt-1">
+          <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            id="search"
+            type="text"
+            placeholder="Search by company, contact, email, services..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        {searchTerm && (
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            {filteredVendors.length} vendor(s) found
+          </p>
+        )}
       </div>
 
       {/* AG Grid Table */}
       <AGGridTable
-        rowData={vendors}
+        rowData={filteredVendors}
         columnDefs={columnDefs}
-        title={`All Vendors (${vendors.length})`}
+        title={`All Vendors (${filteredVendors.length})`}
         height="calc(50vh)"
+        showSearch={false}
         onRowClicked={(event) => {
           console.log("Row clicked:", event.data);
         }}
+        onRowUpdated={handleRowUpdated}
+        onRowDeleted={handleRowDeleted}
       />
     </div>
   );

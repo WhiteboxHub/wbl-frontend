@@ -228,10 +228,10 @@ export function EditModal({
         </div>
 
         <DialogFooter className="flex items-center justify-end space-x-2 pt-4">
-          <Button variant="outline" onClick={onClose} disabled={isLoading}>
+          <Button variant="outline" size="lg" onClick={onClose} disabled={isLoading}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isLoading}>
+          <Button size="lg" onClick={handleSave} disabled={isLoading}>
             {isLoading ? "Saving..." : "Save Changes"}
           </Button>
         </DialogFooter>

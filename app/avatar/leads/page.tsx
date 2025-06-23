@@ -1,10 +1,18 @@
 "use client";
+import "@/styles/admin.css";
+import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable";
 import { Badge } from "@/components/admin_ui/badge";
+import { Input } from "@/components/admin_ui/input";
+import { Label } from "@/components/admin_ui/label";
+import { SearchIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 
 export default function LeadsPage() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredLeads, setFilteredLeads] = useState([]);
+
   const leads = [
     {
       id: 1,
@@ -39,6 +47,33 @@ export default function LeadsPage() {
       secondaryEmergencyContact: "+1 (555) 654-3210",
     },
   ];
+
+  // Auto-search functionality
+  const filterLeads = useCallback((searchTerm: string) => {
+    if (searchTerm.trim() === "") {
+      return leads;
+    } else {
+      return leads.filter((lead) => {
+        const searchLower = searchTerm.toLowerCase();
+        return (
+          lead.fullName.toLowerCase().includes(searchLower) ||
+          lead.email.toLowerCase().includes(searchLower) ||
+          lead.contact.includes(searchTerm) ||
+          lead.visaStatus.toLowerCase().includes(searchLower) ||
+          lead.education.toLowerCase().includes(searchLower) ||
+          lead.status.toLowerCase().includes(searchLower) ||
+          lead.address.toLowerCase().includes(searchLower) ||
+          lead.referredBy.toLowerCase().includes(searchLower) ||
+          lead.pincode.includes(searchTerm)
+        );
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    const filtered = filterLeads(searchTerm);
+    setFilteredLeads(filtered);
+  }, [searchTerm, filterLeads]);
 
   const StatusRenderer = (params: any) => {
     const { value } = params;
@@ -86,7 +121,7 @@ export default function LeadsPage() {
 
   const columnDefs: ColDef[] = useMemo(
     () => [
-      { field: "id", headerName: "ID", width: 80, pinned: "left" },
+      { field: "id", headerName: "ID", width: 80, pinned: "left", checkboxSelection: true },
       { field: "fullName", headerName: "Full Name", width: 180, minWidth: 150 },
       { field: "email", headerName: "Email", width: 220, minWidth: 180 },
       { field: "contact", headerName: "Contact", width: 150, minWidth: 120 },
@@ -148,6 +183,16 @@ export default function LeadsPage() {
     []
   );
 
+  const handleRowUpdated = (updatedRow) => {
+    setFilteredLeads((prev) =>
+      prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
+    );
+  };
+
+  const handleRowDeleted = (id) => {
+    setFilteredLeads((prev) => prev.filter((row) => row.id !== id));
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -162,16 +207,45 @@ export default function LeadsPage() {
         </div>
       </div>
 
+      {/* Search Input */}
+      <div className="max-w-md">
+        <Label
+          htmlFor="search"
+          className="text-sm font-medium text-gray-700 dark:text-gray-300"
+        >
+          Search Leads
+        </Label>
+        <div className="relative mt-1">
+          <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            id="search"
+            type="text"
+            placeholder="Search by name, email, visa status, education..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        {searchTerm && (
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            {filteredLeads.length} lead(s) found
+          </p>
+        )}
+      </div>
+
       <div className="flex justify-center w-full">
         <div className="w-full max-w-7xl">
           <AGGridTable
-            rowData={leads}
+            rowData={filteredLeads}
             columnDefs={columnDefs}
-            title={`All Leads (${leads.length})`}
+            title={`All Leads (${filteredLeads.length})`}
             height="calc(60vh)"
+            showSearch={false}
             onRowClicked={(event) => {
               console.log("Row clicked:", event.data);
             }}
+            onRowUpdated={handleRowUpdated}
+            onRowDeleted={handleRowDeleted}
           />
         </div>
       </div>

@@ -2,11 +2,16 @@
 import { AGGridTable } from "@/components/AGGridTable";
 import { Button } from "@/components/admin_ui/button";
 import { Badge } from "@/components/admin_ui/badge";
-import { PlusIcon } from "lucide-react";
+import { Input } from "@/components/admin_ui/input";
+import { Label } from "@/components/admin_ui/label";
+import { SearchIcon, PlusIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 
 export default function VendorsDailyContactPage() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredVendors, setFilteredVendors] = useState([]);
+
   // Sample daily contact data - vendors with recent communications
   const dailyContactVendors = [
     {
@@ -36,6 +41,61 @@ export default function VendorsDailyContactPage() {
       rating: 4.9,
     },
   ];
+
+  // All vendors data (daily contact)
+  const allVendors = [
+    {
+      id: 1,
+      company: "TechStaff Solutions",
+      contact: "Maria Rodriguez",
+      email: "maria@techstaff.com",
+      phone: "+1 (555) 456-7890",
+      services: "IT Recruitment, Contract Staffing",
+      location: "San Francisco, CA",
+      partnership: "Premium",
+      activeContracts: 12,
+      lastContact: "2024-01-15",
+      rating: 4.8,
+    },
+    {
+      id: 3,
+      company: "Talent Bridge Inc",
+      contact: "Lisa Chen",
+      email: "lisa@talentbridge.com",
+      phone: "+1 (555) 678-9012",
+      services: "Permanent Placement, Temporary Staffing",
+      location: "Austin, TX",
+      partnership: "Premium",
+      activeContracts: 15,
+      lastContact: "2024-01-14",
+      rating: 4.9,
+    },
+  ];
+
+  // Auto-search functionality
+  const filterVendors = useCallback((searchTerm: string) => {
+    if (searchTerm.trim() === "") {
+      return allVendors;
+    } else {
+      return allVendors.filter((vendor) => {
+        const searchLower = searchTerm.toLowerCase();
+        return (
+          vendor.company.toLowerCase().includes(searchLower) ||
+          vendor.contact.toLowerCase().includes(searchLower) ||
+          vendor.email.toLowerCase().includes(searchLower) ||
+          vendor.phone.includes(searchTerm) ||
+          vendor.services.toLowerCase().includes(searchLower) ||
+          vendor.location.toLowerCase().includes(searchLower) ||
+          vendor.partnership.toLowerCase().includes(searchLower)
+        );
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    const filtered = filterVendors(searchTerm);
+    setFilteredVendors(filtered);
+  }, [searchTerm, filterVendors]);
 
   const PartnershipRenderer = (params: any) => {
     const { value } = params;
@@ -106,31 +166,69 @@ export default function VendorsDailyContactPage() {
     [],
   );
 
+  const handleRowUpdated = (updatedRow) => {
+    setFilteredVendors((prev) =>
+      prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
+    );
+  };
+  const handleRowDeleted = (id) => {
+    setFilteredVendors((prev) => prev.filter((row) => row.id !== id));
+  };
+
   return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Daily Contact</h1>
-            <p className="text-gray-600">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Daily Contact</h1>
+            <p className="text-gray-600 dark:text-gray-400">
               Daily communication tracking with vendor partners
             </p>
           </div>
-        <Button>
+        <Button className="bg-whitebox-600 hover:bg-whitebox-700">
             <PlusIcon className="h-4 w-4 mr-2" />
             Log Contact
           </Button>
         </div>
 
+        {/* Search Input */}
+        <div className="max-w-md">
+          <Label
+            htmlFor="search"
+            className="text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            Search Vendors
+          </Label>
+          <div className="relative mt-1">
+            <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              id="search"
+              type="text"
+              placeholder="Search by company, contact, email, services..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          {searchTerm && (
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+              {filteredVendors.length} vendor(s) found
+            </p>
+          )}
+        </div>
+
         <div className="flex justify-center w-full">
           <div className="w-full max-w-7xl">
             <AGGridTable
-              rowData={dailyContactVendors}
+              rowData={filteredVendors}
               columnDefs={columnDefs}
-              title={`Daily Contact (${dailyContactVendors.length})`}
+              title={`Daily Contact (${filteredVendors.length})`}
               height="calc(60vh)"
+              showSearch={false}
               onRowClicked={(event) => {
                 console.log("Row clicked:", event.data);
               }}
+              onRowUpdated={handleRowUpdated}
+              onRowDeleted={handleRowDeleted}
             />
           </div>
         </div>
