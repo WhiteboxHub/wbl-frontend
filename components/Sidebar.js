@@ -1232,7 +1232,7 @@ const Sidebar = ({ isOpen: propIsOpen, toggleSidebar: propToggleSidebar }) => {
                 </div>
               )}
 
-              {activeSection === "announcements" && (
+              {/* {activeSection === "announcements" && (
                 <div className="space-y-4 animate-[fadeIn_0.5s_ease-out]">
                   <h3 className={`text-xl font-bold mb-4 ${isDark ? 'text-gray-100' : 'text-gray-800'}`}>Recent Interviews</h3>
 
@@ -1260,7 +1260,15 @@ const Sidebar = ({ isOpen: propIsOpen, toggleSidebar: propToggleSidebar }) => {
                     </div>
                   )}
                 </div>
+              )} */}
+
+                 {activeSection === "announcements" && (
+                <div className="space-y-4 animate-[fadeIn_0.5s_ease-out]">
+                  <h3 className={`text-xl font-bold mb-4 ${isDark ? 'text-gray-100' : 'text-gray-800'}`}>Recent Interviews</h3>
+                  <p className="italic text-sm font-semibold">Coming Soon...</p>
+                </div>
               )}
+
             </div>
           </nav>
         </div>
@@ -1270,3 +1278,6 @@ const Sidebar = ({ isOpen: propIsOpen, toggleSidebar: propToggleSidebar }) => {
 };
 
 export default Sidebar;
+
+
+//// above code data came to directly to db it is working 100% today i changes 20-6-2025 /////////////////

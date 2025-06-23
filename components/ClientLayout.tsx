@@ -52,10 +52,19 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     setSidebarOpen((prev) => !prev);
   }, []);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setHoldLoad(true), 300);
-    return () => clearTimeout(timer);
-  }, []);
+  // useEffect(() => {
+  //   const timer = setTimeout(() => setHoldLoad(true), 300);
+  //   return () => clearTimeout(timer);
+  // }, []);
+
+  const [hasMounted, setHasMounted] = useState(false);
+
+useEffect(() => {
+  setHasMounted(true);
+}, []);
+
+if (!hasMounted) return null;
+
 
   return holdLoad ? (
     <>
