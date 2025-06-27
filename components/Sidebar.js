@@ -1278,6 +1278,3 @@ const Sidebar = ({ isOpen: propIsOpen, toggleSidebar: propToggleSidebar }) => {
 };
 
 export default Sidebar;
-
-
-//// above code data came to directly to db it is working 100% today i changes 20-6-2025 /////////////////

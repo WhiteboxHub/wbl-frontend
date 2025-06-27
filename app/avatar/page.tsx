@@ -1,3 +1,4 @@
+// whiteboxLearning-wbl/app/avatar/page.tsx
 "use client";
 import { AvatarLayout } from "@/components/AvatarLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin_ui/card";

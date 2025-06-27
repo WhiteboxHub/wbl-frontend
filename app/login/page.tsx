@@ -1052,15 +1052,188 @@
 // export default SigninPage;
 
 
+
+// -----------------------------------     --  wrk ---------------------------------------------
+
+// // // frontend/app/login/page.tsx
+// "use client";
+// import Link from "next/link";
+// import UserDashboard from "@/app/user_dashboard/page";
+// import { useRouter, useSearchParams } from "next/navigation";
+// import { Suspense, useEffect, useState, FormEvent } from "react";
+// import { useAuth } from "@/utils/AuthContext";
+// import { signIn, useSession } from "next-auth/react";
+// import { SignInResponse } from "next-auth/react";
+// import { isAuthenticated, getUserTeamRole } from "@/utils/auth";
+
+
+
+
+
+
+// const SigninPage = () => {
+//   const [email, setEmail] = useState("");
+//   const [password, setPassword] = useState("");
+//   const [message, setMessage] = useState("");
+//   const [loading, setLoading] = useState(false);
+//   const [gloading, setGLoading] = useState(false);
+//   const [responseStatus, setResponseStatus] = useState("");
+//   const [loggedIn, setLoggedIn] = useState(false);
+//   const { data: session, status } = useSession();
+//   const [googleMessage, setGoogleMessage] = useState("");
+//   const [googleStatus, setGoogleStatus] = useState("");
+//   const [showPassword, setShowPassword] = useState(false);
+
+//   const { login } = useAuth();
+//   const router = useRouter();
+//   const searchParams = useSearchParams();
+//   const callbackUrl = searchParams.get("redirect") || "/";
+
+//   interface ExtendedSignInResponse extends SignInResponse {
+//     message?: string;
+//   }
+
+//   const handleGoogleSignIn = async () => {
+//     setGoogleMessage("");
+//     setGoogleStatus("");
+//     setGLoading(true);
+
+//     const response: ExtendedSignInResponse | undefined = (await signIn(
+//       "google",
+//       { redirect: false }
+//     )) as ExtendedSignInResponse;
+
+//     if (!response) {
+//       setGoogleStatus("error");
+//       setGLoading(false);
+//       return;
+//     }
+
+//     if (response.url) {
+//       const url = new URL(response.url);
+//       const status = url.searchParams.get("status");
+//       if (status === "registered") {
+//         setGoogleMessage("Registered successfully!");
+//         setGoogleStatus("success");
+//       } else if (status === "inactive") {
+//         setGoogleMessage("Inactive account. Please contact admin.");
+//         setGoogleStatus("error");
+//       } else if (status === "active") {
+//         setGoogleMessage("Logged in successfully!");
+//         setGoogleStatus("success");
+//         router.push("/");
+//       } else {
+//         setGoogleMessage("Unexpected status received: " + status);
+//         setGoogleStatus("error");
+//       }
+//     } else {
+//       setGoogleMessage("No status returned from Google sign-in.");
+//       setGoogleStatus("error");
+//     }
+
+//     setGLoading(false);
+//   };
+
+//   useEffect(() => {
+//     if (session?.user?.status === "inactive") {
+//       setGoogleMessage("Inactive account. Please contact admin.");
+//       setGoogleStatus("error");
+//     } else if (session?.user?.status === "registered") {
+//       setGoogleMessage("Registered successfully !!");
+//       setGoogleStatus("success");
+//     } else if (session?.user?.status === "active") {
+//       setGoogleMessage("Logged in successfully!");
+//       setGoogleStatus("success");
+//       router.push("/");
+//     }
+//   }, [session, router]);
+
+//   useEffect(() => {
+//     setMessage("");
+//     setGoogleMessage("");
+//   }, []);
+
+//   const handleSubmit = async (e) => {
+//     // const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+//     e.preventDefault();
+//     if (loading) return;
+//     setLoading(true);
+
+//     const formData = new URLSearchParams();
+//     formData.append("username", email);
+//     formData.append("password", password);
+
+//     try {
+//       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/login`, {
+//         method: "POST",
+//         headers: {
+//           "Content-Type": "application/x-www-form-urlencoded",
+//         },
+//         body: formData,
+//       });
+
+//       const data = await response.json();
+
+//       if (response.ok) {
+//         setMessage(data.message || "Login successful!");
+//         setResponseStatus("success");
+//         login(data.access_token);
+//         setLoggedIn(true);
+//         router.push(callbackUrl);
+//       } else {
+//         setResponseStatus("error");
+//         setMessage(data.detail || "Failed to login");
+//       }
+//     } catch (error) {
+//       setResponseStatus("error");
+//       setMessage(error.detail || "An error occurred during login");
+//       // setMessage((error as any).detail || "An error occurred during login");
+//     } finally {
+//       setLoading(false);
+//     }
+//     setEmail("");
+//     setPassword("");
+//   };
+
+//   const handleInputFocus = () => {
+//     setMessage("");
+//   };
+
+//   const handleCloseMessage = () => {
+//     setMessage("");
+//   };
+
+//   useEffect(() => {
+//     const accessToken = localStorage.getItem("access_token");
+//     if (accessToken) {
+//       router.push(callbackUrl);
+//     }
+//   }, [router, callbackUrl]);
+
+//   if (loggedIn) {
+//     return <UserDashboard />;
+//   }
+
+//   const handleCloseGoogleMessage = () => {
+//     setGoogleMessage("");
+//   };
+
+//   const togglePasswordVisibility = () => {
+//     setShowPassword(!showPassword);
+//   };
+
+
 // frontend/app/login/page.tsx
 "use client";
+
 import Link from "next/link";
 import UserDashboard from "@/app/user_dashboard/page";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState, FormEvent } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useAuth } from "@/utils/AuthContext";
 import { signIn, useSession } from "next-auth/react";
 import { SignInResponse } from "next-auth/react";
+import { getUserTeamRole } from "@/utils/auth";
 
 const SigninPage = () => {
   const [email, setEmail] = useState("");
@@ -1070,7 +1243,7 @@ const SigninPage = () => {
   const [gloading, setGLoading] = useState(false);
   const [responseStatus, setResponseStatus] = useState("");
   const [loggedIn, setLoggedIn] = useState(false);
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
   const [googleMessage, setGoogleMessage] = useState("");
   const [googleStatus, setGoogleStatus] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -1089,10 +1262,9 @@ const SigninPage = () => {
     setGoogleStatus("");
     setGLoading(true);
 
-    const response: ExtendedSignInResponse | undefined = (await signIn(
-      "google",
-      { redirect: false }
-    )) as ExtendedSignInResponse;
+    const response: ExtendedSignInResponse | undefined = (await signIn("google", {
+      redirect: false,
+    })) as ExtendedSignInResponse;
 
     if (!response) {
       setGoogleStatus("error");
@@ -1144,8 +1316,7 @@ const SigninPage = () => {
     setGoogleMessage("");
   }, []);
 
-  const handleSubmit = async (e) => {
-    // const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (loading) return;
     setLoading(true);
@@ -1168,20 +1339,26 @@ const SigninPage = () => {
       if (response.ok) {
         setMessage(data.message || "Login successful!");
         setResponseStatus("success");
-        login(data.access_token);
-        setLoggedIn(true);
-        router.push(callbackUrl);
+        login(data.access_token); 
+
+        const role = getUserTeamRole(); 
+        if (role === "admin") {
+          // router.push("/avatar");
+          router.push('/');
+        } else {
+          router.push("/");
+        }
       } else {
         setResponseStatus("error");
         setMessage(data.detail || "Failed to login");
       }
     } catch (error) {
       setResponseStatus("error");
-      setMessage(error.detail || "An error occurred during login");
-      // setMessage((error as any).detail || "An error occurred during login");
+      setMessage("An error occurred during login");
     } finally {
       setLoading(false);
     }
+
     setEmail("");
     setPassword("");
   };
@@ -1193,17 +1370,6 @@ const SigninPage = () => {
   const handleCloseMessage = () => {
     setMessage("");
   };
-
-  useEffect(() => {
-    const accessToken = localStorage.getItem("access_token");
-    if (accessToken) {
-      router.push(callbackUrl);
-    }
-  }, [router, callbackUrl]);
-
-  if (loggedIn) {
-    return <UserDashboard />;
-  }
 
   const handleCloseGoogleMessage = () => {
     setGoogleMessage("");

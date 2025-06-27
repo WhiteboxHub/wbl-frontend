@@ -1,3 +1,4 @@
+// whiteboxLearning-wbl/app/avatar/layout.tsx
 "use client";
 import { AvatarLayout } from "@/components/AvatarLayout";
 

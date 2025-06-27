@@ -1,3 +1,4 @@
+// whiteboxLearning-wbl/app/avatar/candidates/placements/page.tsx
 "use client";
 import "@/styles/admin.css";
 import "@/styles/App.css";
