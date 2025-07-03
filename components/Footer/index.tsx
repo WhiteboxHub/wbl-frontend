@@ -7,7 +7,7 @@ import { useAuth } from "@/utils/AuthContext";
 const Footer = () => {
   const { isAuthenticated } = useAuth();
   const currentYear = new Date().getFullYear();
-  const address = "6500 Dublin Blvd., Ste.214(B), Dublin, CA, 94568";
+  const address = "6500 Dublin Blvd., Ste.218, Dublin, CA, 94568";
   const googleMapsLink = `https://www.google.com/maps?q=${encodeURIComponent(
     address
   )}`;
