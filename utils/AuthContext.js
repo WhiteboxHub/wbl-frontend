@@ -218,6 +218,125 @@
 // // Hook to use authentication context
 // // export const useAuth = () => useContext(AuthContext);
 
+// ------------------------------------------------------------------ role base and domain based---------------------------------
+
+
+// "use client";
+
+// import { useSession } from "next-auth/react";
+// import { signOut } from "next-auth/react";
+// import { useRouter } from "next/navigation";
+// import { createContext, useContext, useEffect, useState } from "react";
+// import { isTokenExpired, getUserTeamRole } from './auth';
+
+// const AuthContext = createContext();
+
+// export const AuthProvider = ({ children }) => {
+//   const [authToken, setAuthToken] = useState(null);
+//   const [isAuthenticated, setIsAuthenticated] = useState(false);
+//   const [userRole, setUserRole] = useState(null); // Track role (admin or candidate)
+
+//   const { data: session } = useSession();
+//   const router = useRouter();
+
+//   useEffect(() => {
+//     const token = localStorage.getItem("access_token");
+//     if (token) {
+//       checkToken(token);
+//     } else {
+//       setIsAuthenticated(false);
+//     }
+
+//     const interval = setInterval(() => {
+//       if (authToken) {
+//         checkToken(authToken);
+//       }
+//     }, 1000 * 60); // Check every minute
+
+//     return () => clearInterval(interval);
+//   }, [authToken]);
+
+//   const checkToken = (token) => {
+//     if (isTokenExpired(token)) {
+//       handleTokenExpiration();
+//     } else {
+//       setAuthToken(token);
+//       setIsAuthenticated(true);
+//       const role = getUserTeamRole(token); // ✅ Pass token explicitly
+//       setUserRole(role);
+//     }
+//   };
+
+//   const handleTokenExpiration = () => {
+//     logout();
+//     const currentPath = router.pathname;
+
+//     if (currentPath === "/") {
+//       localStorage.removeItem("access_token");
+//       sessionStorage.clear();
+//       setAuthToken(null);
+//       setIsAuthenticated(false);
+//       setUserRole(null);
+//       alert("Session expired. Please login again.");
+//     } else {
+//       router.push("/login");
+//     }
+//   };
+
+//   useEffect(() => {
+//     if (session?.accessToken) {
+//       login(session.accessToken);
+//     }
+//   }, [session]);
+
+//   const login = (token) => {
+//     setAuthToken(token);
+//     localStorage.setItem("access_token", token);
+//     setIsAuthenticated(true);
+//     const role = getUserTeamRole(token); 
+//     setUserRole(role);
+//   };
+
+//   const logout = () => {
+//     localStorage.removeItem("access_token");
+//     sessionStorage.clear();
+//     setAuthToken(null);
+//     setIsAuthenticated(false);
+//     setUserRole(null);
+//     clearNextAuthCookies();
+//     signOut({ redirect: false });
+//   };
+
+//   function clearNextAuthCookies() {
+//     if (typeof window !== "undefined") {
+//       const cookiesToClear = [
+//         'next-auth.session-token',
+//         'next-auth.callback-url',
+//         'next-auth.csrf-token'
+//       ];
+//       cookiesToClear.forEach(cookie => {
+//         document.cookie = `${cookie}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+//       });
+//     }
+//   }
+
+//   return (
+//     <AuthContext.Provider value={{
+//       isAuthenticated,
+//       authToken,
+//       login,
+//       logout,
+//       userRole 
+//     }}>
+//       {children}
+//     </AuthContext.Provider>
+//   );
+// };
+
+// export const useAuth = () => useContext(AuthContext);
+
+
+
 
 
 
@@ -234,7 +353,8 @@ const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [authToken, setAuthToken] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userRole, setUserRole] = useState(null); // Track role (admin or candidate)
+  const [userRole, setUserRole] = useState(null); 
+  const [sidebarOpen, setSidebarOpen] = useState(false); 
 
   const { data: session } = useSession();
   const router = useRouter();
@@ -251,7 +371,7 @@ export const AuthProvider = ({ children }) => {
       if (authToken) {
         checkToken(authToken);
       }
-    }, 1000 * 60); // Check every minute
+    }, 1000 * 60); 
 
     return () => clearInterval(interval);
   }, [authToken]);
@@ -262,7 +382,7 @@ export const AuthProvider = ({ children }) => {
     } else {
       setAuthToken(token);
       setIsAuthenticated(true);
-      const role = getUserTeamRole(token); // ✅ Pass token explicitly
+      const role = getUserTeamRole(token); 
       setUserRole(role);
     }
   };
@@ -277,6 +397,7 @@ export const AuthProvider = ({ children }) => {
       setAuthToken(null);
       setIsAuthenticated(false);
       setUserRole(null);
+      setSidebarOpen(false); 
       alert("Session expired. Please login again.");
     } else {
       router.push("/login");
@@ -295,6 +416,7 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(true);
     const role = getUserTeamRole(token); 
     setUserRole(role);
+    setSidebarOpen(true); 
   };
 
   const logout = () => {
@@ -303,6 +425,7 @@ export const AuthProvider = ({ children }) => {
     setAuthToken(null);
     setIsAuthenticated(false);
     setUserRole(null);
+    setSidebarOpen(false); 
     clearNextAuthCookies();
     signOut({ redirect: false });
   };
@@ -326,7 +449,9 @@ export const AuthProvider = ({ children }) => {
       authToken,
       login,
       logout,
-      userRole 
+      userRole,
+      sidebarOpen,       
+      setSidebarOpen     
     }}>
       {children}
     </AuthContext.Provider>
