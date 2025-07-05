@@ -1,7 +1,7 @@
-// whiteboxLearning-wbl/app/avatar/candidates/search/page.tsx
+// // whiteboxLearning-wbl/app/avatar/candidates/search/page.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable";
@@ -44,25 +44,43 @@ export default function CandidateSearchPage() {
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState("");
 
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(100);
+  const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
+  const abortController = useRef<AbortController | null>(null);
 
-  // Search API
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      const fetchSearchResults = async () => {
-        if (!searchTerm.trim()) {
-          setFilteredCandidates([]);
-          setColumnDefs([]);
-          return;
-        }
+    if (debounceTimeout.current) {
+      clearTimeout(debounceTimeout.current);
+    }
 
+    if (!searchTerm.trim()) {
+      setFilteredCandidates([]);
+      setColumnDefs([]);
+      setError("");
+      return;
+    }
+
+    debounceTimeout.current = setTimeout(() => {
+      if (abortController.current) {
+        abortController.current.abort();
+      }
+
+      const controller = new AbortController();
+      abortController.current = controller;
+
+      const fetchCandidates = async () => {
         setSearching(true);
+        setError("");
+
         try {
           const res = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/candidates/by-name/${encodeURIComponent(searchTerm)}`
+            `${process.env.NEXT_PUBLIC_API_URL}/candidates/by-name/${encodeURIComponent(
+              searchTerm
+            )}`,
+            { signal: controller.signal }
           );
+
           if (!res.ok) throw new Error("Search failed");
+
           const data = await res.json();
           setFilteredCandidates(data);
 
@@ -100,28 +118,30 @@ export default function CandidateSearchPage() {
           } else {
             setColumnDefs([]);
           }
-        } catch (err) {
-          setFilteredCandidates([]);
-          setColumnDefs([]);
-          setError("Search failed");
+        } catch (err: any) {
+          if (err.name !== "AbortError") {
+            setFilteredCandidates([]);
+            setColumnDefs([]);
+            setError("Search failed");
+          }
         } finally {
           setSearching(false);
         }
       };
 
-      fetchSearchResults();
-    }, 400); // debounce delay
-
-    return () => clearTimeout(timeout);
+      fetchCandidates();
+    }, 300);
   }, [searchTerm]);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Search Candidates</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            Search Candidates
+          </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Search candidates by name and view details dynamically
+            Search Candidates by Name 
           </p>
         </div>
       </div>
@@ -145,12 +165,14 @@ export default function CandidateSearchPage() {
         {searching && (
           <p className="mt-2 text-sm text-blue-500 dark:text-blue-400">Searching...</p>
         )}
-        {searchTerm && !searching && (
+        {searchTerm && !searching && !error && (
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
             {filteredCandidates.length} candidate(s) found
           </p>
         )}
-        {error && <p className="text-red-500 mt-2">{error}</p>}
+        {error && !searching && (
+          <p className="text-red-500 mt-2">{error}</p>
+        )}
       </div>
 
       <div className="flex justify-center w-full">

@@ -262,7 +262,183 @@
 // }
 
 
+// // whiteboxLearning-wbl/app/avatar/candidates/interviews/page.tsx
+// "use client";
+// import "@/styles/admin.css";
+// import "@/styles/App.css";
+// import { AGGridTable } from "@/components/AGGridTable";
+// import { Button } from "@/components/admin_ui/button";
+// import { Badge } from "@/components/admin_ui/badge";
+// import { Input } from "@/components/admin_ui/input";
+// import { Label } from "@/components/admin_ui/label";
+// import { SearchIcon, PlusIcon } from "lucide-react";
+// import { ColDef } from "ag-grid-community";
+// import { useMemo, useState, useEffect, useCallback } from "react";
 
+// export default function CandidatesInterviews() {
+//   const [searchTerm, setSearchTerm] = useState("");
+//   const [allInterviews, setAllInterviews] = useState<any[]>([]);
+//   const [filteredInterviews, setFilteredInterviews] = useState<any[]>([]);
+//   const [loading, setLoading] = useState(true);
+//   const [error, setError] = useState("");
+  
+//   // Fetch from backend once
+//   useEffect(() => {
+//     const fetchInterviews = async () => {
+//       try {
+//         setLoading(true);
+//         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/interviews?limit=100&offset=0`);
+//         if (!res.ok) throw new Error("Failed to load interviews");
+//         const data = await res.json();
+//         setAllInterviews(data);
+//         setFilteredInterviews(data);
+//       } catch (err) {
+//         console.error(err);
+//         setError("Failed to load interviews.");
+//       } finally {
+//         setLoading(false);
+//       }
+//     };
+//     fetchInterviews();
+//   }, []);
+
+//   // Filter logic
+//   const filterData = useCallback((term: string) => {
+//     if (!term.trim()) return allInterviews;
+//     const lower = term.toLowerCase();
+//     return allInterviews.filter(item =>
+//       Object.values(item).some(val =>
+//         val?.toString().toLowerCase().includes(lower)
+//       )
+//     );
+//   }, [allInterviews]);
+
+//   useEffect(() => {
+//     setFilteredInterviews(filterData(searchTerm));
+//   }, [searchTerm, filterData]);
+
+//   const StatusRenderer = (params: any) => {
+//     const v = params.value?.toLowerCase() ?? "";
+//     const classes = v === "active"
+//       ? "bg-green-100 text-green-800"
+//       : v === "inactive"
+//       ? "bg-red-100 text-red-800"
+//       : "bg-gray-100 text-gray-800";
+//     return <Badge className={classes}>{params.value?.toUpperCase()}</Badge>;
+//   };
+
+//   const VisaStatusRenderer = (params: any) => {
+//     const v = params.value;
+//     const map: Record<string, string> = {
+//       H1B: "bg-blue-100 text-blue-800",
+//       "Green Card": "bg-emerald-100 text-emerald-800",
+//       "F1 Student": "bg-purple-100 text-purple-800",
+//       L1: "bg-orange-100 text-orange-800",
+//       OPT: "bg-indigo-100 text-indigo-800",
+//       "H4 EAD": "bg-pink-100 text-pink-800",
+//     };
+//     return <Badge className={map[v] ?? "bg-gray-100 text-gray-800"}>{v}</Badge>;
+//   };
+
+//   const AmountRenderer = (params: any) =>
+//     `$${Number(params.value).toLocaleString()}`;
+
+//   const columnDefs = useMemo<ColDef[]>(() => {
+//     if (filteredInterviews.length === 0) return [];
+//     const keys = Object.keys(filteredInterviews[0]);
+//     return keys.map(key => {
+//       const col: ColDef = {
+//         field: key,
+//         headerName: key.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase()),
+//         sortable: true,
+//         resizable: true,
+//         minWidth: 100,
+//       };
+
+//       if (key === "status") col.cellRenderer = StatusRenderer;
+//       if (key === "visaStatus" || key === "candidate_role") col.cellRenderer = VisaStatusRenderer;
+//       if (key === "interview_time" || key === "interview_date") col.width = 130;
+//       if (key === "interview_time") col.width = 110;
+//       if (key === "interview_mode" || key === "client_name" || key === "interview_location") col.flex = 1;
+//       if (key === "id") {
+//         col.pinned = "left";
+//         col.checkboxSelection = true;
+//         col.width = 80;
+//       }
+
+//       return col;
+//     });
+//   }, [filteredInterviews]);
+
+//   const handleRowUpdated = (updated: any) =>
+//     setFilteredInterviews(prev =>
+//       prev.map(row => (row.id === updated.id ? updated : row))
+//     );
+
+//   const handleRowDeleted = (id: any) =>
+//     setFilteredInterviews(prev => prev.filter(r => r.id !== id));
+
+//   if (loading) return <p className="text-center mt-8">Loading interviews...</p>;
+//   if (error) return <p className="text-center mt-8 text-red-600">{error}</p>;
+
+//   return (
+//     <div className="space-y-6">
+//       <div className="flex items-center justify-between">
+//         <div>
+//           <h1 className="text-2xl font-bold text-gray-900">Interviews</h1>
+//           <p className="text-gray-600">
+//             Candidates scheduled for interviews and assessment sessions
+//           </p>
+//         </div>
+//         <Button className="bg-whitebox-600 hover:bg-whitebox-700">
+//           <PlusIcon className="h-4 w-4 mr-2" />
+//           Schedule Interview
+//         </Button>
+//       </div>
+
+//       <div className="max-w-md">
+//         <Label htmlFor="search" className="text-sm font-medium text-gray-700">
+//           Search
+//         </Label>
+//         <div className="relative mt-1">
+//           <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+//           <Input
+//             id="search"
+//             type="text"
+//             value={searchTerm}
+//             placeholder="Name, mode, date..."
+//             onChange={e => setSearchTerm(e.target.value)}
+//             className="pl-10"
+//           />
+//         </div>
+//         {searchTerm && (
+//           <p className="mt-2 text-sm text-gray-500">
+//             {filteredInterviews.length} result(s)
+//           </p>
+//         )}
+//       </div>
+
+//       <div className="flex justify-center w-full">
+//         <div className="w-full max-w-7xl">
+//           <AGGridTable
+//             rowData={filteredInterviews}
+//             columnDefs={columnDefs}
+//             title={`Interviews (${filteredInterviews.length})`}
+//             height="500px"
+//             showSearch={false}
+//             onRowClicked={e => console.log("Row clicked:", e.data)}
+//             onRowUpdated={handleRowUpdated}
+//             onRowDeleted={handleRowDeleted}
+//           />
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
+
+
+
+// whiteboxLearning-wbl/app/avatar/candidates/interviews/page.tsx
 "use client";
 import "@/styles/admin.css";
 import "@/styles/App.css";
@@ -281,8 +457,8 @@ export default function CandidatesInterviews() {
   const [filteredInterviews, setFilteredInterviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  
-  // Fetch from backend once
+
+  // Fetch interviews from backend
   useEffect(() => {
     const fetchInterviews = async () => {
       try {
@@ -302,7 +478,7 @@ export default function CandidatesInterviews() {
     fetchInterviews();
   }, []);
 
-  // Filter logic
+  // Search/filter logic
   const filterData = useCallback((term: string) => {
     if (!term.trim()) return allInterviews;
     const lower = term.toLowerCase();
@@ -357,9 +533,9 @@ export default function CandidatesInterviews() {
 
       if (key === "status") col.cellRenderer = StatusRenderer;
       if (key === "visaStatus" || key === "candidate_role") col.cellRenderer = VisaStatusRenderer;
-      if (key === "interview_time" || key === "interview_date") col.width = 130;
       if (key === "interview_time") col.width = 110;
-      if (key === "interview_mode" || key === "client_name" || key === "interview_location") col.flex = 1;
+      if (key === "interview_date") col.width = 130;
+      if (["interview_mode", "client_name", "interview_location"].includes(key)) col.flex = 1;
       if (key === "id") {
         col.pinned = "left";
         col.checkboxSelection = true;
@@ -378,26 +554,25 @@ export default function CandidatesInterviews() {
   const handleRowDeleted = (id: any) =>
     setFilteredInterviews(prev => prev.filter(r => r.id !== id));
 
-  if (loading) return <p className="text-center mt-8">Loading interviews...</p>;
-  if (error) return <p className="text-center mt-8 text-red-600">{error}</p>;
-
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Interviews</h1>
-          <p className="text-gray-600">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Interviews</h1>
+          <p className="text-gray-600 dark:text-gray-400">
             Candidates scheduled for interviews and assessment sessions
           </p>
         </div>
-        <Button className="bg-whitebox-600 hover:bg-whitebox-700">
+        <Button className="bg-whitebox-600 hover:bg-whitebox-700 text-white">
           <PlusIcon className="h-4 w-4 mr-2" />
           Schedule Interview
         </Button>
       </div>
 
+      {/* Search Input */}
       <div className="max-w-md">
-        <Label htmlFor="search" className="text-sm font-medium text-gray-700">
+        <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
           Search
         </Label>
         <div className="relative mt-1">
@@ -412,26 +587,35 @@ export default function CandidatesInterviews() {
           />
         </div>
         {searchTerm && (
-          <p className="mt-2 text-sm text-gray-500">
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
             {filteredInterviews.length} result(s)
           </p>
         )}
       </div>
 
-      <div className="flex justify-center w-full">
-        <div className="w-full max-w-7xl">
-          <AGGridTable
-            rowData={filteredInterviews}
-            columnDefs={columnDefs}
-            title={`Interviews (${filteredInterviews.length})`}
-            height="500px"
-            showSearch={false}
-            onRowClicked={e => console.log("Row clicked:", e.data)}
-            onRowUpdated={handleRowUpdated}
-            onRowDeleted={handleRowDeleted}
-          />
+      {/* Loading, Error, or Table */}
+      {loading ? (
+        <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-8">
+          Loading...
+        </p>
+      ) : error ? (
+        <p className="text-center mt-8 text-red-500">{error}</p>
+      ) : (
+        <div className="flex justify-center w-full">
+          <div className="w-full max-w-7xl">
+            <AGGridTable
+              rowData={filteredInterviews}
+              columnDefs={columnDefs}
+              title={`Interviews (${filteredInterviews.length})`}
+              height="500px"
+              showSearch={false}
+              onRowClicked={e => console.log("Row clicked:", e.data)}
+              onRowUpdated={handleRowUpdated}
+              onRowDeleted={handleRowDeleted}
+            />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

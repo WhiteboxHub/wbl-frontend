@@ -1,3 +1,4 @@
+// whiteboxLearning-wbl/components/ViewModal.tsx
 "use client";
 import {
   Dialog,

@@ -1,3 +1,4 @@
+// whiteboxLearning-wbl/components/EditModal.tsx
 "use client";
 import {
   Dialog,
