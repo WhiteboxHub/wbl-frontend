@@ -1498,7 +1498,8 @@ import { useTheme } from "next-themes";
 import axios from "axios";
 import { motion } from "framer-motion";
 
-const Sidebar = () => {
+// const Sidebar = () => {
+  const Sidebar = ({ isOpen, toggleSidebar }) => {
   const { isAuthenticated, sidebarOpen, setSidebarOpen } = useAuth();
   const { theme } = useTheme();
 

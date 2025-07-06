@@ -107,26 +107,36 @@ export function ViewModal({ isOpen, onClose, data, title }: ViewModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold dark:text-gray-100">
             {title} - View Details
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
+        {/* <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 p-4"> */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 p-4">
+
           {/* Basic Information */}
           <div className="space-y-4">
             <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
               Basic Information
             </h3>
-            {renderField("ID", data.id)}
-            {renderField("Full Name", data.fullName)}
-            {renderField("Company", data.company)}
+            {/* {renderField("ID", data.id)} */}
+            {renderField("Candidate ID", data.candidateid)}
+            {renderField("Full Name", data.name)}
+            {renderField("Date of Birth", data.dob)}
             {renderField("Contact", data.contact)}
+            {renderField("Primary Phone", data.phone)}
+            {renderField("Secondary Phone", data.secondaryphone)}
             {renderField("Email", data.email)}
-            {renderField("Phone", data.phone)}
-            {renderField("Visa Status", data.visaStatus, "visa")}
+            {renderField("Secondary Email", data.secondaryemail)}
+            {renderField("Enrollment Date", data.enrolleddate)}
+            {renderField("Batch Name", data.batchname)}
+            {renderField("Batch ID", data.batchid)}
+            {renderField("Term", data.term)}
+            {renderField("Agreement", data.agreement)}
+            {renderField("Promissory Note", data.promissory)}
           </div>
 
           {/* Professional Information */}
@@ -134,15 +144,32 @@ export function ViewModal({ isOpen, onClose, data, title }: ViewModalProps) {
             <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
               Professional Information
             </h3>
-            {renderField("Education", data.education)}
-            {renderField("Services", data.services)}
+            {/* {renderField("Education", data.education)}
+            {renderField("Visa Status", data.workstatus, "visa")}
+            {renderField("Course", data.course)}
+            {renderField("Work Experience", data.workexperience)}
             {renderField("Status", data.status, "status")}
             {renderField("Partnership", data.partnership, "partnership")}
             {renderField("Active Contracts", data.activeContracts)}
-            {renderField("Enrolled Date", data.enrolledDate)}
+            {renderField("Enrolled Date", data.enrolleddate)}
             {renderField("Last Contact", data.lastContact)}
             {renderField("Amount Paid", data.amountPaid, "amount")}
-            {renderField("Rating", data.rating, "rating")}
+            {renderField("Rating", data.rating, "rating")} */}
+            {renderField("Course", data.course)}
+            {renderField("Status", data.status)}
+            {renderField("Work Status", data.workstatus)}
+            {renderField("Education", data.education)}
+            {renderField("Work Experience", data.workexperience)}
+            {renderField("Fee Paid", data.feepaid)}
+            {renderField("Fee Due", data.feedue)}
+            {renderField("Initial Salary", data.salary0)}
+            {renderField("6 Month Salary", data.salary6)}
+            {renderField("12 Month Salary", data.salary12)}
+            {renderField("Instructor", data.instructor)}
+            {renderField("Second Instructor", data.second_instructor)}
+            {renderField("Marketing Start Date", data.marketing_startdate)}
+            {renderField("Recruiter Assessment", data.recruiterassesment)}
+            {renderField("Status Change Date", data.statuschangedate)}
           </div>
 
           {/* Contact Information */}
@@ -151,17 +178,23 @@ export function ViewModal({ isOpen, onClose, data, title }: ViewModalProps) {
               Contact Information
             </h3>
             {renderField("Address", data.address)}
-            {renderField("Location", data.location)}
-            {renderField("Pincode", data.pincode)}
-            {renderField("Referred By", data.referredBy)}
-            {renderField(
-              "Primary Emergency Contact",
-              data.primaryEmergencyContact,
-            )}
-            {renderField(
-              "Secondary Emergency Contact",
-              data.secondaryEmergencyContact,
-            )}
+            {renderField("City", data.city)}
+            {renderField("State", data.state)}
+            {renderField("Country", data.country)}
+            {renderField("Zip", data.zip)}
+          </div>
+
+                    {/* Emergency Contact */}
+          <div className="space-y-4">
+            {/* <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b pb-2"> */}
+            <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
+
+              Emergency Contact
+            </h3>
+            {renderField("Emergency Name", data.emergcontactname)}
+            {renderField("Emergency Email", data.emergcontactemail)}
+            {renderField("Emergency Phone", data.emergcontactphone)}
+            {renderField("Emergency Address", data.emergcontactaddrs)}
           </div>
 
           {/* Notes Section */}

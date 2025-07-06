@@ -133,34 +133,37 @@ export function EditModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold dark:text-gray-100">
             Edit {title}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 p-4">
           {/* Basic Information */}
           <div className="space-y-4">
             <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
               Basic Information
             </h3>
-            {renderField("ID", "id", "text")}
-            {data.fullName && renderField("Full Name", "fullName", "text")}
-            {data.company && renderField("Company", "company", "text")}
-            {data.contact && renderField("Contact", "contact", "text")}
-            {data.email && renderField("Email", "email", "email")}
-            {data.phone && renderField("Phone", "phone", "text")}
-            {data.visaStatus &&
-              renderField("Visa Status", "visaStatus", "select", [
-                "H1B",
-                "Green Card",
-                "F1 Student",
-                "L1",
-                "OPT",
-                "H4 EAD",
-              ])}
+            {renderField("ID", "candidateid")}
+            {renderField("Name", "name")}
+            {renderField("DOB", "dob", "date")}
+            {renderField("Email", "email", "email")}
+            {renderField("Secondary Email", "secondaryemail", "email")}
+            {renderField("Phone", "phone")}
+            {renderField("Secondary Phone", "secondaryphone")}
+            {renderField("Course", "course")}
+            {renderField("Batch Name", "batchname")}
+            {renderField("Batch ID", "batchid", "number")}
+            {renderField("Enrolled Date", "enrolleddate", "date")}
+            {renderField("Status", "status")}
+            {renderField("Status Change Date", "statuschangedate", "date")}
+            {renderField("Work Status", "workstatus")}
+            {renderField("SSN", "ssn")}
+            {renderField("SSN Validated", "ssnvalidated")}
+            {renderField("Avatar ID", "avatarid")}
+            {renderField("Original Resume", "originalresume")}
           </div>
 
           {/* Professional Information */}
@@ -168,31 +171,39 @@ export function EditModal({
             <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
               Professional Information
             </h3>
-            {data.education && renderField("Education", "education", "text")}
-            {data.services && renderField("Services", "services", "text")}
-            {data.status &&
-              renderField("Status", "status", "select", [
-                "active",
-                "inactive",
-                "preparation",
-                "marketing",
-                "placed",
-              ])}
-            {data.partnership &&
-              renderField("Partnership", "partnership", "select", [
-                "Premium",
-                "Standard",
-                "Basic",
-              ])}
-            {data.activeContracts &&
-              renderField("Active Contracts", "activeContracts", "number")}
-            {data.enrolledDate &&
-              renderField("Enrolled Date", "enrolledDate", "date")}
-            {data.lastContact &&
-              renderField("Last Contact", "lastContact", "date")}
-            {data.amountPaid &&
-              renderField("Amount Paid", "amountPaid", "number")}
-            {data.rating && renderField("Rating", "rating", "number")}
+            {renderField("Education", "education")}
+            {renderField("Work Experience", "workexperience")}
+            {renderField("Promissory", "promissory")}
+            {renderField("Agreement", "agreement")}
+            {renderField("Driver's License", "driverslicense")}
+            {renderField("DL URL", "dlurl")}
+            {renderField("Work Permit", "workpermit")}
+            {renderField("WP Expiration Date", "wpexpirationdate", "date")}
+            {renderField("WP URL", "workpermiturl")}
+            {renderField("SSN URL", "ssnurl")}
+            {renderField("Employment Agreement URL", "empagreementurl")}
+            {renderField("Offer Letter", "offerletter")}
+            {renderField("Offer Letter URL", "offerletterurl")}
+            {renderField("Contract URL", "contracturl")}
+            {renderField("Guarantor Name", "guarantorname")}
+            {renderField("Guarantor Designation", "guarantordesignation")}
+            {renderField("Guarantor Company", "guarantorcompany")}
+            {renderField("Salary at Joining", "salary0")}
+            {renderField("Salary at 6 Months", "salary6")}
+            {renderField("Salary at 12 Months", "salary12")}
+            {renderField("Fee Paid", "feepaid", "number")}
+            {renderField("Fee Due", "feedue", "number")}
+            {renderField("Guidelines", "guidelines")}
+            {renderField("BGV", "bgv")}
+            {renderField("Term", "term")}
+            {renderField("Recruiter Assessment", "recruiterassesment", "textarea")}
+            {renderField("Background", "background", "textarea")}
+            {renderField("Process Flag", "processflag")}
+            {renderField("Default Process Flag", "defaultprocessflag")}
+            {renderField("Dice Flag", "diceflag")}
+            {renderField("Marketing Start Date", "marketing_startdate", "date")}
+            {renderField("Instructor", "instructor")}
+            {renderField("Second Instructor", "second_instructor")}
           </div>
 
           {/* Contact Information */}
@@ -200,28 +211,31 @@ export function EditModal({
             <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
               Contact Information
             </h3>
-            {data.address && renderField("Address", "address", "text")}
-            {data.location && renderField("Location", "location", "text")}
-            {data.pincode && renderField("Pincode", "pincode", "text")}
-            {data.referredBy &&
-              renderField("Referred By", "referredBy", "text")}
-            {data.primaryEmergencyContact &&
-              renderField(
-                "Primary Emergency Contact",
-                "primaryEmergencyContact",
-                "text",
-              )}
-            {data.secondaryEmergencyContact &&
-              renderField(
-                "Secondary Emergency Contact",
-                "secondaryEmergencyContact",
-                "text",
-              )}
+            {renderField("Address", "address")}
+            {renderField("City", "city")}
+            {renderField("State", "state")}
+            {renderField("Zip", "zip")}
+            {renderField("Country", "country")}
+            {renderField("LinkedIn", "linkedin")}
+            {renderField("Referral ID", "referralid")}
+            {renderField("Portal ID", "portalid")}
+            {renderField("Email List", "emaillist")}
           </div>
-
+          {/* Emergency Contact */}
+          <div className="space-y-4">
+            <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
+              Emergency Contact
+            </h3>
+            {renderField("Name", "emergcontactname")}
+            {renderField("Email", "emergcontactemail", "email")}
+            {renderField("Phone", "emergcontactphone")}
+            {renderField("Address", "emergcontactaddrs")}
+          </div>
           {/* Notes Section - Always shown at the end */}
           <div className="col-span-full space-y-4">
+            {/* <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2"> */}
             <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
+
               Notes
             </h3>
             {renderField("Edit Notes", "notes", "textarea")}

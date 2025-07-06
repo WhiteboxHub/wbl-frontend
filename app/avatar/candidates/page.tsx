@@ -413,7 +413,7 @@
 
 
 
-// wbl\app\avatar\candidates\page.tsx
+// // wbl\app\avatar\candidates\page.tsx
 
 "use client";
 
@@ -445,6 +445,24 @@ const StatusRenderer = (params: any) => {
     colorMap[status] ?? "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200";
 
   return <Badge className={badgeClass}>{params.value?.toString().toUpperCase()}</Badge>;
+};
+
+const VisaStatusRenderer = (params: any) => {
+  const visaColors: Record<string, string> = {
+    H1B: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+    GC: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
+    "F1 Student": "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+    "GC EAD": "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300",
+    L1: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+    Citizen: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
+    H4: "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
+  };
+
+  const visa = params?.value ?? "";
+  const className =
+    visaColors[visa] ?? "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200";
+
+  return <Badge className={className}>{visa}</Badge>;
 };
 
 const DateFormatter = (params: any) =>
@@ -496,6 +514,8 @@ export default function CandidatesPage() {
           column.valueFormatter = DateFormatter;
         } else if (key.toLowerCase() === "status") {
           column.cellRenderer = StatusRenderer;
+        } else if (key.toLowerCase() === "workstatus"||"visastatus") {
+          column.cellRenderer = VisaStatusRenderer;
         } else if (["feepaid", "feedue"].includes(key.toLowerCase())) {
           column.valueFormatter = AmountFormatter;
         }
