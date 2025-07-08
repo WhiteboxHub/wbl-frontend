@@ -1,9 +1,10 @@
+/* index.css */
+
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
 
 @layer base {
   body {
@@ -24,7 +25,6 @@
 .animate-fadeInOut {
   animation: fadeInOut 3s ease-in-out infinite;
 }
-
 
 @layer components {
   input[type="checkbox"]:checked ~ label span svg {
@@ -48,74 +48,62 @@
   }
 }
 
-/* Custom Scrollbar Styles */
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
   }
-  
+
   .scrollbar-thumb-rounded-full::-webkit-scrollbar-thumb {
     border-radius: 9999px;
   }
-  
+
   .scrollbar-track-transparent::-webkit-scrollbar-track {
     background: transparent;
   }
-  
+
   .scrollbar-thumb-gray-400::-webkit-scrollbar-thumb {
     background-color: rgba(156, 163, 175, 0.5);
   }
-  
+
   .hover\:scrollbar-thumb-gray-300:hover::-webkit-scrollbar-thumb {
     background-color: rgba(209, 213, 219, 0.8);
   }
-  
-  /* Hide scrollbar by default and show on hover */
+
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-  
+
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
-  
-  /* Webkit scrollbar styling */
+
   ::-webkit-scrollbar {
     width: 5px;
     height: 5px;
   }
-  
+
   ::-webkit-scrollbar-track {
     background: transparent;
   }
-  
+
   ::-webkit-scrollbar-thumb {
     background-color: rgba(156, 163, 175, 0.3);
     border-radius: 9999px;
     transition: background-color 0.3s;
   }
-  
+
   ::-webkit-scrollbar-thumb:hover {
     background-color: rgba(156, 163, 175, 0.8);
   }
 }
 
-/* @keyframes fadeInOut {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 1; }
-}
-
-.animate-fadeInOut {
-  animation: fadeInOut 2.5s ease-in-out infinite;
-} */
-
 @keyframes fadeInOutColor {
   0%, 100% {
-    color: rgb(212, 211, 211); /* Start with white */
+    color: rgb(212, 211, 211);
   }
   50% {
-    color: black; /* Change to black in the middle */
+    color: black;
   }
 }
 
@@ -123,18 +111,17 @@
   animation: fadeInOutColor 2.5s ease-in-out infinite;
 }
 
-/* Sidebar Animation */
 @keyframes pulse {
   0% {
     transform: translateY(-50%) scale(1);
     box-shadow: 0 0 0 0 rgba(88, 80, 236, 0.7);
   }
-  
+
   70% {
     transform: translateY(-50%) scale(1.05);
     box-shadow: 0 0 0 10px rgba(88, 80, 236, 0);
   }
-  
+
   100% {
     transform: translateY(-50%) scale(1);
     box-shadow: 0 0 0 0 rgba(88, 80, 236, 0);
@@ -166,3 +153,214 @@
 .pulse-animation {
   animation: pulse 1.5s infinite;
 }
+
+/* admin.css */
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 262 83% 58%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 262 50% 95%;
+    --secondary-foreground: 262 83% 20%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 262 50% 95%;
+    --accent-foreground: 262 83% 20%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 262 83% 58%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 262 83% 58%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 262 50% 95%;
+    --sidebar-accent-foreground: 262 83% 20%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 262 83% 58%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* AG Grid Dark Mode Styling */
+.ag-grid-dark-mode.ag-theme-alpine {
+  --ag-background-color: rgb(31 41 55);
+  --ag-header-background-color: rgb(17 24 39);
+  --ag-odd-row-background-color: rgb(31 41 55);
+  --ag-even-row-background-color: rgb(37 47 63);
+  --ag-row-hover-color: rgb(55 65 81);
+  --ag-row-border-color: rgb(55 65 81);
+  --ag-border-color: rgb(55 65 81);
+  --ag-header-foreground-color: rgb(243 244 246);
+  --ag-foreground-color: rgb(229 231 235);
+  --ag-secondary-foreground-color: rgb(156 163 175);
+  --ag-disabled-foreground-color: rgb(107 114 128);
+  --ag-input-border-color: rgb(55 65 81);
+  --ag-input-background-color: rgb(31 41 55);
+  --ag-selected-row-background-color: rgb(59 130 246 / 0.1);
+  --ag-range-selection-background-color: rgb(59 130 246 / 0.1);
+  --ag-range-selection-background-color-2: rgb(59 130 246 / 0.2);
+  --ag-range-selection-background-color-3: rgb(59 130 246 / 0.3);
+  --ag-range-selection-background-color-4: rgb(59 130 246 / 0.4);
+}
+
+/* app.css */
+
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+
+/* AG Grid row hover and selection clarity */
+.ag-theme-alpine .ag-row:hover {
+  background-color: var(--ag-row-hover-color, #f5f5f5) !important;
+}
+.ag-theme-alpine .ag-row.ag-row-selected {
+  background-color: var(--ag-row-hover-color, #f5f5f5) !important;
+}
+.ag-theme-alpine .ag-row.ag-row-selected:hover {
+  background-color: var(--ag-row-hover-color, #f5f5f5) !important;
+}
+
+.ag-grid-dark-mode.ag-theme-alpine .ag-row:hover {
+  background-color: var(--ag-row-hover-color, #374151) !important;
+}
+.ag-grid-dark-mode.ag-theme-alpine .ag-row.ag-row-selected {
+  background-color: var(--ag-row-hover-color, #374151) !important;
+}
+.ag-grid-dark-mode.ag-theme-alpine .ag-row.ag-row-selected:hover {
+  background-color: var(--ag-row-hover-color, #374151) !important;
+}
+
+/* AG Grid: Force highlight selected row even with Shadow DOM or deep selectors */
+.ag-theme-alpine .ag-row.ag-row-selected,
+.ag-theme-alpine .ag-row.ag-row-selected:hover,
+.ag-theme-alpine .ag-center-cols-container .ag-row.ag-row-selected,
+div.ag-theme-alpine .ag-center-cols-container .ag-row.ag-row-selected,
+.ag-grid-dark-mode.ag-theme-alpine .ag-row.ag-row-selected,
+.ag-grid-dark-mode.ag-theme-alpine .ag-row.ag-row-selected:hover,
+.ag-theme-alpine ::part(row-selected),
+.ag-theme-alpine ::deep .ag-row.ag-row-selected {
+  background-color: #2563eb !important;
+  color: #fff !important;
+  border-color: #1e40af !important;
+  box-shadow: 0 0 0 2px #1e40af55 !important;
+  z-index: 2 !important;
+}
+
+/* 👇 Tailwind-style row selection for AG Grid (redundant fallback if using getRowClass) */
+/* .ag-row.selected-row {
+  @apply bg-blue-100 text-blue-900 dark:bg-blue-900/40 dark:text-white !important;
+} */
+
+/* Highlight AG Grid selected row */
+.ag-row.selected-row {
+  @apply bg-blue-100 text-blue-900 dark:bg-blue-900/40 dark:text-white !important;
+}
+
+
