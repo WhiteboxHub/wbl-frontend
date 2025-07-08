@@ -93,6 +93,10 @@
   }
 }
 
+
+.ag-row-selected {
+  background-color: #d1e7dd !important; /* Light green highlight */
+}
 /* AG Grid Dark Mode Styling */
 .ag-grid-dark-mode.ag-theme-alpine {
   --ag-background-color: rgb(31 41 55);

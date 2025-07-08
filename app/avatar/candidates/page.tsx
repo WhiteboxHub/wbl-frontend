@@ -415,61 +415,312 @@
 
 // // wbl\app\avatar\candidates\page.tsx
 
+// "use client";
+
+// import React, { useEffect, useState } from "react";
+// import "@/styles/admin.css";
+// import "@/styles/App.css";
+// import { AGGridTable } from "@/components/AGGridTable";
+// import { Badge } from "@/components/admin_ui/badge";
+// import { Input } from "@/components/admin_ui/input";
+// import { Label } from "@/components/admin_ui/label";
+// import { SearchIcon } from "lucide-react";
+// import { ColDef } from "ag-grid-community";
+
+// const StatusRenderer = (params: any) => {
+//   const status = params?.value?.toString().toLowerCase() ?? "";
+
+//   const colorMap: Record<string, string> = {
+//     active: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+//     preparation: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+//     marketing: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+//     placed: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+//     discontinued: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+//     break: "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
+//     defaulted: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+//     completed: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
+//   };
+
+//   const badgeClass =
+//     colorMap[status] ?? "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200";
+
+//   return <Badge className={badgeClass}>{params.value?.toString().toUpperCase()}</Badge>;
+// };
+
+// const VisaStatusRenderer = (params: any) => {
+//   const visaColors: Record<string, string> = {
+//     H1B: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+//     GC: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
+//     "F1 Student": "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+//     "GC EAD": "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300",
+//     L1: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+//     Citizen: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
+//     H4: "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
+//   };
+
+//   const visa = params?.value ?? "";
+//   const className =
+//     visaColors[visa] ?? "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200";
+
+//   return <Badge className={className}>{visa}</Badge>;
+// };
+
+// const DateFormatter = (params: any) =>
+//   params.value ? new Date(params.value).toLocaleDateString() : "";
+
+// const AmountFormatter = (params: any) =>
+//   params.value ? `$${Number(params.value).toLocaleString()}` : "";
+
+// export default function CandidatesPage() {
+//   const [searchTerm, setSearchTerm] = useState("");
+//   const [candidates, setCandidates] = useState<any[]>([]);
+//   const [filteredCandidates, setFilteredCandidates] = useState<any[]>([]);
+//   const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
+//   const [loading, setLoading] = useState(true);
+//   const [searching, setSearching] = useState(false);
+//   const [error, setError] = useState("");
+
+//   const [page, setPage] = useState(1);
+//   const [pageSize, setPageSize] = useState(100);
+  
+  
+// const [selectedCandidate, setSelectedCandidate] = useState<any | null>(null); // ✅ new
+
+//   useEffect(() => {
+//     setLoading(true);
+//     fetch(`${process.env.NEXT_PUBLIC_API_URL}/candidates?page=${page}&limit=${pageSize}`)
+//       .then(async (res) => {
+//         if (!res.ok) throw new Error("Failed to load candidates");
+//         const data = await res.json();
+//         setCandidates(data);
+//         setFilteredCandidates(data);
+//       })
+//       .catch((e) => setError((e as Error).message))
+//       .finally(() => setLoading(false));
+//   }, [page, pageSize]);
+
+//   useEffect(() => {
+//     if (candidates.length > 0) {
+//       const dynamicColumns: ColDef[] = Object.keys(candidates[0]).map((key) => {
+//         const headerName = key
+//           .replace(/([a-z])([A-Z])/g, "$1 $2")
+//           .replace(/\b\w/g, (c) => c.toUpperCase());
+
+//         const column: ColDef = {
+//           field: key,
+//           headerName,
+//           width: 150,
+//           editable: true,
+//         };
+
+//         if (key.toLowerCase().includes("date") && key.toLowerCase() !== "candidateid") {
+//           column.valueFormatter = DateFormatter;
+//         } else if (key.toLowerCase() === "status") {
+//           column.cellRenderer = StatusRenderer;
+//         } else if (key.toLowerCase() === "workstatus"||"visastatus") {
+//           column.cellRenderer = VisaStatusRenderer;
+//         } else if (["feepaid", "feedue"].includes(key.toLowerCase())) {
+//           column.valueFormatter = AmountFormatter;
+//         }
+
+//         if (key === "candidateid") {
+//           column.pinned = "left";
+//           column.checkboxSelection = true;
+//           column.width = 100;
+//         }
+
+//         return column;
+//       });
+
+//       setColumnDefs(dynamicColumns);
+//     }
+//   }, [candidates]);
+
+//   // Debounced search
+//   useEffect(() => {
+//     const timeout = setTimeout(() => {
+//       const fetchSearchResults = async () => {
+//         if (!searchTerm.trim()) {
+//           setFilteredCandidates(candidates);
+//           return;
+//         }
+
+//         setSearching(true);
+//         try {
+//           const res = await fetch(
+//             `${process.env.NEXT_PUBLIC_API_URL}/candidates/by-name/${encodeURIComponent(searchTerm)}`
+//           );
+//           if (!res.ok) throw new Error("Search failed");
+//           const data = await res.json();
+//           setFilteredCandidates(data);
+//         } catch (err) {
+//           setFilteredCandidates([]);
+//           console.error("Search error:", err);
+//         } finally {
+//           setSearching(false);
+//         }
+//       };
+
+//       fetchSearchResults();
+//     }, 300); // debounce delay
+
+//     return () => clearTimeout(timeout);
+//   }, [searchTerm]);
+
+//   if (loading) return <p className="text-center mt-8">Loading candidates...</p>;
+//   if (error) return <p className="text-center mt-8 text-red-600">{error}</p>;
+
+//   return (
+//     <div className="space-y-6">
+//       <div className="flex items-center justify-between">
+//         <div>
+//           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+//             Candidates Management
+//           </h1>
+//           <p className="text-gray-600 dark:text-gray-400">
+//             Browse, search, and manage all candidates in the pipeline.
+//           </p>
+//         </div>
+//       </div>
+
+//       <div className="max-w-md">
+//         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+//           Search Candidates
+//         </Label>
+//         <div className="relative mt-1">
+//           <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+//           <Input
+//             id="search"
+//             type="text"
+//             placeholder="Search by name, email, phone..."
+//             value={searchTerm}
+//             onChange={(e) => setSearchTerm(e.target.value)}
+//             className="pl-10"
+//           />
+//         </div>
+//         {searching && (
+//           <p className="mt-2 text-sm text-blue-500 dark:text-blue-400">Searching...</p>
+//         )}
+//         {searchTerm && !searching && (
+//           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+//             {filteredCandidates.length} candidate(s) found
+//           </p>
+//         )}
+//       </div>
+
+//       <div className="flex justify-center w-full">
+//         <div className="w-full max-w-7xl">
+//           <AGGridTable
+//             rowData={filteredCandidates}
+//             columnDefs={columnDefs}
+//             title={`All Candidates (${filteredCandidates.length})`}
+//             height="calc(70vh)"
+//             showSearch={false}
+//             onRowClicked={(event) => console.log("Row clicked:", event.data)}
+            
+//           />
+//         </div>
+//       </div>
+
+//       <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
+//         <div className="flex items-center space-x-2">
+//           <span className="text-sm">Rows per page:</span>
+//           <select
+//             value={pageSize}
+//             onChange={(e) => {
+//               setPageSize(Number(e.target.value));
+//               setPage(1);
+//             }}
+//             className="border rounded px-2 py-1 text-sm"
+//           >
+//             {[10, 20, 50, 100].map((size) => (
+//               <option key={size} value={size}>
+//                 {size}
+//               </option>
+//             ))}
+//           </select>
+//         </div>
+
+//         <div className="flex items-center space-x-2">
+//           <button
+//             onClick={() => setPage((p) => Math.max(p - 1, 1))}
+//             disabled={page === 1}
+//             className="px-2 py-1 border rounded text-sm disabled:opacity-50"
+//           >
+//             Previous
+//           </button>
+//           <span className="text-sm">Page {page}</span>
+//           <button
+//             onClick={() => setPage((p) => p + 1)}
+//             className="px-2 py-1 border rounded text-sm"
+//           >
+//             Next
+//           </button>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
+
+
+
 "use client";
 
 import React, { useEffect, useState } from "react";
 import "@/styles/admin.css";
 import "@/styles/App.css";
+import { ColDef } from "ag-grid-community";
 import { AGGridTable } from "@/components/AGGridTable";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
-import { ColDef } from "ag-grid-community";
+import axios from "axios";
 
+// Cell renderers
 const StatusRenderer = (params: any) => {
-  const status = params?.value?.toString().toLowerCase() ?? "";
-
+  const status = params?.value?.toString().toLowerCase() || "";
   const colorMap: Record<string, string> = {
-    active: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-    preparation: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-    marketing: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-    placed: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-    discontinued: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
-    break: "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
-    defaulted: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
-    completed: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
+    active: "bg-green-100 text-green-800",
+    preparation: "bg-yellow-100 text-yellow-800",
+    marketing: "bg-blue-100 text-blue-800",
+    placed: "bg-purple-100 text-purple-800",
+    discontinued: "bg-red-100 text-red-800",
+    break: "bg-pink-100 text-pink-800",
+    defaulted: "bg-orange-100 text-orange-800",
+    completed: "bg-indigo-100 text-indigo-800",
   };
-
-  const badgeClass =
-    colorMap[status] ?? "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200";
-
-  return <Badge className={badgeClass}>{params.value?.toString().toUpperCase()}</Badge>;
+  const cls = colorMap[status] || "bg-gray-100 text-gray-800";
+  return <Badge className={cls}>{params.value?.toString().toUpperCase()}</Badge>;
 };
 
 const VisaStatusRenderer = (params: any) => {
-  const visaColors: Record<string, string> = {
-    H1B: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-    GC: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
-    "F1 Student": "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-    "GC EAD": "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300",
-    L1: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
-    Citizen: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
-    H4: "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
+  const visa = (params?.value || "").toString().trim();
+
+  const colorMap: Record<string, string> = {
+    H1B: "bg-blue-100 text-blue-800",
+    GC: "bg-emerald-100 text-emerald-800",
+    "F1 Student": "bg-purple-100 text-purple-800",
+    "F1": "bg-purple-100 text-purple-800",
+    "GC EAD": "bg-teal-100 text-teal-800",
+    L1: "bg-orange-100 text-orange-800",
+    L2: "bg-orange-100 text-orange-800",
+    Citizen: "bg-indigo-100 text-indigo-800",
+    H4: "bg-pink-100 text-pink-800",
+    None: "bg-gray-200 text-gray-700",
+    Select: "bg-gray-200 text-gray-700",
   };
 
-  const visa = params?.value ?? "";
-  const className =
-    visaColors[visa] ?? "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200";
-
-  return <Badge className={className}>{visa}</Badge>;
+  const cls = colorMap[visa] || "bg-gray-100 text-gray-800";
+  return <Badge className={cls}>{visa}</Badge>;
 };
+
 
 const DateFormatter = (params: any) =>
   params.value ? new Date(params.value).toLocaleDateString() : "";
 
 const AmountFormatter = (params: any) =>
-  params.value ? `$${Number(params.value).toLocaleString()}` : "";
+  params.value != null ? `$${Number(params.value).toLocaleString()}` : "";
 
 export default function CandidatesPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -479,144 +730,147 @@ export default function CandidatesPage() {
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState("");
-
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(100);
 
+  const fetchCandidates = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/candidates?page=${page}&limit=${pageSize}`
+      );
+      setCandidates(res.data);
+      setFilteredCandidates(res.data);
+    } catch (e: any) {
+      setError(e.response?.data?.message || e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    setLoading(true);
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/candidates?page=${page}&limit=${pageSize}`)
-      .then(async (res) => {
-        if (!res.ok) throw new Error("Failed to load candidates");
-        const data = await res.json();
-        setCandidates(data);
-        setFilteredCandidates(data);
-      })
-      .catch((e) => setError((e as Error).message))
-      .finally(() => setLoading(false));
+    fetchCandidates();
   }, [page, pageSize]);
 
   useEffect(() => {
+    if (!searchTerm.trim()) {
+      setFilteredCandidates(candidates);
+      return;
+    }
+    if (searchTerm.trim().length < 3) {
+      setFilteredCandidates([]);
+      return;
+    }
+
+    const timeout = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/candidates/by-name/${encodeURIComponent(
+            searchTerm.trim()
+          )}`
+        );
+        setFilteredCandidates(res.data);
+      } catch {
+        setFilteredCandidates([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, [searchTerm, candidates]);
+
+  useEffect(() => {
     if (candidates.length > 0) {
-      const dynamicColumns: ColDef[] = Object.keys(candidates[0]).map((key) => {
-        const headerName = key
+      const defs: ColDef[] = Object.keys(candidates[0]).map((key) => {
+        const header = key
           .replace(/([a-z])([A-Z])/g, "$1 $2")
           .replace(/\b\w/g, (c) => c.toUpperCase());
 
-        const column: ColDef = {
+        const col: ColDef = {
           field: key,
-          headerName,
+          headerName: header,
           width: 150,
           editable: true,
         };
 
-        if (key.toLowerCase().includes("date") && key.toLowerCase() !== "candidateid") {
-          column.valueFormatter = DateFormatter;
-        } else if (key.toLowerCase() === "status") {
-          column.cellRenderer = StatusRenderer;
-        } else if (key.toLowerCase() === "workstatus"||"visastatus") {
-          column.cellRenderer = VisaStatusRenderer;
-        } else if (["feepaid", "feedue"].includes(key.toLowerCase())) {
-          column.valueFormatter = AmountFormatter;
+        const k = key.toLowerCase();
+        if (k.includes("date") && key !== "candidateid") col.valueFormatter = DateFormatter;
+        else if (k === "status") col.cellRenderer = StatusRenderer;
+        else if (k === "workstatus") col.cellRenderer = VisaStatusRenderer;
+        else if (["feepaid", "feedue"].includes(k)) col.valueFormatter = AmountFormatter;
+        else if (key === "candidateid") {
+          col.pinned = "left";
+          col.checkboxSelection = true;
+          col.width = 100;
         }
 
-        if (key === "candidateid") {
-          column.pinned = "left";
-          column.checkboxSelection = true;
-          column.width = 100;
-        }
-
-        return column;
+        return col;
       });
-
-      setColumnDefs(dynamicColumns);
+      setColumnDefs(defs);
     }
   }, [candidates]);
 
-  // Debounced search
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      const fetchSearchResults = async () => {
-        if (!searchTerm.trim()) {
-          setFilteredCandidates(candidates);
-          return;
-        }
+  const handleUpdate = async (updated: any) => {
+    try {
+      await axios.put(
+        `${process.env.NEXT_PUBLIC_API_URL}/candidates/${updated.candidateid}`,
+        updated
+      );
+      fetchCandidates();
+    } catch (e) {
+      console.error("Update failed", e);
+    }
+  };
 
-        setSearching(true);
-        try {
-          const res = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/candidates/by-name/${encodeURIComponent(searchTerm)}`
-          );
-          if (!res.ok) throw new Error("Search failed");
-          const data = await res.json();
-          setFilteredCandidates(data);
-        } catch (err) {
-          setFilteredCandidates([]);
-          console.error("Search error:", err);
-        } finally {
-          setSearching(false);
-        }
-      };
+  const handleDelete = async (id: string | number) => {
+    try {
+      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/candidates/${id}`);
+      fetchCandidates();
+    } catch (e) {
+      console.error("Delete failed", e);
+    }
+  };
 
-      fetchSearchResults();
-    }, 300); // debounce delay
-
-    return () => clearTimeout(timeout);
-  }, [searchTerm]);
-
-  if (loading) return <p className="text-center mt-8">Loading candidates...</p>;
+  if (loading) return <p className="text-center mt-8">Loading...</p>;
   if (error) return <p className="text-center mt-8 text-red-600">{error}</p>;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Candidates Management
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Browse, search, and manage all candidates in the pipeline.
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold">Candidates Management</h1>
+        <p>Browse, search, and manage candidates.</p>
       </div>
 
       <div className="max-w-md">
-        <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          Search Candidates
-        </Label>
+        <Label htmlFor="search">Search Candidates</Label>
         <div className="relative mt-1">
-          <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 text-gray-400" />
           <Input
             id="search"
-            type="text"
-            placeholder="Search by name, email, phone..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search by name (min 3 characters)..."
             className="pl-10"
           />
         </div>
-        {searching && (
-          <p className="mt-2 text-sm text-blue-500 dark:text-blue-400">Searching...</p>
-        )}
-        {searchTerm && !searching && (
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            {filteredCandidates.length} candidate(s) found
-          </p>
+        {searching ? (
+          <p>Searching...</p>
+        ) : (
+          searchTerm && <p>{filteredCandidates.length} found</p>
         )}
       </div>
 
-      <div className="flex justify-center w-full">
-        <div className="w-full max-w-7xl">
-          <AGGridTable
-            rowData={filteredCandidates}
-            columnDefs={columnDefs}
-            title={`All Candidates (${filteredCandidates.length})`}
-            height="calc(70vh)"
-            showSearch={false}
-            onRowClicked={(event) => console.log("Row clicked:", event.data)}
-          />
-        </div>
-      </div>
+      <AGGridTable
+        rowData={filteredCandidates}
+        columnDefs={columnDefs}
+        title={`All Candidates (${filteredCandidates.length})`}
+        height="calc(70vh)"
+        onRowUpdated={handleUpdate}
+        onRowDeleted={handleDelete}
+        showSearch={false}
+      />
 
       <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
         <div className="flex items-center space-x-2">

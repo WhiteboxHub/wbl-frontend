@@ -506,12 +506,17 @@ export default function CandidatesInterviews() {
   const VisaStatusRenderer = (params: any) => {
     const v = params.value;
     const map: Record<string, string> = {
-      H1B: "bg-blue-100 text-blue-800",
-      "Green Card": "bg-emerald-100 text-emerald-800",
-      "F1 Student": "bg-purple-100 text-purple-800",
-      L1: "bg-orange-100 text-orange-800",
-      OPT: "bg-indigo-100 text-indigo-800",
-      "H4 EAD": "bg-pink-100 text-pink-800",
+    H1B: "bg-blue-100 text-blue-800",
+    GC: "bg-emerald-100 text-emerald-800",
+    "F1 Student": "bg-purple-100 text-purple-800",
+    "F1": "bg-purple-100 text-purple-800",
+    "GC EAD": "bg-teal-100 text-teal-800",
+    L1: "bg-orange-100 text-orange-800",
+    L2: "bg-orange-100 text-orange-800",
+    Citizen: "bg-indigo-100 text-indigo-800",
+    H4: "bg-pink-100 text-pink-800",
+    None: "bg-gray-200 text-gray-700",
+    Select: "bg-gray-200 text-gray-700",
     };
     return <Badge className={map[v] ?? "bg-gray-100 text-gray-800"}>{v}</Badge>;
   };
@@ -581,7 +586,7 @@ export default function CandidatesInterviews() {
             id="search"
             type="text"
             value={searchTerm}
-            placeholder="Name, mode, date..."
+            placeholder="Search..."
             onChange={e => setSearchTerm(e.target.value)}
             className="pl-10"
           />

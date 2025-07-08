@@ -508,14 +508,17 @@ export default function CandidatesMarketingPage() {
 
   const VisaStatusRenderer = (params: any) => {
     const visaColors: Record<string, string> = {
-      H1B: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-      GC: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
-      "F1 Student": "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-      "GC EAD": "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300",
-
-      L1: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
-      Citizen: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
-      H4: "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
+    H1B: "bg-blue-100 text-blue-800",
+    GC: "bg-emerald-100 text-emerald-800",
+    "F1 Student": "bg-purple-100 text-purple-800",
+    "F1": "bg-purple-100 text-purple-800",
+    "GC EAD": "bg-teal-100 text-teal-800",
+    L1: "bg-orange-100 text-orange-800",
+    L2: "bg-orange-100 text-orange-800",
+    Citizen: "bg-indigo-100 text-indigo-800",
+    H4: "bg-pink-100 text-pink-800",
+    None: "bg-gray-200 text-gray-700",
+    Select: "bg-gray-200 text-gray-700",
     };
 
     const visaAliases: Record<string, string> = {

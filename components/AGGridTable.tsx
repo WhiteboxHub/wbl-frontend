@@ -9,7 +9,7 @@ import { Button } from "@/components/admin_ui/button";
 import { Input } from "@/components/admin_ui/input";
 import {
   SearchIcon,
-  RefreshCwIcon,
+  // RefreshCwIcon,
   ExpandIcon,
   EyeIcon,
   EditIcon,
@@ -136,13 +136,31 @@ export function AGGridTable({
     }
   }, [selectedRowData]);
 
+  // const confirmDelete = useCallback(() => {
+  //   if (deleteConfirmData && onRowDeleted && deleteConfirmData.leadid) {
+  //     onRowDeleted(deleteConfirmData.id);
+  //     setSelectedRowData(null);
+  //     setDeleteConfirmData(null);
+  //   }
+  // }, [deleteConfirmData, onRowDeleted]);
+
+
   const confirmDelete = useCallback(() => {
-    if (deleteConfirmData && onRowDeleted && deleteConfirmData.id) {
+  if (deleteConfirmData && onRowDeleted) {
+    // Prioritize leadid if it exists
+    if (deleteConfirmData.leadid) {
+      onRowDeleted(deleteConfirmData.leadid);
+    } else if (deleteConfirmData.candidateid) {
+      onRowDeleted(deleteConfirmData.candidateid);
+    } else if (deleteConfirmData.id) {
+      // Fallback to generic id if neither leadid nor candidateid exist
       onRowDeleted(deleteConfirmData.id);
-      setSelectedRowData(null);
-      setDeleteConfirmData(null);
     }
-  }, [deleteConfirmData, onRowDeleted]);
+
+    setSelectedRowData(null);
+    setDeleteConfirmData(null);
+  }
+}, [deleteConfirmData, onRowDeleted]);
 
   const cancelDelete = useCallback(() => {
     setDeleteConfirmData(null);
@@ -252,9 +270,9 @@ export function AGGridTable({
             </div>
           )}
 
-          <Button variant="outline" size="sm" onClick={refreshData}>
+          {/* <Button variant="outline" size="sm" onClick={refreshData}>
             <RefreshCwIcon className="h-4 w-4" />
-          </Button>
+          </Button> */}
 
           <Button variant="outline" size="sm" onClick={toggleExpand}>
             <ExpandIcon className="h-4 w-4 mr-2" />
@@ -284,12 +302,14 @@ export function AGGridTable({
             onSelectionChanged={handleRowSelection}
             animateRows={true}
             rowSelection="single"
+            onRowSelected={(event) => console.log("Selected Row:", event.node)}
             suppressRowClickSelection={false}
             pagination={true}
             paginationPageSize={isExpanded ? 50 : 20}
             suppressCellFocus={false}
             theme="legacy"
             
+
           />
         </div>
       </div>
@@ -335,4 +355,4 @@ export function AGGridTable({
   );
 }
 
-
+export default AGGridTable;
