@@ -667,6 +667,7 @@
 
 
 
+// whiteboxLearning-wbl/app/avatar/candidates/prep/page.tsx
 "use client";
 import "@/styles/admin.css";
 import "@/styles/App.css";
@@ -677,6 +678,7 @@ import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect, useCallback } from "react";
+import axios from "axios";
 
 export default function CandidatesPrepPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -687,30 +689,30 @@ export default function CandidatesPrepPage() {
   const [page] = useState(1);
   const [limit] = useState(100);
 
-  useEffect(() => {
-    const fetchCandidates = async () => {
-      try {
-        setLoading(true);
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/candidates/active?page=${page}&limit=${limit}`
-        );
-        if (!res.ok) throw new Error("Failed to load candidates");
-        const data = await res.json();
+  const fetchCandidates = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/candidates/active?page=${page}&limit=${limit}`
+      );
+      if (!res.ok) throw new Error("Failed to load candidates");
+      const data = await res.json();
 
-        if (!Array.isArray(data)) {
-          throw new Error("Invalid data format");
-        }
-
-        setAllCandidates(data);
-        setFilteredCandidates(data);
-      } catch (err) {
-        console.error(err);
-        setError("Failed to load candidates.");
-      } finally {
-        setLoading(false);
+      if (!Array.isArray(data)) {
+        throw new Error("Invalid data format");
       }
-    };
 
+      setAllCandidates(data);
+      setFilteredCandidates(data);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load candidates.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchCandidates();
   }, [page, limit]);
 
@@ -742,17 +744,17 @@ export default function CandidatesPrepPage() {
 
   const VisaStatusRenderer = (params: any) => {
     const visaColors: Record<string, string> = {
-    H1B: "bg-blue-100 text-blue-800",
-    GC: "bg-emerald-100 text-emerald-800",
-    "F1 Student": "bg-purple-100 text-purple-800",
-    "F1": "bg-purple-100 text-purple-800",
-    "GC EAD": "bg-teal-100 text-teal-800",
-    L1: "bg-orange-100 text-orange-800",
-    L2: "bg-orange-100 text-orange-800",
-    Citizen: "bg-indigo-100 text-indigo-800",
-    H4: "bg-pink-100 text-pink-800",
-    None: "bg-gray-200 text-gray-700",
-    Select: "bg-gray-200 text-gray-700",
+      H1B: "bg-blue-100 text-blue-800",
+      GC: "bg-emerald-100 text-emerald-800",
+      "F1 Student": "bg-purple-100 text-purple-800",
+      F1: "bg-purple-100 text-purple-800",
+      "GC EAD": "bg-teal-100 text-teal-800",
+      L1: "bg-orange-100 text-orange-800",
+      L2: "bg-orange-100 text-orange-800",
+      Citizen: "bg-indigo-100 text-indigo-800",
+      H4: "bg-pink-100 text-pink-800",
+      None: "bg-gray-200 text-gray-700",
+      Select: "bg-gray-200 text-gray-700",
     };
 
     return (
@@ -814,14 +816,35 @@ export default function CandidatesPrepPage() {
     return candidateIdCol ? [candidateIdCol, ...otherCols] : otherCols;
   }, [filteredCandidates]);
 
-  const handleRowUpdated = (updatedRow: any) => {
-    setFilteredCandidates((prev) =>
-      prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
-    );
+
+  const handleRowUpdated = async (updatedRow: any) => {
+    try {
+      await axios.put(
+        `${process.env.NEXT_PUBLIC_API_URL}/candidates/${updatedRow.candidateid}`,
+        updatedRow
+      );
+
+      setFilteredCandidates((prev) =>
+        prev.map((row) =>
+          row.candidateid === updatedRow.candidateid ? updatedRow : row
+        )
+      );
+    } catch (error) {
+      console.error("Failed to update candidate:", error);
+    }
   };
 
-  const handleRowDeleted = (id: number) => {
-    setFilteredCandidates((prev) => prev.filter((row) => row.id !== id));
+
+  const handleRowDeleted = async (id: number | string) => {
+    try {
+      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/candidates/${id}`);
+
+      setFilteredCandidates((prev) =>
+        prev.filter((row) => row.candidateid !== id)
+      );
+    } catch (error) {
+      console.error("Failed to delete candidate:", error);
+    }
   };
 
   return (

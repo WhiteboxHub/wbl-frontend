@@ -71,16 +71,16 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
         { title: "Placements", href: "/avatar/candidates/placements" },
       ],
     },
-    {
-      title: "Vendors",
-      href: "/avatar/vendors",
-      icon: BuildingIcon,
-      children: [
-        { title: "List", href: "/avatar/vendors" },
-        { title: "Search", href: "/avatar/vendors/search" },
-        { title: "Daily Contact", href: "/avatar/vendors/daily-contact" },
-      ],
-    },
+    // {
+    //   title: "Vendors",
+    //   href: "/avatar/vendors",
+    //   icon: BuildingIcon,
+    //   children: [
+    //     { title: "List", href: "/avatar/vendors" },
+    //     { title: "Search", href: "/avatar/vendors/search" },
+    //     { title: "Daily Contact", href: "/avatar/vendors/daily-contact" },
+    //   ],
+    // },
   ];
 
   const isActive = (href: string, exact = false) => {

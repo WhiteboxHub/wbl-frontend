@@ -102,7 +102,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   // Delay rendering for 500 milliseconds
   useEffect(() => {
-    const timer = setTimeout(() => setHoldLoad(true), 500);
+    const timer = setTimeout(() => setHoldLoad(true), 5000);
     return () => clearTimeout(timer);
   }, []);
 
