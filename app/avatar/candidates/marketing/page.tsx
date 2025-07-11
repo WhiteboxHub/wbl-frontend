@@ -440,6 +440,7 @@ import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect, useCallback } from "react";
+import axios from "axios";
 
 export default function CandidatesMarketingPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -595,6 +596,38 @@ export default function CandidatesMarketingPage() {
     });
   }, [filteredCandidates]);
 
+    const handleRowUpdated = async (updatedRow: any) => {
+    try {
+      await axios.put(
+        `${process.env.NEXT_PUBLIC_API_URL}/candidates/${updatedRow.candidateid}`,
+        updatedRow
+      );
+
+      setFilteredCandidates((prev) =>
+        prev.map((row) =>
+          row.candidateid === updatedRow.candidateid ? updatedRow : row
+        )
+      );
+    } catch (error) {
+      console.error("Failed to update candidate:", error);
+    }
+  };
+
+
+  const handleRowDeleted = async (id: number | string) => {
+    try {
+      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/candidates/${id}`);
+
+      setFilteredCandidates((prev) =>
+        prev.filter((row) => row.candidateid !== id)
+      );
+    } catch (error) {
+      console.error("Failed to delete candidate:", error);
+    }
+  };
+
+
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -651,6 +684,8 @@ export default function CandidatesMarketingPage() {
               onRowClicked={(event) =>
                 console.log("Row clicked:", event.data)
               }
+              onRowUpdated={handleRowUpdated}
+              onRowDeleted={handleRowDeleted}
             />
           </div>
         </div>

@@ -10,6 +10,7 @@ import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
+import axios from "axios";
 
 const StatusRenderer = (params: any) => {
   const status = params?.value?.toString().toLowerCase() ?? "";
@@ -64,6 +65,7 @@ export default function CandidateSearchPage() {
   const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState("");
+  
 
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
   const abortController = useRef<AbortController | null>(null);
@@ -156,6 +158,38 @@ export default function CandidateSearchPage() {
     }, 300);
   }, [searchTerm]);
 
+
+   const handleRowUpdated = async (updatedRow: any) => {
+    try {
+      await axios.put(
+        `${process.env.NEXT_PUBLIC_API_URL}/candidates/${updatedRow.candidateid}`,
+        updatedRow
+      );
+
+      setFilteredCandidates((prev) =>
+        prev.map((row) =>
+          row.candidateid === updatedRow.candidateid ? updatedRow : row
+        )
+      );
+    } catch (error) {
+      console.error("Failed to update candidate:", error);
+    }
+  };
+
+
+  const handleRowDeleted = async (id: number | string) => {
+    try {
+      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/candidates/${id}`);
+
+      setFilteredCandidates((prev) =>
+        prev.filter((row) => row.candidateid !== id)
+      );
+    } catch (error) {
+      console.error("Failed to delete candidate:", error);
+    }
+  };
+
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -207,6 +241,8 @@ export default function CandidateSearchPage() {
             height="calc(70vh)"
             showSearch={false}
             onRowClicked={(event) => console.log("Row clicked:", event.data)}
+            onRowUpdated={handleRowUpdated}
+            onRowDeleted={handleRowDeleted}
           />
         </div>
       </div>

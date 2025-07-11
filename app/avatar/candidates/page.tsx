@@ -812,26 +812,58 @@ export default function CandidatesPage() {
     }
   }, [candidates]);
 
-  const handleUpdate = async (updated: any) => {
+
+ 
+  const handleRowUpdated = async (updatedRow: any) => {
     try {
       await axios.put(
-        `${process.env.NEXT_PUBLIC_API_URL}/candidates/${updated.candidateid}`,
-        updated
+        `${process.env.NEXT_PUBLIC_API_URL}/candidates/${updatedRow.candidateid}`,
+        updatedRow
       );
-      fetchCandidates();
-    } catch (e) {
-      console.error("Update failed", e);
+
+      setFilteredCandidates((prev) =>
+        prev.map((row) =>
+          row.candidateid === updatedRow.candidateid ? updatedRow : row
+        )
+      );
+    } catch (error) {
+      console.error("Failed to update candidate:", error);
     }
   };
 
-  const handleDelete = async (id: string | number) => {
+  // const handleUpdate = async (updated: any) => {
+  //   try {
+  //     await axios.put(
+  //       `${process.env.NEXT_PUBLIC_API_URL}/candidates/${updated.candidateid}`,
+  //       updated
+  //     );
+  //     // fetchCandidates();
+  //   } catch (e) {
+  //     console.error("Update failed", e);
+  //   }
+  // };
+
+
+
+  const handleRowDeleted = async (id: number | string) => {
     try {
       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/candidates/${id}`);
-      fetchCandidates();
-    } catch (e) {
-      console.error("Delete failed", e);
+
+      setFilteredCandidates((prev) =>
+        prev.filter((row) => row.candidateid !== id)
+      );
+    } catch (error) {
+      console.error("Failed to delete candidate:", error);
     }
   };
+  // const handleDelete = async (id: string | number) => {
+  //   try {
+  //     await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/candidates/${id}`);
+  //     fetchCandidates();
+  //   } catch (e) {
+  //     console.error("Delete failed", e);
+  //   }
+  // };
 
   if (loading) return <p className="text-center mt-8">Loading...</p>;
   if (error) return <p className="text-center mt-8 text-red-600">{error}</p>;
@@ -867,8 +899,8 @@ export default function CandidatesPage() {
         columnDefs={columnDefs}
         title={`All Candidates (${filteredCandidates.length})`}
         height="calc(70vh)"
-        onRowUpdated={handleUpdate}
-        onRowDeleted={handleDelete}
+        onRowUpdated={handleRowUpdated}
+        onRowDeleted={handleRowDeleted}
         showSearch={false}
       />
 
