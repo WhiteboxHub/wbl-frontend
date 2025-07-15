@@ -470,7 +470,7 @@ export default function CandidatesInterviews() {
         setAllInterviews(data);
         setFilteredInterviews(data);
       } catch (err) {
-        console.error(err);
+        // console.error(err);
         setError("Failed to load interviews.");
       } finally {
         setLoading(false);
@@ -565,7 +565,7 @@ export default function CandidatesInterviews() {
         prev.map(row => row.id === updatedRow.id ? updatedRow : row)
       );
     } catch (err) {
-      console.error("Failed to update interview:", err);
+      // console.error("Failed to update interview:", err);
       alert("Failed to update interview.");
     }
   };
@@ -578,7 +578,7 @@ export default function CandidatesInterviews() {
       setAllInterviews(prev => prev.filter(row => row.id !== id));
       setFilteredInterviews(prev => prev.filter(row => row.id !== id));
     } catch (err) {
-      console.error("Failed to delete interview:", err);
+      // console.error("Failed to delete interview:", err);
       alert("Failed to delete interview.");
     }
   };
@@ -640,7 +640,7 @@ export default function CandidatesInterviews() {
               title={`Interviews (${filteredInterviews.length})`}
               height="500px"
               showSearch={false}
-              onRowClicked={e => console.log("Row clicked:", e.data)}
+              // onRowClicked={e => console.log("Row clicked:", e.data)}
               onRowUpdated={handleRowUpdated}
               onRowDeleted={(id: number | string) => handleRowDeleted(id)}
               

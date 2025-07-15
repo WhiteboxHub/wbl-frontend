@@ -14,7 +14,7 @@ const CourseContent = () => {
           `${process.env.NEXT_PUBLIC_API_URL}/coursecontent`
         );
         setSubjects(response.data.coursecontent);
-        console.log(response.data.coursecontent)
+        // console.log(response.data.coursecontent)
       } catch (error) {
         //console.error("Error fetching course content:", error);
       }

@@ -705,7 +705,7 @@ export default function CandidatesPrepPage() {
       setAllCandidates(data);
       setFilteredCandidates(data);
     } catch (err) {
-      console.error(err);
+      // console.error(err);
       setError("Failed to load candidates.");
     } finally {
       setLoading(false);
@@ -830,7 +830,7 @@ export default function CandidatesPrepPage() {
         )
       );
     } catch (error) {
-      console.error("Failed to update candidate:", error);
+      // console.error("Failed to update candidate:", error);
     }
   };
 
@@ -843,7 +843,7 @@ export default function CandidatesPrepPage() {
         prev.filter((row) => row.candidateid !== id)
       );
     } catch (error) {
-      console.error("Failed to delete candidate:", error);
+      // console.error("Failed to delete candidate:", error);
     }
   };
 
@@ -900,9 +900,9 @@ export default function CandidatesPrepPage() {
               title={`Active Candidates (${filteredCandidates.length})`}
               height="calc(70vh)"
               showSearch={false}
-              onRowClicked={(event) => {
-                console.log("Row clicked:", event.data);
-              }}
+              // onRowClicked={(event) => {
+              //   console.log("Row clicked:", event.data);
+              // }}
               onRowUpdated={handleRowUpdated}
               onRowDeleted={handleRowDeleted}
             />

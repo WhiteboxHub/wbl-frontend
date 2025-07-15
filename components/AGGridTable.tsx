@@ -302,7 +302,7 @@ export function AGGridTable({
             onSelectionChanged={handleRowSelection}
             animateRows={true}
             rowSelection="single"
-            onRowSelected={(event) => console.log("Selected Row:", event.node)}
+            // onRowSelected={(event) => console.log("Selected Row:", event.node)}
             suppressRowClickSelection={false}
             pagination={true}
             paginationPageSize={isExpanded ? 50 : 20}

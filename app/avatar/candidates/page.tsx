@@ -853,7 +853,7 @@ export default function CandidatesPage() {
         prev.filter((row) => row.candidateid !== id)
       );
     } catch (error) {
-      console.error("Failed to delete candidate:", error);
+      // console.error("Failed to delete candidate:", error);
     }
   };
   // const handleDelete = async (id: string | number) => {

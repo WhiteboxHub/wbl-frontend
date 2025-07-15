@@ -1469,10 +1469,10 @@ async function handleUserRegistrationOrLogin(user: any) {
       return { accessToken: null, status: "inactive" };
     }
   } catch (error: any) {
-    console.error(
-      "Error during operation:",
-      error.response?.data.detail || error.message
-    );
+    // console.error(
+    //   "Error during operation:",
+    //   error.response?.data.detail || error.message
+    // );
     return { accessToken: null, status: "error" };
   }
 }

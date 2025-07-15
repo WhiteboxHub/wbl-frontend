@@ -746,7 +746,7 @@ export default function CandidatesPlacements() {
           setColumnDefs(dynamicColumns);
         }
       } catch (err) {
-        console.error("Failed to fetch placements", err);
+        // console.error("Failed to fetch placements", err);
         setError("Unable to fetch placements data.");
       } finally {
         setLoading(false);
@@ -837,7 +837,7 @@ export default function CandidatesPlacements() {
         prev.map((row) => (row.id === updatedRow.id ? updatedData : row))
       );
     } catch (error) {
-      console.error("Update error:", error);
+      // console.error("Update error:", error);
       alert("Failed to update placement. Please try again.");
     }
   };
@@ -857,7 +857,7 @@ export default function CandidatesPlacements() {
 
       setFilteredCandidates((prev) => prev.filter((row) => row.id !== id));
     } catch (error) {
-      console.error("Delete error:", error);
+      // console.error("Delete error:", error);
       alert("Failed to delete placement. Please try again.");
     }
   };
@@ -918,9 +918,9 @@ export default function CandidatesPlacements() {
               title={`Placements (${filteredCandidates.length})`}
               height="calc(70vh)"
               showSearch={false}
-              onRowClicked={(event) => {
-                console.log("Row clicked:", event.data);
-              }}
+              // onRowClicked={(event) => {
+              //   console.log("Row clicked:", event.data);
+              // }}
               onRowUpdated={handleRowUpdated}
               onRowDeleted={handleRowDeleted}
             />

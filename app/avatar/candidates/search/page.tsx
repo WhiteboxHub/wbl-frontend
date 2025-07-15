@@ -172,7 +172,7 @@ export default function CandidateSearchPage() {
         )
       );
     } catch (error) {
-      console.error("Failed to update candidate:", error);
+      // console.error("Failed to update candidate:", error);
     }
   };
 
@@ -185,7 +185,7 @@ export default function CandidateSearchPage() {
         prev.filter((row) => row.candidateid !== id)
       );
     } catch (error) {
-      console.error("Failed to delete candidate:", error);
+      // console.error("Failed to delete candidate:", error);
     }
   };
 
@@ -240,7 +240,7 @@ export default function CandidateSearchPage() {
             title={`Search Results (${filteredCandidates.length})`}
             height="calc(70vh)"
             showSearch={false}
-            onRowClicked={(event) => console.log("Row clicked:", event.data)}
+            // onRowClicked={(event) => console.log("Row clicked:", event.data)}
             onRowUpdated={handleRowUpdated}
             onRowDeleted={handleRowDeleted}
           />
