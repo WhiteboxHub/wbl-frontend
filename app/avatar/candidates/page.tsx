@@ -827,7 +827,7 @@ export default function CandidatesPage() {
         )
       );
     } catch (error) {
-      console.error("Failed to update candidate:", error);
+      // console.error("Failed to update candidate:", error);
     }
   };
 
