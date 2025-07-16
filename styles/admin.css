@@ -93,9 +93,9 @@
   }
 }
 
-
-.ag-row-selected {
-  background-color: #d1e7dd !important; /* Light green highlight */
+/* admin.css */
+.ag-row.custom-selected {
+  background-color: #dbeafe !important; /* Tailwind's blue-100 */
 }
 /* AG Grid Dark Mode Styling */
 .ag-grid-dark-mode.ag-theme-alpine {
@@ -117,4 +117,15 @@
   --ag-range-selection-background-color-2: rgb(59 130 246 / 0.2);
   --ag-range-selection-background-color-3: rgb(59 130 246 / 0.3);
   --ag-range-selection-background-color-4: rgb(59 130 246 / 0.4);
+}
+
+/* ✅ Hover row highlight (blue glow on mouse move) */
+.ag-theme-alpine .ag-row-hover .ag-cell {
+  background-color: rgba(59, 130, 246, 0.1) !important; /* Tailwind blue-500/10 */
+  cursor: pointer;
+}
+
+/* ✅ Clicked row highlight (darker blue) */
+.ag-theme-alpine .ag-row-selected .ag-cell {
+  background-color: rgba(59, 130, 246, 0.2) !important; /* Tailwind blue-500/20 */
 }
