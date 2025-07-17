@@ -50,14 +50,14 @@ export default function Unsubscribe() {
       <main className="container px-4 pb-6 sm:px-6">
         {/* Navbar */}
         <nav className="mt-16 flex h-24 flex-col justify-center text-center sm:mt-28 sm:mb-3 sm:h-28 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-center text-2xl font-bold sm:pt-0 sm:text-start sm:text-3xl lg:text-4xl">
+          {/* <h1 className="text-center text-2xl font-bold sm:pt-0 sm:text-start sm:text-3xl lg:text-4xl">
             Unsubscribe
-          </h1>
-          <div className="hidden sm:block">
+          </h1> */}
+          {/* <div className="hidden sm:block">
             <Layout currentPage="Unsubscribe" />
-          </div>
+          </div> */}
         </nav>
-
+  
         {/* Main content */}
         <div className="flex h-96 flex-col items-center justify-center">
           <div className="w-full max-w-md rounded-3xl bg-gray-400 p-8 shadow-md dark:bg-gray-800">
@@ -109,7 +109,22 @@ export default function Unsubscribe() {
               </p>
             ) : (
               message && (
-                <p className="mt-4 text-center text-white">{message}</p>
+                <>
+                  <p className="mt-4 text-center text-white">{message}</p>
+                  <p className="mt-6 text-center text-sm text-white sm:text-base">
+                    Changed your mind? We're always here to welcome you back!
+                  </p>
+                  <p className="mt-2 text-center">
+                    <a
+                      href="https://whitebox-learning.com/signup"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-800 underline dark:text-blue-400"
+                    >
+                      Rejoin here →
+                    </a>
+                  </p>
+                </>
               )
             )}
           </div>
@@ -117,4 +132,5 @@ export default function Unsubscribe() {
       </main>
     </div>
   );
+  
 }
