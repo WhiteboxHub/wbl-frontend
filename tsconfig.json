@@ -28,6 +28,7 @@
         "name": "next"
       }
     ],
+    "target": "ES2017"
     // "strictNullChecks": true
   },
   "include": [
@@ -36,10 +37,10 @@
     "**/*.ts",
     "**/*.tsx",
     "app/notfound.js",
-    "app/login/main.js"
-, "components/Sidebar.js"  ],
+    "app/login/main.js",
+    "components/Sidebar.js"
+  ],
   "exclude": [
     "node_modules"
   ]
 }
-
