@@ -666,6 +666,69 @@
 
 
 
+// // whiteboxLearning-wbl/app/avatar/candidates/prep/page.tsx
+// "use client";
+// import "@/styles/admin.css";
+// import "@/styles/App.css";
+// import { AGGridTable } from "@/components/AGGridTable";
+// import { Badge } from "@/components/admin_ui/badge";
+// import { Input } from "@/components/admin_ui/input";
+// import { Label } from "@/components/admin_ui/label";
+// import { SearchIcon } from "lucide-react";
+// import { ColDef } from "ag-grid-community";
+// import { useMemo, useState, useEffect, useCallback } from "react";
+
+// export default function CandidatesPrepPage() {
+//   const [searchTerm, setSearchTerm] = useState("");
+//   const [filteredCandidates, setFilteredCandidates] = useState([]);
+//   const [allCandidates, setAllCandidates] = useState([]);
+//   const [loading, setLoading] = useState(true);
+//   const [error, setError] = useState("");
+//   const [page] = useState(1);
+//   const [limit] = useState(100);
+
+//   useEffect(() => {
+//     const fetchCandidates = async () => {
+//       try {
+//         setLoading(true);
+//         const res = await fetch(
+//           `${process.env.NEXT_PUBLIC_API_URL}/candidates/active?page=${page}&limit=${limit}`
+//         );
+//         if (!res.ok) throw new Error("Failed to load candidates");
+//         const data = await res.json();
+
+//         if (!Array.isArray(data)) {
+//           throw new Error("Invalid data format");
+//         }
+
+//         setAllCandidates(data);
+//         setFilteredCandidates(data);
+//       } catch (err) {
+//         console.error(err);
+//         setError("Failed to load candidates.");
+//       } finally {
+//         setLoading(false);
+//       }
+//     };
+
+//     fetchCandidates();
+//   }, [page, limit]);
+
+//   const filterCandidates = useCallback(
+//     (searchTerm: string) => {
+//       if (searchTerm.trim() === "") {
+//         return allCandidates;
+//       }
+//       const searchLower = searchTerm.toLowerCase();
+//       return allCandidates.filter((candidate) =>
+//         Object.values(candidate).some((val) =>
+//           val?.toString().toLowerCase().includes(searchLower)
+//         )
+//       );
+//     },
+//     [allCandidates]
+//   );
+
 
 // whiteboxLearning-wbl/app/avatar/candidates/prep/page.tsx
 "use client";
@@ -705,7 +768,9 @@ export default function CandidatesPrepPage() {
       setAllCandidates(data);
       setFilteredCandidates(data);
     } catch (err) {
+
       // console.error(err);
+
       setError("Failed to load candidates.");
     } finally {
       setLoading(false);
@@ -830,7 +895,9 @@ export default function CandidatesPrepPage() {
         )
       );
     } catch (error) {
+
       // console.error("Failed to update candidate:", error);
+
     }
   };
 
@@ -843,7 +910,9 @@ export default function CandidatesPrepPage() {
         prev.filter((row) => row.candidateid !== id)
       );
     } catch (error) {
+
       // console.error("Failed to delete candidate:", error);
+
     }
   };
 

@@ -565,7 +565,10 @@ export default function CandidatesInterviews() {
         prev.map(row => row.id === updatedRow.id ? updatedRow : row)
       );
     } catch (err) {
+
+
       // console.error("Failed to update interview:", err);
+
       alert("Failed to update interview.");
     }
   };
@@ -578,6 +581,7 @@ export default function CandidatesInterviews() {
       setAllInterviews(prev => prev.filter(row => row.id !== id));
       setFilteredInterviews(prev => prev.filter(row => row.id !== id));
     } catch (err) {
+
       // console.error("Failed to delete interview:", err);
       alert("Failed to delete interview.");
     }

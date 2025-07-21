@@ -136,13 +136,7 @@ export function AGGridTable({
     }
   }, [selectedRowData]);
 
-  // const confirmDelete = useCallback(() => {
-  //   if (deleteConfirmData && onRowDeleted && deleteConfirmData.leadid) {
-  //     onRowDeleted(deleteConfirmData.id);
-  //     setSelectedRowData(null);
-  //     setDeleteConfirmData(null);
-  //   }
-  // }, [deleteConfirmData, onRowDeleted]);
+
 
 
   const confirmDelete = useCallback(() => {
@@ -304,6 +298,7 @@ export function AGGridTable({
             rowSelection="single"
             // onRowSelected={(event) => console.log("Selected Row:", event.node)}
             suppressRowClickSelection={false}
+            onRowSelected={(event) => console.log("Selected Row:", event.node)}
             pagination={true}
             paginationPageSize={isExpanded ? 50 : 20}
             suppressCellFocus={false}

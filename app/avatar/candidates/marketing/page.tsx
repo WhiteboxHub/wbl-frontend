@@ -609,7 +609,9 @@ export default function CandidatesMarketingPage() {
         )
       );
     } catch (error) {
+
       // console.error("Failed to update candidate:", error);
+
     }
   };
 
@@ -622,7 +624,9 @@ export default function CandidatesMarketingPage() {
         prev.filter((row) => row.candidateid !== id)
       );
     } catch (error) {
+
       // console.error("Failed to delete candidate:", error);
+
     }
   };
 
@@ -681,6 +685,7 @@ export default function CandidatesMarketingPage() {
               title={`Marketing Phase (${filteredCandidates.length})`}
               height="calc(70vh)"
               showSearch={false}
+
               // onRowClicked={(event) =>
               //   console.log("Row clicked:", event.data)
               // }

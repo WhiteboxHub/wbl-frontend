@@ -172,7 +172,9 @@ export default function CandidateSearchPage() {
         )
       );
     } catch (error) {
+
       // console.error("Failed to update candidate:", error);
+
     }
   };
 
@@ -185,7 +187,9 @@ export default function CandidateSearchPage() {
         prev.filter((row) => row.candidateid !== id)
       );
     } catch (error) {
+
       // console.error("Failed to delete candidate:", error);
+
     }
   };
 
