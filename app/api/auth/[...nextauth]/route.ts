@@ -1360,7 +1360,7 @@
 // }
 
 
-
+// whiteboxLearning-wbl/app/api/auth/[...nextauth]/route.ts
 import NextAuth, { NextAuthOptions, Session } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import axios from "axios";
@@ -1401,7 +1401,7 @@ const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
 
-        const { accessToken, status } = await handleUserRegistrationOrLogin(user);
+        const { accessToken, status } = await handleUserRegistrationOrLoginWithRetry(user);
 
         if (accessToken) {
           token.accessToken = accessToken;
@@ -1454,8 +1454,9 @@ async function handleUserRegistrationOrLogin(user: any) {
         status: "registered",
         message: registerResponse.data.message,
       };
-    } else if (checkResponse.data.status === "active") {
-      // If the user exists and is active, log in
+    } 
+    if (checkResponse.data.status === "active") {
+       // If the user exists and is active, log in
       const loginResponse = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/google_login/`,
         payload
@@ -1469,10 +1470,35 @@ async function handleUserRegistrationOrLogin(user: any) {
       return { accessToken: null, status: "inactive" };
     }
   } catch (error: any) {
-    console.error(
-      "Error during operation:",
-      error.response?.data.detail || error.message
-    );
+    // console.error(
+    //   "Error during operation:",
+    //   error.response?.data.detail || error.message
+    // );
     return { accessToken: null, status: "error" };
   }
 }
+
+
+async function handleUserRegistrationOrLoginWithRetry(user: any) {
+  try {
+    const result = await handleUserRegistrationOrLogin(user);
+
+    if (result.status === "active" && result.accessToken) {
+      return result;
+    }
+
+    // If status is registered, inactive, or error, retry once
+    if (result.status === "error" || result.status === "registered") {
+      // console.warn("Retrying login logic in 500ms...");
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      return await handleUserRegistrationOrLogin(user);
+    }
+
+
+    return result;
+  } catch (err) {
+    // console.error("Final login attempt failed:", err);
+    return { accessToken: null, status: "error" };
+  }
+}
+

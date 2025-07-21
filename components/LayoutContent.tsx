@@ -55,12 +55,16 @@ export default function LayoutContent({ children }: { children: React.ReactNode 
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
+    const timer = setTimeout(() => {
     setIsHydrated(true);
+  }, 500);
+
+  return () => clearTimeout(timer); 
   }, []);
 
   const isViewSection = pathname.startsWith("/view");
 
-  if (!isHydrated) return null; // Delay render until client-side
+  if (!isHydrated) return null; 
 
   return (
     <SessionProvider>
