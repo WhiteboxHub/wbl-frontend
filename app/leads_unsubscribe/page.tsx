@@ -235,7 +235,7 @@ export default function Unsubscribe() {
                 <>
                   <p className="mt-4 text-center text-white">{message}</p>
                   <p className="mt-6 text-center text-sm text-white sm:text-base">
-                    Changed your mind? We're always here to welcome you back!
+                    Changed your mind? We&apos;re always here to welcome you back!
                   </p>
                   <p className="mt-2 text-center">
                     <a

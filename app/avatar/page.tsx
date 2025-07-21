@@ -189,8 +189,8 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen w-full bg-white dark:bg-gray-900">
       {/* Welcome Section */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-blue-500 via-blue-400 to-blue-500 rounded-3xl p-12 shadow-2xl mb-8">
-        {/* <div className="relative overflow-hidden bg-gradient-to-br from-purple-600 via-purple-500 to-violet-600 rounded-3xl p-12 shadow-2xl mb-8"> */}
+      {/* <div className="relative overflow-hidden bg-gradient-to-br from-blue-500 via-blue-400 to-blue-500 rounded-3xl p-12 shadow-2xl mb-8"> */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-purple-600 via-purple-500 to-violet-600 rounded-3xl p-12 shadow-2xl mb-8">
      
         <div className="absolute inset-0 bg-black/20"></div>
         <div className="absolute -top-4 -right-4 w-32 h-32 bg-white/10 rounded-full blur-xl"></div>
