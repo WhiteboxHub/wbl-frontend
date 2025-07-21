@@ -1566,7 +1566,7 @@ import { motion } from "framer-motion";
         setPlacementsData(placementsRes.data);
         setInterviewsData(interviewsRes.data);
       } catch (err) {
-        console.error("Error fetching data:", err);
+        // console.error("Error fetching data:", err);
       }
     };
 

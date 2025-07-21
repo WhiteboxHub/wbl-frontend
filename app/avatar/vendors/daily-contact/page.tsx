@@ -224,9 +224,9 @@ export default function VendorsDailyContactPage() {
               title={`Daily Contact (${filteredVendors.length})`}
               height="calc(60vh)"
               showSearch={false}
-              onRowClicked={(event) => {
-                console.log("Row clicked:", event.data);
-              }}
+              // onRowClicked={(event) => {
+              //   console.log("Row clicked:", event.data);
+              // }}
               onRowUpdated={handleRowUpdated}
               onRowDeleted={handleRowDeleted}
             />

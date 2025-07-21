@@ -243,7 +243,7 @@ export default function VendorsSearch() {
               height="calc(50vh)"
               showSearch={false} // Disable built-in search since we have custom search
               onRowClicked={(event) => {
-                console.log("Row clicked:", event.data);
+                // console.log("Row clicked:", event.data);
               }}
             />
           </div>
