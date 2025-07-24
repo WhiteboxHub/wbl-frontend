@@ -35,6 +35,7 @@ export default function ClientProviders({ children }: { children: React.ReactNod
     <SessionProvider>
       <AuthProvider>
         <Providers>{children}</Providers>
+        
       </AuthProvider>
     </SessionProvider>
   );

@@ -98,11 +98,11 @@
   background-color: #dbeafe !important; /* Tailwind's blue-100 */
 }
 /* AG Grid Dark Mode Styling */
-.ag-grid-dark-mode.ag-theme-alpine {
+.ag-grid-dark-mode.ag-theme-alpine.ag-theme-quartz {
   --ag-background-color: rgb(31 41 55);
   --ag-header-background-color: rgb(17 24 39);
   --ag-odd-row-background-color: rgb(31 41 55);
-  --ag-even-row-background-color: rgb(37 47 63);
+  --ag-even-row-background-color: rgb(0 0 0);
   --ag-row-hover-color: rgb(55 65 81);
   --ag-row-border-color: rgb(55 65 81);
   --ag-border-color: rgb(55 65 81);
@@ -118,6 +118,27 @@
   --ag-range-selection-background-color-3: rgb(59 130 246 / 0.3);
   --ag-range-selection-background-color-4: rgb(59 130 246 / 0.4);
 }
+:root{
+--ag-background-color: rgb(31 41 55);
+  --ag-header-background-color: rgb(17 24 39);
+  --ag-odd-row-background-color: rgb(31 41 55);
+  --ag-even-row-background-color: rgb(0 0 0);
+  --ag-row-hover-color: rgb(55 65 81);
+  --ag-row-border-color: rgb(55 65 81);
+  --ag-border-color: rgb(55 65 81);
+  --ag-header-foreground-color: rgb(243 244 246);
+  --ag-foreground-color: rgb(229 231 235);
+  --ag-secondary-foreground-color: rgb(156 163 175);
+  --ag-disabled-foreground-color: rgb(107 114 128);
+  --ag-input-border-color: rgb(55 65 81);
+  --ag-input-background-color: rgb(31 41 55);
+  --ag-selected-row-background-color: rgb(59 130 246 / 0.1);
+  --ag-range-selection-background-color: rgb(59 130 246 / 0.1);
+  --ag-range-selection-background-color-2: rgb(59 130 246 / 0.2);
+  --ag-range-selection-background-color-3: rgb(59 130 246 / 0.3);
+  --ag-range-selection-background-color-4: rgb(59 130 246 / 0.4);  
+}
+
 
 /* ✅ Hover row highlight (blue glow on mouse move) */
 .ag-theme-alpine .ag-row-hover .ag-cell {

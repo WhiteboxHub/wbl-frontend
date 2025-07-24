@@ -1,17 +1,28 @@
 
-"use client";
 
-import "@/styles/admin.css";
-import "@/styles/App.css";
-import { AGGridTable } from "@/components/AGGridTable";
+"use client";
+import { useMemo, useState, useCallback, useEffect } from "react";
+import { ColDef } from "ag-grid-community";
+import dynamic from "next/dynamic";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon, PlusCircle, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
-import { ColDef } from "ag-grid-community";
-import { useEffect, useState, useMemo, useCallback } from "react";
+import {
+  SearchIcon,
+  PlusCircle,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
-import { toast } from "sonner";
+import { toast, Toaster } from "sonner";
+import { useRouter, useSearchParams } from "next/navigation";
+import { provideGlobalGridOptions } from 'ag-grid-community';
+
+const AGGridTable = dynamic(() => import("@/components/AGGridTable"), {
+  ssr: false,
+});
+
 
 type Lead = {
   id: number;
@@ -29,6 +40,8 @@ type Lead = {
   state?: string | null;
   country?: string | null;
   last_modified?: string | Date | null;
+  moved_to_candidate?: boolean;
+  notes?: string | null;
 };
 
 type PaginatedLeadsResponse = {
@@ -38,262 +51,365 @@ type PaginatedLeadsResponse = {
   data: Lead[];
 };
 
+type FormData = {
+  full_name: string;
+  email: string;
+  phone: string;
+  workstatus: string;
+  address: string;
+  status: string;
+  moved_to_candidate: boolean;
+  notes: string;
+};
+
+const initialFormData: FormData = {
+  full_name: "",
+  email: "",
+  phone: "",
+  workstatus: "",
+  address: "",
+  status: "Open",
+  moved_to_candidate: false,
+  notes: "",
+};
+provideGlobalGridOptions({
+    theme: "legacy",
+});
+
 export default function LeadsPage() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  
-  // Pagination state
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(100);
-  const [total, setTotal] = useState(0);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const isNewLead = searchParams.get("newlead") === "true";
 
-  const fetchLeads = useCallback(async (page: number = 1, limit: number = 100) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/leads?page=${page}&limit=${limit}`);
-      
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-      
-      const data: PaginatedLeadsResponse = await res.json();
-      console.log("API Response:", data); // Debug log
-      
-      if (!data.data) {
-        throw new Error("No data property in response");
-      }
-      
-      setLeads(data.data);
-      setFilteredLeads(data.data);
-      setTotal(data.total);
-      setPage(data.page);
-      setLimit(data.limit);
-    } catch (err) {
-      console.error("Error fetching leads:", err);
-      setError(err instanceof Error ? err.message : "Failed to load leads");
-      toast.error("Failed to load leads");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  // State management
+  const [state, setState] = useState({
+    searchTerm: "",
+    leads: [] as Lead[],
+    filteredLeads: [] as Lead[],
+    isLoading: true,
+    error: null as string | null,
+    page: 1,
+    limit: 100,
+    total: 0,
+    newLeadForm: isNewLead,
+    formData: initialFormData,
+    formSaveLoading: false,
+  });
 
-  useEffect(() => {
-    fetchLeads(page, limit);
-  }, [fetchLeads, page, limit]);
-
-  const filterLeads = useCallback(
-    (searchTerm: string) => {
-      if (searchTerm.trim() === "") return leads;
-      const searchLower = searchTerm.toLowerCase();
-      return leads.filter((lead) => {
-        return (
-          (lead.full_name?.toLowerCase()?.includes(searchLower)) ||
-          (lead.email?.toLowerCase()?.includes(searchLower)) ||
-          (lead.phone?.includes(searchTerm)) ||
-          (lead.workstatus?.toLowerCase()?.includes(searchLower)) ||
-          (lead.status?.toLowerCase()?.includes(searchLower)) ||
-          (lead.address?.toLowerCase()?.includes(searchLower)) ||
-          (lead.secondary_email?.toLowerCase()?.includes(searchLower)) ||
-          (lead.city?.toLowerCase()?.includes(searchLower)) ||
-          (lead.state?.toLowerCase()?.includes(searchLower))
-        );
-      });
-    },
-    [leads]
-  );
-
-  useEffect(() => {
-    const filtered = filterLeads(searchTerm);
-    setFilteredLeads(filtered || []);
-  }, [searchTerm, filterLeads]);
-
-  const StatusRenderer = (params: { value?: string }) => {
-    const status = params.value?.toLowerCase() || '';
-    const variantMap: Record<string, string> = {
-      open: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-      closed: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-      pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-      rejected: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
-      default: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
-    };
-
-    const variant = variantMap[status] || variantMap.default;
-    return <Badge className={`${variant} capitalize`}>{params.value || 'N/A'}</Badge>;
-  };
-
-  const dateFormatter = (params: { value?: string | Date | null }) => {
-    if (!params.value) return '-';
-    const date = new Date(params.value);
-    return date.toLocaleDateString();
-  };
-
-  const columnDefs: ColDef[] = useMemo(
-    () => [
-      { 
-        field: "id", 
-        headerName: "ID", 
-        width: 80, 
-        pinned: "left", 
-        checkboxSelection: true,
-        headerCheckboxSelection: true
-      },
-      { 
-        field: "full_name", 
-        headerName: "Full Name", 
-        width: 180,
-        filter: 'agTextColumnFilter'
-      },
-      { 
-        field: "email", 
-        headerName: "Email", 
-        width: 220,
-        filter: 'agTextColumnFilter'
-      },
-      { 
-        field: "phone", 
-        headerName: "Phone", 
-        width: 150,
-        filter: 'agTextColumnFilter'
-      },
-      { 
-        field: "workstatus", 
-        headerName: "Work Status", 
-        width: 150,
-        filter: 'agTextColumnFilter'
-      },
-      { 
-        field: "status", 
-        headerName: "Status", 
-        width: 120, 
-        cellRenderer: StatusRenderer,
-        filter: 'agSetColumnFilter'
-      },
-      { 
-        field: "entry_date", 
-        headerName: "Entry Date", 
-        width: 150,
-        valueFormatter: dateFormatter,
-        filter: 'agDateColumnFilter'
-      },
-      { 
-        field: "closed_date", 
-        headerName: "Closed Date", 
-        width: 150,
-        valueFormatter: dateFormatter,
-        filter: 'agDateColumnFilter'
-      },
-      { 
-        field: "city", 
-        headerName: "City", 
-        width: 120,
-        filter: 'agTextColumnFilter'
-      }
-    ],
+  // Memoized API endpoint
+  const apiEndpoint = useMemo(
+    () => `${process.env.NEXT_PUBLIC_API_URL}/leads_new`,
     []
   );
 
-  const handleRowUpdated = useCallback(async (updatedRow: Lead) => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/leads/${updatedRow.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedRow),
-      });
+  // Fetch leads with error handling
+  const fetchLeads = useCallback(async () => {
+    setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
-      if (!response.ok) throw new Error('Failed to update lead');
-      
-      setLeads(prev => prev.map(lead => lead.id === updatedRow.id ? updatedRow : lead));
-      setFilteredLeads(prev => prev.map(lead => lead.id === updatedRow.id ? updatedRow : lead));
-      toast.success("Lead updated successfully");
-    } catch (error) {
-      console.error("Error updating lead:", error);
-      toast.error("Failed to update lead");
+    try {
+      const res = await fetch(
+        `${apiEndpoint}?page=${state.page}&limit=${state.limit}`
+      );
+
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+      const data: PaginatedLeadsResponse = await res.json();
+
+      if (!data.data) throw new Error("No data property in response");
+
+      setState((prev) => ({
+        ...prev,
+        leads: data.data,
+        filteredLeads: data.data,
+        total: data.total,
+        page: data.page,
+        limit: data.limit,
+        isLoading: false,
+      }));
+    } catch (err) {
+      const error = err instanceof Error ? err.message : "Failed to load leads";
+      setState((prev) => ({ ...prev, error, isLoading: false }));
+      toast.error(error);
     }
+  }, [apiEndpoint, state.page, state.limit]);
+
+  // Updated row selection configuration
+  const rowSelection = useMemo(() => {
+    return "multiple";
   }, []);
 
-  const handleRowDeleted = useCallback(async (id: number) => {
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/leads/${id}`, {
-        method: 'DELETE',
-      });
+  // Filter leads based on search term
+  const filterLeads = useCallback((searchTerm: string, leads: Lead[]) => {
+    if (!searchTerm.trim()) return leads;
 
-      if (!response.ok) throw new Error('Failed to delete lead');
-      
-      setLeads(prev => prev.filter(lead => lead.id !== id));
-      setFilteredLeads(prev => prev.filter(lead => lead.id !== id));
-      toast.success("Lead deleted successfully");
-    } catch (error) {
-      console.error("Error deleting lead:", error);
-      toast.error("Failed to delete lead");
-    }
+    const searchLower = searchTerm.toLowerCase();
+    return leads.filter((lead) => {
+      return (
+        lead.full_name?.toLowerCase()?.includes(searchLower) ||
+        lead.email?.toLowerCase()?.includes(searchLower) ||
+        lead.phone?.includes(searchTerm) ||
+        lead.workstatus?.toLowerCase()?.includes(searchLower) ||
+        lead.status?.toLowerCase()?.includes(searchLower) ||
+        lead.address?.toLowerCase()?.includes(searchLower) ||
+        lead.secondary_email?.toLowerCase()?.includes(searchLower) ||
+        lead.city?.toLowerCase()?.includes(searchLower) ||
+        lead.state?.toLowerCase()?.includes(searchLower) ||
+        lead.moved_to_candidate?.toString().toLowerCase() === searchLower
+      );
+    });
   }, []);
 
- const handleCreateNew = async () => {
-  try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/leads`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          // Sample new lead data (modify as needed)
-          full_name: "New Lead",
-          email: "new.lead@example.com",
-          status: "Open",
-        }),
+  // Handle search with debounce
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      setState((prev) => ({
+        ...prev,
+        filteredLeads: filterLeads(prev.searchTerm, prev.leads),
+      }));
+    }, 300);
+
+    return () => clearTimeout(debounceTimer);
+  }, [state.searchTerm, state.leads, filterLeads]);
+
+  // Initial data fetch
+  useEffect(() => {
+    fetchLeads();
+  }, [fetchLeads]);
+
+  // Form handlers
+  const handleNewLeadFormChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
+    const { name, value, type } = e.target;
+    const checked =
+      type === "checkbox" ? (e.target as HTMLInputElement).checked : undefined;
+
+    setState((prev) => ({
+      ...prev,
+      formData: {
+        ...prev.formData,
+        [name]: type === "checkbox" ? checked : value,
+      },
+    }));
+  };
+
+  const handleNewLeadFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setState((prev) => ({ ...prev, formSaveLoading: true }));
+
+    try {
+      const response = await fetch(apiEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(state.formData),
       });
 
       if (!response.ok) throw new Error("Failed to create lead");
-      
-      const newLead = await response.json();
+
       toast.success("Lead created successfully!");
-      
-      // Refresh the leads list
-      fetchLeads(page, limit);
-      
+      setTimeout(() => {
+        setState((prev) => ({
+          ...prev,
+          newLeadForm: false,
+          formData: initialFormData,
+        }));
+        fetchLeads();
+      }, 1000);
     } catch (error) {
       toast.error("Failed to create lead");
       console.error("Error creating lead:", error);
+    } finally {
+      setState((prev) => ({ ...prev, formSaveLoading: false }));
     }
   };
 
+  const handleOpenNewLeadForm = () => {
+    router.push("/avatar/leads?newlead=true");
+    setState((prev) => ({ ...prev, newLeadForm: true }));
+  };
+
+  const handleCloseNewLeadForm = () => {
+    router.push("/avatar/leads");
+    setState((prev) => ({ ...prev, newLeadForm: false }));
+  };
+
+  // CRUD operations
+  const handleRowUpdated = useCallback(
+    async (updatedRow: Lead) => {
+      try {
+        const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatedRow),
+        });
+
+        if (!response.ok) throw new Error("Failed to update lead");
+
+        setState((prev) => ({
+          ...prev,
+          leads: prev.leads.map((lead) =>
+            lead.id === updatedRow.id ? updatedRow : lead
+          ),
+          filteredLeads: prev.filteredLeads.map((lead) =>
+            lead.id === updatedRow.id ? updatedRow : lead
+          ),
+        }));
+
+        toast.success("Lead updated successfully");
+      } catch (error) {
+        toast.error("Failed to update lead");
+        console.error("Error updating lead:", error);
+      }
+    },
+    [apiEndpoint]
+  );
+
+  const handleRowDeleted = useCallback(
+    async (id: number) => {
+      try {
+        const response = await fetch(`${apiEndpoint}/${id}`, {
+          method: "DELETE",
+        });
+
+        if (!response.ok) throw new Error("Failed to delete lead");
+
+        setState((prev) => ({
+          ...prev,
+          leads: prev.leads.filter((lead) => lead.id !== id),
+          filteredLeads: prev.filteredLeads.filter((lead) => lead.id !== id),
+        }));
+
+        toast.success("Lead deleted successfully");
+      } catch (error) {
+        toast.error("Failed to delete lead");
+        console.error("Error deleting lead:", error);
+      }
+    },
+    [apiEndpoint]
+  );
+
+  // Pagination handlers
   const handlePreviousPage = () => {
-    if (page > 1) {
-      setPage(page - 1);
+    if (state.page > 1) {
+      setState((prev) => ({ ...prev, page: prev.page - 1 }));
     }
   };
 
   const handleNextPage = () => {
-    if (page * limit < total) {
-      setPage(page + 1);
+    if (state.page * state.limit < state.total) {
+      setState((prev) => ({ ...prev, page: prev.page + 1 }));
     }
   };
 
   const handleLimitChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newLimit = parseInt(e.target.value);
-    setLimit(newLimit);
-    setPage(1);
+    setState((prev) => ({ ...prev, limit: newLimit, page: 1 }));
   };
 
-  if (isLoading) {
+  // Renderers and column definitions
+  const StatusRenderer = ({ value }: { value?: string }) => {
+    const status = value?.toLowerCase() || "";
+    const variantMap: Record<string, string> = {
+      open: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+      closed:
+        "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+      pending:
+        "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+      rejected: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+      default: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
+    };
+
     return (
-      <div className="flex items-center justify-center h-64">
-        <RefreshCw className="animate-spin h-8 w-8 text-blue-500" />
+      <Badge
+        className={`${variantMap[status] || variantMap.default} capitalize`}
+      >
+        {value || "N/A"}
+      </Badge>
+    );
+  };
+
+  const dateFormatter = ({ value }: { value?: string | Date | null }) => {
+    return value ? new Date(value).toLocaleDateString() : "-";
+  };
+
+  const columnDefs: ColDef[] = useMemo(
+    () => [
+      {
+        field: "id",
+        headerName: "ID",
+        width: 80,
+        pinned: "left",
+      },
+      { field: "full_name", headerName: "Full Name", width: 180, filter: true },
+      { field: "email", headerName: "Email", width: 220, filter: true },
+      { field: "phone", headerName: "Phone", width: 150, filter: true },
+      {
+        field: "workstatus",
+        headerName: "Work Status",
+        width: 150,
+        filter: true,
+      },
+      {
+        field: "status",
+        headerName: "Status",
+        width: 120,
+        cellRenderer: StatusRenderer,
+        filter: true,
+      },
+      {
+        field: "entry_date",
+        headerName: "Entry Date",
+        width: 150,
+        valueFormatter: dateFormatter,
+        filter: "agDateColumnFilter",
+      },
+      {
+        field: "closed_date",
+        headerName: "Closed Date",
+        width: 150,
+        valueFormatter: dateFormatter,
+        filter: "agDateColumnFilter",
+      },
+      { field: "address", headerName: "Adress", width: 120, filter: true },
+      {
+        field: "moved_to_candidate",
+        headerName: "Moved to Candidate",
+        width: 180,
+        filter: true,
+        valueFormatter: ({ value }) => (value ? "Yes" : "No"),
+      },
+    ],
+    []
+  );
+
+  // Default column definitions
+  const defaultColDef = useMemo(
+    () => ({
+      sortable: true,
+      resizable: true,
+      filter: true,
+      flex: 1,
+      minWidth: 100,
+    }),
+    []
+  );
+
+  // Loading and error states
+  if (state.isLoading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <RefreshCw className="h-8 w-8 animate-spin text-blue-500" />
       </div>
     );
   }
 
-  if (error) {
+  if (state.error) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-red-500">{error}</div>
-        <Button variant="outline" onClick={() => fetchLeads(page, limit)} className="ml-4">
+      <div className="flex h-64 items-center justify-center">
+        <div className="text-red-500">{state.error}</div>
+        <Button variant="outline" onClick={fetchLeads} className="ml-4">
           <RefreshCw className="mr-2 h-4 w-4" />
           Retry
         </Button>
@@ -303,6 +419,9 @@ export default function LeadsPage() {
 
   return (
     <div className="space-y-6">
+      <Toaster position="top-center" />
+
+      {/* Header Section */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
@@ -312,112 +431,268 @@ export default function LeadsPage() {
             Manage and track your potential clients
           </p>
         </div>
-        <Button 
-          onClick={handleCreateNew}
-          className="bg-blue-600 hover:bg-blue-700 text-white"
+
+        <Button
+          onClick={handleOpenNewLeadForm}
+          className="bg-blue-600 text-white hover:bg-blue-700"
         >
           <PlusCircle className="mr-2 h-4 w-4" />
           New Lead
         </Button>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="flex-1 max-w-md">
-          <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+      {/* New Lead Form Modal */}
+      {state.newLeadForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="relative w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="mb-6 text-center text-2xl font-bold">
+              New Lead Form
+            </h2>
+
+            <form
+              onSubmit={handleNewLeadFormSubmit}
+              className="grid grid-cols-1 gap-4 md:grid-cols-2"
+            >
+              {/* Form fields */}
+              {Object.entries({
+                full_name: { label: "Full Name", type: "text", required: true },
+                email: { label: "Email", type: "email", required: true },
+                phone: { label: "Phone", type: "tel", required: true },
+                workstatus: { label: "Work Status", type: "text" },
+                address: { label: "City", type: "text" },
+                status: {
+                  label: "Status",
+                  type: "select",
+                  options: ["Open", "In Progress", "Closed"],
+                  required: true,
+                },
+                notes: { label: "Notes (optional)", type: "textarea" },
+                moved_to_candidate: {
+                  label: "Moved to Candidate",
+                  type: "checkbox",
+                },
+              }).map(([name, config]) => (
+                <div
+                  key={name}
+                  className={config.type === "textarea" ? "md:col-span-2" : ""}
+                >
+                  <label
+                    htmlFor={name}
+                    className="mb-1 block text-sm font-medium text-gray-700"
+                  >
+                    {config.label}
+                  </label>
+
+                  {config.type === "select" ? (
+                    <select
+                      id={name}
+                      name={name}
+                      value={state.formData[name as keyof FormData] as string}
+                      onChange={handleNewLeadFormChange}
+                      className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required={config.required}
+                    >
+                      <option value="" disabled>
+                        Select Status
+                      </option>
+                      {config.options?.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  ) : config.type === "textarea" ? (
+                    <textarea
+                      id={name}
+                      name={name}
+                      value={state.formData[name as keyof FormData] as string}
+                      onChange={handleNewLeadFormChange}
+                      rows={3}
+                      className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  ) : config.type === "checkbox" ? (
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={name}
+                        name={name}
+                        checked={
+                          state.formData[name as keyof FormData] as boolean
+                        }
+                        onChange={handleNewLeadFormChange}
+                        className="h-4 w-4"
+                      />
+                      <label htmlFor={name} className="text-sm">
+                        {config.label}
+                      </label>
+                    </div>
+                  ) : (
+                    <input
+                      type={config.type}
+                      id={name}
+                      name={name}
+                      value={state.formData[name as keyof FormData] as string}
+                      onChange={handleNewLeadFormChange}
+                      className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required={config.required}
+                    />
+                  )}
+                </div>
+              ))}
+
+              {/* Submit Button */}
+              <div className="md:col-span-2">
+                <button
+                  type="submit"
+                  disabled={state.formSaveLoading}
+                  className={`w-full rounded-md py-2 transition duration-200 ${
+                    state.formSaveLoading
+                      ? "cursor-not-allowed bg-gray-400"
+                      : "bg-green-600 text-white hover:bg-green-700"
+                  }`}
+                >
+                  {state.formSaveLoading ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </form>
+
+            <button
+              onClick={handleCloseNewLeadForm}
+              className="absolute right-3 top-3 text-2xl leading-none text-gray-500 hover:text-gray-700"
+              aria-label="Close"
+            >
+              &times;
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Search and Filter Section */}
+      <div className="flex flex-col gap-4 md:flex-row">
+        <div className="max-w-md flex-1">
+          <Label
+            htmlFor="search"
+            className="text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
             Search Leads
           </Label>
           <div className="relative mt-1">
-            <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
             <Input
               id="search"
               type="text"
               placeholder="Search by name, email, status..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={state.searchTerm}
+              onChange={(e) =>
+                setState((prev) => ({ ...prev, searchTerm: e.target.value }))
+              }
               className="pl-10"
             />
           </div>
         </div>
-
         <div className="flex items-end gap-2">
           <div className="flex items-center space-x-2">
-            <Label htmlFor="limit" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <Label
+              htmlFor="limit"
+              className="text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
               Rows:
             </Label>
             <select
               id="limit"
-              value={limit}
+              value={state.limit}
               onChange={handleLimitChange}
-              className="border rounded-md px-3 py-2 text-sm dark:bg-gray-800 dark:border-gray-700"
+              className="rounded-md border px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800"
             >
-              <option value="50">50</option>
-              <option value="100">100</option>
-              <option value="200">200</option>
-              <option value="500">500</option>
+              {[50, 100, 200, 500].map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
             </select>
           </div>
-          <Button variant="outline" onClick={() => fetchLeads(page, limit)}>
+          <Button variant="outline" onClick={fetchLeads}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
           </Button>
         </div>
       </div>
 
-      {searchTerm && (
+      {/* Search Results Info */}
+      {state.searchTerm && (
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Showing {filteredLeads.length} leads matching {searchTerm}
+          Showing {state.filteredLeads.length} leads matching {state.searchTerm}
         </p>
       )}
 
-      <div className="flex justify-center w-full">
-        <div className="w-full max-w-7xl">
-          {filteredLeads.length > 0 ? (
-            <AGGridTable
-              rowData={filteredLeads}
+      {/* AG Grid Table */}
+      <div className="flex w-full justify-center">
+        {/* <div className="ag-theme-alpine w-full" style={{ height: '600px' }}>
+          {state.filteredLeads.length > 0 ? (
+            <AgGridReact
+              rowData={state.filteredLeads}
               columnDefs={columnDefs}
-              title={`All Leads (${filteredLeads.length})`}
-              height="calc(70vh)"
-              showSearch={false}
+              defaultColDef={defaultColDef}
+              animateRows={true}
+              theme="legacy"
               onRowClicked={(event) => console.log("Row clicked:", event.data)}
-              onRowUpdated={handleRowUpdated}
-              onRowDeleted={handleRowDeleted}
+              onCellValueChanged={(event) => handleRowUpdated(event.data)}
+              suppressCellFocus={true}
+              domLayout='autoHeight'
             />
           ) : (
-            <div className="flex flex-col items-center justify-center p-8 border rounded-lg">
-              <p className="text-lg font-medium text-gray-500 mb-4">
-                {isLoading ? "Loading leads..." : "No leads found"}
+            <div className="flex flex-col items-center justify-center rounded-lg border p-8">
+              <p className="mb-4 text-lg font-medium text-gray-500">
+                {state.isLoading ? "Loading leads..." : "No leads found"}
               </p>
-              {!isLoading && (
-                <Button variant="outline" onClick={() => fetchLeads(1, limit)}>
+              {!state.isLoading && (
+                <Button variant="outline" onClick={() => fetchLeads()}>
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Refresh Data
                 </Button>
               )}
             </div>
           )}
-        </div>
+        </div> */}
+
+        <AGGridTable
+          rowData={state.filteredLeads}
+          columnDefs={columnDefs}
+          onRowClicked={(event) => console.log("Row clicked:", event.data)}
+          onRowUpdated={handleRowUpdated}
+          onRowDeleted={handleRowDeleted}
+          title="Leads"
+          showSearch={true}
+          showFilters={true}
+          height="600px"
+          
+        
+        />
       </div>
 
+      {/* Pagination */}
       <div className="flex items-center justify-between">
         <div className="text-sm text-gray-500 dark:text-gray-400">
-          Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total} leads
+          Showing {(state.page - 1) * state.limit + 1} to{" "}
+          {Math.min(state.page * state.limit, state.total)} of {state.total}{" "}
+          leads
         </div>
         <div className="flex items-center space-x-2">
           <Button
             variant="outline"
             onClick={handlePreviousPage}
-            disabled={page <= 1}
+            disabled={state.page <= 1}
           >
             <ChevronLeft className="h-4 w-4" />
             Previous
           </Button>
-          <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 rounded-md text-sm font-medium">
-            Page {page}
+          <span className="rounded-md bg-gray-100 px-3 py-1 text-sm font-medium dark:bg-gray-800">
+            Page {state.page}
           </span>
           <Button
             variant="outline"
             onClick={handleNextPage}
-            disabled={page * limit >= total}
+            disabled={state.page * state.limit >= state.total}
           >
             Next
             <ChevronRight className="h-4 w-4" />

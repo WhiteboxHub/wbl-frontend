@@ -820,6 +820,8 @@ interface EditModalProps {
   onClose: () => void;
   data: Record<string, any>;
   title: string;
+  
+
   onSave: (updatedData: Record<string, any>) => void;
 }
 

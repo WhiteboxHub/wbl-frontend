@@ -40,3 +40,18 @@
 .read-the-docs {
   color: #888;
 }
+
+
+.ag-theme-alpine .ag-row.ag-row-selected {
+  background-color: rgba(59, 130, 246, 0.2) !important; /* Tailwind blue-500 at 20% opacity */
+}
+
+/* Light mode selected row styling */
+.ag-theme-alpine .ag-row.ag-row-selected {
+  background-color: rgba(59, 130, 246, 0.15) !important; /* Tailwind blue-500 at 15% */
+}
+
+.ag-row-odd{
+  background-color: grey !important;
+}
+

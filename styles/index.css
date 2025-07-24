@@ -248,11 +248,12 @@
 }
 
 /* AG Grid Dark Mode Styling */
-.ag-grid-dark-mode.ag-theme-alpine {
+.ag-grid-dark-mode.ag-theme-alpine.ag-theme-quartz {
   --ag-background-color: rgb(31 41 55);
-  --ag-header-background-color: rgb(17 24 39);
-  --ag-odd-row-background-color: rgb(31 41 55);
-  --ag-even-row-background-color: rgb(37 47 63);
+  --ag-header-background-color: rgb(235, 237, 242);
+  --ag-odd-row-background-color: rgb(255 255 255);
+  --ag-even-row-background-color: rgb(255 255 255);
+
   --ag-row-hover-color: rgb(55 65 81);
   --ag-row-border-color: rgb(55 65 81);
   --ag-border-color: rgb(55 65 81);
@@ -267,6 +268,7 @@
   --ag-range-selection-background-color-2: rgb(59 130 246 / 0.2);
   --ag-range-selection-background-color-3: rgb(59 130 246 / 0.3);
   --ag-range-selection-background-color-4: rgb(59 130 246 / 0.4);
+
 }
 
 /* app.css */
