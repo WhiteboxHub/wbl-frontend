@@ -24,6 +24,8 @@ const AGGridTable = dynamic(() => import("@/components/AGGridTable"), {
 });
 
 
+
+
 type Lead = {
   id: number;
   full_name?: string | null;
@@ -76,6 +78,8 @@ provideGlobalGridOptions({
     theme: "legacy",
 });
 
+
+
 export default function LeadsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -102,6 +106,9 @@ export default function LeadsPage() {
     []
   );
 
+
+  
+
   // Fetch leads with error handling
   const fetchLeads = useCallback(async () => {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
@@ -125,6 +132,8 @@ export default function LeadsPage() {
         page: data.page,
         limit: data.limit,
         isLoading: false,
+        loadingRowId: null as number | null,
+
       }));
     } catch (err) {
       const error = err instanceof Error ? err.message : "Failed to load leads";
@@ -235,36 +244,7 @@ export default function LeadsPage() {
     setState((prev) => ({ ...prev, newLeadForm: false }));
   };
 
-  // CRUD operations
-  const handleRowUpdated = useCallback(
-    async (updatedRow: Lead) => {
-      try {
-        const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updatedRow),
-        });
 
-        if (!response.ok) throw new Error("Failed to update lead");
-
-        setState((prev) => ({
-          ...prev,
-          leads: prev.leads.map((lead) =>
-            lead.id === updatedRow.id ? updatedRow : lead
-          ),
-          filteredLeads: prev.filteredLeads.map((lead) =>
-            lead.id === updatedRow.id ? updatedRow : lead
-          ),
-        }));
-
-        toast.success("Lead updated successfully");
-      } catch (error) {
-        toast.error("Failed to update lead");
-        console.error("Error updating lead:", error);
-      }
-    },
-    [apiEndpoint]
-  );
 
   const handleRowDeleted = useCallback(
     async (id: number) => {
@@ -285,6 +265,45 @@ export default function LeadsPage() {
       } catch (error) {
         toast.error("Failed to delete lead");
         console.error("Error deleting lead:", error);
+      }
+    },
+    [apiEndpoint]
+  );
+
+
+
+
+
+
+  const handleRowUpdated = useCallback(
+    async (updatedRow: Lead) => {
+      setState((prev) => ({ ...prev, loadingRowId: updatedRow.id }));
+
+      try {
+        const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatedRow),
+        });
+
+        if (!response.ok) throw new Error("Failed to update lead");
+
+        setState((prev) => ({
+          ...prev,
+          leads: prev.leads.map((lead) =>
+            lead.id === updatedRow.id ? updatedRow : lead
+          ),
+          filteredLeads: prev.filteredLeads.map((lead) =>
+            lead.id === updatedRow.id ? updatedRow : lead
+          ),
+          loadingRowId: null,
+        }));
+
+        toast.success("Lead updated successfully");
+      } catch (error) {
+        setState((prev) => ({ ...prev, loadingRowId: null }));
+        toast.error("Failed to update lead");
+        console.error("Error updating lead:", error);
       }
     },
     [apiEndpoint]
@@ -334,6 +353,7 @@ export default function LeadsPage() {
     return value ? new Date(value).toLocaleDateString() : "-";
   };
 
+
   const columnDefs: ColDef[] = useMemo(
     () => [
       {
@@ -372,7 +392,7 @@ export default function LeadsPage() {
         valueFormatter: dateFormatter,
         filter: "agDateColumnFilter",
       },
-      { field: "address", headerName: "Adress", width: 120, filter: true },
+      { field: "address", headerName: "Address", width: 120, filter: true },
       {
         field: "moved_to_candidate",
         headerName: "Moved to Candidate",
@@ -380,9 +400,65 @@ export default function LeadsPage() {
         filter: true,
         valueFormatter: ({ value }) => (value ? "Yes" : "No"),
       },
+      {
+        headerName: "Actions",
+        field: "actions",
+        width: 200,
+        cellRenderer: ({ data }: any) => {
+          const isMoved = data.moved_to_candidate;
+          const isLoading = state.loadingRowId === data.id;
+
+          return (
+            <button
+              onClick={async () => {
+                if (isLoading) return;
+                const updatedLead = {
+                  ...data,
+                  moved_to_candidate: !isMoved,
+                };
+                await handleRowUpdated(updatedLead);
+              }}
+              disabled={isLoading}
+              className={`px-3 py-1 rounded text-sm font-semibold flex items-center justify-center gap-1 ${
+                isMoved
+                  ? "bg-red-500 text-white hover:bg-red-600"
+                  : "bg-green-600 text-white hover:bg-green-700"
+              } ${isLoading ? "opacity-60 cursor-not-allowed" : ""}`}
+            >
+              {isLoading ? (
+                <>
+                  <svg
+                    className="animate-spin h-4 w-4 text-white"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      fill="none"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
+                  </svg>
+                  Updating...
+                </>
+              ) : (
+                <>{isMoved ? "Undo Move" : "Move to Candidate"}</>
+              )}
+            </button>
+          );
+        },
+      },
     ],
-    []
+    [handleRowUpdated, state.loadingRowId] // ✅ include loadingRowId in deps
   );
+
 
   // Default column definitions
   const defaultColDef = useMemo(

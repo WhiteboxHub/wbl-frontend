@@ -42,6 +42,7 @@ interface RowData {
 }
 
 export function AGGridTable({
+
   rowData,
   columnDefs,
   onRowClicked,
@@ -238,6 +239,7 @@ export function AGGridTable({
           >
             <TrashIcon className="h-4 w-4" />
           </Button>
+          <Button variant="outline" size="sm" onClick={refreshData}></Button>
         
           <Button variant="outline" size="sm" onClick={toggleExpand}>
             <ExpandIcon className="h-4 w-4 mr-2" />
@@ -258,21 +260,31 @@ export function AGGridTable({
            <AgGridReact
           className="ag-theme-quartz" // Use className instead of theme prop
             ref={gridRef}
+          
             rowData={rowData || []}
             columnDefs={columnDefs}
-            defaultColDef={defaultColDef}
+            // defaultColDef={defaultColDef}
             onGridReady={onGridReady}
             onRowClicked={onRowClickedHandler}
             onSelectionChanged={handleRowSelection}
             animateRows={true}
+            paginationPageSize={50}
+            defaultColDef={{
+              resizable: true,
+              sortable: true,
+              filter: true,
+             cellClass: 'custom-cell-style',
+              
+            }}
+            // paginationAutoPageSize={true}
             rowSelection={{mode:'singleRow',
               enableClickSelection:true
             }}
             pagination={true}
             findOptions={{
               currentPageOnly: false,
-  caseSensitive: false,
-  searchDetail: false}
+              caseSensitive: false,
+              searchDetail: false}
             }
             // paginationPageSize={isExpanded ? 50 : 20}
             // theme={isDarkMode ? "quartz-dark" : "quartz"}
