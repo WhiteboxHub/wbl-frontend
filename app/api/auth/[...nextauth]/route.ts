@@ -1189,9 +1189,9 @@ const authOptions: NextAuthOptions = {
 
         const { accessToken, status } = await handleUserRegistrationOrLoginWithRetry(user);
 
-        if (accessToken) {
-          token.accessToken = accessToken;
-        }
+        // if (accessToken) {
+        //   token.accessToken = accessToken;
+        // }
 
         token.id = user.id;
         token.name = user.name ?? undefined; //  FIXED: handle possible null
@@ -1205,8 +1205,8 @@ const authOptions: NextAuthOptions = {
       session.user.id = token.id as string;
       session.user.name = token.name ?? undefined;
       session.user.email = token.email ?? undefined;
-      session.accessToken = token.accessToken ?? undefined;
       session.user.status = token.status;
+      session.accessToken = token.accessToken ?? undefined;
       return session;
     },
   },
@@ -1257,10 +1257,6 @@ async function handleUserRegistrationOrLogin(user: any) {
       return { accessToken: null, status: "inactive" };
     }
   } catch (error: any) {
-    // console.error(
-    //   "Error during operation:",
-    //   error.response?.data.detail || error.message
-    // );
     return { accessToken: null, status: "error" };
   }
 }
@@ -1268,16 +1264,11 @@ async function handleUserRegistrationOrLogin(user: any) {
 
 async function handleUserRegistrationOrLoginWithRetry(user: any) {
   const firstAttempt = await handleUserRegistrationOrLogin(user);
-  if (firstAttempt.status === "active" && firstAttempt.accessToken) {
-    return firstAttempt;
-  }
 
-  if (
-    firstAttempt.status === "registered" ||
-    firstAttempt.status === "error"  ||
-    firstAttempt.status === "inactive"
-  ) {
-    // console.warn("Retrying user login in 1 second...");
+  const loginSuccessful =
+    firstAttempt.status === "active" && firstAttempt.accessToken;
+
+  if (!loginSuccessful) {
     await new Promise((resolve) => setTimeout(resolve, 1000));
     const secondAttempt = await handleUserRegistrationOrLogin(user);
     return secondAttempt;
@@ -1285,4 +1276,3 @@ async function handleUserRegistrationOrLoginWithRetry(user: any) {
 
   return firstAttempt;
 }
-
