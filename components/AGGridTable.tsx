@@ -296,6 +296,7 @@ export function AGGridTable({
             onSelectionChanged={handleRowSelection}
             animateRows={true}
             rowSelection="single"
+            // onRowSelected={(event) => console.log("Selected Row:", event.node)}
             suppressRowClickSelection={false}
             onRowSelected={(event) => console.log("Selected Row:", event.node)}
             pagination={true}

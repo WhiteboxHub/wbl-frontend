@@ -484,7 +484,7 @@
 //   const [pageSize, setPageSize] = useState(100);
   
   
-// const [selectedCandidate, setSelectedCandidate] = useState<any | null>(null); // ✅ new
+// const [selectedCandidate, setSelectedCandidate] = useState<any | null>(null); // new
 
 //   useEffect(() => {
 //     setLoading(true);
@@ -827,7 +827,8 @@ export default function CandidatesPage() {
         )
       );
     } catch (error) {
-      console.error("Failed to update candidate:", error);
+
+      // console.error("Failed to update candidate:", error);
     }
   };
 
@@ -853,7 +854,9 @@ export default function CandidatesPage() {
         prev.filter((row) => row.candidateid !== id)
       );
     } catch (error) {
-      console.error("Failed to delete candidate:", error);
+
+      // console.error("Failed to delete candidate:", error);
+
     }
   };
   // const handleDelete = async (id: string | number) => {

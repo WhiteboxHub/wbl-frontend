@@ -30,7 +30,6 @@
 //   );
 // }
 
-
 'use client';
 
 import { usePathname } from "next/navigation";
@@ -52,9 +51,11 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     setSidebarOpen((prev) => !prev);
   }, []);
 
+
   
   useEffect(() => {
     const timer = setTimeout(() => setHoldLoad(true), 600);
+
     return () => clearTimeout(timer);
   }, []);
 

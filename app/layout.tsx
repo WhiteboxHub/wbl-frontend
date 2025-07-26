@@ -32,7 +32,7 @@ export default function RootLayout({
   return (
     <html suppressHydrationWarning lang="en">
       <head>
-        <title>Whitebox-Learning</title>
+        <title>Whitebox-Learning | AIML Training and Placements in Bay area</title>
         <meta content="width=device-width, initial-scale=1" name="viewport" />
         <meta
           name="description"
