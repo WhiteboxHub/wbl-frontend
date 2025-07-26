@@ -1146,220 +1146,6 @@
 
 
 
-
-
-
-
-// // whiteboxLearning-wbl\app\api\auth\[...nextauth]\route.ts
-// import GoogleProvider from "next-auth/providers/google";
-// import NextAuth, { NextAuthOptions } from "next-auth";
-// import axios from "axios";
-// import winston from "winston";
-
-// // Step 1: Set up Winston logger
-// const logger = winston.createLogger({
-//   level: 'info',
-//   format: winston.format.combine(
-//     winston.format.timestamp(),
-//     winston.format.json()
-//   ),
-//   transports: [
-//     new winston.transports.Console(),
-//     new winston.transports.File({ filename: 'all-logs.json', level: 'info' })
-//   ]
-// });
-
-// // Type declarations
-// declare module "next-auth/jwt" {
-//   interface JWT {
-//     id: string;
-//     name?: string;
-//     email?: string;
-//     status?: string;
-//     accessToken?: string;
-//     error?: string;
-//   }
-// }
-
-// declare module "next-auth" {
-//   interface Session {
-//     user: {
-//       id: string;
-//       name?: string;
-//       email?: string;
-//       image?: string;
-//       status?: string;
-//     };
-//     accessToken?: string;
-//     error?: string;
-//   }
-// }
-
-// const authOptions: NextAuthOptions = {
-//   providers: [
-//     GoogleProvider({
-//       clientId: process.env.GOOGLE_CLIENT_ID as string,
-//       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
-//     }),
-//   ],
-//   pages: {
-//     signIn: '/auth/signin',
-//     error: '/auth/error',
-//   },
-//   callbacks: {
-//     async signIn({ user, account }) {
-//       logger.info({ timestamp: new Date().toISOString(), message: "User signing in", user, account });
-
-//       try {
-//         if (!user?.email) {
-//           logger.error({ timestamp: new Date().toISOString(), message: "Error: No email provided by Google" });
-//           throw new Error("No email provided by Google");
-//         }
-
-//         const result = await handleUserRegistrationOrLogin(user);
-//         logger.info({ timestamp: new Date().toISOString(), message: "Registration/Login Result", result });
-
-//         if (result.status === 'error') {
-//           logger.error({ timestamp: new Date().toISOString(), message: 'Error during registration/login', result });
-//           return `/auth/error?error=${encodeURIComponent(result.message || "Authentication failed")}`;
-//         }
-
-//         if (result.status === 'inactive') {
-//           logger.warn({ timestamp: new Date().toISOString(), message: 'Inactive account', result });
-//           return `/auth/error?error=${encodeURIComponent("Account is inactive. Please contact administrator.")}`;
-//         }
-
-//         return true;
-//       } catch (error: any) {
-//         logger.error({ timestamp: new Date().toISOString(), message: "Sign-in error", error });
-//         return `/auth/error?error=${encodeURIComponent(error.message || "An unknown error occurred")}`;
-//       }
-//     },
-
-//     async jwt({ token, user, account }) {
-//       if (account && user) {
-//         try {
-//           const result = await handleUserRegistrationOrLogin(user);
-//           logger.info({ timestamp: new Date().toISOString(), message: "JWT Callback Result", result });
-
-//           token.accessToken = result.accessToken;
-//           token.status = result.status;
-//           token.id = user.id;
-//           token.name = user.name;
-//           token.email = user.email;
-
-//           if (result.status === 'error' || result.status === 'inactive') {
-//             token.error = result.message;
-//           }
-//         } catch (error: any) {
-//           logger.error({ timestamp: new Date().toISOString(), message: "JWT callback error", error });
-//           token.error = error.message;
-//         }
-//       }
-//       return token;
-//     },
-
-//     async session({ session, token }) {
-//       if (token.error) {
-//         throw new Error(token.error);
-//       }
-
-//       session.user.id = token.id as string;
-//       session.user.name = token.name as string;
-//       session.user.email = token.email as string;
-//       session.user.status = token.status as string;
-//       session.accessToken = token.accessToken as string;
-//       return session;
-//     },
-//   },
-//   debug: process.env.NODE_ENV === 'development',
-//   secret: process.env.NEXTAUTH_SECRET,
-// };
-
-// const handler = NextAuth(authOptions);
-
-// export const GET = handler;
-// export const POST = handler;
-
-// export async function generateStaticParams() {
-//   return [];
-// }
-
-// interface User {
-//   id: string;
-//   email?: string;
-//   name?: string;
-// }
-
-// async function handleUserRegistrationOrLogin(user: User) {
-//   const payload = {
-//     email: user.email,
-//     name: user.name,
-//     google_id: user.id,
-//   };
-
-//   try {
-//     const maxRetries = 3;
-//     let attempt = 0;
-    
-//     while (attempt < maxRetries) {
-//       try {
-//         const checkResponse = await axios.post(
-//           `${process.env.NEXT_PUBLIC_API_URL}/check_user/`,
-//           payload,
-//           { timeout: 5000 }
-//         );
-
-//         if (!checkResponse.data.exists) {
-//           const registerResponse = await axios.post(
-//             `${process.env.NEXT_PUBLIC_API_URL}/google_users/`,
-//             payload,
-//             { timeout: 5000 }
-//           );
-
-//           return {
-//             accessToken: null,
-//             status: 'registered',
-//             message: registerResponse.data.message
-//           };
-//         }
-
-//         if (checkResponse.data.status === "active") {
-//           const loginResponse = await axios.post(
-//             `${process.env.NEXT_PUBLIC_API_URL}/google_login/`,
-//             payload,
-//             { timeout: 5000 }
-//           );
-
-//           return {
-//             accessToken: loginResponse.data.access_token,
-//             status: 'active',
-//             message: 'Login successful'
-//           };
-//         }
-
-//         return {
-//           accessToken: null,
-//           status: 'inactive',
-//           message: 'Account is inactive'
-//         };
-//       } catch (error: any) {
-//         attempt++;
-//         if (attempt === maxRetries) throw error;
-//         await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-//       }
-//     }
-//   } catch (error: any) {
-//     logger.error({ timestamp: new Date().toISOString(), message: "Authentication error", error: error.response?.data || error });
-//     return {
-//       accessToken: null,
-//       status: 'error',
-//       message: error.response?.data?.detail || error.message
-//     };
-//   }
-// }
-
-
 // whiteboxLearning-wbl/app/api/auth/[...nextauth]/route.ts
 import NextAuth, { NextAuthOptions, Session } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
@@ -1403,14 +1189,15 @@ const authOptions: NextAuthOptions = {
 
         const { accessToken, status } = await handleUserRegistrationOrLoginWithRetry(user);
 
-        if (accessToken) {
-          token.accessToken = accessToken;
-        }
+        // if (accessToken) {
+        //   token.accessToken = accessToken;
+        // }
 
         token.id = user.id;
         token.name = user.name ?? undefined; //  FIXED: handle possible null
         token.email = user.email ?? undefined; // Optional: similar fix
         token.status = status;
+        token.accessToken = accessToken;
       }
       return token;
     },
@@ -1418,8 +1205,8 @@ const authOptions: NextAuthOptions = {
       session.user.id = token.id as string;
       session.user.name = token.name ?? undefined;
       session.user.email = token.email ?? undefined;
-      session.accessToken = token.accessToken ?? undefined;
       session.user.status = token.status;
+      session.accessToken = token.accessToken ?? undefined;
       return session;
     },
   },
@@ -1470,35 +1257,22 @@ async function handleUserRegistrationOrLogin(user: any) {
       return { accessToken: null, status: "inactive" };
     }
   } catch (error: any) {
-    // console.error(
-    //   "Error during operation:",
-    //   error.response?.data.detail || error.message
-    // );
     return { accessToken: null, status: "error" };
   }
 }
 
 
 async function handleUserRegistrationOrLoginWithRetry(user: any) {
-  try {
-    const result = await handleUserRegistrationOrLogin(user);
+  const firstAttempt = await handleUserRegistrationOrLogin(user);
 
-    if (result.status === "active" && result.accessToken) {
-      return result;
-    }
+  const loginSuccessful =
+    firstAttempt.status === "active" && firstAttempt.accessToken;
 
-    // If status is registered, inactive, or error, retry once
-    if (result.status === "error" || result.status === "registered") {
-      // console.warn("Retrying login logic in 500ms...");
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      return await handleUserRegistrationOrLogin(user);
-    }
-
-
-    return result;
-  } catch (err) {
-    // console.error("Final login attempt failed:", err);
-    return { accessToken: null, status: "error" };
+  if (!loginSuccessful) {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const secondAttempt = await handleUserRegistrationOrLogin(user);
+    return secondAttempt;
   }
-}
 
+  return firstAttempt;
+}
