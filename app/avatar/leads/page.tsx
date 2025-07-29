@@ -24,8 +24,6 @@ const AGGridTable = dynamic(() => import("@/components/AGGridTable"), {
 });
 
 
-
-
 type Lead = {
   id: number;
   full_name?: string | null;
