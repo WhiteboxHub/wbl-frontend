@@ -631,7 +631,7 @@ const formatVideoTitle = (filename: string) => {
 // Desired order of session types
 const desiredOrder = [
   "Group Mock",
-  "Individual Mock",
+  "FollowUp Sessions",
   "Resume Session",
   "Interview Prep",
   "Job Help",
@@ -683,6 +683,7 @@ const SessionComp = () => {
         return res.json();
     })
     .then((data) => {
+      console.log("Session types from API:", data.types);
         const sortedTypes = sortSessionTypes(data.types); // Apply sorting
         setSessionTypes(sortedTypes);
         setIsLoadingSessionTypes(false); // Stop loading when data is fetched
