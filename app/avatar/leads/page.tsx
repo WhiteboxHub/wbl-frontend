@@ -1,7 +1,7 @@
 
 
 "use client";
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useMemo, useState, useCallback, useEffect, Ref } from "react";
 import { ColDef } from "ag-grid-community";
 import dynamic from "next/dynamic";
 import { Badge } from "@/components/admin_ui/badge";
@@ -18,6 +18,10 @@ import { Button } from "@/components/admin_ui/button";
 import { toast, Toaster } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { provideGlobalGridOptions } from 'ag-grid-community';
+import { useRef } from "react";
+import { AgGridReact } from "ag-grid-react";
+import { method } from "lodash";
+
 
 const AGGridTable = dynamic(() => import("@/components/AGGridTable"), {
   ssr: false,
@@ -73,21 +77,23 @@ const initialFormData: FormData = {
   notes: "",
 };
 provideGlobalGridOptions({
-    theme: "legacy",
+  theme: "legacy",
 });
 
 
-
 export default function LeadsPage() {
+  const gridRef = useRef<AgGridReact>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const isNewLead = searchParams.get("newlead") === "true";
+  const selectedRowData = gridRef.current?.api?.getSelectedRows()?.[0];
+
 
   // State management
   const [state, setState] = useState({
     searchTerm: "",
-    leads: [] as Lead[],
-    filteredLeads: [] as Lead[],
+    leads: [],
+    filteredLeads: [],
     isLoading: true,
     error: null as string | null,
     page: 1,
@@ -96,18 +102,18 @@ export default function LeadsPage() {
     newLeadForm: isNewLead,
     formData: initialFormData,
     formSaveLoading: false,
+    loadingRowId: null,
   });
 
-  // Memoized API endpoint
   const apiEndpoint = useMemo(
-    () => `${process.env.NEXT_PUBLIC_API_URL}/leads_new`,
+    () => `${process.env.NEXT_PUBLIC_API_URL}/lead`,
     []
   );
 
 
-  
 
-  // Fetch leads with error handling
+
+
   const fetchLeads = useCallback(async () => {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
@@ -140,12 +146,12 @@ export default function LeadsPage() {
     }
   }, [apiEndpoint, state.page, state.limit]);
 
-  // Updated row selection configuration
+
   const rowSelection = useMemo(() => {
     return "multiple";
   }, []);
 
-  // Filter leads based on search term
+
   const filterLeads = useCallback((searchTerm: string, leads: Lead[]) => {
     if (!searchTerm.trim()) return leads;
 
@@ -166,24 +172,26 @@ export default function LeadsPage() {
     });
   }, []);
 
-  // Handle search with debounce
+
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
-      setState((prev) => ({
-        ...prev,
-        filteredLeads: filterLeads(prev.searchTerm, prev.leads),
-      }));
+      if (state.searchTerm !== undefined && Array.isArray(state.leads)) {
+        setState((prev) => ({
+          ...prev,
+          filteredLeads: filterLeads(prev.searchTerm, prev.leads),
+        }));
+      }
     }, 300);
 
     return () => clearTimeout(debounceTimer);
   }, [state.searchTerm, state.leads, filterLeads]);
 
-  // Initial data fetch
+
   useEffect(() => {
     fetchLeads();
   }, [fetchLeads]);
 
-  // Form handlers
+
   const handleNewLeadFormChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -307,6 +315,59 @@ export default function LeadsPage() {
     [apiEndpoint]
   );
 
+
+  const handleMoveToCandidate = useCallback(
+    async (leadId: { id: number }, Moved) => {
+      console.log("this is moved",Moved)
+      setState((prev) => ({ ...prev, loadingRowId: leadId.id }));
+
+      try {
+        var method;
+        if(Moved){
+          method = "DELETE"
+        }else{
+          method = "POST"
+        }
+        const response = await fetch(`${apiEndpoint}/movetocandidate/${leadId.id}`, {
+          method: method,
+          headers: {
+            "Content-Type": "application/json"
+          }
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || "Failed to move lead to candidate");
+        }
+
+        const data = await response.json();
+
+        // Update lead state (set moved_to_candidate = true)
+        setState((prev) => ({
+          ...prev,
+          leads: prev.leads.map((lead) =>
+            lead.id === leadId.id ? { ...lead, moved_to_candidate: !Moved } : lead
+          ),
+          filteredLeads: prev.filteredLeads.map((lead) =>
+            lead.id === leadId.id ? { ...lead, moved_to_candidate: !Moved } : lead
+          ),
+          loadingRowId: null,
+        }));
+
+        if(Moved){
+          toast.success(`Lead Has been removed from candidate list (Candidate ID in Candidate list: ${data.candidate_id})`);
+        }else{
+          toast.success(`Lead moved to candidate (Candidate ID: ${data.candidate_id})`);
+        }
+      } catch (error: any) {
+        console.error("Error moving lead to candidate:", error);
+        toast.error(error.message || "Failed to move lead to candidate");
+        setState((prev) => ({ ...prev, loadingRowId: null }));
+      }
+    },
+    []
+  );
+
   // Pagination handlers
   const handlePreviousPage = () => {
     if (state.page > 1) {
@@ -352,6 +413,7 @@ export default function LeadsPage() {
   };
 
 
+
   const columnDefs: ColDef[] = useMemo(
     () => [
       {
@@ -369,6 +431,7 @@ export default function LeadsPage() {
         width: 150,
         filter: true,
       },
+
       {
         field: "status",
         headerName: "Status",
@@ -376,6 +439,7 @@ export default function LeadsPage() {
         cellRenderer: StatusRenderer,
         filter: true,
       },
+
       {
         field: "entry_date",
         headerName: "Entry Date",
@@ -383,6 +447,7 @@ export default function LeadsPage() {
         valueFormatter: dateFormatter,
         filter: "agDateColumnFilter",
       },
+      
       {
         field: "closed_date",
         headerName: "Closed Date",
@@ -390,14 +455,18 @@ export default function LeadsPage() {
         valueFormatter: dateFormatter,
         filter: "agDateColumnFilter",
       },
+
       { field: "address", headerName: "Address", width: 120, filter: true },
+
       {
-        field: "moved_to_candidate",
-        headerName: "Moved to Candidate",
+        field: "last_modified",
+        headerName: "Last Modified",
         width: 180,
-        filter: true,
-        valueFormatter: ({ value }) => (value ? "Yes" : "No"),
+        valueFormatter: dateFormatter,
+        filter: 'agDateColumnFilter'
       },
+      
+
       {
         headerName: "Actions",
         field: "actions",
@@ -410,18 +479,13 @@ export default function LeadsPage() {
             <button
               onClick={async () => {
                 if (isLoading) return;
-                const updatedLead = {
-                  ...data,
-                  moved_to_candidate: !isMoved,
-                };
-                await handleRowUpdated(updatedLead);
+                await handleMoveToCandidate(data, isMoved);
               }}
               disabled={isLoading}
-              className={`px-3 py-1 rounded text-sm font-semibold flex items-center justify-center gap-1 ${
-                isMoved
-                  ? "bg-red-500 text-white hover:bg-red-600"
-                  : "bg-green-600 text-white hover:bg-green-700"
-              } ${isLoading ? "opacity-60 cursor-not-allowed" : ""}`}
+              className={`px-3 py-1 rounded text-sm font-semibold flex items-center justify-center gap-1 ${isMoved
+                ? "bg-red-500 text-white hover:bg-red-600"
+                : "bg-green-600 text-white hover:bg-green-700"
+                } ${isLoading ? "opacity-60 cursor-not-allowed" : ""}`}
             >
               {isLoading ? (
                 <>
@@ -452,9 +516,9 @@ export default function LeadsPage() {
             </button>
           );
         },
-      },
+      }
     ],
-    [handleRowUpdated, state.loadingRowId] // ✅ include loadingRowId in deps
+    [handleRowUpdated, state.loadingRowId] // include loadingRowId in deps
   );
 
 
@@ -619,11 +683,10 @@ export default function LeadsPage() {
                 <button
                   type="submit"
                   disabled={state.formSaveLoading}
-                  className={`w-full rounded-md py-2 transition duration-200 ${
-                    state.formSaveLoading
-                      ? "cursor-not-allowed bg-gray-400"
-                      : "bg-green-600 text-white hover:bg-green-700"
-                  }`}
+                  className={`w-full rounded-md py-2 transition duration-200 ${state.formSaveLoading
+                    ? "cursor-not-allowed bg-gray-400"
+                    : "bg-green-600 text-white hover:bg-green-700"
+                    }`}
                 >
                   {state.formSaveLoading ? "Saving..." : "Save"}
                 </button>
@@ -664,32 +727,7 @@ export default function LeadsPage() {
             />
           </div>
         </div>
-        <div className="flex items-end gap-2">
-          <div className="flex items-center space-x-2">
-            <Label
-              htmlFor="limit"
-              className="text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Rows:
-            </Label>
-            <select
-              id="limit"
-              value={state.limit}
-              onChange={handleLimitChange}
-              className="rounded-md border px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800"
-            >
-              {[50, 100, 200, 500].map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
-          <Button variant="outline" onClick={fetchLeads}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh
-          </Button>
-        </div>
+
       </div>
 
       {/* Search Results Info */}
@@ -701,35 +739,9 @@ export default function LeadsPage() {
 
       {/* AG Grid Table */}
       <div className="flex w-full justify-center">
-        {/* <div className="ag-theme-alpine w-full" style={{ height: '600px' }}>
-          {state.filteredLeads.length > 0 ? (
-            <AgGridReact
-              rowData={state.filteredLeads}
-              columnDefs={columnDefs}
-              defaultColDef={defaultColDef}
-              animateRows={true}
-              theme="legacy"
-              onRowClicked={(event) => console.log("Row clicked:", event.data)}
-              onCellValueChanged={(event) => handleRowUpdated(event.data)}
-              suppressCellFocus={true}
-              domLayout='autoHeight'
-            />
-          ) : (
-            <div className="flex flex-col items-center justify-center rounded-lg border p-8">
-              <p className="mb-4 text-lg font-medium text-gray-500">
-                {state.isLoading ? "Loading leads..." : "No leads found"}
-              </p>
-              {!state.isLoading && (
-                <Button variant="outline" onClick={() => fetchLeads()}>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Refresh Data
-                </Button>
-              )}
-            </div>
-          )}
-        </div> */}
 
         <AGGridTable
+
           rowData={state.filteredLeads}
           columnDefs={columnDefs}
           onRowClicked={(event) => console.log("Row clicked:", event.data)}
@@ -739,8 +751,8 @@ export default function LeadsPage() {
           showSearch={true}
           showFilters={true}
           height="600px"
-          
-        
+
+
         />
       </div>
 

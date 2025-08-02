@@ -142,7 +142,7 @@
 
 /* ✅ Hover row highlight (blue glow on mouse move) */
 .ag-theme-alpine .ag-row-hover .ag-cell {
-  background-color: rgba(59, 130, 246, 0.1) !important; /* Tailwind blue-500/10 */
+  background-color: rgba(11, 12, 12, 0.1) !important; /* Tailwind blue-500/10 */
   cursor: pointer;
 }
 
