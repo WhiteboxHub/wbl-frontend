@@ -9,6 +9,7 @@ import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import axios from "axios";
+import { Plus } from "lucide-react";
 
 const DateFormatter = (params: any) =>
   params.value ? new Date(params.value).toLocaleDateString() : "";
@@ -19,6 +20,21 @@ export default function EmployeesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const blankEmployeeData = {
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+    state: "",
+    dob: "",
+    startdate: "",
+    instructor: 0,
+    status: 1,
+    enddate: "",
+    notes: "",
+    aadhaar: "",
+  };
+
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -84,7 +100,7 @@ export default function EmployeesPage() {
         dob: updatedRow.dob,
         startdate: updatedRow.start_date,
         enddate: updatedRow.lastmoddate,
-        role: updatedRow.role,
+        instructor: updatedRow.instructor,
         notes: updatedRow.notes,
         state: updatedRow.state,
       };
@@ -117,6 +133,24 @@ export default function EmployeesPage() {
       console.error("Failed to delete employee:", error);
     }
   };
+  const handleAddEmployee = async () => {
+    try {
+      const res = await axios.post(
+      `${process.env.NEXT_PUBLIC_API_URL}/employees`,
+      blankEmployeeData
+    );
+    const newEmployee = {
+      ...res.data,
+      full_name: res.data.name,
+      start_date: res.data.startdate,
+      lastmoddate: res.data.enddate,
+    };
+    setFilteredEmployees((prev) => [newEmployee, ...prev]);
+  } catch (error) {
+    console.error("Failed to add employee:", error);
+  }
+};
+
 
   const columnDefs: ColDef[] = [
     { headerName: "ID", field: "id", width: 80, checkboxSelection: true, pinned: "left" },
@@ -126,10 +160,12 @@ export default function EmployeesPage() {
     { headerName: "Address", field: "address", editable: true },
     { headerName: "State", field: "state", editable: true },
     { headerName: "DOB", field: "dob", valueFormatter: DateFormatter, editable: true },
-    { headerName: "Start Date", field: "start_date", valueFormatter: DateFormatter, editable: true },
-    { headerName: "Role", field: "role", editable: true },
+    { headerName: "Start Date", field: "startdate", valueFormatter: DateFormatter, editable: true },
+    { headerName: "Instructor", field: "instructor", editable: true},
+    { headerName: "Status", field: "status", editable: true },
     { headerName: "End Date", field: "lastmoddate", valueFormatter: DateFormatter },
     { headerName: "Notes", field: "notes", editable: true },
+    { headerName: "Aadhar Number", field: "aadhaar", editable: true },
   ];
 
   return (

@@ -14,6 +14,7 @@ import {
   EyeIcon,
   EditIcon,
   TrashIcon,
+  Plus,
 } from "lucide-react";
 import { ViewModal } from "./ViewModal";
 import { EditModal } from "@/components/EditModal";
@@ -49,6 +50,7 @@ export function AGGridTable({
   const [searchText, setSearchText] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedRowData, setSelectedRowData] = useState<any>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   // Modal states - completely separate from grid
   const [viewData, setViewData] = useState(null);
@@ -127,6 +129,26 @@ export function AGGridTable({
       alert("Please select a row first");
     }
   }, [selectedRowData]);
+
+  const handleAdd = useCallback(() => {
+  const blankEmployeeData = {
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+    state: "",
+    dob: "",
+    startdate: "",
+    enddate: "",
+    notes: "",
+    status:"",
+    instructor:"",
+    aadhaar: "",
+  };
+
+  setViewData(null);
+  setEditData(blankEmployeeData);
+}, []);
 
   const handleDelete = useCallback(() => {
     if (selectedRowData) {
@@ -233,6 +255,16 @@ export function AGGridTable({
             title="View"
           >
             <EyeIcon className="h-4 w-4" />
+          </Button>
+
+          <Button
+          variant="outline"
+          size="sm"
+          onClick={handleAdd}
+          className="h-8 w-8 p-0"
+          title="Add Employee"
+          >
+            <Plus className="h-4 w-4" />
           </Button>
 
           <Button

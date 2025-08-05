@@ -1153,11 +1153,10 @@ const fieldSections: Record<string, string> = {
 
 export function ViewModal({ isOpen, onClose, data, title }: ViewModalProps) {
   if (!data) return null;
-
-  const getStatusColor = (status: string) =>
-    status?.toLowerCase() === "active"
-      ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-      : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+  const getStatusColor = (status: any) =>
+  status === 1 || status === "1" || status === true
+    ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+    : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
 
   const getVisaColor = (visa: string) => {
     switch (visa) {
@@ -1189,8 +1188,13 @@ export function ViewModal({ isOpen, onClose, data, title }: ViewModalProps) {
     if (!value) return null;
 
     if (lowerKey === "status") {
-      return <Badge className={getStatusColor(value)}>{value}</Badge>;
-    }
+      const isActive = value === 1 || value === "1" || value === true || value === "active";
+      return (
+      <Badge className={getStatusColor(value)}>
+        {isActive ? "Active" : "Inactive"}
+        </Badge>
+        );
+      }
 
     if (["visa", "workstatus"].includes(lowerKey)) {
       return <Badge className={getVisaColor(value)}>{value}</Badge>;
