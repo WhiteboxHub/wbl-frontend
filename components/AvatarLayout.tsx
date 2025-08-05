@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "lib/utils";
 import { useState, useEffect, useRef } from "react";
+import NewEvent from "./NewEvent";
 
 interface AvatarLayoutProps {
   children: React.ReactNode;

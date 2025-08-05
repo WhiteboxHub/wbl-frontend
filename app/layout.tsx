@@ -1,4 +1,5 @@
 "use client";
+import React from "react";
 import "node_modules/react-modal-video/css/modal-video.css";
 import "../styles/index.css";
 import Footer from "@/components/Footer";
@@ -12,6 +13,7 @@ import { AuthProvider } from "@/utils/AuthContext";
 import { useState } from "react";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
+import AuthenticatedButtons from "@/components/AuthenticatedButtons";
 // import { AGGridTable } from "@/components/AGGridTable";
 
 export default function RootLayout({
@@ -45,6 +47,9 @@ export default function RootLayout({
         />
         <link rel="icon" href="/favicon.ico" />
         <link rel="canonical" href="https://whitebox-learning.com/" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </head>
       <body className="dark:bg-black">
         <SessionProvider>
@@ -62,6 +67,7 @@ export default function RootLayout({
                   <main className="w-full">{children}</main>
                   <Footer />
                   <ScrollToTop />
+                  <AuthenticatedButtons />
                 </>
               )}
             </Providers>
