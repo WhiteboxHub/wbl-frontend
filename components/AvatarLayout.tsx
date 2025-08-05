@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "lib/utils";
 import { useState, useEffect, useRef } from "react";
+import NewEvent from "./NewEvent";
 
 interface AvatarLayoutProps {
   children: React.ReactNode;
@@ -241,6 +242,15 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
         {/* Main Content */}
         <main className="flex-1 p-6">{children}</main>
       </div>
+      
+      {/* New Event for Avatar Section */}
+      <NewEvent 
+        title="Upcoming Events"
+        message="New features and updates available in your avatar dashboard!"
+        ctaText="Explore"
+        ctaLink="/avatar"
+        autoHide={false}
+      />
     </div>
   );
 } 
