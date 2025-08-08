@@ -1812,19 +1812,13 @@ const SignupPage = () => {
         <div className="container mx-auto px-4">
           <div className="flex flex-wrap">
             <div className="w-full">
-              <div className="mx-auto max-w-full rounded-3xl bg-gradient-to-br from-pink-400 to-sky-200 p-6 px-10 dark:bg-gradient-to-br dark:from-pink-700 dark:to-sky-500/30 sm:max-w-[700px] sm:p-[60px]">
-                <h3 className="mb-3 text-center text-lg font-bold text-black dark:text-white sm:text-2xl md:text-3xl">
-                  Welcome. <br />
-                  <span className="text-base sm:text-xl">
-                    We exist to make learning easier.
-                  </span>
-                </h3>
-                <p className="md:text-md mb-7 text-center text-xs font-semibold text-gray-700 dark:text-white sm:mb-11 sm:text-sm">
+              <div className="mx-auto max-w-full rounded-3xl bg-gradient-to-br from-pink-400 to-sky-200 p-4 px-6 dark:bg-gradient-to-br dark:from-pink-700 dark:to-sky-500/30 sm:max-w-[600px] sm:pt-8 sm:pb-10 sm:px-10">
+                <p className="text-2xl px-1 py-1 mb-4 text-center font-semibold text-gray-700 dark:text-white sm:mb-1 sm:text-1xl">
                   Create your account
-                </p>
+                  </p>
 
                 <button
-                  className="dark:shadow-signUp mb-4 flex w-full items-center justify-center rounded-xl bg-white py-2 px-5 text-sm font-medium text-primary shadow-one dark:bg-white dark:text-black sm:mb-6 sm:py-3 sm:text-base"
+                  className="dark:shadow-signUp mb-4 flex w-full items-center justify-center rounded-xl bg-white py-2 px-1 text-[13px]  text-primary shadow-one dark:bg-white dark:text-black sm:mb-6 sm:py-2 sm:text-base"
                   onClick={handleGoogleSignIn}
                   disabled={gloading}
                 >
@@ -1900,7 +1894,7 @@ const SignupPage = () => {
                   )}
                 </button>
 
-                <div className="mb-8 flex items-center justify-center">
+                <div className="mb-2  flex items-center justify-center">
                   <span className="hidden h-[1px] w-full max-w-[70px] bg-body-color sm:block"></span>
                   <p className="md:text-md w-full px-5 text-center text-xs font-semibold text-gray-700 dark:text-white sm:text-sm">
                     Or, Sign Up with email
@@ -1914,8 +1908,8 @@ const SignupPage = () => {
                 >
                   <div className="flex flex-col gap-4">
                     <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-                      <div className="mb-6 sm:mb-8 flex-1">
-                        <label htmlFor="firstName" className="mb-3 block font-bold text-dark dark:text-white">
+                      <div className="mb-4 sm:mb-6 flex-1">
+                        <label htmlFor="firstName" className="mb-2 block font-bold  text-[13px] text-dark dark:text-white">
                           First Name <span className="text-[red]">*</span>
                         </label>
                         <input
@@ -1923,16 +1917,18 @@ const SignupPage = () => {
                           name="firstName"
                           id="firstName"
                           placeholder="Enter your first Name"
-                          className="dark:shadow-signUp w-full rounded-xl border py-2 px-5 text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:border-transparent sm:py-3"
+                          // className="dark:shadow-signUp w-full rounded-xl border py-1 px-1 text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:border-transparent sm:py-3"
+                          className="dark:shadow-signUp w-full rounded-xl border py-3 px-1 text-[13px] text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:border-transparent sm:py-1.5"
                           value={firstName}
+                           
                           onChange={(e) => setFirstName(e.target.value)}
                           onFocus={handleInputFocus}
                           required
                         />
                       </div>
 
-                      <div className="mb-6 sm:mb-8 flex-1">
-                        <label htmlFor="lastName" className="mb-3 block font-bold text-dark dark:text-white">
+                      <div className="mb-4 sm:mb-6 flex-1">
+                        <label htmlFor="lastName" className="mb-2 block font-bold  text-[13px] text-dark dark:text-white">
                           Last Name <span className="text-[red]">*</span>
                         </label>
                         <input
@@ -1940,7 +1936,7 @@ const SignupPage = () => {
                           name="lastName"
                           id="lastName"
                           placeholder="Enter your last Name"
-                          className="dark:shadow-signUp w-full rounded-xl border py-2 px-5 text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:border-transparent sm:py-3"
+                          className="dark:shadow-signUp w-full rounded-xl border py-3 px-1 text-[13px] text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:border-transparent sm:py-1.5"
                           value={lastName}
                           onChange={(e) => setLastName(e.target.value)}
                           onFocus={handleInputFocus}
@@ -1950,87 +1946,78 @@ const SignupPage = () => {
                     </div>
                   </div>
 
+                  <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row gap-4 sm:gap-6">
+                    <div className="flex-1">
+                      <label htmlFor="phone" className="mb-2 block font-bold  text-[13px] text-dark dark:text-white">
+                        Phone Number <span className="text-[red]">*</span>
+                      </label>
 
-
-                        <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row gap-4 sm:gap-6">
-                        <div className="flex-1">
-                          <label htmlFor="phone" className="mb-3 block font-bold text-dark dark:text-white">
-                            Phone Number <span className="text-[red]">*</span>
-                          </label>
-
-                          {/* Wrapper with focus effect */}
-                          <div
-                          id="phone"
-                            className={`group flex w-full rounded-xl border border-gray-300 bg-white shadow-one dark:shadow-signUp focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all`}
-                          >
-                            {/* Country Code Dropdown */}
-                            <select
-                              id="country-code"
-                              name="country-code"
-                              className="w-20 flex-shrink-0 rounded-l-xl border-none bg-transparent py-2 px-3 sm:py-3 text-body-color outline-none dark:bg-white"
-                              value={countryCode}
-                              onChange={handleCountryChange}
-                              onFocus={handleInputFocus}
-                              required
+                      <div
+                      id="phone"
+                        className={`group flex w-full rounded-xl border border-gray-300 bg-white shadow-one dark:shadow-signUp focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all`}
+                      >
+                        <select
+                          id="country-code"
+                          name="country-code"
+                          className="w-20 flex-shrink-0 rounded-l-xl border-none bg-transparent py-3 px-1 sm:py-1 text-body-color outline-none dark:bg-white"
+                          value={countryCode}
+                          onChange={handleCountryChange}
+                          onFocus={handleInputFocus}
+                          required
+                        >
+                          {countries.all.map((country) => (
+                            <option
+                              key={`${country.alpha2}-${country.name}`}
+                              value={`${country.countryCallingCodes[0]}-${country.alpha2}`}
                             >
-                              {countries.all.map((country) => (
-                                <option
-                                  key={`${country.alpha2}-${country.name}`}
-                                  value={`${country.countryCallingCodes[0]}-${country.alpha2}`}
-                                >
-                                  {country.alpha2} {country.countryCallingCodes[0]}
-                                </option>
-                              ))}
-                            </select>
+                              {country.alpha2} {country.countryCallingCodes[0]}
+                            </option>
+                          ))}
+                        </select>
 
-                            {/* Phone Number Input */}
-                            <input
-                              type="tel"
-                              
-                              name="phone"
-                              placeholder="Enter your phone number"
-                              className="w-full rounded-r-xl border-none bg-transparent py-2 px-3 sm:py-3 text-body-color placeholder-body-color outline-none dark:bg-white"
-                              value={phone}
-                              onChange={(e) => {
-                                const inputValue = e.target.value;
-                                if (/^\d{0,13}$/.test(inputValue)) {
-                                  setPhone(inputValue);
-                                }
-                              }}
-                              onFocus={handleInputFocus}
-                              required
-                              pattern="\d{9,13}"
-                              title="Please enter a valid phone number with 9 to 13 digits"
-                            />
-                          </div>
-                        </div>
+                        <input
+                          type="tel"
+                          
+                          name="phone"
+                          placeholder="Enter your phone number"
+                          className="w-full rounded-r-xl border-none bg-transparent py-3 px-1 sm:py-1.5 text-[13px] text-body-color placeholder-body-color outline-none dark:bg-white"
+                          value={phone}
+                          onChange={(e) => {
+                            const inputValue = e.target.value;
+                            if (/^\d{0,13}$/.test(inputValue)) {
+                              setPhone(inputValue);
+                            }
+                          }}
+                          onFocus={handleInputFocus}
+                          required
+                          pattern="\d{9,13}"
+                          title="Please enter a valid phone number with 9 to 13 digits"
+                        />
+                      </div>
+                    </div>
 
-
-
-
-                  <div className="flex-1">
-                    <label htmlFor="email" className="mb-3 block font-bold text-dark dark:text-white">
-                      Email Address <span className="text-[red]">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      name="email"
-                      placeholder="Enter your email"
-                      className="dark:shadow-signUp w-full rounded-xl border border-transparent py-2 px-5 sm:py-3 text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white "
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      onFocus={handleInputFocus}
-                      required
-                      pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
-                      title="Please enter a valid email address"
-                    />
+                    <div className="flex-1 ">
+                      <label htmlFor="email" className="mb-2 block font-bold  text-[13px] text-dark dark:text-white">
+                        Email Address <span className="text-[red]">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        name="email"
+                        placeholder="Enter your email"
+                        className="dark:shadow-signUp w-full rounded-xl border border-transparent py-3 px-1 sm:py-1.5 text-[13px] text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white "
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        onFocus={handleInputFocus}
+                        required
+                        pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
+                        title="Please enter a valid email address"
+                      />
+                    </div>
                   </div>
-                </div>
-
 
                   <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-                    <div className="relative mb-6 sm:mb-8 flex-1">
-                      <label htmlFor="password" className="mb-3 block font-bold text-dark dark:text-white">
+                    <div className="relative mb-4 sm:mb-6 flex-1">
+                      <label htmlFor="password" className="mb-2 block font-bold  text-[13px] text-dark dark:text-white">
                         Password <span className="text-red-600">*</span>
                       </label>
                       <div className="relative">
@@ -2038,7 +2025,7 @@ const SignupPage = () => {
                           type={showPassword ? "text" : "password"}
                           name="password"
                           placeholder="Enter your password"
-                          className="dark:shadow-signUp w-full rounded-xl border border-transparent py-2 px-5 text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:py-3"
+                          className="dark:shadow-signUp w-full rounded-xl border border-transparent py-3 px-1 text-[13px] text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:py-1.5"
                           value={password}
                           onChange={handlePasswordChange}
                           pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}"
@@ -2053,8 +2040,8 @@ const SignupPage = () => {
                         >
                           {showPassword ? (
                             <svg
-                              width="24"
-                              height="24"
+                              width="19"
+                              height="19"
                               viewBox="0 0 24 24"
                               fill="none"
                               xmlns="http://www.w3.org/2000/svg"
@@ -2083,8 +2070,8 @@ const SignupPage = () => {
                             </svg>
                           ) : (
                             <svg
-                              width="24"
-                              height="24"
+                              width="19"
+                              height="19"
                               viewBox="0 0 24 24"
                               fill="none"
                               xmlns="http://www.w3.org/2000/svg"
@@ -2117,8 +2104,8 @@ const SignupPage = () => {
                         </button>
                       </div>
                     </div>
-                    <div className="relative mb-6 sm:mb-8 flex-1">
-                      <label htmlFor="confirmPassword" className="mb-3 block font-bold text-dark dark:text-white">
+                    <div className="relative mb-4 sm:mb-6 flex-1">
+                      <label htmlFor="confirmPassword" className="mb-2 block font-bold  text-[13px] text-dark dark:text-white">
                         Confirm Password <span className="text-red-600">*</span>
                       </label>
                       <div className="relative">
@@ -2126,7 +2113,7 @@ const SignupPage = () => {
                           type={showConfirmPassword ? "text" : "password"}
                           name="confirmPassword"
                           placeholder="Confirm your password"
-                          className="dark:shadow-signUp w-full rounded-xl border border-transparent py-2 px-5 text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:py-3"
+                          className="dark:shadow-signUp w-full rounded-xl border border-transparent py-3 px-1 text-[13px] text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:py-1.5"
                           value={confirmPassword}
                           onChange={handleConfirmPasswordChange}
                           required
@@ -2141,8 +2128,8 @@ const SignupPage = () => {
                         >
                           {showConfirmPassword ? (
                             <svg
-                              width="24"
-                              height="24"
+                              width="19"
+                              height="19"
                               viewBox="0 0 24 24"
                               fill="none"
                               xmlns="http://www.w3.org/2000/svg"
@@ -2171,8 +2158,8 @@ const SignupPage = () => {
                             </svg>
                           ) : (
                             <svg
-                              width="24"
-                              height="24"
+                              width="19"
+                              height="19"
                               viewBox="0 0 24 24"
                               fill="none"
                               xmlns="http://www.w3.org/2000/svg"
@@ -2211,20 +2198,21 @@ const SignupPage = () => {
                   </div>
 
                   <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-                    <div className="mb-6 sm:mb-8 flex-1">
-                      <label htmlFor="visaStatus" className="mb-3 block font-bold text-dark dark:text-white">
-                        Visa Status <span className="text-[red]">*</span>
+                    <div className="mb-4 sm:mb-6 flex-1">
+                      <label htmlFor="visaStatus " className="mb-2 block font-bold  text-[13px] text-dark dark:text-white">
+                        {/* Visa Status <span className="text-[red]">*</span> */}
+                        Work Authorization<span className="text-"></span>
                       </label>
                       <select
                         id="visaStatus"
                         name="visaStatus"
-                        className="w-full rounded-xl border py-2 px-5 text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:border-transparent sm:py-3"
+                        className="w-full rounded-xl border py-3  px-1 text-[13px] text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:border-transparent sm:py-1.5"
                         value={visaStatus}
                         onChange={(e) => setVisaStatus(e.target.value)}
                         onFocus={handleInputFocus}
-                        required
+                       
                       >
-                        <option value="">Select Visa Status</option>
+                        <option value="">Select Work Authorization</option>
                         <option value="H1B">H1B</option>
                         <option value="F1">F1 (Student)</option>
                         <option value="L1">L1</option>
@@ -2234,37 +2222,36 @@ const SignupPage = () => {
                         <option value="Other">Other</option>
                       </select>
                     </div>
-                    <div className="mb-6 sm:mb-8 flex-1">
-                      <label htmlFor="experience" className="mb-3 block font-bold text-dark dark:text-white">
-                        Experience <span className="text-[red]">*</span>
+                    <div className="mb-4 sm:mb-6 flex-1">
+                      <label htmlFor="experience" className="mb-2 block font-bold  text-[13px] text-dark dark:text-white">
+                        Experience <span className="text-"></span>
                       </label>
                       <input
                         type="text"
                         id="experience"
                         name="experience"
                         placeholder="Enter your experience (e.g., IT, Non-IT, etc.)"
-                        className="w-full rounded-xl border py-2 px-5 text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:border-transparent sm:py-3"
+                        className="w-full rounded-xl border py-3 px-1 text-[13px] text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:border-transparent sm:py-1.5"
                         value={experience}
                         onChange={(e) => setExperience(e.target.value)}
                         onFocus={handleInputFocus}
-                        required
                       />
                     </div>
                   </div>
 
                   <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-                    <div className="mb-6 sm:mb-8 flex-1">
-                      <label htmlFor="education" className="mb-3 block font-bold text-dark dark:text-white">
-                        Education <span className="text-[red]">*</span>
+                    <div className="mb-4 sm:mb-6 flex-1">
+                      <label htmlFor="education" className="mb-2 block font-bold  text-[13px] text-dark dark:text-white">
+                        Education <span className="text-"></span>
                       </label>
                       <select
                         id="education"
                         name="education"
-                        className="w-full rounded-xl border py-2 px-5 text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:border-transparent sm:py-3"
+                        className="w-full rounded-xl border py-3 px-1 text-[13px] text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:border-transparent sm:py-1.5"
                         value={education}
                         onChange={(e) => setEducation(e.target.value)}
                         onFocus={handleInputFocus}
-                        required
+                        
                       >
                         <option value="">Select Education</option>
                         <option value="High School">High School</option>
@@ -2276,18 +2263,18 @@ const SignupPage = () => {
                       </select>
                     </div>
 
-                    <div className="mb-6 sm:mb-8 flex-1">
-                      <label htmlFor="specialization" className="mb-3 block font-bold text-dark dark:text-white">
-                        Specialization <span className="text-[red]">*</span>
+                    <div className="mb-4 sm:mb-6 flex-1">
+                      <label htmlFor="specialization" className="mb-2 block font-bold text-[13px] text-dark dark:text-white">
+                        Specialization <span className="text-"></span>
                       </label>
                       <select
                         id="specialization"
                         name="specialization"
-                        className="w-full rounded-xl border py-2 px-5 text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:border-transparent sm:py-3"
+                        className="w-full rounded-xl border py-3 px-1 text-[13px] text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:border-transparent sm:py-1.5"
                         value={specialization}
                         onChange={(e) => setSpecialization(e.target.value)}
                         onFocus={handleInputFocus}
-                        required
+                        
                       >
                         <option value="">Select Specialization</option>
                         <option value="Computer Science">Computer Science</option>
@@ -2301,37 +2288,40 @@ const SignupPage = () => {
                     </div>
                   </div>
 
-                  <div className="mb-6 sm:mb-8">
-                    <label htmlFor="address" className="mb-3 block font-bold text-dark dark:text-white">
-                      Address
-                    </label>
-                    <input
-                      type="text"
-                      name="address"
-                      placeholder="Enter your address"
-                      className="dark:shadow-signUp w-full rounded-xl border border-transparent py-2 px-5 text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:py-3"
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      onFocus={handleInputFocus}
-                    />
+                  {/* Modified Address and Referred By fields to be side by side */}
+                  <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
+                    <div className="mb-4 sm:mb-6 flex-1">
+                      <label htmlFor="address" className="mb-2 block font-bold  text-[13px] text-dark dark:text-white">
+                        Address
+                      </label>
+                      <input
+                        type="text"
+                        name="address"
+                        placeholder="Enter your address"
+                        className="dark:shadow-signUp w-full rounded-xl border border-transparent py-3 px-1 text-[13px] text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:py-1.5"
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        onFocus={handleInputFocus}
+                      />
+                    </div>
+
+                    <div className="mb-4 sm:mb-6 flex-1">
+                      <label htmlFor="referredBy" className="mb-2 block font-bold  text-[13px] text-dark dark:text-white">
+                        Referred By (if any)
+                      </label>
+                      <input
+                        type="text"
+                        name="referredBy"
+                        placeholder="Enter who referred you (optional)"
+                        className="dark:shadow-signUp w-full rounded-xl border border-transparent py-3 px-1 text-[13px] text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:py-1.5"
+                        value={referredBy}
+                        onChange={(e) => setReferredBy(e.target.value)}
+                        onFocus={handleInputFocus}
+                      />
+                    </div>
                   </div>
 
-                  <div className="mb-6 sm:mb-8">
-                    <label htmlFor="referredBy" className="mb-3 block font-bold text-dark dark:text-white">
-                      Referred By (if any)
-                    </label>
-                    <input
-                      type="text"
-                      name="referredBy"
-                      placeholder="Enter who referred you (optional)"
-                      className="dark:shadow-signUp w-full rounded-xl border border-transparent py-2 px-5 text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:py-3"
-                      value={referredBy}
-                      onChange={(e) => setReferredBy(e.target.value)}
-                      onFocus={handleInputFocus}
-                    />
-                  </div>
-
-                  <div className="mb-8 flex flex-col items-center sm:flex-row">
+                  <div className="mb-1 flex flex-col items-center sm:flex-row">
                     <div className="w-full">
                       <input
                         type="checkbox"
@@ -2391,7 +2381,7 @@ const SignupPage = () => {
                   ) : (
                     <button
                       type="submit"
-                      className="hover:shadow-signUp ext-sm flex w-full items-center justify-center rounded-xl bg-primary py-2 px-6 font-medium text-white transition duration-300 ease-in-out hover:bg-opacity-80 sm:py-3 sm:text-base"
+                      className="hover:shadow-signUp ext-sm flex w-full items-center justify-center rounded-xl bg-primary py-2 px-6 font-medium text-white transition duration-300 ease-in-out hover:bg-opacity-80 sm:py-1.5 sm:text-base"
                     >
                       Register
                     </button>
@@ -2402,7 +2392,7 @@ const SignupPage = () => {
                       className={`${responseStatus === "success"
                         ? "border-green-400 bg-green-100 text-green-700"
                         : "border-red-400 bg-red-100 text-red-700"
-                        } relative mt-4 flex items-center justify-between rounded-xl px-2 py-1 text-sm sm:px-3 sm:py-1 sm:text-base`}
+                        } relative mt-4 flex items-center justify-between rounded-xl px-2 py-1 text-sm sm:px-1 sm:py-1 sm:text-base`}
                       role="alert"
                     >
                       <div>
@@ -2443,7 +2433,7 @@ const SignupPage = () => {
                   )}
                 </form>
 
-                <p className="md:text-md mt-4 text-center text-xs font-semibold text-black dark:text-white sm:text-sm">
+                <p className="md:text-md mt-2 text-center text-xs font-semibold text-black dark:text-white sm:text-sm">
                   Already have An Account?{" "}
                   <Link
                     href="/login"
@@ -2519,6 +2509,3 @@ const SignupPage = () => {
 };
 
 export default SignupPage;
-
-
-
