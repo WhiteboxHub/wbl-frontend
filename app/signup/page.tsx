@@ -729,6 +729,7 @@ const SignupPage = () => {
 
     if (!response) {
       setGoogleStatus("error");
+      setGoogleMessage("Google login failed.");
       setGLoading(false);
       return;
     }
@@ -791,7 +792,7 @@ const SignupPage = () => {
 
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/signup`,
+        `${process.env.NEXT_PUBLIC_API_URL}/signup`,
         {
           method: "POST",
           headers: {
