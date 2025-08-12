@@ -164,6 +164,8 @@
 //     </div>
 //   );
 // }
+
+
 "use client";
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -209,7 +211,6 @@ export default function Presentation() {
   useEffect(() => {
     const checkAuthentication = async () => {
       try {
-        // Intentional delay to prevent flash
         await new Promise((resolve) => setTimeout(resolve, 200));
         const { valid } = await isAuthenticated();
         if (!valid) {
@@ -230,7 +231,7 @@ export default function Presentation() {
   if (loading) {
     return (
       <div className="flex h-screen w-screen items-center justify-center">
-        <p className="text-lg text-gray-500"></p>
+        <p className="text-lg text-gray-500">Loading...</p>
       </div>
     );
   }
@@ -269,6 +270,7 @@ export default function Presentation() {
             </div>
           </div>
           <div className="mt-10 flex justify-center sm:-mt-10 sm:w-4/5">
+            {/* Let ResourcesTable handle the fetch */}
             <ResourcesTable course={course} type={activeComponent} />
           </div>
         </section>
@@ -276,3 +278,4 @@ export default function Presentation() {
     </div>
   );
 }
+
