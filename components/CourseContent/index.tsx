@@ -1,3 +1,4 @@
+// whiteboxLearning-wbl\components\CourseContent\index.tsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import CourseContentTable from "@/components/Common/CourseContentTable";
@@ -11,12 +12,12 @@ const CourseContent = () => {
       setLoading(true);
       try {
         const response = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/coursecontent`
+          `${process.env.NEXT_PUBLIC_API_URL}/course-content`
         );
-        setSubjects(response.data.coursecontent);
-        // console.log(response.data.coursecontent)
+        setSubjects(response.data); 
+        console.log(response.data);
       } catch (error) {
-        //console.error("Error fetching course content:", error);
+        console.error("Error fetching course content:", error);
       }
       setLoading(false);
     };
@@ -65,12 +66,9 @@ const CourseContent = () => {
   }
 
   return (
-    <>
-      {/* <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8"> */}
-      <div className="container mx-auto">
-        <CourseContentTable subjects={subjects} />
-      </div>
-    </>
+    <div className="container mx-auto">
+      <CourseContentTable subjects={subjects} />
+    </div>
   );
 };
 

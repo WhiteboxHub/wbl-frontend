@@ -66,13 +66,13 @@ export default function RootLayout({
                   <main className="w-full">{children}</main>
                   <Footer />
                   <ScrollToTop />
-                  <NewEvent 
+                  {/* <NewEvent 
                     title="Upcoming Events"
                     message="Stay updated with our latest events, workshops, and training programs!"
                     ctaText="View Events"
                     ctaLink="/schedule"
                     autoHide={false}
-                  />
+                  /> */}
                 </>
               )}
             </Providers>
