@@ -605,12 +605,12 @@ const Header = ({
                     </Link>
                   )}
 
-                  {/* <button
+                  {<button
                     onClick={display_user_dashboard}
                     className="rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 py-3 px-6 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
                   >
                     My Profile
-                  </button> */}
+                  </button>}
                   <button
                     onClick={handleLogout}
                     className="rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 py-3 px-6 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
