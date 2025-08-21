@@ -1561,12 +1561,14 @@
 //   useEffect(() => {
 //     const fetchData = async () => {
 //       try {
-//         const placementsRes = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/placements`);
+
+//         const placementsRes = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/candidate/placements`);
 //         const interviewsRes = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/interviews`);
-//         setPlacementsData(placementsRes.data);
+//         setPlacementsData(placementsRes.data.data);
 //         setInterviewsData(interviewsRes.data);
 //       } catch (err) {
-//         // console.error("Error fetching data:", err);
+//         console.error("Error fetching data:", err);
+
 //       }
 //     };
 
