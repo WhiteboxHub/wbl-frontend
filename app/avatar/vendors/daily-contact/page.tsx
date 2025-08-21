@@ -185,6 +185,7 @@ export default function VendorContactsGrid() {
           </select>
         </div>
 
+
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setPage(p => Math.max(p - 1, 1))}

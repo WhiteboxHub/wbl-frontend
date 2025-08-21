@@ -17,7 +17,7 @@
 //   useEffect(()=>{
 //     setTimeout(()=>{
 //       setHoldLoad(true)
-//     },300)
+//     },500)
 //   },[])
 
 //   return (
@@ -30,8 +30,6 @@
 //   );
 // }
 
-
-// ClientLayout.tsx
 'use client';
 
 import { usePathname } from "next/navigation";
@@ -47,29 +45,33 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   const [holdLoad, setHoldLoad] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [hasMounted, setHasMounted] = useState(false);
 
   const toggleSidebar = useCallback(() => {
     setSidebarOpen((prev) => !prev);
   }, []);
 
-  // useEffect(() => {
-  //   const timer = setTimeout(() => setHoldLoad(true), 300);
-  //   return () => clearTimeout(timer);
-  // }, []);
 
-  const [hasMounted, setHasMounted] = useState(false);
+  
+  useEffect(() => {
+    const timer = setTimeout(() => setHoldLoad(true), 600);
 
-useEffect(() => {
-  setHasMounted(true);
-}, []);
+    return () => clearTimeout(timer);
+  }, []);
 
-if (!hasMounted) return null;
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
+  if (!hasMounted) return null;
 
   return holdLoad ? (
     <>
       {!isViewSection && <Header />}
-      <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
+      {!isViewSection && (
+        <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
+      )}
+      {/* <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} /> */}
       <main className="w-full">{children}</main>
       {!isViewSection && <Footer />}
       {!isViewSection && <ScrollToTop />}

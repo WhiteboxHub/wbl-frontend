@@ -450,6 +450,7 @@ import { Label } from "@/components/admin_ui/label";
 import { SearchIcon, PlusIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect, useCallback } from "react";
+import axios from "axios";
 
 export default function CandidatesInterviews() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -469,7 +470,7 @@ export default function CandidatesInterviews() {
         setAllInterviews(data);
         setFilteredInterviews(data);
       } catch (err) {
-        console.error(err);
+        // console.error(err);
         setError("Failed to load interviews.");
       } finally {
         setLoading(false);
@@ -551,13 +552,42 @@ export default function CandidatesInterviews() {
     });
   }, [filteredInterviews]);
 
-  const handleRowUpdated = (updated: any) =>
-    setFilteredInterviews(prev =>
-      prev.map(row => (row.id === updated.id ? updated : row))
-    );
 
-  const handleRowDeleted = (id: any) =>
-    setFilteredInterviews(prev => prev.filter(r => r.id !== id));
+    // PUT request on row update
+  const handleRowUpdated = async (updatedRow: any) => {
+    try {
+      await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/interviews/${updatedRow.id}`, updatedRow);
+
+      setAllInterviews(prev =>
+        prev.map(row => row.id === updatedRow.id ? updatedRow : row)
+      );
+      setFilteredInterviews(prev =>
+        prev.map(row => row.id === updatedRow.id ? updatedRow : row)
+      );
+    } catch (err) {
+
+
+      // console.error("Failed to update interview:", err);
+
+      alert("Failed to update interview.");
+    }
+  };
+
+  // DELETE request on row deletion
+  const handleRowDeleted = async (id: number | string) => {
+    try {
+      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/interviews/${id}`);
+
+      setAllInterviews(prev => prev.filter(row => row.id !== id));
+      setFilteredInterviews(prev => prev.filter(row => row.id !== id));
+    } catch (err) {
+
+      // console.error("Failed to delete interview:", err);
+      alert("Failed to delete interview.");
+    }
+  };
+
+
 
   return (
     <div className="space-y-6">
@@ -614,9 +644,10 @@ export default function CandidatesInterviews() {
               title={`Interviews (${filteredInterviews.length})`}
               height="500px"
               showSearch={false}
-              onRowClicked={e => console.log("Row clicked:", e.data)}
+              // onRowClicked={e => console.log("Row clicked:", e.data)}
               onRowUpdated={handleRowUpdated}
-              onRowDeleted={handleRowDeleted}
+              onRowDeleted={(id: number | string) => handleRowDeleted(id)}
+              
             />
           </div>
         </div>

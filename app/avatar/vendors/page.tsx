@@ -203,6 +203,7 @@ export default function VendorPage() {
         rowData={filteredVendors.slice((page - 1) * pageSize, page * pageSize)}
         columnDefs={columnDefs}
         title={`All Vendors (${filteredVendors.length})`}
+
         height="calc(70vh)"
         onRowUpdated={handleRowUpdated}
         onRowDeleted={handleRowDeleted}
