@@ -731,7 +731,7 @@ const ContactForm = () => {
       setSubmitting(true);
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/contact`,
+        `${process.env.NEXT_PUBLIC_API_URL}/contact`,
         {
           method: "POST",
           headers: {
