@@ -512,14 +512,12 @@ export function AGGridTable({
     setEditData(null);
   }, []);
 
-  // Handle row clicks for selection
   const onRowClickedHandler = useCallback(
     (event: any) => {
       setSelectedRowData(event.data);
       if (onRowClicked) {
         onRowClicked(event);
       }
-      // Clear previous selection and select clicked row
       if (gridApi) {
         gridApi.deselectAll();
         event.node.setSelected(true);
@@ -528,10 +526,8 @@ export function AGGridTable({
     [onRowClicked, gridApi]
   );
 
-  // NEW: Handle cell clicks to deselect rows when clicking on individual cells
   const onCellClickedHandler = useCallback(
     (event: any) => {
-      // If clicking on a cell (not row selection), deselect all rows
       if (gridApi) {
         gridApi.deselectAll();
         setSelectedRowData(null);

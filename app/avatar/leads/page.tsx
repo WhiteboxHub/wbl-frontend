@@ -721,6 +721,7 @@ export default function LeadsPage() {
         lead.secondary_email?.toLowerCase()?.includes(searchLower) ||
         lead.city?.toLowerCase()?.includes(searchLower) ||
         lead.state?.toLowerCase()?.includes(searchLower) ||
+        lead.notes?.toString().toLowerCase() === searchLower ||
         lead.moved_to_candidate?.toString().toLowerCase() === searchLower
       );
     });
@@ -1020,13 +1021,25 @@ export default function LeadsPage() {
         filter: 'agDateColumnFilter'
       },
 
+      // {
+      //   field: "moved_to_candidate",
+      //   headerName: "Moved to Candidate",
+      //   width: 180,
+      //   filter: "agSetColumnFilter",
+      //   valueFormatter: ({ value }) => (value ? "Yes" : "No"),
+      // }
+
+
+       
       {
-        field: "moved_to_candidate",
-        headerName: "Moved to Candidate",
-        width: 180,
-        filter: "agSetColumnFilter",
-        valueFormatter: ({ value }) => (value ? "Yes" : "No"),
-      }
+          field: "moved_to_candidate",
+          headerName: "Moved to Candidate",
+          width: 180,
+          filter: "agSetColumnFilter",
+          valueFormatter: ({ value }) => (value ? "true" : "false"), // display as text
+        }
+
+
 
       
 
@@ -1167,11 +1180,11 @@ export default function LeadsPage() {
                   options: ["Open", "In Progress", "Closed"],
                   required: true,
                 },
-                notes: { label: "Notes (optional)", type: "textarea" },
-                moved_to_candidate: {
-                  label: "Moved to Candidate",
-                  type: "checkbox",
-                },
+                // notes: { label: "Notes (optional)", type: "textarea" },
+                // moved_to_candidate: {
+                //   label: "Moved to Candidate",
+                //   type: "bool",
+                // },
               }).map(([name, config]) => (
                 <div
                   key={name}
