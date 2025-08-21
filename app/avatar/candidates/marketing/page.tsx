@@ -246,7 +246,7 @@
 //           throw new Error("Invalid data format");
 //         }
 
-//         setAllCandidates(data);
+//         setAlls(data);
 //         setFilteredCandidates(data);
 //       } catch (err) {
 //         console.error(err);

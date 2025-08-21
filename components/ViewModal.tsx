@@ -588,7 +588,7 @@
 // // Grouping fields under specific sections
 // const fieldSections: Record<string, string> = {
 //   // Basic Info
-//   candidateid: "Basic Information",
+//   id: "Basic Information",
 //   candidate_id: "Basic Information",
 //   candidate_email: "Basic Information",
 //   placement_date: "Basic Information",
