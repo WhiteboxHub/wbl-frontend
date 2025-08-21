@@ -1,210 +1,519 @@
-// // whiteboxLearning-wbl/app/avatar/page.tsx
-// "use client";
-// import { AvatarLayout } from "@/components/AvatarLayout";
-// import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin_ui/card";
-// import {
-//   UsersIcon,
-//   UserCheckIcon,
-//   BuildingIcon,
-//   TrendingUpIcon,
-// } from "lucide-react";
-
-// export default function Dashboard() {
-//   const stats = [
-//     {
-//       title: "Total Leads",
-//       value: "1,234",
-//       change: "+12%",
-//       icon: UsersIcon,
-//       color: "bg-blue-500",
-//     },
-//     {
-//       title: "Active Candidates",
-//       value: "567",
-//       change: "+8%",
-//       icon: UserCheckIcon,
-//       color: "bg-green-500",
-//     },
-//     {
-//       title: "Partner Vendors",
-//       value: "89",
-//       change: "+5%",
-//       icon: BuildingIcon,
-//       color: "bg-purple-500",
-//     },
-//   ];
-
-//   return (
-//     <div className="min-h-screen w-full bg-white dark:bg-gray-900">
-//       {/* Welcome Section */}
-//       <div className="relative overflow-hidden bg-gradient-to-br from-purple-600 via-purple-500 to-violet-600 rounded-3xl p-12 shadow-2xl">
-//         <div className="absolute inset-0 bg-black/20"></div>
-//         <div className="absolute -top-4 -right-4 w-32 h-32 bg-white/10 rounded-full blur-xl"></div>
-//         <div className="absolute -bottom-4 -left-4 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
-
-//         <div className="relative z-10 text-center">
-//           <h1 className="text-6xl font-bold text-white mb-6">
-//             Welcome to Avatar
-//           </h1>
-//           <p className="text-2xl text-white/90 max-w-2xl mx-auto">
-//             Your comprehensive admin panel for managing leads, candidates, and
-//             vendor relationships
-//           </p>
-//         </div>
-//       </div>
-
-//       {/* Stats Grid */}
-//       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-//         {stats.map((stat) => {
-//           const Icon = stat.icon;
-//           return (
-//             <Card key={stat.title}>
-//               <CardContent className="p-6">
-//                 <div className="flex items-center justify-between">
-//                   <div>
-//                     <p className="text-sm font-medium text-gray-600">
-//                       {stat.title}
-//                     </p>
-//                     <p className="text-2xl font-bold text-gray-900">
-//                       {stat.value}
-//                     </p>
-//                     <p className="text-sm text-green-600">
-//                       {stat.change} from last month
-//                     </p>
-//                   </div>
-//                   <div
-//                     className={`w-12 h-12 ${stat.color} rounded-lg flex items-center justify-center`}
-//                   >
-//                     <Icon className="h-6 w-6 text-white" />
-//                   </div>
-//                 </div>
-//               </CardContent>
-//             </Card>
-//           );
-//         })}
-//       </div>
-//     </div>
-//   );
-// } 
-
-
-// "use client";
-// import { useEffect, useState } from "react";
-// import { AvatarLayout } from "@/components/AvatarLayout";
-// import { Card, CardContent } from "@/components/admin_ui/card";
-// import {
-//   UsersIcon,
-//   UserCheckIcon,
-//   BuildingIcon,
-// } from "lucide-react";
-
-// const iconMap = {
-//   leads: UsersIcon,
-//   candidates: UserCheckIcon,
-//   vendors: BuildingIcon,
-// };
-
-// export default function Dashboard() {
-//   const [stats, setStats] = useState<
-//     Array<{
-//       key: string;
-//       title: string;
-//       value: string;
-//       change: string;
-//       color: string;
-//     }>
-//   >([]);
-
-//   useEffect(() => {
-//     async function fetchStats() {
-//       try {
-//         const res = await fetch("/api/dashboard-stats");
-//         const data = await res.json();
-//         setStats(data);
-//       } catch (error) {
-//         console.error("Failed to fetch dashboard stats", error);
-//       }
-//     }
-//     fetchStats();
-//   }, []);
-
-//   return (
-//     <div className="min-h-screen w-full bg-white dark:bg-gray-900">
-//       {/* Welcome Section */}
-//       <div className="relative overflow-hidden bg-gradient-to-br from-purple-600 via-purple-500 to-violet-600 rounded-3xl p-12 shadow-2xl mb-8">
-//         <div className="absolute inset-0 bg-black/20"></div>
-//         <div className="absolute -top-4 -right-4 w-32 h-32 bg-white/10 rounded-full blur-xl"></div>
-//         <div className="absolute -bottom-4 -left-4 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
-
-//         <div className="relative z-10 text-center">
-//           <h1 className="text-6xl font-bold text-white mb-6">
-//             Welcome to Avatar
-//           </h1>
-//           <p className="text-2xl text-white/90 max-w-2xl mx-auto">
-//             Your comprehensive admin panel for managing leads, candidates, and
-//             vendor relationships
-//           </p>
-//         </div>
-//       </div>
-
-//       {/* Stats Grid */}
-//       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-//         {stats.map((stat) => {
-//           const Icon = iconMap[stat.key as keyof typeof iconMap];
-//           return (
-//             <Card key={stat.key}>
-//               <CardContent className="p-6">
-//                 <div className="flex items-center justify-between">
-//                   <div>
-//                     <p className="text-sm font-medium text-gray-600">
-//                       {stat.title}
-//                     </p>
-//                     <p className="text-2xl font-bold text-gray-900">
-//                       {stat.value}
-//                     </p>
-//                     <p className="text-sm text-green-600">
-//                       {stat.change} from last month
-//                     </p>
-//                   </div>
-//                   <div
-//                     className={`w-12 h-12 ${stat.color} rounded-lg flex items-center justify-center`}
-//                   >
-//                     {Icon && <Icon className="h-6 w-6 text-white" />}
-//                   </div>
-//                 </div>
-//               </CardContent>
-//             </Card>
-//           );
-//         })}
-//       </div>
-//     </div>
-//   );
-// }
-
-
-
 "use client";
+import { useEffect, useState } from "react";
+import { EnhancedMetricCard } from "@/components/EnhancedMetricCard";
+import {
+  Users, GraduationCap, DollarSign, Building, Calendar, TrendingUp,
+  UserCheck, Clock, Target, Briefcase, MessageSquare, UserPlus,
+  CalendarCheck, Award, Star, BookOpen, Activity, CheckCircle,
+  XCircle, BarChart3, Percent, CreditCard, PiggyBank, Trophy,
+  Handshake, Phone, Mail, ThumbsUp, ThumbsDown, HelpCircle
+} from "lucide-react";
+import { motion } from "framer-motion";
 
-export default function Dashboard() {
-  return (
-    <div className="min-h-screen w-full bg-white dark:bg-gray-900">
-      {/* Welcome Section */}
-      {/* <div className="relative overflow-hidden bg-gradient-to-br from-blue-500 via-blue-400 to-blue-500 rounded-3xl p-12 shadow-2xl mb-8"> */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-purple-600 via-purple-500 to-violet-600 rounded-3xl p-12 shadow-2xl mb-8">
-     
-        <div className="absolute inset-0 bg-black/20"></div>
-        <div className="absolute -top-4 -right-4 w-32 h-32 bg-white/10 rounded-full blur-xl"></div>
-        <div className="absolute -bottom-4 -left-4 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
+// This is Hook for animated counters---
+function useCounter(target: number, duration = 1000) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    let start = 0;
+    const step = Math.ceil(target / (duration / 16));
+    const interval = setInterval(() => {
+      start += step;
+      if (start >= target) {
+        setCount(target);
+        clearInterval(interval);
+      } else {
+        setCount(start);
+      }
+    }, 16);
+    return () => clearInterval(interval);
+  }, [target, duration]);
+  return count;
+}
 
-        <div className="relative z-10 text-center">
-          <h1 className="text-6xl font-bold text-white mb-6">Welcome to Avatar</h1>
-          <p className="text-2xl text-white/90 max-w-2xl mx-auto">
-            Your comprehensive admin panel for managing internal tools and processes.
-          </p>
+//This are types for API responses---
+interface DashboardMetrics {
+  batch_metrics: {
+    current_active_batches: number;
+    enrolled_candidates_current: number;
+    total_candidates: number;
+    candidates_last_batch: number;
+    new_enrollments_month: number;
+    candidate_status_breakdown: {
+      active: number;
+      break: number;
+      discontinued: number;
+      [key: string]: number;
+    };
+  };
+  financial_metrics: {
+    total_fee_current_batch: number;
+    fee_collected_month: number;
+    top_batches_fee: Array<{
+      batch_name: string;
+      total_fee: number;
+    }>;
+  };
+  placement_metrics: {
+    total_placements: number;
+    placements_year: number;
+    placements_last_month: number;
+    last_placement: {
+      candidate_name: string;
+      company: string;
+      placement_date: string;
+      position:string;
+    } | null;
+    active_placements: number;
+  };
+  interview_metrics: {
+    upcoming_interviews: number;
+    total_interviews: number;
+    interviews_month: number;
+    marketing_candidates: number;
+    feedback_breakdown: {
+      Positive: number;
+      Negative: number;
+      No_Response: number;
+      [key: string]: number;
+    };
+  };
+}
+
+interface UpcomingBatch {
+  name: string;
+  start_date: string;
+  end_date: string;
+}
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+export default function Index() {
+  const [time, setTime] = useState<Date | null>(null);
+  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
+  const [upcomingBatches, setUpcomingBatches] = useState<UpcomingBatch[]>([]);
+  const [topBatches, setTopBatches] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setTime(new Date());
+    const interval = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [metricsResponse, batchesResponse, topBatchesResponse] = await Promise.all([
+          fetch(`${API_BASE_URL}/dashboard/metrics/all`),
+          fetch(`${API_BASE_URL}/dashboard/upcoming-batches?limit=3`),
+          fetch(`${API_BASE_URL}/dashboard/top-batches-revenue?limit=5`)
+        ]);
+
+        if (!metricsResponse.ok || !batchesResponse.ok || !topBatchesResponse.ok) {
+          throw new Error('Failed to fetch data');
+        }
+
+        const metricsData = await metricsResponse.json();
+        const batchesData = await batchesResponse.json();
+        const topBatchesData = await topBatchesResponse.json();
+
+        setMetrics(metricsData);
+        setUpcomingBatches(batchesData);
+        setTopBatches(topBatchesData);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+        console.error('Error fetching data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+// This are Animated counters-----
+  const activeBatches = useCounter(metrics?.batch_metrics.current_active_batches || 0);
+  const enrolledCandidates = useCounter(metrics?.batch_metrics.enrolled_candidates_current || 0);
+  const totalCandidates = useCounter(metrics?.batch_metrics.total_candidates || 0);
+  const feeCollected = useCounter(metrics?.financial_metrics.fee_collected_month || 0);
+  const totalPlacements = useCounter(metrics?.placement_metrics.total_placements || 0);
+  const placementsYear = useCounter(metrics?.placement_metrics.placements_year || 0);
+  const placementsMonth = useCounter(metrics?.placement_metrics.placements_last_month || 0);
+  const activePlacements = useCounter(metrics?.placement_metrics.active_placements || 0);
+  const upcomingInterviews = useCounter(metrics?.interview_metrics.upcoming_interviews || 0);
+  const totalInterviews = useCounter(metrics?.interview_metrics.total_interviews || 0);
+  const interviewsThisMonth = useCounter(metrics?.interview_metrics.interviews_month || 0);
+
+  const currentDate = new Date();
+  const currentMonth = currentDate.toLocaleString("default", { month: "long" });
+  const currentYear = currentDate.getFullYear();
+
+  if (loading) {
+    return (
+      <div className="p-6 min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard data...</p>
         </div>
       </div>
+    );
+  }
 
-      {/* You can add more sections below if needed */}
+  if (error) {
+    return (
+      <div className="p-6 min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+        <div className="text-center">
+          <div className="bg-red-100 p-4 rounded-lg max-w-md mx-auto">
+            <XCircle className="h-12 w-12 text-red-600 mx-auto mb-2" />
+            <h2 className="text-xl font-semibold text-red-800">Error Loading Data</h2>
+            <p className="text-red-600 mt-2">{error}</p>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+//This code is to Calculate derived metrics -----
+  const placementRate = metrics ? Math.round((metrics.placement_metrics.total_placements / Math.max(1, metrics.batch_metrics.total_candidates) * 100)) : 0;
+  const interviewSuccessRate = metrics ? Math.round((metrics.interview_metrics.feedback_breakdown.Positive / Math.max(1, metrics.interview_metrics.total_interviews) * 100)) : 0;
+  const averageFeePerCandidate = metrics ? Math.round((metrics.financial_metrics.total_fee_current_batch / Math.max(1, metrics.batch_metrics.enrolled_candidates_current))) : 0;
+
+  return (
+    <div className="p-6 min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+
+      {/* Welcome Section */}
+      <motion.div
+        className="relative overflow-hidden bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-3xl p-10 mb-10 shadow-xl text-white text-center"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <h1 className="text-4xl font-extrabold">Welcome to Avatar</h1>
+        <p className="text-white/80 mt-2">
+          Your comprehensive admin panel for managing tools and processes.
+        </p>
+        {time && (
+        <p className="mt-4 text-sm font-medium">
+          {time.toLocaleDateString("en-GB")} • {time.toLocaleTimeString()}
+        </p>
+        )}
+      </motion.div>
+
+      {/* KPI Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+        <motion.div whileHover={{ scale: 1.05 }}>
+          <EnhancedMetricCard 
+            title="Current Active Batches" 
+            value={activeBatches} 
+            icon={<GraduationCap />} 
+            variant="purple" 
+          />
+        </motion.div>
+        <motion.div whileHover={{ scale: 1.05 }}>
+          <EnhancedMetricCard 
+            title="Enrolled Candidates" 
+            value={enrolledCandidates} 
+            icon={<Users />} 
+            variant="blue" 
+          />
+        </motion.div>
+        <motion.div whileHover={{ scale: 1.05 }}>
+          <EnhancedMetricCard 
+            title="Total Candidates" 
+            value={totalCandidates.toLocaleString()} 
+            icon={<UserCheck />} 
+            variant="green" 
+          />
+        </motion.div>
+        <motion.div whileHover={{ scale: 1.05 }}>
+          <EnhancedMetricCard 
+            title="Fee Collected (This Month)" 
+            value={`₹${feeCollected.toLocaleString()}`} 
+            icon={<DollarSign />} 
+            variant="orange" 
+          />
+        </motion.div>
+      </div>
+
+      {/* Batch & Enrollment */}
+      <motion.div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-purple-100 mb-10" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}>
+        <div className="flex items-center space-x-3 mb-6">
+          <div className="bg-purple-100 p-2 rounded-lg">
+            <BookOpen className="h-5 w-5 text-purple-600" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Batch & Enrollment Metrics</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <EnhancedMetricCard 
+            title="Candidates in Last Batch" 
+            value={metrics?.batch_metrics.candidates_last_batch || 0} 
+            icon={<UserPlus />} 
+            variant="purple" 
+          />
+          <EnhancedMetricCard 
+            title="New Enrollments" 
+            value={metrics?.batch_metrics.new_enrollments_month || 0} 
+            icon={<TrendingUp />} 
+            variant="blue" 
+          />
+          <EnhancedMetricCard 
+            title="Upcoming Batch Start Dates" 
+            value={upcomingBatches.length} 
+            icon={<Calendar />} 
+            variant="orange" 
+          />
+        </div>
+
+        {/* Upcoming Batch Start Dates Details */}
+        <div className="bg-white dark:bg-gray-900 rounded-lg p-6 mb-6 border border-purple-100 shadow-sm">
+          <div className="flex items-center space-x-2 mb-4">
+            <CalendarCheck className="h-5 w-5 text-purple-600" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Upcoming Batch Start Dates</h3>
+          </div>
+          <div className="space-y-3">
+            {upcomingBatches.map((batch, idx) => (
+              <div key={idx} className="flex justify-between items-center p-3 bg-purple-50 rounded border border-purple-100">
+                <span className="font-medium">{batch.name}</span>
+                <span className="text-purple-600 font-semibold">
+                  {new Date(batch.start_date).toLocaleDateString("en-GB", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric"
+                  })}
+                </span>
+              </div>
+            ))}
+            {upcomingBatches.length === 0 && (
+              <div className="text-center py-4 text-gray-500">
+                No upcoming batches
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Candidate Status Breakdown */}
+        <div className="bg-white dark:bg-gray-900 rounded-lg p-6 mb-6 border border-green-100 shadow-sm">
+          <div className="flex items-center space-x-2 mb-4">
+            <Activity className="h-5 w-5 text-green-600" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Candidate Status Breakdown</h3>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
+              <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-green-600">
+                {metrics?.batch_metrics.candidate_status_breakdown.active || 0}
+              </div>
+              <div className="text-sm text-green-700 font-medium">Active</div>
+            </div>
+            <div className="text-center p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+              <Clock className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-yellow-600">
+                {metrics?.batch_metrics.candidate_status_breakdown.break || 0}
+              </div>
+              <div className="text-sm text-yellow-700 font-medium">On Break</div>
+            </div>
+            <div className="text-center p-4 bg-red-50 rounded-lg border border-red-200">
+              <XCircle className="h-8 w-8 text-red-600 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-red-600">
+                {metrics?.batch_metrics.candidate_status_breakdown.discontinued || 0}
+              </div>
+              <div className="text-sm text-red-700 font-medium">Discontinued</div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Financial Metrics */}
+      <motion.div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-orange-100 mb-10" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}>
+        <div className="flex items-center space-x-3 mb-6">
+          <div className="bg-orange-100 p-2 rounded-lg">
+            <DollarSign className="h-5 w-5 text-orange-600" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Financial Metrics</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <EnhancedMetricCard 
+            title="Total Fee (Current Batch)" 
+            value={`$${(metrics?.financial_metrics.total_fee_current_batch || 0).toLocaleString()}`} 
+            icon={<CreditCard />} 
+            variant="orange" 
+          />
+          <EnhancedMetricCard 
+            title="Average Fee per Candidate" 
+            value={`$${averageFeePerCandidate.toLocaleString()}`} 
+            icon={<PiggyBank />} 
+            variant="blue" 
+          />
+          <EnhancedMetricCard 
+            title="Top Batch Revenue" 
+            value={`$${(metrics?.financial_metrics.top_batches_fee[0]?.total_fee || 0).toLocaleString()}`} 
+            icon={<Trophy />} 
+            variant="green" 
+          />
+        </div>
+
+        {/* Top 5 Batches by Fee Collection */}
+        <div className="bg-white dark:bg-gray-900 rounded-lg p-6 border border-orange-100 shadow-sm">
+          <div className="flex items-center space-x-2 mb-4">
+            <BarChart3 className="h-5 w-5 text-orange-600" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Top 5 Batches by Fee Collection</h3>
+          </div>
+          <div className="space-y-3">
+            {topBatches.map((batch, idx) => (
+              <div key={idx} className="flex justify-between items-center p-3 border rounded border-orange-100 hover:bg-orange-50 transition">
+                <div className="flex items-center space-x-3">
+                  <div className="bg-orange-100 p-1.5 rounded">
+                    <Trophy className="h-4 w-4 text-orange-600" />
+                  </div>
+                  <div>
+                    <span className="font-medium">{batch.batch_name}</span>
+                    <span className="text-sm text-gray-500 ml-2"> ({(batch.candidate_count || batch.candidate_count)} candidates)</span>
+                  </div>
+                </div>
+                <span className="text-orange-600 font-semibold">${batch.total_revenue.toLocaleString()}</span>
+              </div>
+            ))}
+            {topBatches.length === 0 && (
+              <div className="text-center py-4 text-gray-500">
+                No fee data available
+              </div>
+            )}
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Placement Metrics */}
+      <motion.div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-green-100 mb-10" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}>
+        <div className="flex items-center space-x-3 mb-6">
+          <div className="bg-green-100 p-2 rounded-lg">
+            <Building className="h-5 w-5 text-green-600" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Placement Metrics</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
+          <EnhancedMetricCard title="Total Placements" value={totalPlacements} icon={<Award />} variant="green" />
+          <EnhancedMetricCard title={`Placements (${currentYear})`} value={placementsYear} icon={<TrendingUp />} variant="blue" />
+          <EnhancedMetricCard title="Placements(LastMonth)" value={placementsMonth} icon={<CalendarCheck />} variant="purple" />
+          <EnhancedMetricCard title="Active Placements" value={activePlacements} icon={<Briefcase />} variant="green" />
+          <EnhancedMetricCard 
+            title="Placement Rate" 
+            value={`${placementRate}%`} 
+            icon={<Percent />} 
+            variant="orange" 
+          />
+        </div>
+
+        {/* Latest Placement */}
+        <div className="bg-white dark:bg-gray-900 rounded-lg p-6 border border-green-100 shadow-sm">
+          <div className="flex items-center space-x-2 mb-4">
+            <Handshake className="h-5 w-5 text-green-600" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Latest Placement</h3>
+          </div>
+          {metrics?.placement_metrics.last_placement ? (
+            <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
+              <div className="flex items-center space-x-3">
+                <div className="bg-green-100 p-2 rounded-full">
+                  <Star className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <div className="font-medium text-gray-900 dark:text-white">
+                    {metrics.placement_metrics.last_placement.candidate_name}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {metrics.placement_metrics.last_placement.position}
+                  </div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="font-medium text-gray-900 dark:text-white">
+                  {metrics.placement_metrics.last_placement.company}
+                </div>
+                <div className="text-sm text-green-600">
+                  Placed on {new Date(metrics.placement_metrics.last_placement.placement_date).toLocaleDateString("en-GB", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric"
+                  })}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-4 text-gray-500">
+              No placement data available
+            </div>
+          )}
+        </div>
+      </motion.div>
+
+      {/*Interview & Marketing */}
+      <motion.div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-blue-100 mb-10" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}>
+        <div className="flex items-center space-x-3 mb-6">
+          <div className="bg-blue-100 p-2 rounded-lg">
+            <MessageSquare className="h-5 w-5 text-blue-600" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Interview & Marketing</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
+          <EnhancedMetricCard title="Upcoming Interviews" value={upcomingInterviews} icon={<Clock />} variant="orange" />
+          <EnhancedMetricCard title="Total Interviews" value={totalInterviews} icon={<Calendar />} variant="blue" />
+          <EnhancedMetricCard title={`Interviews (${currentMonth})`} value={interviewsThisMonth} icon={<CalendarCheck />} variant="purple" />
+          <EnhancedMetricCard title="Marketing Candidates" value={metrics?.interview_metrics.marketing_candidates || 0} icon={<Mail />} variant="green" />
+          <EnhancedMetricCard 
+            title="Interview Success Rate" 
+            value={`${interviewSuccessRate}%`} 
+            icon={<Target />} 
+            variant="orange" 
+          />
+        </div>
+
+        {/* Interview Feedback Breakdown */}
+        <div className="bg-white dark:bg-gray-900 rounded-lg p-6 border border-blue-100 shadow-sm">
+          <div className="flex items-center space-x-2 mb-4">
+            <Phone className="h-5 w-5 text-blue-600" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Interview Feedback Breakdown</h3>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
+              <ThumbsUp className="h-8 w-8 text-green-600 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-green-600">
+                {metrics?.interview_metrics.feedback_breakdown.Positive || 0}
+              </div>
+              <div className="text-sm text-green-700 font-medium">Positive</div>
+              <div className="text-xs text-green-600 mt-1">
+                {Math.round((metrics?.interview_metrics.feedback_breakdown.Positive || 0) / Math.max(1, metrics?.interview_metrics.total_interviews || 1) * 100)}%
+              </div>
+            </div>
+            <div className="text-center p-4 bg-red-50 rounded-lg border border-red-200">
+              <ThumbsDown className="h-8 w-8 text-red-600 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-red-600">
+                {metrics?.interview_metrics.feedback_breakdown.Negative || 0}
+              </div>
+              <div className="text-sm text-red-700 font-medium">Negative</div>
+              <div className="text-xs text-red-600 mt-1">
+                {Math.round((metrics?.interview_metrics.feedback_breakdown.Negative || 0) / Math.max(1, metrics?.interview_metrics.total_interviews || 1) * 100)}%
+              </div>
+            </div>
+            <div className="text-center p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <HelpCircle className="h-8 w-8 text-gray-600 mx-auto mb-2" />
+              <div className="text-2xl font-bold text-gray-600">
+                {metrics?.interview_metrics.feedback_breakdown.No_Response || 0}
+              </div>
+              <div className="text-sm text-gray-700 font-medium">No Response</div>
+              <div className="text-xs text-gray-600 mt-1">
+                {Math.round((metrics?.interview_metrics.feedback_breakdown.No_Response || 0) / Math.max(1, metrics?.interview_metrics.total_interviews || 1) * 100)}%
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
     </div>
   );
 }
+
