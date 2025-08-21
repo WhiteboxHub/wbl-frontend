@@ -503,7 +503,7 @@ export default function LeadsPage() {
             title={`All Leads (${filteredLeads.length})`}
             height="calc(70vh)"
             showSearch={false}
-            onRowClicked={(event) => console.log("Row clicked:", event.data)}
+            // onRowClicked={(event) => console.log("Row clicked:", event.data)}
             onRowUpdated={handleRowUpdated}
             onRowDeleted={handleRowDeleted}
           />

@@ -16,7 +16,7 @@ export const isTokenExpired = (token) => {
 
 export const fetchUserRole = async (token) => {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/user_role`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user_role`, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -63,7 +63,7 @@ export const isAuthenticated = async () => {
 
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/verify_token`,
+      `${process.env.NEXT_PUBLIC_API_URL}/verify-token`,
       {
         method: "POST",
         headers: {

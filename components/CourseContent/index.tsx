@@ -1,4 +1,4 @@
-
+// whiteboxLearning-wbl\components\CourseContent\index.tsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import CourseContentTable from "@/components/Common/CourseContentTable";
@@ -73,4 +73,3 @@ const CourseContent = () => {
 };
 
 export default CourseContent;
-

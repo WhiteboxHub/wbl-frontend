@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "lib/utils";
 import { useState, useEffect, useRef } from "react";
+import NewEvent from "./NewEvent";
 
 interface AvatarLayoutProps {
   children: React.ReactNode;
@@ -112,9 +113,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
               <div className="flex items-center space-x-3">
                 <Link href="/avatar">
                   <h1
-                    // className="text-3xl font-semibold bg-gradient-to-r from-blue-600 via-blue-500 to-blue-600 bg-clip-text text-transparent tracking-wide cursor-pointer"
-                    className="text-3xl font-semibold bg-gradient-to-r from-blue-700 via-blue-600 to-blue-500 bg-clip-text text-transparent tracking-wide cursor-pointer"
-
+                    className="text-3xl font-semibold bg-gradient-to-r from-purple-600 via-purple-500 to-violet-600 bg-clip-text text-transparent tracking-wide cursor-pointer"
                     style={{
                       fontFamily:
                         '"Poppins", "SF Pro Display", "Helvetica Neue", system-ui, -apple-system, sans-serif',
@@ -187,10 +186,8 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
                       className={cn(
                         "flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex-1",
                         itemIsActive
-                          // ? "bg-gradient-to-r from-violet-100 to-fuchsia-100 dark:from-violet-900/30 dark:to-fuchsia-900/30 text-violet-700 dark:text-violet-300 shadow-sm"
-                          // : "text-gray-700 dark:text-gray-300 hover:bg-gradient-to-r hover:from-violet-50 hover:to-fuchsia-50 dark:hover:from-violet-900/20 dark:hover:to-fuchsia-900/20 hover:text-violet-600 dark:hover:text-violet-400 hover:shadow-sm",
-                          ? "bg-gradient-to-r from-blue-100 to-sky-100 dark:from-blue-900/30 dark:to-sky-900/30 text-blue-700 dark:text-blue-300 shadow-sm"
-                          : "text-gray-700 dark:text-gray-300 hover:bg-gradient-to-r hover:from-blue-50 hover:to-sky-50 dark:hover:from-blue-900/20 dark:hover:to-sky-900/20 hover:text-blue-600 dark:hover:text-blue-400 hover:shadow-sm",
+                          ? "bg-gradient-to-r from-violet-100 to-fuchsia-100 dark:from-violet-900/30 dark:to-fuchsia-900/30 text-violet-700 dark:text-violet-300 shadow-sm"
+                          : "text-gray-700 dark:text-gray-300 hover:bg-gradient-to-r hover:from-violet-50 hover:to-fuchsia-50 dark:hover:from-violet-900/20 dark:hover:to-fuchsia-900/20 hover:text-violet-600 dark:hover:text-violet-400 hover:shadow-sm",
                       )}
                     >
                       <Icon className="h-4 w-4" />
@@ -206,7 +203,6 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
                   {/* Hover Dropdown */}
                   {hasChildren && isHovered && (
                     <div
-                      // className="absolute left-full top-0 ml-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-2 min-w-48 z-50"
                       className="absolute left-full top-0 ml-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-2 min-w-48 z-50"
                       onMouseEnter={() => {
                         if (hoverTimeoutRef.current) {
@@ -226,13 +222,10 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
                           key={child.href}
                           href={child.href}
                           className={cn(
-                            // "block px-4 py-2 text-sm transition-all duration-200 hover:bg-gradient-to-r hover:from-violet-50 hover:to-fuchsia-50 dark:hover:from-violet-900/20 dark:hover:to-fuchsia-900/20",
-                                      "block px-4 py-2 text-sm transition-all duration-200 hover:bg-gradient-to-r hover:from-blue-50 hover:to-sky-50 dark:hover:from-blue-900/20 dark:hover:to-sky-900/20",
+                            "block px-4 py-2 text-sm transition-all duration-200 hover:bg-gradient-to-r hover:from-violet-50 hover:to-fuchsia-50 dark:hover:from-violet-900/20 dark:hover:to-fuchsia-900/20",
                             pathname === child.href
-                              // ? "text-violet-700 dark:text-violet-300 bg-gradient-to-r from-violet-50 to-fuchsia-50 dark:from-violet-900/30 dark:to-fuchsia-900/30 border-r-2 border-violet-500 dark:border-violet-400"
-                              // : "text-gray-600 dark:text-gray-300 hover:text-violet-600 dark:hover:text-violet-400",
-                              ? "text-blue-700 dark:text-blue-300 bg-gradient-to-r from-blue-50 to-sky-50 dark:from-blue-900/30 dark:to-sky-900/30 border-r-2 border-blue-500 dark:border-blue-400"
-                              : "text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400",
+                              ? "text-violet-700 dark:text-violet-300 bg-gradient-to-r from-violet-50 to-fuchsia-50 dark:from-violet-900/30 dark:to-fuchsia-900/30 border-r-2 border-violet-500 dark:border-violet-400"
+                              : "text-gray-600 dark:text-gray-300 hover:text-violet-600 dark:hover:text-violet-400",
                           )}
                         >
                           {child.title}
@@ -249,6 +242,15 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
         {/* Main Content */}
         <main className="flex-1 p-6">{children}</main>
       </div>
+      
+      {/* New Event for Avatar Section */}
+      <NewEvent 
+        title="Upcoming Events"
+        message="New features and updates available in your avatar dashboard!"
+        ctaText="Explore"
+        ctaLink="/avatar"
+        autoHide={false}
+      />
     </div>
   );
 } 

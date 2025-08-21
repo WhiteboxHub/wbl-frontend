@@ -226,9 +226,9 @@ export default function Vendors() {
         title={`All Vendors (${filteredVendors.length})`}
         height="calc(50vh)"
         showSearch={false}
-        onRowClicked={(event) => {
-          console.log("Row clicked:", event.data);
-        }}
+        // onRowClicked={(event) => {
+        //   console.log("Row clicked:", event.data);
+        // }}
         onRowUpdated={handleRowUpdated}
         onRowDeleted={handleRowDeleted}
       />

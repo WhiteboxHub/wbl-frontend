@@ -729,6 +729,7 @@ const SignupPage = () => {
 
     if (!response) {
       setGoogleStatus("error");
+      setGoogleMessage("Google login failed.");
       setGLoading(false);
       return;
     }
