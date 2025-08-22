@@ -251,13 +251,13 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       </div>
       
       {/* New Event for Avatar Section */}
-      <NewEvent 
+      {/* <NewEvent 
         title="Upcoming Events"
         message="New features and updates available in your avatar dashboard!"
         ctaText="Explore"
         ctaLink="/avatar"
         autoHide={false}
-      />
+      /> */}
     </div>
   );
 } 
