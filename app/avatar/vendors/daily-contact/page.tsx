@@ -107,7 +107,7 @@ export default function VendorContactsGrid() {
 
   // Column definitions
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
-    { field: "id", headerName: "ID", width: 100, pinned: "left", checkboxSelection: true },
+    { field: "id", headerName: "ID", width: 100, pinned: "left", checkboxSelection:false },
     { field: "full_name", headerName: "Full Name", width: 180, editable: true },
     { field: "source_email", headerName: "Source Email", width: 200, editable: true },
     { field: "email", headerName: "Email", width: 200, editable: true },
