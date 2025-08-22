@@ -1,4 +1,5 @@
-// employee/page.tsx
+
+
 "use client";
 import React, { useEffect, useState } from "react";
 import { ColDef } from "ag-grid-community";
@@ -7,9 +8,8 @@ import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon } from "lucide-react";
+import { SearchIcon, Plus } from "lucide-react";
 import axios from "axios";
-import { Plus } from "lucide-react";
 
 const DateFormatter = (params: any) =>
   params.value ? new Date(params.value).toLocaleDateString() : "";
@@ -20,21 +20,6 @@ export default function EmployeesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const blankEmployeeData = {
-    name: "",
-    email: "",
-    phone: "",
-    address: "",
-    state: "",
-    dob: "",
-    startdate: "",
-    instructor: 0,
-    status: 1,
-    enddate: "",
-    notes: "",
-    aadhaar: "",
-  };
-
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -46,6 +31,21 @@ export default function EmployeesPage() {
     currentPage * pageSize
   );
 
+  const blankEmployeeData = {
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+    state: "",
+    dob: "",
+    startdate: "",
+    enddate: "",
+    instructor: 0,
+    status: 1,
+    notes: "",
+    aadhaar: "",
+  };
+
   const fetchEmployees = async () => {
     setLoading(true);
     try {
@@ -56,7 +56,7 @@ export default function EmployeesPage() {
       const mappedData = rawData.map((emp: any) => ({
         ...emp,
         full_name: emp.name,
-        start_date: emp.startdate,
+        startdate: emp.startdate,
         lastmoddate: emp.enddate,
       }));
 
@@ -80,45 +80,30 @@ export default function EmployeesPage() {
     } else {
       const term = searchTerm.toLowerCase();
       const filtered = employees.filter((emp) =>
-        Object.values(emp).some((val) =>
-          String(val).toLowerCase().includes(term)
+        ["name", "email", "phone"].some((field) =>
+          String(emp[field] || "").toLowerCase().includes(term)
         )
       );
       setFilteredEmployees(filtered);
     }
   }, [searchTerm, employees]);
-   const [state, setState] = useState({
-      searchTerm: "",
-      employees: [],
-      filteredEmployees: [],
-      isLoading: true,
-      error: null as string | null,
-      page: 1,
-      limit: 100,
-      total: 0,
-    
-      formData: blankEmployeeData,
-      formSaveLoading: false,
-      loadingRowId: null,
-    });
-   
-   
-  
+
   const handleRowUpdated = async (updatedRow: any) => {
     try {
       const payload = {
         ...updatedRow,
         id: updatedRow.id,
-        name: updatedRow.name || "",
+        name: updatedRow.full_name || "",
         email: updatedRow.email,
         phone: updatedRow.phone,
         address: updatedRow.address,
         dob: updatedRow.dob,
-        startdate: updatedRow.start_date,
+        startdate: updatedRow.startdate,
         enddate: updatedRow.lastmoddate,
         instructor: updatedRow.instructor,
         notes: updatedRow.notes,
         state: updatedRow.state,
+        aadhaar: updatedRow.aadhaar,
       };
 
       await axios.put(
@@ -129,7 +114,6 @@ export default function EmployeesPage() {
       const updatedUIRow = {
         ...payload,
         full_name: payload.name,
-        start_date: payload.startdate,
         lastmoddate: payload.enddate,
       };
 
@@ -138,6 +122,7 @@ export default function EmployeesPage() {
       );
     } catch (error) {
       console.error("Failed to update employee:", error);
+      setError("Failed to update employee");
     }
   };
 
@@ -147,26 +132,29 @@ export default function EmployeesPage() {
       setFilteredEmployees((prev) => prev.filter((row) => row.id !== id));
     } catch (error) {
       console.error("Failed to delete employee:", error);
+      setError("Failed to delete employee");
     }
   };
+
   const handleAddEmployee = async () => {
     try {
       const res = await axios.post(
-      `${process.env.NEXT_PUBLIC_API_URL}/employees`,
-      blankEmployeeData
-    );
-    const newEmployee = {
-      ...res.data,
-      full_name: res.data.name,
-      start_date: res.data.startdate,
-      lastmoddate: res.data.enddate,
-    };
-    setFilteredEmployees((prev) => [newEmployee, ...prev]);
-  } catch (error) {
-    console.error("Failed to add employee:", error);
-  }
-};
-
+        `${process.env.NEXT_PUBLIC_API_URL}/employees`,
+        blankEmployeeData
+      );
+      const newEmployee = {
+        ...res.data,
+        full_name: res.data.name,
+        startdate: res.data.startdate,
+        lastmoddate: res.data.enddate,
+      };
+      setFilteredEmployees((prev) => [newEmployee, ...prev]);
+      setCurrentPage(1); // jump to first page to show new employee
+    } catch (error) {
+      console.error("Failed to add employee:", error);
+      setError("Failed to add employee");
+    }
+  };
 
   const columnDefs: ColDef[] = [
     { headerName: "ID", field: "id", width: 80, pinned: "left" },
@@ -177,7 +165,7 @@ export default function EmployeesPage() {
     { headerName: "State", field: "state", editable: true },
     { headerName: "DOB", field: "dob", valueFormatter: DateFormatter, editable: true },
     { headerName: "Start Date", field: "startdate", valueFormatter: DateFormatter, editable: true },
-    { headerName: "Instructor", field: "instructor", editable: true},
+    { headerName: "Instructor", field: "instructor", editable: true },
     { headerName: "Status", field: "status", editable: true },
     { headerName: "End Date", field: "lastmoddate", valueFormatter: DateFormatter },
     { headerName: "Notes", field: "notes", editable: true },
@@ -186,9 +174,19 @@ export default function EmployeesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Employee Management</h1>
-        <p className="text-gray-600">Browse, search, and manage employees.</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold">Employee Management</h1>
+          <p className="text-gray-600">Browse, search, and manage employees.</p>
+        </div>
+
+        {/* Add Employee Button */}
+        <button
+          onClick={handleAddEmployee}
+          className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          <Plus className="mr-2 h-4 w-4" /> Add Employee
+        </button>
       </div>
 
       {/* Search */}
@@ -200,7 +198,7 @@ export default function EmployeesPage() {
             id="search"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by name, email, phone, etc."
+            placeholder="Search by name, email, phone"
             className="pl-10"
           />
         </div>
@@ -218,10 +216,8 @@ export default function EmployeesPage() {
         <>
           <AGGridTable
             rowData={paginatedEmployees}
-            // rowData={state.filteredEmployees}
             columnDefs={columnDefs}
             onRowClicked={(event) => console.log("Row clicked:", event.data)}
-            // title={`Employees (${filteredEmployees.length})`}
             title="Employee"
             height="70vh"
             onRowUpdated={handleRowUpdated}
@@ -232,18 +228,17 @@ export default function EmployeesPage() {
 
           {/* Pagination */}
           <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
-            {/* Rows per page selector */}
             <div className="flex items-center space-x-2">
               <span className="text-sm">Rows per page:</span>
               <select
                 value={pageSize}
                 onChange={(e) => {
                   setPageSize(Number(e.target.value));
-                  setCurrentPage(1); // reset to first page
+                  setCurrentPage(1);
                 }}
                 className="border rounded px-2 py-1 text-sm"
               >
-                {[10,50,100,200].map((size) => (
+                {[10, 50, 100, 200].map((size) => (
                   <option key={size} value={size}>
                     {size}
                   </option>
@@ -251,7 +246,6 @@ export default function EmployeesPage() {
               </select>
             </div>
 
-            {/* Navigation controls */}
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
@@ -277,4 +271,3 @@ export default function EmployeesPage() {
     </div>
   );
 }
-
