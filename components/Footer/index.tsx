@@ -47,7 +47,7 @@ const Footer = () => {
                 </Link>
                 <div className="flex items-center justify-around">
                   <a
-                    href="https://www.facebook.com/profile.php?id=100076790355187"
+                    href="https://www.facebook.com/WBLAIML"
                     target="_blank"
                     rel="noreferrer"
                     aria-label="Twitter"
@@ -80,7 +80,7 @@ const Footer = () => {
                     </svg>
                   </a>
                   <a
-                    href="https://www.linkedin.com/company/whitebox-learning/about/"
+                    href="https://www.linkedin.com/company/whiteboxlearning-inc"
                     target="_blank"
                     rel="noreferrer"
                     aria-label="Linkedin"

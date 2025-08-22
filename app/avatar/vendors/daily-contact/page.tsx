@@ -1,237 +1,209 @@
 "use client";
-import { AGGridTable } from "@/components/AGGridTable";
-import { Button } from "@/components/admin_ui/button";
+
+import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import "@/styles/admin.css";
+import "@/styles/App.css";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon, PlusIcon } from "lucide-react";
+import { SearchIcon, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import { ColDef } from "ag-grid-community";
-import { useMemo, useState, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
+import { toast, Toaster } from "sonner";
+import axios from "axios";
 
-export default function VendorsDailyContactPage() {
+// Dynamic AG Grid
+const AGGridTable = dynamic(() => import("@/components/AGGridTable"), { ssr: false });
+
+// Badge renderer for moved_to_vendor
+const MovedToVendorRenderer = ({ value }: { value?: boolean }) => {
+  const status = value ? "Yes" : "No";
+  const colorMap: Record<string, string> = {
+    yes: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    no: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+  };
+  const badgeClass = colorMap[status.toLowerCase()] ?? "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200";
+  return <Badge className={badgeClass}>{status}</Badge>;
+};
+
+// Date formatter
+const DateFormatter = ({ value }: { value?: string | Date | null }) =>
+  value ? new Date(value).toLocaleDateString() : "-";
+
+export default function VendorContactsGrid() {
+  const gridRef = useRef<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filteredVendors, setFilteredVendors] = useState([]);
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [filteredContacts, setFilteredContacts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(100);
+  const [total, setTotal] = useState(0);
 
-  // Sample daily contact data - vendors with recent communications
-  const dailyContactVendors = [
-    {
-      id: 1,
-      company: "TechStaff Solutions",
-      contact: "Maria Rodriguez",
-      email: "maria@techstaff.com",
-      phone: "+1 (555) 456-7890",
-      services: "IT Recruitment, Contract Staffing",
-      location: "San Francisco, CA",
-      partnership: "Premium",
-      activeContracts: 12,
-      lastContact: "2024-01-15",
-      rating: 4.8,
-    },
-    {
-      id: 3,
-      company: "Talent Bridge Inc",
-      contact: "Lisa Chen",
-      email: "lisa@talentbridge.com",
-      phone: "+1 (555) 678-9012",
-      services: "Permanent Placement, Temporary Staffing",
-      location: "Austin, TX",
-      partnership: "Premium",
-      activeContracts: 15,
-      lastContact: "2024-01-14",
-      rating: 4.9,
-    },
-  ];
+  const apiEndpoint = useMemo(() => `${process.env.NEXT_PUBLIC_API_URL}/vendor_contact_extracts`, []);
 
-  // All vendors data (daily contact)
-  const allVendors = [
-    {
-      id: 1,
-      company: "TechStaff Solutions",
-      contact: "Maria Rodriguez",
-      email: "maria@techstaff.com",
-      phone: "+1 (555) 456-7890",
-      services: "IT Recruitment, Contract Staffing",
-      location: "San Francisco, CA",
-      partnership: "Premium",
-      activeContracts: 12,
-      lastContact: "2024-01-15",
-      rating: 4.8,
-    },
-    {
-      id: 3,
-      company: "Talent Bridge Inc",
-      contact: "Lisa Chen",
-      email: "lisa@talentbridge.com",
-      phone: "+1 (555) 678-9012",
-      services: "Permanent Placement, Temporary Staffing",
-      location: "Austin, TX",
-      partnership: "Premium",
-      activeContracts: 15,
-      lastContact: "2024-01-14",
-      rating: 4.9,
-    },
-  ];
-
-  // Auto-search functionality
-  const filterVendors = useCallback((searchTerm: string) => {
-    if (searchTerm.trim() === "") {
-      return allVendors;
-    } else {
-      return allVendors.filter((vendor) => {
-        const searchLower = searchTerm.toLowerCase();
-        return (
-          vendor.company.toLowerCase().includes(searchLower) ||
-          vendor.contact.toLowerCase().includes(searchLower) ||
-          vendor.email.toLowerCase().includes(searchLower) ||
-          vendor.phone.includes(searchTerm) ||
-          vendor.services.toLowerCase().includes(searchLower) ||
-          vendor.location.toLowerCase().includes(searchLower) ||
-          vendor.partnership.toLowerCase().includes(searchLower)
-        );
-      });
+  // Fetch contacts
+  const fetchContacts = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get(`${apiEndpoint}?page=${page}&limit=${pageSize}`);
+      setContacts(res.data.data || res.data);
+      setFilteredContacts(res.data.data || res.data);
+      setTotal(res.data.total || res.data.length);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to load contacts");
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }, [apiEndpoint, page, pageSize]);
+
+  // Search filter
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!searchTerm.trim()) setFilteredContacts(contacts);
+      else {
+        const term = searchTerm.toLowerCase();
+        setFilteredContacts(
+          contacts.filter(c =>
+            c.full_name?.toLowerCase().includes(term) ||
+            c.source_email?.toLowerCase().includes(term) ||
+            c.email?.toLowerCase().includes(term) ||
+            c.phone?.toLowerCase().includes(term) ||
+            c.linkedin_id?.toLowerCase().includes(term) ||
+            c.company_name?.toLowerCase().includes(term) ||
+            c.location?.toLowerCase().includes(term)
+          )
+        );
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm, contacts]);
+
+  // Row update
+  const handleRowUpdated = async (updatedData: any) => {
+    try {
+      await axios.put(`${apiEndpoint}/${updatedData.id}`, updatedData);
+      toast.success("Contact updated successfully");
+      fetchContacts();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update contact");
+    }
+  };
+
+  // Row delete
+  const handleRowDeleted = async (contactId: number | string) => {
+    try {
+      await axios.delete(`${apiEndpoint}/${contactId}`);
+      toast.success("Contact deleted successfully");
+      fetchContacts();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete contact");
+    }
+  };
 
   useEffect(() => {
-    const filtered = filterVendors(searchTerm);
-    setFilteredVendors(filtered);
-  }, [searchTerm, filterVendors]);
+    fetchContacts();
+  }, [fetchContacts]);
 
-  const PartnershipRenderer = (params: any) => {
-    const { value } = params;
-    const getPartnershipColor = (partnership: string) => {
-      switch (partnership) {
-        case "Premium":
-          return "bg-purple-100 text-purple-800";
-        case "Standard":
-          return "bg-blue-100 text-blue-800";
-        case "Basic":
-          return "bg-gray-100 text-gray-800";
-        default:
-          return "bg-gray-100 text-gray-800";
-      }
-    };
-    return (
-      <Badge className={getPartnershipColor(value)}>
-        {value.toUpperCase()}
-      </Badge>
-    );
-  };
+  // Column definitions
+  const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
+    { field: "id", headerName: "ID", width: 100, pinned: "left", checkboxSelection: true },
+    { field: "full_name", headerName: "Full Name", width: 180, editable: true },
+    { field: "source_email", headerName: "Source Email", width: 200, editable: true },
+    { field: "email", headerName: "Email", width: 200, editable: true },
+    { field: "phone", headerName: "Phone", width: 150, editable: true },
+    { field: "linkedin_id", headerName: "LinkedIn ID", width: 180, editable: true },
+    { field: "company_name", headerName: "Company Name", width: 200, editable: true },
+    { field: "location", headerName: "Location", width: 150, editable: true },
+    { field: "extraction_date", headerName: "Extraction Date", width: 150, valueFormatter: DateFormatter, editable: true },
+    { field: "moved_to_vendor", headerName: "Moved To Vendor", width: 150, cellRenderer: MovedToVendorRenderer },
+    { field: "created_at", headerName: "Created At", width: 180, valueFormatter: DateFormatter },
+  ], []);
 
-  const RatingRenderer = (params: any) => {
-    const { value } = params;
-    return (
-      <div className="flex items-center space-x-1">
-        <span className="text-yellow-500">★</span>
-        <span>{value}</span>
-      </div>
-    );
-  };
-
-  const columnDefs: ColDef[] = useMemo(
-    () => [
-      { field: "id", headerName: "ID", width: 80, pinned: "left" },
-      { field: "company", headerName: "Company", flex: 1, minWidth: 200 },
-      {
-        field: "contact",
-        headerName: "Contact Person",
-        flex: 1,
-        minWidth: 150,
-      },
-      { field: "email", headerName: "Email", flex: 1, minWidth: 200 },
-      { field: "phone", headerName: "Phone", flex: 1, minWidth: 150 },
-      { field: "services", headerName: "Services", flex: 1, minWidth: 200 },
-      { field: "location", headerName: "Location", flex: 1, minWidth: 150 },
-      {
-        field: "partnership",
-        headerName: "Partnership",
-        cellRenderer: PartnershipRenderer,
-        width: 130,
-      },
-      {
-        field: "activeContracts",
-        headerName: "Active Contracts",
-        width: 150,
-        type: "numericColumn",
-      },
-      { field: "lastContact", headerName: "Last Contact", width: 130 },
-      {
-        field: "rating",
-        headerName: "Rating",
-        cellRenderer: RatingRenderer,
-        width: 100,
-        type: "numericColumn",
-      },
-    ],
-    [],
-  );
-
-  const handleRowUpdated = (updatedRow) => {
-    setFilteredVendors((prev) =>
-      prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
-    );
-  };
-  const handleRowDeleted = (id) => {
-    setFilteredVendors((prev) => prev.filter((row) => row.id !== id));
-  };
+  const defaultColDef = useMemo(() => ({
+    sortable: true,
+    resizable: true,
+    filter: true,
+    flex: 1,
+    minWidth: 100,
+  }), []);
 
   return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Daily Contact</h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              Daily communication tracking with vendor partners
-            </p>
-          </div>
-        <Button className="bg-whitebox-600 hover:bg-whitebox-700">
-            <PlusIcon className="h-4 w-4 mr-2" />
-            Log Contact
-          </Button>
-        </div>
+    <div className="space-y-6">
+      <Toaster position="top-center" />
 
-        {/* Search Input */}
-        <div className="max-w-md">
-          <Label
-            htmlFor="search"
-            className="text-sm font-medium text-gray-700 dark:text-gray-300"
-          >
-            Search Vendors
-          </Label>
-          <div className="relative mt-1">
-            <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              id="search"
-              type="text"
-              placeholder="Search by company, contact, email, services..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          {searchTerm && (
-            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-              {filteredVendors.length} vendor(s) found
-            </p>
-          )}
-        </div>
-
-        <div className="flex justify-center w-full">
-          <div className="w-full max-w-7xl">
-            <AGGridTable
-              rowData={filteredVendors}
-              columnDefs={columnDefs}
-              title={`Daily Contact (${filteredVendors.length})`}
-              height="calc(60vh)"
-              showSearch={false}
-              // onRowClicked={(event) => {
-              //   console.log("Row clicked:", event.data);
-              // }}
-              onRowUpdated={handleRowUpdated}
-              onRowDeleted={handleRowDeleted}
-            />
-          </div>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Vendor Contact Extracts</h1>
+          <p className="text-gray-600 dark:text-gray-400">Browse, search, and manage all vendor contacts.</p>
         </div>
       </div>
+
+      <div className="max-w-md">
+        <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          Search Contacts
+        </Label>
+        <div className="relative mt-1">
+          <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            id="search"
+            type="text"
+            placeholder="Search by name, email, company..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+      </div>
+
+      <div className="flex justify-center w-full">
+        <div className="w-full max-w-7xl">
+          <AGGridTable
+            // ref={gridRef}
+            rowData={filteredContacts}
+            columnDefs={columnDefs}
+            // defaultColDef={defaultColDef}
+            height="600px"
+            title={`Vendor Contacts (${filteredContacts.length})`}
+            showSearch={false}
+            onRowUpdated={handleRowUpdated}
+            onRowDeleted={handleRowDeleted}
+          />
+        </div>
+      </div>
+
+      {/* Pagination */}
+      <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
+        <div className="flex items-center space-x-2">
+          <span className="text-sm">Rows per page:</span>
+          <select
+            value={pageSize}
+            onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}
+            className="border rounded px-2 py-1 text-sm"
+          >
+            {[10, 20, 50, 100].map(size => <option key={size} value={size}>{size}</option>)}
+          </select>
+        </div>
+
+
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setPage(p => Math.max(p - 1, 1))}
+            disabled={page === 1}
+            className="px-2 py-1 border rounded text-sm disabled:opacity-50"
+          >
+            <ChevronLeft className="h-4 w-4" /> Previous
+          </button>
+          <span className="text-sm">Page {page}</span>
+          <button
+            onClick={() => setPage(p => p + 1)}
+            disabled={filteredContacts.length < pageSize}
+            className="px-2 py-1 border rounded text-sm disabled:opacity-50"
+          >
+            Next <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
