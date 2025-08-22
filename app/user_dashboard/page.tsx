@@ -20,12 +20,11 @@ const UserDashboard = () => {
     const fetchUserDetails = async () => {
       try {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/user_dashboard`,
+          `${process.env.NEXT_PUBLIC_API_URL}/user_dashboard`,
           {
             method: "GET",
             headers: {
-              Authtoken: localStorage.getItem("access_token"),
-          //     Authorization: `Bearer ${localStorage.getItem("access_token")}`,
+              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
             },
           }
         );

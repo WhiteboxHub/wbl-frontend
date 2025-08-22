@@ -63,7 +63,7 @@ export const isAuthenticated = async () => {
 
   try {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/verify_token`,
+      `${process.env.NEXT_PUBLIC_API_URL}/verify-token`,
       {
         method: "POST",
         headers: {
