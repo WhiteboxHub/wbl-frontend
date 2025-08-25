@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -16,6 +17,7 @@ interface ViewModalProps {
 }
 
 const fieldSections: Record<string, string> = {
+
   id: "Basic Information",
   candidateid: "Basic Information",
   uname: "Basic Information",
@@ -30,7 +32,9 @@ const fieldSections: Record<string, string> = {
   candidate_role: "Basic Information",
   dob: "Basic Information",
   contact: "Basic Information",
-  phone: "Basic Information",
+  phone: "Contact Information",
+  Phone: "Contact Information",
+
   secondaryphone: "Basic Information",
   email: "Basic Information",
   secondaryemail: "Basic Information",
@@ -44,6 +48,24 @@ const fieldSections: Record<string, string> = {
   batchid: "Basic Information",
   agreement: "Basic Information",
   promissory: "Basic Information",
+
+  full_name: "Basic Information",
+  source_email: "Contact Information",
+  linkedin_id: "Professional Information",
+  company_name: "Professional Information",
+  location: "Basic Information",
+  
+  vendor_id: "Basic Information",
+  vendor_name: "Basic Information",
+  vendor_email: "Basic Information",
+  vendor_phone: "Contact Information",
+  vendor_secondary_phone: "Contact Information",
+  vendor_city: "Contact Information",
+  vendor_address: "Contact Information",
+  vendor_country: "Contact Information",
+  vendor_status: "Professional Information",
+  vendor_linkedin: "Professional Information",
+  vendor_company: "Professional Information",
 
   course: "Professional Information",
   company: "Professional Information",
