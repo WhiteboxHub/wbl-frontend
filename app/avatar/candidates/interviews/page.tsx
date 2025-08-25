@@ -438,6 +438,226 @@
 
 
 
+// // whiteboxLearning-wbl/app/avatar/candidates/interviews/page.tsx
+// "use client";
+// import "@/styles/admin.css";
+// import "@/styles/App.css";
+// import { AGGridTable } from "@/components/AGGridTable";
+// import { Button } from "@/components/admin_ui/button";
+// import { Badge } from "@/components/admin_ui/badge";
+// import { Input } from "@/components/admin_ui/input";
+// import { Label } from "@/components/admin_ui/label";
+// import { SearchIcon, PlusIcon } from "lucide-react";
+// import { ColDef } from "ag-grid-community";
+// import { useMemo, useState, useEffect, useCallback } from "react";
+// import axios from "axios";
+
+// export default function CandidatesInterviews() {
+//   const [searchTerm, setSearchTerm] = useState("");
+//   const [allInterviews, setAllInterviews] = useState<any[]>([]);
+//   const [filteredInterviews, setFilteredInterviews] = useState<any[]>([]);
+//   const [loading, setLoading] = useState(true);
+//   const [error, setError] = useState("");
+
+//   // Fetch interviews from backend
+//   useEffect(() => {
+//     const fetchInterviews = async () => {
+//       try {
+//         setLoading(true);
+//         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/interviews?limit=100&offset=0`);
+//         if (!res.ok) throw new Error("Failed to load interviews");
+//         const data = await res.json();
+//         setAllInterviews(data);
+//         setFilteredInterviews(data);
+//       } catch (err) {
+//         // console.error(err);
+//         setError("Failed to load interviews.");
+//       } finally {
+//         setLoading(false);
+//       }
+//     };
+//     fetchInterviews();
+//   }, []);
+
+//   // Search/filter logic
+//   const filterData = useCallback((term: string) => {
+//     if (!term.trim()) return allInterviews;
+//     const lower = term.toLowerCase();
+//     return allInterviews.filter(item =>
+//       Object.values(item).some(val =>
+//         val?.toString().toLowerCase().includes(lower)
+//       )
+//     );
+//   }, [allInterviews]);
+
+//   useEffect(() => {
+//     setFilteredInterviews(filterData(searchTerm));
+//   }, [searchTerm, filterData]);
+
+//   const StatusRenderer = (params: any) => {
+//     const v = params.value?.toLowerCase() ?? "";
+//     const classes = v === "active"
+//       ? "bg-green-100 text-green-800"
+//       : v === "inactive"
+//       ? "bg-red-100 text-red-800"
+//       : "bg-gray-100 text-gray-800";
+//     return <Badge className={classes}>{params.value?.toUpperCase()}</Badge>;
+//   };
+
+//   const VisaStatusRenderer = (params: any) => {
+//     const v = params.value;
+//     const map: Record<string, string> = {
+//     H1B: "bg-blue-100 text-blue-800",
+//     GC: "bg-emerald-100 text-emerald-800",
+//     "F1 Student": "bg-purple-100 text-purple-800",
+//     "F1": "bg-purple-100 text-purple-800",
+//     "GC EAD": "bg-teal-100 text-teal-800",
+//     L1: "bg-orange-100 text-orange-800",
+//     L2: "bg-orange-100 text-orange-800",
+//     Citizen: "bg-indigo-100 text-indigo-800",
+//     H4: "bg-pink-100 text-pink-800",
+//     None: "bg-gray-200 text-gray-700",
+//     Select: "bg-gray-200 text-gray-700",
+//     };
+//     return <Badge className={map[v] ?? "bg-gray-100 text-gray-800"}>{v}</Badge>;
+//   };
+
+//   const AmountRenderer = (params: any) =>
+//     `$${Number(params.value).toLocaleString()}`;
+
+//   const columnDefs = useMemo<ColDef[]>(() => {
+//     if (filteredInterviews.length === 0) return [];
+//     const keys = Object.keys(filteredInterviews[0]);
+//     return keys.map(key => {
+//       const col: ColDef = {
+//         field: key,
+//         headerName: key.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase()),
+//         sortable: true,
+//         resizable: true,
+//         minWidth: 100,
+//       };
+
+//       if (key === "status") col.cellRenderer = StatusRenderer;
+//       if (key === "visaStatus" || key === "candidate_role") col.cellRenderer = VisaStatusRenderer;
+//       if (key === "interview_time") col.width = 110;
+//       if (key === "interview_date") col.width = 130;
+//       if (["interview_mode", "client_name", "interview_location"].includes(key)) col.flex = 1;
+//       if (key === "id") {
+//         col.pinned = "left";
+//         col.checkboxSelection = true;
+//         col.width = 80;
+//       }
+
+//       return col;
+//     });
+//   }, [filteredInterviews]);
+
+
+//     // PUT request on row update
+//   const handleRowUpdated = async (updatedRow: any) => {
+//     try {
+//       await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/interviews/${updatedRow.id}`, updatedRow);
+
+//       setAllInterviews(prev =>
+//         prev.map(row => row.id === updatedRow.id ? updatedRow : row)
+//       );
+//       setFilteredInterviews(prev =>
+//         prev.map(row => row.id === updatedRow.id ? updatedRow : row)
+//       );
+//     } catch (err) {
+
+
+//       // console.error("Failed to update interview:", err);
+
+//       alert("Failed to update interview.");
+//     }
+//   };
+
+//   // DELETE request on row deletion
+//   const handleRowDeleted = async (id: number | string) => {
+//     try {
+//       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/interviews/${id}`);
+
+//       setAllInterviews(prev => prev.filter(row => row.id !== id));
+//       setFilteredInterviews(prev => prev.filter(row => row.id !== id));
+//     } catch (err) {
+
+//       // console.error("Failed to delete interview:", err);
+//       alert("Failed to delete interview.");
+//     }
+//   };
+
+
+
+//   return (
+//     <div className="space-y-6">
+//       {/* Header */}
+//       <div className="flex items-center justify-between">
+//         <div>
+//           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Interviews</h1>
+//           <p className="text-gray-600 dark:text-gray-400">
+//             Candidates scheduled for interviews and assessment sessions
+//           </p>
+//         </div>
+//         <Button className="bg-whitebox-600 hover:bg-whitebox-700 text-white">
+//           <PlusIcon className="h-4 w-4 mr-2" />
+//           Schedule Interview
+//         </Button>
+//       </div>
+
+//       {/* Search Input */}
+//       <div className="max-w-md">
+//         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+//           Search
+//         </Label>
+//         <div className="relative mt-1">
+//           <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+//           <Input
+//             id="search"
+//             type="text"
+//             value={searchTerm}
+//             placeholder="Search..."
+//             onChange={e => setSearchTerm(e.target.value)}
+//             className="pl-10"
+//           />
+//         </div>
+//         {searchTerm && (
+//           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+//             {filteredInterviews.length} result(s)
+//           </p>
+//         )}
+//       </div>
+
+//       {/* Loading, Error, or Table */}
+//       {loading ? (
+//         <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-8">
+//           Loading...
+//         </p>
+//       ) : error ? (
+//         <p className="text-center mt-8 text-red-500">{error}</p>
+//       ) : (
+//         <div className="flex justify-center w-full">
+//           <div className="w-full max-w-7xl">
+//             <AGGridTable
+//               rowData={filteredInterviews}
+//               columnDefs={columnDefs}
+//               title={`Interviews (${filteredInterviews.length})`}
+//               height="500px"
+//               showSearch={false}
+//               // onRowClicked={e => console.log("Row clicked:", e.data)}
+//               onRowUpdated={handleRowUpdated}
+//               onRowDeleted={(id: number | string) => handleRowDeleted(id)}
+              
+//             />
+//           </div>
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
+
+
+
 // whiteboxLearning-wbl/app/avatar/candidates/interviews/page.tsx
 "use client";
 import "@/styles/admin.css";
@@ -459,18 +679,19 @@ export default function CandidatesInterviews() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Fetch interviews from backend
+  // Fetch interviews from backend (skip, limit)
   useEffect(() => {
     const fetchInterviews = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/interviews?limit=100&offset=0`);
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/interviews?skip=0&limit=1000`
+        );
         if (!res.ok) throw new Error("Failed to load interviews");
         const data = await res.json();
         setAllInterviews(data);
         setFilteredInterviews(data);
       } catch (err) {
-        console.error(err);
         setError("Failed to load interviews.");
       } finally {
         setLoading(false);
@@ -480,92 +701,75 @@ export default function CandidatesInterviews() {
   }, []);
 
   // Search/filter logic
-  const filterData = useCallback((term: string) => {
-    if (!term.trim()) return allInterviews;
-    const lower = term.toLowerCase();
-    return allInterviews.filter(item =>
-      Object.values(item).some(val =>
-        val?.toString().toLowerCase().includes(lower)
-      )
-    );
-  }, [allInterviews]);
+  const filterData = useCallback(
+    (term: string) => {
+      if (!term.trim()) return allInterviews;
+      const lower = term.toLowerCase();
+      return allInterviews.filter((item) =>
+        Object.values(item).some((val) =>
+          val?.toString().toLowerCase().includes(lower)
+        )
+      );
+    },
+    [allInterviews]
+  );
 
   useEffect(() => {
     setFilteredInterviews(filterData(searchTerm));
   }, [searchTerm, filterData]);
 
+  // Status renderer
   const StatusRenderer = (params: any) => {
     const v = params.value?.toLowerCase() ?? "";
-    const classes = v === "active"
-      ? "bg-green-100 text-green-800"
-      : v === "inactive"
-      ? "bg-red-100 text-red-800"
-      : "bg-gray-100 text-gray-800";
-    return <Badge className={classes}>{params.value?.toUpperCase()}</Badge>;
+    const classes =
+      v === "selected"
+        ? "bg-green-100 text-green-800"
+        : v === "rejected"
+        ? "bg-red-100 text-red-800"
+        : "bg-gray-100 text-gray-800";
+    return <Badge className={classes}>{params.value}</Badge>;
   };
 
-  const VisaStatusRenderer = (params: any) => {
-    const v = params.value;
-    const map: Record<string, string> = {
-    H1B: "bg-blue-100 text-blue-800",
-    GC: "bg-emerald-100 text-emerald-800",
-    "F1 Student": "bg-purple-100 text-purple-800",
-    "F1": "bg-purple-100 text-purple-800",
-    "GC EAD": "bg-teal-100 text-teal-800",
-    L1: "bg-orange-100 text-orange-800",
-    L2: "bg-orange-100 text-orange-800",
-    Citizen: "bg-indigo-100 text-indigo-800",
-    H4: "bg-pink-100 text-pink-800",
-    None: "bg-gray-200 text-gray-700",
-    Select: "bg-gray-200 text-gray-700",
-    };
-    return <Badge className={map[v] ?? "bg-gray-100 text-gray-800"}>{v}</Badge>;
-  };
-
-  const AmountRenderer = (params: any) =>
-    `$${Number(params.value).toLocaleString()}`;
-
+  // Column definitions aligned with backend model
   const columnDefs = useMemo<ColDef[]>(() => {
-    if (filteredInterviews.length === 0) return [];
-    const keys = Object.keys(filteredInterviews[0]);
-    return keys.map(key => {
-      const col: ColDef = {
-        field: key,
-        headerName: key.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase()),
-        sortable: true,
-        resizable: true,
-        minWidth: 100,
-      };
+    return [
+      {
+        field: "id",
+        headerName: "ID",
+        pinned: "left",
+        checkboxSelection: true,
+        width: 80,
+      },
+      { field: "candidate_id", headerName: "Candidate ID", sortable: true, minWidth: 120 },
+      { field: "candidate_name", headerName: "Candidate Name", sortable: true, minWidth: 150 },
+      { field: "company", headerName: "Company", sortable: true, minWidth: 150 },
+      { field: "interviewer_emails", headerName: "Emails", flex: 1 },
+      { field: "interviewer_contact", headerName: "Contact", flex: 1 },
+      { field: "interview_date", headerName: "Date", minWidth: 130 },
+      { field: "interview_type", headerName: "Type", minWidth: 120 },
+      { field: "recording_link", headerName: "Recording", flex: 1 },
+      { field: "status", headerName: "Status", cellRenderer: StatusRenderer, minWidth: 120 },
+      { field: "feedback", headerName: "Feedback", flex: 1 },
+      { field: "notes", headerName: "Notes", flex: 1 },
+      { field: "last_mod_datetime", headerName: "Last Modified", minWidth: 160 },
+    ];
+  }, []);
 
-      if (key === "status") col.cellRenderer = StatusRenderer;
-      if (key === "visaStatus" || key === "candidate_role") col.cellRenderer = VisaStatusRenderer;
-      if (key === "interview_time") col.width = 110;
-      if (key === "interview_date") col.width = 130;
-      if (["interview_mode", "client_name", "interview_location"].includes(key)) col.flex = 1;
-      if (key === "id") {
-        col.pinned = "left";
-        col.checkboxSelection = true;
-        col.width = 80;
-      }
-
-      return col;
-    });
-  }, [filteredInterviews]);
-
-
-    // PUT request on row update
+  // PUT request on row update
   const handleRowUpdated = async (updatedRow: any) => {
     try {
-      await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/interviews/${updatedRow.id}`, updatedRow);
-
-      setAllInterviews(prev =>
-        prev.map(row => row.id === updatedRow.id ? updatedRow : row)
+      await axios.put(
+        `${process.env.NEXT_PUBLIC_API_URL}/interviews/${updatedRow.id}`,
+        updatedRow
       );
-      setFilteredInterviews(prev =>
-        prev.map(row => row.id === updatedRow.id ? updatedRow : row)
+
+      setAllInterviews((prev) =>
+        prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
+      );
+      setFilteredInterviews((prev) =>
+        prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
       );
     } catch (err) {
-      console.error("Failed to update interview:", err);
       alert("Failed to update interview.");
     }
   };
@@ -573,24 +777,25 @@ export default function CandidatesInterviews() {
   // DELETE request on row deletion
   const handleRowDeleted = async (id: number | string) => {
     try {
-      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/interviews/${id}`);
+      await axios.delete(
+        `${process.env.NEXT_PUBLIC_API_URL}/interviews/${id}`
+      );
 
-      setAllInterviews(prev => prev.filter(row => row.id !== id));
-      setFilteredInterviews(prev => prev.filter(row => row.id !== id));
+      setAllInterviews((prev) => prev.filter((row) => row.id !== id));
+      setFilteredInterviews((prev) => prev.filter((row) => row.id !== id));
     } catch (err) {
-      console.error("Failed to delete interview:", err);
       alert("Failed to delete interview.");
     }
   };
-
-
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Interviews</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            Interviews
+          </h1>
           <p className="text-gray-600 dark:text-gray-400">
             Candidates scheduled for interviews and assessment sessions
           </p>
@@ -603,7 +808,10 @@ export default function CandidatesInterviews() {
 
       {/* Search Input */}
       <div className="max-w-md">
-        <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <Label
+          htmlFor="search"
+          className="text-sm font-medium text-gray-700 dark:text-gray-300"
+        >
           Search
         </Label>
         <div className="relative mt-1">
@@ -613,7 +821,7 @@ export default function CandidatesInterviews() {
             type="text"
             value={searchTerm}
             placeholder="Search..."
-            onChange={e => setSearchTerm(e.target.value)}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
           />
         </div>
@@ -640,10 +848,8 @@ export default function CandidatesInterviews() {
               title={`Interviews (${filteredInterviews.length})`}
               height="500px"
               showSearch={false}
-              onRowClicked={e => console.log("Row clicked:", e.data)}
               onRowUpdated={handleRowUpdated}
               onRowDeleted={(id: number | string) => handleRowDeleted(id)}
-              
             />
           </div>
         </div>

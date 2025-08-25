@@ -35,11 +35,14 @@ export default function BatchPage() {
   const fetchBatches = async () => {
     try {
       setLoading(true);
-      const isIdSearch = !isNaN(Number(debouncedSearch)) && debouncedSearch.trim() !== "";
+      const isIdSearch =
+        !isNaN(Number(debouncedSearch)) && debouncedSearch.trim() !== "";
 
       if (isIdSearch) {
         // Fetch single batch by ID
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/batch/${debouncedSearch.trim()}`);
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/batch/${debouncedSearch.trim()}`
+        );
         if (!res.ok) {
           setBatches([]);
           setTotal(0);
@@ -50,7 +53,7 @@ export default function BatchPage() {
         setTotal(1);
         setPage(1);
       } else {
-        // Fetch all batches (or optionally implement backend search if available)
+        // Fetch all batches
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/batch`);
         if (!res.ok) {
           setBatches([]);
@@ -59,7 +62,7 @@ export default function BatchPage() {
         }
         let data: any[] = await res.json();
 
-        // Optional: frontend filter by name/other fields
+        // Optional: frontend filter
         if (debouncedSearch.trim()) {
           const term = debouncedSearch.trim().toLowerCase();
           data = data.filter(
@@ -87,33 +90,83 @@ export default function BatchPage() {
     fetchBatches();
   }, [debouncedSearch, page, pageSize]);
 
+  // Date formatter
+  const dateFormatter = (params: any) => {
+    if (!params.value) return "";
+    try {
+      return new Date(params.value).toLocaleDateString("en-GB", {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+      });
+    } catch {
+      return params.value;
+    }
+  };
+
+
+  const SubjectRenderer = (props: any) => {
+    const value = props.value || "";
+    const colors: Record<string, string> = {
+      QA: "bg-blue-100 text-blue-800",
+      UI: "bg-green-100 text-green-800",
+      ML: "bg-purple-100 text-purple-800",
+    };
+    const className =
+      "px-2 py-1 rounded-full text-xs font-medium " +
+      (colors[value] || "bg-gray-100 text-gray-800");
+
+    return <span className={className}>{value}</span>;
+  };
+
   // Column definitions
-  const columnDefs = useMemo<ColDef[]>(() => {
-    if (batches.length === 0) return [];
-    const keys = Object.keys(batches[0]);
-    return keys.map((key) => {
-      const col: ColDef = {
-        field: key,
-        headerName: key
-          .replace(/([A-Z])/g, " $1")
-          .replace(/^./, (s) => s.toUpperCase()),
-        sortable: true,
-        resizable: true,
-        minWidth: 120,
-      };
-      if (key === "batchid") {
-        col.pinned = "left";
-        col.checkboxSelection = true;
-        col.width = 80;
-      }
-      return col;
-    });
-  }, [batches]);
+  const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
+    { field: "batchid", headerName: "Batch ID", width: 120, pinned: "left" },
+    { field: "batchname", headerName: "Batch Name", width: 180, editable: true },
+    {
+      field: "orientationdate",
+      headerName: "Orientation Date",
+      width: 160,
+      editable: true,
+      valueFormatter: dateFormatter,
+    },
+    {
+      field: "subject",
+      headerName: "Subject",
+      width: 120,
+      editable: true,
+      cellRenderer: SubjectRenderer, 
+    },
+    {
+      field: "startdate",
+      headerName: "Start Date",
+      width: 160,
+      editable: true,
+      valueFormatter: dateFormatter,
+    },
+    {
+      field: "enddate",
+      headerName: "End Date",
+      width: 160,
+      editable: true,
+      valueFormatter: dateFormatter,
+    },
+    {
+      field: "lastmoddatetime",
+      headerName: "Last Modified",
+      width: 180,
+      valueFormatter: dateFormatter,
+    },
+    { field: "courseid", headerName: "Course ID", width: 120 },
+  ], []);
 
   // PUT request on row update
   const handleRowUpdated = async (updatedRow: any) => {
     try {
-      await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/batch/${updatedRow.batchid}`, updatedRow);
+      await axios.put(
+        `${process.env.NEXT_PUBLIC_API_URL}/batch/${updatedRow.batchid}`,
+        updatedRow
+      );
       fetchBatches();
     } catch (err) {
       console.error("Failed to update batch:", err);
@@ -138,9 +191,7 @@ export default function BatchPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             Batches
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Manage batches
-          </p>
+          <p className="text-gray-600 dark:text-gray-400">Manage batches</p>
         </div>
         <Button className="bg-whitebox-600 hover:bg-whitebox-700 text-white">
           <PlusIcon className="h-4 w-4 mr-2" />
@@ -150,7 +201,10 @@ export default function BatchPage() {
 
       {/* Search Input */}
       <div className="max-w-md">
-        <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <Label
+          htmlFor="search"
+          className="text-sm font-medium text-gray-700 dark:text-gray-300"
+        >
           Search by Batch Name or ID
         </Label>
         <div className="relative mt-1">
@@ -197,7 +251,9 @@ export default function BatchPage() {
               className="border rounded px-2 py-1 text-sm"
             >
               {[10, 20, 50, 100].map((size) => (
-                <option key={size} value={size}>{size}</option>
+                <option key={size} value={size}>
+                  {size}
+                </option>
               ))}
             </select>
           </div>

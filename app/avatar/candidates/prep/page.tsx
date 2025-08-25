@@ -729,6 +729,73 @@
 //     [allCandidates]
 //   );
 
+
+// // whiteboxLearning-wbl/app/avatar/candidates/prep/page.tsx
+// "use client";
+// import "@/styles/admin.css";
+// import "@/styles/App.css";
+// import { AGGridTable } from "@/components/AGGridTable";
+// import { Badge } from "@/components/admin_ui/badge";
+// import { Input } from "@/components/admin_ui/input";
+// import { Label } from "@/components/admin_ui/label";
+// import { SearchIcon } from "lucide-react";
+// import { ColDef } from "ag-grid-community";
+// import { useMemo, useState, useEffect, useCallback } from "react";
+// import axios from "axios";
+
+// export default function CandidatesPrepPage() {
+//   const [searchTerm, setSearchTerm] = useState("");
+//   const [filteredCandidates, setFilteredCandidates] = useState([]);
+//   const [allCandidates, setAllCandidates] = useState([]);
+//   const [loading, setLoading] = useState(true);
+//   const [error, setError] = useState("");
+//   const [page] = useState(1);
+//   const [limit] = useState(100);
+
+//   const fetchCandidates = async () => {
+//     try {
+//       setLoading(true);
+//       const res = await fetch(
+//         `${process.env.NEXT_PUBLIC_API_URL}/candidates/active?page=${page}&limit=${limit}`
+//       );
+//       if (!res.ok) throw new Error("Failed to load candidates");
+//       const data = await res.json();
+
+//       if (!Array.isArray(data)) {
+//         throw new Error("Invalid data format");
+//       }
+
+//       setAllCandidates(data);
+//       setFilteredCandidates(data);
+//     } catch (err) {
+
+//       // console.error(err);
+
+//       setError("Failed to load candidates.");
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
+
+//   useEffect(() => {
+//     fetchCandidates();
+//   }, [page, limit]);
+
+//   const filterCandidates = useCallback(
+//     (searchTerm: string) => {
+//       if (searchTerm.trim() === "") {
+//         return allCandidates;
+//       }
+//       const searchLower = searchTerm.toLowerCase();
+//       return allCandidates.filter((candidate) =>
+//         Object.values(candidate).some((val) =>
+//           val?.toString().toLowerCase().includes(searchLower)
+//         )
+//       );
+//     },
+//     [allCandidates]
+//   );
+
 //   useEffect(() => {
 //     const filtered = filterCandidates(searchTerm);
 //     setFilteredCandidates(filtered);
@@ -742,17 +809,17 @@
 
 //   const VisaStatusRenderer = (params: any) => {
 //     const visaColors: Record<string, string> = {
-//     H1B: "bg-blue-100 text-blue-800",
-//     GC: "bg-emerald-100 text-emerald-800",
-//     "F1 Student": "bg-purple-100 text-purple-800",
-//     "F1": "bg-purple-100 text-purple-800",
-//     "GC EAD": "bg-teal-100 text-teal-800",
-//     L1: "bg-orange-100 text-orange-800",
-//     L2: "bg-orange-100 text-orange-800",
-//     Citizen: "bg-indigo-100 text-indigo-800",
-//     H4: "bg-pink-100 text-pink-800",
-//     None: "bg-gray-200 text-gray-700",
-//     Select: "bg-gray-200 text-gray-700",
+//       H1B: "bg-blue-100 text-blue-800",
+//       GC: "bg-emerald-100 text-emerald-800",
+//       "F1 Student": "bg-purple-100 text-purple-800",
+//       F1: "bg-purple-100 text-purple-800",
+//       "GC EAD": "bg-teal-100 text-teal-800",
+//       L1: "bg-orange-100 text-orange-800",
+//       L2: "bg-orange-100 text-orange-800",
+//       Citizen: "bg-indigo-100 text-indigo-800",
+//       H4: "bg-pink-100 text-pink-800",
+//       None: "bg-gray-200 text-gray-700",
+//       Select: "bg-gray-200 text-gray-700",
 //     };
 
 //     return (
@@ -808,23 +875,45 @@
 //       return col;
 //     });
 
-
-    
-
 //     const candidateIdCol = baseColumns.find((col) => col.field === "candidateid");
 //     const otherCols = baseColumns.filter((col) => col.field !== "candidateid");
 
 //     return candidateIdCol ? [candidateIdCol, ...otherCols] : otherCols;
 //   }, [filteredCandidates]);
 
-//   const handleRowUpdated = (updatedRow: any) => {
-//     setFilteredCandidates((prev) =>
-//       prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
-//     );
+
+//   const handleRowUpdated = async (updatedRow: any) => {
+//     try {
+//       await axios.put(
+//         `${process.env.NEXT_PUBLIC_API_URL}/candidates/${updatedRow.candidateid}`,
+//         updatedRow
+//       );
+
+//       setFilteredCandidates((prev) =>
+//         prev.map((row) =>
+//           row.candidateid === updatedRow.candidateid ? updatedRow : row
+//         )
+//       );
+//     } catch (error) {
+
+//       // console.error("Failed to update candidate:", error);
+
+//     }
 //   };
 
-//   const handleRowDeleted = (id: number) => {
-//     setFilteredCandidates((prev) => prev.filter((row) => row.id !== id));
+
+//   const handleRowDeleted = async (id: number | string) => {
+//     try {
+//       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/candidates/${id}`);
+
+//       setFilteredCandidates((prev) =>
+//         prev.filter((row) => row.candidateid !== id)
+//       );
+//     } catch (error) {
+
+//       // console.error("Failed to delete candidate:", error);
+
+//     }
 //   };
 
 //   return (
@@ -880,9 +969,9 @@
 //               title={`Active Candidates (${filteredCandidates.length})`}
 //               height="calc(70vh)"
 //               showSearch={false}
-//               onRowClicked={(event) => {
-//                 console.log("Row clicked:", event.data);
-//               }}
+//               // onRowClicked={(event) => {
+//               //   console.log("Row clicked:", event.data);
+//               // }}
 //               onRowUpdated={handleRowUpdated}
 //               onRowDeleted={handleRowDeleted}
 //             />
@@ -895,8 +984,8 @@
 
 
 
+// // whiteboxLearning-wbl/app/avatar/candidates/prep/page.tsx
 
-// whiteboxLearning-wbl/app/avatar/candidates/prep/page.tsx
 "use client";
 import "@/styles/admin.css";
 import "@/styles/App.css";
@@ -921,21 +1010,18 @@ export default function CandidatesPrepPage() {
   const fetchCandidates = async () => {
     try {
       setLoading(true);
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/candidates/active?page=${page}&limit=${limit}`
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations?page=${page}&limit=${limit}`
       );
-      if (!res.ok) throw new Error("Failed to load candidates");
-      const data = await res.json();
 
-      if (!Array.isArray(data)) {
-        throw new Error("Invalid data format");
-      }
+      const data = res.data;
+
+      if (!Array.isArray(data)) throw new Error("Invalid data format");
 
       setAllCandidates(data);
       setFilteredCandidates(data);
     } catch (err) {
-      console.error(err);
-      setError("Failed to load candidates.");
+      setError("Failed to load candidate preparations.");
     } finally {
       setLoading(false);
     }
@@ -947,9 +1033,7 @@ export default function CandidatesPrepPage() {
 
   const filterCandidates = useCallback(
     (searchTerm: string) => {
-      if (searchTerm.trim() === "") {
-        return allCandidates;
-      }
+      if (searchTerm.trim() === "") return allCandidates;
       const searchLower = searchTerm.toLowerCase();
       return allCandidates.filter((candidate) =>
         Object.values(candidate).some((val) =>
@@ -961,8 +1045,7 @@ export default function CandidatesPrepPage() {
   );
 
   useEffect(() => {
-    const filtered = filterCandidates(searchTerm);
-    setFilteredCandidates(filtered);
+    setFilteredCandidates(filterCandidates(searchTerm));
   }, [searchTerm, filterCandidates]);
 
   const StatusRenderer = (params: any) => (
@@ -971,108 +1054,66 @@ export default function CandidatesPrepPage() {
     </Badge>
   );
 
-  const VisaStatusRenderer = (params: any) => {
-    const visaColors: Record<string, string> = {
-      H1B: "bg-blue-100 text-blue-800",
-      GC: "bg-emerald-100 text-emerald-800",
-      "F1 Student": "bg-purple-100 text-purple-800",
-      F1: "bg-purple-100 text-purple-800",
-      "GC EAD": "bg-teal-100 text-teal-800",
-      L1: "bg-orange-100 text-orange-800",
-      L2: "bg-orange-100 text-orange-800",
-      Citizen: "bg-indigo-100 text-indigo-800",
-      H4: "bg-pink-100 text-pink-800",
-      None: "bg-gray-200 text-gray-700",
-      Select: "bg-gray-200 text-gray-700",
-    };
-
-    return (
-      <Badge
-        className={
-          visaColors[params.value] ||
-          "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
-        }
-      >
-        {params.value}
-      </Badge>
-    );
-  };
-
-  const AmountRenderer = (params: any) => {
-    return `$${parseFloat(params.value || 0).toLocaleString()}`;
-  };
-
   const columnDefs: ColDef[] = useMemo(() => {
     const allKeys = new Set<string>();
-    filteredCandidates.forEach((row) => {
-      Object.keys(row).forEach((key) => allKeys.add(key));
-    });
+    filteredCandidates.forEach((row) =>
+      Object.keys(row).forEach((key) => allKeys.add(key))
+    );
 
     const baseColumns: ColDef[] = Array.from(allKeys).map((key) => {
       const col: ColDef = {
         field: key,
         headerName: key
+          .replace(/_/g, " ")
           .replace(/([A-Z])/g, " $1")
           .replace(/^./, (str) => str.toUpperCase()),
         flex: 1,
         sortable: true,
         resizable: true,
       };
-
-      if (key === "status") {
-        col.cellRenderer = StatusRenderer;
-      } else if (key === "workstatus" || key === "visaStatus") {
-        col.cellRenderer = VisaStatusRenderer;
-      } else if (key === "feepaid" || key === "amountPaid") {
-        col.cellRenderer = AmountRenderer;
-        col.type = "numericColumn";
-      } else if (key.toLowerCase().includes("date")) {
-        col.width = 130;
-      } else if (key.toLowerCase().includes("phone")) {
-        col.width = 150;
-      } else if (key === "candidateid") {
-        col.pinned = "left";
+      if (key === "status") col.cellRenderer = StatusRenderer;
+      else if (key.toLowerCase().includes("date")) col.width = 130;
+      else if (key === "candidate_id") {
         col.width = 100;
         col.checkboxSelection = true;
+        col.pinned = "left";
       }
-
       return col;
     });
 
-    const candidateIdCol = baseColumns.find((col) => col.field === "candidateid");
-    const otherCols = baseColumns.filter((col) => col.field !== "candidateid");
+    // Reorder columns: id first, candidate_id second, rest after
+    const idCol = baseColumns.find((col) => col.field === "id");
+    const candidateIdCol = baseColumns.find((col) => col.field === "candidate_id");
+    const otherCols = baseColumns.filter(
+      (col) => col.field !== "id" && col.field !== "candidate_id"
+    );
 
-    return candidateIdCol ? [candidateIdCol, ...otherCols] : otherCols;
+    const finalCols: ColDef[] = [];
+    if (idCol) finalCols.push(idCol);
+    if (candidateIdCol) finalCols.push(candidateIdCol);
+    return [...finalCols, ...otherCols];
   }, [filteredCandidates]);
-
 
   const handleRowUpdated = async (updatedRow: any) => {
     try {
       await axios.put(
-        `${process.env.NEXT_PUBLIC_API_URL}/candidates/${updatedRow.candidateid}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations/${updatedRow.id}`,
         updatedRow
       );
-
       setFilteredCandidates((prev) =>
-        prev.map((row) =>
-          row.candidateid === updatedRow.candidateid ? updatedRow : row
-        )
+        prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
       );
-    } catch (error) {
-      console.error("Failed to update candidate:", error);
+    } catch (err) {
+      console.error("Failed to update:", err);
     }
   };
 
-
   const handleRowDeleted = async (id: number | string) => {
     try {
-      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/candidates/${id}`);
-
-      setFilteredCandidates((prev) =>
-        prev.filter((row) => row.candidateid !== id)
-      );
-    } catch (error) {
-      console.error("Failed to delete candidate:", error);
+      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations/${id}`);
+      setFilteredCandidates((prev) => prev.filter((row) => row.id !== id));
+    } catch (err) {
+      console.error("Failed to delete:", err);
     }
   };
 
@@ -1081,19 +1122,16 @@ export default function CandidatesPrepPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Active Candidates
+            Candidate Preparations
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Candidates currently active in the system
+            Tracking candidate preparation status
           </p>
         </div>
       </div>
 
       <div className="max-w-md">
-        <Label
-          htmlFor="search"
-          className="text-sm font-medium text-gray-700 dark:text-gray-300"
-        >
+        <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
           Search Candidates
         </Label>
         <div className="relative mt-1">
@@ -1115,9 +1153,7 @@ export default function CandidatesPrepPage() {
       </div>
 
       {loading ? (
-        <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-          Loading...
-        </p>
+        <p className="text-center text-sm text-gray-500 dark:text-gray-400">Loading...</p>
       ) : error ? (
         <p className="text-center text-red-500">{error}</p>
       ) : (
@@ -1126,12 +1162,9 @@ export default function CandidatesPrepPage() {
             <AGGridTable
               rowData={filteredCandidates}
               columnDefs={columnDefs}
-              title={`Active Candidates (${filteredCandidates.length})`}
+              title={`Candidate Preparations (${filteredCandidates.length})`}
               height="calc(70vh)"
               showSearch={false}
-              onRowClicked={(event) => {
-                console.log("Row clicked:", event.data);
-              }}
               onRowUpdated={handleRowUpdated}
               onRowDeleted={handleRowDeleted}
             />
