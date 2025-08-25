@@ -1,5 +1,3 @@
-
-
 "use client"
 
 import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
@@ -9,7 +7,6 @@ import { useMemo, useCallback, useRef, useState, useEffect } from "react";
 import { AgGridReact } from "ag-grid-react";
 import { ColDef, GridReadyEvent, GridApi } from "ag-grid-community";
 import { Button } from "@/components/admin_ui/button";
-import { Input } from "@/components/admin_ui/input";
 import { SearchIcon, ExpandIcon, EyeIcon, EditIcon, TrashIcon } from "lucide-react";
 import { ViewModal } from "./ViewModal";
 import { EditModal } from "@/components/EditModal";
@@ -244,10 +241,9 @@ export function AGGridTable({
             columnDefs={columnDefs}
             onGridReady={onGridReady}
             onRowClicked={onRowClickedHandler}
-            onCellClicked={onCellClickedHandler} // NEW: Added cell click handler
+            onCellClicked={onCellClickedHandler}
             onSelectionChanged={handleRowSelection}
             animateRows={true}
-            paginationPageSize={50}
             theme="legacy"
             defaultColDef={{
               resizable: true,
@@ -255,12 +251,11 @@ export function AGGridTable({
               filter: true,
               cellClass: 'custom-cell-style',
             }}
-            // Row selection configuration
             rowSelection="single"
             rowMultiSelectWithClick={false}
-            suppressRowClickSelection={false} // Enable row click selection
-            suppressCellFocus={false} // Allow cell focus for editing
-            pagination={true}
+            suppressRowClickSelection={false}
+            suppressCellFocus={false}
+            // ❌ pagination removed
           />
         </div>
       </div>
