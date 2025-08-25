@@ -572,10 +572,9 @@
 // }
 
 interface Video {
-  // id: number;
-  description: string;
   link: string;
   videoid: string;
+  description: string;
 }
 
 // interface Session {

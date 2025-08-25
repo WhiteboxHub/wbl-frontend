@@ -1,4 +1,6 @@
+
 "use client";
+import React from "react";
 
 import {
   Dialog,
@@ -6,10 +8,8 @@ import {
   DialogTitle,
 } from "@/components/admin_ui/dialog";
 import { Label } from "@/components/admin_ui/label";
-import { Button } from "@/components/admin_ui/button";
 import { Input } from "@/components/admin_ui/input";
 import { Textarea } from "@/components/admin_ui/textarea";
-import { useState } from "react";
 
 interface EditModalProps {
   isOpen: boolean;
@@ -20,17 +20,18 @@ interface EditModalProps {
 }
 
 const fieldSections: Record<string, string> = {
-  candidateid: "Basic Information",
-  candidate_id: "Basic Information",
-  candidate_name: "Basic Information",
-  candidate_email: "Basic Information",
-  candidate_role: "Basic Information",
   id: "Basic Information",
-  start_date: "Basic Information",
-  startdate: "Basic Information",
-  leadid: "Basic Information",
+  candidateid: "Basic Information",
+  uname: "Basic Information",
+  fullname: "Basic Information",
+  candidate_id: "Basic Information",
+  candidate_email: "Basic Information",
+  placement_date: "Basic Information",
   batch: "Basic Information",
+  leadid: "Basic Information",
   name: "Basic Information",
+  candidate_name: "Basic Information",
+  candidate_role: "Basic Information",
   dob: "Basic Information",
   contact: "Basic Information",
   phone: "Basic Information",
@@ -40,26 +41,31 @@ const fieldSections: Record<string, string> = {
   ssn: "Basic Information",
   priority: "Basic Information",
   source: "Basic Information",
+  subject: "Basic Information",
   enrolleddate: "Basic Information",
+  orientationdate: "Basic Information",
+  // startdate: "Basic Information",
+  // enddate: "Basic Information",
   batchname: "Basic Information",
   batchid: "Basic Information",
-  term: "Basic Information",
   agreement: "Basic Information",
   promissory: "Basic Information",
 
   course: "Professional Information",
-  role: "Professional Information",
-  job_location: "Professional Information",
-  interview_time: "Professional Information",
-  interview_date: "Professional Information",
-  status: "Professional Information",
-  workstatus: "Professional Information",
-  work_authorization: "Professional Information",
-  marketing_email_address: "Professional Information",
   company: "Professional Information",
   client_id: "Professional Information",
+  client_name: "Professional Information",
+  interview_time: "Professional Information",
+  vendor_or_client_name: "Professional Information",
+  vendor_or_client_contact: "Professional Information",
+  marketing_email_address: "Professional Information",
+  interview_date: "Professional Information",
+  interview_mode: "Professional Information",
+  status: "Professional Information",
+  visa_status: "Professional Information",
+  work_status: "Professional Information",
+  workstatus: "Professional Information",
   education: "Professional Information",
-  placement_date: "Professional Information",
   workexperience: "Professional Information",
   faq: "Professional Information",
   callsmade: "Professional Information",
@@ -102,24 +108,89 @@ const fieldSections: Record<string, string> = {
   notes: "Notes",
 };
 
-export function EditModal({ isOpen, onClose, data, title, onSave }: EditModalProps) {
-  const [formData, setFormData] = useState<Record<string, any>>(data || {});
+const workVisaStatusOptions = [
+  { value: "citizen", label: "Citizen" },
+  { value: "visa", label: "Visa" },
+  { value: "f1", label: "F1" },
+  { value: "other", label: "Other" },
+  { value: "green card", label: "Green Card" },
+  { value: "permanent resident", label: "Permanent Resident" },
+  { value: "h1b", label: "H1B" },
+  { value: "ead", label: "EAD" },
+  { value: "waiting for status", label: "Waiting for Status" },
+];
 
+// Enum dropdown options
+const enumOptions: Record<string, { value: string; label: string }[]> = {
+  status: [
+    { value: "active", label: "Active" },
+    { value: "inactive", label: "Inactive" },
+    { value: "break", label: "Break" },
+    { value: "discontinued", label: "Discontinued" },
+    { value: "closed", label: "Closed" },
+  ],
+  work_status: workVisaStatusOptions,
+  workstatus: workVisaStatusOptions,
+  visa_status: workVisaStatusOptions,
+};
+
+// Custom label overrides
+const labelOverrides: Record<string, string> = {
+  id: "ID",
+  candidateid: "Candidate ID",
+  candidate_id: "Candidate ID",
+  candidate_email: "Candidate Email",
+  uname: "Email",
+  fullname: "Full Name",
+  ssn: "SSN",
+  dob: "Date of Birth",
+  phone: "Phone",
+  secondaryphone: "Secondary Phone",
+  email: "Email",
+  secondaryemail: "Secondary Email",
+  visa_status: "Visa Status",
+  work_status: "Work Status",
+  workstatus: "Work Status",
+  lastlogin: "Last Login",
+  logincount: "Login Count",
+  level3date: "Level 3 Date",
+  enddate: "End Date",
+  lastmoddatetime: "Last Mod DateTime",
+  registereddate: "Registered Date",
+};
+
+// Fields that should use a date picker
+const dateFields = ["orientationdate", "startdate", "enddate"];
+
+export function EditModal({
+  isOpen,
+  onClose,
+  data,
+  title,
+  onSave,
+}: EditModalProps) {
   if (!data) return null;
 
-  const toLabel = (key: string) =>
-    key
+  const [formData, setFormData] = React.useState<Record<string, any>>(data);
+
+  React.useEffect(() => {
+    setFormData(data);
+  }, [data]);
+
+  const handleChange = (key: string, value: any) => {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const toLabel = (key: string) => {
+    if (labelOverrides[key]) return labelOverrides[key];
+
+    return key
       .replace(/([A-Z])/g, " $1")
       .replace(/_/g, " ")
       .replace(/\b\w/g, (l) => l.toUpperCase());
-
-  const handleChange = (key: string, value: any) => {
-    setFormData((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
   };
 
+  // Organize fields into sections
   const sectionedFields: Record<string, { key: string; value: any }[]> = {
     "Basic Information": [],
     "Professional Information": [],
@@ -136,7 +207,7 @@ export function EditModal({ isOpen, onClose, data, title, onSave }: EditModalPro
   });
 
   const visibleSections = Object.keys(sectionedFields).filter(
-    (section) => section !== "Notes" && sectionedFields[section]?.length > 0
+    (section) => sectionedFields[section]?.length > 0
   );
 
   const columnCount = Math.min(visibleSections.length, 4);
@@ -157,7 +228,9 @@ export function EditModal({ isOpen, onClose, data, title, onSave }: EditModalPro
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className={`${modalWidthClass} max-h-[80vh] overflow-y-auto p-0`}>
+      <DialogContent
+        className={`${modalWidthClass} max-h-[80vh] overflow-y-auto p-0`}
+      >
         {/* Header */}
         <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
@@ -168,8 +241,19 @@ export function EditModal({ isOpen, onClose, data, title, onSave }: EditModalPro
             className="text-gray-500 hover:text-gray-700 dark:hover:text-white focus:outline-none"
             aria-label="Close"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -182,32 +266,56 @@ export function EditModal({ isOpen, onClose, data, title, onSave }: EditModalPro
             onClose();
           }}
         >
+          {/* Grid Sections except Notes */}
           <div className={`grid ${gridColsClass} gap-6 p-6`}>
-            {visibleSections.map((section) => (
-              <div key={section} className="space-y-4">
-                <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
-                  {section}
-                </h3>
-                {sectionedFields[section].map(({ key, value }) => (
-                  <div key={key} className="space-y-1">
-                    <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                      {toLabel(key)}
-                    </Label>
-                    {typeof value === "string" && value.length > 100 ? (
-                      <Textarea
-                        value={formData[key] || ""}
-                        onChange={(e) => handleChange(key, e.target.value)}
-                      />
-                    ) : (
-                      <Input
-                        value={formData[key] ?? ""}
-                        onChange={(e) => handleChange(key, e.target.value)}
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-            ))}
+            {visibleSections
+              .filter((section) => section !== "Notes")
+              .map((section) => (
+                <div key={section} className="space-y-4">
+                  <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
+                    {section}
+                  </h3>
+                  {sectionedFields[section].map(({ key, value }) => (
+                    <div key={key} className="space-y-1">
+                      <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                        {toLabel(key)}
+                      </Label>
+
+                      {dateFields.includes(key.toLowerCase()) ? (
+                        <input
+                          type="date"
+                          value={formData[key] ?? ""}
+                          onChange={(e) => handleChange(key, e.target.value)}
+                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                        />
+                      ) : enumOptions[key.toLowerCase()] ? (
+                        <select
+                          value={formData[key]?.toLowerCase?.() ?? ""}
+                          onChange={(e) => handleChange(key, e.target.value)}
+                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                        >
+                          <option value="">Select {toLabel(key)}</option>
+                          {enumOptions[key.toLowerCase()].map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : typeof value === "string" && value.length > 100 ? (
+                        <Textarea
+                          value={formData[key] || ""}
+                          onChange={(e) => handleChange(key, e.target.value)}
+                        />
+                      ) : (
+                        <Input
+                          value={formData[key] ?? ""}
+                          onChange={(e) => handleChange(key, e.target.value)}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
           </div>
 
           {/* Notes Section */}
@@ -221,24 +329,26 @@ export function EditModal({ isOpen, onClose, data, title, onSave }: EditModalPro
                   <div key={key} className="space-y-1">
                     <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                       {toLabel(key)}
-                  </Label>
-                  <Textarea
-                    value={formData[key] || ""}
-                    onChange={(e) => handleChange(key, e.target.value)}
-                    className="w-full"
-                  />
+                    </Label>
+                    <Textarea
+                      value={formData[key] || ""}
+                      onChange={(e) => handleChange(key, e.target.value)}
+                      className="w-full"
+                    />
                   </div>
                 ))}
-            </div>
+              </div>
             </div>
           )}
 
           {/* Footer */}
-          <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-            <Button type="button" variant="ghost" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit">Save Changes</Button>
+          <div className="flex justify-end px-6 pb-6">
+            <button
+              type="submit"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow"
+            >
+              Save Changes
+            </button>
           </div>
         </form>
       </DialogContent>
