@@ -1,4 +1,4 @@
-// whiteboxLearning-wbl/app/batches/page.tsx
+// whiteboxLearning-wbl/app/avatar/training/batch/page.tsx
 "use client";
 import "@/styles/admin.css";
 import "@/styles/App.css";
@@ -63,8 +63,6 @@ export default function BatchPage() {
           return;
         }
         const data = await res.json();
-
-        // ✅ use backend pagination response
         setBatches(data.batches);
         setTotal(data.total);
       }
