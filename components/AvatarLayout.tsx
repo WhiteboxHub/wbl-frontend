@@ -6,6 +6,7 @@ import {
   HomeIcon,
   UsersIcon,
   UserCheckIcon,
+  UserCogIcon,
   BuildingIcon,
   ArrowLeftIcon,
   ChevronRightIcon,
@@ -72,6 +73,28 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
         { title: "Placements", href: "/avatar/candidates/placements" },
       ],
     },
+        {
+      title: "Authuser",
+      href: "/avatar/authuser",
+      icon: UserCogIcon
+    },
+        {
+      title: "Batch",
+      href: "/avatar/batch",
+      icon: UserCogIcon
+    },
+
+
+    // {
+    //   title: "Vendors",
+    //   href: "/avatar/vendors",
+    //   icon: BuildingIcon,
+    //   children: [
+    //     { title: "List", href: "/avatar/vendors" },
+    //     { title: "Search", href: "/avatar/vendors/search" },
+    //     { title: "Daily Contact", href: "/avatar/vendors/daily-contact" },
+    //   ],
+    // },
 
     {
       title: "Employees",
