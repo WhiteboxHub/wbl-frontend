@@ -137,7 +137,9 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
 // Custom label overrides
 const labelOverrides: Record<string, string> = {
   id: "ID",
+  courseid: "Course ID",
   candidateid: "Candidate ID",
+  batchid: "Batch ID",
   candidate_id: "Candidate ID",
   candidate_email: "Candidate Email",
   uname: "Email",
@@ -145,6 +147,7 @@ const labelOverrides: Record<string, string> = {
   ssn: "SSN",
   dob: "Date of Birth",
   phone: "Phone",
+  batchname: "Batch Name",
   secondaryphone: "Secondary Phone",
   email: "Email",
   secondaryemail: "Secondary Email",
@@ -154,7 +157,9 @@ const labelOverrides: Record<string, string> = {
   lastlogin: "Last Login",
   logincount: "Login Count",
   level3date: "Level 3 Date",
+  orientationdate: "Orientation Date",
   enddate: "End Date",
+  startdate: "Start Date",
   lastmoddatetime: "Last Mod DateTime",
   registereddate: "Registered Date",
 };
