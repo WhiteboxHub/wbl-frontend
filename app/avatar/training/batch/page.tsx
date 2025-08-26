@@ -1,4 +1,4 @@
-// whiteboxLearning-wbl/app/batches/page.tsx
+// whiteboxLearning-wbl/app/avatar/training/batch/page.tsx
 "use client";
 import "@/styles/admin.css";
 import "@/styles/App.css";
@@ -18,7 +18,7 @@ export default function BatchPage() {
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
 
-  // Pagination (frontend-side)
+  // Pagination (backend-driven)
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
@@ -53,32 +53,21 @@ export default function BatchPage() {
         setTotal(1);
         setPage(1);
       } else {
-        // Fetch all batches
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/batch`);
+        // Fetch paginated batches
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/batch?page=${page}&per_page=${pageSize}&search=${debouncedSearch}`
+        );
         if (!res.ok) {
           setBatches([]);
           setTotal(0);
           return;
         }
-        let data: any[] = await res.json();
-
-        // Optional: frontend filter
-        if (debouncedSearch.trim()) {
-          const term = debouncedSearch.trim().toLowerCase();
-          data = data.filter(
-            (b) =>
-              b.batchname?.toLowerCase().includes(term) ||
-              b.description?.toLowerCase().includes(term)
-          );
-        }
-
-        setTotal(data.length);
-        // Slice for pagination
-        const paginated = data.slice((page - 1) * pageSize, page * pageSize);
-        setBatches(paginated);
+        const data = await res.json();
+        setBatches(data.batches);
+        setTotal(data.total);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Failed to fetch batches:", err);
       setBatches([]);
       setTotal(0);
     } finally {
@@ -103,7 +92,6 @@ export default function BatchPage() {
       return params.value;
     }
   };
-
 
   const SubjectRenderer = (props: any) => {
     const value = props.value || "";
