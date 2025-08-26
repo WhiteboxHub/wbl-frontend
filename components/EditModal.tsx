@@ -21,6 +21,8 @@ interface EditModalProps {
 
 const fieldSections: Record<string, string> = {
   id: "Basic Information",
+  sessionid: "Basic Information",
+  subject_id: "Basic Information",
   candidateid: "Basic Information",
   uname: "Basic Information",
   fullname: "Basic Information",
@@ -42,6 +44,7 @@ const fieldSections: Record<string, string> = {
   priority: "Basic Information",
   source: "Basic Information",
   subject: "Basic Information",
+  title: "Basic Information",
   enrolleddate: "Basic Information",
   orientationdate: "Basic Information",
   // startdate: "Basic Information",
@@ -89,7 +92,10 @@ const fieldSections: Record<string, string> = {
   location: "Basic Information",
   linkedin_id: "Professional Information",
   company_name: "Professional Information",
-
+  link: "Professional Information",
+  type: "Professional Information",
+  videoid: "Professional Information",
+  
   address: "Contact Information",
   city: "Contact Information",
   state: "Contact Information",
@@ -137,7 +143,11 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
 // Custom label overrides
 const labelOverrides: Record<string, string> = {
   id: "ID",
+  subject_id: "Subject ID",
+  sessionid: "ID",
+  courseid: "Course ID",
   candidateid: "Candidate ID",
+  batchid: "Batch ID",
   candidate_id: "Candidate ID",
   candidate_email: "Candidate Email",
   uname: "Email",
@@ -145,8 +155,10 @@ const labelOverrides: Record<string, string> = {
   ssn: "SSN",
   dob: "Date of Birth",
   phone: "Phone",
+  batchname: "Batch Name",
   secondaryphone: "Secondary Phone",
   email: "Email",
+  videoid: "Video ID",
   secondaryemail: "Secondary Email",
   visa_status: "Visa Status",
   work_status: "Work Status",
@@ -154,7 +166,10 @@ const labelOverrides: Record<string, string> = {
   lastlogin: "Last Login",
   logincount: "Login Count",
   level3date: "Level 3 Date",
+  orientationdate: "Orientation Date",
   enddate: "End Date",
+  startdate: "Start Date",
+  sessiondate: "Session Date",
   lastmoddatetime: "Last Mod DateTime",
   registereddate: "Registered Date",
 };

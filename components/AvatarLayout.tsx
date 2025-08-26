@@ -3,11 +3,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/admin_ui/button";
 import {
+  ShieldCheck,
   HomeIcon,
   UsersIcon,
   UserCheckIcon,
   UserCogIcon,
   BuildingIcon,
+  GraduationCap,
   ArrowLeftIcon,
   ChevronRightIcon,
   MoonIcon,
@@ -73,28 +75,22 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
         { title: "Placements", href: "/avatar/candidates/placements" },
       ],
     },
+    {
+      title: "Training",
+      href: "/avatar/training/batch",
+      icon: GraduationCap,
+      children: [
+        { title: "Batch", href: "/avatar/training/batch" },
+        { title: "Session", href: "/avatar/training/session" },
+  
+      ],
+    },
         {
       title: "Authuser",
       href: "/avatar/authuser",
-      icon: UserCogIcon
-    },
-        {
-      title: "Batch",
-      href: "/avatar/batch",
-      icon: UserCogIcon
+      icon: ShieldCheck,
     },
 
-
-    // {
-    //   title: "Vendors",
-    //   href: "/avatar/vendors",
-    //   icon: BuildingIcon,
-    //   children: [
-    //     { title: "List", href: "/avatar/vendors" },
-    //     { title: "Search", href: "/avatar/vendors/search" },
-    //     { title: "Daily Contact", href: "/avatar/vendors/daily-contact" },
-    //   ],
-    // },
 
     {
       title: "Employees",
