@@ -1,13 +1,18 @@
-"use client"
+"use client";
 
-import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
+import { ModuleRegistry, AllCommunityModule } from "ag-grid-community";
 ModuleRegistry.registerModules([AllCommunityModule]);
-
-import { useMemo, useCallback, useRef, useState, useEffect } from "react";
+import { useCallback, useRef, useState, useEffect } from "react";
 import { AgGridReact } from "ag-grid-react";
 import { ColDef, GridReadyEvent, GridApi } from "ag-grid-community";
 import { Button } from "@/components/admin_ui/button";
-import { SearchIcon, ExpandIcon, EyeIcon, EditIcon, TrashIcon } from "lucide-react";
+import {
+  SearchIcon,
+  ExpandIcon,
+  EyeIcon,
+  EditIcon,
+  TrashIcon,
+} from "lucide-react";
 import { ViewModal } from "./ViewModal";
 import { EditModal } from "@/components/EditModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -15,9 +20,40 @@ import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 import "@/styles/admin.css";
 
+export { PhoneRenderer, EmailRenderer };
+
+const PhoneRenderer = (props: any) => {
+  const phone = props.value;
+  if (!phone) return null;
+
+  return (
+    <a
+      href={`tel:${phone}`}
+      className="text-blue-600 hover:underline cursor-pointer"
+    >
+      {phone}
+    </a>
+  );
+};
+
+const EmailRenderer = (props: any) => {
+  const email = props.value;
+  if (!email) return null;
+
+  return (
+    <a
+      href={`mailto:${email}`}
+      className="text-blue-600 hover:underline cursor-pointer"
+    >
+      {email}
+    </a>
+  );
+};
+
 interface AGGridTableProps {
   rowData: any[];
   columnDefs: ColDef[];
+  defaultColDef?: ColDef;
   onRowClicked?: (data: any) => void;
   onRowUpdated?: (data: any) => void;
   onRowDeleted?: (id: string | number) => void;
@@ -26,7 +62,6 @@ interface AGGridTableProps {
   showFilters?: boolean;
   height?: string;
 }
-
 interface RowData {
   id?: string | number;
   leadid?: string | number;
@@ -53,7 +88,9 @@ export function AGGridTable({
   const [selectedRowData, setSelectedRowData] = useState<RowData | null>(null);
   const [viewData, setViewData] = useState<RowData | null>(null);
   const [editData, setEditData] = useState<RowData | null>(null);
-  const [deleteConfirmData, setDeleteConfirmData] = useState<RowData | null>(null);
+  const [deleteConfirmData, setDeleteConfirmData] = useState<RowData | null>(
+    null
+  );
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
@@ -167,18 +204,19 @@ export function AGGridTable({
     [onRowClicked, gridApi]
   );
 
-  const onCellClickedHandler = useCallback(
-    (event: any) => {
-      if (gridApi) {
-        gridApi.deselectAll();
-        setSelectedRowData(null);
-      }
-    },
-    [gridApi]
-  );
+  const onCellClickedHandler = useCallback(() => {
+    if (gridApi) {
+      gridApi.deselectAll();
+      setSelectedRowData(null);
+    }
+  }, [gridApi]);
 
   return (
-    <div className={`mx-auto space-y-4 ${isExpanded ? "w-full" : "w-full max-w-7xl"}`}>
+    <div
+      className={`mx-auto space-y-4 ${
+        isExpanded ? "w-full" : "w-full max-w-7xl"
+      }`}
+    >
       <div className="flex items-center justify-between">
         <div>
           {title && (
@@ -224,10 +262,12 @@ export function AGGridTable({
           </Button>
         </div>
       </div>
-      
+
       <div className="flex justify-center">
         <div
-          className={`ag-theme-alpine ${isDarkMode ? "ag-grid-dark-mode" : ""} rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm transition-all duration-300 ${
+          className={`ag-theme-alpine ${
+            isDarkMode ? "ag-grid-dark-mode" : ""
+          } rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm transition-all duration-300 ${
             isExpanded ? "w-full" : "w-full max-w-6xl"
           }`}
           style={{
@@ -248,14 +288,13 @@ export function AGGridTable({
             defaultColDef={{
               resizable: true,
               sortable: true,
-              filter: true,
-              cellClass: 'custom-cell-style',
+              filter: showFilters ? true : false,
+              cellClass: "custom-cell-style",
             }}
             rowSelection="single"
             rowMultiSelectWithClick={false}
             suppressRowClickSelection={false}
             suppressCellFocus={false}
-            // ❌ pagination removed
           />
         </div>
       </div>

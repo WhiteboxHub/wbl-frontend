@@ -1,4 +1,3 @@
-
 "use client";
 import React from "react";
 
@@ -21,151 +20,80 @@ interface EditModalProps {
 
 const fieldSections: Record<string, string> = {
   id: "Basic Information",
-  candidateid: "Basic Information",
-  uname: "Basic Information",
-  fullname: "Basic Information",
-  candidate_id: "Basic Information",
-  candidate_email: "Basic Information",
-  placement_date: "Basic Information",
-  batch: "Basic Information",
-  leadid: "Basic Information",
-  name: "Basic Information",
-  candidate_name: "Basic Information",
-  candidate_role: "Basic Information",
-  dob: "Basic Information",
-  contact: "Basic Information",
-  phone: "Basic Information",
-  secondaryphone: "Basic Information",
-  email: "Basic Information",
-  secondaryemail: "Basic Information",
-  ssn: "Basic Information",
-  priority: "Basic Information",
-  source: "Basic Information",
-  subject: "Basic Information",
-  enrolleddate: "Basic Information",
-  orientationdate: "Basic Information",
-  // startdate: "Basic Information",
-  // enddate: "Basic Information",
-  batchname: "Basic Information",
-  batchid: "Basic Information",
-  agreement: "Basic Information",
-  promissory: "Basic Information",
-
-  course: "Professional Information",
-  company: "Professional Information",
-  client_id: "Professional Information",
-  client_name: "Professional Information",
-  interview_time: "Professional Information",
-  vendor_or_client_name: "Professional Information",
-  vendor_or_client_contact: "Professional Information",
-  marketing_email_address: "Professional Information",
-  interview_date: "Professional Information",
-  interview_mode: "Professional Information",
-  status: "Professional Information",
-  visa_status: "Professional Information",
-  work_status: "Professional Information",
-  workstatus: "Professional Information",
-  education: "Professional Information",
-  workexperience: "Professional Information",
-  faq: "Professional Information",
-  callsmade: "Professional Information",
-  feepaid: "Professional Information",
-  feedue: "Professional Information",
-  salary0: "Professional Information",
-  salary6: "Professional Information",
-  salary12: "Professional Information",
-  instructor: "Professional Information",
-  second_instructor: "Professional Information",
-  marketing_startdate: "Professional Information",
-  recruiterassesment: "Professional Information",
-  statuschangedate: "Professional Information",
-  closed: "Professional Information",
-
-    // Basic Information
   full_name: "Basic Information",
-  secondary_email: "Basic Information",
-  phone_number: "Basic Information",
-  secondary_phone: "Contact Information",
-  location: "Basic Information",
-  linkedin_id: "Professional Information",
+  extraction_date: "Basic Information", 
+  type: "Basic Information",
+
+  email: "Professional Information",
   company_name: "Professional Information",
+  linkedin_id: "Professional Information",
+  status: "Professional Information",
+  linkedin_connected: "Professional Information",
+  intro_email_sent: "Professional Information",
+  intro_call: "Professional Information",
+  moved_to_vendor: "Professional Information",
+  phone_number: "Contact Information",
+  secondary_phone: "Contact Information",
+  location: "Contact Information", 
 
-  address: "Contact Information",
-  city: "Contact Information",
-  state: "Contact Information",
-  country: "Contact Information",
-  zip: "Contact Information",
-
-  emergcontactname: "Emergency Contact",
-  emergcontactemail: "Emergency Contact",
-  emergcontactphone: "Emergency Contact",
-  emergcontactaddrs: "Emergency Contact",
-  spousename: "Emergency Contact",
-  spousephone: "Emergency Contact",
-  spouseemail: "Emergency Contact",
-  spouseoccupationinfo: "Emergency Contact",
-
-  notes: "Notes",
+  // notes: "Notes",
 };
 
-const workVisaStatusOptions = [
-  { value: "citizen", label: "Citizen" },
-  { value: "visa", label: "Visa" },
-  { value: "f1", label: "F1" },
-  { value: "other", label: "Other" },
-  { value: "green card", label: "Green Card" },
-  { value: "permanent resident", label: "Permanent Resident" },
-  { value: "h1b", label: "H1B" },
-  { value: "ead", label: "EAD" },
-  { value: "waiting for status", label: "Waiting for Status" },
-];
-
-// Enum dropdown options
 const enumOptions: Record<string, { value: string; label: string }[]> = {
+  type: [
+    { value: "client", label: "Client" },
+    { value: "third-party-vendor", label: "Third Party Vendor" },
+    { value: "implementation-partner", label: "Implementation Partner" },
+    { value: "sourcer", label: "Sourcer" },
+    { value: "contact-from-ip", label: "Contact from IP" },
+  ],
   status: [
     { value: "active", label: "Active" },
+    { value: "working", label: "Working" },
+    { value: "not_useful", label: "Not Useful" },
+    { value: "do_not_contact", label: "Do Not Contact" },
     { value: "inactive", label: "Inactive" },
-    { value: "break", label: "Break" },
-    { value: "discontinued", label: "Discontinued" },
-    { value: "closed", label: "Closed" },
+    { value: "prospect", label: "Prospect" },
   ],
-  work_status: workVisaStatusOptions,
-  workstatus: workVisaStatusOptions,
-  visa_status: workVisaStatusOptions,
+  linkedin_connected: [
+    { value: "yes", label: "Yes" },
+    { value: "no", label: "No" },
+  ],
+  intro_email_sent: [
+    { value: "yes", label: "Yes" },
+    { value: "no", label: "No" },
+  ],
+  intro_call: [
+    { value: "yes", label: "Yes" },
+    { value: "no", label: "No" },
+  ],
+  moved_to_vendor: [
+    { value: "true", label: "Yes" },
+    { value: "false", label: "No" },
+  ]
+
 };
 
-// Custom label overrides
 const labelOverrides: Record<string, string> = {
   id: "ID",
-  courseid: "Course ID",
-  candidateid: "Candidate ID",
-  batchid: "Batch ID",
-  candidate_id: "Candidate ID",
-  candidate_email: "Candidate Email",
-  uname: "Email",
-  fullname: "Full Name",
-  ssn: "SSN",
-  dob: "Date of Birth",
-  phone: "Phone",
-  batchname: "Batch Name",
-  secondaryphone: "Secondary Phone",
+  full_name: "Full Name",
+  phone_number: "Phone Number",
+  secondary_phone: "Secondary Phone",
   email: "Email",
-  secondaryemail: "Secondary Email",
-  visa_status: "Visa Status",
-  work_status: "Work Status",
-  workstatus: "Work Status",
-  lastlogin: "Last Login",
-  logincount: "Login Count",
-  level3date: "Level 3 Date",
-  orientationdate: "Orientation Date",
-  enddate: "End Date",
-  startdate: "Start Date",
-  lastmoddatetime: "Last Mod DateTime",
-  registereddate: "Registered Date",
+  company_name: "Company Name",
+  type: "Type",
+  linkedin_id: "LinkedIn ID",
+  linkedin_connected: "LinkedIn Connected",
+  intro_email_sent: "Intro Email Sent",
+  intro_call: "Intro Call",
+  location: "Location",
+  status: "Status",
+  created_at: "Created At",
+  notes: "Notes",
+  extraction_date: "Extraction Date", 
 };
 
-// Fields that should use a date picker
-const dateFields = ["orientationdate", "startdate", "enddate"];
+const dateFields = ["created_at", "extraction_date"];
 
 export function EditModal({
   isOpen,
@@ -188,19 +116,16 @@ export function EditModal({
 
   const toLabel = (key: string) => {
     if (labelOverrides[key]) return labelOverrides[key];
-
     return key
       .replace(/([A-Z])/g, " $1")
       .replace(/_/g, " ")
       .replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
-  // Organize fields into sections
   const sectionedFields: Record<string, { key: string; value: any }[]> = {
     "Basic Information": [],
     "Professional Information": [],
     "Contact Information": [],
-    "Emergency Contact": [],
     "Other": [],
     "Notes": [],
   };
@@ -211,11 +136,18 @@ export function EditModal({
     sectionedFields[section].push({ key, value });
   });
 
-  const visibleSections = Object.keys(sectionedFields).filter(
-    (section) => sectionedFields[section]?.length > 0
-  );
+  const visibleSections = [
+    "Basic Information",
+    "Professional Information",
+    "Contact Information",
+    "Other",
+    "Notes",
+  ].filter((section) => sectionedFields[section]?.length > 0);
 
-  const columnCount = Math.min(visibleSections.length, 4);
+  const columnCount = Math.min(
+    visibleSections.filter((s) => s !== "Notes").length,
+    4
+  );
 
   const modalWidthClass = {
     1: "max-w-xl",
@@ -236,7 +168,6 @@ export function EditModal({
       <DialogContent
         className={`${modalWidthClass} max-h-[80vh] overflow-y-auto p-0`}
       >
-        {/* Header */}
         <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
             {title} - Edit Details
@@ -246,24 +177,10 @@ export function EditModal({
             className="text-gray-500 hover:text-gray-700 dark:hover:text-white focus:outline-none"
             aria-label="Close"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
+            ✕
           </button>
         </div>
 
-        {/* Content */}
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -271,7 +188,6 @@ export function EditModal({
             onClose();
           }}
         >
-          {/* Grid Sections except Notes */}
           <div className={`grid ${gridColsClass} gap-6 p-6`}>
             {visibleSections
               .filter((section) => section !== "Notes")
@@ -289,13 +205,19 @@ export function EditModal({
                       {dateFields.includes(key.toLowerCase()) ? (
                         <input
                           type="date"
-                          value={formData[key] ?? ""}
+                          value={
+                            formData[key]
+                              ? new Date(formData[key])
+                                  .toISOString()
+                                  .split("T")[0]
+                              : ""
+                          }
                           onChange={(e) => handleChange(key, e.target.value)}
                           className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
                         />
                       ) : enumOptions[key.toLowerCase()] ? (
                         <select
-                          value={formData[key]?.toLowerCase?.() ?? ""}
+                          value={formData[key] ?? ""}
                           onChange={(e) => handleChange(key, e.target.value)}
                           className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
                         >
@@ -323,9 +245,8 @@ export function EditModal({
               ))}
           </div>
 
-          {/* Notes Section */}
           {sectionedFields["Notes"].length > 0 && (
-            <div className="px-6 pb-6">
+            <div className="px-6 pb-6 col-span-full">
               <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                 Notes
               </h3>
@@ -346,7 +267,6 @@ export function EditModal({
             </div>
           )}
 
-          {/* Footer */}
           <div className="flex justify-end px-6 pb-6">
             <button
               type="submit"
