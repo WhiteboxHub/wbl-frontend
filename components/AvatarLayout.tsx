@@ -83,9 +83,15 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       children: [
         { title: "Batch", href: "/avatar/training/batch" },
         { title: "Session", href: "/avatar/training/session" },
+        { title: "Course", href: "/avatar/training/course" },
+        { title: "Subject", href: "/avatar/training/subject" },
+        { title: "Course Subject", href: "/avatar/training/course_subject" },
+        { title: "Course Content", href: "/avatar/training/course_content" },
+        {title: "Course Material", href: "/avatar/training/course_material"},
   
       ],
     },
+
         {
       title: "Authuser",
       href: "/avatar/authuser",
@@ -115,6 +121,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       // { title: "Daily Activity", href: "/avatar/vendors/daily-activity" },
       ],
     }
+
 
   ];
 
