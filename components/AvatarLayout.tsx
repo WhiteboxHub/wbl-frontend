@@ -99,13 +99,13 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
     },
 
 
+
     {
       title: "Employees",
       href: "/avatar/employee",
       icon: UsersIcon,
     
     },
-    
 
    {
       title: "Vendors",
