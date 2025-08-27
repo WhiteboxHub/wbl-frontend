@@ -1,6 +1,10 @@
 
+"use client";
+import React from "react"
+
 // "use client";
 import React, { useState, useEffect } from "react";
+
 
 // Import your existing UI components
 import {
@@ -35,6 +39,27 @@ const countryCodes = [
 // Field sections configuration
 const fieldSections: Record<string, string> = {
   id: "Basic Information",
+
+  full_name: "Basic Information",
+  extraction_date: "Basic Information", 
+  type: "Basic Information",
+
+  email: "Professional Information",
+  company_name: "Professional Information",
+  linkedin_id: "Professional Information",
+  status: "Professional Information",
+  linkedin_connected: "Professional Information",
+  intro_email_sent: "Professional Information",
+  intro_call: "Professional Information",
+  moved_to_vendor: "Professional Information",
+  phone_number: "Contact Information",
+  secondary_phone: "Contact Information",
+  location: "Contact Information", 
+
+  // notes: "Notes",
+};
+
+=======
   sessionid: "Basic Information",
   subject_id: "Basic Information",
   candidateid: "Basic Information",
@@ -163,14 +188,42 @@ const columnDefs = [
 
 
 // Enum dropdown options
+
 const enumOptions: Record<string, { value: string; label: string }[]> = {
+  type: [
+    { value: "client", label: "Client" },
+    { value: "third-party-vendor", label: "Third Party Vendor" },
+    { value: "implementation-partner", label: "Implementation Partner" },
+    { value: "sourcer", label: "Sourcer" },
+    { value: "contact-from-ip", label: "Contact from IP" },
+  ],
   status: [
     { value: "active", label: "Active" },
+    { value: "working", label: "Working" },
+    { value: "not_useful", label: "Not Useful" },
+    { value: "do_not_contact", label: "Do Not Contact" },
     { value: "inactive", label: "Inactive" },
-    { value: "break", label: "Break" },
-    { value: "discontinued", label: "Discontinued" },
-    { value: "closed", label: "Closed" },
+    { value: "prospect", label: "Prospect" },
   ],
+  linkedin_connected: [
+    { value: "yes", label: "Yes" },
+    { value: "no", label: "No" },
+  ],
+  intro_email_sent: [
+    { value: "yes", label: "Yes" },
+    { value: "no", label: "No" },
+  ],
+
+  intro_call: [
+    { value: "yes", label: "Yes" },
+    { value: "no", label: "No" },
+  ],
+  moved_to_vendor: [
+    { value: "true", label: "Yes" },
+    { value: "false", label: "No" },
+  ]
+
+
   work_status: [
     { value: "citizen", label: "Citizen" },
     { value: "visa", label: "Visa" },
@@ -182,17 +235,7 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "ead", label: "EAD" },
     { value: "waiting for status", label: "Waiting for Status" },
   ],
-  workstatus: [
-    { value: "citizen", label: "Citizen" },
-    { value: "visa", label: "Visa" },
-    { value: "f1", label: "F1" },
-    { value: "other", label: "Other" },
-    { value: "green card", label: "Green Card" },
-    { value: "permanent resident", label: "Permanent Resident" },
-    { value: "h1b", label: "H1B" },
-    { value: "ead", label: "EAD" },
-    { value: "waiting for status", label: "Waiting for Status" },
-  ],
+
   visa_status: [
     { value: "citizen", label: "Citizen" },
     { value: "visa", label: "Visa" },
@@ -211,11 +254,31 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
   closed: booleanOptions,
   is_active: booleanOptions,
   verified: booleanOptions,
+
 };
 
-// Custom label overrides
 const labelOverrides: Record<string, string> = {
   id: "ID",
+
+  full_name: "Full Name",
+  phone_number: "Phone Number",
+  secondary_phone: "Secondary Phone",
+  email: "Email",
+  company_name: "Company Name",
+  type: "Type",
+  linkedin_id: "LinkedIn ID",
+  linkedin_connected: "LinkedIn Connected",
+  intro_email_sent: "Intro Email Sent",
+  intro_call: "Intro Call",
+  location: "Location",
+  status: "Status",
+  created_at: "Created At",
+  notes: "Notes",
+  extraction_date: "Extraction Date", 
+};
+
+const dateFields = ["created_at", "extraction_date"];
+
   subject_id: "Subject ID",
   new_subject_id: "New Subject ID",
   sessionid: "ID",
@@ -345,6 +408,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
   );
 };
 
+
 export function EditModal({
   isOpen,
   onClose,
@@ -470,19 +534,16 @@ export function EditModal({
 
   const toLabel = (key: string) => {
     if (labelOverrides[key]) return labelOverrides[key];
-
     return key
       .replace(/([A-Z])/g, " $1")
       .replace(/_/g, " ")
       .replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
-  // Organize fields into sections
   const sectionedFields: Record<string, { key: string; value: any }[]> = {
     "Basic Information": [],
     "Professional Information": [],
     "Contact Information": [],
-    "Emergency Contact": [],
     "Other": [],
     "Notes": [],
   };
@@ -496,11 +557,18 @@ export function EditModal({
     sectionedFields[section].push({ key, value });
   });
 
-  const visibleSections = Object.keys(sectionedFields).filter(
-    (section) => sectionedFields[section]?.length > 0
-  );
+  const visibleSections = [
+    "Basic Information",
+    "Professional Information",
+    "Contact Information",
+    "Other",
+    "Notes",
+  ].filter((section) => sectionedFields[section]?.length > 0);
 
-  const columnCount = Math.min(visibleSections.length, 4);
+  const columnCount = Math.min(
+    visibleSections.filter((s) => s !== "Notes").length,
+    4
+  );
 
   const modalWidthClass = {
     1: "max-w-xl",
@@ -553,7 +621,6 @@ export function EditModal({
       <DialogContent
         className={`${modalWidthClass} max-h-[80vh] overflow-y-auto p-0`}
       >
-        {/* Header */}
         <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
             {title} - Edit Details
@@ -563,26 +630,21 @@ export function EditModal({
             className="text-gray-500 hover:text-gray-700 dark:hover:text-white focus:outline-none"
             aria-label="Close"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
+            ✕
           </button>
         </div>
 
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSave(formData);
+            onClose();
+          }}
+        >
+
         {/* Content */}
-        <form onSubmit={handleSubmit}>
-          {/* Grid Sections except Notes */}
+
           <div className={`grid ${gridColsClass} gap-6 p-6`}>
             {visibleSections
               .filter((section) => section !== "Notes")
@@ -598,6 +660,33 @@ export function EditModal({
                       </Label>
 
                       {dateFields.includes(key.toLowerCase()) ? (
+
+                        <input
+                          type="date"
+                          value={
+                            formData[key]
+                              ? new Date(formData[key])
+                                  .toISOString()
+                                  .split("T")[0]
+                              : ""
+                          }
+                          onChange={(e) => handleChange(key, e.target.value)}
+                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                        />
+                      ) : enumOptions[key.toLowerCase()] ? (
+                        <select
+                          value={formData[key] ?? ""}
+                          onChange={(e) => handleChange(key, e.target.value)}
+                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                        >
+                          <option value="">Select {toLabel(key)}</option>
+                          {enumOptions[key.toLowerCase()].map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+
                         <div>
                           <input
                             type="date"
@@ -655,6 +744,7 @@ export function EditModal({
                           </select>
                           {errors[key] && <p className="text-red-500 text-xs mt-1">{errors[key]}</p>}
                         </div>
+
                       ) : typeof value === "string" && value.length > 100 ? (
                         <div>
                           <Textarea
@@ -691,9 +781,8 @@ export function EditModal({
               ))}
           </div>
 
-          {/* Notes Section */}
           {sectionedFields["Notes"].length > 0 && (
-            <div className="px-6 pb-6">
+            <div className="px-6 pb-6 col-span-full">
               <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                 Notes
               </h3>
@@ -714,6 +803,9 @@ export function EditModal({
               </div>
             </div>
           )}
+
+
+          <div className="flex justify-end px-6 pb-6">
 
           {/* Footer */}
           <div className="flex justify-end gap-3 px-6 pb-6 bg-gray-50 dark:bg-gray-800 pt-4">
