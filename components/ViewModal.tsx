@@ -19,7 +19,10 @@ interface ViewModalProps {
 const fieldSections: Record<string, string> = {
 
   id: "Basic Information",
+  subject: "Basic Information",
+  subject_id: "Basic Information",
   candidateid: "Basic Information",
+  sessionid: "Basic Information",
   uname: "Basic Information",
   fullname: "Basic Information",
   candidate_id: "Basic Information",
@@ -31,6 +34,7 @@ const fieldSections: Record<string, string> = {
   candidate_name: "Basic Information",
   candidate_role: "Basic Information",
   dob: "Basic Information",
+  title: "Basic Information",
   contact: "Basic Information",
   phone: "Contact Information",
   Phone: "Contact Information",
@@ -41,7 +45,7 @@ const fieldSections: Record<string, string> = {
   ssn: "Basic Information",
   priority: "Basic Information",
   source: "Basic Information",
-  subject: "Basic Information",
+  // subject: "Basic Information",
   enrolleddate: "Basic Information",
   orientationdate: "Basic Information",
   batchname: "Basic Information",
@@ -68,6 +72,9 @@ const fieldSections: Record<string, string> = {
   vendor_company: "Professional Information",
 
   course: "Professional Information",
+  link: "Professional Information",
+  videoid: "Professional Information",
+  type: "Professional Information",
   company: "Professional Information",
   client_id: "Professional Information",
   client_name: "Professional Information",
@@ -114,9 +121,11 @@ const fieldSections: Record<string, string> = {
   notes: "Notes",
 };
 
-// ✅ Custom user-friendly labels
 const fieldLabels: Record<string, string> = {
-   id: "ID",
+  id: "ID",
+  sessionid: "ID",
+  subject_id: "Subject ID",
+  videoid: "Video ID",
   candidateid: "Candidate ID",
   candidate_id: "Candidate ID",
   candidate_name: "Candidate Name",
@@ -146,6 +155,7 @@ const fieldLabels: Record<string, string> = {
   emergcontactname: "Emergency Contact Name",
   lastmoddatetime: "Last Mod Date Time",
   enddate: "End Date",
+  sessiondate: "Session Date",
   emergcontactphone: "Emergency Contact Phone",
   emergcontactemail: "Emergency Contact Email",
   emergcontactaddrs: "Emergency Contact Address",
