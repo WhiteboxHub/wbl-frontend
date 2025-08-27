@@ -7,7 +7,8 @@ import {
   UserCheck, Clock, Target, Briefcase, MessageSquare, UserPlus,
   CalendarCheck, Award, Star, BookOpen, Activity, CheckCircle,
   XCircle, BarChart3, Percent, CreditCard, PiggyBank, Trophy,
-  Handshake, Phone, Mail, ThumbsUp, ThumbsDown, HelpCircle
+  Handshake, Phone, Mail, ThumbsUp, ThumbsDown, HelpCircle,
+  CakeIcon,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -34,7 +35,8 @@ function useCounter(target: number, duration = 1000) {
 //This are types for API responses---
 interface DashboardMetrics {
   batch_metrics: {
-    current_active_batches: number;
+    current_active_batches: string;
+    current_active_batches_count: number;
     enrolled_candidates_current: number;
     total_candidates: number;
     candidates_last_batch: number;
@@ -48,7 +50,7 @@ interface DashboardMetrics {
   };
   financial_metrics: {
     total_fee_current_batch: number;
-    fee_collected_month: number;
+    fee_collected_last_batch: number;
     top_batches_fee: Array<{
       batch_name: string;
       total_fee: number;
@@ -82,11 +84,45 @@ interface DashboardMetrics {
 
 interface UpcomingBatch {
   name: string;
-  start_date: string;
+  startdate: string;
   end_date: string;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+interface Birthday {
+  id: number;
+  name: string;
+  dob: string;
+  wish?: string;
+}
+
+interface BirthdayResponse {
+  today: Birthday[];
+  upcoming: Birthday[];
+}
+
+interface Lead {
+  id: number;
+  full_name: string;
+  entry_date: string;
+  phone: string;
+  email: string;
+  workstatus?: string;
+  status?: string;
+}
+
+interface LeadMetrics {
+  total_leads: number;
+  leads_this_month: number;
+  latest_lead: Lead | null;
+}
+
+interface LeadMetricsResponse {
+  success: boolean;
+  data: LeadMetrics;
+  message: string;
+}
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL as string;
 
 export default function Index() {
   const [time, setTime] = useState<Date | null>(null);
@@ -95,6 +131,30 @@ export default function Index() {
   const [topBatches, setTopBatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [birthdays, setBirthdays] = useState<BirthdayResponse>({  
+    today: [],
+    upcoming: [],
+  });
+  const [leadMetrics, setLeadMetrics] = useState<LeadMetrics | null>(null);
+
+  
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/employee-birthdays`)
+      .then((res) => res.json())
+      .then((data) => setBirthdays(data))
+      .catch((err) => console.error("Error fetching birthdays:", err));
+  }, []);
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/leads/metrics`)
+      .then((res) => res.json())
+      .then((data: LeadMetricsResponse) => {
+        if (data.success) {
+          setLeadMetrics(data.data);
+        }
+      })
+      .catch((err) => console.error("Error fetching lead metrics:", err));
+  }, []);
 
   useEffect(() => {
     setTime(new Date());
@@ -107,9 +167,9 @@ export default function Index() {
       try {
         setLoading(true);
         const [metricsResponse, batchesResponse, topBatchesResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/dashboard/metrics/all`),
-          fetch(`${API_BASE_URL}/dashboard/upcoming-batches?limit=3`),
-          fetch(`${API_BASE_URL}/dashboard/top-batches-revenue?limit=5`)
+          fetch(`${API_BASE_URL}/metrics/all`),
+          fetch(`${API_BASE_URL}/upcoming-batches?limit=3`),
+          fetch(`${API_BASE_URL}/top-batches-revenue?limit=5`)
         ]);
 
         if (!metricsResponse.ok || !batchesResponse.ok || !topBatchesResponse.ok) {
@@ -135,18 +195,19 @@ export default function Index() {
   }, []);
 
 // This are Animated counters-----
-  const activeBatches = useCounter(metrics?.batch_metrics.current_active_batches || 0);
+  const activeBatches = useCounter(+(metrics?.batch_metrics.current_active_batches) || 0);
   const enrolledCandidates = useCounter(metrics?.batch_metrics.enrolled_candidates_current || 0);
   const totalCandidates = useCounter(metrics?.batch_metrics.total_candidates || 0);
-  const feeCollected = useCounter(metrics?.financial_metrics.fee_collected_month || 0);
+  const feeCollected = useCounter(metrics?.financial_metrics.fee_collected_last_batch || 0);
   const totalPlacements = useCounter(metrics?.placement_metrics.total_placements || 0);
   const placementsYear = useCounter(metrics?.placement_metrics.placements_year || 0);
   const placementsMonth = useCounter(metrics?.placement_metrics.placements_last_month || 0);
   const activePlacements = useCounter(metrics?.placement_metrics.active_placements || 0);
-  const upcomingInterviews = useCounter(metrics?.interview_metrics.upcoming_interviews || 0);
+  const upcomingInterviews = useCounter(metrics?.interview_metrics.upcoming_interviews || 0); 
   const totalInterviews = useCounter(metrics?.interview_metrics.total_interviews || 0);
   const interviewsThisMonth = useCounter(metrics?.interview_metrics.interviews_month || 0);
-
+  const totalLeads = useCounter(leadMetrics?.total_leads || 0);
+  const leadsThisMonth = useCounter(leadMetrics?.leads_this_month || 0);
   const currentDate = new Date();
   const currentMonth = currentDate.toLocaleString("default", { month: "long" });
   const currentYear = currentDate.getFullYear();
@@ -186,20 +247,18 @@ export default function Index() {
   const placementRate = metrics ? Math.round((metrics.placement_metrics.total_placements / Math.max(1, metrics.batch_metrics.total_candidates) * 100)) : 0;
   const interviewSuccessRate = metrics ? Math.round((metrics.interview_metrics.feedback_breakdown.Positive / Math.max(1, metrics.interview_metrics.total_interviews) * 100)) : 0;
   const averageFeePerCandidate = metrics ? Math.round((metrics.financial_metrics.total_fee_current_batch / Math.max(1, metrics.batch_metrics.enrolled_candidates_current))) : 0;
+  const leadConversionRate = leadMetrics ? Math.round((leadMetrics.leads_this_month / Math.max(1, leadMetrics.total_leads) * 100)) : 0;
 
   return (
     <div className="p-6 min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
 
       {/* Welcome Section */}
       <motion.div
-        className="relative overflow-hidden bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-3xl p-10 mb-10 shadow-xl text-white text-center"
+        className="relative overflow-hidden rounded-3xl p-10 mb-10 shadow-md text-center border border-pink-100 bg-white"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <h1 className="text-4xl font-extrabold">Welcome to Avatar</h1>
-        <p className="text-white/80 mt-2">
-          Your comprehensive admin panel for managing tools and processes.
-        </p>
+        <h1 className="text-4xl font-extrabold">Welcome To Admin Dashboard</h1>
         {time && (
         <p className="mt-4 text-sm font-medium">
           {time.toLocaleDateString("en-GB")} • {time.toLocaleTimeString()}
@@ -207,19 +266,148 @@ export default function Index() {
         )}
       </motion.div>
 
+      {/* Employee Birthdays*/}
+      <motion.div
+        className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-indigo-100 mb-10"
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+      >
+        <div className="flex items-center space-x-3 mb-6">
+          <div className="bg-pink-100 p-2 rounded-lg">
+            <CakeIcon className="h-5 w-5 text-pink-600" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+             Employee Birthdays
+          </h2>
+        </div>
+
+        {birthdays?.today?.length > 0 ? (
+          <div className="space-y-4">
+            {birthdays.today.map((emp, idx) => (
+              <div
+                key={idx}
+                className="p-4 bg-gradient-to-r from-pink-100 via-purple-100 to-indigo-100 rounded-lg border border-pink-200 shadow-md text-center"
+              >
+                <h3 className="text-lg font-bold text-indigo-700">
+                  {emp.wish ||`🎂 🎉 Happy Birthday ${emp.name}! 🎂 🎉`}
+                </h3>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {birthdays?.upcoming?.length > 0 ? (
+              birthdays.upcoming.map((emp, idx) => (
+                <div
+                  key={idx}
+                  className="flex justify-between items-center p-3 bg-purple-50 rounded border border-purple-100"
+                >
+                  <span className="font-medium">{emp.name}</span>
+                  <span className="text-purple-600 font-semibold">
+                    {new Date(emp.dob).toLocaleDateString("en-GB", {
+                      day: "numeric",
+                      month: "long",
+                    })}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-4 text-gray-500">
+                No Upcoming Birthdays On This Month
+              </div>
+            )}
+          </div>
+        )}
+      </motion.div>
+
+      {/* Lead Metrics Section*/}
+      <motion.div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-pink-100 mb-10" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}>
+        <div className="flex items-center space-x-3 mb-6">
+          <div className="bg-indigo-100 p-2 rounded-lg">
+            <UserPlus className="h-5 w-5 text-indigo-600" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Leads</h2>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <EnhancedMetricCard 
+            title="Total Leads" 
+            value={totalLeads.toLocaleString()} 
+            icon={<Users />} 
+            variant="blue" 
+          />
+          <EnhancedMetricCard 
+            title="Leads This Month" 
+            value={leadsThisMonth.toLocaleString()} 
+            icon={<TrendingUp />} 
+            variant="green" 
+          />
+          <EnhancedMetricCard 
+            title="Lead Conversion Rate" 
+            value={`${leadConversionRate}%`} 
+            icon={<Percent />} 
+            variant="orange" 
+          />
+        </div>
+
+        {/* Latest Lead */}
+        <div className="bg-white dark:bg-gray-900 rounded-lg p-6 border border-indigo-100 shadow-sm">
+          <div className="flex items-center space-x-2 mb-4">
+            <Clock className="h-5 w-5 text-indigo-600" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Latest Lead</h3>
+          </div>
+          {leadMetrics?.latest_lead ? (
+            <div className="flex items-center justify-between p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+              <div className="flex items-center space-x-3">
+                <div className="bg-indigo-100 p-2 rounded-full">
+                  <UserPlus className="h-5 w-5 text-indigo-600" />
+                </div>
+                <div>
+                  <div className="font-medium text-gray-900 dark:text-white">
+                    {leadMetrics.latest_lead.full_name}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {leadMetrics.latest_lead.email}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {leadMetrics.latest_lead.phone}
+                  </div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-indigo-600 font-medium">
+                  Added on {new Date(leadMetrics.latest_lead.entry_date).toLocaleDateString("en-GB", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric"
+                  })}
+                </div>
+                <div className="text-xs text-gray-500">
+                  Status: {leadMetrics.latest_lead.status || 'N/A'}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-4 text-gray-500">
+              No leads available
+            </div>
+          )}
+        </div>
+      </motion.div>
+
       {/* KPI Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         <motion.div whileHover={{ scale: 1.05 }}>
           <EnhancedMetricCard 
             title="Current Active Batches" 
-            value={activeBatches} 
+            value={metrics?.batch_metrics.current_active_batches || "No active batches"}
             icon={<GraduationCap />} 
-            variant="purple" 
+            variant="purple"
           />
         </motion.div>
         <motion.div whileHover={{ scale: 1.05 }}>
           <EnhancedMetricCard 
-            title="Enrolled Candidates" 
+            title="Current Batches Enrollments" 
             value={enrolledCandidates} 
             icon={<Users />} 
             variant="blue" 
@@ -227,7 +415,7 @@ export default function Index() {
         </motion.div>
         <motion.div whileHover={{ scale: 1.05 }}>
           <EnhancedMetricCard 
-            title="Total Candidates" 
+            title="Total Candidates(All Time)" 
             value={totalCandidates.toLocaleString()} 
             icon={<UserCheck />} 
             variant="green" 
@@ -235,8 +423,8 @@ export default function Index() {
         </motion.div>
         <motion.div whileHover={{ scale: 1.05 }}>
           <EnhancedMetricCard 
-            title="Fee Collected (This Month)" 
-            value={`₹${feeCollected.toLocaleString()}`} 
+            title="Fee Collected In Last Batch" 
+            value={`$${feeCollected.toLocaleString()}`} 
             icon={<DollarSign />} 
             variant="orange" 
           />
@@ -249,23 +437,23 @@ export default function Index() {
           <div className="bg-purple-100 p-2 rounded-lg">
             <BookOpen className="h-5 w-5 text-purple-600" />
           </div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Batch & Enrollment Metrics</h2>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Batch & Enrollments</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <EnhancedMetricCard 
-            title="Candidates in Last Batch" 
+            title="Candidates in Enrolled Last Batch" 
             value={metrics?.batch_metrics.candidates_last_batch || 0} 
             icon={<UserPlus />} 
             variant="purple" 
           />
           <EnhancedMetricCard 
-            title="New Enrollments" 
+            title="Current Month Enrollments" 
             value={metrics?.batch_metrics.new_enrollments_month || 0} 
             icon={<TrendingUp />} 
             variant="blue" 
           />
           <EnhancedMetricCard 
-            title="Upcoming Batch Start Dates" 
+            title="No.of Upcoming Batches" 
             value={upcomingBatches.length} 
             icon={<Calendar />} 
             variant="orange" 
@@ -276,14 +464,14 @@ export default function Index() {
         <div className="bg-white dark:bg-gray-900 rounded-lg p-6 mb-6 border border-purple-100 shadow-sm">
           <div className="flex items-center space-x-2 mb-4">
             <CalendarCheck className="h-5 w-5 text-purple-600" />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Upcoming Batch Start Dates</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Upcoming Batch Start Date</h3>
           </div>
           <div className="space-y-3">
             {upcomingBatches.map((batch, idx) => (
               <div key={idx} className="flex justify-between items-center p-3 bg-purple-50 rounded border border-purple-100">
                 <span className="font-medium">{batch.name}</span>
                 <span className="text-purple-600 font-semibold">
-                  {new Date(batch.start_date).toLocaleDateString("en-GB", {
+                  {new Date(batch.startdate).toLocaleDateString("en-GB", {
                     day: "numeric",
                     month: "long",
                     year: "numeric"
@@ -337,7 +525,7 @@ export default function Index() {
           <div className="bg-orange-100 p-2 rounded-lg">
             <DollarSign className="h-5 w-5 text-orange-600" />
           </div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Financial Metrics</h2>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Company Revenue</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <EnhancedMetricCard 
@@ -396,7 +584,7 @@ export default function Index() {
           <div className="bg-green-100 p-2 rounded-lg">
             <Building className="h-5 w-5 text-green-600" />
           </div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Placement Metrics</h2>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Placements</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
           <EnhancedMetricCard title="Total Placements" value={totalPlacements} icon={<Award />} variant="green" />
@@ -459,7 +647,7 @@ export default function Index() {
           <div className="bg-blue-100 p-2 rounded-lg">
             <MessageSquare className="h-5 w-5 text-blue-600" />
           </div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Interview & Marketing</h2>
+          <h2 className="text-xl font-semibold text-gray-90 dark:text-white">Interview & Marketing</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
           <EnhancedMetricCard title="Upcoming Interviews" value={upcomingInterviews} icon={<Clock />} variant="orange" />
@@ -517,4 +705,3 @@ export default function Index() {
     </div>
   );
 }
-
