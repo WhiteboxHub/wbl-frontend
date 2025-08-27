@@ -73,6 +73,7 @@ export default function RecordingsPage() {
     { field: "description", headerName: "Description", width: 300, editable: true },
     { field: "type", headerName: "Type", width: 140, editable: true },
     { field: "subject", headerName: "Subject", width: 180, editable: true },
+    { field: "filename", headerName: "File Name", width: 180, editable: true },
     {
       field: "link",
       headerName: "Link",
@@ -92,18 +93,10 @@ export default function RecordingsPage() {
       },
     },
     { field: "videoid", headerName: "Video ID", width: 160, editable: true },
-    { field: "filename", headerName: "Filename", width: 200, editable: true },
     {
       field: "classdate",
       headerName: "Class Date",
       width: 180,
-      valueFormatter: (params) =>
-        params.value ? new Date(params.value).toLocaleString() : ""
-    },
-    {
-      field: "lastmoddatetime",
-      headerName: "Last Modified",
-      width: 200,
       valueFormatter: (params) =>
         params.value ? new Date(params.value).toLocaleString() : ""
     },
