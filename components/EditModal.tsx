@@ -148,6 +148,7 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
 const labelOverrides: Record<string, string> = {
   id: "ID",
   subject_id: "Subject ID",
+  new_subject_id: "New Subject ID",
   sessionid: "ID",
   courseid: "Course ID",
   candidateid: "Candidate ID",
@@ -164,6 +165,8 @@ const labelOverrides: Record<string, string> = {
   email: "Email",
   videoid: "Video ID",
   secondaryemail: "Secondary Email",
+  classdate: "Class Date",
+  filename: "File Name",
   visa_status: "Visa Status",
   work_status: "Work Status",
   workstatus: "Work Status",
