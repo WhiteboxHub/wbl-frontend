@@ -1,4 +1,3 @@
-// check with updated vendor schema 
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -12,14 +11,12 @@ import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import axios from "axios";
 
-// Reusable Badge Renderer
 const BadgeRenderer = (params: any, map: Record<string, string>) => {
   const value = params?.value?.toString() || "None";
   const cls = map[value.toLowerCase()] || "bg-gray-100 text-gray-800";
   return <Badge className={cls}>{value.toUpperCase()}</Badge>;
 };
 
-// VendorType Renderer (New Enum)
 const VendorTypeRenderer = (params: any) => {
   const map = {
     client: "bg-green-100 text-green-800",
@@ -31,7 +28,17 @@ const VendorTypeRenderer = (params: any) => {
   return BadgeRenderer({ value: key }, map);
 };
 
-// Status Renderer
+const TypeRenderer = (params: any) => {
+  const map = {
+    client: "bg-green-100 text-green-800",
+    implementation_partner: "bg-blue-100 text-blue-800",
+    third_party: "bg-yellow-100 text-yellow-800",
+  };
+
+  const key = params?.value?.toString().toLowerCase().replace(/ /g, "_");
+  return BadgeRenderer({ value: key }, map);
+};
+
 const StatusRenderer = (params: any) => {
   const map = {
     active: "bg-green-100 text-green-800",
@@ -44,7 +51,6 @@ const StatusRenderer = (params: any) => {
   return BadgeRenderer(params, map);
 };
 
-// YES/NO Renderer
 const YesNoRenderer = (params: any) => {
   const map = {
     yes: "bg-indigo-100 text-indigo-800",
@@ -55,7 +61,6 @@ const YesNoRenderer = (params: any) => {
   return BadgeRenderer({ value: key }, map);
 };
 
-// Date Formatter
 const DateFormatter = (params: any) =>
   params.value ? new Date(params.value).toLocaleDateString() : "";
 
@@ -69,7 +74,6 @@ export default function VendorPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(100);
 
-  // Fetch vendor data
   const fetchVendors = async () => {
     try {
       setLoading(true);
@@ -83,66 +87,66 @@ export default function VendorPage() {
     }
   };
 
-  // Fetch vendors on mount
   useEffect(() => {
     fetchVendors();
   }, []);
 
-  // Apply search filter
   useEffect(() => {
     if (!searchTerm.trim()) {
       setFilteredVendors(vendors);
       return;
     }
-
     const filtered = vendors.filter((v) =>
       v.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
     setFilteredVendors(filtered);
   }, [searchTerm, vendors]);
 
-  // Setup column definitions
   useEffect(() => {
     if (vendors.length > 0) {
-      const defs: ColDef[] = Object.keys(vendors[0])
-        .filter((key) => key !== "type") // REMOVE deprecated column
-        .map((key) => {
-          const header = key
-            .replace(/([a-z])([A-Z])/g, "$1 $2")
-            .replace(/\b\w/g, (c) => c.toUpperCase());
+      const defs: ColDef[] = Object.keys(vendors[0]).map((key) => {
+        const header = key
+          .replace(/([a-z])([A-Z])/g, "$1 $2")
+          .replace(/\b\w/g, (c) => c.toUpperCase());
 
-          const col: ColDef = {
-            field: key,
-            headerName: header,
-            width: 160,
-            editable: true,
+        const col: ColDef = {
+          field: key,
+          headerName: header,
+          width: 160,
+          editable: true,
+        };
+
+        const k = key.toLowerCase();
+        if (k.includes("date") || k.includes("created_at")) {
+          col.valueFormatter = DateFormatter;
+          col.editable = false;
+        } else if (k === "vendor_type") {
+          col.cellRenderer = VendorTypeRenderer;
+        } else if (k === "type") {
+          col.cellRenderer = TypeRenderer;
+          col.cellEditor = "agSelectCellEditor"; 
+          col.cellEditorParams = {
+            values: ["client", "implementation_partner", "third_party"],
           };
+        } else if (k === "status") {
+          col.cellRenderer = StatusRenderer;
+        } else if (
+          ["linkedin_connected", "intro_email_sent", "intro_call"].includes(k)
+        ) {
+          col.cellRenderer = YesNoRenderer;
+        } else if (k === "id") {
+          col.pinned = "left";
+          col.editable = false;
+          col.width = 80;
+        }
 
-          const k = key.toLowerCase();
-          if (k.includes("date") || k.includes("created_at")) {
-            col.valueFormatter = DateFormatter;
-            col.editable = false;
-          } else if (k === "vendor_type") {
-            col.cellRenderer = VendorTypeRenderer;
-          } else if (k === "status") {
-            col.cellRenderer = StatusRenderer;
-          } else if (["linkedin_connected", "intro_email_sent", "intro_call"].includes(k)) {
-            col.cellRenderer = YesNoRenderer;
-          } else if (k === "id") {
-            col.pinned = "left";
-            //col.checkboxSelection = true;
-            col.editable = false;
-            col.width = 80;
-          }
-
-          return col;
-        });
+        return col;
+      });
 
       setColumnDefs(defs);
     }
   }, [vendors]);
 
-  // Validate and update row
   const handleRowUpdated = async (updatedRow: any) => {
     const { email, phone_number, linkedin_id } = updatedRow;
 
@@ -164,7 +168,6 @@ export default function VendorPage() {
     }
   };
 
-  // Delete row
   const handleRowDeleted = async (id: number | string) => {
     try {
       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/vendors/${id}`);
@@ -203,7 +206,6 @@ export default function VendorPage() {
         rowData={filteredVendors.slice((page - 1) * pageSize, page * pageSize)}
         columnDefs={columnDefs}
         title={`All Vendors (${filteredVendors.length})`}
-
         height="calc(70vh)"
         onRowUpdated={handleRowUpdated}
         onRowDeleted={handleRowDeleted}
