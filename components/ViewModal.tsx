@@ -1,3 +1,4 @@
+#viewmodal
 // "use client";
 
 // import {
@@ -611,13 +612,61 @@ interface ViewModalProps {
 
 const fieldSections: Record<string, string> = {
   id: "Basic Information",
+
+
+  phone: "Contact Information",
+  Phone: "Contact Information",
+
+  secondaryphone: "Basic Information",
+  email: "Basic Information",
+  secondaryemail: "Basic Information",
+  ssn: "Basic Information",
+  priority: "Basic Information",
+  source: "Basic Information",
+  // subject: "Basic Information",
+  enrolleddate: "Basic Information",
+  orientationdate: "Basic Information",
+  batchname: "Basic Information",
+  batchid: "Basic Information",
+  agreement: "Basic Information",
+  promissory: "Basic Information",
+
   full_name: "Basic Information",
   extraction_date: "Basic Information",
   type: "Basic Information",
 
   email: "Professional Information",
   company_name: "Professional Information",
+
   linkedin_id: "Professional Information",
+
+  location: "Basic Information",
+  
+  vendor_id: "Basic Information",
+  vendor_name: "Basic Information",
+  vendor_email: "Basic Information",
+  vendor_phone: "Contact Information",
+  vendor_secondary_phone: "Contact Information",
+  vendor_city: "Contact Information",
+  vendor_address: "Contact Information",
+  vendor_country: "Contact Information",
+  vendor_status: "Professional Information",
+  vendor_linkedin: "Professional Information",
+  vendor_company: "Professional Information",
+
+  course: "Professional Information",
+  link: "Professional Information",
+  videoid: "Professional Information",
+  type: "Professional Information",
+  company: "Professional Information",
+  client_id: "Professional Information",
+  client_name: "Professional Information",
+  interview_time: "Professional Information",
+  vendor_or_client_name: "Professional Information",
+  vendor_or_client_contact: "Professional Information",
+  marketing_email_address: "Professional Information",
+  interview_date: "Professional Information",
+  interview_mode: "Professional Information",
   status: "Professional Information",
   linkedin_connected: "Professional Information",
   intro_email_sent: "Professional Information",
@@ -645,6 +694,49 @@ const labelOverrides: Record<string, string> = {
   created_at: "Created At",
   notes: "Notes",
   extraction_date: "Extraction Date",
+
+const fieldLabels: Record<string, string> = {
+  id: "ID",
+  sessionid: "ID",
+  subject_id: "Subject ID",
+  videoid: "Video ID",
+  candidateid: "Candidate ID",
+  candidate_id: "Candidate ID",
+  candidate_name: "Candidate Name",
+  candidate_email: "Candidate Email",
+  candidate_role: "Candidate Role",
+  fullname: "Full Name",
+  uname: "Email",
+  ssn: "SSN",
+  dob: "Date of Birth",
+  phone: "Phone",
+  secondaryphone: "Secondary Phone",
+  email: "Email",
+  secondaryemail: "Secondary Email",
+  batchid: "Batch ID",
+  batchname: "Batch Name",
+  start_date: "Start Date",
+  logincount: "Login Count",
+  lastlogin: "Last Login",
+  orientationdate: "Orientation Date",
+  workstatus: "Work Status",
+  visastatus: "Visa Status",
+  work_authorization: "Work Authorization",
+  marketing_email_address: "Marketing Email Address",
+  client_id: "Client ID",
+  registereddate: "Registered Date",
+  level3date: "Level 3 Date",
+  emergcontactname: "Emergency Contact Name",
+  lastmoddatetime: "Last Mod Date Time",
+  enddate: "End Date",
+  sessiondate: "Session Date",
+  emergcontactphone: "Emergency Contact Phone",
+  emergcontactemail: "Emergency Contact Email",
+  emergcontactaddrs: "Emergency Contact Address",
+  spousename: "Spouse Name",
+  spousephone: "Spouse Phone",
+  spouseemail: "Spouse Email",
+  spouseoccupationinfo: "Spouse Occupation Info",
 };
 
 const dateFields = ["created_at", "extraction_date"];

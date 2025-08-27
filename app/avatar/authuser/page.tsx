@@ -1,4 +1,3 @@
-// whiteboxLearning-wbl/app/authusers/page.tsx
 "use client";
 import "@/styles/admin.css";
 import "@/styles/App.css";
@@ -32,14 +31,17 @@ export default function AuthUsersPage() {
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  // Fetch users (pagination or ID search)
+  // Fetch users (pagination or search)
   const fetchUsers = async () => {
     try {
       setLoading(true);
 
-      const isIdSearch = !isNaN(Number(debouncedSearch)) && debouncedSearch.trim() !== "";
+      const trimmed = debouncedSearch.trim();
+      const isIdSearch = !isNaN(Number(trimmed)) && trimmed !== "";
+
       if (isIdSearch) {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/${debouncedSearch.trim()}`);
+        // Search by numeric ID using /user/{id}
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/${trimmed}`);
         if (!res.ok) {
           setUsers([]);
           setTotal(0);
@@ -50,10 +52,11 @@ export default function AuthUsersPage() {
         setTotal(1);
         setPage(1);
       } else {
+        // Search by name or role using /user route
         const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/user`);
         url.searchParams.append("page", page.toString());
         url.searchParams.append("per_page", pageSize.toString());
-        if (debouncedSearch.trim()) url.searchParams.append("search", debouncedSearch.trim());
+        if (trimmed) url.searchParams.append("search_name", trimmed);
 
         const res = await fetch(url.toString());
         if (!res.ok) {
@@ -116,33 +119,68 @@ export default function AuthUsersPage() {
     return <Badge className={map[visa] ?? "bg-gray-200 text-gray-700"}>{visa}</Badge>;
   };
 
-  // Column definitions (all columns from authuser table)
+  // Column definitions
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
     { field: "id", headerName: "ID", width: 100, pinned: "left" },
-    { field: "uname", headerName: "Email", width: 200, editable: true },
+    // { field: "uname", headerName: "Email", width: 200, editable: true },
+    // { field: "phone", headerName: "Phone", width: 150, editable: true },
+  {
+    field: "uname",
+    headerName: "Email",
+    width: 200,
+    editable: true,
+    cellRenderer: (params: any) => {
+      if (!params.value) return "";
+      return (
+        <a
+          href={`mailto:${params.value}`}
+          className="text-blue-600 underline hover:text-blue-800"
+          onClick={(event) => event.stopPropagation()} // stop row selection
+        >
+          {params.value}
+        </a>
+      );
+    },
+  },
+  { 
+    field: "phone",
+    headerName: "Phone",
+    width: 150,
+    editable: true,
+    cellRenderer: (params: any) => {
+      if (!params.value) return "";
+      return (
+        <a
+          href={`tel:${params.value}`}
+          className="text-blue-600 underline hover:text-blue-800"
+        >
+          {params.value}
+        </a>
+      );
+    },
+  },
     { field: "fullname", headerName: "Full Name", width: 180, editable: true },
     { field: "status", headerName: "Status", width: 150, editable: true, cellRenderer: StatusRenderer },
     { field: "visa_status", headerName: "Visa Status", width: 160, editable: true, cellRenderer: VisaStatusRenderer },
-    { field: "phone", headerName: "Phone", width: 150, editable: true },
     { field: "address", headerName: "Address", width: 200, editable: true },
     { field: "state", headerName: "State", width: 140, editable: true },
     { field: "zip", headerName: "Zip Code", width: 120, editable: true },
     { field: "city", headerName: "City", width: 140, editable: true },
     { field: "country", headerName: "Country", width: 140, editable: true },
     { field: "registereddate", headerName: "Registered Date", width: 180,valueFormatter: (params) => params.value ? new Date(params.value).toLocaleDateString() : "" },
-    { field: "passwd", headerName: "Password Hash", width: 200 },
+    // { field: "passwd", headerName: "Password Hash", width: 200 },
     { field: "googleId", headerName: "Google ID", width: 220 },
     { field: "team", headerName: "Team", width: 180, editable: true },
     { field: "message", headerName: "Message", width: 250, editable: true },
-    { field: "lastlogin", headerName: "Last Login", width: 180, valueFormatter: (params) => params.value ? new Date(params.value).toLocaleString() : "" },
+    // { field: "lastlogin", headerName: "Last Login", width: 180, valueFormatter: (params) => params.value ? new Date(params.value).toLocaleString() : "" },
     { field: "logincount", headerName: "Login Count", width: 140 },
-    { field: "level3date", headerName: "Level 3 Date", width: 180, valueFormatter: (params) => params.value ? new Date(params.value).toLocaleDateString() : "" },
-    { field: "demo", headerName: "Demo User", width: 120 },
+    // { field: "level3date", headerName: "Level 3 Date", width: 180, valueFormatter: (params) => params.value ? new Date(params.value).toLocaleDateString() : "" },
+    // { field: "demo", headerName: "Demo User", width: 120 },
     { field: "enddate", headerName: "End Date", width: 150, valueFormatter: (params) => params.value ? new Date(params.value).toLocaleDateString() : "" },
-    { field: "reset_token", headerName: "Reset Token", width: 220 },
-    { field: "token_expiry",headerName: "Token Expiry", width: 180, valueFormatter: (params) => params.value ? new Date(params.value).toLocaleString() : "" },
+    // { field: "reset_token", headerName: "Reset Token", width: 220 },
+    // { field: "token_expiry",headerName: "Token Expiry", width: 180, valueFormatter: (params) => params.value ? new Date(params.value).toLocaleString() : "" },
     { field: "role", headerName: "Role", width: 150, editable: true, cellRenderer: RoleRenderer },
-    { field: "lastmoddatetime", headerName: "Last Modified", width: 200, valueFormatter: (params) => params.value ? new Date(params.value).toLocaleString() : "" },
+    // { field: "lastmoddatetime", headerName: "Last Modified", width: 200, valueFormatter: (params) => params.value ? new Date(params.value).toLocaleString() : "" },
     { field: "notes", headerName: "Notes", width: 250, editable: true },
   ], []);
 
@@ -187,7 +225,7 @@ export default function AuthUsersPage() {
       {/* Search Input */}
       <div className="max-w-md">
         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          Search by Name, Role or ID
+          Search by Name, Email or ID
         </Label>
         <div className="relative mt-1">
           <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />

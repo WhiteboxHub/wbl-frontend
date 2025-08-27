@@ -1,4 +1,4 @@
-// whiteboxLearning-wbl/app/batches/page.tsx
+// whiteboxLearning-wbl/app/avatar/training/batch/page.tsx
 "use client";
 import "@/styles/admin.css";
 import "@/styles/App.css";
@@ -18,7 +18,7 @@ export default function BatchPage() {
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
 
-  // Pagination (frontend-side)
+  // Pagination (backend-driven)
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
@@ -53,32 +53,21 @@ export default function BatchPage() {
         setTotal(1);
         setPage(1);
       } else {
-        // Fetch all batches
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/batch`);
+        // Fetch paginated batches
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/batch?page=${page}&per_page=${pageSize}&search=${debouncedSearch}`
+        );
         if (!res.ok) {
           setBatches([]);
           setTotal(0);
           return;
         }
-        let data: any[] = await res.json();
-
-        // Optional: frontend filter
-        if (debouncedSearch.trim()) {
-          const term = debouncedSearch.trim().toLowerCase();
-          data = data.filter(
-            (b) =>
-              b.batchname?.toLowerCase().includes(term) ||
-              b.description?.toLowerCase().includes(term)
-          );
-        }
-
-        setTotal(data.length);
-        // Slice for pagination
-        const paginated = data.slice((page - 1) * pageSize, page * pageSize);
-        setBatches(paginated);
+        const data = await res.json();
+        setBatches(data.batches);
+        setTotal(data.total);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Failed to fetch batches:", err);
       setBatches([]);
       setTotal(0);
     } finally {
@@ -104,7 +93,6 @@ export default function BatchPage() {
     }
   };
 
-
   const SubjectRenderer = (props: any) => {
     const value = props.value || "";
     const colors: Record<string, string> = {
@@ -121,43 +109,19 @@ export default function BatchPage() {
 
   // Column definitions
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
-    { field: "batchid", headerName: "Batch ID", width: 120, pinned: "left" },
-    { field: "batchname", headerName: "Batch Name", width: 180, editable: true },
-    {
-      field: "orientationdate",
-      headerName: "Orientation Date",
-      width: 160,
-      editable: true,
-      valueFormatter: dateFormatter,
-    },
-    {
-      field: "subject",
-      headerName: "Subject",
-      width: 120,
-      editable: true,
-      cellRenderer: SubjectRenderer, 
-    },
-    {
-      field: "startdate",
-      headerName: "Start Date",
-      width: 160,
-      editable: true,
-      valueFormatter: dateFormatter,
-    },
-    {
-      field: "enddate",
-      headerName: "End Date",
-      width: 160,
-      editable: true,
-      valueFormatter: dateFormatter,
-    },
-    {
-      field: "lastmoddatetime",
-      headerName: "Last Modified",
-      width: 180,
-      valueFormatter: dateFormatter,
-    },
-    { field: "courseid", headerName: "Course ID", width: 120 },
+    { field: "batchid", headerName: "Batch ID", width: 130, pinned: "left" },
+    { field: "batchname", headerName: "Batch Name", width: 190, editable: true },
+    {field: "orientationdate",headerName: "Orientation Date",width: 190,editable: true,valueFormatter: dateFormatter,},
+    {field: "subject",headerName: "Subject",width: 140,editable: true,cellRenderer: SubjectRenderer, },
+    {field: "startdate",headerName: "Start Date",width: 170,editable: true,valueFormatter: dateFormatter,},
+    {field: "enddate",headerName: "End Date",width: 190,editable: true,valueFormatter: dateFormatter,},
+    // {
+    //   field: "lastmoddatetime",
+    //   headerName: "Last Modified",
+    //   width: 180,
+    //   valueFormatter: dateFormatter,
+    // },
+    { field: "courseid", headerName: "Course ID", width: 140 },
   ], []);
 
   // PUT request on row update
