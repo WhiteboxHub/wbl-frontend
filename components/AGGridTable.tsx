@@ -14,6 +14,40 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 import "@/styles/admin.css";
+export { PhoneRenderer, EmailRenderer };
+
+
+const PhoneRenderer = (props: any) => {
+  const phone = props.value;
+  if (!phone) return null;
+
+  return (
+    <a
+      href={`tel:${phone}`}
+      className="text-blue-600 hover:underline cursor-pointer"
+    >
+      {phone}
+    </a>
+  );
+};
+
+
+
+const EmailRenderer = (props: any) => {
+  const email = props.value;
+  if (!email) return null;
+
+  return (
+    <a
+      href={`mailto:${email}`}
+      className="text-blue-600 hover:underline cursor-pointer"
+    >
+      {email}
+    </a>
+  );
+};
+
+
 
 interface AGGridTableProps {
   rowData: any[];
@@ -248,13 +282,14 @@ export function AGGridTable({
             defaultColDef={{
               resizable: true,
               sortable: true,
-              filter: true,
+              filter:showFilters,
               cellClass: 'custom-cell-style',
             }}
             rowSelection="single"
             rowMultiSelectWithClick={false}
             suppressRowClickSelection={false}
             suppressCellFocus={false}
+
           />
         </div>
       </div>
