@@ -3,10 +3,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/admin_ui/button";
 import {
+  ShieldCheck,
   HomeIcon,
   UsersIcon,
   UserCheckIcon,
+  UserCogIcon,
   BuildingIcon,
+  GraduationCap,
   ArrowLeftIcon,
   ChevronRightIcon,
   MoonIcon,
@@ -74,12 +77,29 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
     },
 
     {
+      title: "Training",
+      href: "/avatar/training/batch",
+      icon: GraduationCap,
+      children: [
+        { title: "Batch", href: "/avatar/training/batch" },
+        { title: "Session", href: "/avatar/training/session" },
+  
+      ],
+    },
+        {
+      title: "Authuser",
+      href: "/avatar/authuser",
+      icon: ShieldCheck,
+    },
+
+
+
+    {
       title: "Employees",
       href: "/avatar/employee",
       icon: UsersIcon,
     
     },
-
 
    {
       title: "Vendors",
@@ -95,8 +115,6 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       // { title: "Daily Activity", href: "/avatar/vendors/daily-activity" },
       ],
     }
-
-
 
   ];
 
@@ -260,13 +278,13 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       </div>
       
       {/* New Event for Avatar Section */}
-      <NewEvent 
+      {/* <NewEvent 
         title="Upcoming Events"
         message="New features and updates available in your avatar dashboard!"
         ctaText="Explore"
         ctaLink="/avatar"
         autoHide={false}
-      />
+      /> */}
     </div>
   );
 } 
