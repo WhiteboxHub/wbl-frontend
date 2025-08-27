@@ -1468,7 +1468,7 @@ export default function CandidatesMarketingPage() {
   // Column definitions aligned with backend model
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => {
     return [
-      { field: "candidate_id", headerName: "Candidate ID", maxWidth: 110 },
+      { field: "candidate_id", headerName: "Candidate ID", minWidth: 110 },
       { field: "marketing_manager", headerName: "Marketing Manager", sortable: true, minWidth: 150 },
       { field: "start_date", headerName: "Start Date", sortable: true, minWidth: 130 },
       { field: "status", headerName: "Status", cellRenderer: StatusRenderer, minWidth: 120 },
