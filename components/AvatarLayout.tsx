@@ -82,12 +82,15 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       icon: GraduationCap,
       children: [
         { title: "Batch", href: "/avatar/training/batch" },
-        { title: "Session", href: "/avatar/training/session" },
+
+        { title: "Sessions", href: "/avatar/training/session" },
+        { title: "Recordings", href: "/avatar/training/recording" },
         { title: "Course", href: "/avatar/training/course" },
         { title: "Subject", href: "/avatar/training/subject" },
         { title: "Course Subject", href: "/avatar/training/course_subject" },
         { title: "Course Content", href: "/avatar/training/course_content" },
         {title: "Course Material", href: "/avatar/training/course_material"},
+
   
       ],
     },

@@ -289,7 +289,7 @@ export function AGGridTable({
             rowMultiSelectWithClick={false}
             suppressRowClickSelection={false}
             suppressCellFocus={false}
-      
+
           />
         </div>
       </div>
