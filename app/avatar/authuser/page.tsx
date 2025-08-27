@@ -1,4 +1,3 @@
-// whiteboxLearning-wbl/app/authusers/page.tsx
 "use client";
 import "@/styles/admin.css";
 import "@/styles/App.css";
@@ -32,14 +31,17 @@ export default function AuthUsersPage() {
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  // Fetch users (pagination or ID search)
+  // Fetch users (pagination or search)
   const fetchUsers = async () => {
     try {
       setLoading(true);
 
-      const isIdSearch = !isNaN(Number(debouncedSearch)) && debouncedSearch.trim() !== "";
+      const trimmed = debouncedSearch.trim();
+      const isIdSearch = !isNaN(Number(trimmed)) && trimmed !== "";
+
       if (isIdSearch) {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/${debouncedSearch.trim()}`);
+        // Search by numeric ID using /user/{id}
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/${trimmed}`);
         if (!res.ok) {
           setUsers([]);
           setTotal(0);
@@ -50,10 +52,11 @@ export default function AuthUsersPage() {
         setTotal(1);
         setPage(1);
       } else {
+        // Search by name or role using /user route
         const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/user`);
         url.searchParams.append("page", page.toString());
         url.searchParams.append("per_page", pageSize.toString());
-        if (debouncedSearch.trim()) url.searchParams.append("search", debouncedSearch.trim());
+        if (trimmed) url.searchParams.append("search_name", trimmed);
 
         const res = await fetch(url.toString());
         if (!res.ok) {
@@ -116,7 +119,7 @@ export default function AuthUsersPage() {
     return <Badge className={map[visa] ?? "bg-gray-200 text-gray-700"}>{visa}</Badge>;
   };
 
-  // Column definitions (all columns from authuser table)
+  // Column definitions
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
     { field: "id", headerName: "ID", width: 100, pinned: "left" },
     { field: "uname", headerName: "Email", width: 200, editable: true },
