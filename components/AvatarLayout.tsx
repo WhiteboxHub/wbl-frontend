@@ -6,6 +6,7 @@ import {
   HomeIcon,
   UsersIcon,
   UserCheckIcon,
+  UserCogIcon,
   BuildingIcon,
   ArrowLeftIcon,
   ChevronRightIcon,
@@ -72,6 +73,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
         { title: "Placements", href: "/avatar/candidates/placements" },
       ],
     },
+
     {
        title: "Training",
        href: "/avatar/training",
@@ -84,6 +86,54 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
          {title: "Course Material", href: "/avatar/training/course_material"}
        ],
      },
+
+        {
+      title: "Authuser",
+      href: "/avatar/authuser",
+      icon: UserCogIcon
+    },
+        {
+      title: "Batch",
+      href: "/avatar/batch",
+      icon: UserCogIcon
+    },
+
+
+    // {
+    //   title: "Vendors",
+    //   href: "/avatar/vendors",
+    //   icon: BuildingIcon,
+    //   children: [
+    //     { title: "List", href: "/avatar/vendors" },
+    //     { title: "Search", href: "/avatar/vendors/search" },
+    //     { title: "Daily Contact", href: "/avatar/vendors/daily-contact" },
+    //   ],
+    // },
+
+    {
+      title: "Employees",
+      href: "/avatar/employee",
+      icon: UsersIcon,
+    
+    },
+    
+
+   {
+      title: "Vendors",
+      href: "/avatar/vendors",
+      icon: BuildingIcon,
+      children: [
+      // { title: "List", href: "/avatar/vendors" },
+      //{ title: "Search", href: "/avatar/vendors/search" },
+      // { title: "List", href: "/avatar/vendors/vendor" },          // Vendor table page
+      // { title: "Daily Contact", href: "/avatar/vendors/daily-contact" },
+      {title:"Daily Contact Extract", href:"/avatar/vendors/daily-contact" },
+      {title:"Vendor", href:"/avatar/vendors/vendor"},
+      // { title: "Daily Activity", href: "/avatar/vendors/daily-activity" },
+      ],
+    }
+
+
   ];
 
   const isActive = (href: string, exact = false) => {
@@ -246,13 +296,13 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       </div>
       
       {/* New Event for Avatar Section */}
-      <NewEvent 
+      {/* <NewEvent 
         title="Upcoming Events"
         message="New features and updates available in your avatar dashboard!"
         ctaText="Explore"
         ctaLink="/avatar"
         autoHide={false}
-      />
+      /> */}
     </div>
   );
 } 
