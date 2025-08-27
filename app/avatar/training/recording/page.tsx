@@ -1,10 +1,9 @@
-// whiteboxLearning-wbl/app/avatar/training/session/page.tsx
+// whiteboxLearning-wbl/app/avatar/training/recording/page.tsx
 "use client";
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable";
 import { Button } from "@/components/admin_ui/button";
-import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon, PlusIcon } from "lucide-react";
@@ -12,10 +11,10 @@ import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect } from "react";
 import axios from "axios";
 
-export default function SessionsPage() {
+export default function RecordingsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
-  const [sessions, setSessions] = useState<any[]>([]);
+  const [recordings, setRecordings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
 
@@ -32,29 +31,31 @@ export default function SessionsPage() {
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  // Fetch sessions (pagination + search)
-  const fetchSessions = async () => {
+  // Fetch recordings
+  const fetchRecordings = async () => {
     try {
       setLoading(true);
 
-      const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/session`);
+      const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/recordings`);
       url.searchParams.append("page", page.toString());
       url.searchParams.append("per_page", pageSize.toString());
-      if (debouncedSearch.trim()) url.searchParams.append("search_title", debouncedSearch.trim());
+      if (debouncedSearch.trim()) {
+        url.searchParams.append("search", debouncedSearch.trim());
+      }
 
       const res = await fetch(url.toString());
       if (!res.ok) {
-        setSessions([]);
+        setRecordings([]);
         setTotal(0);
         return;
       }
       const data = await res.json();
 
-      setSessions(data.data || []);
+      setRecordings(data.recordings || []);
       setTotal(data.total || 0);
     } catch (err) {
       console.error(err);
-      setSessions([]);
+      setRecordings([]);
       setTotal(0);
     } finally {
       setLoading(false);
@@ -62,14 +63,16 @@ export default function SessionsPage() {
   };
 
   useEffect(() => {
-    fetchSessions();
+    fetchRecordings();
   }, [page, pageSize, debouncedSearch]);
 
   // Column definitions
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
-    { field: "sessionid", headerName: "ID", width: 90, pinned: "left" },
-    { field: "title", headerName: "Title", width: 290, editable: true },
-    // { field: "link", headerName: "Link", width: 250, editable: true },
+    { field: "id", headerName: "ID", width: 90, pinned: "left" },
+    { field: "batchname", headerName: "Batch Name", width: 200, editable: true },
+    { field: "description", headerName: "Description", width: 300, editable: true },
+    { field: "type", headerName: "Type", width: 140, editable: true },
+    { field: "subject", headerName: "Subject", width: 180, editable: true },
     {
       field: "link",
       headerName: "Link",
@@ -88,32 +91,41 @@ export default function SessionsPage() {
         );
       },
     },
-    // { field: "status", headerName: "Status", width: 110, editable: true },
     { field: "videoid", headerName: "Video ID", width: 160, editable: true },
-    { field: "type", headerName: "Type", width: 140, editable: true },
-    {field: "subject",headerName: "Subject",width: 180,valueGetter: (params) => params.data?.subject?.name ?? "",},
-    {field: "sessiondate",headerName: "Session Date",width: 180,valueFormatter: (params) => params.value ? new Date(params.value).toLocaleString() : ""},
-    // {field: "lastmoddatetime",headerName: "Last Modified",width: 200,valueFormatter: (params) => params.value ? new Date(params.value).toLocaleString() : ""},
-    { field: "notes", headerName: "Notes", width: 140, editable: true },
+    { field: "filename", headerName: "Filename", width: 200, editable: true },
+    {
+      field: "classdate",
+      headerName: "Class Date",
+      width: 180,
+      valueFormatter: (params) =>
+        params.value ? new Date(params.value).toLocaleString() : ""
+    },
+    {
+      field: "lastmoddatetime",
+      headerName: "Last Modified",
+      width: 200,
+      valueFormatter: (params) =>
+        params.value ? new Date(params.value).toLocaleString() : ""
+    },
   ], []);
 
   // PUT request on row update
   const handleRowUpdated = async (updatedRow: any) => {
     try {
-      await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/session/${updatedRow.sessionid}`, updatedRow);
-      fetchSessions();
+      await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/recordings/${updatedRow.id}`, updatedRow);
+      fetchRecordings();
     } catch (err) {
-      console.error("Failed to update session:", err);
+      console.error("Failed to update recording:", err);
     }
   };
 
   // DELETE request on row deletion
   const handleRowDeleted = async (id: number | string) => {
     try {
-      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/session/${id}`);
-      fetchSessions();
+      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/recordings/${id}`);
+      fetchRecordings();
     } catch (err) {
-      console.error("Failed to delete session:", err);
+      console.error("Failed to delete recording:", err);
     }
   };
 
@@ -123,22 +135,22 @@ export default function SessionsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Sessions
+            Recordings
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Manage learning sessions
+            Manage class recordings
           </p>
         </div>
         <Button className="bg-whitebox-600 hover:bg-whitebox-700 text-white">
           <PlusIcon className="h-4 w-4 mr-2" />
-          Add Session
+          Add Recording
         </Button>
       </div>
 
       {/* Search Input */}
       <div className="max-w-md">
         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          Search by Title
+          Search by ID or Batch Name or Title
         </Label>
         <div className="relative mt-1">
           <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -146,7 +158,7 @@ export default function SessionsPage() {
             id="search"
             type="text"
             value={searchTerm}
-            placeholder="Type session title..."
+            placeholder="Type ID or Batch Name..."
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
           />
@@ -156,13 +168,13 @@ export default function SessionsPage() {
       {/* AG Grid Table */}
       {loading ? (
         <p className="text-center mt-8">Loading...</p>
-      ) : sessions.length === 0 ? (
-        <p className="text-center mt-8 text-gray-500">No sessions found.</p>
+      ) : recordings.length === 0 ? (
+        <p className="text-center mt-8 text-gray-500">No recordings found.</p>
       ) : (
         <AGGridTable
-          rowData={sessions}
+          rowData={recordings}
           columnDefs={columnDefs}
-          title={`Sessions (${total})`}
+          title={`Recordings (${total})`}
           height="600px"
           showSearch={false}
           onRowUpdated={handleRowUpdated}
@@ -171,7 +183,7 @@ export default function SessionsPage() {
       )}
 
       {/* Pagination Controls */}
-      {sessions.length > 0 && (
+      {recordings.length > 0 && (
         <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
           <div className="flex items-center space-x-2">
             <span className="text-sm">Rows per page:</span>
