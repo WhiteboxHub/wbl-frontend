@@ -5,11 +5,14 @@ import React, { useEffect, useState } from "react";
 import { ColDef } from "ag-grid-community";
 import "@/styles/admin.css";
 import "@/styles/App.css";
-import { AGGridTable } from "@/components/AGGridTable";
+
+// import { AGGridTable } from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon, Plus } from "lucide-react";
 import axios from "axios";
+import AGGridTable, { PhoneRenderer, EmailRenderer } from "@/components/AGGridTable";
+
 
 const DateFormatter = (params: any) =>
   params.value ? new Date(params.value).toLocaleDateString() : "";
@@ -156,20 +159,94 @@ export default function EmployeesPage() {
     }
   };
 
+  
   const columnDefs: ColDef[] = [
     { headerName: "ID", field: "id", width: 80, pinned: "left" },
-    { headerName: "Full Name", field: "full_name", editable: true },
-    { headerName: "Email", field: "email", editable: true },
-    { headerName: "Phone", field: "phone", editable: true },
-    { headerName: "Address", field: "address", editable: true },
-    { headerName: "State", field: "state", editable: true },
-    { headerName: "DOB", field: "dob", valueFormatter: DateFormatter, editable: true },
-    { headerName: "Start Date", field: "startdate", valueFormatter: DateFormatter, editable: true },
-    { headerName: "Instructor", field: "instructor", editable: true },
-    { headerName: "Status", field: "status", editable: true },
+    { 
+      headerName: "Full Name", 
+      field: "full_name", 
+      editable: true,
+      onCellValueChanged: (params) => handleRowUpdated(params.data),
+    },
+    { 
+        headerName: "Email", 
+        field: "email", 
+        editable: true,
+        cellRenderer: EmailRenderer, // 🔹 Add this
+        onCellValueChanged: (params) => handleRowUpdated(params.data),
+    },
+    { 
+        headerName: "Phone", 
+        field: "phone", 
+        editable: true,
+        cellRenderer: PhoneRenderer, // 🔹 Add this
+        onCellValueChanged: (params) => handleRowUpdated(params.data),
+    },
+
+
+    // { 
+    //   headerName: "Email", 
+    //   field: "email", 
+    //   editable: true,
+    //   onCellValueChanged: (params) => handleRowUpdated(params.data),
+    // },
+    // { 
+    //   headerName: "Phone", 
+    //   field: "phone", 
+    //   editable: true,
+    //   onCellValueChanged: (params) => handleRowUpdated(params.data),
+    // },
+    { 
+      headerName: "Address", 
+      field: "address", 
+      editable: true,
+      onCellValueChanged: (params) => handleRowUpdated(params.data),
+    },
+    { 
+      headerName: "State", 
+      field: "state", 
+      editable: true,
+      onCellValueChanged: (params) => handleRowUpdated(params.data),
+    },
+    { 
+      headerName: "DOB", 
+      field: "dob", 
+      valueFormatter: DateFormatter, 
+      editable: true,
+      onCellValueChanged: (params) => handleRowUpdated(params.data),
+    },
+    { 
+      headerName: "Start Date", 
+      field: "startdate", 
+      valueFormatter: DateFormatter, 
+      editable: true,
+      onCellValueChanged: (params) => handleRowUpdated(params.data),
+    },
+    { 
+      headerName: "Instructor", 
+      field: "instructor", 
+      editable: true,
+      onCellValueChanged: (params) => handleRowUpdated(params.data),
+    },
+    { 
+      headerName: "Status", 
+      field: "status", 
+      editable: true,
+      onCellValueChanged: (params) => handleRowUpdated(params.data),
+    },
     { headerName: "End Date", field: "lastmoddate", valueFormatter: DateFormatter },
-    { headerName: "Notes", field: "notes", editable: true },
-    { headerName: "Aadhar Number", field: "aadhaar", editable: true },
+    { 
+      headerName: "Notes", 
+      field: "notes", 
+      editable: true,
+      onCellValueChanged: (params) => handleRowUpdated(params.data),
+    },
+    { 
+      headerName: "Aadhar Number", 
+      field: "aadhaar", 
+      editable: true,
+      onCellValueChanged: (params) => handleRowUpdated(params.data),
+    },
   ];
 
   return (
@@ -215,14 +292,16 @@ export default function EmployeesPage() {
       ) : (
         <>
           <AGGridTable
-            rowData={paginatedEmployees}
+            rowData={filteredEmployees}
             columnDefs={columnDefs}
+           
+
             onRowClicked={(event) => console.log("Row clicked:", event.data)}
             title="Employee"
             height="70vh"
             onRowUpdated={handleRowUpdated}
             onRowDeleted={handleRowDeleted}
-            showFilters={true}
+            showFilters={false}
             showSearch={false}
           />
 
@@ -271,3 +350,15 @@ export default function EmployeesPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
