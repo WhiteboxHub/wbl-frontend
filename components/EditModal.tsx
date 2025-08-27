@@ -21,6 +21,7 @@ interface EditModalProps {
 
 const fieldSections: Record<string, string> = {
   id: "Basic Information",
+  alias:"Basic Information",
   sessionid: "Basic Information",
   subject_id: "Basic Information",
   candidateid: "Basic Information",

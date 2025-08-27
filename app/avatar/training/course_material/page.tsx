@@ -38,23 +38,7 @@ export default function CourseMaterialPage() {
   }, []);
 
   // search filter
-//   useEffect(() => {
-//     const lower = searchTerm.trim().toLowerCase();
-//     if (!lower) return setFilteredMaterials(materials);
-
-//     const filtered = materials.filter(
-//       (row) =>
-//         row.id?.toString().includes(lower) ||
-//         row.name?.toLowerCase().includes(lower) ||
-//         row.description?.toLowerCase().includes(lower) ||
-//         row.type?.toLowerCase().includes(lower) ||
-//         row.link?.toLowerCase().includes(lower)
-//     );
-//     setFilteredMaterials(filtered);
-//   }, [searchTerm, materials]);
-// search filter
-
-useEffect(() => {
+  useEffect(() => {
   const lower = searchTerm.trim().toLowerCase();
   if (!lower) return setFilteredMaterials(materials);
 
