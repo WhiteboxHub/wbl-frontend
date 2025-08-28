@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/admin_ui/button";
 import { toast, Toaster } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
-import AGGridTable, { PhoneRenderer, EmailRenderer } from "@/components/AGGridTable";
+import AGGridTable from "@/components/AGGridTable";
 import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
 ModuleRegistry.registerModules([AllCommunityModule]); // ✅ pass as an array
 
@@ -364,26 +364,51 @@ export default function LeadsPage() {
     () => [
       { field: "id", headerName: "ID", width: 80, pinned: "left" },
       { field: "full_name", headerName: "Full Name", width: 180 },
-      {
-        headerName: "Phone",
+      { 
         field: "phone",
+        headerName: "Phone",
+        width: 150,
         editable: true,
-        cellRenderer: PhoneRenderer,
-        onCellValueChanged: (params) => handleRowUpdated(params.data),
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          return (
+            <a
+              href={`tel:${params.value}`}
+              className="text-blue-600 underline hover:text-blue-800"
+            >
+              {params.value}
+            </a>
+          );
+        },
       },
       {
-        headerName: "Email",
         field: "email",
+        headerName: "Email",
+        width: 200,
         editable: true,
-        cellRenderer: EmailRenderer,
-        onCellValueChanged: (params) => handleRowUpdated(params.data),
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          return (
+            <a
+              href={`mailto:${params.value}`}
+              className="text-blue-600 underline hover:text-blue-800"
+              onClick={(event) => event.stopPropagation()} // stop row selection
+            >
+              {params.value}
+            </a>
+          );
+        },
       },
       {
         field: "entry_date",
         headerName: "Entry Date",
         width: 150,
         valueFormatter: ({ value }: ValueFormatterParams) =>
-          value ? new Date(value).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : "-",
+          value
+            ? new Date(value).toLocaleDateString("en-IN", {
+                timeZone: "Asia/Kolkata",
+              })
+            : "-",
       },
       { field: "workstatus", headerName: "Work Status", width: 150 },
       {
@@ -400,7 +425,11 @@ export default function LeadsPage() {
         headerName: "Closed Date",
         width: 150,
         valueFormatter: ({ value }: ValueFormatterParams) =>
-          value ? new Date(value).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : "-",
+          value
+            ? new Date(value).toLocaleDateString("en-IN", {
+                timeZone: "Asia/Kolkata",
+              })
+            : "-",
       },
       {
         field: "notes",
@@ -432,7 +461,6 @@ export default function LeadsPage() {
     ],
     [handleRowUpdated]
   );
-
   if (state.isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
