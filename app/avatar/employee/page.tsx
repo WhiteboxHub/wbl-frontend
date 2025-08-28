@@ -11,7 +11,7 @@ import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon, Plus } from "lucide-react";
 import axios from "axios";
-import AGGridTable, { PhoneRenderer, EmailRenderer } from "@/components/AGGridTable";
+import AGGridTable from "@/components/AGGridTable";
 
 
 const DateFormatter = (params: any) =>
@@ -168,21 +168,41 @@ export default function EmployeesPage() {
       editable: true,
       onCellValueChanged: (params) => handleRowUpdated(params.data),
     },
-    { 
-        headerName: "Email", 
-        field: "email", 
+       { 
+        field: "phone",
+        headerName: "Phone",
+        width: 150,
         editable: true,
-        cellRenderer: EmailRenderer, // 🔹 Add this
-        onCellValueChanged: (params) => handleRowUpdated(params.data),
-    },
-    { 
-        headerName: "Phone", 
-        field: "phone", 
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          return (
+            <a
+              href={`tel:${params.value}`}
+              className="text-blue-600 underline hover:text-blue-800"
+            >
+              {params.value}
+            </a>
+          );
+        },
+      },
+      {
+        field: "email",
+        headerName: "Email",
+        width: 200,
         editable: true,
-        cellRenderer: PhoneRenderer, // 🔹 Add this
-        onCellValueChanged: (params) => handleRowUpdated(params.data),
-    },
-
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          return (
+            <a
+              href={`mailto:${params.value}`}
+              className="text-blue-600 underline hover:text-blue-800"
+              onClick={(event) => event.stopPropagation()} // stop row selection
+            >
+              {params.value}
+            </a>
+          );
+        },
+      },
 
     // { 
     //   headerName: "Email", 

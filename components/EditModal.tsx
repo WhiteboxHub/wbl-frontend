@@ -1,12 +1,7 @@
 
 "use client";
-import React from "react"
+import React from "react";
 
-// "use client";
-import React, { useState, useEffect } from "react";
-
-
-// Import your existing UI components
 import {
   Dialog,
   DialogContent,
@@ -24,6 +19,7 @@ interface EditModalProps {
   onSave: (updatedData: Record<string, any>) => void;
 }
 
+
 // Country codes configuration
 const countryCodes = [
   { code: "+1", country: "US", flag: "🇺🇸" },
@@ -36,30 +32,9 @@ const countryCodes = [
   { code: "+33", country: "France", flag: "🇫🇷" },
 ];
 
-// Field sections configuration
+
 const fieldSections: Record<string, string> = {
   id: "Basic Information",
-
-  full_name: "Basic Information",
-  extraction_date: "Basic Information", 
-  type: "Basic Information",
-
-  email: "Professional Information",
-  company_name: "Professional Information",
-  linkedin_id: "Professional Information",
-  status: "Professional Information",
-  linkedin_connected: "Professional Information",
-  intro_email_sent: "Professional Information",
-  intro_call: "Professional Information",
-  moved_to_vendor: "Professional Information",
-  phone_number: "Contact Information",
-  secondary_phone: "Contact Information",
-  location: "Contact Information", 
-
-  // notes: "Notes",
-};
-
-=======
   sessionid: "Basic Information",
   subject_id: "Basic Information",
   candidateid: "Basic Information",
@@ -75,9 +50,14 @@ const fieldSections: Record<string, string> = {
   candidate_role: "Basic Information",
   dob: "Basic Information",
   contact: "Basic Information",
-  phone: "Basic Information",
   secondaryphone: "Basic Information",
+  phone: "Basic Information",
+  phone_number: "Contact Information",
   email: "Basic Information",
+  created_at: "Professional Information",
+  linkedin_connected: "Professional Information",
+  intro_email_sent: "Professional Information",
+  intro_call: "Professional Information",
   secondaryemail: "Basic Information",
   ssn: "Basic Information",
   priority: "Basic Information",
@@ -86,6 +66,8 @@ const fieldSections: Record<string, string> = {
   title: "Basic Information",
   enrolleddate: "Basic Information",
   orientationdate: "Basic Information",
+  // startdate: "Basic Information",
+  // enddate: "Basic Information",
   batchname: "Basic Information",
   batchid: "Basic Information",
   agreement: "Basic Information",
@@ -124,11 +106,11 @@ const fieldSections: Record<string, string> = {
   recruiterassesment: "Professional Information",
   statuschangedate: "Professional Information",
   closed: "Professional Information",
-  movet_to_candidate: "Professional Information",
 
+    // Basic Information
   full_name: "Basic Information",
   secondary_email: "Basic Information",
-  phone_number: "Basic Information",
+  // phone_number: "Basic Information",
   secondary_phone: "Contact Information",
   location: "Basic Information",
   linkedin_id: "Professional Information",
@@ -153,43 +135,23 @@ const fieldSections: Record<string, string> = {
   spouseoccupationinfo: "Emergency Contact",
 
   notes: "Notes",
-  last_modified: "Basic Information",
 };
 
-// Boolean options
-// 1️⃣ Define boolean options separately
-const booleanOptions = [
-  { value: "true", label: "Yes" },
-  { value: "false", label: "No" },
+const workVisaStatusOptions = [
+  { value: "citizen", label: "Citizen" },
+  { value: "visa", label: "Visa" },
+  { value: "f1", label: "F1" },
+  { value: "other", label: "Other" },
+  { value: "green card", label: "Green Card" },
+  { value: "permanent resident", label: "Permanent Resident" },
+  { value: "h1b", label: "H1B" },
+  { value: "ead", label: "EAD" },
+  { value: "waiting for status", label: "Waiting for Status" },
 ];
-
-// 2️⃣ Define your column
-const columnDefs = [
-  {
-    field: "moved_to_candidate",
-    headerName: "Moved to Candidate",
-    width: 180,
-    editable: true, // enable editing
-    cellEditor: "agSelectCellEditor",
-    cellEditorParams: {
-      values: booleanOptions.map(opt => opt.value), // ["true", "false"]
-    },
-    valueFormatter: ({ value }: any) => {
-      const option = booleanOptions.find(opt => opt.value === value);
-      return option ? option.label : value;
-    },
-    valueGetter: (params: any) => {
-      // convert data to string "true" / "false" for dropdown
-      return params.data.moved_to_candidate ? "true" : "false";
-    },
-  },
-  // ... other columns
-];
-
 
 // Enum dropdown options
-
 const enumOptions: Record<string, { value: string; label: string }[]> = {
+
   type: [
     { value: "client", label: "Client" },
     { value: "third-party-vendor", label: "Third Party Vendor" },
@@ -197,15 +159,7 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "sourcer", label: "Sourcer" },
     { value: "contact-from-ip", label: "Contact from IP" },
   ],
-  status: [
-    { value: "active", label: "Active" },
-    { value: "working", label: "Working" },
-    { value: "not_useful", label: "Not Useful" },
-    { value: "do_not_contact", label: "Do Not Contact" },
-    { value: "inactive", label: "Inactive" },
-    { value: "prospect", label: "Prospect" },
-  ],
-  linkedin_connected: [
+    linkedin_connected: [
     { value: "yes", label: "Yes" },
     { value: "no", label: "No" },
   ],
@@ -221,64 +175,26 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
   moved_to_vendor: [
     { value: "true", label: "Yes" },
     { value: "false", label: "No" },
-  ]
-
-
-  work_status: [
-    { value: "citizen", label: "Citizen" },
-    { value: "visa", label: "Visa" },
-    { value: "f1", label: "F1" },
-    { value: "other", label: "Other" },
-    { value: "green card", label: "Green Card" },
-    { value: "permanent resident", label: "Permanent Resident" },
-    { value: "h1b", label: "H1B" },
-    { value: "ead", label: "EAD" },
-    { value: "waiting for status", label: "Waiting for Status" },
   ],
-
-  visa_status: [
-    { value: "citizen", label: "Citizen" },
-    { value: "visa", label: "Visa" },
-    { value: "f1", label: "F1" },
-    { value: "other", label: "Other" },
-    { value: "green card", label: "Green Card" },
-    { value: "permanent resident", label: "Permanent Resident" },
-    { value: "h1b", label: "H1B" },
-    { value: "ead", label: "EAD" },
-    { value: "waiting for status", label: "Waiting for Status" },
+  moved_to_candidate: [
+    { value: "true", label: "Yes" },
+    { value: "false", label: "No" },
   ],
-  // Boolean fields
-
-  agreement: booleanOptions,
-  promissory: booleanOptions,
-  closed: booleanOptions,
-  is_active: booleanOptions,
-  verified: booleanOptions,
-
+  status: [
+    { value: "active", label: "Active" },
+    { value: "inactive", label: "Inactive" },
+    { value: "break", label: "Break" },
+    { value: "discontinued", label: "Discontinued" },
+    { value: "closed", label: "Closed" },
+  ],
+  work_status: workVisaStatusOptions,
+  workstatus: workVisaStatusOptions,
+  visa_status: workVisaStatusOptions,
 };
 
+// Custom label overrides
 const labelOverrides: Record<string, string> = {
   id: "ID",
-
-  full_name: "Full Name",
-  phone_number: "Phone Number",
-  secondary_phone: "Secondary Phone",
-  email: "Email",
-  company_name: "Company Name",
-  type: "Type",
-  linkedin_id: "LinkedIn ID",
-  linkedin_connected: "LinkedIn Connected",
-  intro_email_sent: "Intro Email Sent",
-  intro_call: "Intro Call",
-  location: "Location",
-  status: "Status",
-  created_at: "Created At",
-  notes: "Notes",
-  extraction_date: "Extraction Date", 
-};
-
-const dateFields = ["created_at", "extraction_date"];
-
   subject_id: "Subject ID",
   new_subject_id: "New Subject ID",
   sessionid: "ID",
@@ -311,103 +227,11 @@ const dateFields = ["created_at", "extraction_date"];
   sessiondate: "Session Date",
   lastmoddatetime: "Last Mod DateTime",
   registereddate: "Registered Date",
-  movet_to_candidate: "Move to Candidate",
-  last_modified: "Last Modified",
 };
 
-// Date fields configuration - these will display only the date portion (no time)
-const dateFields = [
-  "orientationdate", "startdate", "enddate", "placement_date", 
-  "dob", "interview_date", "marketing_startdate", "statuschangedate",
-  "last_modified", "enrolleddate", "lastlogin", "level3date", 
-  "sessiondate", "lastmoddatetime", "registereddate"
-];
 
-// Time fields configuration
-const timeFields = ["interview_time", "start_time", "end_time"];
-
-// Phone fields configuration
-const phoneFields = ["phone", "secondaryphone", "emergcontactphone", "spousephone", "contact", "phone_number", "secondary_phone"];
-
-// Number fields configuration
-const numberFields = ["salary0", "salary6", "salary12", "callsmade", "feepaid", "feedue", "logincount", "zip"];
-
-// Phone Input Component
-interface PhoneInputProps {
-  value: string;
-  onChange: (value: string) => void;
-  countryCode: string;
-  onCountryCodeChange: (code: string) => void;
-  error?: string;
-  placeholder?: string;
-}
-
-const PhoneInput: React.FC<PhoneInputProps> = ({
-  value,
-  onChange,
-  countryCode,
-  onCountryCodeChange,
-  error,
-  placeholder = "(123) 456-7890"
-}) => {
-  const formatPhoneNumber = (value: string, code: string): string => {
-    const digitsOnly = value.replace(/\D/g, '');
-    
-    switch (code) {
-      case "+1": // US & Canada
-        if (digitsOnly.length === 0) return "";
-        if (digitsOnly.length <= 3) return `(${digitsOnly}`;
-        if (digitsOnly.length <= 6) return `(${digitsOnly.slice(0, 3)}) ${digitsOnly.slice(3)}`;
-        return `(${digitsOnly.slice(0, 3)}) ${digitsOnly.slice(3, 6)}-${digitsOnly.slice(6, 10)}`;
-      
-      case "+44": // UK
-        if (digitsOnly.length <= 2) return digitsOnly;
-        if (digitsOnly.length <= 5) return `${digitsOnly.slice(0, 2)} ${digitsOnly.slice(2)}`;
-        if (digitsOnly.length <= 8) return `${digitsOnly.slice(0, 2)} ${digitsOnly.slice(2, 5)} ${digitsOnly.slice(5)}`;
-        return `${digitsOnly.slice(0, 2)} ${digitsOnly.slice(2, 5)} ${digitsOnly.slice(5, 8)} ${digitsOnly.slice(8)}`;
-      
-      case "+91": // India
-        if (digitsOnly.length <= 5) return digitsOnly;
-        return `${digitsOnly.slice(0, 5)} ${digitsOnly.slice(5)}`;
-      
-      default:
-        return digitsOnly;
-    }
-  };
-
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const digitsOnly = e.target.value.replace(/\D/g, '');
-    const formatted = formatPhoneNumber(digitsOnly, countryCode);
-    onChange(formatted);
-  };
-
-  return (
-    <div>
-      <div className="flex gap-2">
-        <select 
-          value={countryCode} 
-          onChange={(e) => onCountryCodeChange(e.target.value)}
-          className="w-20 border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-        >
-          {countryCodes.map(country => (
-            <option key={country.code} value={country.code}>
-              {country.flag} {country.code}
-            </option>
-          ))}
-        </select>
-        <input
-          type="text"
-          value={value}
-          onChange={handlePhoneChange}
-          className="border border-gray-300 rounded-md p-2 dark:bg-gray-800 dark:text-gray-100 focus:border-blue-500 focus:ring-blue-500 flex-1"
-          placeholder={placeholder}
-        />
-      </div>
-      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
-    </div>
-  );
-};
-
+// Fields that should use a date picker
+const dateFields = ["orientationdate", "startdate", "enddate", "closed_date", "entry_date", "created_at"];
 
 export function EditModal({
   isOpen,
@@ -418,157 +242,46 @@ export function EditModal({
 }: EditModalProps) {
   if (!data) return null;
 
-  const [formData, setFormData] = useState<Record<string, any>>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [formData, setFormData] = React.useState<Record<string, any>>(data);
 
-  useEffect(() => {
-    // Process data to extract only date portion for date fields
-    const processedData = Object.entries(data).reduce((acc, [key, value]) => {
-      if (dateFields.includes(key) && value && typeof value === 'string') {
-        // Extract only the date portion (YYYY-MM-DD) from DateTime strings
-        acc[key] = value.split('T')[0];
-      } else {
-        acc[key] = value;
-      }
-      
-      // Initialize country code for phone fields
-      if (phoneFields.includes(key) && !acc[`${key}_country`]) {
-        acc[`${key}_country`] = "+1";
-      }
-      
-      return acc;
-    }, {} as Record<string, any>);
-    
-    setFormData(processedData);
-    setErrors({});
+  React.useEffect(() => {
+    setFormData(data);
   }, [data]);
 
-  const validatePhone = (key: string, value: any, countryCode: string = "+1"): string => {
-    if (!value) return "";
-    
-    // Remove formatting characters
-    const digitsOnly = value.replace(/\D/g, '');
-    
-    // Country-specific validation
-    switch (countryCode) {
-      case "+1": // US & Canada
-        if (digitsOnly.length !== 10 && digitsOnly.length !== 11) {
-          return "US/Canada numbers must be 10 or 11 digits";
-        }
-        break;
-      case "+44": // UK
-        if (digitsOnly.length < 10 || digitsOnly.length > 11) {
-          return "UK numbers must be 10-11 digits";
-        }
-        break;
-      case "+91": // India
-        if (digitsOnly.length !== 10) {
-          return "Indian numbers must be 10 digits";
-        }
-        break;
-      default:
-        if (digitsOnly.length < 8) {
-          return "Phone number is too short";
-        }
-    }
-    
-    return "";
-  };
-
-  const validateField = (key: string, value: any): string => {
-    if (phoneFields.includes(key) && value) {
-      const countryCode = formData[`${key}_country`] || "+1";
-      return validatePhone(key, value, countryCode);
-    }
-    
-    if ((key === "email" || key === "secondaryemail" || key === "candidate_email") && value) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(value)) {
-        return "Please enter a valid email address";
-      }
-    }
-    
-    if (key === "ssn" && value) {
-      const ssnRegex = /^\d{3}-?\d{2}-?\d{4}$/;
-      if (!ssnRegex.test(value)) {
-        return "Please enter a valid SSN (XXX-XX-XXXX)";
-      }
-    }
-    
-    if (numberFields.includes(key) && value && isNaN(Number(value))) {
-      return "Please enter a valid number";
-    }
-    
-    // Special validation for emergency contacts
-    if (key === "emergcontactphone" && value) {
-      const digitsOnly = value.replace(/\D/g, '');
-      if (digitsOnly.length < 10) {
-        return "Emergency contact number must be at least 10 digits";
-      }
-    }
-    
-    // Special validation for spouse phone
-    if (key === "spousephone" && value) {
-      const digitsOnly = value.replace(/\D/g, '');
-      if (digitsOnly.length < 10) {
-        return "Spouse phone number must be at least 10 digits";
-      }
-    }
-    
-    return "";
-  };
-
   const handleChange = (key: string, value: any) => {
-    // Validate the field
-    const error = validateField(key, value);
-    setErrors(prev => ({ ...prev, [key]: error }));
-    
     setFormData((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const handleNumberChange = (key: string, value: string) => {
-    // Only allow numbers
-    const numericValue = value.replace(/\D/g, '');
-    handleChange(key, numericValue);
   };
 
   const toLabel = (key: string) => {
     if (labelOverrides[key]) return labelOverrides[key];
+
     return key
       .replace(/([A-Z])/g, " $1")
       .replace(/_/g, " ")
       .replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
+  // Organize fields into sections
   const sectionedFields: Record<string, { key: string; value: any }[]> = {
     "Basic Information": [],
     "Professional Information": [],
     "Contact Information": [],
+    "Emergency Contact": [],
     "Other": [],
     "Notes": [],
   };
 
   Object.entries(formData).forEach(([key, value]) => {
-    // Skip internal fields used for phone country codes
-    if (key.endsWith('_country') || key.endsWith('_raw')) return;
-    
     const section = fieldSections[key] || "Other";
     if (!sectionedFields[section]) sectionedFields[section] = [];
     sectionedFields[section].push({ key, value });
   });
 
-  const visibleSections = [
-    "Basic Information",
-    "Professional Information",
-    "Contact Information",
-    "Other",
-    "Notes",
-  ].filter((section) => sectionedFields[section]?.length > 0);
-
-  const columnCount = Math.min(
-    visibleSections.filter((s) => s !== "Notes").length,
-    4
+  const visibleSections = Object.keys(sectionedFields).filter(
+    (section) => sectionedFields[section]?.length > 0
   );
+
+  const columnCount = Math.min(visibleSections.length, 4);
 
   const modalWidthClass = {
     1: "max-w-xl",
@@ -584,43 +297,12 @@ export function EditModal({
     4: "lg:grid-cols-4 md:grid-cols-2",
   }[columnCount] || "lg:grid-cols-4 md:grid-cols-2";
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validate all fields before submission
-    const newErrors: Record<string, string> = {};
-    Object.keys(formData).forEach(key => {
-      // Skip internal fields used for phone country codes
-      if (key.endsWith('_country') || key.endsWith('_raw')) return;
-      
-      const error = validateField(key, formData[key]);
-      if (error) {
-        newErrors[key] = error;
-      }
-    });
-    
-    setErrors(newErrors);
-    
-    // Only submit if there are no errors
-    if (Object.keys(newErrors).length === 0) {
-      // Create a clean data object without internal fields
-      const cleanData = Object.entries(formData).reduce((acc, [key, value]) => {
-        if (!key.endsWith('_country') && !key.endsWith('_raw')) {
-          acc[key] = value;
-        }
-        return acc;
-      }, {} as Record<string, any>);
-      
-      onSave(cleanData);
-      onClose();
-    }
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         className={`${modalWidthClass} max-h-[80vh] overflow-y-auto p-0`}
       >
+        {/* Header */}
         <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
             {title} - Edit Details
@@ -630,11 +312,24 @@ export function EditModal({
             className="text-gray-500 hover:text-gray-700 dark:hover:text-white focus:outline-none"
             aria-label="Close"
           >
-            ✕
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
           </button>
         </div>
 
-
+        {/* Content */}
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -642,9 +337,7 @@ export function EditModal({
             onClose();
           }}
         >
-
-        {/* Content */}
-
+          {/* Grid Sections except Notes */}
           <div className={`grid ${gridColsClass} gap-6 p-6`}>
             {visibleSections
               .filter((section) => section !== "Notes")
@@ -660,22 +353,15 @@ export function EditModal({
                       </Label>
 
                       {dateFields.includes(key.toLowerCase()) ? (
-
                         <input
                           type="date"
-                          value={
-                            formData[key]
-                              ? new Date(formData[key])
-                                  .toISOString()
-                                  .split("T")[0]
-                              : ""
-                          }
+                          value={formData[key] ?? ""}
                           onChange={(e) => handleChange(key, e.target.value)}
                           className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
                         />
                       ) : enumOptions[key.toLowerCase()] ? (
                         <select
-                          value={formData[key] ?? ""}
+                          value={formData[key]?.toLowerCase?.() ?? ""}
                           onChange={(e) => handleChange(key, e.target.value)}
                           className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
                         >
@@ -686,94 +372,16 @@ export function EditModal({
                             </option>
                           ))}
                         </select>
-
-                        <div>
-                          <input
-                            type="date"
-                            value={formData[key] ?? ""}
-                            onChange={(e) => handleChange(key, e.target.value)}
-                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                          />
-                          {errors[key] && <p className="text-red-500 text-xs mt-1">{errors[key]}</p>}
-                        </div>
-                      ) : timeFields.includes(key.toLowerCase()) ? (
-                        <div>
-                          <input
-                            type="time"
-                            value={formData[key] ?? ""}
-                            onChange={(e) => handleChange(key, e.target.value)}
-                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                          />
-                          {errors[key] && <p className="text-red-500 text-xs mt-1">{errors[key]}</p>}
-                        </div>
-                      ) : phoneFields.includes(key.toLowerCase()) ? (
-                        <div>
-                          <PhoneInput
-                            value={formData[key] || ""}
-                            onChange={(value) => handleChange(key, value)}
-                            countryCode={formData[`${key}_country`] || "+1"}
-                            onCountryCodeChange={(code) => handleChange(`${key}_country`, code)}
-                            error={errors[key]}
-                            placeholder={key === "emergcontactphone" || key === "spousephone" 
-                              ? "Emergency contact number" 
-                              : "(123) 456-7890"}
-                          />
-                        </div>
-                      ) : numberFields.includes(key.toLowerCase()) ? (
-                        <div>
-                          <Input
-                            value={formData[key] ?? ""}
-                            onChange={(e) => handleNumberChange(key, e.target.value)}
-                            className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                          />
-                          {errors[key] && <p className="text-red-500 text-xs mt-1">{errors[key]}</p>}
-                        </div>
-                      ) : enumOptions[key.toLowerCase()] ? (
-                        <div>
-                          <select
-                            value={formData[key]?.toString() || ""}
-                            onChange={(e) => handleChange(key, e.target.value)}
-                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                          >
-                            <option value="">Select {toLabel(key)}</option>
-                            {enumOptions[key.toLowerCase()].map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </option>
-                            ))}
-                          </select>
-                          {errors[key] && <p className="text-red-500 text-xs mt-1">{errors[key]}</p>}
-                        </div>
-
                       ) : typeof value === "string" && value.length > 100 ? (
-                        <div>
-                          <Textarea
-                            value={formData[key] || ""}
-                            onChange={(e) => handleChange(key, e.target.value)}
-                            className="min-h-[100px]"
-                          />
-                          {errors[key] && <p className="text-red-500 text-xs mt-1">{errors[key]}</p>}
-                        </div>
-                      ) : key === "ssn" ? (
-                        <div>
-                          <Input
-                            value={formData[key] ?? ""}
-                            onChange={(e) => handleChange(key, e.target.value)}
-                            className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                            placeholder="XXX-XX-XXXX"
-                            maxLength={11}
-                          />
-                          {errors[key] && <p className="text-red-500 text-xs mt-1">{errors[key]}</p>}
-                        </div>
+                        <Textarea
+                          value={formData[key] || ""}
+                          onChange={(e) => handleChange(key, e.target.value)}
+                        />
                       ) : (
-                        <div>
-                          <Input
-                            value={formData[key] ?? ""}
-                            onChange={(e) => handleChange(key, e.target.value)}
-                            className="border-gray-300 focus:border-blue-500 focus:ring-blue-500"
-                          />
-                          {errors[key] && <p className="text-red-500 text-xs mt-1">{errors[key]}</p>}
-                        </div>
+                        <Input
+                          value={formData[key] ?? ""}
+                          onChange={(e) => handleChange(key, e.target.value)}
+                        />
                       )}
                     </div>
                   ))}
@@ -781,8 +389,9 @@ export function EditModal({
               ))}
           </div>
 
+          {/* Notes Section */}
           {sectionedFields["Notes"].length > 0 && (
-            <div className="px-6 pb-6 col-span-full">
+            <div className="px-6 pb-6">
               <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                 Notes
               </h3>
@@ -795,27 +404,16 @@ export function EditModal({
                     <Textarea
                       value={formData[key] || ""}
                       onChange={(e) => handleChange(key, e.target.value)}
-                      className="w-full min-h-[120px]"
+                      className="w-full"
                     />
-                    {errors[key] && <p className="text-red-500 text-xs mt-1">{errors[key]}</p>}
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-
-          <div className="flex justify-end px-6 pb-6">
-
           {/* Footer */}
-          <div className="flex justify-end gap-3 px-6 pb-6 bg-gray-50 dark:bg-gray-800 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-            >
-              Cancel
-            </button>
+          <div className="flex justify-end px-6 pb-6">
             <button
               type="submit"
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow"
