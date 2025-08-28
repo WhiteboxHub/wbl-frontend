@@ -1,11 +1,7 @@
 
-
-
-
 "use client";
-import { useMemo, useState, useCallback, useEffect, Ref } from "react";
-import { ColDef } from "ag-grid-community";
-import dynamic from "next/dynamic";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
+import { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
@@ -13,21 +9,14 @@ import {
   SearchIcon,
   PlusCircle,
   RefreshCw,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { toast, Toaster } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
-import {ValueFormatterParams,provideGlobalGridOptions } from 'ag-grid-community';
-import { useRef } from "react";
-import { AgGridReact } from "ag-grid-react";
-import { method } from "lodash";
+import AGGridTable, { PhoneRenderer, EmailRenderer } from "@/components/AGGridTable";
+import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
+ModuleRegistry.registerModules([AllCommunityModule]); // ✅ pass as an array
 
-
-const AGGridTable = dynamic(() => import("@/components/AGGridTable"), {
-  ssr: false,
-});
 
 
 type Lead = {
@@ -45,9 +34,10 @@ type Lead = {
   city?: string | null;
   state?: string | null;
   country?: string | null;
-  last_modified?: string | Date | null;
   moved_to_candidate?: boolean;
   notes?: string | null;
+  massemail_unsubscribe?: boolean;
+  massemail_email_sent?: boolean;
 };
 
 type PaginatedLeadsResponse = {
@@ -78,24 +68,22 @@ const initialFormData: FormData = {
   moved_to_candidate: false,
   notes: "",
 };
-provideGlobalGridOptions({
-  theme: "legacy",
-});
-
 
 export default function LeadsPage() {
-  const gridRef = useRef<AgGridReact>(null);
+  const gridRef = useRef<any>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const isNewLead = searchParams.get("newlead") === "true";
-  const selectedRowData = gridRef.current?.api?.getSelectedRows()?.[0];
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // State management
   const [state, setState] = useState({
     searchTerm: "",
-    leads: [],
-    filteredLeads: [],
+    leads: [] as Lead[],
+    filteredLeads: [] as Lead[],
     isLoading: true,
     error: null as string | null,
     page: 1,
@@ -104,7 +92,7 @@ export default function LeadsPage() {
     newLeadForm: isNewLead,
     formData: initialFormData,
     formSaveLoading: false,
-    loadingRowId: null,
+    loadingRowId: null as number | null,
   });
 
   const apiEndpoint = useMemo(
@@ -112,47 +100,41 @@ export default function LeadsPage() {
     []
   );
 
+  // Calculate pagination values
+  const totalPages = Math.ceil(state.filteredLeads.length / pageSize);
+  const paginatedLeads = state.filteredLeads.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
+  const fetchLeads = useCallback(
+    async (searchTerm?: string) => {
+      setState((prev) => ({ ...prev, isLoading: true, error: null }));
+      try {
+        let url = `${apiEndpoint}?page=1&limit=${state.limit}`;
+        if (searchTerm) url += `&search=${encodeURIComponent(searchTerm)}`;
 
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        const data: PaginatedLeadsResponse = await res.json();
 
-
-  const fetchLeads = useCallback(async () => {
-    setState((prev) => ({ ...prev, isLoading: true, error: null }));
-
-    try {
-      const res = await fetch(
-        `${apiEndpoint}?page=${state.page}&limit=${state.limit}`
-      );
-
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-
-      const data: PaginatedLeadsResponse = await res.json();
-
-      if (!data.data) throw new Error("No data property in response");
-
-      setState((prev) => ({
-        ...prev,
-        leads: data.data,
-        filteredLeads: data.data,
-        total: data.total,
-        page: data.page,
-        limit: data.limit,
-        isLoading: false,
-        loadingRowId: null as number | null,
-
-      }));
-    } catch (err) {
-      const error = err instanceof Error ? err.message : "Failed to load leads";
-      setState((prev) => ({ ...prev, error, isLoading: false }));
-      toast.error(error);
-    }
-  }, [apiEndpoint, state.page, state.limit]);
-
-
-  const rowSelection = useMemo(() => {
-    return "multiple";
-  }, []);
-
+        setState((prev) => ({
+          ...prev,
+          leads: data.data,
+          filteredLeads: data.data,
+          total: data.total,
+          page: data.page,
+          isLoading: false,
+        }));
+        setCurrentPage(1); // Reset to first page when new data is fetched
+      } catch (err) {
+        const error = err instanceof Error ? err.message : "Failed to load leads";
+        setState((prev) => ({ ...prev, error, isLoading: false }));
+        toast.error(error);
+      }
+    },
+    [apiEndpoint, state.limit]
+  );
 
   const filterLeads = useCallback((searchTerm: string, leads: Lead[]) => {
     if (!searchTerm.trim()) return leads;
@@ -175,7 +157,6 @@ export default function LeadsPage() {
     });
   }, []);
 
-
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
       if (state.searchTerm !== undefined && Array.isArray(state.leads)) {
@@ -183,17 +164,16 @@ export default function LeadsPage() {
           ...prev,
           filteredLeads: filterLeads(prev.searchTerm, prev.leads),
         }));
+        setCurrentPage(1); // Reset to page 1 on new search
       }
     }, 300);
 
     return () => clearTimeout(debounceTimer);
   }, [state.searchTerm, state.leads, filterLeads]);
 
-
   useEffect(() => {
     fetchLeads();
   }, [fetchLeads]);
-
 
   const handleNewLeadFormChange = (
     e: React.ChangeEvent<
@@ -253,8 +233,6 @@ export default function LeadsPage() {
     setState((prev) => ({ ...prev, newLeadForm: false }));
   };
 
-
-
   const handleRowDeleted = useCallback(
     async (id: number) => {
       try {
@@ -278,11 +256,6 @@ export default function LeadsPage() {
     },
     [apiEndpoint]
   );
-
-
-
-
-
 
   const handleRowUpdated = useCallback(
     async (updatedRow: Lead) => {
@@ -318,19 +291,13 @@ export default function LeadsPage() {
     [apiEndpoint]
   );
 
-
   const handleMoveToCandidate = useCallback(
-    async (leadId: { id: number }, Moved) => {
-      console.log("this is moved",Moved)
+    async (leadId: { id: number }, Moved: boolean) => {
+      console.log("this is moved", Moved)
       setState((prev) => ({ ...prev, loadingRowId: leadId.id }));
 
       try {
-        var method;
-        if(Moved){
-          method = "DELETE"
-        }else{
-          method = "POST"
-        }
+        const method = Moved ? "DELETE" : "POST";
         const response = await fetch(`${apiEndpoint}/movetocandidate/${leadId.id}`, {
           method: method,
           headers: {
@@ -357,9 +324,9 @@ export default function LeadsPage() {
           loadingRowId: null,
         }));
 
-        if(Moved){
+        if (Moved) {
           toast.success(`Lead Has been removed from candidate list (Candidate ID in Candidate list: ${data.candidate_id})`);
-        }else{
+        } else {
           toast.success(`Lead moved to candidate (Candidate ID: ${data.candidate_id})`);
         }
       } catch (error: any) {
@@ -368,26 +335,8 @@ export default function LeadsPage() {
         setState((prev) => ({ ...prev, loadingRowId: null }));
       }
     },
-    []
+    [apiEndpoint]
   );
-
-  // Pagination handlers
-  const handlePreviousPage = () => {
-    if (state.page > 1) {
-      setState((prev) => ({ ...prev, page: prev.page - 1 }));
-    }
-  };
-
-  const handleNextPage = () => {
-    if (state.page * state.limit < state.total) {
-      setState((prev) => ({ ...prev, page: prev.page + 1 }));
-    }
-  };
-
-  const handleLimitChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newLimit = parseInt(e.target.value);
-    setState((prev) => ({ ...prev, limit: newLimit, page: 1 }));
-  };
 
   // Renderers and column definitions
   const StatusRenderer = ({ value }: { value?: string }) => {
@@ -411,323 +360,79 @@ export default function LeadsPage() {
     );
   };
 
-  const dateFormatter = ({ value }: { value?: string | Date | null }) => {
-    return value ? new Date(value).toLocaleDateString() : "-";
-  };
+  const columnDefs: ColDef<any, any>[] = useMemo(
+    () => [
+      { field: "id", headerName: "ID", width: 80, pinned: "left" },
+      { field: "full_name", headerName: "Full Name", width: 180 },
+      {
+        headerName: "Phone",
+        field: "phone",
+        editable: true,
+        cellRenderer: PhoneRenderer,
+        onCellValueChanged: (params) => handleRowUpdated(params.data),
+      },
+      {
+        headerName: "Email",
+        field: "email",
+        editable: true,
+        cellRenderer: EmailRenderer,
+        onCellValueChanged: (params) => handleRowUpdated(params.data),
+      },
+      {
+        field: "entry_date",
+        headerName: "Entry Date",
+        width: 150,
+        valueFormatter: ({ value }: ValueFormatterParams) =>
+          value ? new Date(value).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : "-",
+      },
+      { field: "workstatus", headerName: "Work Status", width: 150 },
+      {
+        field: "status",
+        headerName: "Status",
+        width: 120,
+        cellRenderer: StatusRenderer,
+      },
+      { field: "secondary_email", headerName: "Secondary Email", width: 220 },
+      { field: "secondary_phone", headerName: "Secondary Phone", width: 150 },
+      { field: "address", headerName: "Address", width: 250 },
+      {
+        field: "closed_date",
+        headerName: "Closed Date",
+        width: 150,
+        valueFormatter: ({ value }: ValueFormatterParams) =>
+          value ? new Date(value).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : "-",
+      },
+      {
+        field: "notes",
+        headerName: "Notes",
+        width: 300,
+        valueFormatter: ({ value }: ValueFormatterParams) => value || "-",
+      },
+      {
+        field: "massemail_unsubscribe",
+        headerName: "Mass Email Unsubscribe",
+        width: 180,
+        valueGetter: (params) => !!params.data.massemail_unsubscribe,
+        valueFormatter: ({ value }: ValueFormatterParams) => (value ? "1" : "0"),
+      },
+      {
+        field: "massemail_email_sent",
+        headerName: "Mass Email Sent",
+        width: 180,
+        valueGetter: (params) => !!params.data.massemail_email_sent,
+        valueFormatter: ({ value }: ValueFormatterParams) => (value ? "1" : "0"),
+      },
+      {
+        field: "moved_to_candidate",
+        headerName: "Moved to Candidate",
+        width: 180,
+        valueGetter: (params) => !!params.data.moved_to_candidate,
+        valueFormatter: ({ value }: ValueFormatterParams) => (value ? "1" : "0"),
+      },
+    ],
+    [handleRowUpdated]
+  );
 
-
-
-  // const columnDefs: ColDef[] = useMemo(
-  //   () => [
-  //     {
-  //       field: "id",
-  //       headerName: "ID",
-  //       width: 80,
-  //       pinned: "left",
-  //     },
-  //     { field: "full_name", headerName: "Full Name", width: 180, filter: true },
-  //     { field: "email", headerName: "Email", width: 220, filter: true },
-  //     { field: "phone", headerName: "Phone", width: 150, filter: true },
-  //     {
-  //       field: "workstatus",
-  //       headerName: "Work Status",
-  //       width: 150,
-  //       filter: true,
-  //     },
-
-  //     {
-  //       field: "status",
-  //       headerName: "Status",
-  //       width: 120,
-  //       cellRenderer: StatusRenderer,
-  //       filter: true,
-  //     },
-
-  //     {
-  //       field: "entry_date",
-  //       headerName: "Entry Date",
-  //       width: 150,
-  //       valueFormatter: dateFormatter,
-  //       filter: "agDateColumnFilter",
-  //     },
-      
-  //     {
-  //       field: "closed_date",
-  //       headerName: "Closed Date",
-  //       width: 150,
-  //       valueFormatter: dateFormatter,
-  //       filter: "agDateColumnFilter",
-  //     },
-
-  //     { field: "address", headerName: "Address", width: 120, filter: true },
-
-  //     {
-  //       field: "last_modified",
-  //       headerName: "Last Modified",
-  //       width: 180,
-  //       valueFormatter: dateFormatter,
-  //       filter: 'agDateColumnFilter'
-  //     },
-
-  //     // {
-  //     //   field: "moved_to_candidate",
-  //     //   headerName: "Moved to Candidate",
-  //     //   width: 180,
-  //     //   filter: "agSetColumnFilter",
-  //     //   valueFormatter: ({ value }) => (value ? "Yes" : "No"),
-  //     // }
-  //     {
-  //       field: "notes", // New column for notes
-  //       headerName: "Notes",
-  //       width: 250, // Adjustable width based on content
-  //       filter: true,
-  //       valueFormatter: ({ value }) => value || "-", // Display "-" if null
-  //     },
-
-
-       
-  //     {
-  //         field: "moved_to_candidate",
-  //         headerName: "Moved to Candidate",
-  //         width: 180,
-  //         filter: "agSetColumnFilter",
-  //         valueFormatter: ({ value }) => (value ? "true" : "false"), // display as text
-  //       }
-
-
-
-      
-
-  //     // {
-  //     //   headerName: "moved_to_candidate",
-  //     //   field: "moved_to_candidate",
-  //     //   width: 200,
-  //     //   cellRenderer: ({ data }: any) => {
-  //     //     const isMoved = data.moved_to_candidate;
-  //     //     const isLoading = state.loadingRowId === data.id;
-
-  //     //     return (
-  //     //       <button
-  //     //         onClick={async () => {
-  //     //           if (isLoading) return;
-  //     //           await handleMoveToCandidate(data, isMoved);
-  //     //         }}
-  //     //         disabled={isLoading}
-  //     //         className={`px-3 py-1 rounded text-sm font-semibold flex items-center justify-center gap-1 ${isMoved
-  //     //           ? "bg-red-500 text-white hover:bg-red-600"
-  //     //           : "bg-green-600 text-white hover:bg-green-700"
-  //     //           } ${isLoading ? "opacity-60 cursor-not-allowed" : ""}`}
-  //     //       >
-  //     //         {isLoading ? (
-  //     //           <>
-  //     //             <svg
-  //     //               className="animate-spin h-4 w-4 text-white"
-  //     //               viewBox="0 0 24 24"
-  //     //             >
-  //     //               <circle
-  //     //                 className="opacity-25"
-  //     //                 cx="12"
-  //     //                 cy="12"
-  //     //                 r="10"
-  //     //                 stroke="currentColor"
-  //     //                 strokeWidth="4"
-  //     //                 fill="none"
-  //     //               />
-  //     //               <path
-  //     //                 className="opacity-75"
-  //     //                 fill="currentColor"
-  //     //                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-  //     //               />
-  //     //             </svg>
-  //     //             Updating...
-  //     //           </>
-  //     //         ) : (
-  //     //           <>{isMoved ? "Undo Move" : "Move to Candidate"}</>
-  //     //         )}
-  //     //       </button>
-  //     //     );
-  //     //   },
-  //     // }
-  //   ],
-  //   [handleRowUpdated, state.loadingRowId] // include loadingRowId in deps
-  // );
-
-
-  // const columnDefs: ColDef[] = useMemo(
-  //   () => [
-  //     { field: "id", headerName: "ID", width: 80, pinned: "left", filter: true },
-  //     { field: "full_name", headerName: "Full Name", width: 180, filter: true },
-  //     {
-  //       field: "entry_date",
-  //       headerName: "Entry Date",
-  //       width: 150,
-  //       valueFormatter: ({ value }) =>
-  //         value ? new Date(value).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "-",
-  //       filter: "agDateColumnFilter",
-  //     },
-  //     { field: "phone", headerName: "Phone", width: 150, filter: true },
-  //     { field: "email", headerName: "Email", width: 220, filter: true },
-  //     { field: "workstatus", headerName: "Work Status", width: 150, filter: true },
-  //     {
-  //       field: "status",
-  //       headerName: "Status",
-  //       width: 120,
-  //       cellRenderer: StatusRenderer,
-  //       filter: true,
-  //     },
-  //     { field: "secondary_email", headerName: "Secondary Email", width: 220, filter: true },
-  //     { field: "secondary_phone", headerName: "Secondary Phone", width: 150, filter: true },
-  //     { field: "address", headerName: "Address", width: 250, filter: true },
-  //     {
-  //       field: "closed_date",
-  //       headerName: "Closed Date",
-  //       width: 150,
-  //       valueFormatter: ({ value }) =>
-  //         value ? new Date(value).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : "-",
-  //       filter: "agDateColumnFilter",
-  //     },
-  //     {
-  //       field: "notes",
-  //       headerName: "Notes",
-  //       width: 300, // Increased width for text content
-  //       filter: true,
-  //       valueFormatter: ({ value }) => value || "-",
-  //     },
-  //     {
-  //       field: "last_modified",
-  //       headerName: "Last Modified",
-  //       width: 180,
-  //       valueFormatter: ({ value }) =>
-  //         value ? new Date(value).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "-",
-  //       filter: "agDateColumnFilter",
-  //     },
-  //     {
-  //       field: "massemail_unsubscribe",
-  //       headerName: "Mass Email Unsubscribe",
-  //       width: 180,
-  //       filter: "agSetColumnFilter",
-  //       valueFormatter: ({ value }) => (value ? 1 : 0),
-  //       },
-  //     {
-  //       field: "massemail_email_sent",
-  //       headerName: "Mass Email Sent",
-  //       width: 180,
-  //       filter: "agSetColumnFilter",
-  //       valueFormatter: ({ value }) => (value ? 1 : 0),
-  //        },
-  //     {
-  //       field: "moved_to_candidate",
-  //       headerName: "Moved to Candidate",
-  //       width: 180,
-  //       filter: "agNumberColumnFilter",
-  //       valueFormatter: ({ value }) => (value ? 1 : 0),
-  //       cellRenderer: (params) => (params.value ? "1" : "0"),      },
-  //   ],
-  //   [handleRowUpdated, state.loadingRowId, StatusRenderer] // Ensure dependencies are correct
-  // );
-
-
-const columnDefs: ColDef<any, any>[] = useMemo(() => [
-  { field: "id", headerName: "ID", width: 80, pinned: "left", filter: true },
-  { field: "full_name", headerName: "Full Name", width: 180, filter: true },
-
-  // Entry Date
-  {
-    field: "entry_date",
-    headerName: "Entry Date",
-    width: 150,
-    valueFormatter: ({ value }: ValueFormatterParams) =>
-      value ? new Date(value).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "-",
-    filter: "agDateColumnFilter",
-  },
-
-  { field: "phone", headerName: "Phone", width: 150, filter: true },
-  { field: "email", headerName: "Email", width: 220, filter: true },
-  { field: "workstatus", headerName: "Work Status", width: 150, filter: true },
-
-  // Status with custom renderer
-  {
-    field: "status",
-    headerName: "Status",
-    width: 120,
-    cellRenderer: StatusRenderer,
-    filter: true,
-  },
-
-  { field: "secondary_email", headerName: "Secondary Email", width: 220, filter: true },
-  { field: "secondary_phone", headerName: "Secondary Phone", width: 150, filter: true },
-  { field: "address", headerName: "Address", width: 250, filter: true },
-
-  // Closed Date
-  {
-    field: "closed_date",
-    headerName: "Closed Date",
-    width: 150,
-    valueFormatter: ({ value }: ValueFormatterParams) =>
-      value ? new Date(value).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : "-",
-    filter: "agDateColumnFilter",
-  },
-
-  // Notes
-  {
-    field: "notes",
-    headerName: "Notes",
-    width: 300,
-    filter: true,
-    valueFormatter: ({ value }: ValueFormatterParams) => value || "-",
-  },
-
-  // Last Modified
-  {
-    field: "last_modified",
-    headerName: "Last Modified",
-    width: 180,
-    valueFormatter: ({ value }: ValueFormatterParams) =>
-      value ? new Date(value).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "-",
-    filter: "agDateColumnFilter",
-  },
-
-  // Boolean columns handled with valueGetter + valueFormatter
-  {
-    field: "massemail_unsubscribe",
-    headerName: "Mass Email Unsubscribe",
-    width: 180,
-    filter: "agSetColumnFilter",
-    valueGetter: (params) => !!params.data.massemail_unsubscribe,
-   valueFormatter: ({ value }: ValueFormatterParams) => (value ? "1" : "0"),
-  },
-  {
-    field: "massemail_email_sent",
-    headerName: "Mass Email Sent",
-    width: 180,
-    filter: "agSetColumnFilter",
-    valueGetter: (params) => !!params.data.massemail_email_sent,
-    valueFormatter: ({ value }: ValueFormatterParams) => (value ? "1" : "0"),
-  },
-  {
-    field: "moved_to_candidate",
-    headerName: "Moved to Candidate",
-    width: 180,
-    filter: "agSetColumnFilter",
-    valueGetter: (params) => !!params.data.moved_to_candidate,
-    valueFormatter: ({ value }: ValueFormatterParams) => (value ? "1" : "0"),
-  },
-], [StatusRenderer]);
-
-
-  // Default column definitions
-  // const defaultColDef = useMemo(
-  //   () => ({
-  //     sortable: true,
-  //     resizable: true,
-  //     filter: true,
-  //     flex: 1,
-  //     minWidth: 100,
-  //   }),
-  //   []
-  // );
-
-  // Loading and error states
   if (state.isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -740,7 +445,11 @@ const columnDefs: ColDef<any, any>[] = useMemo(() => [
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="text-red-500">{state.error}</div>
-        <Button variant="outline" onClick={fetchLeads} className="ml-4">
+        <Button
+          variant="outline"
+          onClick={() => fetchLeads()}
+          className="ml-4"
+        >
           <RefreshCw className="mr-2 h-4 w-4" />
           Retry
         </Button>
@@ -782,8 +491,7 @@ const columnDefs: ColDef<any, any>[] = useMemo(() => [
 
             <form
               onSubmit={handleNewLeadFormSubmit}
-              className="grid grid-cols-1 gap-4 md:grid-cols-2"
-            >
+              className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {/* Form fields */}
               {Object.entries({
                 full_name: { label: "Full Name", type: "text", required: true },
@@ -797,11 +505,7 @@ const columnDefs: ColDef<any, any>[] = useMemo(() => [
                   options: ["Open", "In Progress", "Closed"],
                   required: true,
                 },
-                // notes: { label: "Notes (optional)", type: "textarea" },
-                // moved_to_candidate: {
-                //   label: "Moved to Candidate",
-                //   type: "bool",
-                // },
+                notes: { label: "Notes (optional)", type: "textarea" },
               }).map(([name, config]) => (
                 <div
                   key={name}
@@ -920,7 +624,6 @@ const columnDefs: ColDef<any, any>[] = useMemo(() => [
             />
           </div>
         </div>
-
       </div>
 
       {/* Search Results Info */}
@@ -932,57 +635,59 @@ const columnDefs: ColDef<any, any>[] = useMemo(() => [
 
       {/* AG Grid Table */}
       <div className="flex w-full justify-center">
-
         <AGGridTable
-
-          rowData={state.filteredLeads}
+          rowData={paginatedLeads}
           columnDefs={columnDefs}
           onRowClicked={(event) => console.log("Row clicked:", event.data)}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
           title="Leads"
-          showSearch={true}
-          showFilters={true}
+          showFilters={false}
+          showSearch={false}
           height="600px"
-
-
         />
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-gray-500 dark:text-gray-400">
-          Showing {(state.page - 1) * state.limit + 1} to{" "}
-          {Math.min(state.page * state.limit, state.total)} of {state.total}{" "}
-          leads
-        </div>
+      <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
         <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            onClick={handlePreviousPage}
-            disabled={state.page <= 1}
+          <span className="text-sm">Rows per page:</span>
+          <select
+            value={pageSize}
+            onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="border rounded px-2 py-1 text-sm"
           >
-            <ChevronLeft className="h-4 w-4" />
+            {[10, 50, 100, 200].map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+            disabled={currentPage === 1}
+            className="px-2 py-1 border rounded text-sm disabled:opacity-50"
+          >
             Previous
-          </Button>
-          <span className="rounded-md bg-gray-100 px-3 py-1 text-sm font-medium dark:bg-gray-800">
-            Page {state.page}
+          </button>
+          <span className="text-sm">
+            Page {currentPage} of {totalPages}
           </span>
-          <Button
-            variant="outline"
-            onClick={handleNextPage}
-            disabled={state.page * state.limit >= state.total}
+          <button
+            onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+            disabled={currentPage === totalPages}
+            className="px-2 py-1 border rounded text-sm disabled:opacity-50"
           >
             Next
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+          </button>
         </div>
       </div>
     </div>
   );
 }
-
-
-
-
-// ========================
