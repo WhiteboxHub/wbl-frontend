@@ -109,43 +109,19 @@ export default function BatchPage() {
 
   // Column definitions
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
-    { field: "batchid", headerName: "Batch ID", width: 120, pinned: "left" },
-    { field: "batchname", headerName: "Batch Name", width: 180, editable: true },
-    {
-      field: "orientationdate",
-      headerName: "Orientation Date",
-      width: 160,
-      editable: true,
-      valueFormatter: dateFormatter,
-    },
-    {
-      field: "subject",
-      headerName: "Subject",
-      width: 120,
-      editable: true,
-      cellRenderer: SubjectRenderer, 
-    },
-    {
-      field: "startdate",
-      headerName: "Start Date",
-      width: 160,
-      editable: true,
-      valueFormatter: dateFormatter,
-    },
-    {
-      field: "enddate",
-      headerName: "End Date",
-      width: 160,
-      editable: true,
-      valueFormatter: dateFormatter,
-    },
-    {
-      field: "lastmoddatetime",
-      headerName: "Last Modified",
-      width: 180,
-      valueFormatter: dateFormatter,
-    },
-    { field: "courseid", headerName: "Course ID", width: 120 },
+    { field: "batchid", headerName: "Batch ID", width: 130, pinned: "left" },
+    { field: "batchname", headerName: "Batch Name", width: 190, editable: true },
+    {field: "orientationdate",headerName: "Orientation Date",width: 190,editable: true,valueFormatter: dateFormatter,},
+    {field: "subject",headerName: "Subject",width: 140,editable: true,cellRenderer: SubjectRenderer, },
+    {field: "startdate",headerName: "Start Date",width: 170,editable: true,valueFormatter: dateFormatter,},
+    {field: "enddate",headerName: "End Date",width: 190,editable: true,valueFormatter: dateFormatter,},
+    // {
+    //   field: "lastmoddatetime",
+    //   headerName: "Last Modified",
+    //   width: 180,
+    //   valueFormatter: dateFormatter,
+    // },
+    { field: "courseid", headerName: "Course ID", width: 140 },
   ], []);
 
   // PUT request on row update

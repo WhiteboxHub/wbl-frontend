@@ -18,6 +18,7 @@ import "@/styles/admin.css";
 interface AGGridTableProps {
   rowData: any[];
   columnDefs: ColDef[];
+  defaultColDef?:ColDef;
   onRowClicked?: (data: any) => void;
   onRowUpdated?: (data: any) => void;
   onRowDeleted?: (id: string | number) => void;
@@ -248,14 +249,13 @@ export function AGGridTable({
             defaultColDef={{
               resizable: true,
               sortable: true,
-              filter: true,
+              filter: false,
               cellClass: 'custom-cell-style',
             }}
             rowSelection="single"
             rowMultiSelectWithClick={false}
             suppressRowClickSelection={false}
             suppressCellFocus={false}
-            // ❌ pagination removed
           />
         </div>
       </div>
