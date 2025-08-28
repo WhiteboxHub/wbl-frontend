@@ -73,6 +73,7 @@ const fieldSections: Record<string, string> = {
   vendor_company: "Professional Information",
 
   course: "Professional Information",
+  course_id:"Professional Information",
   link: "Professional Information",
   videoid: "Professional Information",
   type: "Professional Information",

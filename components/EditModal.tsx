@@ -78,6 +78,7 @@ const fieldSections: Record<string, string> = {
   lastlogin: "Professional Information",
   logincount: "Professional Information",
   course: "Professional Information",
+  course_id: "Professional Information",
   registereddate: "Professional Information",
   company: "Professional Information",
   client_id: "Professional Information",
