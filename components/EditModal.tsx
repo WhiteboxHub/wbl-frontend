@@ -35,33 +35,6 @@ const countryCodes = [
 
 const fieldSections: Record<string, string> = {
   id: "Basic Information",
-
-
-  alias:"Basic Information",
-
-
-  full_name: "Basic Information",
-  extraction_date: "Basic Information", 
-  type: "Basic Information",
-
-  email: "Professional Information",
-  company_name: "Professional Information",
-  linkedin_id: "Professional Information",
-  status: "Professional Information",
-  linkedin_connected: "Professional Information",
-  intro_email_sent: "Professional Information",
-  intro_call: "Professional Information",
-  moved_to_vendor: "Professional Information",
-  phone_number: "Contact Information",
-  secondary_phone: "Contact Information",
-  location: "Contact Information", 
-
-  // notes: "Notes",
-};
-
-
-
-
   sessionid: "Basic Information",
   subject_id: "Basic Information",
   candidateid: "Basic Information",
@@ -214,10 +187,13 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "discontinued", label: "Discontinued" },
     { value: "closed", label: "Closed" },
   ],
+  
   work_status: workVisaStatusOptions,
   workstatus: workVisaStatusOptions,
   visa_status: workVisaStatusOptions,
 };
+
+
 
 // Custom label overrides
 const labelOverrides: Record<string, string> = {
@@ -258,7 +234,7 @@ const labelOverrides: Record<string, string> = {
 
 
 // Fields that should use a date picker
-const dateFields = ["orientationdate", "startdate", "enddate", "closed_date", "entry_date", "created_at"];
+const dateFields = ["orientationdate", "startdate", "enddate", "closed_date", "entry_date", "created_at", "classdate", "sessiondate"];
 
 export function EditModal({
   isOpen,
