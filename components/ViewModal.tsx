@@ -19,6 +19,29 @@ interface ViewModalProps {
 const fieldSections: Record<string, string> = {
 
   id: "Basic Information",
+
+  alias:"Basic Information",
+  subject: "Basic Information",
+  subject_id: "Basic Information",
+  candidateid: "Basic Information",
+  sessionid: "Basic Information",
+  uname: "Basic Information",
+  fullname: "Basic Information",
+  candidate_id: "Basic Information",
+  candidate_email: "Basic Information",
+  placement_date: "Basic Information",
+  batch: "Basic Information",
+  leadid: "Basic Information",
+  name: "Basic Information",
+  candidate_name: "Basic Information",
+  candidate_role: "Basic Information",
+  dob: "Basic Information",
+  title: "Basic Information",
+  contact: "Basic Information",
+
+
+
+  id: "Basic Information",
   subject: "Basic Information",
   subject_id: "Basic Information",
   candidateid: "Basic Information",

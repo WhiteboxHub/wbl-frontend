@@ -160,21 +160,17 @@ export default function CandidatesInterviews() {
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
       // { field: "candidate_id", headerName: "Candidate ID", sortable: true, maxWidth: 110 },
       { field: "candidate_name", headerName: "Full Name", sortable: true, minWidth: 150 },
-      { field: "company", headerName: "Company", sortable: true, minWidth: 150 },
+      { field: "company", headerName: "Company", sortable: true, maxWidth: 120 },
       { field: "interview_type", headerName: "Type", maxWidth: 90 },
       { field: "interview_date", headerName: "Date", maxWidth: 110 },
       { field: "recording_link", headerName: "Recording", cellRenderer: RecordingRenderer, minWidth: 200 },
-
-
       { field: "status", headerName: "Status", cellRenderer: StatusRenderer, minWidth: 120 },
       { field: "feedback", headerName: "Feedback", cellRenderer: FeedbackRenderer, minWidth: 120 },
-
-      // Other columns
       { field: "interviewer_emails", headerName: "Emails", minWidth: 180 },
       { field: "interviewer_contact", headerName: "Contact", maxWidth: 140 },
       { field: "backup_url", headerName: "Backup URL", cellRenderer: BackupRenderer, minWidth: 200 },
       { field: "notes", headerName: "Notes", minWidth: 120 },
-      { field: "last_mod_datetime", headerName: "Last Modified", minWidth: 160 },
+      // { field: "last_mod_datetime", headerName: "Last Modified", minWidth: 160 },
     ];
   }, []);
 
