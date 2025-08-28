@@ -12,7 +12,7 @@ import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import axios from "axios";
-import AGGridTable, { PhoneRenderer, EmailRenderer } from "@/components/AGGridTable";
+import AGGridTable from "@/components/AGGridTable";
 
 
 // Cell renderers
