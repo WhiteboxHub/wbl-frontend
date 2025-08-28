@@ -274,20 +274,7 @@ export default function CourseSubjectPage() {
     fetchCourseSubjects();
   }, []);
 
-//   // Search filter
-//   useEffect(() => {
-//     const lower = searchTerm.trim().toLowerCase();
-//     if (!lower) return setFilteredCourseSubjects(courseSubjects);
 
-//     const filtered = courseSubjects.filter(
-//       (row) =>
-//         row.course_id?.toString().includes(lower) ||
-//         row.subject_id?.toString().includes(lower)
-//     );
-//     setFilteredCourseSubjects(filtered);
-//   }, [searchTerm, courseSubjects]);
-
-// Search filter
 // Search filter
 useEffect(() => {
   const lower = searchTerm.trim().toLowerCase();
@@ -297,7 +284,7 @@ useEffect(() => {
     const courseIdStr = row.course_id?.toString() || "";
     const subjectIdStr = row.subject_id?.toString() || "";
 
-    // If user searches like "1 22" or "22 1"
+    //  searches like "1 22" or "22 1"
     const parts = lower.split(/\s+/).filter(Boolean); // split by space
     if (parts.length === 2) {
       return (
@@ -306,7 +293,7 @@ useEffect(() => {
       );
     }
 
-    // Normal contains search (single value)
+    // Normal  search
     return (
       courseIdStr.includes(lower) ||
       subjectIdStr.includes(lower) ||
@@ -345,28 +332,7 @@ useEffect(() => {
     }
   }, [courseSubjects]);
 
-  // Delete mapping
-//   const handleRowDeleted = async (row: any) => {
-//     try {
-//       await axios.delete(
-//         `${process.env.NEXT_PUBLIC_API_URL}/course-subjects`,
-//         {
-//           params: { course_id: row.course_id, subject_id: row.subject_id },
-//         }
-//       );
-//       setFilteredCourseSubjects((prev) =>
-//         prev.filter(
-//           (r) =>
-//             !(
-//               r.course_id === row.course_id && r.subject_id === row.subject_id
-//             )
-//         )
-//       );
-//     } catch (e: any) {
-//       alert(e.response?.data?.detail || "Delete failed");
-//     }
-//   };
-// Delete mapping - FIXED
+
 // Delete mapping - FIXED
 const handleRowDeleted = async (row: any) => {
   try {
@@ -397,7 +363,7 @@ const handleRowDeleted = async (row: any) => {
 //       console.error("Update failed", e);
 //     }
 //   };
-// Update mapping - FIXED
+// Update mapping 
 const handleRowUpdated = async (updatedRow: any) => {
   try {
     const response = await axios.put(
