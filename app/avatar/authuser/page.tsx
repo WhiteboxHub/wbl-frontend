@@ -233,7 +233,7 @@ export default function AuthUsersPage() {
             id="search"
             type="text"
             value={searchTerm}
-            placeholder="Type name, role, or numeric ID..."
+            placeholder="Type name, email, or numeric ID..."
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
           />
