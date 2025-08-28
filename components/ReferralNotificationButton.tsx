@@ -46,7 +46,7 @@ const ReferralNotificationButton = () => {
         onClick={handleMainButtonClick}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        className="group relative flex items-center gap-2 px-6 py-4 rounded-full bg-gradient-to-r from-pink-500 to-orange-400 text-white shadow-2xl transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-pointer z-10"
+        className="group relative flex items-center gap-2 px-6 py-4 rounded-full bg-gradient-to-r from-blue-500 to-blue-700 text-white shadow-2xl transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-pointer z-10"
         aria-label="Refer and Earn"
         style={{ pointerEvents: 'auto', position: 'relative', zIndex: 10 }}
       >
@@ -86,7 +86,7 @@ const ReferralNotificationButton = () => {
       </button>
 
       {/* Pulse Animation */}
-      <div className="absolute inset-0 rounded-full bg-gradient-to-r from-pink-500 to-orange-400 opacity-75 animate-ping pointer-events-none"></div>
+      <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-500 to-blue-700 opacity-75 animate-ping pointer-events-none"></div>
     </div>
   );
 };
