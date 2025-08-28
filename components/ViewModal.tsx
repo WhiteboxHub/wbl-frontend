@@ -84,7 +84,7 @@ const fieldSections: Record<string, string> = {
   marketing_email_address: "Professional Information",
   interview_date: "Professional Information",
   interview_mode: "Professional Information",
-  status: "Professional Information",
+  status: "Basic Information",
   visa_status: "Professional Information",
   workstatus: "Professional Information",
   education: "Professional Information",
@@ -102,6 +102,10 @@ const fieldSections: Record<string, string> = {
   recruiterassesment: "Professional Information",
   statuschangedate: "Professional Information",
   closed: "Professional Information",
+  lastlogin: "Professional Information",
+  logincount: "Professional Information",
+  registereddate: "Professional Information",
+  message: "Professional Information",
 
   address: "Contact Information",
   city: "Contact Information",
@@ -125,6 +129,7 @@ const fieldLabels: Record<string, string> = {
   id: "ID",
   sessionid: "ID",
   subject_id: "Subject ID",
+  new_subject_id: "New Subject ID",
   videoid: "Video ID",
   candidateid: "Candidate ID",
   candidate_id: "Candidate ID",
@@ -154,6 +159,8 @@ const fieldLabels: Record<string, string> = {
   level3date: "Level 3 Date",
   emergcontactname: "Emergency Contact Name",
   lastmoddatetime: "Last Mod Date Time",
+  classdate: "Class Date",
+  filename: "File Name",
   enddate: "End Date",
   sessiondate: "Session Date",
   emergcontactphone: "Emergency Contact Phone",
@@ -168,10 +175,39 @@ const fieldLabels: Record<string, string> = {
 export function ViewModal({ isOpen, onClose, data, title }: ViewModalProps) {
   if (!data) return null;
 
-  const getStatusColor = (status: string) =>
-    status?.toLowerCase() === "active"
+
+  const getStatusColor = (
+    status: string | number | boolean | null | undefined
+  ): string => {
+    // normalize to string
+    let normalized: string;
+
+    if (typeof status === "string") {
+      normalized = status.toLowerCase();
+    } else if (typeof status === "number" || typeof status === "boolean") {
+      normalized = status ? "active" : "inactive";
+    } else {
+      normalized = "inactive"; // default fallback
+    }
+
+    return normalized === "active"
       ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
       : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+  };
+
+  const getStatusLabel = (
+    status: string | number | boolean | null | undefined
+  ): string => {
+    if (typeof status === "string") return status;
+    if (typeof status === "number" || typeof status === "boolean")
+      return status ? "Active" : "Inactive";
+    return "Inactive";
+  };
+
+  // const getStatusColor = (status: string) =>
+  //   status?.toLowerCase() === "active"
+  //     ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+  //     : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
 
   const getVisaColor = (visa: string) => {
     switch (visa) {

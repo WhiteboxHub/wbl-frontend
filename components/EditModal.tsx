@@ -19,6 +19,20 @@ interface EditModalProps {
   onSave: (updatedData: Record<string, any>) => void;
 }
 
+
+// Country codes configuration
+const countryCodes = [
+  { code: "+1", country: "US", flag: "🇺🇸" },
+  { code: "+44", country: "UK", flag: "🇬🇧" },
+  { code: "+91", country: "India", flag: "🇮🇳" },
+  { code: "+61", country: "Australia", flag: "🇦🇺" },
+  { code: "+86", country: "China", flag: "🇨🇳" },
+  { code: "+81", country: "Japan", flag: "🇯🇵" },
+  { code: "+49", country: "Germany", flag: "🇩🇪" },
+  { code: "+33", country: "France", flag: "🇫🇷" },
+];
+
+
 const fieldSections: Record<string, string> = {
   id: "Basic Information",
   sessionid: "Basic Information",
@@ -36,9 +50,14 @@ const fieldSections: Record<string, string> = {
   candidate_role: "Basic Information",
   dob: "Basic Information",
   contact: "Basic Information",
-  phone: "Basic Information",
   secondaryphone: "Basic Information",
+  phone: "Basic Information",
+  phone_number: "Contact Information",
   email: "Basic Information",
+  created_at: "Professional Information",
+  linkedin_connected: "Professional Information",
+  intro_email_sent: "Professional Information",
+  intro_call: "Professional Information",
   secondaryemail: "Basic Information",
   ssn: "Basic Information",
   priority: "Basic Information",
@@ -53,8 +72,12 @@ const fieldSections: Record<string, string> = {
   batchid: "Basic Information",
   agreement: "Basic Information",
   promissory: "Basic Information",
+  status: "Basic Information",
 
+  lastlogin: "Professional Information",
+  logincount: "Professional Information",
   course: "Professional Information",
+  registereddate: "Professional Information",
   company: "Professional Information",
   client_id: "Professional Information",
   client_name: "Professional Information",
@@ -64,10 +87,10 @@ const fieldSections: Record<string, string> = {
   marketing_email_address: "Professional Information",
   interview_date: "Professional Information",
   interview_mode: "Professional Information",
-  status: "Professional Information",
   visa_status: "Professional Information",
   work_status: "Professional Information",
   workstatus: "Professional Information",
+  message: "Professional Information",
   education: "Professional Information",
   workexperience: "Professional Information",
   faq: "Professional Information",
@@ -87,7 +110,7 @@ const fieldSections: Record<string, string> = {
     // Basic Information
   full_name: "Basic Information",
   secondary_email: "Basic Information",
-  phone_number: "Basic Information",
+  // phone_number: "Basic Information",
   secondary_phone: "Contact Information",
   location: "Basic Information",
   linkedin_id: "Professional Information",
@@ -128,6 +151,35 @@ const workVisaStatusOptions = [
 
 // Enum dropdown options
 const enumOptions: Record<string, { value: string; label: string }[]> = {
+
+  type: [
+    { value: "client", label: "Client" },
+    { value: "third-party-vendor", label: "Third Party Vendor" },
+    { value: "implementation-partner", label: "Implementation Partner" },
+    { value: "sourcer", label: "Sourcer" },
+    { value: "contact-from-ip", label: "Contact from IP" },
+  ],
+    linkedin_connected: [
+    { value: "yes", label: "Yes" },
+    { value: "no", label: "No" },
+  ],
+  intro_email_sent: [
+    { value: "yes", label: "Yes" },
+    { value: "no", label: "No" },
+  ],
+
+  intro_call: [
+    { value: "yes", label: "Yes" },
+    { value: "no", label: "No" },
+  ],
+  moved_to_vendor: [
+    { value: "true", label: "Yes" },
+    { value: "false", label: "No" },
+  ],
+  moved_to_candidate: [
+    { value: "true", label: "Yes" },
+    { value: "false", label: "No" },
+  ],
   status: [
     { value: "active", label: "Active" },
     { value: "inactive", label: "Inactive" },
@@ -144,6 +196,7 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
 const labelOverrides: Record<string, string> = {
   id: "ID",
   subject_id: "Subject ID",
+  new_subject_id: "New Subject ID",
   sessionid: "ID",
   courseid: "Course ID",
   candidateid: "Candidate ID",
@@ -160,6 +213,8 @@ const labelOverrides: Record<string, string> = {
   email: "Email",
   videoid: "Video ID",
   secondaryemail: "Secondary Email",
+  classdate: "Class Date",
+  filename: "File Name",
   visa_status: "Visa Status",
   work_status: "Work Status",
   workstatus: "Work Status",
@@ -174,8 +229,9 @@ const labelOverrides: Record<string, string> = {
   registereddate: "Registered Date",
 };
 
+
 // Fields that should use a date picker
-const dateFields = ["orientationdate", "startdate", "enddate"];
+const dateFields = ["orientationdate", "startdate", "enddate", "closed_date", "entry_date", "created_at"];
 
 export function EditModal({
   isOpen,

@@ -6,12 +6,14 @@ import React, { useEffect, useState } from "react";
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { ColDef } from "ag-grid-community";
-import { AGGridTable } from "@/components/AGGridTable";
+// import { AGGridTable } from "@/components/AGGridTable";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import axios from "axios";
+import AGGridTable from "@/components/AGGridTable";
+
 
 // Cell renderers
 const StatusRenderer = (params: any) => {
@@ -248,7 +250,9 @@ export default function CandidatesPage() {
         height="calc(70vh)"
         onRowUpdated={handleRowUpdated}
         onRowDeleted={handleRowDeleted}
+        showFilters={false}
         showSearch={false}
+        
       />
 
       <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
@@ -262,7 +266,7 @@ export default function CandidatesPage() {
             }}
             className="border rounded px-2 py-1 text-sm"
           >
-            {[10, 20, 50, 100].map((size) => (
+            {[10,50, 100].map((size) => (
               <option key={size} value={size}>
                 {size}
               </option>
