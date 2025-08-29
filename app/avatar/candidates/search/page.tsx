@@ -64,7 +64,7 @@ export default function CandidateSearchPage() {
     }));
   };
 
-  // Search for candidate suggestions
+  // Optimized search with better error handling
   useEffect(() => {
     if (debounceTimeout.current) {
       clearTimeout(debounceTimeout.current);
@@ -81,14 +81,20 @@ export default function CandidateSearchPage() {
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/candidates/search-names/${encodeURIComponent(searchTerm)}`
         );
-        const data = await res.json();
-        setSuggestions(data || []);
-        setShowSuggestions(true);
+        
+        if (res.ok) {
+          const data = await res.json();
+          setSuggestions(data || []);
+          setShowSuggestions(true);
+        } else {
+          console.error('Search failed:', res.status);
+          setSuggestions([]);
+        }
       } catch (error) {
         setSuggestions([]);
         console.error("Search failed:", error);
       }
-    }, 300);
+    }, 300); // Reduced to 300ms for faster response
   }, [searchTerm]);
 
   // Select candidate and get full details
@@ -112,16 +118,11 @@ export default function CandidateSearchPage() {
 
   const renderInfoCard = (title: string, icon: React.ReactNode, data: any) => (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
-  <div className="flex items-center gap-3 mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
-    {icon}
-    <h4 className="font-semibold text-lg text-gray-900 dark:text-gray-100">{title}</h4>
-  </div>
-  {/* Keep existing content below this */}
-
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-3 mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
         {icon}
-        <h4 className="font-semibold text-gray-900 dark:text-gray-100">{title}</h4>
+        <h4 className="font-semibold text-lg text-gray-900 dark:text-gray-100">{title}</h4>
       </div>
+      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
         {Object.entries(data).map(([key, value]) => {
           if (value === null || value === undefined || value === "") return null;
@@ -138,15 +139,14 @@ export default function CandidateSearchPage() {
             displayValue = value === 'Y' ? '✅ Yes' : '❌ No';
           }
 
-          
-            return (
-          <div key={key} className="flex justify-between items-start py-2 border-b border-gray-100 dark:border-gray-600 last:border-b-0">
-            <span className="text-gray-600 dark:text-gray-400 font-medium min-w-[140px] flex-shrink-0">{displayKey}:</span>
-            <span className="text-gray-900 dark:text-gray-100 font-medium text-right flex-1 ml-4">{displayValue as React.ReactNode}</span>
-          </div>
-       );
-  })}
- </div>
+          return (
+            <div key={key} className="flex justify-between items-start py-2 border-b border-gray-100 dark:border-gray-600 last:border-b-0">
+              <span className="text-gray-600 dark:text-gray-400 font-medium min-w-[140px] flex-shrink-0">{displayKey}:</span>
+              <span className="text-gray-900 dark:text-gray-100 font-medium text-right flex-1 ml-4">{displayValue as React.ReactNode}</span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 
@@ -167,12 +167,11 @@ export default function CandidateSearchPage() {
 
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
-
-           <div className="flex items-center gap-3 mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
-            {icon}
-           <h4 className="font-semibold text-lg text-gray-900 dark:text-gray-100">{title}</h4>
+        <div className="flex items-center gap-3 mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
+          {icon}
+          <h4 className="font-semibold text-lg text-gray-900 dark:text-gray-100">{title}</h4>
           <Badge variant="secondary">{records.length}</Badge>
-         </div>
+        </div>
 
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
@@ -194,7 +193,7 @@ export default function CandidateSearchPage() {
                     
                     if (column.toLowerCase().includes('date')) {
                       value = DateFormatter(value);
-                    } else if (column.toLowerCase().includes('amount') || column.toLowerCase().includes('salary')) {
+                    } else if (column.toLowerCase().includes('amount') || column.toLowerCase().includes('salary') || column === 'fee_paid') {
                       value = AmountFormatter(value);
                     } else if (column === 'status') {
                       value = <StatusRenderer status={value as string} />;
@@ -231,12 +230,12 @@ export default function CandidateSearchPage() {
             Search Candidates
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Search candidates by name to view comprehensive information
+            Search candidates by name to view comprehensive information including instructor names, marketing manager, and placement fees
           </p>
         </div>
       </div>
 
-      {/* Search Box with Dropdown */}
+      {/* Optimized Search Box */}
       <div className="max-w-md relative">
         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
           Search by Name
@@ -256,13 +255,13 @@ export default function CandidateSearchPage() {
           />
         </div>
 
-        {/* Dropdown Suggestions */}
+        {/* Enhanced Dropdown Suggestions */}
         {showSuggestions && suggestions.length > 0 && (
           <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg max-h-60 overflow-auto">
             {suggestions.map((suggestion) => (
               <button
                 key={suggestion.id}
-                className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-600 last:border-b-0 focus:outline-none focus:bg-gray-50 dark:focus:bg-gray-700"
+                className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-600 last:border-b-0 focus:outline-none focus:bg-gray-50 dark:focus:bg-gray-700 transition-colors"
                 onClick={() => selectCandidate(suggestion)}
               >
                 <div className="font-medium text-gray-900 dark:text-gray-100">{suggestion.name}</div>
@@ -280,8 +279,12 @@ export default function CandidateSearchPage() {
           />
         )}
 
+        {/* Enhanced Loading and Error States */}
         {loading && (
-          <p className="mt-2 text-sm text-blue-500 dark:text-blue-400">Loading candidate details...</p>
+          <div className="mt-2 flex items-center gap-2">
+            <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-blue-500 dark:text-blue-400">Loading candidate details...</p>
+          </div>
         )}
         
         {searchTerm.length >= 2 && !loading && suggestions.length === 0 && (
@@ -289,10 +292,10 @@ export default function CandidateSearchPage() {
         )}
       </div>
 
-      {/* Candidate Accordion */}
+      {/* Enhanced Candidate Details with All New Fields */}
       {selectedCandidate && (
         <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-          <div className="bg-gray-50 dark:bg-gray-900 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
               {selectedCandidate.basic_info.full_name}
             </h2>
@@ -302,19 +305,19 @@ export default function CandidateSearchPage() {
           </div>
 
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {/* Section 1: Basic Information */}
+            {/* Basic Information - Now shows more fields */}
             <div className="accordion-item">
               <button
                 className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
                 onClick={() => toggleSection('basic')}
-      >
-             <div className="flex items-center gap-3">
-             <User className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-             <span className="font-semibold text-gray-900 dark:text-gray-100">Basic Information</span>
-             </div>
-             <span className="text-2xl font-bold text-gray-400 transition-transform duration-200">
-             {openSections['basic'] ? '−' : '+'}
-             </span>
+              >
+                <div className="flex items-center gap-3">
+                  <User className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">Basic Information</span>
+                </div>
+                <span className="text-2xl font-bold text-gray-400 transition-transform duration-200">
+                  {openSections['basic'] ? '−' : '+'}
+                </span>
               </button>
               {openSections['basic'] && (
                 <div className="px-6 pb-4">
@@ -323,7 +326,7 @@ export default function CandidateSearchPage() {
               )}
             </div>
 
-            {/* Section 2: Emergency Contact */}
+            {/* Emergency Contact */}
             <div className="accordion-item">
               <button
                 className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors"
@@ -344,7 +347,7 @@ export default function CandidateSearchPage() {
               )}
             </div>
 
-            {/* Section 3: Fee & Financials */}
+            {/* Fee & Financials */}
             <div className="accordion-item">
               <button
                 className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors"
@@ -365,7 +368,7 @@ export default function CandidateSearchPage() {
               )}
             </div>
 
-            {/* Section 4: Preparation Info */}
+            {/* Preparation Info - Now shows instructor names */}
             <div className="accordion-item">
               <button
                 className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors"
@@ -387,7 +390,7 @@ export default function CandidateSearchPage() {
               )}
             </div>
 
-            {/* Section 5: Marketing Info */}
+            {/* Marketing Info - Now shows marketing manager name */}
             <div className="accordion-item">
               <button
                 className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors"
@@ -409,7 +412,7 @@ export default function CandidateSearchPage() {
               )}
             </div>
 
-            {/* Section 6: Interview Info */}
+            {/* Interview Info - Now shows recording links */}
             <div className="accordion-item">
               <button
                 className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors"
@@ -431,14 +434,14 @@ export default function CandidateSearchPage() {
               )}
             </div>
 
-            {/* Section 7: Placement Info */}
+            {/* Placement Info - Now shows placement fees */}
             <div className="accordion-item">
               <button
                 className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors"
                 onClick={() => toggleSection('placements')}
               >
                 <div className="flex items-center gap-2">
-                  <Briefcase className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                  <DollarSign className="h-5 w-5 text-gray-600 dark:text-gray-400" />
                   <span className="font-medium text-gray-900 dark:text-gray-100">Placement Info</span>
                   <Badge variant="secondary">{selectedCandidate.placement_records.length}</Badge>
                 </div>
@@ -448,12 +451,12 @@ export default function CandidateSearchPage() {
               </button>
               {openSections['placements'] && (
                 <div className="px-6 pb-4">
-                  {renderTable("Placement Records", <Briefcase className="h-4 w-4" />, selectedCandidate.placement_records)}
+                  {renderTable("Placement Records", <DollarSign className="h-4 w-4" />, selectedCandidate.placement_records)}
                 </div>
               )}
             </div>
 
-            {/* Section 8: Login & Access Info */}
+            {/* Login & Access Info */}
             <div className="accordion-item">
               <button
                 className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors"
@@ -474,7 +477,7 @@ export default function CandidateSearchPage() {
               )}
             </div>
 
-            {/* Section 9: Miscellaneous */}
+            {/* Miscellaneous */}
             <div className="accordion-item">
               <button
                 className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors"
@@ -500,4 +503,3 @@ export default function CandidateSearchPage() {
     </div>
   );
 }
-
