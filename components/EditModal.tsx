@@ -203,10 +203,13 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "discontinued", label: "Discontinued" },
     { value: "closed", label: "Closed" },
   ],
+  
   work_status: workVisaStatusOptions,
   workstatus: workVisaStatusOptions,
   visa_status: workVisaStatusOptions,
 };
+
+
 
 // Custom label overrides
 const labelOverrides: Record<string, string> = {
@@ -245,9 +248,8 @@ const labelOverrides: Record<string, string> = {
   registereddate: "Registered Date",
 };
 
-
-const dateFields = ["orientationdate", "startdate", "enddate", "closed_date", "entry_date", "created_at"];
-
+// Fields that should use a date picker
+const dateFields = ["orientationdate", "startdate", "enddate", "closed_date", "entry_date", "created_at", "classdate", "sessiondate"];
 
 export function EditModal({
   isOpen,

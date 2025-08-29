@@ -16,10 +16,12 @@ interface ViewModalProps {
   title: string;
 }
 
-
 const fieldSections: Record<string, string> = {
   id: "Basic Information",
   sessionid: "Basic Information",
+  alias:"Basic Information",
+  subject: "Basic Information",
+
   subject_id: "Basic Information",
   candidateid: "Basic Information",
   uname: "Basic Information",
@@ -34,6 +36,10 @@ const fieldSections: Record<string, string> = {
   candidate_role: "Basic Information",
   dob: "Basic Information",
   contact: "Basic Information",
+
+
+  phone: "Contact Information",
+  Phone: "Contact Information",
   secondaryphone: "Basic Information",
   phone: "Contact Information",
   phone_number: "Contact Information",

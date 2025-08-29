@@ -12,7 +12,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   const { theme } = useTheme();
 
   const [hasCheckedLogin, setHasCheckedLogin] = useState(false);
-  const [activeSection, setActiveSection] = useState("placements");
+  const [activeSection, setActiveSection] = useState("announcements"); // default to Interviews
   const [placementsData, setPlacementsData] = useState([]);
   const [interviewsData, setInterviewsData] = useState([]);
   const [mounted, setMounted] = useState(false);
@@ -22,6 +22,13 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   const isDark = mounted && theme === "dark";
 
   useEffect(() => setMounted(true), []);
+
+  // Helper to format DB date into US format MM-DD-YYYY (no timezone issues)
+  const formatDateUS = (dateString) => {
+    if (!dateString) return "N/A";
+    const [year, month, day] = dateString.split("-");
+    return `${month}-${day}-${year}`;
+  };
 
   // Auto-open on first login with animation
   useEffect(() => {
@@ -74,7 +81,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         setPlacementsData(placementsRes.data.data || placementsRes.data);
 
         const interviewsRes = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/interviews` // ✅ fixed route
+          `${process.env.NEXT_PUBLIC_API_URL}/interviews`
         );
         setInterviewsData(interviewsRes.data);
       } catch (err) {
@@ -88,6 +95,15 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   }, [isAuthenticated]);
 
   if (!isAuthenticated) return null;
+
+  // Helper to display candidate name properly
+  const getCandidateName = (candidate, interview) => {
+    if (!candidate || !candidate.full_name) {
+      
+      return "Unknown Candidate";
+    }
+    return candidate.full_name;
+  };
 
   return (
     <>
@@ -120,9 +136,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
-            d={
-              sidebarOpen ? "M15 19l-7-7 7-7" : "M9 5l7 7-7 7"
-            }
+            d={sidebarOpen ? "M15 19l-7-7 7-7" : "M9 5l7 7-7 7"}
           />
         </svg>
       </button>
@@ -140,9 +154,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           isDark
             ? "bg-gradient-to-b from-gray-900 to-indigo-800 text-gray-100"
             : "bg-gradient-to-b from-purple-200 via-purple-300 to-indigo-300 text-gray-900"
-        } h-full z-[9999] shadow-2xl ${
-          sidebarOpen ? "w-80" : "w-0"
-        }`}
+        } h-full z-[9999] shadow-2xl ${sidebarOpen ? "w-80" : "w-0"}`}
         style={{
           overflowY: "auto",
           overflowX: "hidden",
@@ -171,43 +183,11 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           {/* Navigation */}
           <nav className="mt-6 flex-grow px-6">
             <div className="space-y-1.5">
-              <button
-                className={`sidebar-item w-full flex items-center p-2.5 rounded-lg transition-all duration-300 ${
-                  activeSection === "placements"
-                    ? `${
-                        isDark ? "bg-white/10" : "bg-white/30"
-                      } font-medium`
-                    : `${
-                        isDark
-                          ? "text-gray-300 hover:bg-white/5"
-                          : "text-gray-800 hover:bg-white/20"
-                      }`
-                }`}
-                onClick={() => setActiveSection("placements")}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 mr-3"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                  />
-                </svg>
-                <span className="font-semibold">Recent Placements</span>
-              </button>
-
+              {/* Recent Interviews */}
               <button
                 className={`sidebar-item w-full flex items-center p-2.5 rounded-lg transition-all duration-300 ${
                   activeSection === "announcements"
-                    ? `${
-                        isDark ? "bg-white/10" : "bg-white/30"
-                      } font-medium`
+                    ? `${isDark ? "bg-white/10" : "bg-white/30"} font-medium`
                     : `${
                         isDark
                           ? "text-gray-300 hover:bg-white/5"
@@ -232,6 +212,36 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                 </svg>
                 <span className="font-semibold">Recent Interviews</span>
               </button>
+
+              {/* Recent Placements */}
+              <button
+                className={`sidebar-item w-full flex items-center p-2.5 rounded-lg transition-all duration-300 ${
+                  activeSection === "placements"
+                    ? `${isDark ? "bg-white/10" : "bg-white/30"} font-medium`
+                    : `${
+                        isDark
+                          ? "text-gray-300 hover:bg-white/5"
+                          : "text-gray-800 hover:bg-white/20"
+                      }`
+                }`}
+                onClick={() => setActiveSection("placements")}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 mr-3"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                  />
+                </svg>
+                <span className="font-semibold">Recent Placements</span>
+              </button>
             </div>
 
             <hr
@@ -242,6 +252,49 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
 
             {/* Content */}
             <div className="mt-4">
+              {activeSection === "announcements" && (
+                <div className="space-y-4 animate-[fadeIn_0.5s_ease-out]">
+                  <h3
+                    className={`text-xl font-bold mb-4 ${
+                      isDark ? "text-gray-100" : "text-gray-800"
+                    }`}
+                  >
+                    Recent Interviews
+                  </h3>
+                  <div className="relative">
+                    <div className="absolute -left-4 top-0 bottom-0 w-1 bg-gradient-to-b from-indigo-400 via-purple-400 to-pink-300 rounded-full"></div>
+                    {interviewsData.slice(0, 6).map((interview) => (
+                      <div
+                        key={interview.id}
+                        className={`${
+                          isDark ? "bg-gray-800/40" : "bg-white/20"
+                        } p-3 rounded-lg ${
+                          isDark
+                            ? "hover:bg-gray-700/40"
+                            : "hover:bg-white/30"
+                        } transition-all cursor-pointer backdrop-blur-sm mb-3`}
+                      >
+                        <div className="flex justify-between">
+                          <h4
+                            className={`font-semibold ${
+                              isDark ? "text-gray-100" : "text-gray-800"
+                            }`}
+                          >
+                            {getCandidateName(interview.candidate, interview)}
+                          </h4>
+                          <span className="text-sm font-semibold whitespace-nowrap">
+                            {formatDateUS(interview.interview_date)}
+                          </span>
+                        </div>
+                        <p className="text-blue-500 font-semibold">
+                          {interview.company}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {activeSection === "placements" && (
                 <div className="space-y-4 animate-[fadeIn_0.5s_ease-out]">
                   <h3
@@ -272,10 +325,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                           >
                             {placement.candidate_name}
                           </h4>
-                          <span className="text-sm font-semibold">
-                            {new Date(
-                              placement.placement_date
-                            ).toLocaleDateString()}
+                          <span className="text-sm font-semibold whitespace-nowrap">
+                            {formatDateUS(placement.placement_date)}
                           </span>
                         </div>
                         <p className="text-blue-500 font-semibold">
@@ -286,53 +337,6 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                             {placement.position}
                           </span>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {activeSection === "announcements" && (
-                <div className="space-y-4 animate-[fadeIn_0.5s_ease-out]">
-                  <h3
-                    className={`text-xl font-bold mb-4 ${
-                      isDark ? "text-gray-100" : "text-gray-800"
-                    }`}
-                  >
-                    Recent Interviews
-                  </h3>
-                  <div className="relative">
-                    <div className="absolute -left-4 top-0 bottom-0 w-1 bg-gradient-to-b from-indigo-400 via-purple-400 to-pink-300 rounded-full"></div>
-                    {interviewsData.slice(0, 6).map((interview) => (
-                      <div
-                        key={interview.id}
-                        className={`${
-                          isDark ? "bg-gray-800/40" : "bg-white/20"
-                        } p-3 rounded-lg ${
-                          isDark
-                            ? "hover:bg-gray-700/40"
-                            : "hover:bg-white/30"
-                        } transition-all cursor-pointer backdrop-blur-sm mb-3`}
-                      >
-                        <div className="flex justify-between">
-                          <h4
-                            className={`font-semibold ${
-                              isDark ? "text-gray-100" : "text-gray-800"
-                            }`}
-                          >
-                            {interview.candidate_name}
-                          </h4>
-                          <span className="text-sm font-semibold">
-                            {interview.interview_date
-                              ? new Date(
-                                  interview.interview_date
-                                ).toLocaleDateString()
-                              : "N/A"}
-                          </span>
-                        </div>
-                        <p className="text-blue-500 font-semibold">
-                          {interview.company}
-                        </p>
                       </div>
                     ))}
                   </div>

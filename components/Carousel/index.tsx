@@ -59,7 +59,7 @@ function Carousel() {
   }, [currentIndex]); // Run useEffect every time currentIndex changes
 
   return (
-    <div className="group relative mx-auto h-[200px] w-full max-w-sm px-2 sm:h-[250px] sm:max-w-md md:h-[300px] md:max-w-lg lg:h-[350px] lg:max-w-xl xl:h-[400px] xl:max-w-3xl  2xl:h-[500px] 2xl:max-w-4xl">
+    <div className="group relative mx-auto h-[180px] w-full max-w-sm px-2 sm:h-[200px] sm:max-w-md md:h-[240px] md:max-w-lg lg:h-[270px] lg:max-w-xl xl:h-[300px] xl:max-w-3xl  2xl:h-[340px] 2xl:max-w-4xl">
       <div className="relative h-full w-full rounded-2xl bg-cover bg-center">
         {slides.map((slide, index) => (
           // <Image

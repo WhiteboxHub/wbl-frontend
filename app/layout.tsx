@@ -13,6 +13,7 @@ import { useState } from "react";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 import NewEvent from "@/components/NewEvent";
+import ReferralNotificationButton from "@/components/ReferralNotificationButton";
 // import { AGGridTable } from "@/components/AGGridTable";
 
 export default function RootLayout({
@@ -66,6 +67,7 @@ export default function RootLayout({
                   <main className="w-full">{children}</main>
                   <Footer />
                   <ScrollToTop />
+                  <ReferralNotificationButton />
                   {/* <NewEvent 
                     title="Upcoming Events"
                     message="Stay updated with our latest events, workshops, and training programs!"
