@@ -11,6 +11,7 @@ import {
   BuildingIcon,
   GraduationCap,
   ArrowLeftIcon,
+  Video,
   ChevronRightIcon,
   MoonIcon,
   SunIcon,
@@ -78,19 +79,25 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
 
     {
       title: "Training",
-      href: "/avatar/training/batch",
+      href: "/avatar/training/course",
       icon: GraduationCap,
       children: [
-        { title: "Batch", href: "/avatar/training/batch" },
-
-        { title: "Sessions", href: "/avatar/training/session" },
-        { title: "Recordings", href: "/avatar/training/recording" },
         { title: "Course", href: "/avatar/training/course" },
         { title: "Subject", href: "/avatar/training/subject" },
         { title: "Course Subject", href: "/avatar/training/course_subject" },
         { title: "Course Content", href: "/avatar/training/course_content" },
         {title: "Course Material", href: "/avatar/training/course_material"},
+        { title: "Batch", href: "/avatar/training/batch" },
+      ],
+    },
+        {
+      title: "Recordings",
+      href: "/avatar/recordings/class",
+      icon: Video,
+      children: [
 
+        { title: "Class", href: "/avatar/recordings/class" },
+        { title: "Sessions", href: "/avatar/recordings/session" },
   
       ],
     },
@@ -100,8 +107,6 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       href: "/avatar/authuser",
       icon: ShieldCheck,
     },
-
-
 
     {
       title: "Employees",
@@ -115,17 +120,10 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       href: "/avatar/vendors",
       icon: BuildingIcon,
       children: [
-      // { title: "List", href: "/avatar/vendors" },
-      //{ title: "Search", href: "/avatar/vendors/search" },
-      // { title: "List", href: "/avatar/vendors/vendor" },          // Vendor table page
-      // { title: "Daily Contact", href: "/avatar/vendors/daily-contact" },
       {title:"Daily Contact Extract", href:"/avatar/vendors/daily-contact" },
       {title:"Vendor", href:"/avatar/vendors/vendor"},
-      // { title: "Daily Activity", href: "/avatar/vendors/daily-activity" },
       ],
     }
-
-
   ];
 
   const isActive = (href: string, exact = false) => {

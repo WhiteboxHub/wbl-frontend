@@ -40,25 +40,6 @@ const fieldSections: Record<string, string> = {
   contact: "Basic Information",
 
 
-
-  id: "Basic Information",
-  subject: "Basic Information",
-  subject_id: "Basic Information",
-  candidateid: "Basic Information",
-  sessionid: "Basic Information",
-  uname: "Basic Information",
-  fullname: "Basic Information",
-  candidate_id: "Basic Information",
-  candidate_email: "Basic Information",
-  placement_date: "Basic Information",
-  batch: "Basic Information",
-  leadid: "Basic Information",
-  name: "Basic Information",
-  candidate_name: "Basic Information",
-  candidate_role: "Basic Information",
-  dob: "Basic Information",
-  title: "Basic Information",
-  contact: "Basic Information",
   phone: "Contact Information",
   Phone: "Contact Information",
 
@@ -81,6 +62,8 @@ const fieldSections: Record<string, string> = {
   linkedin_id: "Professional Information",
   company_name: "Professional Information",
   location: "Basic Information",
+  Fundamentals: "Basic Information",
+  AIML: "Basic Information",
   
   vendor_id: "Basic Information",
   vendor_name: "Basic Information",
@@ -95,7 +78,8 @@ const fieldSections: Record<string, string> = {
   vendor_company: "Professional Information",
 
   course: "Professional Information",
-  course_id:"Professional Information",
+  subjectid:"Professional Information",
+  courseid:"Professional Information",
   link: "Professional Information",
   videoid: "Professional Information",
   type: "Professional Information",
@@ -153,6 +137,7 @@ const fieldLabels: Record<string, string> = {
   id: "ID",
   sessionid: "ID",
   subject_id: "Subject ID",
+  course_id:"Course ID",
   new_subject_id: "New Subject ID",
   videoid: "Video ID",
   candidateid: "Candidate ID",

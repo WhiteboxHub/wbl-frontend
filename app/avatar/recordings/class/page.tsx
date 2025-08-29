@@ -74,8 +74,7 @@ export default function RecordingsPage() {
     { field: "type", headerName: "Type", width: 140, editable: true },
     { field: "subject", headerName: "Subject", width: 180, editable: true },
     { field: "filename", headerName: "File Name", width: 180, editable: true },
-    {
-      field: "link",
+    {field: "link",
       headerName: "Link",
       width: 250,
       cellRenderer: (params: any) => {
@@ -128,7 +127,7 @@ export default function RecordingsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Recordings
+            Class Recordings
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
             Manage class recordings
@@ -167,7 +166,7 @@ export default function RecordingsPage() {
         <AGGridTable
           rowData={recordings}
           columnDefs={columnDefs}
-          title={`Recordings (${total})`}
+          title={`Class Recordings (${total})`}
           height="600px"
           showSearch={false}
           onRowUpdated={handleRowUpdated}

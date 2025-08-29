@@ -313,7 +313,7 @@ export default function Index() {
               ))
             ) : (
               <div className="text-center py-4 text-gray-500">
-                {/* No Upcoming Birthdays On This Month */}
+                No Upcoming Birthdays On This Month
               </div>
             )}
           </div>

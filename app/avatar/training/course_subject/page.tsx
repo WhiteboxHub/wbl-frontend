@@ -1,6 +1,3 @@
-
-
-
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -41,19 +38,12 @@ export default function CourseSubjectPage() {
   const [newMapping, setNewMapping] = useState({ course_id: "", subject_id: "" });
   const [saving, setSaving] = useState(false);
 
-
   const fetchCourseSubjects = async () => {
     try {
       setLoading(true);
       const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/course-subjects`);
-
-      const mappedData = res.data.map((cs: any) => ({
-        ...cs,
-        id: `${cs.course_id}-${cs.subject_id}`,
-      }));
-
-      setCourseSubjects(mappedData);
-      setFilteredCourseSubjects(mappedData);
+      setCourseSubjects(res.data);
+      setFilteredCourseSubjects(res.data);
       toast.success("Fetched course-subject mappings successfully!");
     } catch (e: any) {
       const errorMsg = getErrorMessage(e);
@@ -75,7 +65,6 @@ export default function CourseSubjectPage() {
     const filtered = courseSubjects.filter((row) => {
       const courseIdStr = row.course_id?.toString() || "";
       const subjectIdStr = row.subject_id?.toString() || "";
-
 
       const parts = lower.split(/\s+/).filter(Boolean);
       if (parts.length === 2) {
@@ -124,26 +113,17 @@ export default function CourseSubjectPage() {
     }
   }, [courseSubjects]);
 
-  const handleRowDeleted = async (id: string) => {
-    const [course_id, subject_id] = id.split("-");
+  // ✅ Updated: Delete based on selected row only
+  const handleRowDeleted = async (row: any) => {
     try {
-      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/course-subjects/${course_id}/${subject_id}`,
-
-       );
-
-      setFilteredCourseSubjects((prev) =>
-        prev.filter(
-          (r) => !(r.course_id === Number(course_id) && r.subject_id === Number(subject_id))
-        )
+      await axios.delete(
+        `${process.env.NEXT_PUBLIC_API_URL}/course-subjects/${row.course_id}/${row.subject_id}`
       );
 
-      setCourseSubjects((prev) =>
-      prev.filter(
-        (r) => !(r.course_id === Number(course_id) && r.subject_id === Number(subject_id))
-      )
-      );
+      setFilteredCourseSubjects((prev) => prev.filter((r) => r !== row));
+      setCourseSubjects((prev) => prev.filter((r) => r !== row));
 
-      toast.success("Course-Subject deleted successfully!");
+      toast.success("Selected row deleted successfully!");
     } catch (e: any) {
       console.error("Delete failed", e.response?.data || e.message);
       const errorMsg = getErrorMessage(e);
@@ -151,30 +131,6 @@ export default function CourseSubjectPage() {
       toast.error(errorMsg);
     }
   };
-
-  const handleRowUpdated = async (updatedRow: any) => {
-    try {
-      const response = await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/course-subjects`, {
-        course_id: updatedRow.course_id,
-        subject_id: updatedRow.subject_id,
-        lastmoddatetime: new Date().toISOString(),
-      });
-
-      setFilteredCourseSubjects((prev) =>
-        prev.map((r) =>
-          r.course_id === updatedRow.course_id && r.subject_id === updatedRow.subject_id
-            ? response.data
-            : r
-        )
-      );
-      toast.success("Course-Subject updated successfully!");
-    } catch (e: any) {
-      const errorMsg = getErrorMessage(e);
-      setError(errorMsg);
-      toast.error(errorMsg);
-    }
-  };
-
 
   const handleAddMapping = async () => {
     if (!newMapping.course_id || !newMapping.subject_id) {
@@ -189,10 +145,8 @@ export default function CourseSubjectPage() {
         subject_id: Number(newMapping.subject_id),
       });
 
-      const newItem = { ...res.data, id: `${res.data.course_id}-${res.data.subject_id}` };
-
-      setFilteredCourseSubjects((prev) => [...prev, newItem]);
-      setCourseSubjects((prev) => [...prev, newItem]);
+      setFilteredCourseSubjects((prev) => [...prev, res.data]);
+      setCourseSubjects((prev) => [...prev, res.data]);
 
       toast.success("Mapping added successfully!");
       setShowModal(false);
@@ -237,8 +191,7 @@ export default function CourseSubjectPage() {
         columnDefs={columnDefs}
         title={`Course-Subject Mappings (${filteredCourseSubjects.length})`}
         height="calc(70vh)"
-        onRowUpdated={handleRowUpdated}
-        onRowDeleted={(id) => handleRowDeleted(id)}
+        onRowDeleted={(row) => handleRowDeleted(row)} // ✅ delete selected row
         showSearch={false}
       />
 

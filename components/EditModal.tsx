@@ -38,6 +38,8 @@ const fieldSections: Record<string, string> = {
 
 
   alias:"Basic Information",
+  Fundamentals: "Basic Information",
+  AIML: "Basic Information",
 
 
   full_name: "Basic Information",
@@ -60,6 +62,8 @@ const fieldSections: Record<string, string> = {
 
   sessionid: "Basic Information",
   subject_id: "Basic Information",
+  subjectid: "Professional Information",
+  courseid: "Professional Information",
   candidateid: "Basic Information",
   uname: "Basic Information",
   fullname: "Basic Information",
@@ -199,18 +203,23 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "discontinued", label: "Discontinued" },
     { value: "closed", label: "Closed" },
   ],
+  
   work_status: workVisaStatusOptions,
   workstatus: workVisaStatusOptions,
   visa_status: workVisaStatusOptions,
 };
 
+
+
 // Custom label overrides
 const labelOverrides: Record<string, string> = {
   id: "ID",
   subject_id: "Subject ID",
+  subjectid: "Subject ID",
   new_subject_id: "New Subject ID",
   sessionid: "ID",
   courseid: "Course ID",
+  course_id: "Course ID",
   candidateid: "Candidate ID",
   batchid: "Batch ID",
   candidate_id: "Candidate ID",
@@ -243,7 +252,7 @@ const labelOverrides: Record<string, string> = {
 
 
 // Fields that should use a date picker
-const dateFields = ["orientationdate", "startdate", "enddate", "closed_date", "entry_date", "created_at"];
+const dateFields = ["orientationdate", "startdate", "enddate", "closed_date", "entry_date", "created_at", "classdate", "sessiondate"];
 
 export function EditModal({
   isOpen,
