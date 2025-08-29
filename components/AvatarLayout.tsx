@@ -89,7 +89,6 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
         {title: "Course Material", href: "/avatar/training/course_material"},
         { title: "Batch", href: "/avatar/training/batch" },
 
-  
       ],
     },
 

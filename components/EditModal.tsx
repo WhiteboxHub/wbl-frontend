@@ -36,8 +36,35 @@ const excludedFields = ["id", "vendor_type", "lastmoddatetime", "last_modified"]
 
 const fieldSections: Record<string, string> = {
   id: "Basic Information",
+
+
+  alias:"Basic Information",
+  Fundamentals: "Basic Information",
+  AIML: "Basic Information",
+
+
+  full_name: "Basic Information",
+  extraction_date: "Basic Information", 
+  type: "Basic Information",
+
+  email: "Professional Information",
+  company_name: "Professional Information",
+  linkedin_id: "Professional Information",
+  status: "Professional Information",
+  linkedin_connected: "Professional Information",
+  intro_email_sent: "Professional Information",
+  intro_call: "Professional Information",
+  moved_to_vendor: "Professional Information",
+  phone_number: "Contact Information",
+  secondary_phone: "Contact Information",
+  location: "Contact Information", 
+
+  // notes: "Notes",
+
   sessionid: "Basic Information",
   subject_id: "Basic Information",
+  subjectid: "Professional Information",
+  courseid: "Professional Information",
   candidateid: "Basic Information",
   uname: "Basic Information",
   fullname: "Basic Information",
@@ -60,6 +87,7 @@ const fieldSections: Record<string, string> = {
   intro_email_sent: "Professional Information",
   intro_call: "Professional Information",
   secondaryemail: "Contact Information",
+
   ssn: "Basic Information",
   priority: "Basic Information",
   source: "Basic Information",
@@ -73,11 +101,11 @@ const fieldSections: Record<string, string> = {
   batchid: "Basic Information",
   agreement: "Basic Information",
   promissory: "Basic Information",
-  status: "Basic Information",
 
   lastlogin: "Professional Information",
   logincount: "Professional Information",
   course: "Professional Information",
+  course_id: "Professional Information",
   registereddate: "Professional Information",
   company: "Professional Information",
   client_id: "Professional Information",
@@ -109,7 +137,6 @@ const fieldSections: Record<string, string> = {
   closed: "Professional Information",
   aadhaar: "Basic Information",
 
-
   // Basic Information
   full_name: "Basic Information",
   secondary_email: "Contact Information",
@@ -119,12 +146,7 @@ const fieldSections: Record<string, string> = {
   moved_to_vendor: "Professional Information",
 
   // phone_number: "Basic Information",
-  secondary_phone: "Contact Information",
-  location: "Basic Information",
-  linkedin_id: "Professional Information",
-  company_name: "Professional Information",
   link: "Professional Information",
-  type: "Professional Information",
   videoid: "Professional Information",
 
   address: "Contact Information",
@@ -215,9 +237,11 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
 const labelOverrides: Record<string, string> = {
   id: "ID",
   subject_id: "Subject ID",
+  subjectid: "Subject ID",
   new_subject_id: "New Subject ID",
   sessionid: "ID",
   courseid: "Course ID",
+  course_id: "Course ID",
   candidateid: "Candidate ID",
   batchid: "Batch ID",
   candidate_id: "Candidate ID",
