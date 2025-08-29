@@ -17,14 +17,13 @@ interface ViewModalProps {
 }
 
 const fieldSections: Record<string, string> = {
-
   id: "Basic Information",
-
+  sessionid: "Basic Information",
   alias:"Basic Information",
   subject: "Basic Information",
+
   subject_id: "Basic Information",
   candidateid: "Basic Information",
-  sessionid: "Basic Information",
   uname: "Basic Information",
   fullname: "Basic Information",
   candidate_id: "Basic Information",
@@ -36,26 +35,35 @@ const fieldSections: Record<string, string> = {
   candidate_name: "Basic Information",
   candidate_role: "Basic Information",
   dob: "Basic Information",
-  title: "Basic Information",
   contact: "Basic Information",
 
 
   phone: "Contact Information",
   Phone: "Contact Information",
-
   secondaryphone: "Basic Information",
-  email: "Basic Information",
-  secondaryemail: "Basic Information",
+  phone: "Contact Information",
+  phone_number: "Contact Information",
+  email: "Contact Information",
+  created_at: "",
+  linkedin_connected: "Professional Information",
+  intro_email_sent: "Professional Information",
+  intro_call: "Professional Information",
+  secondaryemail: "Contact Information",
   ssn: "Basic Information",
   priority: "Basic Information",
   source: "Basic Information",
-  // subject: "Basic Information",
+  subject: "Basic Information",
+  title: "Basic Information",
   enrolleddate: "Basic Information",
   orientationdate: "Basic Information",
+  // startdate: "Basic Information",
+  // enddate: "Basic Information",
   batchname: "Basic Information",
   batchid: "Basic Information",
   agreement: "Basic Information",
   promissory: "Basic Information",
+  status: "Basic Information",
+
 
   full_name: "Basic Information",
   source_email: "Contact Information",
@@ -83,6 +91,11 @@ const fieldSections: Record<string, string> = {
   link: "Professional Information",
   videoid: "Professional Information",
   type: "Professional Information",
+
+  lastlogin: "Professional Information",
+  logincount: "Professional Information",
+  course: "Professional Information",
+  registereddate: "Professional Information",
   company: "Professional Information",
   client_id: "Professional Information",
   client_name: "Professional Information",
@@ -92,9 +105,10 @@ const fieldSections: Record<string, string> = {
   marketing_email_address: "Professional Information",
   interview_date: "Professional Information",
   interview_mode: "Professional Information",
-  status: "Basic Information",
   visa_status: "Professional Information",
+  work_status: "Professional Information",
   workstatus: "Professional Information",
+  message: "Professional Information",
   education: "Professional Information",
   workexperience: "Professional Information",
   faq: "Professional Information",
@@ -109,11 +123,27 @@ const fieldSections: Record<string, string> = {
   marketing_startdate: "Professional Information",
   recruiterassesment: "Professional Information",
   statuschangedate: "Professional Information",
+  aadhaar:"Basic Information",
+  
   closed: "Professional Information",
-  lastlogin: "Professional Information",
-  logincount: "Professional Information",
-  registereddate: "Professional Information",
-  message: "Professional Information",
+  
+
+  // Basic Information
+  full_name: "Basic Information",
+  secondary_email: "Contact Information",
+  massemail_email_sent:"Professional Information",
+  massemail_unsubscribe:"Professional Information",
+  moved_to_candidate:"Professional Information",
+  moved_to_vendor:"Professional Information",
+
+  // phone_number: "Basic Information",
+  secondary_phone: "Contact Information",
+  location: "Basic Information",
+  linkedin_id: "Professional Information",
+  company_name: "Professional Information",
+  link: "Professional Information",
+  type: "Professional Information",
+  videoid: "Professional Information",
 
   address: "Contact Information",
   city: "Contact Information",
@@ -132,7 +162,6 @@ const fieldSections: Record<string, string> = {
 
   notes: "Notes",
 };
-
 const fieldLabels: Record<string, string> = {
   id: "ID",
   sessionid: "ID",

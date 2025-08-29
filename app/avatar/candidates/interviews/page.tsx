@@ -159,7 +159,7 @@ export default function CandidatesInterviews() {
 
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
       // { field: "candidate_id", headerName: "Candidate ID", sortable: true, maxWidth: 110 },
-      { field: "candidate_name", headerName: "Full Name", sortable: true, minWidth: 150 },
+      { field: "candidate.full_name", headerName: "Full Name", sortable: true, minWidth: 140 },
       { field: "company", headerName: "Company", sortable: true, maxWidth: 120 },
       { field: "interview_type", headerName: "Type", maxWidth: 90 },
       { field: "interview_date", headerName: "Date", maxWidth: 110 },

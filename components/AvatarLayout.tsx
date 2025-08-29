@@ -88,9 +88,11 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
         { title: "Course Content", href: "/avatar/training/course_content" },
         {title: "Course Material", href: "/avatar/training/course_material"},
         { title: "Batch", href: "/avatar/training/batch" },
+
       ],
     },
-        {
+
+    {
       title: "Recordings",
       href: "/avatar/recordings/class",
       icon: Video,
@@ -102,7 +104,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       ],
     },
 
-        {
+    {
       title: "Authuser",
       href: "/avatar/authuser",
       icon: ShieldCheck,
