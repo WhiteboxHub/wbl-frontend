@@ -98,7 +98,7 @@ export default function RecordingsPage() {
       headerName: "Class Date",
       width: 180,
       valueFormatter: (params) =>
-        params.value ? new Date(params.value).toLocaleString() : ""
+        params.value ? new Date(params.value).toLocaleDateString() : ""
     },
   ], []);
 
