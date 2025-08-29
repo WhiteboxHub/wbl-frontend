@@ -32,6 +32,7 @@ const countryCodes = [
   { code: "+33", country: "France", flag: "🇫🇷" },
 ];
 
+const excludedFields = ["id", "vendor_type", "lastmoddatetime", "last_modified"];
 
 const fieldSections: Record<string, string> = {
   id: "Basic Information",
@@ -51,14 +52,14 @@ const fieldSections: Record<string, string> = {
   dob: "Basic Information",
   contact: "Basic Information",
   secondaryphone: "Basic Information",
-  phone: "Basic Information",
+  phone: "Contact Information",
   phone_number: "Contact Information",
-  email: "Basic Information",
-  created_at: "Professional Information",
+  email: "Contact Information",
+  created_at: "",
   linkedin_connected: "Professional Information",
   intro_email_sent: "Professional Information",
   intro_call: "Professional Information",
-  secondaryemail: "Basic Information",
+  secondaryemail: "Contact Information",
   ssn: "Basic Information",
   priority: "Basic Information",
   source: "Basic Information",
@@ -106,10 +107,17 @@ const fieldSections: Record<string, string> = {
   recruiterassesment: "Professional Information",
   statuschangedate: "Professional Information",
   closed: "Professional Information",
+  aadhaar: "Basic Information",
 
-    // Basic Information
+
+  // Basic Information
   full_name: "Basic Information",
-  secondary_email: "Basic Information",
+  secondary_email: "Contact Information",
+  massemail_email_sent: "Professional Information",
+  massemail_unsubscribe: "Professional Information",
+  moved_to_candidate: "Professional Information",
+  moved_to_vendor: "Professional Information",
+
   // phone_number: "Basic Information",
   secondary_phone: "Contact Information",
   location: "Basic Information",
@@ -118,7 +126,7 @@ const fieldSections: Record<string, string> = {
   link: "Professional Information",
   type: "Professional Information",
   videoid: "Professional Information",
-  
+
   address: "Contact Information",
   city: "Contact Information",
   state: "Contact Information",
@@ -159,7 +167,7 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "sourcer", label: "Sourcer" },
     { value: "contact-from-ip", label: "Contact from IP" },
   ],
-    linkedin_connected: [
+  linkedin_connected: [
     { value: "yes", label: "Yes" },
     { value: "no", label: "No" },
   ],
@@ -177,6 +185,14 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "false", label: "No" },
   ],
   moved_to_candidate: [
+    { value: "true", label: "Yes" },
+    { value: "false", label: "No" },
+  ],
+  mass_email_sent: [
+    { value: "true", label: "Yes" },
+    { value: "false", label: "No" },
+  ],
+  massemail_unsubscribe: [
     { value: "true", label: "Yes" },
     { value: "false", label: "No" },
   ],
@@ -230,8 +246,8 @@ const labelOverrides: Record<string, string> = {
 };
 
 
-// Fields that should use a date picker
 const dateFields = ["orientationdate", "startdate", "enddate", "closed_date", "entry_date", "created_at"];
+
 
 export function EditModal({
   isOpen,
@@ -250,6 +266,11 @@ export function EditModal({
 
   const handleChange = (key: string, value: any) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const initialData = {
+    ...data,
+    entry_date: data.entry_date || new Date().toISOString().split("T")[0],
   };
 
   const toLabel = (key: string) => {
@@ -272,6 +293,8 @@ export function EditModal({
   };
 
   Object.entries(formData).forEach(([key, value]) => {
+    if (excludedFields.includes(key)) return;
+    if (key === "id") return;
     const section = fieldSections[key] || "Other";
     if (!sectionedFields[section]) sectionedFields[section] = [];
     sectionedFields[section].push({ key, value });
@@ -355,17 +378,29 @@ export function EditModal({
                       {dateFields.includes(key.toLowerCase()) ? (
                         <input
                           type="date"
-                          value={formData[key] ?? ""}
+                          value={
+                            formData[key] && !isNaN(new Date(formData[key]).getTime())
+                              ? new Date(formData[key]).toISOString().split("T")[0] // valid date from DB
+                              : new Date().toISOString().split("T")[0] // ⬅️ fallback to today
+                          }
                           onChange={(e) => handleChange(key, e.target.value)}
                           className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
                         />
                       ) : enumOptions[key.toLowerCase()] ? (
                         <select
-                          value={formData[key]?.toLowerCase?.() ?? ""}
-                          onChange={(e) => handleChange(key, e.target.value)}
+                          value={String(formData[key] ?? "")}
+                          onChange={(e) =>
+                            handleChange(
+                              key,
+                              e.target.value === "true"
+                                ? true
+                                : e.target.value === "false"
+                                  ? false
+                                  : e.target.value
+                            )
+                          }
                           className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
                         >
-                          <option value="">Select {toLabel(key)}</option>
                           {enumOptions[key.toLowerCase()].map((opt) => (
                             <option key={opt.value} value={opt.value}>
                               {opt.label}
@@ -426,3 +461,6 @@ export function EditModal({
     </Dialog>
   );
 }
+
+
+
