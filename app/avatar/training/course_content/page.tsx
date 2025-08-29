@@ -68,7 +68,7 @@ export default function CourseContentPage() {
 
         if (key === "id") {
           col.pinned = "left";
-          col.width = 100;
+          col.width = 300;
         }
         return col;
       });
