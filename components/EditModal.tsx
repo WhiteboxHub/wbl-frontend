@@ -57,10 +57,6 @@ const fieldSections: Record<string, string> = {
   location: "Contact Information", 
 
   // notes: "Notes",
-};
-
-
-
 
   sessionid: "Basic Information",
   subject_id: "Basic Information",
@@ -79,12 +75,7 @@ const fieldSections: Record<string, string> = {
   contact: "Basic Information",
   secondaryphone: "Basic Information",
   phone: "Basic Information",
-  phone_number: "Contact Information",
-  email: "Basic Information",
   created_at: "Professional Information",
-  linkedin_connected: "Professional Information",
-  intro_email_sent: "Professional Information",
-  intro_call: "Professional Information",
   secondaryemail: "Basic Information",
   ssn: "Basic Information",
   priority: "Basic Information",
@@ -99,7 +90,6 @@ const fieldSections: Record<string, string> = {
   batchid: "Basic Information",
   agreement: "Basic Information",
   promissory: "Basic Information",
-  status: "Basic Information",
 
   lastlogin: "Professional Information",
   logincount: "Professional Information",
@@ -136,15 +126,9 @@ const fieldSections: Record<string, string> = {
   closed: "Professional Information",
 
     // Basic Information
-  full_name: "Basic Information",
   secondary_email: "Basic Information",
   // phone_number: "Basic Information",
-  secondary_phone: "Contact Information",
-  location: "Basic Information",
-  linkedin_id: "Professional Information",
-  company_name: "Professional Information",
   link: "Professional Information",
-  type: "Professional Information",
   videoid: "Professional Information",
   
   address: "Contact Information",

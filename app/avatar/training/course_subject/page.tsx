@@ -137,6 +137,12 @@ export default function CourseSubjectPage() {
         )
       );
 
+      setCourseSubjects((prev) =>
+      prev.filter(
+        (r) => !(r.course_id === Number(course_id) && r.subject_id === Number(subject_id))
+      )
+      );
+
       toast.success("Course-Subject deleted successfully!");
     } catch (e: any) {
       console.error("Delete failed", e.response?.data || e.message);
