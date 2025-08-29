@@ -1,13 +1,28 @@
 "use client";
 import { useAuth } from "@/utils/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const ReferralNotificationButton = () => {
   const { isAuthenticated } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [isHovered, setIsHovered] = useState(false);
+  const [pulseCount, setPulseCount] = useState(0);
+  const [showPulse, setShowPulse] = useState(true);
+
+  // Limit pulse animation to 2 blinks then stop
+  useEffect(() => {
+    if (pulseCount < 2 && showPulse) {
+      const timer = setTimeout(() => {
+        setPulseCount(prev => prev + 1);
+        if (pulseCount >= 1) {
+          setShowPulse(false);
+        }
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [pulseCount, showPulse]);
 
   // Hide button on refer-and-earn page
   if (pathname === "/refer-and-earn") {
@@ -46,32 +61,24 @@ const ReferralNotificationButton = () => {
         onClick={handleMainButtonClick}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        className="group relative flex items-center gap-2 px-6 py-4 rounded-full bg-gradient-to-r from-blue-500 to-blue-700 text-white shadow-2xl transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-pointer z-10"
+        className="group relative flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-r from-blue-500 to-blue-700 text-white shadow-2xl transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-pointer z-10"
         aria-label="Refer and Earn"
         style={{ pointerEvents: 'auto', position: 'relative', zIndex: 10 }}
       >
         {/* Gift Icon */}
         <svg
-          className="h-5 w-5 transition-transform duration-300 group-hover:scale-110"
-          fill="none"
-          stroke="currentColor"
+          className="h-6 w-6 transition-transform duration-300 group-hover:scale-110"
+          fill="currentColor"
           viewBox="0 0 24 24"
           xmlns="http://www.w3.org/2000/svg"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 8v13m0-13V6a2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"
-          />
+          <path d="M9.375 3a1.875 1.875 0 000 3.75h1.875v4.5H3.375A1.875 1.875 0 011.5 9.375v-.75c0-1.036.84-1.875 1.875-1.875h3.193A3.375 3.375 0 0112 2.753a3.375 3.375 0 015.432 3.997h3.193c1.035 0 1.875.84 1.875 1.875v.75C22.5 10.747 21.66 11.25 20.625 11.25H12.75v-4.5h1.875a1.875 1.875 0 100-3.75c-1.036 0-1.875.84-1.875 1.875v.375h-1.5V4.125C11.25 3.089 10.41 3 9.375 3z"/>
+          <path d="M11.25 12.75H3v6.75a2.25 2.25 0 002.25 2.25h6v-9zM12.75 12.75v9h6.75a2.25 2.25 0 002.25-2.25v-6.75h-9z"/>
         </svg>
       
-        {/* Button Text */}
-        <span className="text-base font-semibold">Refer & Earn</span>
 
         {/* Notification Badge */}
-        <div className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
-          !
+        <div className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-red-500">
         </div>
 
         {/* Tooltip */}
@@ -85,8 +92,10 @@ const ReferralNotificationButton = () => {
         )}
       </button>
 
-      {/* Pulse Animation */}
-      <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-500 to-blue-700 opacity-75 animate-ping pointer-events-none"></div>
+      {/* Limited Pulse Animation */}
+      {showPulse && (
+        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-500 to-blue-700 opacity-75 animate-ping pointer-events-none"></div>
+      )}
     </div>
   );
 };

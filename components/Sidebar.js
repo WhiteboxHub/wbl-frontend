@@ -16,12 +16,27 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   const [placementsData, setPlacementsData] = useState([]);
   const [interviewsData, setInterviewsData] = useState([]);
   const [mounted, setMounted] = useState(false);
+  const [pulseCount, setPulseCount] = useState(0);
+  const [showPulse, setShowPulse] = useState(true);
   const sidebarRef = useRef(null);
   const toggleBtnRef = useRef(null);
 
   const isDark = mounted && theme === "dark";
 
   useEffect(() => setMounted(true), []);
+
+  // Limit pulse animation to 3 blinks then stop - must be before any returns
+  useEffect(() => {
+    if (pulseCount < 3 && showPulse && !sidebarOpen) {
+      const timer = setTimeout(() => {
+        setPulseCount(prev => prev + 1);
+        if (pulseCount >= 2) {
+          setShowPulse(false);
+        }
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [pulseCount, showPulse, sidebarOpen]);
 
   // Auto-open on first login with animation
   useEffect(() => {
@@ -100,7 +115,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             ? "bg-gradient-to-r from-purple-400 to-indigo-500 text-white"
             : "bg-gradient-to-r from-purple-300 to-indigo-400 text-white"
         } py-4 px-2 rounded-r-xl shadow-lg transform transition-all duration-500 hover:scale-110 hover:shadow-xl focus:outline-none ${
-          !sidebarOpen && "pulse-animation"
+          !sidebarOpen && showPulse && "pulse-animation"
         } border-r-0 border-2 ${
           isDark ? "border-indigo-400" : "border-purple-300"
         }`}
