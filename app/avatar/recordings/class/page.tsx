@@ -74,8 +74,7 @@ export default function RecordingsPage() {
     { field: "type", headerName: "Type", width: 140, editable: true },
     { field: "subject", headerName: "Subject", width: 180, editable: true },
     { field: "filename", headerName: "File Name", width: 180, editable: true },
-    {
-      field: "link",
+    {field: "link",
       headerName: "Link",
       width: 250,
       cellRenderer: (params: any) => {
@@ -98,7 +97,7 @@ export default function RecordingsPage() {
       headerName: "Class Date",
       width: 180,
       valueFormatter: (params) =>
-        params.value ? new Date(params.value).toLocaleString() : ""
+        params.value ? new Date(params.value).toLocaleDateString() : ""
     },
   ], []);
 
