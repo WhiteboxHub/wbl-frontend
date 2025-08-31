@@ -297,10 +297,11 @@ export default function CandidateSearchPage() {
         <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-              {selectedCandidate.basic_info.full_name}
+              {selectedCandidate?.basic_info?.full_name || "Unnamed Candidate"}
             </h2>
             <p className="text-gray-600 dark:text-gray-400">
-              ID: {selectedCandidate.candidate_id} • Email: {selectedCandidate.basic_info.email}
+              ID: {selectedCandidate.candidate_id} • 
+              Email: {selectedCandidate?.basic_info?.email || "No email"}
             </p>
           </div>
 

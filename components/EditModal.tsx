@@ -32,25 +32,21 @@ const countryCodes = [
   { code: "+33", country: "France", flag: "🇫🇷" },
 ];
 
-const excludedFields = ["id", "vendor_type", "lastmoddatetime", "last_modified"];
+const excludedFields = ["id", "vendor_type", "lastmoddatetime", "last_modified","name"];
 
 const fieldSections: Record<string, string> = {
   id: "Basic Information",
-
-
   alias:"Basic Information",
   Fundamentals: "Basic Information",
   AIML: "Basic Information",
-
-
   full_name: "Basic Information",
   extraction_date: "Basic Information", 
-  type: "Basic Information",
-
-  email: "Professional Information",
-  company_name: "Professional Information",
-  linkedin_id: "Professional Information",
-  status: "Professional Information",
+  filename: "Basic Information", 
+  type: "Professional Information",
+  email: "Contact Information",
+  company_name: "Basic Information",
+  linkedin_id: "Contact Information",
+  status: "Basic Information",
   linkedin_connected: "Professional Information",
   intro_email_sent: "Professional Information",
   intro_call: "Professional Information",
@@ -58,6 +54,7 @@ const fieldSections: Record<string, string> = {
   phone_number: "Contact Information",
   secondary_phone: "Contact Information",
   location: "Contact Information", 
+  agreement: "Professional Information",
 
   // notes: "Notes",
 
@@ -78,17 +75,12 @@ const fieldSections: Record<string, string> = {
   candidate_role: "Basic Information",
   dob: "Basic Information",
   contact: "Basic Information",
-  secondaryphone: "Basic Information",
+  secondaryphone: "Contact Information",
   phone: "Contact Information",
-  phone_number: "Contact Information",
-  email: "Contact Information",
-  created_at: "",
-  linkedin_connected: "Professional Information",
-  intro_email_sent: "Professional Information",
-  intro_call: "Professional Information",
+
   secondaryemail: "Contact Information",
 
-  ssn: "Basic Information",
+  ssn: "Professional Information",
   priority: "Basic Information",
   source: "Basic Information",
   subject: "Basic Information",
@@ -98,8 +90,7 @@ const fieldSections: Record<string, string> = {
   // startdate: "Basic Information",
   // enddate: "Basic Information",
   batchname: "Basic Information",
-  batchid: "Basic Information",
-  agreement: "Basic Information",
+  batchid: "Professional Information",
   promissory: "Basic Information",
 
   lastlogin: "Professional Information",
@@ -138,12 +129,12 @@ const fieldSections: Record<string, string> = {
   aadhaar: "Basic Information",
 
   // Basic Information
-  full_name: "Basic Information",
+
   secondary_email: "Contact Information",
   massemail_email_sent: "Professional Information",
   massemail_unsubscribe: "Professional Information",
   moved_to_candidate: "Professional Information",
-  moved_to_vendor: "Professional Information",
+ 
 
   // phone_number: "Basic Information",
   link: "Professional Information",
