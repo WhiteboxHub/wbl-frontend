@@ -230,7 +230,7 @@ export default function CandidateSearchPage() {
             Search Candidates
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Search candidates by name to view comprehensive information including instructor names, marketing manager, and placement fees
+            Search candidates by name to view comprehensive information
           </p>
         </div>
       </div>

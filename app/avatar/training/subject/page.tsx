@@ -76,7 +76,7 @@ export default function SubjectPage() {
     setFilteredSubjects(filtered);
   }, [searchTerm, subjects]);
 
-  // Column definitions
+  
   useEffect(() => {
     if (subjects.length > 0) {
       const columnConfig: Record<string, number> = {
@@ -236,7 +236,7 @@ export default function SubjectPage() {
         </div>
       </div>
 
-      {/* Add Subject Modal */}
+      {/* Add Subject  */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
           <DialogHeader>
