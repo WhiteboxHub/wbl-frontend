@@ -494,7 +494,18 @@ export default function CandidateSearchPage() {
               </button>
               {openSections['misc'] && (
                 <div className="px-6 pb-4">
-                  {renderInfoCard("Additional Information", <Settings className="h-4 w-4" />, selectedCandidate.miscellaneous)}
+                  <div className="bg-white dark:bg-gray-900 p-4 rounded-md shadow-md">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Settings className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                        <h3 className="font-semibold text-gray-900 dark:text-gray-100">Additional Information</h3>
+                      </div>
+                      <div className="text-gray-700 dark:text-gray-300 text-sm space-y-2">
+                        <p><strong>Notes:</strong> {selectedCandidate.miscellaneous?.notes || "No notes available"}</p>
+                        <p><strong>Preparation Active:</strong> {selectedCandidate.miscellaneous?.preparation_active ? "Yes" : "No"}</p>
+                        <p><strong>Marketing Active:</strong> {selectedCandidate.miscellaneous?.marketing_active ? "Yes" : "No"}</p>
+                        <p><strong>Placement Active:</strong> {selectedCandidate.miscellaneous?.placement_active ? "Yes" : "No"}</p>
+                      </div>
+                    </div>
                 </div>
               )}
             </div>
