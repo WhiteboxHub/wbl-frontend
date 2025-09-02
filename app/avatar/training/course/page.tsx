@@ -30,7 +30,7 @@ export default function CoursePage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
-  // Modal states
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newCourse, setNewCourse] = useState({
     name: "",
@@ -79,7 +79,7 @@ export default function CoursePage() {
     setFilteredCourses(filtered);
   }, [searchTerm, courses]);
 
-  // Column definitions with hidden fields
+
   useEffect(() => {
     if (courses.length > 0) {
       const columnConfig: Record<string, number> = {
@@ -241,7 +241,7 @@ export default function CoursePage() {
         </div>
       </div>
 
-      {/* Add Course Modal */}
+      {/* Add Course */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
           <DialogHeader>

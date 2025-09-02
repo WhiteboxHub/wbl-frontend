@@ -10,7 +10,7 @@ import axios from "axios";
 import { Button } from "@/components/admin_ui/button";
 import { toast, Toaster } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/admin_ui/dialog";
-// import {  useState, useEffect } from "react";
+
 
 const validTypes = ['P', 'C', 'D', 'S', 'I', 'B', 'N', 'T', 'G', 'M'];
 
@@ -117,7 +117,7 @@ const handleAddMaterial = async () => {
     return;
   }
 
-  // Convert numeric fields before sending
+  
   const payload = {
     ...newMaterial,
     subjectid: Number(newMaterial.subjectid) || 0,
@@ -205,7 +205,7 @@ const handleAddMaterial = async () => {
         </div>
       </div>
 
-       {/* Add Course Material Dialog */}
+       {/* Add Course Material */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
           <DialogHeader>
