@@ -51,9 +51,9 @@ const carouselData: CarouselItem[] = [
     src: ml3,
   },
   {
-    quote: "Earn industry-recognized deep learning certifications. Validate your expertise in neural networks, computer vision, and AI deployment.",
-    name: "Deep Learning Certification",
-    designation: "Professional AI Credentials",
+    quote: "Gain industry-recognized AIML expertise. Validate your skills in machine learning, natural language processing, and intelligent system deployment.",
+    name: "AIML",
+    designation: "Artificial Intelligence & Machine Learning",
     src: DL2,
   },
   {
