@@ -1,3 +1,5 @@
+
+
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -6,9 +8,21 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { Button } from "@/components/admin_ui/button";
-import { SearchIcon } from "lucide-react";
+import { SearchIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
 import axios from "axios";
 import { toast, Toaster } from "sonner";
+
+interface CourseSubject {
+  subject_id: number;
+  course_id: number;
+  //lastmoddatetime: string;
+  id?: string; 
+}
+
+interface NewMapping {
+  course_id: string;
+  subject_id: string;
+}
 
 function getErrorMessage(e: any): string {
   if (typeof e === "string") return e;
@@ -27,30 +41,47 @@ function getErrorMessage(e: any): string {
 
 export default function CourseSubjectPage() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [courseSubjects, setCourseSubjects] = useState<any[]>([]);
-  const [filteredCourseSubjects, setFilteredCourseSubjects] = useState<any[]>([]);
+  const [courseSubjects, setCourseSubjects] = useState<CourseSubject[]>([]);
+  const [filteredCourseSubjects, setFilteredCourseSubjects] = useState<CourseSubject[]>([]);
   const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [showModal, setShowModal] = useState(false);
-  const [newMapping, setNewMapping] = useState({ course_id: "", subject_id: "" });
+  const [newMapping, setNewMapping] = useState<NewMapping>({ course_id: "", subject_id: "" });
   const [saving, setSaving] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchCourseSubjects = async () => {
     try {
       setLoading(true);
+      setError("");
       const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/course-subjects`);
-      setCourseSubjects(res.data);
-      setFilteredCourseSubjects(res.data);
-      toast.success("Fetched course-subject mappings successfully!");
+      
+      const dataWithId = res.data.map((item: CourseSubject) => ({
+        ...item,
+        id: `${item.course_id}-${item.subject_id}` 
+      }));
+      
+      setCourseSubjects(dataWithId);
+      setFilteredCourseSubjects(dataWithId);
+      toast.success("Course-subject mappings loaded successfully!");
     } catch (e: any) {
       const errorMsg = getErrorMessage(e);
       setError(errorMsg);
-      toast.error(errorMsg);
+      toast.error(`Failed to load data: ${errorMsg}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const refreshData = async () => {
+    try {
+      setRefreshing(true);
+      await fetchCourseSubjects();
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -60,13 +91,19 @@ export default function CourseSubjectPage() {
 
   useEffect(() => {
     const lower = searchTerm.trim().toLowerCase();
-    if (!lower) return setFilteredCourseSubjects(courseSubjects);
+    if (!lower) {
+      setFilteredCourseSubjects(courseSubjects);
+      setPage(1);
+      return;
+    }
 
     const filtered = courseSubjects.filter((row) => {
       const courseIdStr = row.course_id?.toString() || "";
       const subjectIdStr = row.subject_id?.toString() || "";
+      //const lastModStr = row.lastmoddatetime?.toLowerCase() || "";
 
       const parts = lower.split(/\s+/).filter(Boolean);
+      
       if (parts.length === 2) {
         return (
           (parts[0] === courseIdStr && parts[1] === subjectIdStr) ||
@@ -77,58 +114,78 @@ export default function CourseSubjectPage() {
       return (
         courseIdStr.includes(lower) ||
         subjectIdStr.includes(lower) ||
+        //lastModStr.includes(lower) ||
         `${courseIdStr}-${subjectIdStr}`.includes(lower) ||
         `${subjectIdStr}-${courseIdStr}`.includes(lower)
       );
     });
 
     setFilteredCourseSubjects(filtered);
+    setPage(1); 
   }, [searchTerm, courseSubjects]);
 
   useEffect(() => {
     if (courseSubjects.length > 0) {
-      const defs: ColDef[] = Object.keys(courseSubjects[0]).map((key) => {
-        const col: ColDef = {
-          field: key,
-          headerName: key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
-          width: 180,
-          editable: false,
-        };
+      const defs: ColDef[] = Object.keys(courseSubjects[0])
+        .filter(key => key !== 'id') 
+        .map((key) => {
+          const col: ColDef = {
+            field: key,
+            headerName: key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+            width: 180,
+            editable: false,
+            sortable: true,
+            filter: true,
+          };
 
-        if (key === "course_id") {
-          col.headerName = "Course ID";
-          col.pinned = "left";
-          col.width = 200;
-        }
+          if (key === "course_id") {
+            col.headerName = "Course ID";
+            col.pinned = "left";
+            col.width = 150;
+            col.cellClass = "font-medium";
+          }
 
-        if (key === "subject_id") {
-          col.headerName = "Subject ID";
-          col.pinned = "left";
-          col.width = 200;
-        }
-        return col;
-      });
+          if (key === "subject_id") {
+            col.headerName = "Subject ID";
+            col.pinned = "left";
+            col.width = 150;
+            col.cellClass = "font-medium";
+          }
+
+          return col;
+        });
 
       setColumnDefs(defs);
     }
   }, [courseSubjects]);
 
-  // ✅ Updated: Delete based on selected row only
-  const handleRowDeleted = async (row: any) => {
+  const handleRowDeleted = async (compositeId: string) => {
     try {
+
+      const [courseId, subjectId] = compositeId.split('-');
+      
+      if (!courseId || !subjectId) {
+        toast.error("Invalid record ID format");
+        return;
+      }
+
       await axios.delete(
-        `${process.env.NEXT_PUBLIC_API_URL}/course-subjects/${row.course_id}/${row.subject_id}`
+        `${process.env.NEXT_PUBLIC_API_URL}/course-subjects/${courseId}/${subjectId}`
       );
 
-      setFilteredCourseSubjects((prev) => prev.filter((r) => r !== row));
-      setCourseSubjects((prev) => prev.filter((r) => r !== row));
+      setCourseSubjects((prev) => 
+        prev.filter((r) => r.id !== compositeId)
+      );
+      setFilteredCourseSubjects((prev) => 
+        prev.filter((r) => r.id !== compositeId)
+      );
 
-      toast.success("Selected row deleted successfully!");
+      toast.success("Course-subject mapping deleted successfully!");
     } catch (e: any) {
       console.error("Delete failed", e.response?.data || e.message);
       const errorMsg = getErrorMessage(e);
       setError(errorMsg);
-      toast.error(errorMsg);
+      toast.error(`Delete failed: ${errorMsg}`);
     }
   };
 
@@ -138,73 +195,152 @@ export default function CourseSubjectPage() {
       return;
     }
 
+    const courseId = Number(newMapping.course_id);
+    const subjectId = Number(newMapping.subject_id);
+    
+    if (isNaN(courseId) || isNaN(subjectId)) {
+      toast.error("Course ID and Subject ID must be valid numbers!");
+      return;
+    }
+
+    const exists = courseSubjects.some(
+      (item) => item.course_id === courseId && item.subject_id === subjectId
+    );
+    
+    if (exists) {
+      toast.error("This course-subject mapping already exists!");
+      return;
+    }
+
     try {
       setSaving(true);
       const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/course-subjects`, {
-        course_id: Number(newMapping.course_id),
-        subject_id: Number(newMapping.subject_id),
+        course_id: courseId,
+        subject_id: subjectId,
       });
 
-      setFilteredCourseSubjects((prev) => [...prev, res.data]);
-      setCourseSubjects((prev) => [...prev, res.data]);
+    
+      const newRecordWithId = {
+        ...res.data,
+        id: `${res.data.course_id}-${res.data.subject_id}`
+      };
 
-      toast.success("Mapping added successfully!");
+      setCourseSubjects((prev) => [...prev, newRecordWithId]);
+      setFilteredCourseSubjects((prev) => [...prev, newRecordWithId]);
+
+      toast.success("Course-subject mapping added successfully!");
       setShowModal(false);
       setNewMapping({ course_id: "", subject_id: "" });
     } catch (e: any) {
       const errorMsg = getErrorMessage(e);
-      toast.error(errorMsg);
+      toast.error(`Failed to add mapping: ${errorMsg}`);
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) return <p className="text-center mt-8">Loading...</p>;
-  if (error) return <p className="text-center mt-8 text-red-600">{error}</p>;
+  const totalPages = Math.ceil(filteredCourseSubjects.length / pageSize);
+  const startIndex = (page - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedData = filteredCourseSubjects.slice(startIndex, endIndex);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <RefreshCwIcon className="h-8 w-8 animate-spin mx-auto mb-2 text-blue-600" />
+          <p className="text-gray-600">Loading course-subject mappings...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && courseSubjects.length === 0) {
+    return (
+      <div className="text-center mt-8 space-y-4">
+        <p className="text-red-600 text-lg">{error}</p>
+        <Button onClick={fetchCourseSubjects} variant="outline">
+          <RefreshCwIcon className="h-4 w-4 mr-2" />
+          Retry
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 p-6">
+      <Toaster richColors position="top-center" />
+      
+      {/* Header Section */}
+      <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-2xl font-bold">Course-Subject Relationships</h1>
-          <p>Manage mappings between courses and subjects.</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+            Course-Subject Relationships
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
+            Manage mappings between courses and subjects. Total mappings: {courseSubjects.length}
+          </p>
         </div>
-        <Button onClick={() => setShowModal(true)}>+ Add Mapping</Button>
-      </div>
+        <div className="flex gap-2">
+          <Button 
+            onClick={refreshData} 
+            variant="outline" 
+            size="sm"
+            disabled={refreshing}
+          >
+            <RefreshCwIcon className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Refreshing...' : 'Refresh'}
+          </Button>
+          <Button onClick={() => setShowModal(true)} size="sm">
+            <PlusIcon className="h-4 w-4 mr-2" />
+            Add Mapping
+          </Button>
+        </div>
+       </div>
 
+      
       <div className="max-w-md">
-        <Label htmlFor="search">Search</Label>
+        <Label htmlFor="search" className="text-sm font-medium">
+          Search Mappings
+        </Label>
         <div className="relative mt-1">
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             id="search"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Enter course ID or subject ID..."
+            placeholder="Enter course ID, subject ID..."
             className="pl-10"
           />
         </div>
+        {searchTerm && (
+          <p className="text-xs text-gray-500 mt-1">
+            Showing {filteredCourseSubjects.length} of {courseSubjects.length} mappings
+          </p>
+        )}
       </div>
 
+     
       <AGGridTable
-        rowData={filteredCourseSubjects.slice((page - 1) * pageSize, page * pageSize)}
+        rowData={paginatedData}
         columnDefs={columnDefs}
-        title={`Course-Subject Mappings (${filteredCourseSubjects.length})`}
-        height="calc(70vh)"
-        onRowDeleted={(row) => handleRowDeleted(row)} // ✅ delete selected row
+        title={`Course-Subject Mappings (${filteredCourseSubjects.length} results)`}
+        height="calc(70vh - 100px)"
+        onRowDeleted={handleRowDeleted}
+        //onRowUpdated={handleRowUpdated}
         showSearch={false}
       />
 
-      <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
+      <div className="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
         <div className="flex items-center space-x-2">
-          <span className="text-sm">Rows per page:</span>
+          <span className="text-sm text-gray-600 dark:text-gray-400">Rows per page:</span>
           <select
             value={pageSize}
             onChange={(e) => {
               setPageSize(Number(e.target.value));
               setPage(1);
             }}
-            className="border rounded px-2 py-1 text-sm"
+            className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
           >
             {[10, 20, 50, 100].map((size) => (
               <option key={size} value={size}>
@@ -213,70 +349,108 @@ export default function CourseSubjectPage() {
             ))}
           </select>
         </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setPage((p) => Math.max(p - 1, 1))}
-            disabled={page === 1}
-            className="px-2 py-1 border rounded text-sm disabled:opacity-50"
-          >
-            Previous
-          </button>
-          <span className="text-sm">Page {page}</span>
-          <button
-            onClick={() => setPage((p) => p + 1)}
-            className="px-2 py-1 border rounded text-sm"
-          >
-            Next
-          </button>
+        
+        <div className="flex items-center space-x-4">
+          <span className="text-sm text-gray-600 dark:text-gray-400">
+            Showing {startIndex + 1}-{Math.min(endIndex, filteredCourseSubjects.length)} of {filteredCourseSubjects.length}
+          </span>
+          <div className="flex items-center space-x-2">
+            <Button
+              onClick={() => setPage((p) => Math.max(p - 1, 1))}
+              disabled={page === 1}
+              variant="outline"
+              size="sm"
+            >
+              Previous
+            </Button>
+            <span className="text-sm font-medium px-2">
+              Page {page} of {totalPages || 1}
+            </span>
+            <Button
+              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+              disabled={page >= totalPages}
+              variant="outline"
+              size="sm"
+            >
+              Next
+            </Button>
+          </div>
         </div>
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white p-6 rounded shadow-lg w-96">
-            <h2 className="text-lg font-bold mb-4">Add Course-Subject Mapping</h2>
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-96 max-w-[90vw]">
+            <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
+              Add Course-Subject Mapping
+            </h2>
+            
             <div className="space-y-4">
               <div>
-                <Label>Subject ID</Label>
+                <Label htmlFor="course_id" className="text-sm font-medium">
+                  Course ID <span className="text-red-500">*</span>
+                </Label>
                 <Input
-                  type="number"
-                  value={newMapping.subject_id}
-                  onChange={(e) =>
-                    setNewMapping({ ...newMapping, subject_id: e.target.value })
-                  }
-                />
-              </div>
-              <div>
-                <Label>Course ID</Label>
-                <Input
+                  id="course_id"
                   type="number"
                   value={newMapping.course_id}
                   onChange={(e) =>
                     setNewMapping({ ...newMapping, course_id: e.target.value })
                   }
+                  placeholder="Enter course ID"
+                  className="mt-1"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="subject_id" className="text-sm font-medium">
+                  Subject ID <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="subject_id"
+                  type="number"
+                  value={newMapping.subject_id}
+                  onChange={(e) =>
+                    setNewMapping({ ...newMapping, subject_id: e.target.value })
+                  }
+                  placeholder="Enter subject ID"
+                  className="mt-1"
                 />
               </div>
             </div>
-            <div className="flex justify-end gap-2 mt-6">
-              <button
-                onClick={() => setShowModal(false)}
-                className="px-4 py-2 border rounded"
+
+            <div className="flex justify-end gap-3 mt-6">
+              <Button
+                onClick={() => {
+                  setShowModal(false);
+                  setNewMapping({ course_id: "", subject_id: "" });
+                }}
+                variant="outline"
+                disabled={saving}
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handleAddMapping}
-                disabled={saving}
-                className="px-4 py-2 bg-green-600 text-white rounded"
+                disabled={saving || !newMapping.course_id || !newMapping.subject_id}
               >
-                {saving ? "Saving..." : "Save"}
-              </button>
+                {saving ? (
+                  <>
+                    <RefreshCwIcon className="h-4 w-4 mr-2 animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  <>
+                    <PlusIcon className="h-4 w-4 mr-2" />
+                    Add Mapping
+                  </>
+                )}
+              </Button>
             </div>
           </div>
         </div>
       )}
-
-      <Toaster richColors position="top-center" />
+    
     </div>
   );
 }

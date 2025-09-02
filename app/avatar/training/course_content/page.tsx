@@ -22,7 +22,7 @@ export default function CourseContentPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
-   // Modal state for adding new content
+   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newContent, setNewContent] = useState({
     Fundamentals: "",
@@ -150,7 +150,7 @@ export default function CourseContentPage() {
         </div>
       </div>
 
-       {/* Add Course Content Dialog */}
+       {/* Add Course Content */}
     <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
       <DialogContent>
         <DialogHeader>
