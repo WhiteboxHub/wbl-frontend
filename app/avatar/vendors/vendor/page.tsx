@@ -57,16 +57,19 @@ const YesNoRenderer = (params: any) => {
   return BadgeRenderer({ value: key }, map);
 };
 
-
 const SelectEditor = (props: any) => {
   const { value, options, colorMap } = props;
   const [current, setCurrent] = useState(value);
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setCurrent(e.target.value);
-    props.stopEditing();
-    props.onValueChange?.(e.target.value);
   };
+
+  useEffect(() => {
+    props.api.addEventListener("cellEditingStopped", () => {
+      props.api.stopEditing();
+    });
+  }, []);
 
   return (
     <select
@@ -79,11 +82,6 @@ const SelectEditor = (props: any) => {
         <option
           key={opt}
           value={opt}
-          style={{
-            backgroundColor: colorMap[opt]?.includes("bg-")
-              ? undefined
-              : colorMap[opt],
-          }}
           className={colorMap[opt]}
         >
           {opt.toUpperCase()}
@@ -92,7 +90,6 @@ const SelectEditor = (props: any) => {
     </select>
   );
 };
-
 
 const DateFormatter = (params: any) =>
   params.value ? new Date(params.value).toLocaleDateString() : "";
@@ -288,6 +285,7 @@ export default function VendorPage() {
 
     const payload = {
       ...updatedRow,
+      email: updatedRow.email?.trim() === "" ? null : updatedRow.email,
       linkedin_connected: normalizeYesNo(updatedRow.linkedin_connected),
       intro_email_sent: normalizeYesNo(updatedRow.intro_email_sent),
       intro_call: normalizeYesNo(updatedRow.intro_call),
