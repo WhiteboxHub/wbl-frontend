@@ -74,9 +74,9 @@ export function AGGridTable({
     setGridApi(params.api);
   }, []);
 
-  const toggleExpand = useCallback(() => {
-    setIsExpanded((prev) => !prev);
-  }, []);
+  // const toggleExpand = useCallback(() => {
+  //   setIsExpanded((prev) => !prev);
+  // }, []);
 
   const refreshData = useCallback(() => {
     if (gridApi) {
@@ -219,10 +219,6 @@ export function AGGridTable({
           >
             <TrashIcon className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={toggleExpand}>
-            <ExpandIcon className="h-4 w-4 mr-2" />
-            {isExpanded ? "Collapse" : "Expand Table"}
-          </Button>
         </div>
       </div>
       
@@ -232,7 +228,7 @@ export function AGGridTable({
             isExpanded ? "w-full" : "w-full max-w-6xl"
           }`}
           style={{
-            height: isExpanded ? "calc(100vh - 200px)" : height,
+            height:  "calc(100vh - 200px)",
             minHeight: "400px",
           }}
         >
@@ -299,3 +295,4 @@ export function AGGridTable({
 }
 
 export default AGGridTable;
+

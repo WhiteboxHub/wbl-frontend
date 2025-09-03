@@ -93,6 +93,7 @@ export default function VendorContactsGrid() {
               c.email?.toLowerCase().includes(term) ||
               c.phone?.toLowerCase().includes(term) ||
               c.linkedin_id?.toLowerCase().includes(term) ||
+              c.internal_linkedin_id?.toLowerCase().includes(term) || 
               c.company_name?.toLowerCase().includes(term) ||
               c.location?.toLowerCase().includes(term)
           )
@@ -170,6 +171,12 @@ export default function VendorContactsGrid() {
       headerName: "Created At",
       width: 180,
       valueFormatter: DateFormatter,
+    },
+    {
+      field: "internal_linkedin_id",
+      headerName: "Internal LinkedIn ID",
+      width: 200,
+      editable: true,
     },
   ], []);
 

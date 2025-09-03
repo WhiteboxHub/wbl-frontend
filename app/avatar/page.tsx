@@ -252,7 +252,7 @@ export default function Index() {
   return (
     <div className="p-6 min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
 
-      {/* Welcome Section */}
+      {/* Welcome Section
       <motion.div
         className="relative overflow-hidden rounded-3xl p-10 mb-10 shadow-md text-center border border-pink-100 bg-white"
         initial={{ opacity: 0, y: -20 }}
@@ -264,7 +264,7 @@ export default function Index() {
           {time.toLocaleDateString("en-GB")} • {time.toLocaleTimeString()}
         </p>
         )}
-      </motion.div>
+      </motion.div> */}
 
       {/* Employee Birthdays*/}
       <motion.div

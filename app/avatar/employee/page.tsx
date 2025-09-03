@@ -278,12 +278,12 @@ export default function EmployeesPage() {
         </div>
 
         {/* Add Employee Button */}
-        <button
+        {/* <button
           onClick={handleAddEmployee}
           className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           <Plus className="mr-2 h-4 w-4" /> Add Employee
-        </button>
+        </button> */}
       </div>
 
       {/* Search */}

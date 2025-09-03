@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -17,12 +16,12 @@ interface ViewModalProps {
 }
 
 const fieldSections: Record<string, string> = {
-
   id: "Basic Information",
+  sessionid: "Basic Information",
+  alias: "Basic Information",
   subject: "Basic Information",
   subject_id: "Basic Information",
   candidateid: "Basic Information",
-  sessionid: "Basic Information",
   uname: "Basic Information",
   fullname: "Basic Information",
   candidate_id: "Basic Information",
@@ -34,31 +33,40 @@ const fieldSections: Record<string, string> = {
   candidate_name: "Basic Information",
   candidate_role: "Basic Information",
   dob: "Basic Information",
-  title: "Basic Information",
   contact: "Basic Information",
+
   phone: "Contact Information",
   Phone: "Contact Information",
-
-  secondaryphone: "Basic Information",
-  email: "Basic Information",
-  secondaryemail: "Basic Information",
-  ssn: "Basic Information",
+  secondaryphone: "Contact Information",
+  phone_number: "Contact Information",
+  email: "Contact Information",
+  created_at: "",
+  linkedin_connected: "Professional Information",
+  intro_email_sent: "Professional Information",
+  intro_call: "Professional Information",
+  secondaryemail: "Contact Information",
+  ssn: "Professional Information",
   priority: "Basic Information",
   source: "Basic Information",
-  // subject: "Basic Information",
+  title: "Basic Information",
   enrolleddate: "Basic Information",
   orientationdate: "Basic Information",
   batchname: "Basic Information",
-  batchid: "Basic Information",
-  agreement: "Basic Information",
+  batchid: "Professional Information",
+  agreement: "Professional Information",
   promissory: "Basic Information",
+  status: "Basic Information",
+  filename: "Basic Information",
 
   full_name: "Basic Information",
-  source_email: "Contact Information",
-  linkedin_id: "Professional Information",
-  company_name: "Professional Information",
-  location: "Basic Information",
   
+  linkedin_id: "Professional Information",
+  company_name: "Basic Information",
+  location: "Contact Information",
+  extraction_date: "Basic Information",
+  Fundamentals: "Basic Information",
+  AIML: "Basic Information",
+
   vendor_id: "Basic Information",
   vendor_name: "Basic Information",
   vendor_email: "Basic Information",
@@ -72,9 +80,16 @@ const fieldSections: Record<string, string> = {
   vendor_company: "Professional Information",
 
   course: "Professional Information",
+  subjectid: "Professional Information",
+  courseid: "Professional Information",
   link: "Professional Information",
   videoid: "Professional Information",
   type: "Professional Information",
+
+  lastlogin: "Professional Information",
+  logincount: "Professional Information",
+
+  registereddate: "Professional Information",
   company: "Professional Information",
   client_id: "Professional Information",
   client_name: "Professional Information",
@@ -84,9 +99,10 @@ const fieldSections: Record<string, string> = {
   marketing_email_address: "Professional Information",
   interview_date: "Professional Information",
   interview_mode: "Professional Information",
-  status: "Basic Information",
   visa_status: "Professional Information",
+  work_status: "Professional Information",
   workstatus: "Professional Information",
+  message: "Professional Information",
   education: "Professional Information",
   workexperience: "Professional Information",
   faq: "Professional Information",
@@ -101,11 +117,15 @@ const fieldSections: Record<string, string> = {
   marketing_startdate: "Professional Information",
   recruiterassesment: "Professional Information",
   statuschangedate: "Professional Information",
+  aadhaar: "Basic Information",
+
   closed: "Professional Information",
-  lastlogin: "Professional Information",
-  logincount: "Professional Information",
-  registereddate: "Professional Information",
-  message: "Professional Information",
+
+  secondary_email: "Contact Information",
+  massemail_email_sent: "Professional Information",
+  massemail_unsubscribe: "Professional Information",
+  moved_to_candidate: "Professional Information",
+  moved_to_vendor: "Professional Information",
 
   address: "Contact Information",
   city: "Contact Information",
@@ -129,6 +149,8 @@ const fieldLabels: Record<string, string> = {
   id: "ID",
   sessionid: "ID",
   subject_id: "Subject ID",
+  course_id: "Course ID",
+  courseid: "Course ID",
   new_subject_id: "New Subject ID",
   videoid: "Video ID",
   candidateid: "Candidate ID",
@@ -172,42 +194,31 @@ const fieldLabels: Record<string, string> = {
   spouseoccupationinfo: "Spouse Occupation Info",
 };
 
+// Excluded fields (won’t render in modal)
+const excludedFields: string[] = [
+  "name",
+  "vendor_type",
+];
+
 export function ViewModal({ isOpen, onClose, data, title }: ViewModalProps) {
   if (!data) return null;
-
 
   const getStatusColor = (
     status: string | number | boolean | null | undefined
   ): string => {
-    // normalize to string
     let normalized: string;
-
     if (typeof status === "string") {
       normalized = status.toLowerCase();
     } else if (typeof status === "number" || typeof status === "boolean") {
       normalized = status ? "active" : "inactive";
     } else {
-      normalized = "inactive"; // default fallback
+      normalized = "inactive";
     }
 
     return normalized === "active"
       ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
       : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
   };
-
-  const getStatusLabel = (
-    status: string | number | boolean | null | undefined
-  ): string => {
-    if (typeof status === "string") return status;
-    if (typeof status === "number" || typeof status === "boolean")
-      return status ? "Active" : "Inactive";
-    return "Inactive";
-  };
-
-  // const getStatusColor = (status: string) =>
-  //   status?.toLowerCase() === "active"
-  //     ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-  //     : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
 
   const getVisaColor = (visa: string) => {
     switch (visa) {
@@ -229,7 +240,7 @@ export function ViewModal({ isOpen, onClose, data, title }: ViewModalProps) {
   };
 
   const toLabel = (key: string) => {
-    if (fieldLabels[key]) return fieldLabels[key]; 
+    if (fieldLabels[key]) return fieldLabels[key];
     return key
       .replace(/([A-Z])/g, " $1")
       .replace(/_/g, " ")
@@ -249,17 +260,28 @@ export function ViewModal({ isOpen, onClose, data, title }: ViewModalProps) {
     }
 
     if (["feepaid", "feedue", "salary0", "salary6", "salary12"].includes(lowerKey)) {
-      return <p className="text-sm font-medium dark:text-gray-200">${Number(value).toLocaleString()}</p>;
+      return (
+        <p className="text-sm font-medium dark:text-gray-200">
+          ${Number(value).toLocaleString()}
+        </p>
+      );
     }
 
     if (lowerKey.includes("rating")) {
-      return <p className="text-sm font-medium dark:text-gray-200">{value} ⭐</p>;
+      return (
+        <p className="text-sm font-medium dark:text-gray-200">
+          {value} ⭐
+        </p>
+      );
     }
 
-    return <p className="text-sm font-medium dark:text-gray-200">{String(value)}</p>;
+    return (
+      <p className="text-sm font-medium dark:text-gray-200">
+        {String(value)}
+      </p>
+    );
   };
 
-  // Organize data into sections
   const sectionedFields: Record<string, { key: string; value: any }[]> = {
     "Basic Information": [],
     "Professional Information": [],
@@ -270,6 +292,8 @@ export function ViewModal({ isOpen, onClose, data, title }: ViewModalProps) {
   };
 
   Object.entries(data).forEach(([key, value]) => {
+    if (excludedFields.includes(key)) return; // 🚀 skip excluded
+
     const section = fieldSections[key] || "Other";
     if (!sectionedFields[section]) sectionedFields[section] = [];
     sectionedFields[section].push({ key, value });
@@ -297,7 +321,9 @@ export function ViewModal({ isOpen, onClose, data, title }: ViewModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className={`${modalWidthClass} max-h-[80vh] overflow-y-auto p-0`}>
+      <DialogContent
+        className={`${modalWidthClass} max-h-[80vh] overflow-y-auto p-0`}
+      >
         {/* Header */}
         <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
@@ -308,8 +334,19 @@ export function ViewModal({ isOpen, onClose, data, title }: ViewModalProps) {
             className="text-gray-500 hover:text-gray-700 dark:hover:text-white focus:outline-none"
             aria-label="Close"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>

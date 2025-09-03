@@ -1,234 +1,5 @@
-// "use client";
 
-// import React, { useEffect, useState } from "react";
-// import { ColDef } from "ag-grid-community";
-// import { AGGridTable } from "@/components/AGGridTable";
-// import { Input } from "@/components/admin_ui/input";
-// import { Label } from "@/components/admin_ui/label";
-// import { SearchIcon, Plus } from "lucide-react";
-// import axios from "axios";
 
-// const DateFormatter = (params: any) =>
-//   params.value ? new Date(params.value).toLocaleString() : "";
-
-// export default function CourseSubjectPage() {
-//   const [searchTerm, setSearchTerm] = useState("");
-//   const [courseSubjects, setCourseSubjects] = useState<any[]>([]);
-//   const [filteredCourseSubjects, setFilteredCourseSubjects] = useState<any[]>(
-//     []
-//   );
-//   const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
-//   const [loading, setLoading] = useState(true);
-//   const [error, setError] = useState("");
-//   const [page, setPage] = useState(1);
-//   const [pageSize, setPageSize] = useState(20);
-
-//   // Fetch all course-subject mappings
-//   const fetchCourseSubjects = async () => {
-//     try {
-//       setLoading(true);
-//       const res = await axios.get(
-//         `${process.env.NEXT_PUBLIC_API_URL}/course-subjects`
-//       );
-//       setCourseSubjects(res.data);
-//       setFilteredCourseSubjects(res.data);
-//     } catch (e: any) {
-//       setError(e.response?.data?.detail || e.message);
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   useEffect(() => {
-//     fetchCourseSubjects();
-//   }, []);
-
-//   // Search filter
-//   useEffect(() => {
-//     const lower = searchTerm.trim().toLowerCase();
-//     if (!lower) return setFilteredCourseSubjects(courseSubjects);
-
-//     const filtered = courseSubjects.filter(
-//       (row) =>
-//         row.course_id?.toString().includes(lower) ||
-//         row.subject_id?.toString().includes(lower)
-//     );
-//     setFilteredCourseSubjects(filtered);
-//   }, [searchTerm, courseSubjects]);
-
-//   // Column definitions
-//   useEffect(() => {
-//     if (courseSubjects.length > 0) {
-//       const defs: ColDef[] = Object.keys(courseSubjects[0]).map((key) => {
-//         const col: ColDef = {
-//           field: key,
-//           headerName: key
-//             .replace(/_/g, " ")
-//             .replace(/\b\w/g, (l) => l.toUpperCase()),
-//           width: 180,
-//           editable: false, // IDs not editable
-//         };
-
-//         if (key.toLowerCase().includes("date"))
-//           col.valueFormatter = DateFormatter;
-
-//         if (key === "course_id" || key === "subject_id") {
-//           col.pinned = "left";
-//           col.width = 120;
-//         }
-
-//         return col;
-//       });
-
-//       setColumnDefs(defs);
-//     }
-//   }, [courseSubjects]);
-
-//   // Add new mapping
-//   const handleAddCourseSubject = async () => {
-//     const courseId = prompt("Enter Course ID:");
-//     const subjectId = prompt("Enter Subject ID:");
-
-//     if (!courseId || !subjectId) return;
-
-//     const newMapping = {
-//       course_id: Number(courseId),
-//       subject_id: Number(subjectId),
-//     };
-
-//     try {
-//       const res = await axios.post(
-//         `${process.env.NEXT_PUBLIC_API_URL}/course-subjects`,
-//         newMapping
-//       );
-//       setFilteredCourseSubjects((prev) => [...prev, res.data]);
-//     } catch (e: any) {
-//       alert(e.response?.data?.detail || "Add failed");
-//     }
-//   };
-
-//   // Delete mapping
-//   const handleRowDeleted = async (row: any) => {
-//     try {
-//       await axios.delete(
-//         `${process.env.NEXT_PUBLIC_API_URL}/course-subjects`,
-//         {
-//           params: { course_id: row.course_id, subject_id: row.subject_id },
-//         }
-//       );
-//       setFilteredCourseSubjects((prev) =>
-//         prev.filter(
-//           (r) =>
-//             !(
-//               r.course_id === row.course_id && r.subject_id === row.subject_id
-//             )
-//         )
-//       );
-//     } catch (e: any) {
-//       alert(e.response?.data?.detail || "Delete failed");
-//     }
-//   };
-
-//   // Update mapping (basically refresh lastmoddatetime)
-//   const handleRowUpdated = async (updatedRow: any) => {
-//     try {
-//       await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/course-subjects`, {
-//         course_id: updatedRow.course_id,
-//         subject_id: updatedRow.subject_id,
-//         lastmoddatetime: new Date().toISOString(),
-//       });
-//     } catch (e) {
-//       console.error("Update failed", e);
-//     }
-//   };
-
-//   if (loading) return <p className="text-center mt-8">Loading...</p>;
-//   if (error) return <p className="text-center mt-8 text-red-600">{error}</p>;
-
-//   return (
-//     <div className="space-y-6">
-//       <div className="flex justify-between items-center">
-//         <div>
-//           <h1 className="text-2xl font-bold">Course-Subject Relationships</h1>
-//           <p>Manage mappings between courses and subjects.</p>
-//         </div>
-//         <button
-//           onClick={handleAddCourseSubject}
-//           className="flex items-center space-x-2 px-4 py-2 border rounded bg-blue-600 text-white hover:bg-blue-700"
-//         >
-//           <Plus className="h-4 w-4" />
-//           <span>Add Mapping</span>
-//         </button>
-//       </div>
-
-//       <div className="max-w-md">
-//         <Label htmlFor="search">Search</Label>
-//         <div className="relative mt-1">
-//           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2  h-4 w-4 text-gray-400" />
-//           <Input
-//             id="search"
-//             value={searchTerm}
-//             onChange={(e) => setSearchTerm(e.target.value)}
-//             placeholder="Enter course ID or subject ID..."
-//             className="pl-10"
-//           />
-//         </div>
-//       </div>
-
-//       <AGGridTable
-//         rowData={filteredCourseSubjects.slice(
-//           (page - 1) * pageSize,
-//           page * pageSize
-//         )}
-//         columnDefs={columnDefs}
-//         title={`Course-Subject Mappings (${filteredCourseSubjects.length})`}
-//         height="calc(70vh)"
-//         onRowUpdated={handleRowUpdated}
-//         onRowDeleted={(row) => handleRowDeleted(row)}
-//         showSearch={false}
-//       />
-
-//       {/* Pagination */}
-//       <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
-//         <div className="flex items-center space-x-2">
-//           <span className="text-sm">Rows per page:</span>
-//           <select
-//             value={pageSize}
-//             onChange={(e) => {
-//               setPageSize(Number(e.target.value));
-//               setPage(1);
-//             }}
-//             className="border rounded px-2 py-1 text-sm"
-//           >
-//             {[10, 20, 50, 100].map((size) => (
-//               <option key={size} value={size}>
-//                 {size}
-//               </option>
-//             ))}
-//           </select>
-//         </div>
-
-//         <div className="flex items-center space-x-2">
-//           <button
-//             onClick={() => setPage((p) => Math.max(p - 1, 1))}
-//             disabled={page === 1}
-//             className="px-2 py-1 border rounded text-sm disabled:opacity-50"
-//           >
-//             Previous
-//           </button>
-//           <span className="text-sm">Page {page}</span>
-//           <button
-//             onClick={() => setPage((p) => p + 1)}
-//             className="px-2 py-1 border rounded text-sm"
-//           >
-//             Next
-//           </button>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
-//above working
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -236,37 +7,81 @@ import { ColDef } from "ag-grid-community";
 import { AGGridTable } from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon } from "lucide-react";
+import { Button } from "@/components/admin_ui/button";
+import { SearchIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
 import axios from "axios";
+import { toast, Toaster } from "sonner";
 
-const DateFormatter = (params: any) =>
-  params.value ? new Date(params.value).toLocaleString() : "";
+interface CourseSubject {
+  subject_id: number;
+  course_id: number;
+  //lastmoddatetime: string;
+  id?: string; 
+}
+
+interface NewMapping {
+  course_id: string;
+  subject_id: string;
+}
+
+function getErrorMessage(e: any): string {
+  if (typeof e === "string") return e;
+  if (e?.response?.data?.detail) {
+    const detail = e.response.data.detail;
+    if (typeof detail === "string") return detail;
+    try {
+      return JSON.stringify(detail);
+    } catch {
+      return "Unexpected error format";
+    }
+  }
+  if (e?.message) return e.message;
+  return "Unknown error occurred";
+}
 
 export default function CourseSubjectPage() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [courseSubjects, setCourseSubjects] = useState<any[]>([]);
-  const [filteredCourseSubjects, setFilteredCourseSubjects] = useState<any[]>(
-    []
-  );
+  const [courseSubjects, setCourseSubjects] = useState<CourseSubject[]>([]);
+  const [filteredCourseSubjects, setFilteredCourseSubjects] = useState<CourseSubject[]>([]);
   const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  const [showModal, setShowModal] = useState(false);
+  const [newMapping, setNewMapping] = useState<NewMapping>({ course_id: "", subject_id: "" });
+  const [saving, setSaving] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Fetch all course-subject mappings
   const fetchCourseSubjects = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/course-subjects`
-      );
-      setCourseSubjects(res.data);
-      setFilteredCourseSubjects(res.data);
+      setError("");
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/course-subjects`);
+      
+      const dataWithId = res.data.map((item: CourseSubject) => ({
+        ...item,
+        id: `${item.course_id}-${item.subject_id}` 
+      }));
+      
+      setCourseSubjects(dataWithId);
+      setFilteredCourseSubjects(dataWithId);
+      toast.success("Course-subject mappings loaded successfully!");
     } catch (e: any) {
-      setError(e.response?.data?.detail || e.message);
+      const errorMsg = getErrorMessage(e);
+      setError(errorMsg);
+      toast.error(`Failed to load data: ${errorMsg}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const refreshData = async () => {
+    try {
+      setRefreshing(true);
+      await fetchCourseSubjects();
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -274,205 +89,258 @@ export default function CourseSubjectPage() {
     fetchCourseSubjects();
   }, []);
 
-//   // Search filter
-//   useEffect(() => {
-//     const lower = searchTerm.trim().toLowerCase();
-//     if (!lower) return setFilteredCourseSubjects(courseSubjects);
-
-//     const filtered = courseSubjects.filter(
-//       (row) =>
-//         row.course_id?.toString().includes(lower) ||
-//         row.subject_id?.toString().includes(lower)
-//     );
-//     setFilteredCourseSubjects(filtered);
-//   }, [searchTerm, courseSubjects]);
-
-// Search filter
-// Search filter
-useEffect(() => {
-  const lower = searchTerm.trim().toLowerCase();
-  if (!lower) return setFilteredCourseSubjects(courseSubjects);
-
-  const filtered = courseSubjects.filter((row) => {
-    const courseIdStr = row.course_id?.toString() || "";
-    const subjectIdStr = row.subject_id?.toString() || "";
-
-    // If user searches like "1 22" or "22 1"
-    const parts = lower.split(/\s+/).filter(Boolean); // split by space
-    if (parts.length === 2) {
-      return (
-        (parts[0] === courseIdStr && parts[1] === subjectIdStr) ||
-        (parts[1] === courseIdStr && parts[0] === subjectIdStr)
-      );
+  useEffect(() => {
+    const lower = searchTerm.trim().toLowerCase();
+    if (!lower) {
+      setFilteredCourseSubjects(courseSubjects);
+      setPage(1);
+      return;
     }
 
-    // Normal contains search (single value)
-    return (
-      courseIdStr.includes(lower) ||
-      subjectIdStr.includes(lower) ||
-      `${courseIdStr}-${subjectIdStr}`.includes(lower)
-    );
-  });
+    const filtered = courseSubjects.filter((row) => {
+      const courseIdStr = row.course_id?.toString() || "";
+      const subjectIdStr = row.subject_id?.toString() || "";
+      //const lastModStr = row.lastmoddatetime?.toLowerCase() || "";
 
-  setFilteredCourseSubjects(filtered);
-}, [searchTerm, courseSubjects]);
+      const parts = lower.split(/\s+/).filter(Boolean);
+      
+      if (parts.length === 2) {
+        return (
+          (parts[0] === courseIdStr && parts[1] === subjectIdStr) ||
+          (parts[1] === courseIdStr && parts[0] === subjectIdStr)
+        );
+      }
 
-  // Column definitions
+      return (
+        courseIdStr.includes(lower) ||
+        subjectIdStr.includes(lower) ||
+        //lastModStr.includes(lower) ||
+        `${courseIdStr}-${subjectIdStr}`.includes(lower) ||
+        `${subjectIdStr}-${courseIdStr}`.includes(lower)
+      );
+    });
+
+    setFilteredCourseSubjects(filtered);
+    setPage(1); 
+  }, [searchTerm, courseSubjects]);
+
   useEffect(() => {
     if (courseSubjects.length > 0) {
-      const defs: ColDef[] = Object.keys(courseSubjects[0]).map((key) => {
-        const col: ColDef = {
-          field: key,
-          headerName: key
-            .replace(/_/g, " ")
-            .replace(/\b\w/g, (l) => l.toUpperCase()),
-          width: 180,
-          editable: false, // IDs not editable
-        };
+      const defs: ColDef[] = Object.keys(courseSubjects[0])
+        .filter(key => key !== 'id') 
+        .map((key) => {
+          const col: ColDef = {
+            field: key,
+            headerName: key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+            width: 180,
+            editable: false,
+            sortable: true,
+            filter: true,
+          };
 
-        if (key.toLowerCase().includes("date"))
-          col.valueFormatter = DateFormatter;
+          if (key === "course_id") {
+            col.headerName = "Course ID";
+            col.pinned = "left";
+            col.width = 150;
+            col.cellClass = "font-medium";
+          }
 
-        if (key === "course_id" || key === "subject_id") {
-          col.pinned = "left";
-          col.width = 120;
-        }
+          if (key === "subject_id") {
+            col.headerName = "Subject ID";
+            col.pinned = "left";
+            col.width = 150;
+            col.cellClass = "font-medium";
+          }
 
-        return col;
-      });
+          return col;
+        });
 
       setColumnDefs(defs);
     }
   }, [courseSubjects]);
 
-  // Delete mapping
-//   const handleRowDeleted = async (row: any) => {
-//     try {
-//       await axios.delete(
-//         `${process.env.NEXT_PUBLIC_API_URL}/course-subjects`,
-//         {
-//           params: { course_id: row.course_id, subject_id: row.subject_id },
-//         }
-//       );
-//       setFilteredCourseSubjects((prev) =>
-//         prev.filter(
-//           (r) =>
-//             !(
-//               r.course_id === row.course_id && r.subject_id === row.subject_id
-//             )
-//         )
-//       );
-//     } catch (e: any) {
-//       alert(e.response?.data?.detail || "Delete failed");
-//     }
-//   };
-// Delete mapping - FIXED
-// Delete mapping - FIXED
-const handleRowDeleted = async (row: any) => {
-  try {
-    await axios.delete(
-      `${process.env.NEXT_PUBLIC_API_URL}/course-subjects?course_id=${row.course_id}&subject_id=${row.subject_id}`
-    );
-    setFilteredCourseSubjects((prev) =>
-      prev.filter(
-        (r) =>
-          !(r.course_id === row.course_id && r.subject_id === row.subject_id)
-      )
-    );
-  } catch (e: any) {
-    console.error("Delete failed", e);
-    setError(e.response?.data?.detail || "Delete failed");
-    alert(e.response?.data?.detail || "Delete failed");
-  }
-};
-  // Update mapping (basically refresh lastmoddatetime)
-//   const handleRowUpdated = async (updatedRow: any) => {
-//     try {
-//       await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/course-subjects`, {
-//         course_id: updatedRow.course_id,
-//         subject_id: updatedRow.subject_id,
-//         lastmoddatetime: new Date().toISOString(),
-//       });
-//     } catch (e) {
-//       console.error("Update failed", e);
-//     }
-//   };
-// Update mapping - FIXED
-const handleRowUpdated = async (updatedRow: any) => {
-  try {
-    const response = await axios.put(
-      `${process.env.NEXT_PUBLIC_API_URL}/course-subjects`,
-      {
-        course_id: updatedRow.course_id,
-        subject_id: updatedRow.subject_id,
-        lastmoddatetime: new Date().toISOString(),
+  const handleRowDeleted = async (compositeId: string) => {
+    try {
+
+      const [courseId, subjectId] = compositeId.split('-');
+      
+      if (!courseId || !subjectId) {
+        toast.error("Invalid record ID format");
+        return;
       }
+
+      await axios.delete(
+        `${process.env.NEXT_PUBLIC_API_URL}/course-subjects/${courseId}/${subjectId}`
+      );
+
+      setCourseSubjects((prev) => 
+        prev.filter((r) => r.id !== compositeId)
+      );
+      setFilteredCourseSubjects((prev) => 
+        prev.filter((r) => r.id !== compositeId)
+      );
+
+      toast.success("Course-subject mapping deleted successfully!");
+    } catch (e: any) {
+      console.error("Delete failed", e.response?.data || e.message);
+      const errorMsg = getErrorMessage(e);
+      setError(errorMsg);
+      toast.error(`Delete failed: ${errorMsg}`);
+    }
+  };
+
+  const handleAddMapping = async () => {
+    if (!newMapping.course_id || !newMapping.subject_id) {
+      toast.error("Course ID and Subject ID are required!");
+      return;
+    }
+
+    const courseId = Number(newMapping.course_id);
+    const subjectId = Number(newMapping.subject_id);
+    
+    if (isNaN(courseId) || isNaN(subjectId)) {
+      toast.error("Course ID and Subject ID must be valid numbers!");
+      return;
+    }
+
+    const exists = courseSubjects.some(
+      (item) => item.course_id === courseId && item.subject_id === subjectId
     );
     
-    // Update the local state with the response data
-    setFilteredCourseSubjects((prev) =>
-      prev.map((r) =>
-        r.course_id === updatedRow.course_id && r.subject_id === updatedRow.subject_id
-          ? response.data
-          : r
-      )
-    );
-  } catch (e: any) {
-    console.error("Update failed", e);
-    setError(e.response?.data?.detail || "Update failed");
-  }
-};
+    if (exists) {
+      toast.error("This course-subject mapping already exists!");
+      return;
+    }
 
-  if (loading) return <p className="text-center mt-8">Loading...</p>;
-  if (error) return <p className="text-center mt-8 text-red-600">{error}</p>;
+    try {
+      setSaving(true);
+      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/course-subjects`, {
+        course_id: courseId,
+        subject_id: subjectId,
+      });
 
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold">Course-Subject Relationships</h1>
-          <p>Manage mappings between courses and subjects.</p>
+    
+      const newRecordWithId = {
+        ...res.data,
+        id: `${res.data.course_id}-${res.data.subject_id}`
+      };
+
+      setCourseSubjects((prev) => [...prev, newRecordWithId]);
+      setFilteredCourseSubjects((prev) => [...prev, newRecordWithId]);
+
+      toast.success("Course-subject mapping added successfully!");
+      setShowModal(false);
+      setNewMapping({ course_id: "", subject_id: "" });
+    } catch (e: any) {
+      const errorMsg = getErrorMessage(e);
+      toast.error(`Failed to add mapping: ${errorMsg}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const totalPages = Math.ceil(filteredCourseSubjects.length / pageSize);
+  const startIndex = (page - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedData = filteredCourseSubjects.slice(startIndex, endIndex);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <RefreshCwIcon className="h-8 w-8 animate-spin mx-auto mb-2 text-blue-600" />
+          <p className="text-gray-600">Loading course-subject mappings...</p>
         </div>
       </div>
+    );
+  }
 
+  if (error && courseSubjects.length === 0) {
+    return (
+      <div className="text-center mt-8 space-y-4">
+        <p className="text-red-600 text-lg">{error}</p>
+        <Button onClick={fetchCourseSubjects} variant="outline">
+          <RefreshCwIcon className="h-4 w-4 mr-2" />
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 p-6">
+      <Toaster richColors position="top-center" />
+      
+      {/* Header Section */}
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+            Course-Subject Relationships
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
+            Manage mappings between courses and subjects. Total mappings: {courseSubjects.length}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button 
+            onClick={refreshData} 
+            variant="outline" 
+            size="sm"
+            disabled={refreshing}
+          >
+            <RefreshCwIcon className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Refreshing...' : 'Refresh'}
+          </Button>
+          <Button onClick={() => setShowModal(true)} size="sm">
+            <PlusIcon className="h-4 w-4 mr-2" />
+            Add Mapping
+          </Button>
+        </div>
+       </div>
+
+      
       <div className="max-w-md">
-        <Label htmlFor="search">Search</Label>
+        <Label htmlFor="search" className="text-sm font-medium">
+          Search Mappings
+        </Label>
         <div className="relative mt-1">
-          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2  h-4 w-4 text-gray-400" />
+          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             id="search"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Enter course ID or subject ID..."
+            placeholder="Enter course ID, subject ID..."
             className="pl-10"
           />
         </div>
+        {searchTerm && (
+          <p className="text-xs text-gray-500 mt-1">
+            Showing {filteredCourseSubjects.length} of {courseSubjects.length} mappings
+          </p>
+        )}
       </div>
 
+     
       <AGGridTable
-        rowData={filteredCourseSubjects.slice(
-          (page - 1) * pageSize,
-          page * pageSize
-        )}
+        rowData={paginatedData}
         columnDefs={columnDefs}
-        title={`Course-Subject Mappings (${filteredCourseSubjects.length})`}
-        height="calc(70vh)"
-        onRowUpdated={handleRowUpdated}
-        onRowDeleted={(row) => handleRowDeleted(row)}
+        title={`Course-Subject Mappings (${filteredCourseSubjects.length} results)`}
+        height="calc(70vh - 100px)"
+        onRowDeleted={handleRowDeleted}
+        //onRowUpdated={handleRowUpdated}
         showSearch={false}
       />
 
-      {/* Pagination */}
-      <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
+      <div className="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
         <div className="flex items-center space-x-2">
-          <span className="text-sm">Rows per page:</span>
+          <span className="text-sm text-gray-600 dark:text-gray-400">Rows per page:</span>
           <select
             value={pageSize}
             onChange={(e) => {
               setPageSize(Number(e.target.value));
               setPage(1);
             }}
-            className="border rounded px-2 py-1 text-sm"
+            className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
           >
             {[10, 20, 50, 100].map((size) => (
               <option key={size} value={size}>
@@ -481,24 +349,108 @@ const handleRowUpdated = async (updatedRow: any) => {
             ))}
           </select>
         </div>
-
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setPage((p) => Math.max(p - 1, 1))}
-            disabled={page === 1}
-            className="px-2 py-1 border rounded text-sm disabled:opacity-50"
-          >
-            Previous
-          </button>
-          <span className="text-sm">Page {page}</span>
-          <button
-            onClick={() => setPage((p) => p + 1)}
-            className="px-2 py-1 border rounded text-sm"
-          >
-            Next
-          </button>
+        
+        <div className="flex items-center space-x-4">
+          <span className="text-sm text-gray-600 dark:text-gray-400">
+            Showing {startIndex + 1}-{Math.min(endIndex, filteredCourseSubjects.length)} of {filteredCourseSubjects.length}
+          </span>
+          <div className="flex items-center space-x-2">
+            <Button
+              onClick={() => setPage((p) => Math.max(p - 1, 1))}
+              disabled={page === 1}
+              variant="outline"
+              size="sm"
+            >
+              Previous
+            </Button>
+            <span className="text-sm font-medium px-2">
+              Page {page} of {totalPages || 1}
+            </span>
+            <Button
+              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+              disabled={page >= totalPages}
+              variant="outline"
+              size="sm"
+            >
+              Next
+            </Button>
+          </div>
         </div>
       </div>
+
+      {showModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-96 max-w-[90vw]">
+            <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
+              Add Course-Subject Mapping
+            </h2>
+            
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="course_id" className="text-sm font-medium">
+                  Course ID <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="course_id"
+                  type="number"
+                  value={newMapping.course_id}
+                  onChange={(e) =>
+                    setNewMapping({ ...newMapping, course_id: e.target.value })
+                  }
+                  placeholder="Enter course ID"
+                  className="mt-1"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="subject_id" className="text-sm font-medium">
+                  Subject ID <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="subject_id"
+                  type="number"
+                  value={newMapping.subject_id}
+                  onChange={(e) =>
+                    setNewMapping({ ...newMapping, subject_id: e.target.value })
+                  }
+                  placeholder="Enter subject ID"
+                  className="mt-1"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <Button
+                onClick={() => {
+                  setShowModal(false);
+                  setNewMapping({ course_id: "", subject_id: "" });
+                }}
+                variant="outline"
+                disabled={saving}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleAddMapping}
+                disabled={saving || !newMapping.course_id || !newMapping.subject_id}
+              >
+                {saving ? (
+                  <>
+                    <RefreshCwIcon className="h-4 w-4 mr-2 animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  <>
+                    <PlusIcon className="h-4 w-4 mr-2" />
+                    Add Mapping
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    
     </div>
   );
 }

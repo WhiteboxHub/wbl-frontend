@@ -92,7 +92,8 @@ export default function SessionsPage() {
     { field: "videoid", headerName: "Video ID", width: 160, editable: true },
     { field: "type", headerName: "Type", width: 140, editable: true },
     {field: "subject",headerName: "Subject",width: 180,valueGetter: (params) => params.data?.subject?.name ?? "",},
-    {field: "sessiondate",headerName: "Session Date",width: 180,valueFormatter: (params) => params.value ? new Date(params.value).toLocaleString() : ""},
+    {field: "sessiondate",headerName: "Session Date",width: 180,valueFormatter: (params) => params.value ? new Date(params.value).toLocaleDateString() : ""},
+
     // {field: "lastmoddatetime",headerName: "Last Modified",width: 200,valueFormatter: (params) => params.value ? new Date(params.value).toLocaleString() : ""},
     { field: "notes", headerName: "Notes", width: 140, editable: true },
   ], []);

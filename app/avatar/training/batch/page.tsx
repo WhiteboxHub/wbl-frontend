@@ -157,10 +157,10 @@ export default function BatchPage() {
           </h1>
           <p className="text-gray-600 dark:text-gray-400">Manage batches</p>
         </div>
-        <Button className="bg-whitebox-600 hover:bg-whitebox-700 text-white">
+        {/* <Button className="bg-whitebox-600 hover:bg-whitebox-700 text-white">
           <PlusIcon className="h-4 w-4 mr-2" />
           Add Batch
-        </Button>
+        </Button> */}
       </div>
 
       {/* Search Input */}
