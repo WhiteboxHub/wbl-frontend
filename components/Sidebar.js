@@ -33,7 +33,29 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         if (pulseCount >= 2) {
           setShowPulse(false);
         }
-      }, 1500);
+      }, 2000); // Blink every 2 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [pulseCount, showPulse, sidebarOpen]);
+
+  // Helper to format DB date into US format MM-DD-YYYY (no timezone issues)
+  const formatDateUS = (dateString) => {
+    if (!dateString) return "N/A";
+    const [year, month, day] = dateString.split("-");
+    return `${month}-${day}-${year}`;
+  };
+
+  useEffect(() => setMounted(true), []);
+
+  // Limit pulse animation to 3 blinks then stop - must be before any returns
+  useEffect(() => {
+    if (pulseCount < 3 && showPulse && !sidebarOpen) {
+      const timer = setTimeout(() => {
+        setPulseCount(prev => prev + 1);
+        if (pulseCount >= 2) {
+          setShowPulse(false);
+        }
+      }, 2000); // Blink every 2 seconds
       return () => clearTimeout(timer);
     }
   }, [pulseCount, showPulse, sidebarOpen]);

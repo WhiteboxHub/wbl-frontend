@@ -78,6 +78,11 @@ export const AnimatedCarousel = ({
   onWatchDemo?: () => void;
 }) => {
   const [active, setActive] = useState(0);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const handleNext = () => {
     setActive((prev) => (prev + 1) % carouselData.length);
@@ -92,15 +97,89 @@ export const AnimatedCarousel = ({
   };
 
   useEffect(() => {
-    if (autoplay) {
+    if (autoplay && isMounted) {
       const interval = setInterval(handleNext, 3000);
       return () => clearInterval(interval);
     }
-  }, [autoplay, active]);
+  }, [autoplay, active, isMounted]);
 
   const randomRotateY = () => {
-    return Math.floor(Math.random() * 21) - 10;
+    return isMounted ? Math.floor(Math.random() * 21) - 10 : 0;
   };
+
+  if (!isMounted) {
+    return (
+      <div className="mx-auto max-w-sm px-4 py-8 font-sans antialiased md:max-w-4xl md:px-8 lg:px-12">
+        <div className="relative grid grid-cols-1 gap-12 md:grid-cols-2">
+          <div>
+            <div className="relative h-80 w-full">
+              <div className="absolute inset-0 origin-bottom">
+                <img
+                  src={carouselData[0].src.src}
+                  alt={carouselData[0].name}
+                  width={500}
+                  height={500}
+                  draggable={false}
+                  className="h-full w-full rounded-3xl object-cover object-center shadow-xl shadow-gray-700"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-col py-4 text-center">
+            <div className="h-48 flex flex-col justify-start">
+              <div>
+                <h3 className="text-2xl font-bold text-black dark:text-white">
+                  {carouselData[0].name}
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-neutral-500">
+                  {carouselData[0].designation}
+                </p>
+                <p className="mt-8 text-lg text-gray-500 dark:text-neutral-300 line-clamp-2 leading-relaxed">
+                  {carouselData[0].quote}
+                </p>
+              </div>
+            </div>
+            
+            <div className="mt-8 flex flex-col items-center">
+              <button
+                onClick={onWatchDemo}
+                className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-blue-500 to-blue-700 px-8 py-4 text-base font-bold text-white shadow-lg transition duration-300 ease-in-out hover:from-blue-600 hover:to-blue-800 hover:shadow-xl"
+              >
+                <span className="mr-2">Watch Demo Class</span>
+                <svg
+                  className="h-5 w-5"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </button>
+              
+              <div className="flex justify-center gap-4 pt-4">
+                <button
+                  onClick={handlePrev}
+                  className="group/button flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 dark:hover:bg-neutral-700 transition-colors"
+                >
+                  <IconArrowLeft className="h-6 w-6 text-black transition-transform duration-300 group-hover/button:rotate-12 dark:text-neutral-400" />
+                </button>
+                <button
+                  onClick={handleNext}
+                  className="group/button flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 dark:hover:bg-neutral-700 transition-colors"
+                >
+                  <IconArrowRight className="h-6 w-6 text-black transition-transform duration-300 group-hover/button:-rotate-12 dark:text-neutral-400" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-sm px-4 py-8 font-sans antialiased md:max-w-4xl md:px-8 lg:px-12">
