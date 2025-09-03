@@ -196,7 +196,6 @@ const fieldLabels: Record<string, string> = {
 
 // Excluded fields (won’t render in modal)
 const excludedFields: string[] = [
-  "name",
   "vendor_type",
 ];
 
@@ -292,7 +291,7 @@ export function ViewModal({ isOpen, onClose, data, title }: ViewModalProps) {
   };
 
   Object.entries(data).forEach(([key, value]) => {
-    if (excludedFields.includes(key)) return; // 🚀 skip excluded
+    if (excludedFields.includes(key)) return; 
 
     const section = fieldSections[key] || "Other";
     if (!sectionedFields[section]) sectionedFields[section] = [];

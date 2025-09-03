@@ -1,4 +1,3 @@
-
 "use client";
 import React from "react";
 
@@ -19,29 +18,24 @@ interface EditModalProps {
   onSave: (updatedData: Record<string, any>) => void;
 }
 
-
-// Country codes configuration
-const countryCodes = [
-  { code: "+1", country: "US", flag: "🇺🇸" },
-  { code: "+44", country: "UK", flag: "🇬🇧" },
-  { code: "+91", country: "India", flag: "🇮🇳" },
-  { code: "+61", country: "Australia", flag: "🇦🇺" },
-  { code: "+86", country: "China", flag: "🇨🇳" },
-  { code: "+81", country: "Japan", flag: "🇯🇵" },
-  { code: "+49", country: "Germany", flag: "🇩🇪" },
-  { code: "+33", country: "France", flag: "🇫🇷" },
+const excludedFields = [
+  "id",
+  "sessionid",
+  "vendor_type",
+  "lastmoddatetime",
+  "last_modified",
+  "logincount",
+  "googleId",
 ];
-
-const excludedFields = ["id", "vendor_type", "lastmoddatetime", "last_modified","name"];
 
 const fieldSections: Record<string, string> = {
   id: "Basic Information",
-  alias:"Basic Information",
+  alias: "Basic Information",
   Fundamentals: "Basic Information",
   AIML: "Basic Information",
   full_name: "Basic Information",
-  extraction_date: "Basic Information", 
-  filename: "Basic Information", 
+  extraction_date: "Basic Information",
+  filename: "Basic Information",
   type: "Professional Information",
   email: "Contact Information",
   company_name: "Basic Information",
@@ -53,11 +47,8 @@ const fieldSections: Record<string, string> = {
   moved_to_vendor: "Professional Information",
   phone_number: "Contact Information",
   secondary_phone: "Contact Information",
-  location: "Contact Information", 
+  location: "Contact Information",
   agreement: "Professional Information",
-
-  // notes: "Notes",
-
   sessionid: "Basic Information",
   subject_id: "Basic Information",
   subjectid: "Professional Information",
@@ -77,9 +68,7 @@ const fieldSections: Record<string, string> = {
   contact: "Basic Information",
   secondaryphone: "Contact Information",
   phone: "Contact Information",
-
   secondaryemail: "Contact Information",
-
   ssn: "Professional Information",
   priority: "Basic Information",
   source: "Basic Information",
@@ -87,12 +76,9 @@ const fieldSections: Record<string, string> = {
   title: "Basic Information",
   enrolleddate: "Basic Information",
   orientationdate: "Basic Information",
-  // startdate: "Basic Information",
-  // enddate: "Basic Information",
   batchname: "Basic Information",
   batchid: "Professional Information",
   promissory: "Basic Information",
-
   lastlogin: "Professional Information",
   logincount: "Professional Information",
   course: "Professional Information",
@@ -127,25 +113,17 @@ const fieldSections: Record<string, string> = {
   statuschangedate: "Professional Information",
   closed: "Professional Information",
   aadhaar: "Basic Information",
-
-  // Basic Information
-
   secondary_email: "Contact Information",
   massemail_email_sent: "Professional Information",
   massemail_unsubscribe: "Professional Information",
   moved_to_candidate: "Professional Information",
- 
-
-  // phone_number: "Basic Information",
   link: "Professional Information",
   videoid: "Professional Information",
-
   address: "Contact Information",
   city: "Contact Information",
   state: "Contact Information",
   country: "Contact Information",
   zip: "Contact Information",
-
   emergcontactname: "Emergency Contact",
   emergcontactemail: "Emergency Contact",
   emergcontactphone: "Emergency Contact",
@@ -154,7 +132,6 @@ const fieldSections: Record<string, string> = {
   spousephone: "Emergency Contact",
   spouseemail: "Emergency Contact",
   spouseoccupationinfo: "Emergency Contact",
-
   notes: "Notes",
 };
 
@@ -172,7 +149,6 @@ const workVisaStatusOptions = [
 
 // Enum dropdown options
 const enumOptions: Record<string, { value: string; label: string }[]> = {
-
   type: [
     { value: "client", label: "Client" },
     { value: "third-party-vendor", label: "Third Party Vendor" },
@@ -188,7 +164,6 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "yes", label: "Yes" },
     { value: "no", label: "No" },
   ],
-
   intro_call: [
     { value: "yes", label: "Yes" },
     { value: "no", label: "No" },
@@ -216,13 +191,10 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "discontinued", label: "Discontinued" },
     { value: "closed", label: "Closed" },
   ],
-  
   work_status: workVisaStatusOptions,
   workstatus: workVisaStatusOptions,
   visa_status: workVisaStatusOptions,
 };
-
-
 
 // Custom label overrides
 const labelOverrides: Record<string, string> = {
@@ -264,7 +236,16 @@ const labelOverrides: Record<string, string> = {
 };
 
 // Fields that should use a date picker
-const dateFields = ["orientationdate", "startdate", "enddate", "closed_date", "entry_date", "created_at", "classdate", "sessiondate"];
+const dateFields = [
+  "orientationdate",
+  "startdate",
+  "enddate",
+  "closed_date",
+  "entry_date",
+  "created_at",
+  "classdate",
+  "sessiondate",
+];
 
 export function EditModal({
   isOpen,
@@ -283,11 +264,6 @@ export function EditModal({
 
   const handleChange = (key: string, value: any) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const initialData = {
-    ...data,
-    entry_date: data.entry_date || new Date().toISOString().split("T")[0],
   };
 
   const toLabel = (key: string) => {
@@ -336,6 +312,8 @@ export function EditModal({
     3: "md:grid-cols-3",
     4: "lg:grid-cols-4 md:grid-cols-2",
   }[columnCount] || "lg:grid-cols-4 md:grid-cols-2";
+
+  const isVendorModal = title.toLowerCase().includes("vendor");
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -386,57 +364,83 @@ export function EditModal({
                   <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                     {section}
                   </h3>
-                  {sectionedFields[section].map(({ key, value }) => (
-                    <div key={key} className="space-y-1">
-                      <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                        {toLabel(key)}
-                      </Label>
+                  {sectionedFields[section].map(({ key, value }) => {
+                    const isTypeField = key.toLowerCase() === "type";
 
-                      {dateFields.includes(key.toLowerCase()) ? (
-                        <input
-                          type="date"
-                          value={
-                            formData[key] && !isNaN(new Date(formData[key]).getTime())
-                              ? new Date(formData[key]).toISOString().split("T")[0] // valid date from DB
-                              : new Date().toISOString().split("T")[0] // ⬅️ fallback to today
-                          }
-                          onChange={(e) => handleChange(key, e.target.value)}
-                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                        />
-                      ) : enumOptions[key.toLowerCase()] ? (
-                        <select
-                          value={String(formData[key] ?? "")}
-                          onChange={(e) =>
-                            handleChange(
-                              key,
-                              e.target.value === "true"
-                                ? true
-                                : e.target.value === "false"
+                    return (
+                      <div key={key} className="space-y-1">
+                        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                          {toLabel(key)}
+                        </Label>
+
+                        {dateFields.includes(key.toLowerCase()) ? (
+                          <input
+                            type="date"
+                            value={
+                              formData[key] &&
+                              !isNaN(new Date(formData[key]).getTime())
+                                ? new Date(formData[key])
+                                    .toISOString()
+                                    .split("T")[0]
+                                : new Date().toISOString().split("T")[0]
+                            }
+                            onChange={(e) => handleChange(key, e.target.value)}
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          />
+                        ) : isTypeField && isVendorModal ? (
+                          // Vendor modal → type is dropdown
+                          <select
+                            value={String(formData[key] ?? "")}
+                            onChange={(e) => handleChange(key, e.target.value)}
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          >
+                            {enumOptions["type"].map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : isTypeField && !isVendorModal ? (
+                          // Non-vendor modal → type is input
+                          <Input
+                            value={formData[key] ?? ""}
+                            onChange={(e) => handleChange(key, e.target.value)}
+                          />
+                        ) : enumOptions[key.toLowerCase()] ? (
+                          <select
+                            value={String(formData[key] ?? "")}
+                            onChange={(e) =>
+                              handleChange(
+                                key,
+                                e.target.value === "true"
+                                  ? true
+                                  : e.target.value === "false"
                                   ? false
                                   : e.target.value
-                            )
-                          }
-                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                        >
-                          {enumOptions[key.toLowerCase()].map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                      ) : typeof value === "string" && value.length > 100 ? (
-                        <Textarea
-                          value={formData[key] || ""}
-                          onChange={(e) => handleChange(key, e.target.value)}
-                        />
-                      ) : (
-                        <Input
-                          value={formData[key] ?? ""}
-                          onChange={(e) => handleChange(key, e.target.value)}
-                        />
-                      )}
-                    </div>
-                  ))}
+                              )
+                            }
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          >
+                            {enumOptions[key.toLowerCase()].map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : typeof value === "string" && value.length > 100 ? (
+                          <Textarea
+                            value={formData[key] || ""}
+                            onChange={(e) => handleChange(key, e.target.value)}
+                          />
+                        ) : (
+                          <Input
+                            value={formData[key] ?? ""}
+                            onChange={(e) => handleChange(key, e.target.value)}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               ))}
           </div>
@@ -478,6 +482,3 @@ export function EditModal({
     </Dialog>
   );
 }
-
-
-

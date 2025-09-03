@@ -69,11 +69,10 @@ export default function SessionsPage() {
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
     { field: "sessionid", headerName: "ID", width: 90, pinned: "left" },
     { field: "title", headerName: "Title", width: 290, editable: true },
-    // { field: "link", headerName: "Link", width: 250, editable: true },
     {
       field: "link",
       headerName: "Link",
-      width: 250,
+      width: 150,
       cellRenderer: (params: any) => {
         if (!params.value) return "";
         return (
@@ -95,7 +94,7 @@ export default function SessionsPage() {
     {field: "sessiondate",headerName: "Session Date",width: 180,valueFormatter: (params) => params.value ? new Date(params.value).toLocaleDateString() : ""},
 
     // {field: "lastmoddatetime",headerName: "Last Modified",width: 200,valueFormatter: (params) => params.value ? new Date(params.value).toLocaleString() : ""},
-    { field: "notes", headerName: "Notes", width: 140, editable: true },
+    // { field: "notes", headerName: "Notes", width: 140, editable: true },
   ], []);
 
   // PUT request on row update
