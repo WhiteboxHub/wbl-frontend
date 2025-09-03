@@ -245,7 +245,7 @@ export function AGGridTable({
             defaultColDef={{
               resizable: true,
               sortable: true,
-              filter: false,
+              filter: true,
               cellClass: 'custom-cell-style',
             }}
             rowSelection="single"
