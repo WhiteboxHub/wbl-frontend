@@ -1,4 +1,3 @@
-
 "use client";
 import React from "react";
 
@@ -19,7 +18,6 @@ interface EditModalProps {
   onSave: (updatedData: Record<string, any>) => void;
 }
 
-
 // Country codes configuration
 const countryCodes = [
   { code: "+1", country: "US", flag: "🇺🇸" },
@@ -32,16 +30,22 @@ const countryCodes = [
   { code: "+33", country: "France", flag: "🇫🇷" },
 ];
 
-const excludedFields = ["id", "vendor_type", "lastmoddatetime", "last_modified","name"];
+const excludedFields = [
+  "id",
+  "vendor_type",
+  "lastmoddatetime",
+  "last_modified",
+  "name",
+];
 
 const fieldSections: Record<string, string> = {
   id: "Basic Information",
-  alias:"Basic Information",
+  alias: "Basic Information",
   Fundamentals: "Basic Information",
   AIML: "Basic Information",
   full_name: "Basic Information",
-  extraction_date: "Basic Information", 
-  filename: "Basic Information", 
+  extraction_date: "Basic Information",
+  filename: "Basic Information",
   type: "Professional Information",
   email: "Contact Information",
   company_name: "Basic Information",
@@ -53,11 +57,8 @@ const fieldSections: Record<string, string> = {
   moved_to_vendor: "Professional Information",
   phone_number: "Contact Information",
   secondary_phone: "Contact Information",
-  location: "Contact Information", 
+  location: "Contact Information",
   agreement: "Professional Information",
-
-  // notes: "Notes",
-
   sessionid: "Basic Information",
   subject_id: "Basic Information",
   subjectid: "Professional Information",
@@ -77,9 +78,7 @@ const fieldSections: Record<string, string> = {
   contact: "Basic Information",
   secondaryphone: "Contact Information",
   phone: "Contact Information",
-
   secondaryemail: "Contact Information",
-
   ssn: "Professional Information",
   priority: "Basic Information",
   source: "Basic Information",
@@ -87,12 +86,9 @@ const fieldSections: Record<string, string> = {
   title: "Basic Information",
   enrolleddate: "Basic Information",
   orientationdate: "Basic Information",
-  // startdate: "Basic Information",
-  // enddate: "Basic Information",
   batchname: "Basic Information",
   batchid: "Professional Information",
   promissory: "Basic Information",
-
   lastlogin: "Professional Information",
   logincount: "Professional Information",
   course: "Professional Information",
@@ -127,25 +123,17 @@ const fieldSections: Record<string, string> = {
   statuschangedate: "Professional Information",
   closed: "Professional Information",
   aadhaar: "Basic Information",
-
-  // Basic Information
-
   secondary_email: "Contact Information",
   massemail_email_sent: "Professional Information",
   massemail_unsubscribe: "Professional Information",
   moved_to_candidate: "Professional Information",
- 
-
-  // phone_number: "Basic Information",
   link: "Professional Information",
   videoid: "Professional Information",
-
   address: "Contact Information",
   city: "Contact Information",
   state: "Contact Information",
   country: "Contact Information",
   zip: "Contact Information",
-
   emergcontactname: "Emergency Contact",
   emergcontactemail: "Emergency Contact",
   emergcontactphone: "Emergency Contact",
@@ -154,7 +142,6 @@ const fieldSections: Record<string, string> = {
   spousephone: "Emergency Contact",
   spouseemail: "Emergency Contact",
   spouseoccupationinfo: "Emergency Contact",
-
   notes: "Notes",
 };
 
@@ -170,9 +157,16 @@ const workVisaStatusOptions = [
   { value: "waiting for status", label: "Waiting for Status" },
 ];
 
-// Enum dropdown options
-const enumOptions: Record<string, { value: string; label: string }[]> = {
+const vendorStatuses = [
+  { value: "active", label: "Active" },
+  { value: "working", label: "Working" },
+  { value: "not_useful", label: "Not Useful" },
+  { value: "do_not_contact", label: "Do Not Contact" },
+  { value: "inactive", label: "Inactive" },
+  { value: "prospect", label: "Prospect" },
+];
 
+const enumOptions: Record<string, { value: string; label: string }[]> = {
   type: [
     { value: "client", label: "Client" },
     { value: "third-party-vendor", label: "Third Party Vendor" },
@@ -188,7 +182,6 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "yes", label: "Yes" },
     { value: "no", label: "No" },
   ],
-
   intro_call: [
     { value: "yes", label: "Yes" },
     { value: "no", label: "No" },
@@ -209,6 +202,7 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "true", label: "Yes" },
     { value: "false", label: "No" },
   ],
+  // Default non-vendor statuses
   status: [
     { value: "active", label: "Active" },
     { value: "inactive", label: "Inactive" },
@@ -216,13 +210,10 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "discontinued", label: "Discontinued" },
     { value: "closed", label: "Closed" },
   ],
-  
   work_status: workVisaStatusOptions,
   workstatus: workVisaStatusOptions,
   visa_status: workVisaStatusOptions,
 };
-
-
 
 // Custom label overrides
 const labelOverrides: Record<string, string> = {
@@ -264,7 +255,16 @@ const labelOverrides: Record<string, string> = {
 };
 
 // Fields that should use a date picker
-const dateFields = ["orientationdate", "startdate", "enddate", "closed_date", "entry_date", "created_at", "classdate", "sessiondate"];
+const dateFields = [
+  "orientationdate",
+  "startdate",
+  "enddate",
+  "closed_date",
+  "entry_date",
+  "created_at",
+  "classdate",
+  "sessiondate",
+];
 
 export function EditModal({
   isOpen,
@@ -283,11 +283,6 @@ export function EditModal({
 
   const handleChange = (key: string, value: any) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const initialData = {
-    ...data,
-    entry_date: data.entry_date || new Date().toISOString().split("T")[0],
   };
 
   const toLabel = (key: string) => {
@@ -323,26 +318,29 @@ export function EditModal({
 
   const columnCount = Math.min(visibleSections.length, 4);
 
-  const modalWidthClass = {
-    1: "max-w-xl",
-    2: "max-w-3xl",
-    3: "max-w-5xl",
-    4: "max-w-6xl",
-  }[columnCount] || "max-w-6xl";
+  const modalWidthClass =
+    {
+      1: "max-w-xl",
+      2: "max-w-3xl",
+      3: "max-w-5xl",
+      4: "max-w-6xl",
+    }[columnCount] || "max-w-6xl";
 
-  const gridColsClass = {
-    1: "grid-cols-1",
-    2: "md:grid-cols-2",
-    3: "md:grid-cols-3",
-    4: "lg:grid-cols-4 md:grid-cols-2",
-  }[columnCount] || "lg:grid-cols-4 md:grid-cols-2";
+  const gridColsClass =
+    {
+      1: "grid-cols-1",
+      2: "md:grid-cols-2",
+      3: "md:grid-cols-3",
+      4: "lg:grid-cols-4 md:grid-cols-2",
+    }[columnCount] || "lg:grid-cols-4 md:grid-cols-2";
+
+  const isVendorTable = title.toLowerCase().includes("vendor"); 
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         className={`${modalWidthClass} max-h-[80vh] overflow-y-auto p-0`}
       >
-        {/* Header */}
         <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
             {title} - Edit Details
@@ -369,7 +367,6 @@ export function EditModal({
           </button>
         </div>
 
-        {/* Content */}
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -377,7 +374,7 @@ export function EditModal({
             onClose();
           }}
         >
-          {/* Grid Sections except Notes */}
+
           <div className={`grid ${gridColsClass} gap-6 p-6`}>
             {visibleSections
               .filter((section) => section !== "Notes")
@@ -396,13 +393,28 @@ export function EditModal({
                         <input
                           type="date"
                           value={
-                            formData[key] && !isNaN(new Date(formData[key]).getTime())
-                              ? new Date(formData[key]).toISOString().split("T")[0] // valid date from DB
-                              : new Date().toISOString().split("T")[0] // ⬅️ fallback to today
+                            formData[key] &&
+                            !isNaN(new Date(formData[key]).getTime())
+                              ? new Date(formData[key])
+                                  .toISOString()
+                                  .split("T")[0]
+                              : new Date().toISOString().split("T")[0]
                           }
                           onChange={(e) => handleChange(key, e.target.value)}
                           className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
                         />
+                      ) : key.toLowerCase() === "status" && isVendorTable ? (
+                        <select
+                          value={String(formData[key] ?? "")}
+                          onChange={(e) => handleChange(key, e.target.value)}
+                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                        >
+                          {vendorStatuses.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
                       ) : enumOptions[key.toLowerCase()] ? (
                         <select
                           value={String(formData[key] ?? "")}
@@ -412,8 +424,8 @@ export function EditModal({
                               e.target.value === "true"
                                 ? true
                                 : e.target.value === "false"
-                                  ? false
-                                  : e.target.value
+                                ? false
+                                : e.target.value
                             )
                           }
                           className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
@@ -441,7 +453,6 @@ export function EditModal({
               ))}
           </div>
 
-          {/* Notes Section */}
           {sectionedFields["Notes"].length > 0 && (
             <div className="px-6 pb-6">
               <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
@@ -464,7 +475,6 @@ export function EditModal({
             </div>
           )}
 
-          {/* Footer */}
           <div className="flex justify-end px-6 pb-6">
             <button
               type="submit"
@@ -478,6 +488,3 @@ export function EditModal({
     </Dialog>
   );
 }
-
-
-
