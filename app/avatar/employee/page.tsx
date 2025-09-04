@@ -1,21 +1,20 @@
 
-
 "use client";
 import React, { useEffect, useState } from "react";
 import { ColDef } from "ag-grid-community";
 import "@/styles/admin.css";
 import "@/styles/App.css";
-
-// import { AGGridTable } from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon, Plus } from "lucide-react";
 import axios from "axios";
 import AGGridTable from "@/components/AGGridTable";
 
-
-const DateFormatter = (params: any) =>
-  params.value ? new Date(params.value).toLocaleDateString() : "";
+const DateFormatter = (params: any) => {
+  if (!params.value) return "";
+  const [year, month, day] = params.value.split("-");
+  return `${month}/${day}/${year}`; // MM/DD/YYYY
+};
 
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<any[]>([]);
@@ -23,10 +22,24 @@ export default function EmployeesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(20);
+  const [showEmployeeForm, setShowEmployeeForm] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+    state: "",
+    dob: "",
+    startdate: "",
+    enddate: "",
+    instructor: 0,
+    status: 1,
+    notes: "",
+    aadhaar: "",
+  });
+  const [formSaveLoading, setFormSaveLoading] = useState(false);
 
   const totalPages = Math.ceil(filteredEmployees.length / pageSize);
   const paginatedEmployees = filteredEmployees.slice(
@@ -54,7 +67,6 @@ export default function EmployeesPage() {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/employees`);
       if (!res.ok) throw new Error("Failed to fetch employees");
-
       const rawData = await res.json();
       const mappedData = rawData.map((emp: any) => ({
         ...emp,
@@ -62,7 +74,6 @@ export default function EmployeesPage() {
         startdate: emp.startdate,
         lastmoddate: emp.enddate,
       }));
-
       setEmployees(mappedData);
       setFilteredEmployees(mappedData);
     } catch (err: any) {
@@ -77,7 +88,7 @@ export default function EmployeesPage() {
   }, []);
 
   useEffect(() => {
-    setCurrentPage(1); // reset to page 1 on new search
+    setCurrentPage(1);
     if (!searchTerm.trim()) {
       setFilteredEmployees(employees);
     } else {
@@ -94,34 +105,29 @@ export default function EmployeesPage() {
   const handleRowUpdated = async (updatedRow: any) => {
     try {
       const payload = {
-        ...updatedRow,
         id: updatedRow.id,
-        name: updatedRow.full_name || "",
+        name: updatedRow.full_name || updatedRow.name || "",
         email: updatedRow.email,
         phone: updatedRow.phone,
         address: updatedRow.address,
         dob: updatedRow.dob,
         startdate: updatedRow.startdate,
-        enddate: updatedRow.lastmoddate,
+        enddate: updatedRow.lastmoddate || updatedRow.enddate,
         instructor: updatedRow.instructor,
         notes: updatedRow.notes,
         state: updatedRow.state,
         aadhaar: updatedRow.aadhaar,
+        status: updatedRow.status,
       };
-
+      console.log("Sending payload:", payload);
       await axios.put(
         `${process.env.NEXT_PUBLIC_API_URL}/employees/${updatedRow.id}`,
         payload
       );
-
-      const updatedUIRow = {
-        ...payload,
-        full_name: payload.name,
-        lastmoddate: payload.enddate,
-      };
-
-      setFilteredEmployees((prev) =>
-        prev.map((row) => (row.id === updatedRow.id ? updatedUIRow : row))
+      setFilteredEmployees((prevEmployees) =>
+        prevEmployees.map((employee) =>
+          employee.id === updatedRow.id ? { ...employee, ...updatedRow } : employee
+        )
       );
     } catch (error) {
       console.error("Failed to update employee:", error);
@@ -139,131 +145,156 @@ export default function EmployeesPage() {
     }
   };
 
-  const handleAddEmployee = async () => {
+  const handleOpenEmployeeForm = () => {
+    setShowEmployeeForm(true);
+  };
+
+  const handleCloseEmployeeForm = () => {
+    setShowEmployeeForm(false);
+  };
+
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleFormSubmit = async (e) => {
+    e.preventDefault();
+    setFormSaveLoading(true);
     try {
-      const res = await axios.post(
+      const payload = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone || null,
+        address: formData.address || null,
+        state: formData.state || null,
+        dob: formData.dob || null,
+        startdate: formData.startdate || null,
+        enddate: formData.enddate || null,
+        notes: formData.notes || null,
+        status: formData.status || null,
+        instructor: formData.instructor || null,
+        aadhaar: formData.aadhaar || null,
+      };
+      console.log("Sending payload:", payload);
+      const response = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/employees`,
-        blankEmployeeData
+        payload
       );
       const newEmployee = {
-        ...res.data,
-        full_name: res.data.name,
-        startdate: res.data.startdate,
-        lastmoddate: res.data.enddate,
+        ...response.data,
+        full_name: response.data.name,
+        startdate: response.data.startdate,
+        lastmoddate: response.data.enddate,
       };
       setFilteredEmployees((prev) => [newEmployee, ...prev]);
-      setCurrentPage(1); // jump to first page to show new employee
+      setCurrentPage(1);
+      handleCloseEmployeeForm();
+      setFormData(blankEmployeeData);
     } catch (error) {
       console.error("Failed to add employee:", error);
       setError("Failed to add employee");
+    } finally {
+      setFormSaveLoading(false);
     }
   };
 
-  
   const columnDefs: ColDef[] = [
     { headerName: "ID", field: "id", width: 80, pinned: "left" },
-    { 
-      headerName: "Full Name", 
-      field: "full_name", 
+    {
+      headerName: "Full Name",
+      field: "full_name",
       editable: true,
       onCellValueChanged: (params) => handleRowUpdated(params.data),
     },
-       { 
-        field: "phone",
-        headerName: "Phone",
-        width: 150,
-        editable: true,
-        cellRenderer: (params: any) => {
-          if (!params.value) return "";
-          return (
-            <a
-              href={`tel:${params.value}`}
-              className="text-blue-600 underline hover:text-blue-800"
-            >
-              {params.value}
-            </a>
-          );
-        },
+    {
+      field: "phone",
+      headerName: "Phone",
+      width: 150,
+      editable: true,
+      cellRenderer: (params: any) => {
+        if (!params.value) return "";
+        return (
+          <a
+            href={`tel:${params.value}`}
+            className="text-blue-600 underline hover:text-blue-800"
+          >
+            {params.value}
+          </a>
+        );
       },
-      {
-        field: "email",
-        headerName: "Email",
-        width: 200,
-        editable: true,
-        cellRenderer: (params: any) => {
-          if (!params.value) return "";
-          return (
-            <a
-              href={`mailto:${params.value}`}
-              className="text-blue-600 underline hover:text-blue-800"
-              onClick={(event) => event.stopPropagation()} // stop row selection
-            >
-              {params.value}
-            </a>
-          );
-        },
+      onCellValueChanged: (params) => handleRowUpdated(params.data),
+    },
+    {
+      field: "email",
+      headerName: "Email",
+      width: 200,
+      editable: true,
+      cellRenderer: (params: any) => {
+        if (!params.value) return "";
+        return (
+          <a
+            href={`mailto:${params.value}`}
+            className="text-blue-600 underline hover:text-blue-800"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {params.value}
+          </a>
+        );
       },
-
-    // { 
-    //   headerName: "Email", 
-    //   field: "email", 
-    //   editable: true,
-    //   onCellValueChanged: (params) => handleRowUpdated(params.data),
-    // },
-    // { 
-    //   headerName: "Phone", 
-    //   field: "phone", 
-    //   editable: true,
-    //   onCellValueChanged: (params) => handleRowUpdated(params.data),
-    // },
-    { 
-      headerName: "Address", 
-      field: "address", 
+      onCellValueChanged: (params) => handleRowUpdated(params.data),
+    },
+    {
+      headerName: "Address",
+      field: "address",
       editable: true,
       onCellValueChanged: (params) => handleRowUpdated(params.data),
     },
-    { 
-      headerName: "State", 
-      field: "state", 
+    {
+      headerName: "State",
+      field: "state",
       editable: true,
       onCellValueChanged: (params) => handleRowUpdated(params.data),
     },
-    { 
-      headerName: "DOB", 
-      field: "dob", 
-      valueFormatter: DateFormatter, 
+    {
+      headerName: "DOB",
+      field: "dob",
+      valueFormatter: DateFormatter,
       editable: true,
       onCellValueChanged: (params) => handleRowUpdated(params.data),
     },
-    { 
-      headerName: "Start Date", 
-      field: "startdate", 
-      valueFormatter: DateFormatter, 
+    {
+      headerName: "Start Date",
+      field: "startdate",
+      valueFormatter: DateFormatter,
       editable: true,
       onCellValueChanged: (params) => handleRowUpdated(params.data),
     },
-    { 
-      headerName: "Instructor", 
-      field: "instructor", 
+    {
+      headerName: "Instructor",
+      field: "instructor",
       editable: true,
       onCellValueChanged: (params) => handleRowUpdated(params.data),
     },
-    { 
-      headerName: "Status", 
-      field: "status", 
+    {
+      headerName: "Status",
+      field: "status",
       editable: true,
       onCellValueChanged: (params) => handleRowUpdated(params.data),
     },
-    { headerName: "End Date", field: "lastmoddate", valueFormatter: DateFormatter },
-    { 
-      headerName: "Notes", 
-      field: "notes", 
+    // { headerName: "End Date", field: "lastmoddate", valueFormatter: DateFormatter },
+    {
+      headerName: "Notes",
+      field: "notes",
       editable: true,
       onCellValueChanged: (params) => handleRowUpdated(params.data),
     },
-    { 
-      headerName: "Aadhar Number", 
-      field: "aadhaar", 
+    {
+      headerName: "Aadhar Number",
+      field: "aadhaar",
       editable: true,
       onCellValueChanged: (params) => handleRowUpdated(params.data),
     },
@@ -276,14 +307,12 @@ export default function EmployeesPage() {
           <h1 className="text-2xl font-bold">Employee Management</h1>
           <p className="text-gray-600">Browse, search, and manage employees.</p>
         </div>
-
-        {/* Add Employee Button */}
-        {/* <button
-          onClick={handleAddEmployee}
+        <button
+          onClick={handleOpenEmployeeForm}
           className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           <Plus className="mr-2 h-4 w-4" /> Add Employee
-        </button> */}
+        </button>
       </div>
 
       {/* Search */}
@@ -304,6 +333,107 @@ export default function EmployeesPage() {
         )}
       </div>
 
+      {/* Employee Form Modal */}
+      {showEmployeeForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="relative w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="mb-6 text-center text-2xl font-bold">New Employee Form</h2>
+            <form onSubmit={handleFormSubmit} className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {Object.entries({
+                name: { label: "Full Name", type: "text", required: true },
+                email: { label: "Email", type: "email", required: true },
+                phone: { label: "Phone", type: "tel" },
+                address: { label: "Address", type: "text" },
+                state: { label: "State", type: "text" },
+                dob: { label: "Date of Birth", type: "date" },
+                startdate: { label: "Start Date", type: "date" },
+                enddate: { label: "End Date", type: "date" },
+                aadhaar: { label: "Aadhaar Number", type: "text" },
+                notes: { label: "Notes (optional)", type: "textarea" },
+                status: {
+                  label: "Status",
+                  type: "select",
+                  options: [0, 1],
+                  required: true,
+                },
+                instructor: {
+                  label: "Instructor",
+                  type: "select",
+                  options: [0, 1],
+                  required: true,
+                },
+              }).map(([name, config]) => (
+                <div key={name} className={config.type === "textarea" ? "md:col-span-2" : ""}>
+                  <label
+                    htmlFor={name}
+                    className="mb-1 block text-sm font-medium text-gray-700"
+                  >
+                    {config.label}
+                  </label>
+                  {config.type === "select" ? (
+                    <select
+                      id={name}
+                      name={name}
+                      value={formData[name as keyof typeof formData]}
+                      onChange={handleFormChange}
+                      className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required={config.required}
+                    >
+                      <option value="" disabled>
+                        Select {config.label}
+                      </option>
+                      {config.options.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  ) : config.type === "textarea" ? (
+                    <textarea
+                      id={name}
+                      name={name}
+                      value={formData[name as keyof typeof formData]}
+                      onChange={handleFormChange}
+                      rows={3}
+                      className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  ) : (
+                    <input
+                      type={config.type}
+                      id={name}
+                      name={name}
+                      value={formData[name as keyof typeof formData]}
+                      onChange={handleFormChange}
+                      className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required={config.required}
+                    />
+                  )}
+                </div>
+              ))}
+              <div className="md:col-span-2">
+                <button
+                  type="submit"
+                  disabled={formSaveLoading}
+                  className={`w-full rounded-md py-2 transition duration-200 ${formSaveLoading
+                      ? "cursor-not-allowed bg-gray-400"
+                      : "bg-green-600 text-white hover:bg-green-700"
+                    }`}
+                >
+                  {formSaveLoading ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </form>
+            <button
+              onClick={handleCloseEmployeeForm}
+              className="absolute right-3 top-3 text-2xl leading-none text-gray-500 hover:text-gray-700"
+              aria-label="Close"
+            >
+              &times;
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Table */}
       {loading ? (
         <p className="text-gray-500">Loading employees...</p>
@@ -312,10 +442,8 @@ export default function EmployeesPage() {
       ) : (
         <>
           <AGGridTable
-            rowData={filteredEmployees}
+            rowData={paginatedEmployees}
             columnDefs={columnDefs}
-           
-
             onRowClicked={(event) => console.log("Row clicked:", event.data)}
             title="Employee"
             height="70vh"
@@ -324,7 +452,6 @@ export default function EmployeesPage() {
             showFilters={false}
             showSearch={false}
           />
-
           {/* Pagination */}
           <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
             <div className="flex items-center space-x-2">
@@ -337,14 +464,13 @@ export default function EmployeesPage() {
                 }}
                 className="border rounded px-2 py-1 text-sm"
               >
-                {[10, 50, 100, 200].map((size) => (
+                {[20, 50, 100, 200].map((size) => (
                   <option key={size} value={size}>
                     {size}
                   </option>
                 ))}
               </select>
             </div>
-
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
@@ -370,11 +496,6 @@ export default function EmployeesPage() {
     </div>
   );
 }
-
-
-
-
-
 
 
 
