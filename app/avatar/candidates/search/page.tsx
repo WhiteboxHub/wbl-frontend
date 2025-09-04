@@ -101,7 +101,7 @@ export default function CandidateSearchPage() {
   const selectCandidate = async (suggestion: CandidateSuggestion) => {
     setLoading(true);
     setShowSuggestions(false);
-    setSearchTerm(suggestion.name);
+    setSearchTerm("");
     
     try {
       const res = await fetch(

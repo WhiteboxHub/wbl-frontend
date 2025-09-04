@@ -127,7 +127,7 @@ export default function AuthUsersPage() {
   {
     field: "uname",
     headerName: "Email",
-    width: 200,
+    width: 250,
     editable: true,
     cellRenderer: (params: any) => {
       if (!params.value) return "";

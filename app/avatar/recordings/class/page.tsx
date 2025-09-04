@@ -1,4 +1,4 @@
-// whiteboxLearning-wbl/app/avatar/training/recording/page.tsx
+// whiteboxLearning-wbl/app/avatar/recordings/class/page.tsx
 "use client";
 import "@/styles/admin.css";
 import "@/styles/App.css";
@@ -71,7 +71,7 @@ export default function RecordingsPage() {
     { field: "id", headerName: "ID", width: 90, pinned: "left" },
     { field: "batchname", headerName: "Batch Name", width: 200, editable: true },
     { field: "description", headerName: "Description", width: 300, editable: true },
-    { field: "type", headerName: "Type", width: 140, editable: true },
+    { field: "type", headerName: "Type", width: 140, editable: true, cellEditor: "agTextCellEditor"},
     { field: "subject", headerName: "Subject", width: 180, editable: true },
     { field: "filename", headerName: "File Name", width: 180, editable: true },
     {field: "link",
@@ -86,7 +86,7 @@ export default function RecordingsPage() {
             rel="noopener noreferrer"
             className="text-blue-600 underline hover:text-blue-800"
           >
-            Click Here
+            Link
           </a>
         );
       },

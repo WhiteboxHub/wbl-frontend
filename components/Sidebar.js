@@ -370,6 +370,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   const [placementsData, setPlacementsData] = useState([]);
   const [interviewsData, setInterviewsData] = useState([]);
   const [mounted, setMounted] = useState(false);
+  const [pulseCount, setPulseCount] = useState(0);
+  const [showPulse, setShowPulse] = useState(true);
   const sidebarRef = useRef(null);
   const toggleBtnRef = useRef(null);
 
@@ -377,12 +379,40 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
 
   useEffect(() => setMounted(true), []);
 
+  // Limit pulse animation to 3 blinks then stop - must be before any returns
+  useEffect(() => {
+    if (pulseCount < 3 && showPulse && !sidebarOpen) {
+      const timer = setTimeout(() => {
+        setPulseCount(prev => prev + 1);
+        if (pulseCount >= 2) {
+          setShowPulse(false);
+        }
+      }, 2000); // Blink every 2 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [pulseCount, showPulse, sidebarOpen]);
+
   // Helper to format DB date into US format MM-DD-YYYY (no timezone issues)
   const formatDateUS = (dateString) => {
     if (!dateString) return "N/A";
     const [year, month, day] = dateString.split("-");
     return `${month}-${day}-${year}`;
   };
+
+  useEffect(() => setMounted(true), []);
+
+  // Limit pulse animation to 3 blinks then stop - must be before any returns
+  useEffect(() => {
+    if (pulseCount < 3 && showPulse && !sidebarOpen) {
+      const timer = setTimeout(() => {
+        setPulseCount(prev => prev + 1);
+        if (pulseCount >= 2) {
+          setShowPulse(false);
+        }
+      }, 2000); // Blink every 2 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [pulseCount, showPulse, sidebarOpen]);
 
   // Auto-open on first login with animation
   useEffect(() => {
@@ -470,7 +500,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             ? "bg-gradient-to-r from-purple-400 to-indigo-500 text-white"
             : "bg-gradient-to-r from-purple-300 to-indigo-400 text-white"
         } py-4 px-2 rounded-r-xl shadow-lg transform transition-all duration-500 hover:scale-110 hover:shadow-xl focus:outline-none ${
-          !sidebarOpen && "pulse-animation"
+          !sidebarOpen && showPulse && "pulse-animation"
         } border-r-0 border-2 ${
           isDark ? "border-indigo-400" : "border-purple-300"
         }`}
