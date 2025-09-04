@@ -157,16 +157,16 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "contact-from-ip", label: "Contact from IP" },
   ],
   linkedin_connected: [
-    { value: "yes", label: "Yes" },
     { value: "no", label: "No" },
+    { value: "yes", label: "Yes" },
   ],
   intro_email_sent: [
-    { value: "yes", label: "Yes" },
     { value: "no", label: "No" },
+    { value: "yes", label: "Yes" },
   ],
   intro_call: [
-    { value: "yes", label: "Yes" },
     { value: "no", label: "No" },
+    { value: "yes", label: "Yes" },
   ],
   moved_to_vendor: [
     { value: "true", label: "Yes" },
