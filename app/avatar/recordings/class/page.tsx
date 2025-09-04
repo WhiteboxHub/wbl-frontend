@@ -1,5 +1,6 @@
 // whiteboxLearning-wbl/app/avatar/recordings/class/page.tsx
 "use client";
+
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable";
@@ -10,6 +11,7 @@ import { SearchIcon, PlusIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect } from "react";
 import axios from "axios";
+import { toast, Toaster } from "sonner";
 
 export default function RecordingsPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -53,8 +55,9 @@ export default function RecordingsPage() {
 
       setRecordings(data.recordings || []);
       setTotal(data.total || 0);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      toast.error("Failed to fetch recordings.");
       setRecordings([]);
       setTotal(0);
     } finally {
@@ -74,7 +77,8 @@ export default function RecordingsPage() {
     { field: "type", headerName: "Type", width: 140, editable: true, cellEditor: "agTextCellEditor"},
     { field: "subject", headerName: "Subject", width: 180, editable: true },
     { field: "filename", headerName: "File Name", width: 180, editable: true },
-    {field: "link",
+    {
+      field: "link",
       headerName: "Link",
       width: 250,
       cellRenderer: (params: any) => {
@@ -101,28 +105,41 @@ export default function RecordingsPage() {
     },
   ], []);
 
-  // PUT request on row update
+  // PUT request on row update (without re-fetch)
   const handleRowUpdated = async (updatedRow: any) => {
     try {
       await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/recordings/${updatedRow.id}`, updatedRow);
-      fetchRecordings();
-    } catch (err) {
+
+      setRecordings((prev) =>
+        prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
+      );
+
+      toast.success("Recording updated successfully.");
+    } catch (err: any) {
       console.error("Failed to update recording:", err);
+      toast.error("Failed to update recording.");
     }
   };
 
-  // DELETE request on row deletion
+  // DELETE request on row deletion (without re-fetch)
   const handleRowDeleted = async (id: number | string) => {
     try {
       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/recordings/${id}`);
-      fetchRecordings();
-    } catch (err) {
+
+      setRecordings((prev) => prev.filter((row) => row.id !== id));
+      setTotal((prev) => prev - 1);
+
+      toast.success(`Recording ${id} deleted.`);
+    } catch (err: any) {
       console.error("Failed to delete recording:", err);
+      toast.error("Failed to delete recording.");
     }
   };
 
   return (
     <div className="space-y-6">
+      <Toaster position="top-center" richColors />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
