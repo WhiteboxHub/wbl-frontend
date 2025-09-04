@@ -4,13 +4,13 @@ import "@/styles/admin.css";
 import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable";
 import { Button } from "@/components/admin_ui/button";
-import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon, PlusIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect } from "react";
 import axios from "axios";
+import { toast } from "sonner";
 
 export default function SessionsPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -56,6 +56,7 @@ export default function SessionsPage() {
       console.error(err);
       setSessions([]);
       setTotal(0);
+      toast.error("Failed to fetch sessions");
     } finally {
       setLoading(false);
     }
@@ -69,11 +70,10 @@ export default function SessionsPage() {
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
     { field: "sessionid", headerName: "ID", width: 90, pinned: "left" },
     { field: "title", headerName: "Title", width: 290, editable: true },
-    // { field: "link", headerName: "Link", width: 250, editable: true },
     {
       field: "link",
       headerName: "Link",
-      width: 250,
+      width: 150,
       cellRenderer: (params: any) => {
         if (!params.value) return "";
         return (
@@ -88,14 +88,21 @@ export default function SessionsPage() {
         );
       },
     },
-    // { field: "status", headerName: "Status", width: 110, editable: true },
     { field: "videoid", headerName: "Video ID", width: 160, editable: true },
     { field: "type", headerName: "Type", width: 140, editable: true },
-    {field: "subject",headerName: "Subject",width: 180,valueGetter: (params) => params.data?.subject?.name ?? "",},
-    {field: "sessiondate",headerName: "Session Date",width: 180,valueFormatter: (params) => params.value ? new Date(params.value).toLocaleDateString() : ""},
-
-    // {field: "lastmoddatetime",headerName: "Last Modified",width: 200,valueFormatter: (params) => params.value ? new Date(params.value).toLocaleString() : ""},
-    { field: "notes", headerName: "Notes", width: 140, editable: true },
+    {
+      field: "subject",
+      headerName: "Subject",
+      width: 180,
+      valueGetter: (params) => params.data?.subject?.name ?? "",
+    },
+    {
+      field: "sessiondate",
+      headerName: "Session Date",
+      width: 180,
+      valueFormatter: (params) =>
+        params.value ? new Date(params.value).toLocaleDateString() : "",
+    },
   ], []);
 
   // PUT request on row update
@@ -103,8 +110,10 @@ export default function SessionsPage() {
     try {
       await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/session/${updatedRow.sessionid}`, updatedRow);
       fetchSessions();
+      toast.success("Session updated successfully");
     } catch (err) {
       console.error("Failed to update session:", err);
+      toast.error("Failed to update session");
     }
   };
 
@@ -113,8 +122,10 @@ export default function SessionsPage() {
     try {
       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/session/${id}`);
       fetchSessions();
+      toast.success("Session deleted successfully");
     } catch (err) {
       console.error("Failed to delete session:", err);
+      toast.error("Failed to delete session");
     }
   };
 

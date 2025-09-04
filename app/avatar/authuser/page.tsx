@@ -10,6 +10,7 @@ import { SearchIcon, PlusIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect } from "react";
 import axios from "axios";
+import { toast, Toaster } from "sonner";
 
 export default function AuthUsersPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -70,6 +71,7 @@ export default function AuthUsersPage() {
       }
     } catch (err) {
       console.error(err);
+      toast.error("Failed to fetch recordings.");
       setUsers([]);
       setTotal(0);
     } finally {
@@ -122,43 +124,41 @@ export default function AuthUsersPage() {
   // Column definitions
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
     { field: "id", headerName: "ID", width: 100, pinned: "left" },
-    // { field: "uname", headerName: "Email", width: 200, editable: true },
-    // { field: "phone", headerName: "Phone", width: 150, editable: true },
-  {
-    field: "uname",
-    headerName: "Email",
-    width: 200,
-    editable: true,
-    cellRenderer: (params: any) => {
-      if (!params.value) return "";
-      return (
-        <a
-          href={`mailto:${params.value}`}
-          className="text-blue-600 underline hover:text-blue-800"
-          onClick={(event) => event.stopPropagation()} // stop row selection
-        >
-          {params.value}
-        </a>
-      );
+    {
+      field: "uname",
+      headerName: "Email",
+      width: 250,
+      editable: true,
+      cellRenderer: (params: any) => {
+        if (!params.value) return "";
+        return (
+          <a
+            href={`mailto:${params.value}`}
+            className="text-blue-600 underline hover:text-blue-800"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {params.value}
+          </a>
+        );
+      },
     },
-  },
-  { 
-    field: "phone",
-    headerName: "Phone",
-    width: 150,
-    editable: true,
-    cellRenderer: (params: any) => {
-      if (!params.value) return "";
-      return (
-        <a
-          href={`tel:${params.value}`}
-          className="text-blue-600 underline hover:text-blue-800"
-        >
-          {params.value}
-        </a>
-      );
+    {
+      field: "phone",
+      headerName: "Phone",
+      width: 150,
+      editable: true,
+      cellRenderer: (params: any) => {
+        if (!params.value) return "";
+        return (
+          <a
+            href={`tel:${params.value}`}
+            className="text-blue-600 underline hover:text-blue-800"
+          >
+            {params.value}
+          </a>
+        );
+      },
     },
-  },
     { field: "fullname", headerName: "Full Name", width: 180, editable: true },
     { field: "status", headerName: "Status", width: 150, editable: true, cellRenderer: StatusRenderer },
     { field: "visa_status", headerName: "Visa Status", width: 160, editable: true, cellRenderer: VisaStatusRenderer },
@@ -167,20 +167,13 @@ export default function AuthUsersPage() {
     { field: "zip", headerName: "Zip Code", width: 120, editable: true },
     { field: "city", headerName: "City", width: 140, editable: true },
     { field: "country", headerName: "Country", width: 140, editable: true },
-    { field: "registereddate", headerName: "Registered Date", width: 180,valueFormatter: (params) => params.value ? new Date(params.value).toLocaleDateString() : "" },
-    // { field: "passwd", headerName: "Password Hash", width: 200 },
+    { field: "registereddate", headerName: "Registered Date", width: 180, valueFormatter: (params) => params.value ? new Date(params.value).toLocaleDateString() : "" },
     { field: "googleId", headerName: "Google ID", width: 220 },
     { field: "team", headerName: "Team", width: 180, editable: true },
     { field: "message", headerName: "Message", width: 250, editable: true },
-    // { field: "lastlogin", headerName: "Last Login", width: 180, valueFormatter: (params) => params.value ? new Date(params.value).toLocaleString() : "" },
-    { field: "logincount", headerName: "Login Count", width: 140 },
-    // { field: "level3date", headerName: "Level 3 Date", width: 180, valueFormatter: (params) => params.value ? new Date(params.value).toLocaleDateString() : "" },
-    // { field: "demo", headerName: "Demo User", width: 120 },
+    // { field: "logincount", headerName: "Login Count", width: 140 },
     { field: "enddate", headerName: "End Date", width: 150, valueFormatter: (params) => params.value ? new Date(params.value).toLocaleDateString() : "" },
-    // { field: "reset_token", headerName: "Reset Token", width: 220 },
-    // { field: "token_expiry",headerName: "Token Expiry", width: 180, valueFormatter: (params) => params.value ? new Date(params.value).toLocaleString() : "" },
     { field: "role", headerName: "Role", width: 150, editable: true, cellRenderer: RoleRenderer },
-    // { field: "lastmoddatetime", headerName: "Last Modified", width: 200, valueFormatter: (params) => params.value ? new Date(params.value).toLocaleString() : "" },
     { field: "notes", headerName: "Notes", width: 250, editable: true },
   ], []);
 
@@ -188,24 +181,39 @@ export default function AuthUsersPage() {
   const handleRowUpdated = async (updatedRow: any) => {
     try {
       await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/user/${updatedRow.id}`, updatedRow);
-      fetchUsers();
+
+      // Update just the edited row in state
+      setUsers((prev) =>
+        prev.map((user) =>
+          user.id === updatedRow.id ? { ...user, ...updatedRow } : user
+        )
+      );
+
+      toast.success("User updated successfully");
     } catch (err) {
       console.error("Failed to update user:", err);
+      toast.error("Failed to update user");
     }
   };
-
   // DELETE request on row deletion
   const handleRowDeleted = async (id: number | string) => {
     try {
       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/user/${id}`);
-      fetchUsers();
+
+      // Remove the deleted row from state
+      setUsers((prev) => prev.filter((user) => user.id !== id));
+      setTotal((prev) => prev - 1);
+
+      toast.success("User deleted successfully");
     } catch (err) {
       console.error("Failed to delete user:", err);
+      toast.error("Failed to delete user");
     }
   };
-
   return (
     <div className="space-y-6">
+      <Toaster position="top-center" richColors />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

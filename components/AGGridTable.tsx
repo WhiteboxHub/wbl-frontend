@@ -30,8 +30,10 @@ interface AGGridTableProps {
 
 interface RowData {
   id?: string | number;
+  sessionid?: string | number;
   leadid?: string | number;
   candidateid?: string | number;
+  batchid?: string | number;
   fullName?: string;
   company?: string;
 }
@@ -125,6 +127,10 @@ export function AGGridTable({
         onRowDeleted(deleteConfirmData.candidateid);
       } else if (deleteConfirmData.id) {
         onRowDeleted(deleteConfirmData.id);
+      } else if (deleteConfirmData.batchid) {
+        onRowDeleted(deleteConfirmData.batchid);
+      } else if (deleteConfirmData.sessionid) {
+        onRowDeleted(deleteConfirmData.sessionid);
       }
       setSelectedRowData(null);
       setDeleteConfirmData(null);
@@ -245,7 +251,7 @@ export function AGGridTable({
             defaultColDef={{
               resizable: true,
               sortable: true,
-              filter: false,
+              filter: true,
               cellClass: 'custom-cell-style',
             }}
             rowSelection="single"

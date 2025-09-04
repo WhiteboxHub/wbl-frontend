@@ -33,10 +33,16 @@ const countryCodes = [
 const excludedFields = [
   "id",
   "vendor_type",
+  "sessionid",
   "lastmoddatetime",
   "last_modified",
   "name",
+  "logincount",
+  "googleId",
 ];
+
+
+
 
 const fieldSections: Record<string, string> = {
   id: "Basic Information",
@@ -157,6 +163,7 @@ const workVisaStatusOptions = [
   { value: "waiting for status", label: "Waiting for Status" },
 ];
 
+
 const vendorStatuses = [
   { value: "active", label: "Active" },
   { value: "working", label: "Working" },
@@ -166,6 +173,7 @@ const vendorStatuses = [
   { value: "prospect", label: "Prospect" },
 ];
 
+// Enum dropdown options
 const enumOptions: Record<string, { value: string; label: string }[]> = {
   type: [
     { value: "client", label: "Client" },
@@ -175,16 +183,16 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "contact-from-ip", label: "Contact from IP" },
   ],
   linkedin_connected: [
-    { value: "yes", label: "Yes" },
     { value: "no", label: "No" },
+    { value: "yes", label: "Yes" },
   ],
   intro_email_sent: [
-    { value: "yes", label: "Yes" },
     { value: "no", label: "No" },
+    { value: "yes", label: "Yes" },
   ],
   intro_call: [
-    { value: "yes", label: "Yes" },
     { value: "no", label: "No" },
+    { value: "yes", label: "Yes" },
   ],
   moved_to_vendor: [
     { value: "true", label: "Yes" },
@@ -336,6 +344,8 @@ export function EditModal({
 
   const isVendorTable = title.toLowerCase().includes("vendor"); 
 
+  const isVendorModal = title.toLowerCase().includes("vendor");
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
@@ -383,6 +393,7 @@ export function EditModal({
                   <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                     {section}
                   </h3>
+
                   {sectionedFields[section].map(({ key, value }) => (
                     <div key={key} className="space-y-1">
                       <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
@@ -449,6 +460,8 @@ export function EditModal({
                       )}
                     </div>
                   ))}
+
+
                 </div>
               ))}
           </div>
