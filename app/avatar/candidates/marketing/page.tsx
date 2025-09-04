@@ -79,12 +79,12 @@ export default function CandidatesMarketingPage() {
         minWidth: 150,
         // valueGetter: (params) => params.data.candidate?.name || "N/A",
       },
-      {
-        field: "marketing_manager",
-        headerName: "Marketing Manager",
-        sortable: true,
-        minWidth: 150,
-      },
+      // {
+      //   field: "marketing_manager",
+      //   headerName: "Marketing Manager",
+      //   sortable: true,
+      //   minWidth: 150,
+      // },
       {
         field: "start_date",
         headerName: "Start Date",
