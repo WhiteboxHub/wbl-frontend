@@ -18,15 +18,31 @@ interface EditModalProps {
   onSave: (updatedData: Record<string, any>) => void;
 }
 
+// Country codes configuration
+const countryCodes = [
+  { code: "+1", country: "US", flag: "🇺🇸" },
+  { code: "+44", country: "UK", flag: "🇬🇧" },
+  { code: "+91", country: "India", flag: "🇮🇳" },
+  { code: "+61", country: "Australia", flag: "🇦🇺" },
+  { code: "+86", country: "China", flag: "🇨🇳" },
+  { code: "+81", country: "Japan", flag: "🇯🇵" },
+  { code: "+49", country: "Germany", flag: "🇩🇪" },
+  { code: "+33", country: "France", flag: "🇫🇷" },
+];
+
 const excludedFields = [
   "id",
-  "sessionid",
   "vendor_type",
+  "sessionid",
   "lastmoddatetime",
   "last_modified",
+  "name",
   "logincount",
   "googleId",
 ];
+
+
+
 
 const fieldSections: Record<string, string> = {
   id: "Basic Information",
@@ -147,6 +163,16 @@ const workVisaStatusOptions = [
   { value: "waiting for status", label: "Waiting for Status" },
 ];
 
+
+const vendorStatuses = [
+  { value: "active", label: "Active" },
+  { value: "working", label: "Working" },
+  { value: "not_useful", label: "Not Useful" },
+  { value: "do_not_contact", label: "Do Not Contact" },
+  { value: "inactive", label: "Inactive" },
+  { value: "prospect", label: "Prospect" },
+];
+
 // Enum dropdown options
 const enumOptions: Record<string, { value: string; label: string }[]> = {
   type: [
@@ -184,6 +210,7 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "true", label: "Yes" },
     { value: "false", label: "No" },
   ],
+  // Default non-vendor statuses
   status: [
     { value: "active", label: "Active" },
     { value: "inactive", label: "Inactive" },
@@ -299,19 +326,23 @@ export function EditModal({
 
   const columnCount = Math.min(visibleSections.length, 4);
 
-  const modalWidthClass = {
-    1: "max-w-xl",
-    2: "max-w-3xl",
-    3: "max-w-5xl",
-    4: "max-w-6xl",
-  }[columnCount] || "max-w-6xl";
+  const modalWidthClass =
+    {
+      1: "max-w-xl",
+      2: "max-w-3xl",
+      3: "max-w-5xl",
+      4: "max-w-6xl",
+    }[columnCount] || "max-w-6xl";
 
-  const gridColsClass = {
-    1: "grid-cols-1",
-    2: "md:grid-cols-2",
-    3: "md:grid-cols-3",
-    4: "lg:grid-cols-4 md:grid-cols-2",
-  }[columnCount] || "lg:grid-cols-4 md:grid-cols-2";
+  const gridColsClass =
+    {
+      1: "grid-cols-1",
+      2: "md:grid-cols-2",
+      3: "md:grid-cols-3",
+      4: "lg:grid-cols-4 md:grid-cols-2",
+    }[columnCount] || "lg:grid-cols-4 md:grid-cols-2";
+
+  const isVendorTable = title.toLowerCase().includes("vendor"); 
 
   const isVendorModal = title.toLowerCase().includes("vendor");
 
@@ -320,7 +351,6 @@ export function EditModal({
       <DialogContent
         className={`${modalWidthClass} max-h-[80vh] overflow-y-auto p-0`}
       >
-        {/* Header */}
         <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
             {title} - Edit Details
@@ -347,7 +377,6 @@ export function EditModal({
           </button>
         </div>
 
-        {/* Content */}
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -355,7 +384,7 @@ export function EditModal({
             onClose();
           }}
         >
-          {/* Grid Sections except Notes */}
+
           <div className={`grid ${gridColsClass} gap-6 p-6`}>
             {visibleSections
               .filter((section) => section !== "Notes")
@@ -364,88 +393,79 @@ export function EditModal({
                   <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                     {section}
                   </h3>
-                  {sectionedFields[section].map(({ key, value }) => {
-                    const isTypeField = key.toLowerCase() === "type";
 
-                    return (
-                      <div key={key} className="space-y-1">
-                        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                          {toLabel(key)}
-                        </Label>
+                  {sectionedFields[section].map(({ key, value }) => (
+                    <div key={key} className="space-y-1">
+                      <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                        {toLabel(key)}
+                      </Label>
 
-                        {dateFields.includes(key.toLowerCase()) ? (
-                          <input
-                            type="date"
-                            value={
-                              formData[key] &&
-                              !isNaN(new Date(formData[key]).getTime())
-                                ? new Date(formData[key])
-                                    .toISOString()
-                                    .split("T")[0]
-                                : new Date().toISOString().split("T")[0]
-                            }
-                            onChange={(e) => handleChange(key, e.target.value)}
-                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                          />
-                        ) : isTypeField && isVendorModal ? (
-                          // Vendor modal → type is dropdown
-                          <select
-                            value={String(formData[key] ?? "")}
-                            onChange={(e) => handleChange(key, e.target.value)}
-                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                          >
-                            {enumOptions["type"].map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </option>
-                            ))}
-                          </select>
-                        ) : isTypeField && !isVendorModal ? (
-                          // Non-vendor modal → type is input
-                          <Input
-                            value={formData[key] ?? ""}
-                            onChange={(e) => handleChange(key, e.target.value)}
-                          />
-                        ) : enumOptions[key.toLowerCase()] ? (
-                          <select
-                            value={String(formData[key] ?? "")}
-                            onChange={(e) =>
-                              handleChange(
-                                key,
-                                e.target.value === "true"
-                                  ? true
-                                  : e.target.value === "false"
-                                  ? false
-                                  : e.target.value
-                              )
-                            }
-                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                          >
-                            {enumOptions[key.toLowerCase()].map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </option>
-                            ))}
-                          </select>
-                        ) : typeof value === "string" && value.length > 100 ? (
-                          <Textarea
-                            value={formData[key] || ""}
-                            onChange={(e) => handleChange(key, e.target.value)}
-                          />
-                        ) : (
-                          <Input
-                            value={formData[key] ?? ""}
-                            onChange={(e) => handleChange(key, e.target.value)}
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
+                      {dateFields.includes(key.toLowerCase()) ? (
+                        <input
+                          type="date"
+                          value={
+                            formData[key] &&
+                            !isNaN(new Date(formData[key]).getTime())
+                              ? new Date(formData[key])
+                                  .toISOString()
+                                  .split("T")[0]
+                              : new Date().toISOString().split("T")[0]
+                          }
+                          onChange={(e) => handleChange(key, e.target.value)}
+                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                        />
+                      ) : key.toLowerCase() === "status" && isVendorTable ? (
+                        <select
+                          value={String(formData[key] ?? "")}
+                          onChange={(e) => handleChange(key, e.target.value)}
+                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                        >
+                          {vendorStatuses.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : enumOptions[key.toLowerCase()] ? (
+                        <select
+                          value={String(formData[key] ?? "")}
+                          onChange={(e) =>
+                            handleChange(
+                              key,
+                              e.target.value === "true"
+                                ? true
+                                : e.target.value === "false"
+                                ? false
+                                : e.target.value
+                            )
+                          }
+                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                        >
+                          {enumOptions[key.toLowerCase()].map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      ) : typeof value === "string" && value.length > 100 ? (
+                        <Textarea
+                          value={formData[key] || ""}
+                          onChange={(e) => handleChange(key, e.target.value)}
+                        />
+                      ) : (
+                        <Input
+                          value={formData[key] ?? ""}
+                          onChange={(e) => handleChange(key, e.target.value)}
+                        />
+                      )}
+                    </div>
+                  ))}
+
+
                 </div>
               ))}
           </div>
 
-          {/* Notes Section */}
           {sectionedFields["Notes"].length > 0 && (
             <div className="px-6 pb-6">
               <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
@@ -468,7 +488,6 @@ export function EditModal({
             </div>
           )}
 
-          {/* Footer */}
           <div className="flex justify-end px-6 pb-6">
             <button
               type="submit"
