@@ -27,6 +27,8 @@ const excludedFields = [
   "last_modified",
   "logincount",
   "googleId",
+  "subject_id",
+  "new_subject_id",
 ];
 
 const fieldSections: Record<string, string> = {
@@ -46,7 +48,7 @@ const fieldSections: Record<string, string> = {
   intro_email_sent: "Professional Information",
   intro_call: "Professional Information",
   moved_to_vendor: "Professional Information",
-  phone_number: "Contact Information",
+  phone_number: "Basic Information",
   secondary_phone: "Contact Information",
   location: "Contact Information",
   agreement: "Professional Information",
@@ -470,6 +472,27 @@ export function EditModal({
                   );
                 })}
 
+
+
+          {/* Notes Section */}
+          {sectionedFields["Notes"].length > 0 && (
+            <div className="px-6 pb-6">
+              <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
+                Notes
+              </h3>
+              <div className="space-y-6 mt-4">
+                {sectionedFields["Notes"].map(({ key, value }) => (
+                  <div key={key} className="space-y-1">
+                    {/* <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      {toLabel(key)}
+                    </Label> */}
+                    <Textarea
+                      value={formData[key] || ""}
+                      onChange={(e) => handleChange(key, e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                ))}
 
               </div>
             ))}
