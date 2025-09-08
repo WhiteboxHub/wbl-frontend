@@ -1,4 +1,3 @@
-
 "use client";
 import React from "react";
 
@@ -124,7 +123,6 @@ const fieldSections: Record<string, string> = {
   massemail_unsubscribe: "Contact Information",
   moved_to_candidate: "Contact Information",
   link: "Professional Information",
-  videoid: "Professional Information",
   address: "Professional Information",
   city: "Contact Information",
   state: "Contact Information",
@@ -138,7 +136,7 @@ const fieldSections: Record<string, string> = {
   spousephone: "Emergency Contact",
   spouseemail: "Emergency Contact",
   spouseoccupationinfo: "Emergency Contact",
-  notes: "Other", // Changed from "Notes" to "Other" to prevent separate section
+  notes: "Notes", // merged into Other
 };
 
 const workVisaStatusOptions = [
@@ -191,7 +189,6 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "true", label: "Yes" },
     { value: "false", label: "No" },
   ],
-  // Fixed: Added the correct field name
   massemail_email_sent: [
     { value: "true", label: "Yes" },
     { value: "false", label: "No" },
@@ -253,7 +250,6 @@ const labelOverrides: Record<string, string> = {
   sessiondate: "Session Date",
   lastmoddatetime: "Last Mod DateTime",
   registereddate: "Registered Date",
-  // Fixed: Added proper label for massemail_email_sent
   massemail_email_sent: "Massemail Email Sent",
   massemail_unsubscribe: "Massemail Unsubscribe",
   moved_to_candidate: "Moved To Candidate",
@@ -269,7 +265,7 @@ const dateFields = [
   "created_at",
   "classdate",
   "sessiondate",
-  "enrolled_date"
+  "enrolled_date",
 ];
 
 export function EditModal({
@@ -307,6 +303,7 @@ export function EditModal({
     "Contact Information": [],
     "Emergency Contact": [],
     "Other": [],
+    "Notes": [],
   };
 
   Object.entries(formData).forEach(([key, value]) => {
@@ -317,8 +314,9 @@ export function EditModal({
     sectionedFields[section].push({ key, value });
   });
 
+  // Exclude Notes from the grid
   const visibleSections = Object.keys(sectionedFields).filter(
-    (section) => sectionedFields[section]?.length > 0
+    (section) => section !== "Notes" && sectionedFields[section]?.length > 0
   );
 
   const columnCount = Math.min(visibleSections.length, 4);
@@ -338,7 +336,6 @@ export function EditModal({
   }[columnCount] || "lg:grid-cols-4 md:grid-cols-2";
 
   const isVendorModal = title.toLowerCase().includes("vendor");
-  const isVendorTable = title.toLowerCase().includes("vendor"); 
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -380,7 +377,6 @@ export function EditModal({
             onClose();
           }}
         >
-
           {/* All Sections in Grid Layout */}
           <div className={`grid ${gridColsClass} gap-6 p-6`}>
             {visibleSections.map((section) => (
@@ -392,7 +388,6 @@ export function EditModal({
                   const isTypeField = key.toLowerCase() === "type";
 
                   return (
-
                     <div key={key} className="space-y-1">
                       <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                         {toLabel(key)}
@@ -413,29 +408,22 @@ export function EditModal({
                           className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
                         />
                       ) : isTypeField && isVendorModal ? (
-                        // Vendor modal → type is dropdown
-
                         <select
                           value={String(formData[key] ?? "")}
                           onChange={(e) => handleChange(key, e.target.value)}
                           className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
                         >
                           {enumOptions["type"].map((opt) => (
-
                             <option key={opt.value} value={opt.value}>
                               {opt.label}
                             </option>
                           ))}
                         </select>
-
-
                       ) : isTypeField && !isVendorModal ? (
-                        // Non-vendor modal → type is input
                         <Input
                           value={formData[key] ?? ""}
                           onChange={(e) => handleChange(key, e.target.value)}
                         />
-
                       ) : enumOptions[key.toLowerCase()] ? (
                         <select
                           value={String(formData[key] ?? "")}
@@ -471,21 +459,19 @@ export function EditModal({
                     </div>
                   );
                 })}
-
-
+              </div>
+            ))}
+          </div>
 
           {/* Notes Section */}
           {sectionedFields["Notes"].length > 0 && (
-            <div className="px-6 pb-6">
+            <div className="px-6 pb-6 mt-6">
               <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                 Notes
               </h3>
               <div className="space-y-6 mt-4">
-                {sectionedFields["Notes"].map(({ key, value }) => (
+                {sectionedFields["Notes"].map(({ key }) => (
                   <div key={key} className="space-y-1">
-                    {/* <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                      {toLabel(key)}
-                    </Label> */}
                     <Textarea
                       value={formData[key] || ""}
                       onChange={(e) => handleChange(key, e.target.value)}
@@ -493,10 +479,9 @@ export function EditModal({
                     />
                   </div>
                 ))}
-
               </div>
-            ))}
-          </div>
+            </div>
+          )}
 
           {/* Footer */}
           <div className="flex justify-end px-6 pb-6">
