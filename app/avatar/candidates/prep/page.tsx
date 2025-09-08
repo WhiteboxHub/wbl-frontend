@@ -1,4 +1,2126 @@
 
+// // "use client";
+// // import "@/styles/admin.css";
+// // import "@/styles/App.css";
+// // import { AGGridTable } from "@/components/AGGridTable";
+// // import { Badge } from "@/components/admin_ui/badge";
+// // import { Input } from "@/components/admin_ui/input";
+// // import { Label } from "@/components/admin_ui/label";
+// // import { SearchIcon } from "lucide-react";
+// // import { ColDef } from "ag-grid-community";
+// // import { useMemo, useState, useEffect, useCallback } from "react";
+// // import axios from "axios";
+
+// // const StatusRenderer = (params: any) => (
+// //   <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+// //     {params.value?.toUpperCase()}
+// //   </Badge>
+// // );
+
+// // export default function CandidatesPrepPage() {
+// //   const [searchTerm, setSearchTerm] = useState("");
+// //   const [filteredCandidates, setFilteredCandidates] = useState<any[]>([]);
+// //   const [allCandidates, setAllCandidates] = useState<any[]>([]);
+// //   const [loading, setLoading] = useState(true);
+// //   const [error, setError] = useState("");
+// //   const [page] = useState(1);
+// //   const [limit] = useState(100);
+
+// //   const fetchCandidates = async () => {
+// //     try {
+// //       setLoading(true);
+// //       const res = await axios.get(
+// //         `${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations?page=${page}&limit=${limit}`
+// //       );
+// //       const data = res.data;
+// //       if (!Array.isArray(data)) throw new Error("Invalid data format");
+
+// //       setAllCandidates(data);
+// //       setFilteredCandidates(data);
+// //     } catch {
+// //       setError("Failed to load candidate preparations.");
+// //     } finally {
+// //       setLoading(false);
+// //     }
+// //   };
+
+// //   useEffect(() => {
+// //     fetchCandidates();
+// //   }, [page, limit]);
+
+// //   const filterCandidates = useCallback(
+// //     (searchTerm: string) => {
+// //       if (searchTerm.trim() === "") return allCandidates;
+// //       const searchLower = searchTerm.toLowerCase();
+// //       return allCandidates.filter((candidate) =>
+// //         Object.values(candidate).some((val) =>
+// //           val?.toString().toLowerCase().includes(searchLower)
+// //         )
+// //       );
+// //     },
+// //     [allCandidates]
+// //   );
+
+// //   useEffect(() => {
+// //     setFilteredCandidates(filterCandidates(searchTerm));
+// //   }, [searchTerm, filterCandidates]);
+
+// //   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => {
+// //     return [
+// //       { field: "id", headerName: "ID", pinned: "left", width: 80 },
+// //       {
+// //         field: "candidate.full_name",
+// //         headerName: "Full Name",
+// //         minWidth: 150,
+// //         // valueGetter: (params) => params.data.candidate?.name || "N/A"
+// //       },
+// //       { field: "batch", headerName: "Batch", sortable: true, minWidth: 110 },
+// //       { field: "start_date", headerName: "Start Date", sortable: true, minWidth: 100 },
+// //       { field: "status", headerName: "Status", cellRenderer: StatusRenderer, maxWidth: 110 },
+  
+// //         {
+// //       headerName: "Instructor 1",
+// //       minWidth: 150,
+// //       valueGetter: (params) => params.data.instructor1?.name || "N/A",
+// //     },
+// //     {
+// //       headerName: "Instructor 2",
+// //       minWidth: 150,
+// //       valueGetter: (params) => params.data.instructor2?.name || "N/A",
+// //     },
+// //     {
+// //       headerName: "Instructor 3",
+// //       minWidth: 150,
+// //       valueGetter: (params) => params.data.instructor3?.name || "N/A",
+// //     },
+// //       { field: "rating", headerName: "Rating", minWidth: 100 },
+// //       { field: "tech_rating", headerName: "Tech Rating", minWidth: 120 },
+// //       { field: "communication", headerName: "Communication", minWidth: 120 },
+// //       { field: "years_of_experience", headerName: "Experience (Years)", minWidth: 140 },
+// //       { field: "topics_finished", headerName: "Topics Finished", minWidth: 150 },
+// //       { field: "current_topics", headerName: "Current Topics", minWidth: 150 },
+// //       { field: "target_date_of_marketing", headerName: "Target Marketing Date", minWidth: 160 },
+// //       { field: "notes", headerName: "Notes", minWidth: 90 },
+// //     ];
+// //   }, []);
+
+// //   const handleRowUpdated = async (updatedRow: any) => {
+// //     try {
+// //       await axios.put(
+// //         `${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations/${updatedRow.id}`,
+// //         updatedRow
+// //       );
+// //       setFilteredCandidates((prev) =>
+// //         prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
+// //       );
+// //     } catch (err) {
+// //       console.error("Failed to update:", err);
+// //     }
+// //   };
+
+// //   const handleRowDeleted = async (id: number | string) => {
+// //     try {
+// //       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations/${id}`);
+// //       setFilteredCandidates((prev) => prev.filter((row) => row.id !== id));
+// //     } catch (err) {
+// //       console.error("Failed to delete:", err);
+// //     }
+// //   };
+
+// //   return (
+// //     <div className="space-y-6">
+// //       <div className="flex items-center justify-between">
+// //         <div>
+// //           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+// //             Candidate Preparations
+// //           </h1>
+// //           <p className="text-gray-600 dark:text-gray-400">
+// //             Tracking candidate preparation status
+// //           </p>
+// //         </div>
+// //       </div>
+
+// //       <div className="max-w-md">
+// //         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+// //           Search Candidates
+// //         </Label>
+// //         <div className="relative mt-1">
+// //           <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+// //           <Input
+// //             id="search"
+// //             type="text"
+// //             placeholder="Search..."
+// //             value={searchTerm}
+// //             onChange={(e) => setSearchTerm(e.target.value)}
+// //             className="pl-10"
+// //           />
+// //         </div>
+// //         {searchTerm && (
+// //           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+// //             {filteredCandidates.length} candidate(s) found
+// //           </p>
+// //         )}
+// //       </div>
+
+// //       {loading ? (
+// //         <p className="text-center text-sm text-gray-500 dark:text-gray-400">Loading...</p>
+// //       ) : error ? (
+// //         <p className="text-center text-red-500">{error}</p>
+// //       ) : (
+// //         <div className="flex justify-center w-full">
+// //           <div className="w-full max-w-7xl">
+// //             <AGGridTable
+// //               rowData={filteredCandidates}
+// //               columnDefs={columnDefs}
+// //               title={`Candidate Preparations (${filteredCandidates.length})`}
+// //               height="calc(70vh)"
+// //               showSearch={false}
+// //               onRowUpdated={handleRowUpdated}
+// //               onRowDeleted={handleRowDeleted}
+// //             />
+// //           </div>
+// //         </div>
+// //       )}
+// //     </div>
+// //   );
+// // }
+
+
+
+// // "use client";
+// // import "@/styles/admin.css";
+// // import "@/styles/App.css";
+// // import { AGGridTable } from "@/components/AGGridTable";
+// // import { Badge } from "@/components/admin_ui/badge";
+// // import { Input } from "@/components/admin_ui/input";
+// // import { Label } from "@/components/admin_ui/label";
+// // import { SearchIcon } from "lucide-react";
+// // import { ColDef } from "ag-grid-community";
+// // import { useMemo, useState, useEffect, useCallback } from "react";
+// // import axios from "axios";
+
+// // const StatusRenderer = (params: any) => (
+// //   <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+// //     {params.value?.toUpperCase()}
+// //   </Badge>
+// // );
+
+// // export default function CandidatesPrepPage() {
+// //   const [searchTerm, setSearchTerm] = useState("");
+// //   const [filteredCandidates, setFilteredCandidates] = useState<any[]>([]);
+// //   const [allCandidates, setAllCandidates] = useState<any[]>([]);
+// //   const [loading, setLoading] = useState(true);
+// //   const [error, setError] = useState("");
+// //   const [page] = useState(1);
+// //   const [limit] = useState(100);
+
+// //   const fetchCandidates = async () => {
+// //     try {
+// //       setLoading(true);
+// //       const res = await axios.get(
+// //         `${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations?page=${page}&limit=${limit}`
+// //       );
+// //       const data = res.data;
+// //       if (!Array.isArray(data)) throw new Error("Invalid data format");
+
+// //       setAllCandidates(data);
+// //       setFilteredCandidates(data);
+// //     } catch {
+// //       setError("Failed to load candidate preparations.");
+// //     } finally {
+// //       setLoading(false);
+// //     }
+// //   };
+
+// //   useEffect(() => {
+// //     fetchCandidates();
+// //   }, [page, limit]);
+
+// //   const filterCandidates = useCallback(
+// //     (searchTerm: string) => {
+// //       if (searchTerm.trim() === "") return allCandidates;
+// //       const searchLower = searchTerm.toLowerCase();
+// //       return allCandidates.filter((candidate) => {
+// //         // Explicitly check nested candidate.full_name
+// //         if (candidate.candidate?.full_name?.toLowerCase().includes(searchLower)) {
+// //           return true;
+// //         }
+// //         // Fallback: check all other values
+// //         return Object.values(candidate).some((val) =>
+// //           val?.toString().toLowerCase().includes(searchLower)
+// //         );
+// //       });
+// //     },
+// //     [allCandidates]
+// //   );
+
+// //   useEffect(() => {
+// //     setFilteredCandidates(filterCandidates(searchTerm));
+// //   }, [searchTerm, filterCandidates]);
+
+// //   // Helper: show summary of found candidates when searching
+// //   const candidateSummaries = (() => {
+// //     if (!searchTerm.trim()) return [];
+// //     return filteredCandidates.map((c) => {
+// //       const name = c.candidate?.full_name ?? "Unknown";
+// //       const status = c.status ?? "N/A";
+// //       return `${name} → Status: ${status}`;
+// //     });
+// //   })();
+
+// //   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => {
+// //     return [
+// //       { field: "id", headerName: "ID", pinned: "left", width: 80 },
+// //       {
+// //         field: "candidate.full_name",
+// //         headerName: "Full Name",
+// //         minWidth: 150,
+// //       },
+// //       { field: "batch", headerName: "Batch", sortable: true, minWidth: 110 },
+// //       { field: "start_date", headerName: "Start Date", sortable: true, minWidth: 100 },
+// //       { field: "status", headerName: "Status", cellRenderer: StatusRenderer, maxWidth: 110 },
+// //       {
+// //         headerName: "Instructor 1",
+// //         minWidth: 150,
+// //         valueGetter: (params) => params.data.instructor1?.name || "N/A",
+// //       },
+// //       {
+// //         headerName: "Instructor 2",
+// //         minWidth: 150,
+// //         valueGetter: (params) => params.data.instructor2?.name || "N/A",
+// //       },
+// //       {
+// //         headerName: "Instructor 3",
+// //         minWidth: 150,
+// //         valueGetter: (params) => params.data.instructor3?.name || "N/A",
+// //       },
+// //       { field: "rating", headerName: "Rating", minWidth: 100 },
+// //       { field: "tech_rating", headerName: "Tech Rating", minWidth: 120 },
+// //       { field: "communication", headerName: "Communication", minWidth: 120 },
+// //       { field: "years_of_experience", headerName: "Experience (Years)", minWidth: 140 },
+// //       { field: "topics_finished", headerName: "Topics Finished", minWidth: 150 },
+// //       { field: "current_topics", headerName: "Current Topics", minWidth: 150 },
+// //       { field: "target_date_of_marketing", headerName: "Target Marketing Date", minWidth: 160 },
+// //       { field: "notes", headerName: "Notes", minWidth: 90 },
+// //     ];
+// //   }, []);
+
+// //   const handleRowUpdated = async (updatedRow: any) => {
+// //     try {
+// //       await axios.put(
+// //         `${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations/${updatedRow.id}`,
+// //         updatedRow
+// //       );
+// //       setFilteredCandidates((prev) =>
+// //         prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
+// //       );
+// //     } catch (err) {
+// //       console.error("Failed to update:", err);
+// //     }
+// //   };
+
+// //   const handleRowDeleted = async (id: number | string) => {
+// //     try {
+// //       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations/${id}`);
+// //       setFilteredCandidates((prev) => prev.filter((row) => row.id !== id));
+// //     } catch (err) {
+// //       console.error("Failed to delete:", err);
+// //     }
+// //   };
+
+// //   return (
+// //     <div className="space-y-6">
+// //       <div className="flex items-center justify-between">
+// //         <div>
+// //           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+// //             Candidate Preparations
+// //           </h1>
+// //           <p className="text-gray-600 dark:text-gray-400">
+// //             Tracking candidate preparation status
+// //           </p>
+// //         </div>
+// //       </div>
+
+// //       <div className="max-w-md">
+// //         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+// //           Search Candidates
+// //         </Label>
+// //         <div className="relative mt-1">
+// //           <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+// //           <Input
+// //             id="search"
+// //             type="text"
+// //             placeholder="Search..."
+// //             value={searchTerm}
+// //             onChange={(e) => setSearchTerm(e.target.value)}
+// //             className="pl-10"
+// //           />
+// //         </div>
+// //         {searchTerm && (
+// //           <div className="mt-2 text-sm text-gray-500 dark:text-gray-400 space-y-1">
+// //             <p>{filteredCandidates.length} candidate(s) found</p>
+// //             {candidateSummaries.map((line, idx) => (
+// //               <p key={idx}>{line}</p>
+// //             ))}
+// //           </div>
+// //         )}
+// //       </div>
+
+// //       {loading ? (
+// //         <p className="text-center text-sm text-gray-500 dark:text-gray-400">Loading...</p>
+// //       ) : error ? (
+// //         <p className="text-center text-red-500">{error}</p>
+// //       ) : (
+// //         <div className="flex justify-center w-full">
+// //           <div className="w-full max-w-7xl">
+// //             <AGGridTable
+// //               rowData={filteredCandidates}
+// //               columnDefs={columnDefs}
+// //               title={`Candidate Preparations (${filteredCandidates.length})`}
+// //               height="calc(70vh)"
+// //               showSearch={false}
+// //               onRowUpdated={handleRowUpdated}
+// //               onRowDeleted={handleRowDeleted}
+// //             />
+// //           </div>
+// //         </div>
+// //       )}
+// //     </div>
+// //   );
+// // }
+
+
+
+
+// // "use client";
+// // import "@/styles/admin.css";
+// // import "@/styles/App.css";
+// // import { AGGridTable } from "@/components/AGGridTable";
+// // import { Badge } from "@/components/admin_ui/badge";
+// // import { Input } from "@/components/admin_ui/input";
+// // import { Label } from "@/components/admin_ui/label";
+// // import { SearchIcon } from "lucide-react";
+// // import { ColDef } from "ag-grid-community";
+// // import { useMemo, useState, useEffect, useCallback, useRef } from "react";
+// // import axios from "axios";
+
+// // const StatusRenderer = (params: any) => (
+// //   <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+// //     {params.value?.toUpperCase()}
+// //   </Badge>
+// // );
+
+// // export default function CandidatesPrepPage() {
+// //   const [searchTerm, setSearchTerm] = useState("");
+// //   const [filteredCandidates, setFilteredCandidates] = useState<any[]>([]);
+// //   const [allCandidates, setAllCandidates] = useState<any[]>([]);
+// //   const [loading, setLoading] = useState(true);
+// //   const [error, setError] = useState("");
+// //   const [page] = useState(1);
+// //   const [limit] = useState(100);
+
+// //   const fetchCandidates = async () => {
+// //     try {
+// //       setLoading(true);
+// //       const res = await axios.get(
+// //         `${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations?page=${page}&limit=${limit}`
+// //       );
+// //       const data = res.data;
+// //       if (!Array.isArray(data)) throw new Error("Invalid data format");
+
+// //       setAllCandidates(data);
+// //       setFilteredCandidates(data);
+// //     } catch {
+// //       setError("Failed to load candidate preparations.");
+// //     } finally {
+// //       setLoading(false);
+// //     }
+// //   };
+
+// //   useEffect(() => {
+// //     fetchCandidates();
+// //   }, [page, limit]);
+
+// //   const filterCandidates = useCallback(
+// //     (searchTerm: string) => {
+// //       if (searchTerm.trim() === "") return allCandidates;
+// //       const searchLower = searchTerm.toLowerCase();
+// //       return allCandidates.filter((candidate) => {
+// //         if (candidate.candidate?.full_name?.toLowerCase().includes(searchLower)) {
+// //           return true;
+// //         }
+// //         return Object.values(candidate).some((val) =>
+// //           val?.toString().toLowerCase().includes(searchLower)
+// //         );
+// //       });
+// //     },
+// //     [allCandidates]
+// //   );
+
+// //   useEffect(() => {
+// //     setFilteredCandidates(filterCandidates(searchTerm));
+// //   }, [searchTerm, filterCandidates]);
+
+// //   const candidateSummaries = (() => {
+// //     if (!searchTerm.trim()) return [];
+// //     return filteredCandidates.map((c) => {
+// //       const name = c.candidate?.full_name ?? "Unknown";
+// //       const status = c.status ?? "N/A";
+// //       return `${name} → Status: ${status}`;
+// //     });
+// //   })();
+
+// //   // Ref to detect outside click
+// //   const filterRef = useRef<HTMLDivElement>(null);
+
+// //   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => {
+// //     return [
+// //       { field: "id", headerName: "ID", pinned: "left", width: 80 },
+// //       { field: "candidate.full_name", headerName: "Full Name", minWidth: 150 },
+// //       { field: "batch", headerName: "Batch", sortable: true, minWidth: 110 },
+// //       { field: "start_date", headerName: "Start Date", sortable: true, minWidth: 100 },
+// //       {
+// //         field: "status",
+// //         headerName: "Status",
+// //         cellRenderer: StatusRenderer,
+// //         maxWidth: 150,
+// //         headerComponentFramework: () => {
+// //           const [filterVisible, setFilterVisible] = useState(false);
+// //           const [filterValue, setFilterValue] = useState<string>("");
+
+// //           const toggleFilter = () => setFilterVisible(!filterVisible);
+
+// //           const handleFilterChange = (value: string) => {
+// //             setFilterValue(value);
+// //             setFilterVisible(false);
+// //             if (!value) {
+// //               setFilteredCandidates(allCandidates);
+// //             } else {
+// //               setFilteredCandidates(allCandidates.filter(c => c.status === value));
+// //             }
+// //           };
+
+// //           // Close dropdown when clicking outside
+// //           useEffect(() => {
+// //             const handleClickOutside = (event: MouseEvent) => {
+// //               if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
+// //                 setFilterVisible(false);
+// //               }
+// //             };
+// //             document.addEventListener("mousedown", handleClickOutside);
+// //             return () => document.removeEventListener("mousedown", handleClickOutside);
+// //           }, []);
+
+// //           return (
+// //             <div className="relative flex items-center" ref={filterRef}>
+// //               <span>Status</span>
+// //               <svg
+// //                 onClick={toggleFilter}
+// //                 xmlns="http://www.w3.org/2000/svg"
+// //                 className="h-4 w-4 ml-1 cursor-pointer text-gray-500 hover:text-gray-700"
+// //                 fill="none"
+// //                 viewBox="0 0 24 24"
+// //                 stroke="currentColor"
+// //               >
+// //                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z" />
+// //               </svg>
+
+// //               {filterVisible && (
+// //                 <div className="absolute top-full mt-1 left-0 z-50 bg-white border rounded shadow-lg p-1 flex flex-col space-y-1">
+// //                   <button
+// //                     onClick={() => handleFilterChange("Active")}
+// //                     className="text-left px-2 py-1 hover:bg-gray-100"
+// //                   >
+// //                     Active
+// //                   </button>
+// //                   <button
+// //                     onClick={() => handleFilterChange("Break")}
+// //                     className="text-left px-2 py-1 hover:bg-gray-100"
+// //                   >
+// //                     Break
+// //                   </button>
+// //                   <button
+// //                     onClick={() => handleFilterChange("Discontinued")}
+// //                     className="text-left px-2 py-1 hover:bg-gray-100"
+// //                   >
+// //                     Discontinued
+// //                   </button>
+// //                 </div>
+// //               )}
+// //             </div>
+// //           );
+// //         },
+// //       },
+// //       {
+// //         headerName: "Instructor 1",
+// //         minWidth: 150,
+// //         valueGetter: (params) => params.data.instructor1?.name || "N/A",
+// //       },
+// //       {
+// //         headerName: "Instructor 2",
+// //         minWidth: 150,
+// //         valueGetter: (params) => params.data.instructor2?.name || "N/A",
+// //       },
+// //       {
+// //         headerName: "Instructor 3",
+// //         minWidth: 150,
+// //         valueGetter: (params) => params.data.instructor3?.name || "N/A",
+// //       },
+// //       { field: "rating", headerName: "Rating", minWidth: 100 },
+// //       { field: "tech_rating", headerName: "Tech Rating", minWidth: 120 },
+// //       { field: "communication", headerName: "Communication", minWidth: 120 },
+// //       { field: "years_of_experience", headerName: "Experience (Years)", minWidth: 140 },
+// //       { field: "topics_finished", headerName: "Topics Finished", minWidth: 150 },
+// //       { field: "current_topics", headerName: "Current Topics", minWidth: 150 },
+// //       { field: "target_date_of_marketing", headerName: "Target Marketing Date", minWidth: 160 },
+// //       { field: "notes", headerName: "Notes", minWidth: 90 },
+// //     ];
+// //   }, [allCandidates]);
+
+// //   const handleRowUpdated = async (updatedRow: any) => {
+// //     try {
+// //       await axios.put(
+// //         `${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations/${updatedRow.id}`,
+// //         updatedRow
+// //       );
+// //       setFilteredCandidates((prev) =>
+// //         prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
+// //       );
+// //     } catch (err) {
+// //       console.error("Failed to update:", err);
+// //     }
+// //   };
+
+// //   const handleRowDeleted = async (id: number | string) => {
+// //     try {
+// //       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations/${id}`);
+// //       setFilteredCandidates((prev) => prev.filter((row) => row.id !== id));
+// //     } catch (err) {
+// //       console.error("Failed to delete:", err);
+// //     }
+// //   };
+
+// //   return (
+// //     <div className="space-y-6">
+// //       <div className="flex items-center justify-between">
+// //         <div>
+// //           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+// //             Candidate Preparations
+// //           </h1>
+// //           <p className="text-gray-600 dark:text-gray-400">
+// //             Tracking candidate preparation status
+// //           </p>
+// //         </div>
+// //       </div>
+
+// //       <div className="max-w-md">
+// //         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+// //           Search Candidates
+// //         </Label>
+// //         <div className="relative mt-1">
+// //           <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+// //           <Input
+// //             id="search"
+// //             type="text"
+// //             placeholder="Search..."
+// //             value={searchTerm}
+// //             onChange={(e) => setSearchTerm(e.target.value)}
+// //             className="pl-10"
+// //           />
+// //         </div>
+// //         {searchTerm && (
+// //           <div className="mt-2 text-sm text-gray-500 dark:text-gray-400 space-y-1">
+// //             <p>{filteredCandidates.length} candidate(s) found</p>
+// //             {candidateSummaries.map((line, idx) => (
+// //               <p key={idx}>{line}</p>
+// //             ))}
+// //           </div>
+// //         )}
+// //       </div>
+
+// //       {loading ? (
+// //         <p className="text-center text-sm text-gray-500 dark:text-gray-400">Loading...</p>
+// //       ) : error ? (
+// //         <p className="text-center text-red-500">{error}</p>
+// //       ) : (
+// //         <div className="flex justify-center w-full">
+// //           <div className="w-full max-w-7xl">
+// //             <AGGridTable
+// //               rowData={filteredCandidates}
+// //               columnDefs={columnDefs}
+// //               title={`Candidate Preparations (${filteredCandidates.length})`}
+// //               height="calc(70vh)"
+// //               showSearch={false}
+// //               onRowUpdated={handleRowUpdated}
+// //               onRowDeleted={handleRowDeleted}
+// //             />
+// //           </div>
+// //         </div>
+// //       )}
+// //     </div>
+// //   );
+// // }
+
+
+
+
+
+// // "use client";
+// // import "@/styles/admin.css";
+// // import "@/styles/App.css";
+// // import { AGGridTable } from "@/components/AGGridTable";
+// // import { Badge } from "@/components/admin_ui/badge";
+// // import { Input } from "@/components/admin_ui/input";
+// // import { Label } from "@/components/admin_ui/label";
+// // import { SearchIcon } from "lucide-react";
+// // import { ColDef } from "ag-grid-community";
+// // import { useMemo, useState, useEffect, useCallback, useRef } from "react";
+// // import axios from "axios";
+
+// // const StatusRenderer = (params: any) => (
+// //   <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+// //     {params.value?.toUpperCase()}
+// //   </Badge>
+// // );
+
+// // const StatusHeaderComponent = (props: any) => {
+// //   const [filterVisible, setFilterVisible] = useState(false);
+// //   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+// //   const filterRef = useRef<HTMLDivElement>(null);
+
+// //   const toggleFilter = () => {
+// //     setFilterVisible(!filterVisible);
+// //   };
+
+// //   const handleStatusChange = (status: string) => {
+// //     const newSelectedStatuses = selectedStatuses.includes(status)
+// //       ? selectedStatuses.filter((s) => s !== status)
+// //       : [...selectedStatuses, status];
+// //     setSelectedStatuses(newSelectedStatuses);
+// //     props.setFilteredCandidates(
+// //       newSelectedStatuses.length === 0
+// //         ? props.allCandidates
+// //         : props.allCandidates.filter((c: any) => newSelectedStatuses.includes(c.status))
+// //     );
+// //   };
+
+// //   useEffect(() => {
+// //     const handleClickOutside = (event: MouseEvent) => {
+// //       if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
+// //         setFilterVisible(false);
+// //       }
+// //     };
+// //     document.addEventListener("mousedown", handleClickOutside);
+// //     return () => document.removeEventListener("mousedown", handleClickOutside);
+// //   }, []);
+
+// //   return (
+// //     <div className="relative flex items-center w-full" ref={filterRef}>
+// //       <span>Status</span>
+// //       <svg
+// //         onClick={toggleFilter}
+// //         xmlns="http://www.w3.org/2000/svg"
+// //         className="h-4 w-4 ml-1 cursor-pointer text-gray-500 hover:text-gray-700"
+// //         fill="none"
+// //         viewBox="0 0 24 24"
+// //         stroke="currentColor"
+// //       >
+// //         <path
+// //           strokeLinecap="round"
+// //           strokeLinejoin="round"
+// //           strokeWidth={2}
+// //           d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z"
+// //         />
+// //       </svg>
+// //       {filterVisible && (
+// //         <div className="absolute top-6 left-0 z-50 bg-white border rounded shadow-lg p-1 flex flex-col space-y-1 w-40">
+// //           {["Active", "Break", "Discontinued"].map((status) => (
+// //             <label
+// //               key={status}
+// //               className="flex items-center px-2 py-1 hover:bg-gray-100 cursor-pointer"
+// //             >
+// //               <input
+// //                 type="checkbox"
+// //                 checked={selectedStatuses.includes(status)}
+// //                 onChange={() => handleStatusChange(status)}
+// //                 className="mr-2"
+// //               />
+// //               {status}
+// //             </label>
+// //           ))}
+// //         </div>
+// //       )}
+// //     </div>
+// //   );
+// // };
+
+// // export default function CandidatesPrepPage() {
+// //   const [searchTerm, setSearchTerm] = useState("");
+// //   const [filteredCandidates, setFilteredCandidates] = useState<any[]>([]);
+// //   const [allCandidates, setAllCandidates] = useState<any[]>([]);
+// //   const [loading, setLoading] = useState(true);
+// //   const [error, setError] = useState("");
+// //   const [page] = useState(1);
+// //   const [limit] = useState(100);
+
+// //   const fetchCandidates = async () => {
+// //     try {
+// //       setLoading(true);
+// //       const res = await axios.get(
+// //         `${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations?page=${page}&limit=${limit}`
+// //       );
+// //       const data = res.data;
+// //       if (!Array.isArray(data)) throw new Error("Invalid data format");
+// //       setAllCandidates(data);
+// //       setFilteredCandidates(data);
+// //     } catch {
+// //       setError("Failed to load candidate preparations.");
+// //     } finally {
+// //       setLoading(false);
+// //     }
+// //   };
+
+// //   useEffect(() => {
+// //     fetchCandidates();
+// //   }, [page, limit]);
+
+// //   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => {
+// //     return [
+// //       { field: "id", headerName: "ID", pinned: "left", width: 80 },
+// //       { field: "candidate.full_name", headerName: "Full Name", minWidth: 150 },
+// //       { field: "batch", headerName: "Batch", sortable: true, minWidth: 110 },
+// //       { field: "start_date", headerName: "Start Date", sortable: true, minWidth: 100 },
+// //       {
+// //         field: "status",
+// //         headerName: "Status",
+// //         cellRenderer: StatusRenderer,
+// //         maxWidth: 150,
+// //         headerComponent: StatusHeaderComponent,
+// //         headerComponentParams: {
+// //           setFilteredCandidates: setFilteredCandidates,
+// //           allCandidates: allCandidates,
+// //         },
+// //       },
+// //       {
+// //         headerName: "Instructor 1",
+// //         minWidth: 150,
+// //         valueGetter: (params) => params.data.instructor1?.name || "N/A",
+// //       },
+// //       {
+// //         headerName: "Instructor 2",
+// //         minWidth: 150,
+// //         valueGetter: (params) => params.data.instructor2?.name || "N/A",
+// //       },
+// //       {
+// //         headerName: "Instructor 3",
+// //         minWidth: 150,
+// //         valueGetter: (params) => params.data.instructor3?.name || "N/A",
+// //       },
+// //       { field: "rating", headerName: "Rating", minWidth: 100 },
+// //       { field: "tech_rating", headerName: "Tech Rating", minWidth: 120 },
+// //       { field: "communication", headerName: "Communication", minWidth: 120 },
+// //       { field: "years_of_experience", headerName: "Experience (Years)", minWidth: 140 },
+// //       { field: "topics_finished", headerName: "Topics Finished", minWidth: 150 },
+// //       { field: "current_topics", headerName: "Current Topics", minWidth: 150 },
+// //       { field: "target_date_of_marketing", headerName: "Target Marketing Date", minWidth: 160 },
+// //       { field: "notes", headerName: "Notes", minWidth: 90 },
+// //     ];
+// //   }, [allCandidates]);
+
+// //   const handleRowUpdated = async (updatedRow: any) => {
+// //     try {
+// //       await axios.put(
+// //         `${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations/${updatedRow.id}`,
+// //         updatedRow
+// //       );
+// //       setFilteredCandidates((prev) =>
+// //         prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
+// //       );
+// //     } catch (err) {
+// //       console.error("Failed to update:", err);
+// //     }
+// //   };
+
+// //   const handleRowDeleted = async (id: number | string) => {
+// //     try {
+// //       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations/${id}`);
+// //       setFilteredCandidates((prev) => prev.filter((row) => row.id !== id));
+// //     } catch (err) {
+// //       console.error("Failed to delete:", err);
+// //     }
+// //   };
+
+// //   return (
+// //     <div className="space-y-6">
+// //       <div className="flex items-center justify-between">
+// //         <div>
+// //           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+// //             Candidate Preparations
+// //           </h1>
+// //           <p className="text-gray-600 dark:text-gray-400">
+// //             Tracking candidate preparation status
+// //           </p>
+// //         </div>
+// //       </div>
+// //       <div className="max-w-md">
+// //         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+// //           Search Candidates
+// //         </Label>
+// //         <div className="relative mt-1">
+// //           <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+// //           <Input
+// //             id="search"
+// //             type="text"
+// //             placeholder="Search..."
+// //             value={searchTerm}
+// //             onChange={(e) => setSearchTerm(e.target.value)}
+// //             className="pl-10"
+// //           />
+// //         </div>
+// //       </div>
+// //       {loading ? (
+// //         <p className="text-center text-sm text-gray-500 dark:text-gray-400">Loading...</p>
+// //       ) : error ? (
+// //         <p className="text-center text-red-500">{error}</p>
+// //       ) : (
+// //         <div className="flex justify-center w-full">
+// //           <div className="w-full max-w-7xl">
+// //             <AGGridTable
+// //               rowData={filteredCandidates}
+// //               columnDefs={columnDefs}
+// //               title={`Candidate Preparations (${filteredCandidates.length})`}
+// //               height="calc(70vh)"
+// //               showSearch={false}
+// //               onRowUpdated={handleRowUpdated}
+// //               onRowDeleted={handleRowDeleted}
+// //             />
+// //           </div>
+// //         </div>
+// //       )}
+// //     </div>
+// //   );
+// // }
+
+// /////////// dropdown visible but options not visible /////////////////
+
+
+// "use client";
+// import "@/styles/admin.css";
+// import "@/styles/App.css";
+// import { AGGridTable } from "@/components/AGGridTable";
+// import { Badge } from "@/components/admin_ui/badge";
+// import { Input } from "@/components/admin_ui/input";
+// import { Label } from "@/components/admin_ui/label";
+// import { SearchIcon } from "lucide-react";
+// import { ColDef } from "ag-grid-community";
+// import { useMemo, useState, useEffect, useRef } from "react";
+// import axios from "axios";
+// import React from "react";
+
+// // Renderer for status column
+// const StatusRenderer = (params: any) => (
+//   <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+//     {params.value?.toUpperCase()}
+//   </Badge>
+// );
+
+// // Status Header Component with Dropdown
+// const StatusHeaderComponent = ({ allCandidates, setFilteredCandidates }: { allCandidates: any[], setFilteredCandidates: (data: any[]) => void }) => {
+//   const [filterVisible, setFilterVisible] = useState(false);
+//   const [filterValue, setFilterValue] = useState<string>("");
+//   const filterRef = useRef<HTMLDivElement>(null);
+
+//   const toggleFilter = () => setFilterVisible(!filterVisible);
+
+//   const handleFilterChange = (value: string) => {
+//     setFilterValue(value);
+//     setFilterVisible(false);
+//     if (!value) {
+//       setFilteredCandidates(allCandidates);
+//     } else {
+//       setFilteredCandidates(allCandidates.filter(c => c.status === value));
+//     }
+//   };
+
+//   // Close dropdown when clicking outside
+//   useEffect(() => {
+//     const handleClickOutside = (event: MouseEvent) => {
+//       if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
+//         setFilterVisible(false);
+//       }
+//     };
+//     document.addEventListener("mousedown", handleClickOutside);
+//     return () => document.removeEventListener("mousedown", handleClickOutside);
+//   }, []);
+
+//   return (
+//     <div className="relative flex items-center" ref={filterRef}>
+//       <span>Status</span>
+//       <svg
+//         onClick={toggleFilter}
+//         xmlns="http://www.w3.org/2000/svg"
+//         className="h-4 w-4 ml-1 cursor-pointer text-gray-500 hover:text-gray-700"
+//         fill="none"
+//         viewBox="0 0 24 24"
+//         stroke="currentColor"
+//       >
+//         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z" />
+//       </svg>
+
+//       {filterVisible && (
+//         <div className="absolute top-full mt-1 left-0 z-50 bg-white border rounded shadow-lg p-1 flex flex-col space-y-1 min-w-[120px]">
+//           <button
+//             onClick={() => handleFilterChange("Active")}
+//             className="text-left px-2 py-1 hover:bg-gray-100"
+//           >
+//             Active
+//           </button>
+//           <button
+//             onClick={() => handleFilterChange("Break")}
+//             className="text-left px-2 py-1 hover:bg-gray-100"
+//           >
+//             Break
+//           </button>
+//           <button
+//             onClick={() => handleFilterChange("Discontinued")}
+//             className="text-left px-2 py-1 hover:bg-gray-100"
+//           >
+//             Discontinued
+//           </button>
+//         </div>
+//       )}
+//     </div>
+//   );
+// };
+
+
+
+// // Global state for the filter
+// let globalAllCandidates: any[] = [];
+// let globalSetFilteredCandidates: ((data: any[]) => void) | null = null;
+// let globalSetStatusFilter: ((status: string) => void) | null = null;
+// let globalSetIsDropdownOpen: ((open: boolean) => void) | null = null;
+
+// export default function CandidatesPrepPage() {
+//   const [searchTerm, setSearchTerm] = useState("");
+//   const [filteredCandidates, setFilteredCandidates] = useState<any[]>([]);
+//   const [allCandidates, setAllCandidates] = useState<any[]>([]);
+//   const [loading, setLoading] = useState(true);
+//   const [error, setError] = useState("");
+//   const [statusFilter, setStatusFilter] = useState<string>("");
+//   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+//   const dropdownRef = useRef<HTMLDivElement>(null);
+
+//   // Update global state
+//   globalAllCandidates = allCandidates;
+//   globalSetFilteredCandidates = setFilteredCandidates;
+//   globalSetStatusFilter = setStatusFilter;
+//   globalSetIsDropdownOpen = setIsDropdownOpen;
+
+//   // fetch candidates
+//   useEffect(() => {
+//     const fetchCandidates = async () => {
+//       try {
+//         setLoading(true);
+//         const res = await axios.get(
+//           `${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations?page=1&limit=100`
+//         );
+//         const data = res.data;
+//         if (!Array.isArray(data)) throw new Error("Invalid data format");
+//         setAllCandidates(data);
+//         setFilteredCandidates(data);
+//       } catch {
+//         setError("Failed to load candidate preparations.");
+//       } finally {
+//         setLoading(false);
+//       }
+//     };
+
+//     fetchCandidates();
+//   }, []);
+
+//   // Apply search and status filters
+//   useEffect(() => {
+//     let filtered = allCandidates;
+
+//     // Apply status filter
+//     if (statusFilter) {
+//       filtered = filtered.filter((candidate) => candidate.status === statusFilter);
+//     }
+
+//     // Apply search filter
+//     if (searchTerm.trim() !== "") {
+//       const searchLower = searchTerm.toLowerCase();
+//       filtered = filtered.filter((candidate) => {
+//         // Check candidate name first
+//         if (candidate.candidate?.full_name?.toLowerCase().includes(searchLower)) {
+//           return true;
+//         }
+//         // Check other fields
+//         return Object.values(candidate).some((val) =>
+//           val?.toString().toLowerCase().includes(searchLower)
+//         );
+//       });
+//     }
+
+//     setFilteredCandidates(filtered);
+//   }, [allCandidates, searchTerm, statusFilter]);
+
+//   // Close dropdown when clicking outside
+//   useEffect(() => {
+//     const handleClickOutside = (event: MouseEvent) => {
+//       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+//         setIsDropdownOpen(false);
+//       }
+//     };
+//     document.addEventListener("mousedown", handleClickOutside);
+//     return () => document.removeEventListener("mousedown", handleClickOutside);
+//   }, []);
+
+//   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => {
+//     return [
+//       { field: "id", headerName: "ID", pinned: "left", width: 80 },
+//       { field: "candidate.full_name", headerName: "Full Name", minWidth: 150 },
+//       { field: "batch", headerName: "Batch", sortable: true, minWidth: 110 },
+//       { field: "start_date", headerName: "Start Date", sortable: true, minWidth: 100 },
+//       {
+//         field: "status",
+//         headerName: "Status",
+//         cellRenderer: StatusRenderer,
+//         maxWidth: 150,
+//         headerComponentFramework: () => {
+//           return (
+//             <div className="flex items-center w-full h-full">
+//               <span className="text-sm font-medium">Status</span>
+//               <button
+//                 onClick={() => {
+//                   // Create dropdown dynamically
+//                   const existingDropdown = document.querySelector('.status-dropdown');
+//                   if (existingDropdown) {
+//                     existingDropdown.remove();
+//                     return;
+//                   }
+
+//                   const dropdown = document.createElement('div');
+//                   dropdown.className = 'status-dropdown absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-50 min-w-[120px]';
+//                   dropdown.innerHTML = `
+//                     <button class="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 first:rounded-t-md" onclick="window.filterStatus('')">All Status</button>
+//                     <button class="w-full text-left px-3 py-2 text-sm hover:bg-gray-100" onclick="window.filterStatus('Active')">Active</button>
+//                     <button class="w-full text-left px-3 py-2 text-sm hover:bg-gray-100" onclick="window.filterStatus('Break')">Break</button>
+//                     <button class="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 last:rounded-b-md" onclick="window.filterStatus('Discontinued')">Discontinued</button>
+//                   `;
+
+//                   // Add global function
+//                   (window as any).filterStatus = (status: string) => {
+//                     globalSetStatusFilter?.(status);
+//                     dropdown.remove();
+//                   };
+
+//                   // Position dropdown
+//                   const header = document.querySelector('[col-id="status"] .ag-header-cell-label') as HTMLElement;
+//                   if (header) {
+//                     header.style.position = 'relative';
+//                     header.appendChild(dropdown);
+//                   }
+//                 }}
+//                 className="ml-2 p-1 hover:bg-gray-100 rounded"
+//               >
+//                 <svg
+//                   className="w-4 h-4 text-gray-500"
+//                   fill="none"
+//                   stroke="currentColor"
+//                   viewBox="0 0 24 24"
+//                 >
+//                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z" />
+//                 </svg>
+//               </button>
+//             </div>
+//           );
+//         },
+//       },
+//       {
+//         headerName: "Instructor 1",
+//         minWidth: 150,
+//         valueGetter: (params) => params.data.instructor1?.name || "N/A",
+//       },
+//       {
+//         headerName: "Instructor 2",
+//         minWidth: 150,
+//         valueGetter: (params) => params.data.instructor2?.name || "N/A",
+//       },
+//       {
+//         headerName: "Instructor 3",
+//         minWidth: 150,
+//         valueGetter: (params) => params.data.instructor3?.name || "N/A",
+//       },
+//       { field: "rating", headerName: "Rating", minWidth: 100 },
+//       { field: "tech_rating", headerName: "Tech Rating", minWidth: 120 },
+//       { field: "communication", headerName: "Communication", minWidth: 120 },
+//       { field: "years_of_experience", headerName: "Experience (Years)", minWidth: 140 },
+//       { field: "topics_finished", headerName: "Topics Finished", minWidth: 150 },
+//       { field: "current_topics", headerName: "Current Topics", minWidth: 150 },
+//       { field: "target_date_of_marketing", headerName: "Target Marketing Date", minWidth: 160 },
+//       { field: "notes", headerName: "Notes", minWidth: 90 },
+//     ];
+//   }, []);
+
+//   const handleRowUpdated = async (updatedRow: any) => {
+//     try {
+//       await axios.put(
+//         `${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations/${updatedRow.id}`,
+//         updatedRow
+//       );
+//       setFilteredCandidates((prev) =>
+//         prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
+//       );
+//     } catch (err) {
+//       console.error("Failed to update:", err);
+//     }
+//   };
+
+//   const handleRowDeleted = async (id: number | string) => {
+//     try {
+//       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations/${id}`);
+//       setFilteredCandidates((prev) => prev.filter((row) => row.id !== id));
+//     } catch (err) {
+//       console.error("Failed to delete:", err);
+//     }
+//   };
+
+//   return (
+//     <div className="space-y-6">
+//       <div className="flex items-center justify-between">
+//         <div>
+//           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+//             Candidate Preparations
+//           </h1>
+//           <p className="text-gray-600 dark:text-gray-400">
+//             Tracking candidate preparation status
+//           </p>
+//         </div>
+//       </div>
+//       <div className="max-w-md">
+//         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+//           Search Candidates
+//         </Label>
+//         <div className="relative mt-1">
+//           <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+//           <Input
+//             id="search"
+//             type="text"
+//             placeholder="Search..."
+//             value={searchTerm}
+//             onChange={(e) => setSearchTerm(e.target.value)}
+//             className="pl-10"
+//           />
+//         </div>
+//       </div>
+//       {loading ? (
+//         <p className="text-center text-sm text-gray-500 dark:text-gray-400">Loading...</p>
+//       ) : error ? (
+//         <p className="text-center text-red-500">{error}</p>
+//       ) : (
+//         <div className="flex justify-center w-full">
+//           <div className="w-full max-w-7xl">
+//             <AGGridTable
+//               rowData={filteredCandidates}
+//               columnDefs={columnDefs}
+//               title={`Candidate Preparations (${filteredCandidates.length})`}
+//               height="calc(70vh)"
+//               showSearch={false}
+//               onRowUpdated={handleRowUpdated}
+//               onRowDeleted={handleRowDeleted}
+//             />
+//           </div>
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
+
+// // /////////////////// data visisble but not clickning ////////////
+
+
+
+
+
+
+// "use client";
+// import "@/styles/admin.css";
+// import "@/styles/App.css";
+// import { AGGridTable } from "@/components/AGGridTable";
+// import { Badge } from "@/components/admin_ui/badge";
+// import { Input } from "@/components/admin_ui/input";
+// import { Label } from "@/components/admin_ui/label";
+// import { SearchIcon } from "lucide-react";
+// import { ColDef } from "ag-grid-community";
+// import { useMemo, useState, useEffect, useRef } from "react";
+// import axios from "axios";
+// import { createPortal } from "react-dom";
+
+// // Renderer for status column
+// const StatusRenderer = (params: any) => (
+//   <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+//     {params.value?.toUpperCase()}
+//   </Badge>
+// );
+
+// // Custom header with dropdown filter
+// const StatusHeaderComponent = (props: any) => {
+//   const { selectedStatuses, setSelectedStatuses } = props;
+//   const filterButtonRef = useRef<HTMLDivElement>(null);
+//   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({
+//     top: 0,
+//     left: 0,
+//   });
+//   const [filterVisible, setFilterVisible] = useState(false);
+
+//   const toggleFilter = () => {
+//     if (filterButtonRef.current) {
+//       const rect = filterButtonRef.current.getBoundingClientRect();
+//       setDropdownPos({
+//         top: rect.bottom,
+//         left: rect.left,
+//       });
+//     }
+//     setFilterVisible((v) => !v);
+//   };
+
+//   const handleStatusChange = (status: string) => {
+//     setSelectedStatuses((prev: string[]) =>
+//       prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
+//     );
+//   };
+
+//   useEffect(() => {
+//     const handleClickOutside = (event: MouseEvent) => {
+//       if (
+//         filterButtonRef.current &&
+//         !filterButtonRef.current.contains(event.target as Node)
+//       ) {
+//         setFilterVisible(false);
+//       }
+//     };
+//     document.addEventListener("mousedown", handleClickOutside);
+//     return () => document.removeEventListener("mousedown", handleClickOutside);
+//   }, []);
+
+//   return (
+//     <div className="relative flex items-center w-full" ref={filterButtonRef}>
+//       <span>Status</span>
+//       <svg
+//         onClick={toggleFilter}
+//         xmlns="http://www.w3.org/2000/svg"
+//         className="h-4 w-4 ml-1 cursor-pointer text-gray-500 hover:text-gray-700"
+//         fill="none"
+//         viewBox="0 0 24 24"
+//         stroke="currentColor"
+//       >
+//         <path
+//           strokeLinecap="round"
+//           strokeLinejoin="round"
+//           strokeWidth={2}
+//           d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z"
+//         />
+//       </svg>
+
+//       {filterVisible &&
+//         createPortal(
+//           <div
+//             className="z-[99999] bg-white border rounded shadow-lg p-1 flex flex-col space-y-1 w-40 pointer-events-auto"
+//             style={{
+//               top: dropdownPos.top,
+//               left: dropdownPos.left,
+//               position: "fixed", // ✅ makes it clickable
+//             }}
+//           >
+//             {[
+//               { value: "active", label: "Active" },
+//               { value: "break", label: "Break" },
+//               { value: "discontinued", label: "Discontinued" },
+//             ].map(({ value, label }) => (
+//               <label
+//                 key={value}
+//                 className="flex items-center px-2 py-1 hover:bg-gray-100 cursor-pointer"
+//               >
+//                 <input
+//                   type="checkbox"
+//                   checked={selectedStatuses.includes(value)}
+//                   onChange={() => handleStatusChange(value)}
+//                   className="mr-2"
+//                 />
+//                 {label}
+//               </label>
+//             ))}
+//           </div>,
+//           document.body
+//         )}
+//     </div>
+//   );
+// };
+
+// export default function CandidatesPrepPage() {
+//   const [searchTerm, setSearchTerm] = useState("");
+//   const [filteredCandidates, setFilteredCandidates] = useState<any[]>([]);
+//   const [allCandidates, setAllCandidates] = useState<any[]>([]);
+//   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+//   const [loading, setLoading] = useState(true);
+//   const [error, setError] = useState("");
+
+//   // fetch candidates
+//   useEffect(() => {
+//     const fetchCandidates = async () => {
+//       try {
+//         setLoading(true);
+//         const res = await axios.get(
+//           `${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations?page=1&limit=100`
+//         );
+//         const data = res.data;
+//         if (!Array.isArray(data)) throw new Error("Invalid data format");
+//         setAllCandidates(data);
+//       } catch {
+//         setError("Failed to load candidate preparations.");
+//       } finally {
+//         setLoading(false);
+//       }
+//     };
+
+//     fetchCandidates();
+//   }, []);
+
+//   // combine filters: search + status
+//   useEffect(() => {
+//     let filtered = allCandidates;
+
+//     if (selectedStatuses.length > 0) {
+//       filtered = filtered.filter((c) =>
+//         selectedStatuses.includes(c.status?.toLowerCase())
+//       );
+//     }
+
+//     if (searchTerm.trim() !== "") {
+//       const term = searchTerm.toLowerCase();
+//       filtered = filtered.filter((c) =>
+//         c.candidate?.full_name?.toLowerCase().includes(term)
+//       );
+//     }
+
+//     setFilteredCandidates(filtered);
+//   }, [allCandidates, searchTerm, selectedStatuses]);
+
+//   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => {
+//     return [
+//       { field: "id", headerName: "ID", pinned: "left", width: 80 },
+//       { field: "candidate.full_name", headerName: "Full Name", minWidth: 150 },
+//       { field: "batch", headerName: "Batch", sortable: true, minWidth: 110 },
+//       { field: "start_date", headerName: "Start Date", sortable: true, minWidth: 100 },
+//       {
+//         field: "status",
+//         headerName: "Status",
+//         cellRenderer: StatusRenderer,
+//         maxWidth: 150,
+//         headerComponent: StatusHeaderComponent,
+//         headerComponentParams: {
+//           selectedStatuses,
+//           setSelectedStatuses,
+//         },
+//         // 👇 force re-render of header when selection changes
+//         headerComponentFramework: (params: any) => (
+//           <StatusHeaderComponent
+//             {...params}
+//             key={selectedStatuses.join(",")}
+//             selectedStatuses={selectedStatuses}
+//             setSelectedStatuses={setSelectedStatuses}
+//           />
+//         ),
+//       },
+//       {
+//         headerName: "Instructor 1",
+//         minWidth: 150,
+//         valueGetter: (params) => params.data.instructor1?.name || "N/A",
+//       },
+//       {
+//         headerName: "Instructor 2",
+//         minWidth: 150,
+//         valueGetter: (params) => params.data.instructor2?.name || "N/A",
+//       },
+//       {
+//         headerName: "Instructor 3",
+//         minWidth: 150,
+//         valueGetter: (params) => params.data.instructor3?.name || "N/A",
+//       },
+//       { field: "rating", headerName: "Rating", minWidth: 100 },
+//       { field: "tech_rating", headerName: "Tech Rating", minWidth: 120 },
+//       { field: "communication", headerName: "Communication", minWidth: 120 },
+//       { field: "years_of_experience", headerName: "Experience (Years)", minWidth: 140 },
+//       { field: "topics_finished", headerName: "Topics Finished", minWidth: 150 },
+//       { field: "current_topics", headerName: "Current Topics", minWidth: 150 },
+//       { field: "target_date_of_marketing", headerName: "Target Marketing Date", minWidth: 160 },
+//       { field: "notes", headerName: "Notes", minWidth: 90 },
+//     ];
+//   }, [selectedStatuses]);
+
+//   const handleRowUpdated = async (updatedRow: any) => {
+//     try {
+//       await axios.put(
+//         `${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations/${updatedRow.id}`,
+//         updatedRow
+//       );
+//       setFilteredCandidates((prev) =>
+//         prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
+//       );
+//     } catch (err) {
+//       console.error("Failed to update:", err);
+//     }
+//   };
+
+//   const handleRowDeleted = async (id: number | string) => {
+//     try {
+//       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations/${id}`);
+//       setFilteredCandidates((prev) => prev.filter((row) => row.id !== id));
+//     } catch (err) {
+//       console.error("Failed to delete:", err);
+//     }
+//   };
+
+//   return (
+//     <div className="space-y-6">
+//       <div className="flex items-center justify-between">
+//         <div>
+//           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+//             Candidate Preparations
+//           </h1>
+//           <p className="text-gray-600 dark:text-gray-400">
+//             Tracking candidate preparation status
+//           </p>
+//         </div>
+//       </div>
+//       <div className="max-w-md">
+//         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+//           Search Candidates
+//         </Label>
+//         <div className="relative mt-1">
+//           <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+//           <Input
+//             id="search"
+//             type="text"
+//             placeholder="Search..."
+//             value={searchTerm}
+//             onChange={(e) => setSearchTerm(e.target.value)}
+//             className="pl-10"
+//           />
+//         </div>
+//       </div>
+//       {loading ? (
+//         <p className="text-center text-sm text-gray-500 dark:text-gray-400">Loading...</p>
+//       ) : error ? (
+//         <p className="text-center text-red-500">{error}</p>
+//       ) : (
+//         <div className="flex justify-center w-full">
+//           <div className="w-full max-w-7xl">
+//             <AGGridTable
+//               rowData={filteredCandidates}
+//               columnDefs={columnDefs}
+//               title={`Candidate Preparations (${filteredCandidates.length})`}
+//               height="calc(70vh)"
+//               showSearch={false}
+//               onRowUpdated={handleRowUpdated}
+//               onRowDeleted={handleRowDeleted}
+//             />
+//           </div>
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
+
+// /////////////////// data visisble but not clickning ////////////
+
+
+
+// "use client";
+// import "@/styles/admin.css";
+// import "@/styles/App.css";
+// import { AGGridTable } from "@/components/AGGridTable";
+// import { Badge } from "@/components/admin_ui/badge";
+// import { Input } from "@/components/admin_ui/input";
+// import { Label } from "@/components/admin_ui/label";
+// import { SearchIcon } from "lucide-react";
+// import { ColDef } from "ag-grid-community";
+// import { useMemo, useState, useEffect, useRef } from "react";
+// import axios from "axios";
+// import { createPortal } from "react-dom";
+
+// // Renderer for status column
+// const StatusRenderer = (params: any) => (
+//   <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+//     {params.value?.toUpperCase()}
+//   </Badge>
+// );
+
+// // Custom header with dropdown filter
+// const StatusHeaderComponent = (props: any) => {
+//   const { selectedStatuses, setSelectedStatuses } = props;
+//   const filterButtonRef = useRef<HTMLDivElement>(null);
+//   const dropdownRef = useRef<HTMLDivElement>(null);
+//   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({
+//     top: 0,
+//     left: 0,
+//   });
+//   const [filterVisible, setFilterVisible] = useState(false);
+
+//   const toggleFilter = () => {
+//     if (filterButtonRef.current) {
+//       const rect = filterButtonRef.current.getBoundingClientRect();
+//       setDropdownPos({
+//         top: rect.bottom,
+//         left: rect.left,
+//       });
+//     }
+//     setFilterVisible((v) => !v);
+//   };
+
+//   const handleStatusChange = (status: string) => {
+//     setSelectedStatuses((prev: string[]) =>
+//       prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
+//     );
+//   };
+
+//   useEffect(() => {
+//     const handleClickOutside = (event: MouseEvent) => {
+//       if (
+//         filterButtonRef.current &&
+//         !filterButtonRef.current.contains(event.target as Node) &&
+//         dropdownRef.current &&
+//         !dropdownRef.current.contains(event.target as Node)
+//       ) {
+//         setFilterVisible(false);
+//       }
+//     };
+//     document.addEventListener("mousedown", handleClickOutside);
+//     return () => document.removeEventListener("mousedown", handleClickOutside);
+//   }, []);
+
+//   return (
+//     <div className="relative flex items-center w-full" ref={filterButtonRef}>
+//       <span>Status</span>
+//       <svg
+//         onClick={toggleFilter}
+//         xmlns="http://www.w3.org/2000/svg"
+//         className="h-4 w-4 ml-1 cursor-pointer text-gray-500 hover:text-gray-700"
+//         fill="none"
+//         viewBox="0 0 24 24"
+//         stroke="currentColor"
+//       >
+//         <path
+//           strokeLinecap="round"
+//           strokeLinejoin="round"
+//           strokeWidth={2}
+//           d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z"
+//         />
+//       </svg>
+
+//       {filterVisible &&
+//         createPortal(
+//           <div
+//             ref={dropdownRef}
+//             className="z-[99999] bg-white border rounded shadow-lg p-1 flex flex-col space-y-1 w-40 pointer-events-auto"
+//             style={{
+//               top: dropdownPos.top,
+//               left: dropdownPos.left,
+//               position: "fixed",
+//             }}
+//           >
+//             {[
+//               { value: "active", label: "Active" },
+//               { value: "break", label: "Break" },
+//               { value: "Inactive", label: "Inactive" },
+//               { value: "discontinued", label: "Discontinued" },
+//             ].map(({ value, label }) => (
+//               <label
+//                 key={value}
+//                 className="flex items-center px-2 py-1 hover:bg-gray-100 cursor-pointer"
+//               >
+//                 <input
+//                   type="checkbox"
+//                   checked={selectedStatuses.includes(value)}
+//                   onChange={() => handleStatusChange(value)}
+//                   className="mr-2"
+//                 />
+//                 {label}
+//               </label>
+//             ))}
+//           </div>,
+//           document.body
+//         )}
+//     </div>
+//   );
+// };
+
+// export default function CandidatesPrepPage() {
+//   const [searchTerm, setSearchTerm] = useState("");
+//   const [filteredCandidates, setFilteredCandidates] = useState<any[]>([]);
+//   const [allCandidates, setAllCandidates] = useState<any[]>([]);
+//   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+//   const [loading, setLoading] = useState(true);
+//   const [error, setError] = useState("");
+
+//   // fetch candidates
+//   useEffect(() => {
+//     const fetchCandidates = async () => {
+//       try {
+//         setLoading(true);
+//         const res = await axios.get(
+//           `${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations?page=1&limit=100`
+//         );
+//         const data = res.data;
+//         if (!Array.isArray(data)) throw new Error("Invalid data format");
+//         setAllCandidates(data);
+//       } catch {
+//         setError("Failed to load candidate preparations.");
+//       } finally {
+//         setLoading(false);
+//       }
+//     };
+
+//     fetchCandidates();
+//   }, []);
+
+//   // combine filters: search + status
+//   useEffect(() => {
+//     let filtered = allCandidates;
+
+//     if (selectedStatuses.length > 0) {
+//       filtered = filtered.filter((c) =>
+//         selectedStatuses.includes(c.status?.toLowerCase())
+//       );
+//     }
+
+//     if (searchTerm.trim() !== "") {
+//       const term = searchTerm.toLowerCase();
+//       filtered = filtered.filter((c) =>
+//         c.candidate?.full_name?.toLowerCase().includes(term)
+//       );
+//     }
+
+//     setFilteredCandidates(filtered);
+//   }, [allCandidates, searchTerm, selectedStatuses]);
+
+//   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => {
+//     return [
+//       { field: "id", headerName: "ID", pinned: "left", width: 80 },
+//       { field: "candidate.full_name", headerName: "Full Name", minWidth: 150 },
+//       { field: "batch", headerName: "Batch", sortable: true, minWidth: 110 },
+//       { field: "start_date", headerName: "Start Date", sortable: true, minWidth: 100 },
+//       {
+//         field: "status",
+//         headerName: "Status",
+//         cellRenderer: StatusRenderer,
+//         maxWidth: 150,
+//         headerComponent: StatusHeaderComponent,
+//         headerComponentParams: {
+//           selectedStatuses,
+//           setSelectedStatuses,
+//         },
+//       },
+//       {
+//         headerName: "Instructor 1",
+//         minWidth: 150,
+//         valueGetter: (params) => params.data.instructor1?.name || "N/A",
+//       },
+//       {
+//         headerName: "Instructor 2",
+//         minWidth: 150,
+//         valueGetter: (params) => params.data.instructor2?.name || "N/A",
+//       },
+//       {
+//         headerName: "Instructor 3",
+//         minWidth: 150,
+//         valueGetter: (params) => params.data.instructor3?.name || "N/A",
+//       },
+//       { field: "rating", headerName: "Rating", minWidth: 100 },
+//       { field: "tech_rating", headerName: "Tech Rating", minWidth: 120 },
+//       { field: "communication", headerName: "Communication", minWidth: 120 },
+//       { field: "years_of_experience", headerName: "Experience (Years)", minWidth: 140 },
+//       { field: "topics_finished", headerName: "Topics Finished", minWidth: 150 },
+//       { field: "current_topics", headerName: "Current Topics", minWidth: 150 },
+//       { field: "target_date_of_marketing", headerName: "Target Marketing Date", minWidth: 160 },
+//       { field: "notes", headerName: "Notes", minWidth: 90 },
+//     ];
+//   }, [selectedStatuses]);
+
+//   const handleRowUpdated = async (updatedRow: any) => {
+//     try {
+//       await axios.put(
+//         `${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations/${updatedRow.id}`,
+//         updatedRow
+//       );
+//       setFilteredCandidates((prev) =>
+//         prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
+//       );
+//     } catch (err) {
+//       console.error("Failed to update:", err);
+//     }
+//   };
+
+//   const handleRowDeleted = async (id: number | string) => {
+//     try {
+//       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations/${id}`);
+//       setFilteredCandidates((prev) => prev.filter((row) => row.id !== id));
+//     } catch (err) {
+//       console.error("Failed to delete:", err);
+//     }
+//   };
+
+//   return (
+//     <div className="space-y-10">
+//       <div className="flex items-center justify-between">
+//         <div>
+//           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+//             Candidate Preparations
+//           </h1>
+//           <p className="text-gray-600 dark:text-gray-400">
+//             Tracking candidate preparation status
+//           </p>
+//         </div>
+//       </div>
+//       <div className="max-w-md">
+//         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+//           Search Candidates
+//         </Label>
+//         <div className="relative mt-1">
+//           <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+//           <Input
+//             id="search"
+//             type="text"
+//             placeholder="Search..."
+//             value={searchTerm}
+//             onChange={(e) => setSearchTerm(e.target.value)}
+//             className="pl-10"
+//           />
+//         </div>
+//       </div>
+//       {loading ? (
+//         <p className="text-center text-sm text-gray-500 dark:text-gray-400">Loading...</p>
+//       ) : error ? (
+//         <p className="text-center text-red-500">{error}</p>
+//       ) : (
+//         <div className="flex justify-center w-full">
+//           <div className="w-full max-w-7xl">
+//             <AGGridTable
+//               rowData={filteredCandidates}
+//               columnDefs={columnDefs}
+//               title={`Candidate Preparations (${filteredCandidates.length})`}
+//               height="calc(70vh)"
+//               showSearch={false}
+//               onRowUpdated={handleRowUpdated}
+//               onRowDeleted={handleRowDeleted}
+//             />
+//           </div>
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
+
+
+
+
+// "use client";
+// import "@/styles/admin.css";
+// import "@/styles/App.css";
+// import { AGGridTable } from "@/components/AGGridTable";
+// import { Badge } from "@/components/admin_ui/badge";
+// import { Input } from "@/components/admin_ui/input";
+// import { Label } from "@/components/admin_ui/label";
+// import { SearchIcon } from "lucide-react";
+// import { ColDef } from "ag-grid-community";
+// import { useMemo, useState, useEffect, useRef } from "react";
+// import axios from "axios";
+// import { createPortal } from "react-dom";
+
+// // Renderer for status column
+// const StatusRenderer = (params: any) => (
+//   <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+//     {params.value?.toUpperCase()}
+//   </Badge>
+// );
+
+// // Custom header with dropdown filter
+// const StatusHeaderComponent = (props: any) => {
+//   const { selectedStatuses, setSelectedStatuses } = props;
+//   const filterButtonRef = useRef<HTMLDivElement>(null);
+//   const dropdownRef = useRef<HTMLDivElement>(null);
+//   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({
+//     top: 0,
+//     left: 0,
+//   });
+//   const [filterVisible, setFilterVisible] = useState(false);
+
+//   const toggleFilter = () => {
+//     if (filterButtonRef.current) {
+//       const rect = filterButtonRef.current.getBoundingClientRect();
+//       setDropdownPos({
+//         top: rect.bottom,
+//         left: rect.left,
+//       });
+//     }
+//     setFilterVisible((v) => !v);
+//   };
+
+//   const handleStatusChange = (status: string) => {
+//     setSelectedStatuses((prev: string[]) =>
+//       prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
+//     );
+//   };
+
+//   useEffect(() => {
+//     const handleClickOutside = (event: MouseEvent) => {
+//       if (
+//         filterButtonRef.current &&
+//         !filterButtonRef.current.contains(event.target as Node) &&
+//         dropdownRef.current &&
+//         !dropdownRef.current.contains(event.target as Node)
+//       ) {
+//         setFilterVisible(false);
+//       }
+//     };
+//     document.addEventListener("mousedown", handleClickOutside);
+//     return () => document.removeEventListener("mousedown", handleClickOutside);
+//   }, []);
+
+//   return (
+//     <div className="relative flex items-center w-full" ref={filterButtonRef}>
+//       <span className="mr-12">Status</span>
+//       <svg
+//         onClick={toggleFilter}
+//         xmlns="http://www.w3.org/2000/svg"
+//         className="h-4 w-4 cursor-pointer text-gray-500 hover:text-gray-700"
+//         fill="none"
+//         viewBox="0 0 24 24"
+//         stroke="currentColor"
+//       >
+//         <path
+//           strokeLinecap="round"
+//           strokeLinejoin="round"
+//           strokeWidth={2}
+//           d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z"
+//         />
+//       </svg>
+
+//       {filterVisible &&
+//         createPortal(
+//           <div
+//             ref={dropdownRef}
+//             className="z-[99999] bg-white border rounded shadow-lg p-3 flex flex-col space-y-2 w-48 pointer-events-auto"
+//             style={{
+//               top: dropdownPos.top,
+//               left: dropdownPos.left,
+//               position: "fixed",
+//             }}
+//           >
+//             {[
+//               { value: "active", label: "Active" },
+//               { value: "break", label: "Break" },
+//               { value: "inactive", label: "Inactive" },
+//               { value: "discontinued", label: "Discontinued" },
+//             ].map(({ value, label }) => (
+//               <label
+//                 key={value}
+//                 className="flex items-center px-2 py-1 hover:bg-gray-100 cursor-pointer rounded"
+//               >
+//                 <input
+//                   type="checkbox"
+//                   checked={selectedStatuses.includes(value)}
+//                   onChange={() => handleStatusChange(value)}
+//                   className="mr-3"
+//                 />
+//                 {label}
+//               </label>
+//             ))}
+//           </div>,
+//           document.body
+//         )}
+//     </div>
+//   );
+// };
+
+// export default function CandidatesPrepPage() {
+//   const [searchTerm, setSearchTerm] = useState("");
+//   const [filteredCandidates, setFilteredCandidates] = useState<any[]>([]);
+//   const [allCandidates, setAllCandidates] = useState<any[]>([]);
+//   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+//   const [loading, setLoading] = useState(true);
+//   const [error, setError] = useState("");
+
+//   // fetch candidates
+//   useEffect(() => {
+//     const fetchCandidates = async () => {
+//       try {
+//         setLoading(true);
+//         const res = await axios.get(
+//           `${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations?page=1&limit=100`
+//         );
+//         const data = res.data;
+//         if (!Array.isArray(data)) throw new Error("Invalid data format");
+//         setAllCandidates(data);
+//       } catch {
+//         setError("Failed to load candidate preparations.");
+//       } finally {
+//         setLoading(false);
+//       }
+//     };
+
+//     fetchCandidates();
+//   }, []);
+
+//   // combine filters: search + status
+//   useEffect(() => {
+//     let filtered = allCandidates;
+
+//     if (selectedStatuses.length > 0) {
+//       filtered = filtered.filter((c) =>
+//         selectedStatuses.includes(c.status?.toLowerCase())
+//       );
+//     }
+
+//     if (searchTerm.trim() !== "") {
+//       const term = searchTerm.toLowerCase();
+//       filtered = filtered.filter((c) =>
+//         c.candidate?.full_name?.toLowerCase().includes(term)
+//       );
+//     }
+
+//     setFilteredCandidates(filtered);
+//   }, [allCandidates, searchTerm, selectedStatuses]);
+
+//   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => {
+//     return [
+//       { field: "id", headerName: "ID", pinned: "left", width: 80 },
+//       { field: "candidate.full_name", headerName: "Full Name", minWidth: 150 },
+//       { field: "batch", headerName: "Batch", sortable: true, minWidth: 110 },
+//       { field: "start_date", headerName: "Start Date", sortable: true, minWidth: 100 },
+//       {
+//         field: "status",
+//         headerName: "Status",
+//         cellRenderer: StatusRenderer,
+//         maxWidth: 150,
+//         headerComponent: StatusHeaderComponent,
+//         headerComponentParams: {
+//           selectedStatuses,
+//           setSelectedStatuses,
+//         },
+//       },
+//       {
+//         headerName: "Instructor 1",
+//         minWidth: 150,
+//         valueGetter: (params) => params.data.instructor1?.name || "N/A",
+//       },
+//       {
+//         headerName: "Instructor 2",
+//         minWidth: 150,
+//         valueGetter: (params) => params.data.instructor2?.name || "N/A",
+//       },
+//       {
+//         headerName: "Instructor 3",
+//         minWidth: 150,
+//         valueGetter: (params) => params.data.instructor3?.name || "N/A",
+//       },
+//       { field: "rating", headerName: "Rating", minWidth: 100 },
+//       { field: "tech_rating", headerName: "Tech Rating", minWidth: 120 },
+//       { field: "communication", headerName: "Communication", minWidth: 120 },
+//       { field: "years_of_experience", headerName: "Experience (Years)", minWidth: 140 },
+//       { field: "topics_finished", headerName: "Topics Finished", minWidth: 150 },
+//       { field: "current_topics", headerName: "Current Topics", minWidth: 150 },
+//       { field: "target_date_of_marketing", headerName: "Target Marketing Date", minWidth: 160 },
+//       { field: "notes", headerName: "Notes", minWidth: 90 },
+//     ];
+//   }, [selectedStatuses]);
+
+//   const handleRowUpdated = async (updatedRow: any) => {
+//     try {
+//       await axios.put(
+//         `${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations/${updatedRow.id}`,
+//         updatedRow
+//       );
+//       setFilteredCandidates((prev) =>
+//         prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
+//       );
+//     } catch (err) {
+//       console.error("Failed to update:", err);
+//     }
+//   };
+
+//   const handleRowDeleted = async (id: number | string) => {
+//     try {
+//       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations/${id}`);
+//       setFilteredCandidates((prev) => prev.filter((row) => row.id !== id));
+//     } catch (err) {
+//       console.error("Failed to delete:", err);
+//     }
+//   };
+
+//   return (
+//     <div className="space-y-6 p-4">
+//       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+//         <div>
+//           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+//             Candidate Preparations
+//           </h1>
+//           <p className="text-gray-600 dark:text-gray-400 mt-1">
+//             Tracking candidate preparation status
+//           </p>
+//         </div>
+//       </div>
+
+//       <div className="max-w-md">
+//         <Label
+//           htmlFor="search"
+//           className="text-sm font-medium text-gray-700 dark:text-gray-300"
+//         >
+//           Search Candidates
+//         </Label>
+//         <div className="relative mt-2">
+//           <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+//           <Input
+//             id="search"
+//             type="text"
+//             placeholder="Search..."
+//             value={searchTerm}
+//             onChange={(e) => setSearchTerm(e.target.value)}
+//             className="pl-10 py-2"
+//           />
+//         </div>
+//       </div>
+
+//       {loading ? (
+//         <p className="text-center text-sm text-gray-500 dark:text-gray-400">Loading...</p>
+//       ) : error ? (
+//         <p className="text-center text-red-500">{error}</p>
+//       ) : (
+//         <div className="flex justify-center w-full">
+//           <div className="w-full max-w-7xl p-2 bg-white dark:bg-gray-800 rounded-lg shadow">
+//             <AGGridTable
+//               rowData={filteredCandidates}
+//               columnDefs={columnDefs}
+//               title={`Candidate Preparations (${filteredCandidates.length})`}
+//               height="calc(70vh)"
+//               showSearch={false}
+//               onRowUpdated={handleRowUpdated}
+//               onRowDeleted={handleRowDeleted}
+//             />
+//           </div>
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
+
+
+
+
+
+
 "use client";
 import "@/styles/admin.css";
 import "@/styles/App.css";
@@ -8,91 +2130,207 @@ import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import axios from "axios";
+import { createPortal } from "react-dom";
 
+// Renderer for status column
 const StatusRenderer = (params: any) => (
   <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
     {params.value?.toUpperCase()}
   </Badge>
 );
 
+// Custom header with dropdown filter
+const StatusHeaderComponent = (props: any) => {
+  const { selectedStatuses, setSelectedStatuses } = props;
+  const filterButtonRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
+  const [filterVisible, setFilterVisible] = useState(false);
+
+  const toggleFilter = () => {
+    if (filterButtonRef.current) {
+      const rect = filterButtonRef.current.getBoundingClientRect();
+      setDropdownPos({
+        top: rect.bottom,
+        left: rect.left,
+      });
+    }
+    setFilterVisible((v) => !v);
+  };
+
+  const handleStatusChange = (status: string) => {
+    setSelectedStatuses((prev: string[]) =>
+      prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
+    );
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        filterButtonRef.current &&
+        !filterButtonRef.current.contains(event.target as Node) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setFilterVisible(false);
+      }
+    };
+
+    const handleScroll = () => {
+      setFilterVisible(false); // close dropdown on scroll
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("scroll", handleScroll, true); // capture scroll from all ancestors
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleScroll, true);
+    };
+  }, []);
+
+  return (
+    <div className="relative flex items-center w-full" ref={filterButtonRef}>
+      <span className="mr-12">Status</span> {/* Space between text and icon */}
+      <svg
+        onClick={toggleFilter}
+        xmlns="http://www.w3.org/2000/svg"
+        className="h-4 w-4 cursor-pointer text-gray-500 hover:text-gray-700"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z"
+        />
+      </svg>
+
+      {filterVisible &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            className="z-[99999] bg-white border rounded shadow-lg p-3 flex flex-col space-y-2 w-48 pointer-events-auto"
+            style={{
+              top: dropdownPos.top,
+              left: dropdownPos.left,
+              position: "fixed",
+            }}
+          >
+            {[
+              { value: "active", label: "Active" },
+              { value: "break", label: "Break" },
+              { value: "inactive", label: "Inactive" },
+              { value: "discontinued", label: "Discontinued" },
+            ].map(({ value, label }) => (
+              <label
+                key={value}
+                className="flex items-center px-2 py-1 hover:bg-gray-100 cursor-pointer rounded"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedStatuses.includes(value)}
+                  onChange={() => handleStatusChange(value)}
+                  className="mr-3"
+                />
+                {label}
+              </label>
+            ))}
+          </div>,
+          document.body
+        )}
+    </div>
+  );
+};
+
 export default function CandidatesPrepPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredCandidates, setFilteredCandidates] = useState<any[]>([]);
   const [allCandidates, setAllCandidates] = useState<any[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [page] = useState(1);
-  const [limit] = useState(100);
 
-  const fetchCandidates = async () => {
-    try {
-      setLoading(true);
-      const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations?page=${page}&limit=${limit}`
-      );
-      const data = res.data;
-      if (!Array.isArray(data)) throw new Error("Invalid data format");
-
-      setAllCandidates(data);
-      setFilteredCandidates(data);
-    } catch {
-      setError("Failed to load candidate preparations.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // fetch candidates
   useEffect(() => {
+    const fetchCandidates = async () => {
+      try {
+        setLoading(true);
+        const res = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations?page=1&limit=100`
+        );
+        const data = res.data;
+        if (!Array.isArray(data)) throw new Error("Invalid data format");
+        setAllCandidates(data);
+      } catch {
+        setError("Failed to load candidate preparations.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchCandidates();
-  }, [page, limit]);
+  }, []);
 
-  const filterCandidates = useCallback(
-    (searchTerm: string) => {
-      if (searchTerm.trim() === "") return allCandidates;
-      const searchLower = searchTerm.toLowerCase();
-      return allCandidates.filter((candidate) =>
-        Object.values(candidate).some((val) =>
-          val?.toString().toLowerCase().includes(searchLower)
-        )
-      );
-    },
-    [allCandidates]
-  );
-
+  // combine filters: search + status
   useEffect(() => {
-    setFilteredCandidates(filterCandidates(searchTerm));
-  }, [searchTerm, filterCandidates]);
+    let filtered = allCandidates;
+
+    if (selectedStatuses.length > 0) {
+      filtered = filtered.filter((c) =>
+        selectedStatuses.includes(c.status?.toLowerCase())
+      );
+    }
+
+    if (searchTerm.trim() !== "") {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter((c) =>
+        c.candidate?.full_name?.toLowerCase().includes(term)
+      );
+    }
+
+    setFilteredCandidates(filtered);
+  }, [allCandidates, searchTerm, selectedStatuses]);
 
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => {
     return [
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
-      {
-        field: "candidate.full_name",
-        headerName: "Full Name",
-        minWidth: 150,
-        // valueGetter: (params) => params.data.candidate?.name || "N/A"
-      },
+      { field: "candidate.full_name", headerName: "Full Name", minWidth: 150 },
       { field: "batch", headerName: "Batch", sortable: true, minWidth: 110 },
-      { field: "start_date", headerName: "Start Date", sortable: true, maxWidth: 100 },
-      { field: "status", headerName: "Status", cellRenderer: StatusRenderer, maxWidth: 110 },
-  
-        {
-      headerName: "Instructor 1",
-      minWidth: 150,
-      valueGetter: (params) => params.data.instructor1?.name || "N/A",
-    },
-    {
-      headerName: "Instructor 2",
-      minWidth: 150,
-      valueGetter: (params) => params.data.instructor2?.name || "N/A",
-    },
-    {
-      headerName: "Instructor 3",
-      minWidth: 150,
-      valueGetter: (params) => params.data.instructor3?.name || "N/A",
-    },
+      { field: "start_date", headerName: "Start Date", sortable: true, minWidth: 100 },
+      {
+        field: "status",
+        headerName: "Status",
+        cellRenderer: StatusRenderer,
+        maxWidth: 150,
+        headerComponent: StatusHeaderComponent,
+        headerComponentParams: {
+          selectedStatuses,
+          setSelectedStatuses,
+        },
+      },
+      {
+        headerName: "Instructor 1",
+        minWidth: 150,
+        valueGetter: (params) => params.data.instructor1?.name || "N/A",
+      },
+      {
+        headerName: "Instructor 2",
+        minWidth: 150,
+        valueGetter: (params) => params.data.instructor2?.name || "N/A",
+      },
+      {
+        headerName: "Instructor 3",
+        minWidth: 150,
+        valueGetter: (params) => params.data.instructor3?.name || "N/A",
+      },
       { field: "rating", headerName: "Rating", minWidth: 100 },
       { field: "tech_rating", headerName: "Tech Rating", minWidth: 120 },
       { field: "communication", headerName: "Communication", minWidth: 120 },
@@ -102,7 +2340,7 @@ export default function CandidatesPrepPage() {
       { field: "target_date_of_marketing", headerName: "Target Marketing Date", minWidth: 160 },
       { field: "notes", headerName: "Notes", minWidth: 90 },
     ];
-  }, []);
+  }, [selectedStatuses]);
 
   const handleRowUpdated = async (updatedRow: any) => {
     try {
@@ -128,23 +2366,26 @@ export default function CandidatesPrepPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 p-4">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             Candidate Preparations
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
             Tracking candidate preparation status
           </p>
         </div>
       </div>
 
       <div className="max-w-md">
-        <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <Label
+          htmlFor="search"
+          className="text-sm font-medium text-gray-700 dark:text-gray-300"
+        >
           Search Candidates
         </Label>
-        <div className="relative mt-1">
+        <div className="relative mt-2">
           <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             id="search"
@@ -152,14 +2393,9 @@ export default function CandidatesPrepPage() {
             placeholder="Search..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+            className="pl-10 py-2"
           />
         </div>
-        {searchTerm && (
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            {filteredCandidates.length} candidate(s) found
-          </p>
-        )}
       </div>
 
       {loading ? (
@@ -168,7 +2404,7 @@ export default function CandidatesPrepPage() {
         <p className="text-center text-red-500">{error}</p>
       ) : (
         <div className="flex justify-center w-full">
-          <div className="w-full max-w-7xl">
+          <div className="w-full max-w-7xl p-2 bg-white dark:bg-gray-800 rounded-lg shadow">
             <AGGridTable
               rowData={filteredCandidates}
               columnDefs={columnDefs}
