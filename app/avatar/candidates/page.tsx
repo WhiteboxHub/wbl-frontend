@@ -53,6 +53,9 @@ export default function CandidatesPage() {
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(100);
+  const DateFormatter = (params: any) =>
+    params.value ? new Date(params.value).toLocaleDateString() : "";
+  
 
   // Fetch candidates with pagination
   const fetchCandidates = async () => {
@@ -75,49 +78,44 @@ export default function CandidatesPage() {
     fetchCandidates();
   }, [page, pageSize]);
 
-  // Handle searching
   useEffect(() => {
-    if (!searchTerm.trim()) {
+    if (!searchTerm.trim() || searchTerm.trim().length < 2) {
+   
       setFilteredCandidates(candidates);
       return;
     }
-    if (searchTerm.trim().length < 3) {
-      setFilteredCandidates([]);
-      return;
-    }
+
     const timeout = setTimeout(async () => {
       setSearching(true);
       try {
         const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/candidates/by-name/${encodeURIComponent(
-            searchTerm.trim()
-          )}`
+          `${process.env.NEXT_PUBLIC_API_URL}/candidates/search`,
+          { params: { term: searchTerm.trim() } }
         );
+        console.log("Search API response:", res.data);
         setFilteredCandidates(res.data.data || []);
-      } catch {
+      } catch (err) {
+        console.error("Search failed:", err);
         setFilteredCandidates([]);
       } finally {
         setSearching(false);
       }
-    }, 300);
+    }, 400);
+
     return () => clearTimeout(timeout);
   }, [searchTerm, candidates]);
 
 
-  useEffect(() => {
-  const defs = [
-    // ... other columns
-    {
-      field: "candidate_folder",
-      headerName: "Candidate Folder",
-      width: 200,
-    },
-  ];
-  console.log("Column Definitions:", defs); // Debug log
-  setColumnDefs(defs);
-}, [candidates]);
 
-  // Build column definitions
+
+  const formatPhoneNumber = (phoneNumberString) => {
+    const cleaned = ('' + phoneNumberString).replace(/\D/g, '');
+    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
+    if (match) {
+      return `+1 (${match[1]}) ${match[2]}-${match[3]}`;
+    }
+    return `+1 ${phoneNumberString}`;
+  };
   useEffect(() => {
     const defs: ColDef[] = [
       {
@@ -133,21 +131,52 @@ export default function CandidatesPage() {
         width: 200,
       },
       {
+        field: "phone",
+        headerName: "Phone",
+        width: 150,
+        editable: true,
+        sortable: true,
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+    
+          const formattedPhone = formatPhoneNumber(params.value);
+    
+          return (
+            <a
+              href={`tel:${params.value}`}
+              className="text-blue-600 underline hover:text-blue-800"
+            >
+              {formattedPhone}
+            </a>
+          );
+       },
+      },
+
+      {
+        field: "email",
+        headerName: "Email",
+        width: 200,
+        editable: true,
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          return (
+            <a
+              href={`mailto:${params.value}`}
+              className="text-blue-600 underline hover:text-blue-800"
+              onClick={(event) => event.stopPropagation()} // stop row selection
+            >
+              {params.value}
+            </a>
+          );
+        },
+      },
+      {
         field: "enrolled_date",
         headerName: "Enrolled Date",
         valueFormatter: DateFormatter,
         width: 150,
       },
-      {
-        field: "email",
-        headerName: "Email",
-        width: 200,
-      },
-      {
-        field: "phone",
-        headerName: "Phone",
-        width: 150,
-      },
+
       {
         field: "status",
         headerName: "Status",
@@ -293,20 +322,20 @@ export default function CandidatesPage() {
             id="search"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by name (min 3 characters)..."
+            placeholder="Search by name, email, or ID..."
             className="pl-10"
           />
         </div>
         {searching ? (
           <p>Searching...</p>
         ) : (
-          searchTerm && <p>{filteredCandidates.length} found</p>
+          searchTerm && <p>{filteredCandidates.length} candidates found</p>
         )}
       </div>
       <AGGridTable
-        rowData={filteredCandidates}
+        rowData={searchTerm ? filteredCandidates : candidates}
         columnDefs={columnDefs}
-        title={`All Candidates (${filteredCandidates.length})`}
+        title={`All Candidates (${searchTerm ? filteredCandidates.length : candidates.length})`}
         height="calc(70vh)"
         onRowUpdated={handleRowUpdated}
         onRowDeleted={handleRowDeleted}

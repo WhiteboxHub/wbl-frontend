@@ -1,6 +1,6 @@
 'use client'
 import Cards from "@/components/Cards";
-import Carousel from "@/components/Carousel";
+import AnimatedCarousel from "@/components/AnimatedCarousel";
 import VideoModal from "@/components/VideoModal";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from 'react';
@@ -37,34 +37,13 @@ const Hero = () => {
                   Whitebox Learning
                 </h1>
                 
-                <Carousel />
+                <AnimatedCarousel onWatchDemo={() => setIsVideoModalOpen(true)} />
 
                 <p className="mt-8   text-base font-medium !leading-relaxed text-body-color dark:text-white dark:opacity-90 sm:text-lg md:text-xl">
                   A comprehensive learning ecosystem tailored for Engineers and
                   Machine Learning enthusiasts.
                 </p>
                 
-                {/* Watch Demo Class Button */}
-                <div className="mt-6 flex justify-center">
-                  <button
-                    onClick={() => setIsVideoModalOpen(true)}
-                    className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-blue-500 to-blue-700 px-8 py-4 text-base font-bold text-white shadow-lg transition duration-300 ease-in-out hover:from-blue-600 hover:to-blue-800 hover:shadow-xl"
-                  >
-                    <span className="mr-2">Watch Demo Class</span>
-                    <svg
-                      className="h-5 w-5"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </button>
-                </div>
               </div>
             </div>
           </div>
