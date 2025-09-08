@@ -3,24 +3,46 @@
 import { useEffect, useState } from "react";
 import {
   Users,Layers3,CalendarDays,GraduationCap,UserPlus,CalendarPlus,PieChart as PieChartIcon,Wallet,Banknote,TrendingUp,Briefcase,Award,CheckCircle2,Clock,Mic,BarChart2,
-  ClipboardList,Percent,XCircle,Target,CakeIcon,Trophy,PiggyBank,Handshake,
+  ClipboardList,Percent,XCircle,Target,CakeIcon,PiggyBank,Handshake,
 } from "lucide-react";
 import { EnhancedMetricCard } from "@/components/EnhancedMetricCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin_ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/admin_ui/tabs";
 import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
+  PieChart,Pie,Cell,ResponsiveContainer,BarChart,Bar,XAxis,YAxis,Tooltip,CartesianGrid,
 } from "recharts";
-import { motion } from "framer-motion";
+
+function formatDateFromDB(dateStr: string | null | undefined) {
+  if (!dateStr) return "";
+  return dateStr.slice(0, 10); 
+}
+
+function normalizeDateString(dateStr: string | null | undefined) {
+  if (!dateStr) return "";
+  
+  if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+    return dateStr.slice(0, 10);
+  }
+
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(dateStr)) {
+    const [month, day, year] = dateStr.split("/");
+    return `${year}-${month}-${day}`;
+  }
+
+  return dateStr;
+}
+
+function formatDateWithMonth(dateStr: string | null | undefined) {
+  if (!dateStr) return "";
+  const normalized = normalizeDateString(dateStr); 
+  const [year, month, day] = normalized.split("-");
+  const months = [
+    "January","February","March","April","May","June",
+    "July","August","September","October","November","December"
+  ];
+  return `${parseInt(day)} ${months[parseInt(month) - 1]}`;
+}
+
 
 // API Base URL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL as string;
@@ -308,11 +330,7 @@ export default function Index() {
                     <li key={batch.name} className="flex items-center justify-between p-2">
                       <span className="text-sm font-medium  border-b border-purple-200">{batch.name}</span>
                       <span className="text-xs text-muted-foreground">
-                        {new Date(batch.startdate).toLocaleDateString("en-GB", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric"
-                        })}
+                        {formatDateFromDB(batch.startdate)}
                       </span>
                     </li>
                   ))}
@@ -477,7 +495,7 @@ export default function Index() {
                     <div className="text-right">
                       <div className="font-medium">{metrics.placement_metrics.last_placement.company}</div>
                       <div className="text-xs text-muted-foreground">
-                        {new Date(metrics.placement_metrics.last_placement.placement_date).toLocaleDateString("en-GB")}
+                        {formatDateWithMonth(metrics.placement_metrics.last_placement.placement_date)}
                       </div>
                     </div>
                   </div>
@@ -583,7 +601,7 @@ export default function Index() {
                     <div className="text-right">
                       <div className="text-xs text-muted-foreground">{leadMetrics.latest_lead.phone}</div>
                       <div className="text-xs text-muted-foreground">
-                        {new Date(leadMetrics.latest_lead.entry_date).toLocaleDateString("en-GB")}
+                        {formatDateFromDB(leadMetrics.latest_lead.entry_date)}
                       </div>
                     </div>
                   </div>
@@ -628,10 +646,7 @@ export default function Index() {
                         >
                           <span className="font-medium">{emp.name}</span>
                           <span className="text-purple-600 font-semibold">
-                            {new Date(emp.dob).toLocaleDateString("en-GB", {
-                              day: "numeric",
-                              month: "long",
-                            })}
+                            {formatDateWithMonth(emp.dob)}
                           </span>
                         </div>
                       ))
