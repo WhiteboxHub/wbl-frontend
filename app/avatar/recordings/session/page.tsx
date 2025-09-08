@@ -75,7 +75,7 @@ export default function SessionsPage() {
     { field: "title", headerName: "Title", width: 200, editable: true },
     { field: "videoid", headerName: "Video ID", width: 160, editable: true },
     { field: "type", headerName: "Type", width: 140, editable: true },
-    { field: "subject_id", headerName: "Subject ID", width: 120, editable: true },
+    // { field: "subject_id", headerName: "Subject ID", width: 120, editable: true },         
     {field: "subject", headerName: "Subject",width: 180,editable: true},
     {
       field: "sessiondate",
