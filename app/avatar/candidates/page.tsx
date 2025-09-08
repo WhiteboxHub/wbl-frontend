@@ -53,6 +53,9 @@ export default function CandidatesPage() {
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(100);
+  const DateFormatter = (params: any) =>
+    params.value ? new Date(params.value).toLocaleDateString() : "";
+  
 
   // Fetch candidates with pagination
   const fetchCandidates = async () => {
@@ -71,15 +74,13 @@ export default function CandidatesPage() {
     }
   };
 
-  // Fetch candidates on initial load or page change
   useEffect(() => {
     fetchCandidates();
   }, [page, pageSize]);
 
-  // Handle searching
   useEffect(() => {
     if (!searchTerm.trim() || searchTerm.trim().length < 2) {
-      // If search is empty, reset to full list
+   
       setFilteredCandidates(candidates);
       return;
     }
@@ -99,12 +100,22 @@ export default function CandidatesPage() {
       } finally {
         setSearching(false);
       }
-    }, 400); // Debounce delay of 400ms
+    }, 400);
 
     return () => clearTimeout(timeout);
   }, [searchTerm, candidates]);
 
-  // Build column definitions
+
+
+
+  const formatPhoneNumber = (phoneNumberString) => {
+    const cleaned = ('' + phoneNumberString).replace(/\D/g, '');
+    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
+    if (match) {
+      return `+1 (${match[1]}) ${match[2]}-${match[3]}`;
+    }
+    return `+1 ${phoneNumberString}`;
+  };
   useEffect(() => {
     const defs: ColDef[] = [
       {
@@ -124,18 +135,23 @@ export default function CandidatesPage() {
         headerName: "Phone",
         width: 150,
         editable: true,
+        sortable: true,
         cellRenderer: (params: any) => {
           if (!params.value) return "";
+    
+          const formattedPhone = formatPhoneNumber(params.value);
+    
           return (
             <a
               href={`tel:${params.value}`}
               className="text-blue-600 underline hover:text-blue-800"
             >
-              {params.value}
+              {formattedPhone}
             </a>
           );
-        },
+       },
       },
+
       {
         field: "email",
         headerName: "Email",

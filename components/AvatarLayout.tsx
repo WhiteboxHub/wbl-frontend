@@ -63,19 +63,6 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       href: "/avatar/leads",
       icon: UsersIcon,
     },
-    {
-      title: "Candidates",
-      href: "/avatar/candidates",
-      icon: UserCheckIcon,
-      children: [
-        { title: "List", href: "/avatar/candidates" },
-        { title: "Search", href: "/avatar/candidates/search" },
-        { title: "Prep", href: "/avatar/candidates/prep" },
-        { title: "Interviews", href: "/avatar/candidates/interviews" },
-        { title: "Marketing", href: "/avatar/candidates/marketing" },
-        { title: "Placements", href: "/avatar/candidates/placements" },
-      ],
-    },
 
     {
       title: "Training",
@@ -91,6 +78,21 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
 
       ],
     },
+
+    {
+      title: "Candidates",
+      href: "/avatar/candidates",
+      icon: UserCheckIcon,
+      children: [
+        { title: "List", href: "/avatar/candidates" },
+        { title: "Search", href: "/avatar/candidates/search" },
+        { title: "Prep", href: "/avatar/candidates/prep" },
+        { title: "Interviews", href: "/avatar/candidates/interviews" },
+        { title: "Marketing", href: "/avatar/candidates/marketing" },
+        { title: "Placements", href: "/avatar/candidates/placements" },
+      ],
+    },
+
 
     {
       title: "Recordings",
