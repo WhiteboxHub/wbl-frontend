@@ -697,30 +697,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import {
-  Users,
-  Layers3,
-  CalendarDays,
-  GraduationCap,
-  UserPlus,
-  CalendarPlus,
-  PieChart as PieChartIcon,
-  Wallet,
-  Banknote,
-  TrendingUp,
-  Briefcase,
-  Award,
-  CheckCircle2,
-  Clock,
-  Mic,
-  BarChart2,
-  ClipboardList,
-  Percent,
-  XCircle,
-  Target,
-  CakeIcon,
-  Trophy,
-  PiggyBank,
-  Handshake,
+  Users,Layers3,CalendarDays,GraduationCap,UserPlus,CalendarPlus,PieChart as PieChartIcon,Wallet,Banknote,TrendingUp,Briefcase,Award,CheckCircle2,Clock,Mic,BarChart2,
+  ClipboardList,Percent,XCircle,Target,CakeIcon,Trophy,PiggyBank,Handshake,
 } from "lucide-react";
 import { EnhancedMetricCard } from "@/components/EnhancedMetricCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin_ui/card";
@@ -735,6 +713,7 @@ import {
   XAxis,
   YAxis,
   Tooltip,
+  CartesianGrid,
 } from "recharts";
 import { motion } from "framer-motion";
 
@@ -974,7 +953,7 @@ export default function Index() {
           <TabsTrigger value="finance" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-800">Finance</TabsTrigger>
           <TabsTrigger value="placement" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-800">Placement</TabsTrigger>
           <TabsTrigger value="interview" className="data-[state=active]:bg-orange-100 data-[state=active]:text-orange-800">Interview</TabsTrigger>
-          <TabsTrigger value="leads" className="data-[state=active]:bg-sky-100 data-[state=active]:text-sky-800">Leads</TabsTrigger>
+          <TabsTrigger value="leads" className="data-[state=active]:bg-sky-100 data-[state=active]:text-teal-800">Leads</TabsTrigger>
           <TabsTrigger value="employee" className="data-[state=active]:bg-pink-100 data-[state=active]:text-pink-800">Employee</TabsTrigger>
         </TabsList>
 
@@ -1011,7 +990,7 @@ export default function Index() {
               icon={<CalendarPlus className="size-4" />}
               variant="purple"
             />
-            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2  border-b border-purple-300">
+            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-1  border-b border-purple-300">
               <CardHeader className="p-3 pb-1">
                 <div className="flex items-center justify-between border-b border-purple-200 pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Upcoming Batch Start Dates</CardTitle>
@@ -1038,39 +1017,60 @@ export default function Index() {
             <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-purple-300">
               <CardHeader className="p-3 pb-1">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-muted-foreground border-b border-purple-200">Candidate Status Breakdown</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground border-b border-purple-200">
+                    Candidate Status Breakdown
+                  </CardTitle>
                   <PieChartIcon className="size-4 text-indigo-600" />
                 </div>
               </CardHeader>
               <CardContent className="p-3 pt-0">
-                <div className="h-40">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={[
-                          { name: "Active", value: metrics?.batch_metrics.candidate_status_breakdown.active || 0, color: "#4f46e5" },
-                          { name: "Break", value: metrics?.batch_metrics.candidate_status_breakdown.break || 0, color: "#f59e0b" },
-                          { name: "Discontinued", value: metrics?.batch_metrics.candidate_status_breakdown.discontinued || 0, color: "#ef4444" },
-                        ]}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={28}
-                        outerRadius={52}
-                        paddingAngle={3}
-                        dataKey="value"
-                        nameKey="name"
-                      >
-                        {[
-                          { name: "Active", value: metrics?.batch_metrics.candidate_status_breakdown.active || 0, color: "#4f46e5" },
-                          { name: "Break", value: metrics?.batch_metrics.candidate_status_breakdown.break || 0, color: "#f59e0b" },
-                          { name: "Discontinued", value: metrics?.batch_metrics.candidate_status_breakdown.discontinued || 0, color: "#ef4444" },
-                        ].map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
+                <div className="flex flex-col sm:flex-row gap-4">
+                  {/* Chart */}
+                  <div className="h-40 flex-1">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={[
+                            { name: "Active", value: metrics?.batch_metrics.candidate_status_breakdown.active || 0, color: "#4f46e5" },
+                            { name: "Break", value: metrics?.batch_metrics.candidate_status_breakdown.break || 0, color: "#f59e0b" },
+                            { name: "Discontinued", value: metrics?.batch_metrics.candidate_status_breakdown.discontinued || 0, color: "#ef4444" },
+                          ]}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={28}
+                          outerRadius={52}
+                          paddingAngle={3}
+                          dataKey="value"
+                          nameKey="name"
+                        >
+                          {[
+                            { name: "Active", value: metrics?.batch_metrics.candidate_status_breakdown.active || 0, color: "#4f46e5" },
+                            { name: "Break", value: metrics?.batch_metrics.candidate_status_breakdown.break || 0, color: "#f59e0b" },
+                            { name: "Discontinued", value: metrics?.batch_metrics.candidate_status_breakdown.discontinued || 0, color: "#ef4444" },
+                          ].map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Legend */}
+                  <div className="flex flex-col justify-center gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#4f46e5" }}></span>
+                      <span className="text-sm">Active</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#f59e0b" }}></span>
+                      <span className="text-sm">Break</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#ef4444" }}></span>
+                      <span className="text-sm">Discontinued</span>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -1101,46 +1101,48 @@ export default function Index() {
           </div>
           
           <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-green-300">
-              <CardHeader className="p-3 pb-1 border-b border-green-200">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Top 5 Batches by Fee Collection</CardTitle>
-                  <TrendingUp className="size-4 text-emerald-600" />
+          <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-green-300">
+            <CardHeader className="p-3 pb-1 border-b border-green-200">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Top 5 Batches by Fee Collection
+                </CardTitle>
+                <TrendingUp className="size-4 text-emerald-600" />
+              </div>
+            </CardHeader>
+            <CardContent className="p-3 pt-0">
+              {metrics?.financial_metrics.top_batches_fee?.length > 0 ? (
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={metrics.financial_metrics.top_batches_fee.slice(0, 5).map((batch) => {
+                        const calculatedCandidateCount =
+                          averageFeePerCandidate > 0
+                            ? Math.round(batch.total_fee / averageFeePerCandidate)
+                            : 0;
+                        return {
+                          name: `${batch.batch_name} (${batch.candidate_count || calculatedCandidateCount} candidates)`,
+                          total_fee: batch.total_fee,
+                        };
+                      })}
+                      margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" tick={{ fontSize: 9}}  interval={0}  angle={-8}/>
+                      <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(1)}k`} />
+                      <Tooltip formatter={(value: number) => `$${value.toLocaleString()}`} />
+                      <Bar dataKey="total_fee" fill="#10b981" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
-              </CardHeader>
-              <CardContent className="p-3 pt-0">
-                <div className="space-y-3">
-                  {metrics?.financial_metrics.top_batches_fee.slice(0, 5).map((batch, idx) => {
-                    // Calculate candidate count based on total fee and average fee
-                    const calculatedCandidateCount = averageFeePerCandidate > 0 
-                      ? Math.round(batch.total_fee / averageFeePerCandidate)
-                      : 0;
-                      
-                    return (
-                      <div key={idx} className="flex justify-between items-center p-3 border rounded border-emerald-100 hover:bg-emerald-50 transition">
-                        <div className="flex items-center space-x-3">
-                          <div className="bg-emerald-100 p-1.5 rounded">
-                            <Trophy className="h-4 w-4 text-emerald-600" />
-                          </div>
-                          <div>
-                            <span className="font-medium">{batch.batch_name}</span>
-                            <span className="text-sm text-gray-500 ml-2">
-                              ({batch.candidate_count || calculatedCandidateCount} candidates)
-                            </span>
-                          </div>
-                        </div>
-                        <span className="text-emerald-600 font-semibold">{formatUSD(batch.total_fee)}</span>
-                      </div>
-                    );
-                  })}
-                  {(!metrics?.financial_metrics.top_batches_fee || metrics.financial_metrics.top_batches_fee.length === 0) && (
-                    <div className="text-center py-4 text-gray-500">
-                      No fee data available
-                    </div>
-                  )}
+              ) : (
+                <div className="text-center py-4 text-gray-500">
+                  No fee data available
                 </div>
-              </CardContent>
-            </Card>
+              )}
+            </CardContent>
+          </Card>
+
           </div>
         </TabsContent>
 
@@ -1154,7 +1156,7 @@ export default function Index() {
             <EnhancedMetricCard title="Placement Rate" value={`${placementRate}%`} icon={<Percent className="size-4" />} variant="blue" />
             
             {metrics?.placement_metrics.last_placement && (
-              <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2">
+              <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-blue-200">
                 <CardHeader className="p-3 pb-1">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium text-muted-foreground">Last Placement</CardTitle>
@@ -1192,39 +1194,60 @@ export default function Index() {
             <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-orange-300">
               <CardHeader className="p-3 pb-1">
                 <div className="flex items-center justify-between border-b border-orange-200">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Interview Feedback Breakdown</CardTitle>
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Interview Feedback Breakdown
+                  </CardTitle>
                   <PieChartIcon className="size-4 text-amber-600" />
                 </div>
               </CardHeader>
               <CardContent className="p-3 pt-0">
-                <div className="h-40">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie 
-                        data={[
-                          { name: "Positive", value: metrics?.interview_metrics.feedback_breakdown.Positive || 0, color: "#22c55e" },
-                          { name: "Negative", value: metrics?.interview_metrics.feedback_breakdown.Negative || 0, color: "#ef4444" },
-                          { name: "No Response", value: metrics?.interview_metrics.feedback_breakdown.No_Response || 0, color: "#6b7280" },
-                        ]} 
-                        cx="50%" 
-                        cy="50%" 
-                        innerRadius={28} 
-                        outerRadius={52} 
-                        paddingAngle={3} 
-                        dataKey="value" 
-                        nameKey="name"
-                      >
-                        {[
-                          { name: "Positive", value: metrics?.interview_metrics.feedback_breakdown.Positive || 0, color: "#22c55e" },
-                          { name: "Negative", value: metrics?.interview_metrics.feedback_breakdown.Negative || 0, color: "#ef4444" },
-                          { name: "No Response", value: metrics?.interview_metrics.feedback_breakdown.No_Response || 0, color: "#6b7280" },
-                        ].map((entry, index) => (
-                          <Cell key={`cell-f-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
+                <div className="flex flex-col sm:flex-row gap-4">
+                  {/* Chart */}
+                  <div className="h-40 flex-1">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={[
+                            { name: "Positive", value: metrics?.interview_metrics.feedback_breakdown.Positive || 0, color: "#22c55e" },
+                            { name: "Negative", value: metrics?.interview_metrics.feedback_breakdown.Negative || 0, color: "#ef4444" },
+                            { name: "No Response", value: metrics?.interview_metrics.feedback_breakdown.No_Response || 0, color: "#6b7280" },
+                          ]}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={28}
+                          outerRadius={52}
+                          paddingAngle={3}
+                          dataKey="value"
+                          nameKey="name"
+                        >
+                          {[
+                            { name: "Positive", value: metrics?.interview_metrics.feedback_breakdown.Positive || 0, color: "#22c55e" },
+                            { name: "Negative", value: metrics?.interview_metrics.feedback_breakdown.Negative || 0, color: "#ef4444" },
+                            { name: "No Response", value: metrics?.interview_metrics.feedback_breakdown.No_Response || 0, color: "#6b7280" },
+                          ].map((entry, index) => (
+                            <Cell key={`cell-f-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Legend */}
+                  <div className="flex flex-col justify-center gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#22c55e" }}></span>
+                      <span className="text-sm">Positive</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#ef4444" }}></span>
+                      <span className="text-sm">Negative</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#6b7280" }}></span>
+                      <span className="text-sm">No Response</span>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -1234,15 +1257,15 @@ export default function Index() {
         {/* 5. Lead metrics */}
         <TabsContent value="leads">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-            <EnhancedMetricCard title="Total Leads" value={totalLeads} icon={<Users className="size-4" />} variant="blue" />
-            <EnhancedMetricCard title="Leads In This Month" value={leadsThisMonth} icon={<CalendarDays className="size-4" />} variant="blue" />
-            <EnhancedMetricCard title="Lead Conversion Rate" value={`${leadConversionRate}%`} icon={<Percent className="size-4" />} variant="blue" />
+            <EnhancedMetricCard title="Total Leads" value={totalLeads} icon={<Users className="size-4" />} variant="teal" />
+            <EnhancedMetricCard title="Leads In This Month" value={leadsThisMonth} icon={<CalendarDays className="size-4" />} variant="teal" />
+            <EnhancedMetricCard title="Lead Conversion Rate" value={`${leadConversionRate}%`} icon={<Percent className="size-4" />} variant="teal" />
             
             {leadMetrics?.latest_lead && (
-              <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2">
+              <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-teal-200">
                 <CardHeader className="p-3 pb-1">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Latest Lead</CardTitle>
+                    <CardTitle className="text-sm font-medium text-muted-foreground ">Latest Lead</CardTitle>
                     <UserPlus className="size-4 text-sky-600" />
                   </div>
                 </CardHeader>
@@ -1269,7 +1292,7 @@ export default function Index() {
         <TabsContent value="employee">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             {/* Employee Birthdays */}
-            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2">
+            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-red-200">
               <CardHeader className="p-3 pb-1">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Employee Birthdays</CardTitle>
