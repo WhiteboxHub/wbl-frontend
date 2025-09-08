@@ -123,30 +123,31 @@ export default function CandidateSearchPage() {
         <h4 className="font-semibold text-lg text-gray-900 dark:text-gray-100">{title}</h4>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-        {Object.entries(data).map(([key, value]) => {
-          if (value === null || value === undefined || value === "") return null;
-          
-          const displayKey = key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()
-            .split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-          
-          let displayValue = value;
-          if (key.toLowerCase().includes('date')) {
-            displayValue = DateFormatter(value);
-          } else if (key === 'status') {
-            displayValue = <StatusRenderer status={value as string} />;
-          } else if (key === 'agreement') {
-            displayValue = value === 'Y' ? '✅ Yes' : '❌ No';
-          }
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-1 text-sm">
+          {Object.entries(data).map(([key, value]) => {
+            if (value === null || value === undefined || value === "") return null;
+            
+            const displayKey = key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()
+              .split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+            
+            let displayValue = value;
+            if (key.toLowerCase().includes('date')) {
+              displayValue = DateFormatter(value);
+            } else if (key === 'status') {
+              displayValue = <StatusRenderer status={value as string} />;
+            } else if (key === 'agreement') {
+              displayValue = value === 'Y' ? ' Yes' : ' No';
+            }
 
-          return (
-            <div key={key} className="flex justify-between items-start py-2 border-b border-gray-100 dark:border-gray-600 last:border-b-0">
-              <span className="text-gray-600 dark:text-gray-400 font-medium min-w-[140px] flex-shrink-0">{displayKey}:</span>
-              <span className="text-gray-900 dark:text-gray-100 font-medium text-right flex-1 ml-4">{displayValue as React.ReactNode}</span>
-            </div>
-          );
-        })}
-      </div>
+            return (
+              <div key={key} className="flex items-center py-3 border-b border-gray-100 dark:border-gray-600 last:border-b-0">
+                <span className="text-gray-600 dark:text-gray-400 font-medium w-auto flex-shrink-0 mr-3">{displayKey}:</span>
+                <span className="text-gray-900 dark:text-gray-100 font-medium">{displayValue as React.ReactNode}</span>
+              </div>
+            );
+          })}
+        </div>
+
     </div>
   );
 
@@ -174,11 +175,19 @@ export default function CandidateSearchPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
+          <table className="min-w-full text-sm table-fixed">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-600">
                 {columns.map(column => (
-                  <th key={column} className="text-left p-2 font-medium text-gray-700 dark:text-gray-300">
+                  <th 
+                    key={column} 
+                    className={`text-left p-2 font-medium text-gray-700 dark:text-gray-300 ${
+                      column.toLowerCase().includes('email') ? 'w-48' : 
+                      column === 'recording_link' ? 'w-20' : 
+                      column.toLowerCase().includes('date') ? 'w-24' : 
+                      'w-auto'
+                    }`}
+                  >
                     {column.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()
                       .split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
                   </th>
@@ -188,31 +197,52 @@ export default function CandidateSearchPage() {
             <tbody>
               {records.map((record, idx) => (
                 <tr key={idx} className="border-b border-gray-100 dark:border-gray-700">
-                  {columns.map(column => {
-                    let value = record[column];
-                    
-                    if (column.toLowerCase().includes('date')) {
-                      value = DateFormatter(value);
-                    } else if (column.toLowerCase().includes('amount') || column.toLowerCase().includes('salary') || column === 'fee_paid') {
-                      value = AmountFormatter(value);
-                    } else if (column === 'status') {
-                      value = <StatusRenderer status={value as string} />;
-                    } else if (column === 'feedback') {
-                      const feedbackColors = {
-                        'Positive': 'bg-green-100 text-green-800',
-                        'Negative': 'bg-red-100 text-red-800', 
-                        'No Response': 'bg-gray-100 text-gray-800',
-                        'Cancelled': 'bg-orange-100 text-orange-800'
-                      };
-                      value = <Badge className={feedbackColors[value as keyof typeof feedbackColors] || 'bg-gray-100 text-gray-800'}>{value}</Badge>;
-                    }
+{columns.map(column => {
+  let value = record[column];
+  
+  if (column.toLowerCase().includes('date')) {
+    value = DateFormatter(value);
+  } else if (column.toLowerCase().includes('amount') || column.toLowerCase().includes('salary') || column === 'fee_paid') {
+    value = AmountFormatter(value);
+  } else if (column === 'status') {
+    value = <StatusRenderer status={value as string} />;
+  } else if (column === 'feedback') {
+    const feedbackColors = {
+      'Positive': 'bg-green-100 text-green-800',
+      'Negative': 'bg-red-100 text-red-800', 
+      'No Response': 'bg-gray-100 text-gray-800',
+      'Cancelled': 'bg-orange-100 text-orange-800'
+    };
+    value = <Badge className={feedbackColors[value as keyof typeof feedbackColors] || 'bg-gray-100 text-gray-800'}>{value}</Badge>;
+  } else if (column === 'recording_link' && value && value.toString().trim() !== '') {
+    const url = value.toString().trim();
+    let finalUrl = url;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      finalUrl = 'https://' + url;
+    }
+    
+    value = (
+      <button 
+        className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer whitespace-nowrap inline-block min-w-0 max-w-fit"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          window.open(finalUrl, '_blank', 'noopener,noreferrer');
+        }}
+      >
+      Link
+      </button>
+    );
+  }
 
-                    return (
-                      <td key={column} className="p-2 text-gray-900 dark:text-gray-100">
-                        {value || "—"}
-                      </td>
-                    );
-                  })}
+  return (
+    <td key={column} className="p-2 text-gray-900 max-w-xs break-words dark:text-gray-100">
+      {value || "—"}
+    </td>
+  );
+})}
+
+
                 </tr>
               ))}
             </tbody>
@@ -330,7 +360,7 @@ export default function CandidateSearchPage() {
             {/* Emergency Contact */}
             <div className="accordion-item">
               <button
-                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors"
+                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
                 onClick={() => toggleSection('emergency')}
               >
                 <div className="flex items-center gap-2">
@@ -351,7 +381,7 @@ export default function CandidateSearchPage() {
             {/* Fee & Financials */}
             <div className="accordion-item">
               <button
-                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors"
+                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
                 onClick={() => toggleSection('fee')}
               >
                 <div className="flex items-center gap-2">
@@ -372,7 +402,7 @@ export default function CandidateSearchPage() {
             {/* Preparation Info - Now shows instructor names */}
             <div className="accordion-item">
               <button
-                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors"
+                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
                 onClick={() => toggleSection('preparation')}
               >
                 <div className="flex items-center gap-2">
@@ -394,7 +424,7 @@ export default function CandidateSearchPage() {
             {/* Marketing Info - Now shows marketing manager name */}
             <div className="accordion-item">
               <button
-                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors"
+                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
                 onClick={() => toggleSection('marketing')}
               >
                 <div className="flex items-center gap-2">
@@ -416,7 +446,7 @@ export default function CandidateSearchPage() {
             {/* Interview Info - Now shows recording links */}
             <div className="accordion-item">
               <button
-                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors"
+                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
                 onClick={() => toggleSection('interviews')}
               >
                 <div className="flex items-center gap-2">
@@ -429,7 +459,7 @@ export default function CandidateSearchPage() {
                 </span>
               </button>
               {openSections['interviews'] && (
-                <div className="px-6 pb-4">
+                <div className="pb-4">
                   {renderTable("Interview Records", <Briefcase className="h-4 w-4" />, selectedCandidate.interview_records)}
                 </div>
               )}
@@ -438,7 +468,7 @@ export default function CandidateSearchPage() {
             {/* Placement Info - Now shows placement fees */}
             <div className="accordion-item">
               <button
-                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors"
+                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
                 onClick={() => toggleSection('placements')}
               >
                 <div className="flex items-center gap-2">
@@ -460,7 +490,7 @@ export default function CandidateSearchPage() {
             {/* Login & Access Info */}
             <div className="accordion-item">
               <button
-                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors"
+                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
                 onClick={() => toggleSection('login')}
               >
                 <div className="flex items-center gap-2">
@@ -481,7 +511,7 @@ export default function CandidateSearchPage() {
             {/* Miscellaneous */}
             <div className="accordion-item">
               <button
-                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors"
+                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
                 onClick={() => toggleSection('misc')}
               >
                 <div className="flex items-center gap-2">
@@ -494,7 +524,7 @@ export default function CandidateSearchPage() {
               </button>
               {openSections['misc'] && (
                 <div className="px-6 pb-4">
-                  <div className="bg-white dark:bg-gray-900 p-4 rounded-md shadow-md">
+                  <div className="bg-white dark:bg-gray-900 pb-4 rounded-md shadow-md">
                       <div className="flex items-center gap-2 mb-3">
                         <Settings className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                         <h3 className="font-semibold text-gray-900 dark:text-gray-100">Additional Information</h3>
