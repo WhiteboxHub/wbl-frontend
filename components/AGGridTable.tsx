@@ -5,7 +5,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 
 import { useMemo, useCallback, useRef, useState, useEffect } from "react";
 import { AgGridReact } from "ag-grid-react";
-import { ColDef, GridReadyEvent, GridApi } from "ag-grid-community";
+import { ColDef, GridReadyEvent, GridApi,SortChangedEvent } from "ag-grid-community";
 import { Button } from "@/components/admin_ui/button";
 import { SearchIcon, ExpandIcon, EyeIcon, EditIcon, TrashIcon } from "lucide-react";
 import { ViewModal } from "./ViewModal";
@@ -22,6 +22,7 @@ interface AGGridTableProps {
   onRowClicked?: (data: any) => void;
   onRowUpdated?: (data: any) => void;
   onRowDeleted?: (id: string | number) => void;
+  onSortChanged?: (event: SortChangedEvent) => void;
   title?: string;
   showSearch?: boolean;
   showFilters?: boolean;
@@ -99,6 +100,13 @@ export function AGGridTable({
       alert("Please select a row first");
     }
   }, [selectedRowData]);
+  const setSortModel = useMemo(
+    () => [
+      { colId: "entryDate", sort: "desc" } // change "entryDate" to your actual date field key
+    ],
+    []
+  );
+  
 
   const handleEdit = useCallback(() => {
     if (selectedRowData) {
@@ -236,10 +244,11 @@ export function AGGridTable({
             ref={gridRef}
             rowData={rowData || []}
             columnDefs={columnDefs}
-            onGridReady={onGridReady}
+            // onGridReady={onGridReady}
             onRowClicked={onRowClickedHandler}
             onCellClicked={onCellClickedHandler}
             onSelectionChanged={handleRowSelection}
+            // onSortChanged={onSortChanged}
             animateRows={true}
             theme="legacy"
             defaultColDef={{
@@ -295,4 +304,7 @@ export function AGGridTable({
 }
 
 export default AGGridTable;
+
+
+
 

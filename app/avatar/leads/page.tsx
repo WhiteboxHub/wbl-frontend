@@ -2,7 +2,7 @@
 
 "use client";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
-import { ColDef, ValueFormatterParams } from "ag-grid-community";
+import { ColDef, ValueFormatterParams, SortChangedEvent } from "ag-grid-community";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
@@ -10,9 +10,8 @@ import { SearchIcon, PlusCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { toast, Toaster } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
-import AGGridTable from "@/components/AGGridTable";
+import { AGGridTable } from "@/components/AGGridTable";
 import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
-
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 type Lead = {
@@ -83,8 +82,12 @@ export default function LeadsPage() {
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [searchBy, setSearchBy] = useState("full_name");
+  // FIXED: Initialize with proper default sort
+  const [sortModel, setSortModel] = useState([{ colId: 'entry_date', sort: 'desc' as 'desc' }]);
+  const [filterModel, setFilterModel] = useState({});
+
   // State for new lead form
   const [newLeadForm, setNewLeadForm] = useState(isNewLead);
   const [formData, setFormData] = useState<FormData>(initialFormData);
@@ -96,13 +99,36 @@ export default function LeadsPage() {
     []
   );
 
-  // Fetch leads with pagination and search
+  // FIXED: Fetch leads with proper server-side sorting
   const fetchLeads = useCallback(
-    async (page: number = 1, limit: number = 20, search?: string, searchBy: string = "all") => {
+    async (
+      page: number = 1,
+      limit: number = 20,
+      search?: string,
+      searchBy: string = "all",
+      sort: any[] = [{ colId: 'entry_date', sort: 'desc' }],
+      filters: any = {}
+    ) => {
       setLoading(true);
       try {
         let url = `${apiEndpoint}?page=${page}&limit=${limit}`;
-        if (search) url += `&search=${encodeURIComponent(search)}&search_by=${searchBy}`;
+
+        // Add search parameters
+        if (search && search.trim()) {
+          url += `&search=${encodeURIComponent(search.trim())}&search_by=${searchBy}`;
+        }
+
+        // FIXED: Ensure sorting is always applied (default to entry_date desc)
+        const sortToApply = sort && sort.length > 0 ? sort : [{ colId: 'entry_date', sort: 'desc' }];
+        const sortParam = sortToApply.map(s => `${s.colId}:${s.sort}`).join(',');
+        url += `&sort=${encodeURIComponent(sortParam)}`;
+
+        // Add filter parameters
+        if (Object.keys(filters).length > 0) {
+          url += `&filters=${encodeURIComponent(JSON.stringify(filters))}`;
+        }
+
+        console.log('Fetching URL:', url); // Debug log
 
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
@@ -112,6 +138,8 @@ export default function LeadsPage() {
         setTotalLeads(data.total);
         setTotalPages(Math.ceil(data.total / limit));
         setCurrentPage(page);
+
+        console.log('Fetched leads:', data.data.length, 'Total:', data.total); // Debug log
       } catch (err) {
         const error = err instanceof Error ? err.message : "Failed to load leads";
         setError(error);
@@ -125,31 +153,47 @@ export default function LeadsPage() {
     },
     [apiEndpoint]
   );
+  const detectSearchBy = (search: string) => {
+    if (/^\d+$/.test(search)) return "id"; 
+    if (/^\S+@\S+\.\S+$/.test(search)) return "email"; 
+    if (/^[\d\s\+\-()]+$/.test(search)) return "phone"; 
+    return "full_name";
+  };
+  
 
+  const handleFilterChanged = useCallback((filterModelFromGrid: any) => {
+    console.log('Filter changed:', filterModelFromGrid); // Debug log
+    setFilterModel(filterModelFromGrid);
+    fetchLeads(1, pageSize, searchTerm, searchBy, sortModel, filterModelFromGrid);
+  }, [pageSize, searchTerm, searchBy, sortModel, fetchLeads]);
 
   useEffect(() => {
-    fetchLeads(currentPage, pageSize);
-  }, [fetchLeads]);;
+    fetchLeads(currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel);
+  }, []); 
+
+ 
 
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
-      fetchLeads(1, pageSize, searchTerm, searchBy);
+      if (searchTerm !== undefined) {
+        const autoSearchBy = detectSearchBy(searchTerm);
+        fetchLeads(1, pageSize, searchTerm, autoSearchBy, sortModel, filterModel);
+      }
     }, 500);
     return () => clearTimeout(debounceTimer);
-  }, [searchTerm, pageSize, searchBy, fetchLeads]);
-
-
+  }, [searchTerm]);
   
-  // const handleNewLeadFormChange = (
-  //   e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  // ) => {
-  //   const { name, value, type } = e.target;
-  //   const checked = type === "checkbox" ? (e.target as HTMLInputElement).checked : undefined;
-  //   setFormData({
-  //     ...formData,
-  //     [name]: type === "checkbox" ? checked : value,
-  //   });
-  // };
+  // Handle page size changes
+  const handlePageSizeChange = useCallback((newSize: number) => {
+    setPageSize(newSize);
+    setCurrentPage(1); // Reset to first page
+    fetchLeads(1, newSize, searchTerm, searchBy, sortModel, filterModel);
+  }, [searchTerm, searchBy, sortModel, filterModel, fetchLeads]);
+
+  // Handle pagination
+  const handlePageChange = useCallback((newPage: number) => {
+    fetchLeads(newPage, pageSize, searchTerm, searchBy, sortModel, filterModel);
+  }, [pageSize, searchTerm, searchBy, sortModel, filterModel, fetchLeads]);
 
   const handleNewLeadFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -171,7 +215,8 @@ export default function LeadsPage() {
       toast.success("Lead created successfully!");
       setNewLeadForm(false);
       setFormData(initialFormData);
-      fetchLeads(1, pageSize, searchTerm); // Refresh leads
+      // Refresh to show the new lead (should appear at top with default sort)
+      fetchLeads(1, pageSize, searchTerm, searchBy, sortModel, filterModel);
     } catch (error) {
       toast.error("Failed to create lead");
       console.error("Error creating lead:", error);
@@ -203,10 +248,8 @@ export default function LeadsPage() {
 
         if (!response.ok) throw new Error("Failed to update lead");
 
-        // Update local state
-        setLeads((prev) =>
-          prev.map((lead) => (lead.id === updatedRow.id ? updatedRow : lead))
-        );
+        // Refresh data to maintain server-side sort order
+        fetchLeads(currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel);
         toast.success("Lead updated successfully");
       } catch (error) {
         toast.error("Failed to update lead");
@@ -215,7 +258,7 @@ export default function LeadsPage() {
         setLoadingRowId(null);
       }
     },
-    [apiEndpoint]
+    [apiEndpoint, currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel, fetchLeads]
   );
 
   const handleRowDeleted = useCallback(
@@ -227,23 +270,22 @@ export default function LeadsPage() {
 
         if (!response.ok) throw new Error("Failed to delete lead");
 
-        // Update local state
-        setLeads((prev) => prev.filter((lead) => lead.id !== id));
-        setTotalLeads((prev) => prev - 1);
         toast.success("Lead deleted successfully");
 
-        // Refetch if on the last page and it's now empty
-        if (leads.length === 1 && currentPage > 1) {
-          fetchLeads(currentPage - 1, pageSize, searchTerm);
-        } else {
-          fetchLeads(currentPage, pageSize, searchTerm);
-        }
+        // Refetch to maintain proper pagination and sorting
+        const newTotalLeads = totalLeads - 1;
+        const newTotalPages = Math.ceil(newTotalLeads / pageSize);
+
+        // If we're on the last page and it becomes empty, go to previous page
+        const targetPage = currentPage > newTotalPages ? Math.max(1, newTotalPages) : currentPage;
+
+        fetchLeads(targetPage, pageSize, searchTerm, searchBy, sortModel, filterModel);
       } catch (error) {
         toast.error("Failed to delete lead");
         console.error("Error deleting lead:", error);
       }
     },
-    [apiEndpoint, currentPage, pageSize, searchTerm, leads.length]
+    [apiEndpoint, currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel, totalLeads, fetchLeads]
   );
 
   const handleMoveToCandidate = useCallback(
@@ -265,12 +307,8 @@ export default function LeadsPage() {
 
         const data = await response.json();
 
-        // Update local state
-        setLeads((prev) =>
-          prev.map((lead) =>
-            lead.id === leadId.id ? { ...lead, moved_to_candidate: !Moved } : lead
-          )
-        );
+        // Refresh data to maintain server-side consistency
+        fetchLeads(currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel);
 
         if (Moved) {
           toast.success(`Lead removed from candidate list (Candidate ID: ${data.candidate_id})`);
@@ -284,7 +322,7 @@ export default function LeadsPage() {
         setLoadingRowId(null);
       }
     },
-    [apiEndpoint]
+    [apiEndpoint, currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel, fetchLeads]
   );
 
   // Status renderer for AG Grid
@@ -304,33 +342,61 @@ export default function LeadsPage() {
     );
   };
 
-  // Column definitions for AG Grid
+
+  const formatPhoneNumber = (phoneNumberString) => {
+    const cleaned = ('' + phoneNumberString).replace(/\D/g, '');
+    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
+    if (match) {
+      return `+1 (${match[1]}) ${match[2]}-${match[3]}`;
+    }
+    return `+1 ${phoneNumberString}`;
+  };
+
+  // FIXED: Column definitions with proper server-side sorting
   const columnDefs: ColDef<any, any>[] = useMemo(
     () => [
-      { field: "id", headerName: "ID", width: 80, pinned: "left" },
-      { field: "full_name", headerName: "Full Name", width: 180 },
+      {
+        field: "id",
+        headerName: "ID",
+        width: 80,
+        pinned: "left",
+        sortable: true // Enable server-side sorting
+      },
+      {
+        field: "full_name",
+        headerName: "Full Name",
+        width: 180,
+        sortable: true
+      },
+
       {
         field: "phone",
         headerName: "Phone",
         width: 150,
         editable: true,
+        sortable: true,
         cellRenderer: (params: any) => {
           if (!params.value) return "";
+    
+          const formattedPhone = formatPhoneNumber(params.value);
+    
           return (
             <a
               href={`tel:${params.value}`}
               className="text-blue-600 underline hover:text-blue-800"
             >
-              {params.value}
+              {formattedPhone}
             </a>
           );
-        },
+       },
       },
+
       {
         field: "email",
         headerName: "Email",
         width: 200,
         editable: true,
+        sortable: true,
         cellRenderer: (params: any) => {
           if (!params.value) return "";
           return (
@@ -344,55 +410,87 @@ export default function LeadsPage() {
           );
         },
       },
+    
+
       {
         field: "entry_date",
         headerName: "Entry Date",
-        width: 150,
+        width: 180,
+        sortable: true,
         valueFormatter: ({ value }: ValueFormatterParams) =>
           value
-            ? new Date(value).toLocaleDateString("en-IN", {
-                timeZone: "Asia/Kolkata",
-              })
+            ? new Date(value).toLocaleString("en-US", {
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+            })
             : "-",
       },
-      { field: "workstatus", headerName: "Work Status", width: 150 },
+
+
+      {
+        field: "workstatus",
+        headerName: "Work Status",
+        width: 150,
+        sortable: true
+      },
       {
         field: "status",
         headerName: "Status",
         width: 120,
+        sortable: true,
         cellRenderer: StatusRenderer,
       },
-      { field: "secondary_email", headerName: "Secondary Email", width: 220 },
-      { field: "secondary_phone", headerName: "Secondary Phone", width: 150 },
-      { field: "address", headerName: "Address", width: 250 },
+      {
+        field: "secondary_email",
+        headerName: "Secondary Email",
+        width: 220,
+        sortable: true
+      },
+      {
+        field: "secondary_phone",
+        headerName: "Secondary Phone",
+        width: 150,
+        sortable: true
+      },
+      {
+        field: "address",
+        headerName: "Address",
+        width: 250,
+        sortable: true
+      },
       {
         field: "closed_date",
         headerName: "Closed Date",
         width: 150,
+        sortable: true,
         valueFormatter: ({ value }: ValueFormatterParams) =>
           value
             ? new Date(value).toLocaleDateString("en-IN", {
-                timeZone: "Asia/Kolkata",
-              })
+              timeZone: "Asia/Kolkata",
+            })
             : "-",
       },
       {
         field: "notes",
         headerName: "Notes",
         width: 300,
+        sortable: true,
         valueFormatter: ({ value }: ValueFormatterParams) => value || "-",
       },
       {
         field: "massemail_unsubscribe",
         headerName: "Mass Email Unsubscribe",
         width: 180,
+        sortable: true,
         valueGetter: (params) => !!params.data.massemail_unsubscribe,
         valueFormatter: ({ value }: ValueFormatterParams) => (value ? "True" : "False"),
       },
       {
-        field: "mass_email_sent",
+        field: "massemail_email_sent",
         headerName: "Mass Email Sent",
         width: 180,
+        sortable: true,
         valueGetter: (params) => !!params.data.massemail_email_sent,
         valueFormatter: ({ value }: ValueFormatterParams) => (value ? "True" : "False"),
       },
@@ -400,21 +498,13 @@ export default function LeadsPage() {
         field: "moved_to_candidate",
         headerName: "Moved to Candidate",
         width: 180,
+        sortable: true,
         valueGetter: (params) => !!params.data.moved_to_candidate,
         valueFormatter: ({ value }: ValueFormatterParams) => (value ? "True" : "False"),
       },
     ],
-    [handleRowUpdated]
+    []
   );
-
-  // Loading and error states
-  // if (loading) {
-  //   return (
-  //     <div className="flex h-64 items-center justify-center">
-  //       <RefreshCw className="h-8 w-8 animate-spin text-blue-500" />
-  //     </div>
-  //   );
-  // }
 
   if (error) {
     return (
@@ -422,7 +512,7 @@ export default function LeadsPage() {
         <div className="text-red-500">{error}</div>
         <Button
           variant="outline"
-          onClick={() => fetchLeads(currentPage, pageSize, searchTerm)}
+          onClick={() => fetchLeads(currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel)}
           className="ml-4"
         >
           <RefreshCw className="mr-2 h-4 w-4" />
@@ -442,11 +532,10 @@ export default function LeadsPage() {
             Leads Management
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            All Leads ({totalLeads})
+            All Leads ({totalLeads}) - Sorted by latest first
           </p>
         </div>
       </div>
-
 
       {/* Search Section */}
       <div key="search-container" className="max-w-md">
@@ -456,7 +545,7 @@ export default function LeadsPage() {
         <div className="relative mt-1">
           <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
           <Input
-            key="search-input" 
+            key="search-input"
             id="search"
             type="text"
             ref={searchInputRef}
@@ -480,8 +569,9 @@ export default function LeadsPage() {
           columnDefs={columnDefs}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
+          // onSortChanged={handleSortChanged} // FIXED: Enable server-side sorting
           title="Leads"
-          showFilters={false}
+          showFilters={true}
           showSearch={false}
           height="600px"
         />
@@ -493,11 +583,7 @@ export default function LeadsPage() {
           <span className="text-sm">Rows per page:</span>
           <select
             value={pageSize}
-            onChange={(e) => {
-              const newSize = Number(e.target.value);
-              setPageSize(newSize);
-              fetchLeads(1, newSize, searchTerm); // Reset to page 1
-            }}
+            onChange={(e) => handlePageSizeChange(Number(e.target.value))}
             className="border rounded px-2 py-1 text-sm"
           >
             {[10, 20, 50, 100].map((size) => (
@@ -507,8 +593,8 @@ export default function LeadsPage() {
         </div>
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => fetchLeads(currentPage - 1, pageSize, searchTerm)}
-            disabled={currentPage === 1}
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1 || loading}
             className="px-2 py-1 border rounded text-sm disabled:opacity-50"
           >
             Previous
@@ -517,8 +603,8 @@ export default function LeadsPage() {
             Page {currentPage} of {totalPages || 1}
           </span>
           <button
-            onClick={() => fetchLeads(currentPage + 1, pageSize, searchTerm)}
-            disabled={currentPage === totalPages || totalPages === 0}
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages || totalPages === 0 || loading}
             className="px-2 py-1 border rounded text-sm disabled:opacity-50"
           >
             Next
