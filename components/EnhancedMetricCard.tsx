@@ -6,7 +6,7 @@ interface EnhancedMetricCardProps {
   title: string;
   value: string | number;
   icon?: ReactNode;
-  variant?: "default" | "purple" | "blue" | "green" | "orange" | "red";
+  variant?: "default" | "purple" | "blue" | "green" | "orange" | "red" | "teal";
   trend?: {
     value: number;
     isPositive: boolean;
@@ -50,6 +50,12 @@ const variantStyles = {
     iconBg: "bg-red-100",
     iconColor: "text-red-600",
     border: "border-red-200"
+  },
+  teal: {
+    bg: "bg-white",
+    iconBg: "bg-teal-100",
+    iconColor: "text-teal-600",
+    border: "border-teal-200"
   }
 };
 
@@ -80,9 +86,6 @@ export function EnhancedMetricCard({
                 "flex items-center text-xs mt-2 font-medium",
                 trend.isPositive ? "text-green-600" : "text-red-600"
               )}>
-                <span className="mr-1">
-                  {trend.isPositive ? "↗" : "↘"}
-                </span>
                 {Math.abs(trend.value)}% from last period
               </div>
             )}
