@@ -1,7 +1,6 @@
 
 "use client";
 import React from "react";
-
 import {
   Dialog,
   DialogContent,
@@ -32,6 +31,10 @@ const countryCodes = [
 ];
 
 const excludedFields = [
+  "candidate",
+  "instructor1",
+  "instructor2",
+  "instructor3",
   "id",
   "vendor_type",
   "sessionid",
@@ -40,12 +43,21 @@ const excludedFields = [
   "name",
   "logincount",
   "googleId",
+  "subject_id",
+  "new_subject_id",
+  "last_mod_datetime"
+  
+
 ];
 
 
 
 
 const fieldSections: Record<string, string> = {
+   candidate_full_name: "Basic Information",
+  instructor1_name: "Professional Information",
+  instructor2_name: "Professional Information",
+  instructor3_name: "Professional Information",
   id: "Basic Information",
   alias: "Basic Information",
   Fundamentals: "Basic Information",
@@ -105,10 +117,12 @@ const fieldSections: Record<string, string> = {
   client_id: "Professional Information",
   client_name: "Professional Information",
   interview_time: "Professional Information",
+  interview_type: "Professional Information",
   vendor_or_client_name: "Professional Information",
   vendor_or_client_contact: "Professional Information",
   marketing_email_address: "Professional Information",
   interview_date: "Professional Information",
+  interviewr_emails: "Professional Information",
   interview_mode: "Professional Information",
   visa_status: "Professional Information",
   work_status: "Professional Information",
@@ -141,6 +155,12 @@ const fieldSections: Record<string, string> = {
   state: "Contact Information",
   country: "Contact Information",
   zip: "Contact Information",
+  instructor_1id: "Professional Information",
+  instructor_2id: "Professional Information",
+  instructor_3id: "Professional Information",
+  instructor1_id: "Professional Information",
+  instructor2_id: "Professional Information",
+  instructor3_id: "Professional Information",
   emergcontactname: "Emergency Contact",
   emergcontactemail: "Emergency Contact",
   emergcontactphone: "Emergency Contact",
@@ -165,6 +185,7 @@ const workVisaStatusOptions = [
 ];
 
 
+
 const vendorStatuses = [
   { value: "active", label: "Active" },
   { value: "working", label: "Working" },
@@ -175,6 +196,7 @@ const vendorStatuses = [
 ];
 
 // Enum dropdown options
+
 const enumOptions: Record<string, { value: string; label: string }[]> = {
   type: [
     { value: "client", label: "Client" },
@@ -224,8 +246,11 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
   visa_status: workVisaStatusOptions,
 };
 
-// Custom label overrides
 const labelOverrides: Record<string, string> = {
+  candidate_full_name: "Candidate Full Name",
+  instructor1_name: "Instructor 1 Name",
+  instructor2_name: "Instructor 2 Name",
+  instructor3_name: "Instructor 3 Name",
   id: "ID",
   subject_id: "Subject ID",
   subjectid: "Subject ID",
@@ -261,9 +286,18 @@ const labelOverrides: Record<string, string> = {
   sessiondate: "Session Date",
   lastmoddatetime: "Last Mod DateTime",
   registereddate: "Registered Date",
+  massemail_email_sent: "Massemail Email Sent",
+  massemail_unsubscribe: "Massemail Unsubscribe",
+  moved_to_candidate: "Moved To Candidate",
+  instructor_1id: "Instructor 1",
+  instructor_2id: "Instructor 2",
+  instructor_3id: "Instructor 3",
+  instructor1_id: "Instructor 1",
+  instructor2_id: "Instructor 2",
+  instructor3_id: "Instructor 3",
+
 };
 
-// Fields that should use a date picker
 const dateFields = [
   "orientationdate",
   "startdate",
@@ -284,11 +318,33 @@ export function EditModal({
 }: EditModalProps) {
   if (!data) return null;
 
-  const [formData, setFormData] = React.useState<Record<string, any>>(data);
+    // Add this function here
+  const flattenData = (data: Record<string, any>) => {
+    const flattened: Record<string, any> = { ...data };
+    if (data.candidate) {
+      flattened.candidate_full_name = data.candidate.full_name;
+    }
+    if (data.instructor1) {
+      flattened.instructor1_name = data.instructor1.name;
+    }
+    if (data.instructor2) {
+      flattened.instructor2_name = data.instructor2.name;
+    }
+    if (data.instructor3) {
+      flattened.instructor3_name = data.instructor3.name;
+    }
+    return flattened;
+  };
+  // const [formData, setFormData] = React.useState<Record<string, any>>(data);
+  const [formData, setFormData] = React.useState<Record<string, any>>(flattenData(data));
 
-  React.useEffect(() => {
-    setFormData(data);
-  }, [data]);
+  // React.useEffect(() => {
+  //   setFormData(data);
+  // }, [data]);
+
+React.useEffect(() => {
+  setFormData(flattenData(data));
+}, [data]);
 
   const handleChange = (key: string, value: any) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -296,14 +352,12 @@ export function EditModal({
 
   const toLabel = (key: string) => {
     if (labelOverrides[key]) return labelOverrides[key];
-
     return key
       .replace(/([A-Z])/g, " $1")
       .replace(/_/g, " ")
       .replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
-  // Organize fields into sections
   const sectionedFields: Record<string, { key: string; value: any }[]> = {
     "Basic Information": [],
     "Professional Information": [],
@@ -327,6 +381,7 @@ export function EditModal({
 
   const columnCount = Math.min(visibleSections.length, 4);
 
+
   const modalWidthClass =
     {
       1: "max-w-xl",
@@ -343,15 +398,17 @@ export function EditModal({
       4: "lg:grid-cols-4 md:grid-cols-2",
     }[columnCount] || "lg:grid-cols-4 md:grid-cols-2";
 
+
   const isVendorTable = title.toLowerCase().includes("vendor"); 
 
   const isVendorModal = title.toLowerCase().includes("vendor");
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        className={`${modalWidthClass} max-h-[80vh] overflow-y-auto p-0`}
-      >
+
+      <DialogContent className={`${modalWidthClass} max-h-[80vh] overflow-y-auto p-0`}>
+        {/* Header */}
+
         <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
             {title} - Edit Details
@@ -378,12 +435,42 @@ export function EditModal({
           </button>
         </div>
 
+        > */}
         <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            onSave(formData);
-            onClose();
-          }}
+  onSubmit={(e) => {
+    e.preventDefault();
+    const reconstructedData = { ...formData };
+    // Reconstruct candidate object
+    if (formData.candidate_full_name) {
+      reconstructedData.candidate = {
+        ...data.candidate,
+        full_name: formData.candidate_full_name,
+      };
+    }
+    // Reconstruct instructor objects
+    if (formData.instructor1_name) {
+      reconstructedData.instructor1 = {
+        ...data.instructor1,
+        name: formData.instructor1_name,
+      };
+    }
+    // Do the same for instructor2 and instructor3
+    onSave(reconstructedData);
+    onClose();
+  }}
+>
+
+          {/* All Sections in Grid Layout */}
+          <div className={`grid ${gridColsClass} gap-6 p-6`}>
+            {visibleSections.map((section) => (
+              <div key={section} className="space-y-4">
+                <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
+                  {section}
+                </h3>
+                {sectionedFields[section].map(({ key, value }) => {
+                  const isTypeField = key.toLowerCase() === "type";
+                  return (
+
         >
 
           <div className={`grid ${gridColsClass} gap-6 p-6`}>
@@ -396,20 +483,17 @@ export function EditModal({
                   </h3>
 
                   {sectionedFields[section].map(({ key, value }) => (
+
                     <div key={key} className="space-y-1">
                       <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                         {toLabel(key)}
                       </Label>
-
                       {dateFields.includes(key.toLowerCase()) ? (
                         <input
                           type="date"
                           value={
-                            formData[key] &&
-                            !isNaN(new Date(formData[key]).getTime())
-                              ? new Date(formData[key])
-                                  .toISOString()
-                                  .split("T")[0]
+                            formData[key] && !isNaN(new Date(formData[key]).getTime())
+                              ? new Date(formData[key]).toISOString().split("T")[0]
                               : new Date().toISOString().split("T")[0]
                           }
                           onChange={(e) => handleChange(key, e.target.value)}
@@ -436,8 +520,8 @@ export function EditModal({
                               e.target.value === "true"
                                 ? true
                                 : e.target.value === "false"
-                                ? false
-                                : e.target.value
+                                  ? false
+                                  : e.target.value
                             )
                           }
                           className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
