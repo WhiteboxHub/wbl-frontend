@@ -131,13 +131,33 @@ export default function CandidateSearchPage() {
               .split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
             
             let displayValue = value;
-            if (key.toLowerCase().includes('date')) {
+            if (key === 'candidate_folder' && value && value.toString().trim() !== '') {
+              const url = value.toString().trim();
+              let finalUrl = url;
+              if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                finalUrl = 'https://' + url;
+              }
+              
+              displayValue = (
+                <button 
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer whitespace-nowrap inline-block min-w-0 max-w-fit"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.open(finalUrl, '_blank', 'noopener,noreferrer');
+                  }}
+                >
+                Folder
+                </button>
+              );
+            } else if (key.toLowerCase().includes('date')) {
               displayValue = DateFormatter(value);
             } else if (key === 'status') {
               displayValue = <StatusRenderer status={value as string} />;
             } else if (key === 'agreement') {
               displayValue = value === 'Y' ? ' Yes' : ' No';
             }
+
 
             return (
               <div key={key} className="flex items-center py-3 border-b border-gray-100 dark:border-gray-600 last:border-b-0">
@@ -188,8 +208,15 @@ export default function CandidateSearchPage() {
                       'w-auto'
                     }`}
                   >
-                    {column.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()
-                      .split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                    {(() => {
+                      // Special handling for interview table column names
+                      if (column === 'interview_type') return 'Interview Mode';
+                      if (column === 'notes') return 'Interview Type';
+                      
+                      // Default column name formatting
+                      return column.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()
+                        .split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+                    })()}
                   </th>
                 ))}
               </tr>
@@ -336,7 +363,7 @@ export default function CandidateSearchPage() {
           </div>
 
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {/* Basic Information - Now shows more fields */}
+            {/* Basic Information - Merged with Emergency Contact */}
             <div className="accordion-item">
               <button
                 className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
@@ -344,36 +371,18 @@ export default function CandidateSearchPage() {
               >
                 <div className="flex items-center gap-3">
                   <User className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                  <span className="font-semibold text-gray-900 dark:text-gray-100">Basic Information</span>
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">Candidate Information</span>
                 </div>
                 <span className="text-2xl font-bold text-gray-400 transition-transform duration-200">
                   {openSections['basic'] ? '−' : '+'}
                 </span>
               </button>
               {openSections['basic'] && (
-                <div className="px-6 pb-4">
-                  {renderInfoCard("Candidate Details", <User className="h-4 w-4" />, selectedCandidate.basic_info)}
-                </div>
-              )}
-            </div>
-
-            {/* Emergency Contact */}
-            <div className="accordion-item">
-              <button
-                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
-                onClick={() => toggleSection('emergency')}
-              >
-                <div className="flex items-center gap-2">
-                  <Phone className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                  <span className="font-medium text-gray-900 dark:text-gray-100">Emergency Contact</span>
-                </div>
-                <span className="text-xl font-bold text-gray-400">
-                  {openSections['emergency'] ? '−' : '+'}
-                </span>
-              </button>
-              {openSections['emergency'] && (
-                <div className="px-6 pb-4">
-                  {renderInfoCard("Emergency Contact Information", <Phone className="h-4 w-4" />, selectedCandidate.emergency_contact)}
+                <div className="px-6 pb-4 space-y-4">
+                  {renderInfoCard("Candidate Details", <User className="h-4 w-4" />, {
+                    ...selectedCandidate.basic_info,
+                    ...selectedCandidate.emergency_contact
+                  })}
                 </div>
               )}
             </div>
@@ -399,27 +408,6 @@ export default function CandidateSearchPage() {
               )}
             </div>
 
-            {/* Preparation Info - Now shows instructor names */}
-            <div className="accordion-item">
-              <button
-                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
-                onClick={() => toggleSection('preparation')}
-              >
-                <div className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                  <span className="font-medium text-gray-900 dark:text-gray-100">Preparation Info</span>
-                  <Badge variant="secondary">{selectedCandidate.preparation_records.length}</Badge>
-                </div>
-                <span className="text-xl font-bold text-gray-400">
-                  {openSections['preparation'] ? '−' : '+'}
-                </span>
-              </button>
-              {openSections['preparation'] && (
-                <div className="px-6 pb-4">
-                  {renderTable("Preparation Records", <BookOpen className="h-4 w-4" />, selectedCandidate.preparation_records)}
-                </div>
-              )}
-            </div>
 
             {/* Marketing Info - Now shows marketing manager name */}
             <div className="accordion-item">
@@ -439,6 +427,7 @@ export default function CandidateSearchPage() {
               {openSections['marketing'] && (
                 <div className="px-6 pb-4">
                   {renderTable("Marketing Records", <Mail className="h-4 w-4" />, selectedCandidate.marketing_records)}
+                  {renderTable("Preparation Records", <BookOpen className="h-4 w-4" />, selectedCandidate.preparation_records)}
                 </div>
               )}
             </div>
@@ -460,32 +449,21 @@ export default function CandidateSearchPage() {
               </button>
               {openSections['interviews'] && (
                 <div className="pb-4">
-                  {renderTable("Interview Records", <Briefcase className="h-4 w-4" />, selectedCandidate.interview_records)}
-                </div>
-              )}
-            </div>
-
-            {/* Placement Info - Now shows placement fees */}
-            <div className="accordion-item">
-              <button
-                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
-                onClick={() => toggleSection('placements')}
-              >
-                <div className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                  <span className="font-medium text-gray-900 dark:text-gray-100">Placement Info</span>
-                  <Badge variant="secondary">{selectedCandidate.placement_records.length}</Badge>
-                </div>
-                <span className="text-xl font-bold text-gray-400">
-                  {openSections['placements'] ? '−' : '+'}
-                </span>
-              </button>
-              {openSections['placements'] && (
-                <div className="px-6 pb-4">
+                  {renderTable("Interview Records", <Briefcase className="h-4 w-4" />, 
+                    selectedCandidate.interview_records.sort((a, b) => {
+                      // Sort by interview_date in descending order (most recent first)
+                      if (!a.interview_date && !b.interview_date) return 0;
+                      if (!a.interview_date) return 1;
+                      if (!b.interview_date) return -1;
+                      return new Date(b.interview_date).getTime() - new Date(a.interview_date).getTime();
+                    })
+                  )}
                   {renderTable("Placement Records", <DollarSign className="h-4 w-4" />, selectedCandidate.placement_records)}
                 </div>
               )}
             </div>
+
+
 
             {/* Login & Access Info */}
             <div className="accordion-item">
@@ -523,19 +501,13 @@ export default function CandidateSearchPage() {
                 </span>
               </button>
               {openSections['misc'] && (
-                <div className="px-6 pb-4">
-                  <div className="bg-white dark:bg-gray-900 pb-4 rounded-md shadow-md">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Settings className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-                        <h3 className="font-semibold text-gray-900 dark:text-gray-100">Additional Information</h3>
-                      </div>
-                      <div className="text-gray-700 dark:text-gray-300 text-sm space-y-2">
-                        <p><strong>Notes:</strong> {selectedCandidate.miscellaneous?.notes || "No notes available"}</p>
-                        <p><strong>Preparation Active:</strong> {selectedCandidate.miscellaneous?.preparation_active ? "Yes" : "No"}</p>
-                        <p><strong>Marketing Active:</strong> {selectedCandidate.miscellaneous?.marketing_active ? "Yes" : "No"}</p>
-                        <p><strong>Placement Active:</strong> {selectedCandidate.miscellaneous?.placement_active ? "Yes" : "No"}</p>
-                      </div>
-                    </div>
+                <div className="px-6 pb-4 space-y-4">
+                  {renderInfoCard("Additional Information", <Settings className="h-4 w-4" />, {
+                    notes: selectedCandidate.miscellaneous?.notes || "No notes available",
+                    preparation_active: selectedCandidate.miscellaneous?.preparation_active ? "Yes" : "No",
+                    marketing_active: selectedCandidate.miscellaneous?.marketing_active ? "Yes" : "No",
+                    placement_active: selectedCandidate.miscellaneous?.placement_active ? "Yes" : "No"
+                  })}
                 </div>
               )}
             </div>
