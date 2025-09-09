@@ -1,6 +1,6 @@
+
 "use client";
 import React from "react";
-
 import {
   Dialog,
   DialogContent,
@@ -9,6 +9,7 @@ import {
 import { Label } from "@/components/admin_ui/label";
 import { Input } from "@/components/admin_ui/input";
 import { Textarea } from "@/components/admin_ui/textarea";
+import axios from "axios";
 
 interface EditModalProps {
   isOpen: boolean;
@@ -42,6 +43,8 @@ const fieldSections: Record<string, string> = {
   email: "Basic Information",
   company_name: "Basic Information",
   linkedin_id: "Contact Information",
+  enrolled_date: "Professional Information",
+  startdate: "Professional Information",
   status: "Basic Information",
   linkedin_connected: "Professional Information",
   intro_email_sent: "Professional Information",
@@ -64,10 +67,12 @@ const fieldSections: Record<string, string> = {
   batch: "Basic Information",
   leadid: "Basic Information",
   name: "Basic Information",
+  enddate: "Professional Information",
   candidate_name: "Basic Information",
   candidate_role: "Basic Information",
   dob: "Basic Information",
   contact: "Basic Information",
+  end_date: "Professional Information",
   secondaryphone: "Contact Information",
   phone: "Basic Information",
   secondaryemail: "Contact Information",
@@ -79,7 +84,7 @@ const fieldSections: Record<string, string> = {
   enrolleddate: "Basic Information",
   orientationdate: "Basic Information",
   batchname: "Basic Information",
-  batchid: "Professional Information",
+  batchid: "Contact Information",
   promissory: "Basic Information",
   lastlogin: "Professional Information",
   logincount: "Professional Information",
@@ -96,14 +101,13 @@ const fieldSections: Record<string, string> = {
   interview_date: "Professional Information",
   interview_mode: "Professional Information",
   visa_status: "Professional Information",
-  work_status: "Professional Information",
-  workstatus: "Professional Information",
+  workstatus: "Basic Information",
   message: "Professional Information",
   education: "Professional Information",
   workexperience: "Professional Information",
   faq: "Professional Information",
   callsmade: "Professional Information",
-  feepaid: "Professional Information",
+  fee_paid: "Basic Information",
   feedue: "Professional Information",
   salary0: "Professional Information",
   salary6: "Professional Information",
@@ -117,13 +121,14 @@ const fieldSections: Record<string, string> = {
   entry_date: "Professional Information",
   closed_date: "Professional Information",
   closed: "Professional Information",
-
   secondary_email: "Contact Information",
   massemail_email_sent: "Contact Information",
   massemail_unsubscribe: "Contact Information",
   moved_to_candidate: "Contact Information",
   link: "Professional Information",
+  videoid: "Professional Information",
   address: "Professional Information",
+  candidate_folder: "Professional Information",
   city: "Contact Information",
   state: "Contact Information",
   country: "Contact Information",
@@ -136,21 +141,19 @@ const fieldSections: Record<string, string> = {
   spousephone: "Emergency Contact",
   spouseemail: "Emergency Contact",
   spouseoccupationinfo: "Emergency Contact",
-  notes: "Notes", // merged into Other
+  notes: "Notes",
 };
 
 const workVisaStatusOptions = [
+  { value: "waiting for status", label: "Waiting for Status" },
   { value: "citizen", label: "Citizen" },
-  { value: "visa", label: "Visa" },
   { value: "f1", label: "F1" },
   { value: "other", label: "Other" },
-  { value: "green card", label: "Green Card" },
   { value: "permanent resident", label: "Permanent Resident" },
-  { value: "h1b", label: "H1B" },
+  { value: "h4", label: "H4" },
   { value: "ead", label: "EAD" },
-  { value: "waiting for status", label: "Waiting for Status" },
-];
 
+];
 const vendorStatuses = [
   { value: "active", label: "Active" },
   { value: "working", label: "Working" },
@@ -160,7 +163,6 @@ const vendorStatuses = [
   { value: "prospect", label: "Prospect" },
 ];
 
-// Enum dropdown options
 const enumOptions: Record<string, { value: string; label: string }[]> = {
   type: [
     { value: "client", label: "Client" },
@@ -170,36 +172,48 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "contact-from-ip", label: "Contact from IP" },
   ],
   linkedin_connected: [
-    { value: "yes", label: "Yes" },
     { value: "no", label: "No" },
+    { value: "yes", label: "Yes" },
+
   ],
   intro_email_sent: [
-    { value: "yes", label: "Yes" },
     { value: "no", label: "No" },
+    { value: "yes", label: "Yes" },
+
   ],
   intro_call: [
-    { value: "yes", label: "Yes" },
     { value: "no", label: "No" },
+    { value: "yes", label: "Yes" },
+
   ],
   moved_to_vendor: [
     { value: "true", label: "Yes" },
     { value: "false", label: "No" },
   ],
   moved_to_candidate: [
-    { value: "true", label: "Yes" },
     { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
+
   ],
   massemail_email_sent: [
-    { value: "true", label: "Yes" },
     { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
+
   ],
   mass_email_sent: [
-    { value: "true", label: "Yes" },
     { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
   ],
   massemail_unsubscribe: [
-    { value: "true", label: "Yes" },
     { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
+
+  ],
+
+  agreement: [
+    { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
+
   ],
   status: [
     { value: "active", label: "Active" },
@@ -213,7 +227,6 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
   visa_status: workVisaStatusOptions,
 };
 
-// Custom label overrides
 const labelOverrides: Record<string, string> = {
   id: "ID",
   subject_id: "Subject ID",
@@ -223,7 +236,7 @@ const labelOverrides: Record<string, string> = {
   courseid: "Course ID",
   course_id: "Course ID",
   candidateid: "Candidate ID",
-  batchid: "Batch ID",
+  batchid: "Batch",
   candidate_id: "Candidate ID",
   candidate_email: "Candidate Email",
   uname: "Email",
@@ -253,19 +266,23 @@ const labelOverrides: Record<string, string> = {
   massemail_email_sent: "Massemail Email Sent",
   massemail_unsubscribe: "Massemail Unsubscribe",
   moved_to_candidate: "Moved To Candidate",
+  emergcontactname: "Contact Name",
+  candidate_folder: "Candidate Folder Link",
+  emergcontactphone: "Contact Phone",
+  emergcontactemail: "Contact Email",
+  emergcontactaddrs: "Contact Address",
 };
 
-// Fields that should use a date picker
 const dateFields = [
   "orientationdate",
   "startdate",
   "enddate",
-  "closed_date",
+  // "closed_date",
   "entry_date",
   "created_at",
   "classdate",
   "sessiondate",
-  "enrolled_date",
+  "enrolled_date"
 ];
 
 export function EditModal({
@@ -276,12 +293,37 @@ export function EditModal({
   onSave,
 }: EditModalProps) {
   if (!data) return null;
-
   const [formData, setFormData] = React.useState<Record<string, any>>(data);
+  const [batches, setBatches] = React.useState<any[]>([]);
+  const [batchLoading, setBatchLoading] = React.useState(false);
+  const [batchError, setBatchError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     setFormData(data);
   }, [data]);
+
+
+  React.useEffect(() => {
+    if (isOpen) {
+      const fetchBatches = async () => {
+        setBatchLoading(true);
+        setBatchError(null);
+        try {
+          const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/batches`);
+          console.log("Fetched batches:", res.data?.data);
+          setBatches(res.data?.data || []);
+        } catch (e: any) {
+          console.error("Failed to fetch batches:", e);
+          setBatchError(e.response?.data?.message || "Failed to load batches");
+        } finally {
+          setBatchLoading(false);
+        }
+      };
+      fetchBatches();
+    }
+  }, [isOpen]);
+
+
 
   const handleChange = (key: string, value: any) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -289,14 +331,12 @@ export function EditModal({
 
   const toLabel = (key: string) => {
     if (labelOverrides[key]) return labelOverrides[key];
-
     return key
       .replace(/([A-Z])/g, " $1")
       .replace(/_/g, " ")
       .replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
-  // Organize fields into sections
   const sectionedFields: Record<string, { key: string; value: any }[]> = {
     "Basic Information": [],
     "Professional Information": [],
@@ -314,13 +354,12 @@ export function EditModal({
     sectionedFields[section].push({ key, value });
   });
 
-  // Exclude Notes from the grid
   const visibleSections = Object.keys(sectionedFields).filter(
-    (section) => section !== "Notes" && sectionedFields[section]?.length > 0
+    (section) => sectionedFields[section]?.length > 0 && section !== "Notes"
   );
 
-  const columnCount = Math.min(visibleSections.length, 4);
 
+  const columnCount = Math.min(visibleSections.length, 4);
   const modalWidthClass = {
     1: "max-w-xl",
     2: "max-w-3xl",
@@ -336,6 +375,184 @@ export function EditModal({
   }[columnCount] || "lg:grid-cols-4 md:grid-cols-2";
 
   const isVendorModal = title.toLowerCase().includes("vendor");
+  const isVendorTable = title.toLowerCase().includes("vendor");
+
+  //   return (
+  //     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+  //       <DialogContent className={`${modalWidthClass} max-h-[80vh] overflow-y-auto p-0`}>
+  //         {/* Header */}
+  //         <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+  //           <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+  //             {title} - Edit Details
+  //           </DialogTitle>
+  //           <button
+  //             onClick={onClose}
+  //             className="text-gray-500 hover:text-gray-700 dark:hover:text-white focus:outline-none"
+  //             aria-label="Close"
+  //           >
+  //             <svg
+  //               xmlns="http://www.w3.org/2000/svg"
+  //               className="h-5 w-5"
+  //               fill="none"
+  //               viewBox="0 0 24 24"
+  //               stroke="currentColor"
+  //             >
+  //               <path
+  //                 strokeLinecap="round"
+  //                 strokeLinejoin="round"
+  //                 strokeWidth={2}
+  //                 d="M6 18L18 6M6 6l12 12"
+  //               />
+  //             </svg>
+  //           </button>
+  //         </div>
+  //         {/* Content */}
+  //         <form
+  //           onSubmit={(e) => {
+  //             e.preventDefault();
+  //             onSave(formData);
+  //             onClose();
+  //           }}
+  //         >
+  //           {/* All Sections in Grid Layout */}
+  //           <div className={`grid ${gridColsClass} gap-6 p-6`}>
+  //             {visibleSections.map((section) => (
+  //               <div key={section} className="space-y-4">
+  //                 <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
+  //                   {section}
+  //                 </h3>
+  //                 {sectionedFields[section].map(({ key, value }) => {
+  //                   const isTypeField = key.toLowerCase() === "type";
+  //                   const isBatchField = key.toLowerCase() === "batchid";
+
+  //                   return (
+  //                     <div key={key} className="space-y-1">
+  //                       <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+  //                         {toLabel(key)}
+  //                       </Label>
+  //                       {isBatchField ? (
+  //                         batchLoading ? (
+  //                           <p className="text-sm text-gray-500">Loading batches...</p>
+  //                         ) : batchError ? (
+  //                           <p className="text-sm text-red-500">{batchError}</p>
+  //                         ) : (
+  //                           <select
+  //                             value={String(formData["batchid"] ?? "")}
+  //                             onChange={(e) => handleChange("batchid", e.target.value)}
+  //                             className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+  //                           >
+  //                             <option value="">Select Batch</option>
+  //                             {batches.map((batch) => (
+  //                               <option key={batch.batchid} value={String(batch.batchid)}>
+  //                                 {batch.batchname}
+  //                               </option>
+  //                             ))}
+  //                           </select>
+
+  //                         )
+  //                       ) : dateFields.includes(key.toLowerCase()) ? (
+  //                         <input
+  //                           type="date"
+  //                           value={
+  //                             formData[key] && !isNaN(new Date(formData[key]).getTime())
+  //                               ? new Date(formData[key]).toISOString().split("T")[0]
+  //                               : new Date().toISOString().split("T")[0]
+  //                           }
+  //                           onChange={(e) => handleChange(key, e.target.value)}
+  //                           className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+  //                         />
+  //                       ) : isTypeField && isVendorModal ? (
+  //                         <select
+  //                           value={String(formData[key] ?? "")}
+  //                           onChange={(e) => handleChange(key, e.target.value)}
+  //                           className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+  //                         >
+  //                           {enumOptions["type"].map((opt) => (
+  //                             <option key={opt.value} value={opt.value}>
+  //                               {opt.label}
+  //                             </option>
+  //                           ))}
+  //                         </select>
+  //                       ) : isTypeField && !isVendorModal ? (
+  //                         <Input
+  //                           value={formData[key] ?? ""}
+  //                           onChange={(e) => handleChange(key, e.target.value)}
+  //                         />
+  //                       ) : enumOptions[key.toLowerCase()] ? (
+  //                         <select
+  //                           value={String(formData[key] ?? "")}
+  //                           onChange={(e) =>
+  //                             handleChange(
+  //                               key,
+  //                               e.target.value === "true"
+  //                                 ? true
+  //                                 : e.target.value === "false"
+  //                                   ? false
+  //                                   : e.target.value
+  //                             )
+  //                           }
+  //                           className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+  //                         >
+  //                           {enumOptions[key.toLowerCase()].map((opt) => (
+  //                             <option key={opt.value} value={opt.value}>
+  //                               {opt.label}
+  //                             </option>
+  //                           ))}
+  //                         </select>
+  //                       ) : typeof value === "string" && value.length > 100 ? (
+  //                         <Textarea
+  //                           value={formData[key] || ""}
+  //                           onChange={(e) => handleChange(key, e.target.value)}
+  //                         />
+  //                       ) : (
+  //                         <Input
+  //                           value={formData[key] ?? ""}
+  //                           onChange={(e) => handleChange(key, e.target.value)}
+  //                         />
+  //                       )}
+  //                     </div>
+  //                   );
+  //                 })}
+  //               </div>
+  //             ))}
+  //           </div>
+  //           {/* Footer */}
+
+  //           {sectionedFields["Notes"].length > 0 && (
+  //             <div className="px-6 pb-6">
+  //               {/* <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
+  //                 Notes
+  //               </h3> */}
+  //               <div className="space-y-6 mt-4">
+  //                 {sectionedFields["Notes"].map(({ key, value }) => (
+  //                   <div key={key} className="space-y-1">
+  //                     <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+  //                       {toLabel(key)}
+  //                     </Label>
+  //                     <Textarea
+  //                       value={formData[key] || ""}
+  //                       onChange={(e) => handleChange(key, e.target.value)}
+  //                       className="w-full"
+  //                     />
+  //                   </div>
+  //                 ))}
+  //               </div>
+  //             </div>
+  //           )}
+  //           <div className="flex justify-end px-6 pb-6">
+  //             <button
+  //               type="submit"
+  //               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow"
+  //             >
+  //               Save Changes
+  //             </button>
+  //           </div>
+  //         </form>
+  //       </DialogContent>
+  //     </Dialog>
+  //   );
+  // }
+
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -369,7 +586,7 @@ export function EditModal({
           </button>
         </div>
 
-        {/* Content */}
+        {/* Form */}
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -377,101 +594,147 @@ export function EditModal({
             onClose();
           }}
         >
-          {/* All Sections in Grid Layout */}
+          {/* Grid for all sections except Notes */}
           <div className={`grid ${gridColsClass} gap-6 p-6`}>
-            {visibleSections.map((section) => (
-              <div key={section} className="space-y-4">
-                <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
-                  {section}
-                </h3>
-                {sectionedFields[section].map(({ key, value }) => {
-                  const isTypeField = key.toLowerCase() === "type";
+            {visibleSections
+              .filter((section) => section !== "Notes")
+              .map((section) => (
+                <div key={section} className="space-y-4">
+                  <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
+                    {section}
+                  </h3>
 
-                  return (
-                    <div key={key} className="space-y-1">
-                      <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                        {toLabel(key)}
-                      </Label>
+                  {sectionedFields[section].map(({ key, value }) => {
+                    const isTypeField = key.toLowerCase() === "type";
+                    const isBatchField = key.toLowerCase() === "batchid";
 
-                      {dateFields.includes(key.toLowerCase()) ? (
-                        <input
-                          type="date"
-                          value={
-                            formData[key] &&
-                            !isNaN(new Date(formData[key]).getTime())
-                              ? new Date(formData[key])
+                    return (
+                      <div key={key} className="space-y-1">
+                        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                          {toLabel(key)}
+                        </Label>
+
+                        {/* Batch field special handling */}
+                        {isBatchField ? (
+                          batchLoading ? (
+                            <p className="text-sm text-gray-500">
+                              Loading batches...
+                            </p>
+                          ) : batchError ? (
+                            <p className="text-sm text-red-500">{batchError}</p>
+                          ) : (
+                            <select
+                              value={String(formData["batchid"] ?? "")}
+                              onChange={(e) =>
+                                handleChange("batchid", e.target.value)
+                              }
+                              className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                            >
+                              <option value="">Select Batch</option>
+                              {batches.map((batch) => (
+                                <option
+                                  key={batch.batchid}
+                                  value={String(batch.batchid)}
+                                >
+                                  {batch.batchname}
+                                </option>
+                              ))}
+                            </select>
+                          )
+                        ) : dateFields.includes(key.toLowerCase()) ? (
+                          <input
+                            type="date"
+                            value={
+                              formData[key] &&
+                                !isNaN(new Date(formData[key]).getTime())
+                                ? new Date(formData[key])
                                   .toISOString()
                                   .split("T")[0]
-                              : new Date().toISOString().split("T")[0]
-                          }
-                          onChange={(e) => handleChange(key, e.target.value)}
-                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                        />
-                      ) : isTypeField && isVendorModal ? (
-                        <select
-                          value={String(formData[key] ?? "")}
-                          onChange={(e) => handleChange(key, e.target.value)}
-                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                        >
-                          {enumOptions["type"].map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                      ) : isTypeField && !isVendorModal ? (
-                        <Input
-                          value={formData[key] ?? ""}
-                          onChange={(e) => handleChange(key, e.target.value)}
-                        />
-                      ) : enumOptions[key.toLowerCase()] ? (
-                        <select
-                          value={String(formData[key] ?? "")}
-                          onChange={(e) =>
-                            handleChange(
-                              key,
-                              e.target.value === "true"
-                                ? true
-                                : e.target.value === "false"
-                                ? false
-                                : e.target.value
-                            )
-                          }
-                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                        >
-                          {enumOptions[key.toLowerCase()].map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                      ) : typeof value === "string" && value.length > 100 ? (
-                        <Textarea
-                          value={formData[key] || ""}
-                          onChange={(e) => handleChange(key, e.target.value)}
-                        />
-                      ) : (
-                        <Input
-                          value={formData[key] ?? ""}
-                          onChange={(e) => handleChange(key, e.target.value)}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
+                                : new Date().toISOString().split("T")[0]
+                            }
+                            onChange={(e) => handleChange(key, e.target.value)}
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          />
+                        ) : isTypeField && isVendorModal ? (
+                          <select
+                            value={String(formData[key] ?? "")}
+                            onChange={(e) => handleChange(key, e.target.value)}
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          >
+                            {enumOptions["type"].map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : isTypeField && !isVendorModal ? (
+                          <Input
+                            value={formData[key] ?? ""}
+                            onChange={(e) => handleChange(key, e.target.value)}
+                          />
+                        ) : key.toLowerCase() === "status" && isVendorTable ? (
+                          <select
+                            value={String(formData[key] ?? "")}
+                            onChange={(e) => handleChange(key, e.target.value)}
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          >
+                            {vendorStatuses.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : enumOptions[key.toLowerCase()] ? (
+                          <select
+                            value={String(formData[key] ?? "")}
+                            onChange={(e) =>
+                              handleChange(
+                                key,
+                                e.target.value === "true"
+                                  ? true
+                                  : e.target.value === "false"
+                                    ? false
+                                    : e.target.value
+                              )
+                            }
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          >
+                            {enumOptions[key.toLowerCase()].map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : typeof value === "string" && value.length > 100 ? (
+                          <Textarea
+                            value={formData[key] || ""}
+                            onChange={(e) => handleChange(key, e.target.value)}
+                          />
+                        ) : (
+                          <Input
+                            value={formData[key] ?? ""}
+                            onChange={(e) => handleChange(key, e.target.value)}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
           </div>
 
-          {/* Notes Section */}
+          {/* Notes Section - always separate */}
           {sectionedFields["Notes"].length > 0 && (
-            <div className="px-6 pb-6 mt-6">
-              <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
+            <div className="px-6 pb-6">
+              {/* <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                 Notes
-              </h3>
+              </h3> */}
               <div className="space-y-6 mt-4">
-                {sectionedFields["Notes"].map(({ key }) => (
+                {sectionedFields["Notes"].map(({ key, value }) => (
                   <div key={key} className="space-y-1">
+                    <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      {toLabel(key)}
+                    </Label>
                     <Textarea
                       value={formData[key] || ""}
                       onChange={(e) => handleChange(key, e.target.value)}

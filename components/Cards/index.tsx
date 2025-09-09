@@ -124,7 +124,7 @@ export default function Cards() {
             />
           </div>
           <div className="mt-3 text-center text-2xl font-bold">
-            Data science
+            Generative AI
           </div>
           <div className="mt-6 border-t border-gray-400 pt-5 text-center font-medium text-gray-700">
             <cite className="not-italic text-gray-200"></cite>{" "}
