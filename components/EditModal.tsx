@@ -1,6 +1,6 @@
+
 "use client";
 import React from "react";
-
 import {
   Dialog,
   DialogContent,
@@ -9,6 +9,7 @@ import {
 import { Label } from "@/components/admin_ui/label";
 import { Input } from "@/components/admin_ui/input";
 import { Textarea } from "@/components/admin_ui/textarea";
+import axios from "axios";
 
 interface EditModalProps {
   isOpen: boolean;
@@ -18,19 +19,46 @@ interface EditModalProps {
   onSave: (updatedData: Record<string, any>) => void;
 }
 
+// Country codes configuration
+const countryCodes = [
+  { code: "+1", country: "US", flag: "🇺🇸" },
+  { code: "+44", country: "UK", flag: "🇬🇧" },
+  { code: "+91", country: "India", flag: "🇮🇳" },
+  { code: "+61", country: "Australia", flag: "🇦🇺" },
+  { code: "+86", country: "China", flag: "🇨🇳" },
+  { code: "+81", country: "Japan", flag: "🇯🇵" },
+  { code: "+49", country: "Germany", flag: "🇩🇪" },
+  { code: "+33", country: "France", flag: "🇫🇷" },
+];
+
 const excludedFields = [
+  "candidate",
+  "instructor1",
+  "instructor2",
+  "instructor3",
   "id",
-  "sessionid",
   "vendor_type",
+  "sessionid",
   "lastmoddatetime",
   "last_modified",
+  "name",
   "logincount",
   "googleId",
   "subject_id",
   "new_subject_id",
+  "last_mod_datetime"
+  
+
 ];
 
+
+
+
 const fieldSections: Record<string, string> = {
+   candidate_full_name: "Basic Information",
+  instructor1_name: "Professional Information",
+  instructor2_name: "Professional Information",
+  instructor3_name: "Professional Information",
   id: "Basic Information",
   alias: "Basic Information",
   Fundamentals: "Basic Information",
@@ -39,15 +67,17 @@ const fieldSections: Record<string, string> = {
   extraction_date: "Basic Information",
   filename: "Basic Information",
   type: "Professional Information",
-  email: "Basic Information",
+  email: "Contact Information",
   company_name: "Basic Information",
   linkedin_id: "Contact Information",
+  enrolled_date: "Professional Information",
+  startdate: "Professional Information",
   status: "Basic Information",
   linkedin_connected: "Professional Information",
   intro_email_sent: "Professional Information",
   intro_call: "Professional Information",
   moved_to_vendor: "Professional Information",
-  phone_number: "Basic Information",
+  phone_number: "Contact Information",
   secondary_phone: "Contact Information",
   location: "Contact Information",
   agreement: "Professional Information",
@@ -64,12 +94,14 @@ const fieldSections: Record<string, string> = {
   batch: "Basic Information",
   leadid: "Basic Information",
   name: "Basic Information",
+  enddate: "Professional Information",
   candidate_name: "Basic Information",
   candidate_role: "Basic Information",
   dob: "Basic Information",
   contact: "Basic Information",
+  end_date: "Professional Information",
   secondaryphone: "Contact Information",
-  phone: "Basic Information",
+  phone: "Contact Information",
   secondaryemail: "Contact Information",
   ssn: "Professional Information",
   priority: "Basic Information",
@@ -79,7 +111,7 @@ const fieldSections: Record<string, string> = {
   enrolleddate: "Basic Information",
   orientationdate: "Basic Information",
   batchname: "Basic Information",
-  batchid: "Professional Information",
+  batchid: "Contact Information",
   promissory: "Basic Information",
   lastlogin: "Professional Information",
   logincount: "Professional Information",
@@ -90,20 +122,21 @@ const fieldSections: Record<string, string> = {
   client_id: "Professional Information",
   client_name: "Professional Information",
   interview_time: "Professional Information",
+  interview_type: "Professional Information",
   vendor_or_client_name: "Professional Information",
   vendor_or_client_contact: "Professional Information",
   marketing_email_address: "Professional Information",
   interview_date: "Professional Information",
+  interviewr_emails: "Professional Information",
   interview_mode: "Professional Information",
   visa_status: "Professional Information",
-  work_status: "Professional Information",
-  workstatus: "Professional Information",
+  workstatus: "Basic Information",
   message: "Professional Information",
   education: "Professional Information",
   workexperience: "Professional Information",
   faq: "Professional Information",
   callsmade: "Professional Information",
-  feepaid: "Professional Information",
+  fee_paid: "Basic Information",
   feedue: "Professional Information",
   salary0: "Professional Information",
   salary6: "Professional Information",
@@ -113,21 +146,26 @@ const fieldSections: Record<string, string> = {
   marketing_startdate: "Professional Information",
   recruiterassesment: "Professional Information",
   statuschangedate: "Professional Information",
-  aadhaar: "Basic Information",
-  entry_date: "Professional Information",
-  closed_date: "Professional Information",
   closed: "Professional Information",
-
+  aadhaar: "Basic Information",
   secondary_email: "Contact Information",
-  massemail_email_sent: "Contact Information",
-  massemail_unsubscribe: "Contact Information",
-  moved_to_candidate: "Contact Information",
+  massemail_email_sent: "Professional Information",
+  massemail_unsubscribe: "Professional Information",
+  moved_to_candidate: "Professional Information",
   link: "Professional Information",
+  videoid: "Professional Information",
   address: "Professional Information",
+  candidate_folder: "Professional Information",
   city: "Contact Information",
   state: "Contact Information",
   country: "Contact Information",
   zip: "Contact Information",
+  instructor_1id: "Professional Information",
+  instructor_2id: "Professional Information",
+  instructor_3id: "Professional Information",
+  instructor1_id: "Professional Information",
+  instructor2_id: "Professional Information",
+  instructor3_id: "Professional Information",
   emergcontactname: "Emergency Contact",
   emergcontactemail: "Emergency Contact",
   emergcontactphone: "Emergency Contact",
@@ -136,19 +174,17 @@ const fieldSections: Record<string, string> = {
   spousephone: "Emergency Contact",
   spouseemail: "Emergency Contact",
   spouseoccupationinfo: "Emergency Contact",
-  notes: "Notes", // merged into Other
+  notes: "Notes",
 };
 
 const workVisaStatusOptions = [
+  { value: "waiting for status", label: "Waiting for Status" },
   { value: "citizen", label: "Citizen" },
-  { value: "visa", label: "Visa" },
   { value: "f1", label: "F1" },
   { value: "other", label: "Other" },
-  { value: "green card", label: "Green Card" },
   { value: "permanent resident", label: "Permanent Resident" },
-  { value: "h1b", label: "H1B" },
+  { value: "h4", label: "H4" },
   { value: "ead", label: "EAD" },
-  { value: "waiting for status", label: "Waiting for Status" },
 ];
 
 const vendorStatuses = [
@@ -160,7 +196,6 @@ const vendorStatuses = [
   { value: "prospect", label: "Prospect" },
 ];
 
-// Enum dropdown options
 const enumOptions: Record<string, { value: string; label: string }[]> = {
   type: [
     { value: "client", label: "Client" },
@@ -170,37 +205,49 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "contact-from-ip", label: "Contact from IP" },
   ],
   linkedin_connected: [
-    { value: "yes", label: "Yes" },
     { value: "no", label: "No" },
+    { value: "yes", label: "Yes" },
   ],
   intro_email_sent: [
-    { value: "yes", label: "Yes" },
     { value: "no", label: "No" },
+    { value: "yes", label: "Yes" },
+
   ],
   intro_call: [
-    { value: "yes", label: "Yes" },
     { value: "no", label: "No" },
+    { value: "yes", label: "Yes" },
   ],
   moved_to_vendor: [
     { value: "true", label: "Yes" },
     { value: "false", label: "No" },
   ],
   moved_to_candidate: [
-    { value: "true", label: "Yes" },
     { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
+
   ],
   massemail_email_sent: [
-    { value: "true", label: "Yes" },
     { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
+
   ],
+
   mass_email_sent: [
-    { value: "true", label: "Yes" },
     { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
   ],
   massemail_unsubscribe: [
-    { value: "true", label: "Yes" },
     { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
+
   ],
+
+  agreement: [
+    { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
+
+  ],
+  // Default non-vendor statuses
   status: [
     { value: "active", label: "Active" },
     { value: "inactive", label: "Inactive" },
@@ -213,8 +260,11 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
   visa_status: workVisaStatusOptions,
 };
 
-// Custom label overrides
 const labelOverrides: Record<string, string> = {
+  candidate_full_name: "Candidate Full Name",
+  instructor1_name: "Instructor 1 Name",
+  instructor2_name: "Instructor 2 Name",
+  instructor3_name: "Instructor 3 Name",
   id: "ID",
   subject_id: "Subject ID",
   subjectid: "Subject ID",
@@ -223,7 +273,7 @@ const labelOverrides: Record<string, string> = {
   courseid: "Course ID",
   course_id: "Course ID",
   candidateid: "Candidate ID",
-  batchid: "Batch ID",
+  batchid: "Batch",
   candidate_id: "Candidate ID",
   candidate_email: "Candidate Email",
   uname: "Email",
@@ -253,19 +303,32 @@ const labelOverrides: Record<string, string> = {
   massemail_email_sent: "Massemail Email Sent",
   massemail_unsubscribe: "Massemail Unsubscribe",
   moved_to_candidate: "Moved To Candidate",
+
+  emergcontactname: "Contact Name",
+  candidate_folder: "Candidate Folder Link",
+  emergcontactphone: "Contact Phone",
+  emergcontactemail: "Contact Email",
+  emergcontactaddrs: "Contact Address",
+  instructor_1id: "Instructor 1",
+  instructor_2id: "Instructor 2",
+  instructor_3id: "Instructor 3",
+  instructor1_id: "Instructor 1",
+  instructor2_id: "Instructor 2",
+  instructor3_id: "Instructor 3",
+
 };
 
-// Fields that should use a date picker
 const dateFields = [
   "orientationdate",
   "startdate",
   "enddate",
-  "closed_date",
+  // "closed_date",
   "entry_date",
   "created_at",
   "classdate",
   "sessiondate",
-  "enrolled_date",
+  "enrolled_date"
+
 ];
 
 export function EditModal({
@@ -278,10 +341,61 @@ export function EditModal({
   if (!data) return null;
 
   const [formData, setFormData] = React.useState<Record<string, any>>(data);
+  const [batches, setBatches] = React.useState<any[]>([]);
+  const [batchLoading, setBatchLoading] = React.useState(false);
+  const [batchError, setBatchError] = React.useState<string | null>(null);
+
+    // Add this function here
+  const flattenData = (data: Record<string, any>) => {
+    const flattened: Record<string, any> = { ...data };
+    if (data.candidate) {
+      flattened.candidate_full_name = data.candidate.full_name;
+    }
+    if (data.instructor1) {
+      flattened.instructor1_name = data.instructor1.name;
+    }
+    if (data.instructor2) {
+      flattened.instructor2_name = data.instructor2.name;
+    }
+    if (data.instructor3) {
+      flattened.instructor3_name = data.instructor3.name;
+    }
+    return flattened;
+  };
+  // const [formData, setFormData] = React.useState<Record<string, any>>(data);
+  const [formData, setFormData] = React.useState<Record<string, any>>(flattenData(data));
+
+  // React.useEffect(() => {
+  //   setFormData(data);
+  // }, [data]);
+
+
+React.useEffect(() => {
+  setFormData(flattenData(data));
+}, [data]);
+
 
   React.useEffect(() => {
-    setFormData(data);
-  }, [data]);
+    if (isOpen) {
+      const fetchBatches = async () => {
+        setBatchLoading(true);
+        setBatchError(null);
+        try {
+          const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/batches`);
+          console.log("Fetched batches:", res.data?.data);
+          setBatches(res.data?.data || []);
+        } catch (e: any) {
+          console.error("Failed to fetch batches:", e);
+          setBatchError(e.response?.data?.message || "Failed to load batches");
+        } finally {
+          setBatchLoading(false);
+        }
+      };
+      fetchBatches();
+    }
+  }, [isOpen]);
+
+
 
   const handleChange = (key: string, value: any) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -289,14 +403,12 @@ export function EditModal({
 
   const toLabel = (key: string) => {
     if (labelOverrides[key]) return labelOverrides[key];
-
     return key
       .replace(/([A-Z])/g, " $1")
       .replace(/_/g, " ")
       .replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
-  // Organize fields into sections
   const sectionedFields: Record<string, { key: string; value: any }[]> = {
     "Basic Information": [],
     "Professional Information": [],
@@ -314,13 +426,14 @@ export function EditModal({
     sectionedFields[section].push({ key, value });
   });
 
-  // Exclude Notes from the grid
   const visibleSections = Object.keys(sectionedFields).filter(
-    (section) => section !== "Notes" && sectionedFields[section]?.length > 0
+
+    (section) => sectionedFields[section]?.length > 0 && section !== "Notes"
   );
 
-  const columnCount = Math.min(visibleSections.length, 4);
 
+
+  const columnCount = Math.min(visibleSections.length, 4);
   const modalWidthClass = {
     1: "max-w-xl",
     2: "max-w-3xl",
@@ -328,21 +441,31 @@ export function EditModal({
     4: "max-w-6xl",
   }[columnCount] || "max-w-6xl";
 
-  const gridColsClass = {
-    1: "grid-cols-1",
-    2: "md:grid-cols-2",
-    3: "md:grid-cols-3",
-    4: "lg:grid-cols-4 md:grid-cols-2",
-  }[columnCount] || "lg:grid-cols-4 md:grid-cols-2";
+
+ 
+
+  const gridColsClass =
+    {
+      1: "grid-cols-1",
+      2: "md:grid-cols-2",
+      3: "md:grid-cols-3",
+      4: "lg:grid-cols-4 md:grid-cols-2",
+    }[columnCount] || "lg:grid-cols-4 md:grid-cols-2";
+
+
+  const isVendorTable = title.toLowerCase().includes("vendor"); 
 
   const isVendorModal = title.toLowerCase().includes("vendor");
+  const isVendorTable = title.toLowerCase().includes("vendor");
+
+
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        className={`${modalWidthClass} max-h-[80vh] overflow-y-auto p-0`}
-      >
+
+      <DialogContent className={`${modalWidthClass} max-h-[80vh] overflow-y-auto p-0`}>
         {/* Header */}
+
         <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
             {title} - Edit Details
@@ -369,7 +492,8 @@ export function EditModal({
           </button>
         </div>
 
-        {/* Content */}
+
+        {/* Form */}
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -377,6 +501,29 @@ export function EditModal({
             onClose();
           }}
         >
+       
+  
+    const reconstructedData = { ...formData };
+    // Reconstruct candidate object
+    if (formData.candidate_full_name) {
+      reconstructedData.candidate = {
+        ...data.candidate,
+        full_name: formData.candidate_full_name,
+      };
+    }
+    // Reconstruct instructor objects
+    if (formData.instructor1_name) {
+      reconstructedData.instructor1 = {
+        ...data.instructor1,
+        name: formData.instructor1_name,
+      };
+    }
+    // Do the same for instructor2 and instructor3
+    onSave(reconstructedData);
+    onClose();
+  }}
+>
+
           {/* All Sections in Grid Layout */}
           <div className={`grid ${gridColsClass} gap-6 p-6`}>
             {visibleSections.map((section) => (
@@ -386,92 +533,151 @@ export function EditModal({
                 </h3>
                 {sectionedFields[section].map(({ key, value }) => {
                   const isTypeField = key.toLowerCase() === "type";
-
                   return (
-                    <div key={key} className="space-y-1">
-                      <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                        {toLabel(key)}
-                      </Label>
 
-                      {dateFields.includes(key.toLowerCase()) ? (
-                        <input
-                          type="date"
-                          value={
-                            formData[key] &&
-                            !isNaN(new Date(formData[key]).getTime())
-                              ? new Date(formData[key])
+        >
+
+          <div className={`grid ${gridColsClass} gap-6 p-6`}>
+
+            {visibleSections
+              .filter((section) => section !== "Notes")
+              .map((section) => (
+                <div key={section} className="space-y-4">
+                  <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
+                    {section}
+                  </h3>
+
+                  {sectionedFields[section].map(({ key, value }) => {
+                    const isTypeField = key.toLowerCase() === "type";
+                    const isBatchField = key.toLowerCase() === "batchid";
+
+                    return (
+                      <div key={key} className="space-y-1">
+                        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                          {toLabel(key)}
+                        </Label>
+
+                        {/* Batch field special handling */}
+                        {isBatchField ? (
+                          batchLoading ? (
+                            <p className="text-sm text-gray-500">
+                              Loading batches...
+                            </p>
+                          ) : batchError ? (
+                            <p className="text-sm text-red-500">{batchError}</p>
+                          ) : (
+                            <select
+                              value={String(formData["batchid"] ?? "")}
+                              onChange={(e) =>
+                                handleChange("batchid", e.target.value)
+                              }
+                              className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                            >
+                              <option value="">Select Batch</option>
+                              {batches.map((batch) => (
+                                <option
+                                  key={batch.batchid}
+                                  value={String(batch.batchid)}
+                                >
+                                  {batch.batchname}
+                                </option>
+                              ))}
+                            </select>
+                          )
+                        ) : dateFields.includes(key.toLowerCase()) ? (
+                          <input
+                            type="date"
+                            value={
+                              formData[key] &&
+                                !isNaN(new Date(formData[key]).getTime())
+                                ? new Date(formData[key])
                                   .toISOString()
                                   .split("T")[0]
-                              : new Date().toISOString().split("T")[0]
-                          }
-                          onChange={(e) => handleChange(key, e.target.value)}
-                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                        />
-                      ) : isTypeField && isVendorModal ? (
-                        <select
-                          value={String(formData[key] ?? "")}
-                          onChange={(e) => handleChange(key, e.target.value)}
-                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                        >
-                          {enumOptions["type"].map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                      ) : isTypeField && !isVendorModal ? (
-                        <Input
-                          value={formData[key] ?? ""}
-                          onChange={(e) => handleChange(key, e.target.value)}
-                        />
-                      ) : enumOptions[key.toLowerCase()] ? (
-                        <select
-                          value={String(formData[key] ?? "")}
-                          onChange={(e) =>
-                            handleChange(
-                              key,
-                              e.target.value === "true"
-                                ? true
-                                : e.target.value === "false"
-                                ? false
-                                : e.target.value
-                            )
-                          }
-                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                        >
-                          {enumOptions[key.toLowerCase()].map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                      ) : typeof value === "string" && value.length > 100 ? (
-                        <Textarea
-                          value={formData[key] || ""}
-                          onChange={(e) => handleChange(key, e.target.value)}
-                        />
-                      ) : (
-                        <Input
-                          value={formData[key] ?? ""}
-                          onChange={(e) => handleChange(key, e.target.value)}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
+                                : new Date().toISOString().split("T")[0]
+                            }
+                            onChange={(e) => handleChange(key, e.target.value)}
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          />
+                        ) : isTypeField && isVendorModal ? (
+                          <select
+                            value={String(formData[key] ?? "")}
+                            onChange={(e) => handleChange(key, e.target.value)}
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          >
+                            {enumOptions["type"].map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : isTypeField && !isVendorModal ? (
+                          <Input
+                            value={formData[key] ?? ""}
+                            onChange={(e) => handleChange(key, e.target.value)}
+                          />
+                        ) : key.toLowerCase() === "status" && isVendorTable ? (
+                          <select
+                            value={String(formData[key] ?? "")}
+                            onChange={(e) => handleChange(key, e.target.value)}
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          >
+                            {vendorStatuses.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : enumOptions[key.toLowerCase()] ? (
+                          <select
+                            value={String(formData[key] ?? "")}
+                            onChange={(e) =>
+                              handleChange(
+                                key,
+                                e.target.value === "true"
+                                  ? true
+                                  : e.target.value === "false"
+                                    ? false
+                                    : e.target.value
+                              )
+                            }
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          >
+                            {enumOptions[key.toLowerCase()].map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : typeof value === "string" && value.length > 100 ? (
+                          <Textarea
+                            value={formData[key] || ""}
+                            onChange={(e) => handleChange(key, e.target.value)}
+                          />
+                        ) : (
+                          <Input
+                            value={formData[key] ?? ""}
+                            onChange={(e) => handleChange(key, e.target.value)}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
           </div>
 
-          {/* Notes Section */}
+          {/* Notes Section - always separate */}
           {sectionedFields["Notes"].length > 0 && (
-            <div className="px-6 pb-6 mt-6">
-              <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
+            <div className="px-6 pb-6">
+              {/* <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                 Notes
-              </h3>
+              </h3> */}
               <div className="space-y-6 mt-4">
-                {sectionedFields["Notes"].map(({ key }) => (
+                {sectionedFields["Notes"].map(({ key, value }) => (
                   <div key={key} className="space-y-1">
+                    <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      {toLabel(key)}
+                    </Label>
                     <Textarea
                       value={formData[key] || ""}
                       onChange={(e) => handleChange(key, e.target.value)}
@@ -483,7 +689,6 @@ export function EditModal({
             </div>
           )}
 
-          {/* Footer */}
           <div className="flex justify-end px-6 pb-6">
             <button
               type="submit"

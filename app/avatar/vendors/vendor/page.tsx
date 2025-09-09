@@ -17,108 +17,52 @@ const BadgeRenderer = (params: any, map: Record<string, string>) => {
   return <Badge className={cls}>{value.toUpperCase()}</Badge>;
 };
 
+const VendorTypeRenderer = (params: any) => {
+  const map = {
+    client: "bg-green-100 text-green-800",
+    implementation_partner: "bg-blue-100 text-blue-800",
+    third_party: "bg-yellow-100 text-yellow-800",
+  };
+
+  const key = params?.value?.toString().toLowerCase().replace(/ /g, "_");
+  return BadgeRenderer({ value: key }, map);
+};
 
 const TypeRenderer = (params: any) => {
   const map = {
     client: "bg-green-100 text-green-800",
-    "implementation-partner": "bg-blue-100 text-blue-800",
-    "third-party-vendor": "bg-yellow-500 text-yellow-800",
-    sourcer: "bg-purple-100 text-purple-800",
-    "contact-from-ip": "bg-pink-100 text-pink-800",
+    implementation_partner: "bg-blue-100 text-blue-800",
+    third_party: "bg-yellow-100 text-yellow-800",
   };
 
-  const key = params?.value?.toString().toLowerCase();
+  const key = params?.value?.toString().toLowerCase().replace(/ /g, "_");
   return BadgeRenderer({ value: key }, map);
 };
-
 
 const StatusRenderer = (params: any) => {
   const map = {
     active: "bg-green-100 text-green-800",
     working: "bg-blue-100 text-blue-800",
     not_useful: "bg-red-100 text-red-800",
-    do_not_contact: "bg-gray-500 text-gray-800",
+    do_not_contact: "bg-gray-300 text-gray-800",
     inactive: "bg-gray-200 text-gray-600",
-    prospect: "bg-yellow-200 text-yellow-800",
+    prospect: "bg-yellow-100 text-yellow-800",
   };
   return BadgeRenderer(params, map);
 };
-
 
 const YesNoRenderer = (params: any) => {
   const map = {
     yes: "bg-indigo-100 text-indigo-800",
     no: "bg-gray-100 text-gray-800",
-    YES: "bg-indigo-100 text-indigo-800",
-    NO: "bg-gray-100 text-gray-800",
   };
 
-  const key = params?.value?.toString();
+  const key = params?.value?.toString().toLowerCase();
   return BadgeRenderer({ value: key }, map);
-};
-
-const SelectEditor = (props: any) => {
-  const { value, options, colorMap } = props;
-  const [current, setCurrent] = useState(value);
-
-  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setCurrent(e.target.value);
-  };
-
-  useEffect(() => {
-    props.api.addEventListener("cellEditingStopped", () => {
-      props.api.stopEditing();
-    });
-  }, []);
-
-  return (
-    <select
-      value={current}
-      onChange={handleChange}
-      autoFocus
-      style={{ padding: "4px", borderRadius: "6px" }}
-    >
-      {options.map((opt: string) => (
-        <option
-          key={opt}
-          value={opt}
-          className={colorMap[opt]}
-        >
-          {opt.toUpperCase()}
-        </option>
-      ))}
-    </select>
-  );
 };
 
 const DateFormatter = (params: any) =>
   params.value ? new Date(params.value).toLocaleDateString() : "";
-
-const PhoneRenderer = (params: any) => {
-  if (!params.value) return "";
-  return (
-    <a
-      href={`tel:${params.value}`}
-      className="text-blue-600 hover:underline"
-    >
-      {params.value}
-    </a>
-  );
-};
-
-
-const EmailRenderer = (params: any) => {
-  if (!params.value) return "";
-  return (
-    <a
-      href={`mailto:${params.value}`}
-      className="text-blue-600 hover:underline"
-    >
-      {params.value}
-    </a>
-  );
-};
-
 
 export default function VendorPage() {
   const [vendors, setVendors] = useState<any[]>([]);
@@ -129,7 +73,6 @@ export default function VendorPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(100);
-
 
   const fetchVendors = async () => {
     try {
@@ -148,153 +91,80 @@ export default function VendorPage() {
     fetchVendors();
   }, []);
 
-
   useEffect(() => {
     if (!searchTerm.trim()) {
       setFilteredVendors(vendors);
       return;
     }
-    const filtered = vendors.filter((v) =>
-      v.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+  const filtered = vendors.filter((v) =>
+    v.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    v.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    v.company_name?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
     setFilteredVendors(filtered);
   }, [searchTerm, vendors]);
 
   useEffect(() => {
     if (vendors.length > 0) {
-      const defs: ColDef[] = [
-        { field: "id", headerName: "ID", width: 80, editable: false, pinned: "left" },
-        { field: "full_name", headerName: "Full Name", width: 180, editable: true },
-        { field: "phone_number", headerName: "Phone", width: 150, editable: true, cellRenderer: PhoneRenderer },
-        { field: "email", headerName: "Email", width: 200, editable: true, cellRenderer: EmailRenderer },
-        { field: "linkedin_id", headerName: "LinkedIn ID", width: 180, editable: true },
+      const defs: ColDef[] = Object.keys(vendors[0]).map((key) => {
+        const header = key
+          .replace(/([a-z])([A-Z])/g, "$1 $2")
+          .replace(/\b\w/g, (c) => c.toUpperCase());
 
-        {
-          field: "type",
-          headerName: "Type",
-          width: 150,
-          cellRenderer: TypeRenderer,
+        const col: ColDef = {
+          field: key,
+          headerName: header,
+          width: 160,
           editable: true,
-          cellEditor: SelectEditor,
-          cellEditorParams: {
-            options: [
-              "client",
-              "third-party-vendor",
-              "implementation-partner",
-              "sourcer",
-              "contact-from-ip",
-            ],
-            colorMap: {
-              client: "bg-green-100 text-green-800",
-              "implementation-partner": "bg-blue-100 text-blue-800",
-              "third-party-vendor": "bg-yellow-500 text-yellow-800",
-              sourcer: "bg-purple-100 text-purple-800",
-              "contact-from-ip": "bg-pink-100 text-pink-800",
-            },
-          },
-        },
-        {
-          field: "status",
-          headerName: "Status",
-          width: 150,
-          cellRenderer: StatusRenderer,
-          editable: true,
-          cellEditor: SelectEditor,
-          cellEditorParams: {
-            options: ["active", "working", "not_useful", "do_not_contact", "inactive", "prospect"],
-            colorMap: {
-              active: "bg-green-100 text-green-800",
-              working: "bg-blue-100 text-blue-800",
-              not_useful: "bg-red-100 text-red-800",
-              do_not_contact: "bg-gray-500 text-gray-800",
-              inactive: "bg-gray-200 text-gray-600",
-              prospect: "bg-yellow-200 text-yellow-800",
-            },
-          },
-        },
-        { field: "company_name", headerName: "Company Name", width: 180, editable: true },
-        { field: "city", headerName: "City", width: 140, editable: true },
-        { field: "postal_code", headerName: "Postal Code", width: 140, editable: true },
-        { field: "address", headerName: "Address", width: 200, editable: true },
-        { field: "country", headerName: "Country", width: 150, editable: true },
-        { field: "location", headerName: "Location", width: 180, editable: true },
+        };
 
-        {
-          field: "linkedin_connected",
-          headerName: "LinkedIn Connected",
-          width: 180,
-          cellRenderer: YesNoRenderer,
-          editable: true,
-          cellEditor: SelectEditor,
-          cellEditorParams: {
-            options: ["YES", "NO"],
-            colorMap: {
-              YES: "bg-indigo-100 text-indigo-800",
-              NO: "bg-gray-100 text-gray-800",
-            },
-          },
-        },
-        {
-          field: "intro_email_sent",
-          headerName: "Intro Email Sent",
-          width: 180,
-          cellRenderer: YesNoRenderer,
-          editable: true,
-          cellEditor: SelectEditor,
-          cellEditorParams: {
-            options: ["YES", "NO"],
-            colorMap: {
-              YES: "bg-indigo-100 text-indigo-800",
-              NO: "bg-gray-100 text-gray-800",
-            },
-          },
-        },
-        {
-          field: "intro_call",
-          headerName: "Intro Call",
-          width: 150,
-          cellRenderer: YesNoRenderer,
-          editable: true,
-          cellEditor: SelectEditor,
-          cellEditorParams: {
-            options: ["YES", "NO"],
-            colorMap: {
-              YES: "bg-indigo-100 text-indigo-800",
-              NO: "bg-gray-100 text-gray-800",
-            },
-          },
-        },
+        const k = key.toLowerCase();
+        if (k.includes("date") || k.includes("created_at")) {
+          col.valueFormatter = DateFormatter;
+          col.editable = false;
+        } else if (k === "vendor_type") {
+          col.cellRenderer = VendorTypeRenderer;
+        } else if (k === "type") {
+          col.cellRenderer = TypeRenderer;
+          col.cellEditor = "agSelectCellEditor"; 
+          col.cellEditorParams = {
+            values: ["client", "implementation_partner", "third_party"],
+          };
+        } else if (k === "status") {
+          col.cellRenderer = StatusRenderer;
+        } else if (
+          ["linkedin_connected", "intro_email_sent", "intro_call"].includes(k)
+        ) {
+          col.cellRenderer = YesNoRenderer;
+        } else if (k === "id") {
+          col.pinned = "left";
+          col.editable = false;
+          col.width = 80;
+        }
 
-        { field: "created_at", headerName: "Created At", width: 180, valueFormatter: DateFormatter, editable: false },
-        { field: "notes", headerName: "Notes", width: 200, editable: true },
-        { field: "linkedin_internal_id", headerName: "LinkedIn Internal ID", width: 200, editable: true },
-        { field: "secondary_phone", hide: true },
-        { field: "vendor_type", hide: true },
-      ];
+        return col;
+      });
 
       setColumnDefs(defs);
     }
   }, [vendors]);
 
-
   const handleRowUpdated = async (updatedRow: any) => {
-    const normalizeYesNo = (val: any) => {
-      if (!val) return "NO";
-      return val.toString().toUpperCase();
-    };
+    const { email, phone_number, linkedin_id } = updatedRow;
 
-    const payload = {
-      ...updatedRow,
-      email: updatedRow.email?.trim() === "" ? null : updatedRow.email,
-      linkedin_connected: normalizeYesNo(updatedRow.linkedin_connected),
-      intro_email_sent: normalizeYesNo(updatedRow.intro_email_sent),
-      intro_call: normalizeYesNo(updatedRow.intro_call),
-    };
+    if (!email && !phone_number && !linkedin_id) {
+      alert("At least one contact info (email, phone, or LinkedIn) is required.");
+      return;
+    }
 
     try {
-      await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/vendors/${updatedRow.id}`, payload);
+      await axios.put(
+        `${process.env.NEXT_PUBLIC_API_URL}/vendors/${updatedRow.id}`,
+        updatedRow
+      );
       setFilteredVendors((prev) =>
-        prev.map((row) => (row.id === updatedRow.id ? payload : row))
+        prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
       );
     } catch (error) {
       console.error("Update failed", error);
@@ -309,7 +179,6 @@ export default function VendorPage() {
       console.error("Delete failed", error);
     }
   };
-
 
   if (loading) return <p className="text-center mt-8">Loading...</p>;
   if (error) return <p className="text-center mt-8 text-red-600">{error}</p>;
@@ -329,7 +198,7 @@ export default function VendorPage() {
             id="search"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by name..."
+            placeholder="Search by name, email, or company..."
             className="pl-10"
           />
         </div>

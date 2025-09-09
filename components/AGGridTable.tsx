@@ -1,11 +1,10 @@
-"use client"
 
+"use client";
 import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
 ModuleRegistry.registerModules([AllCommunityModule]);
-
 import { useMemo, useCallback, useRef, useState, useEffect } from "react";
 import { AgGridReact } from "ag-grid-react";
-import { ColDef, GridReadyEvent, GridApi,SortChangedEvent } from "ag-grid-community";
+import { ColDef, GridReadyEvent, GridApi, ColumnMovedEvent } from "ag-grid-community";
 import { Button } from "@/components/admin_ui/button";
 import { SearchIcon, ExpandIcon, EyeIcon, EditIcon, TrashIcon } from "lucide-react";
 import { ViewModal } from "./ViewModal";
@@ -18,11 +17,10 @@ import "@/styles/admin.css";
 interface AGGridTableProps {
   rowData: any[];
   columnDefs: ColDef[];
-  defaultColDef?:ColDef;
+  defaultColDef?: ColDef;
   onRowClicked?: (data: any) => void;
   onRowUpdated?: (data: any) => void;
   onRowDeleted?: (id: string | number) => void;
-  onSortChanged?: (event: SortChangedEvent) => void;
   title?: string;
   showSearch?: boolean;
   showFilters?: boolean;
@@ -41,7 +39,7 @@ interface RowData {
 
 export function AGGridTable({
   rowData,
-  columnDefs,
+  columnDefs: initialColumnDefs,
   onRowClicked,
   onRowUpdated,
   onRowDeleted,
@@ -59,6 +57,7 @@ export function AGGridTable({
   const [editData, setEditData] = useState<RowData | null>(null);
   const [deleteConfirmData, setDeleteConfirmData] = useState<RowData | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [columnDefs, setColumnDefs] = useState<ColDef[]>(initialColumnDefs);
 
   useEffect(() => {
     const checkDarkMode = () => {
@@ -77,9 +76,10 @@ export function AGGridTable({
     setGridApi(params.api);
   }, []);
 
-  // const toggleExpand = useCallback(() => {
-  //   setIsExpanded((prev) => !prev);
-  // }, []);
+  const onColumnMoved = useCallback((event: ColumnMovedEvent) => {
+    const newColumnDefs = event.api.getColumnDefs();
+    setColumnDefs([...newColumnDefs]);
+  }, []);
 
   const refreshData = useCallback(() => {
     if (gridApi) {
@@ -102,13 +102,6 @@ export function AGGridTable({
       alert("Please select a row first");
     }
   }, [selectedRowData]);
-  const setSortModel = useMemo(
-    () => [
-      { colId: "entryDate", sort: "desc" } // change "entryDate" to your actual date field key
-    ],
-    []
-  );
-  
 
   const handleEdit = useCallback(() => {
     if (selectedRowData) {
@@ -235,14 +228,14 @@ export function AGGridTable({
           </Button>
         </div>
       </div>
-      
+
       <div className="flex justify-center">
         <div
           className={`ag-theme-alpine ${isDarkMode ? "ag-grid-dark-mode" : ""} rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm transition-all duration-300 ${
             isExpanded ? "w-full" : "w-full max-w-6xl"
           }`}
           style={{
-            height:  "calc(100vh - 200px)",
+            height: "calc(100vh - 200px)",
             minHeight: "400px",
           }}
         >
@@ -250,13 +243,14 @@ export function AGGridTable({
             ref={gridRef}
             rowData={rowData || []}
             columnDefs={columnDefs}
-            // onGridReady={onGridReady}
+            onGridReady={onGridReady}
             onRowClicked={onRowClickedHandler}
             onCellClicked={onCellClickedHandler}
             onSelectionChanged={handleRowSelection}
-            // onSortChanged={onSortChanged}
+            onColumnMoved={onColumnMoved}
             animateRows={true}
             theme="legacy"
+            suppressDragLeaveHidesColumns={true}
             defaultColDef={{
               resizable: true,
               sortable: true,
@@ -310,7 +304,4 @@ export function AGGridTable({
 }
 
 export default AGGridTable;
-
-
-
 
