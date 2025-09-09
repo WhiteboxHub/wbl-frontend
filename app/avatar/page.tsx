@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   Users,Layers3,CalendarDays,GraduationCap,UserPlus,CalendarPlus,PieChart as PieChartIcon,Wallet,Banknote,TrendingUp,Briefcase,Award,CheckCircle2,Clock,Mic,BarChart2,
-  ClipboardList,Percent,XCircle,Target,CakeIcon,PiggyBank,Handshake,
+  ClipboardList,Percent,XCircle,Target,CakeIcon,PiggyBank,Handshake,Trophy,
 } from "lucide-react";
 import { EnhancedMetricCard } from "@/components/EnhancedMetricCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin_ui/card";
@@ -137,6 +137,13 @@ interface LeadMetricsResponse {
   data: LeadMetrics;
   message: string;
 }
+interface CandidateInterviewPerformance {
+  candidate_id: number;
+  candidate_name: string;
+  total_interviews: number;
+  success_count: number;
+}
+
 
 // Hook for animated counters
 function useCounter(target: number, duration = 1000) {
@@ -159,6 +166,7 @@ function useCounter(target: number, duration = 1000) {
 }
 
 export default function Index() {
+  const [data, setData] = useState<CandidateInterviewPerformance[]>([]);
   const [time, setTime] = useState<Date | null>(null);
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [upcomingBatches, setUpcomingBatches] = useState<UpcomingBatch[]>([]);
@@ -170,6 +178,18 @@ export default function Index() {
   });
   const [leadMetrics, setLeadMetrics] = useState<LeadMetrics | null>(null);
   const [activeTab, setActiveTab] = useState("batch");
+
+
+   useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/interview/performance`)
+      .then((res) => res.json())
+      .then((res) => {
+        if (res.success) setData(res.data);
+      })
+      .catch((err) => console.error("Error fetching interview performance:", err))
+      .finally(() => setLoading(false));
+  }, []);
+
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/employee-birthdays`)
@@ -242,7 +262,6 @@ export default function Index() {
 
   // Calculate derived metrics
   const placementRate = metrics ? Math.round((metrics.placement_metrics.total_placements / Math.max(1, metrics.batch_metrics.total_candidates) * 100)) : 0;
-  const interviewSuccessRate = metrics ? Math.round((metrics.interview_metrics.feedback_breakdown.Positive / Math.max(1, metrics.interview_metrics.total_interviews) * 100)) : 0;
   const averageFeePerCandidate = metrics ? Math.round((metrics.financial_metrics.total_fee_current_batch / Math.max(1, metrics.batch_metrics.enrolled_candidates_current))) : 0;
   const leadConversionRate = leadMetrics ? Math.round((leadMetrics.leads_this_month / Math.max(1, leadMetrics.total_leads) * 100)) : 0;
 
@@ -296,7 +315,7 @@ export default function Index() {
             <EnhancedMetricCard
               title="Enrolled in Current Batches"
               value={enrolledCandidates}
-              icon={<Users className="size-4" />}
+              icon={<Users className="size-4" />}     
               variant="purple"
             />
             <EnhancedMetricCard
@@ -512,8 +531,6 @@ export default function Index() {
             <EnhancedMetricCard title="Total Interviews Scheduled" value={totalInterviews} icon={<ClipboardList className="size-4" />} variant="orange" />
             <EnhancedMetricCard title={`Interviews This Month (${currentMonth})`} value={interviewsThisMonth} icon={<BarChart2 className="size-4" />} variant="orange" />
             <EnhancedMetricCard title="Candidates in Marketing Phase" value={metrics?.interview_metrics.marketing_candidates || 0} icon={<Mic className="size-4" />} variant="orange" />
-            <EnhancedMetricCard title="Interview Success Rate" value={`${interviewSuccessRate}%`} icon={<Target className="size-4" />} variant="orange" />
-            
             <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-orange-300">
               <CardHeader className="p-3 pb-1">
                 <div className="flex items-center justify-between border-b border-orange-200">
@@ -572,6 +589,50 @@ export default function Index() {
                     </div>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+            <Card className="sm:col-span-2 lg:col-span-4 border border-orange-300">
+              <CardHeader className="p-3 pb-1">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Candidate Interview Performance
+                  </CardTitle>
+                  <Trophy className="size-4 text-amber-600" />
+                </div>
+              </CardHeader>
+              <CardContent className="p-3 pt-0">
+                {loading ? (
+                  <p className="text-center text-gray-500">Loading...</p>
+                ) : data.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full border text-sm">
+                      <thead className="bg-orange-50">
+                        <tr>
+                          <th className="p-2 text-left">Candidate</th>
+                          <th className="p-2 text-center">Total Interviews</th>
+                          <th className="p-2 text-center">Success</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.map((c) => (
+                          <tr key={c.candidate_id} className="border-t">
+                            <td className="p-2">{c.candidate_name}</td>
+                            <td className="p-2 text-center">{c.total_interviews}</td>
+                            <td
+                              className={`p-2 text-center font-semibold ${
+                                c.success_count > 0 ? "text-green-600" : "text-gray-500"
+                              }`}
+                            >
+                              {c.success_count}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-500">No candidates found</p>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -673,3 +734,7 @@ function formatUSD(amount: number) {
     maximumFractionDigits: 0,
   }).format(amount);
 }
+
+
+
+
