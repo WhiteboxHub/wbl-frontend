@@ -133,18 +133,18 @@ export default function CandidatesPage() {
     []
   );
 
-  const fetchBatches = useCallback(async () => {
-    try {
-      const res = await fetch(batchesEndpoint);
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      const data = await res.json();
-      setBatches(data.data || []);
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Failed to load batches";
-      setError(errorMsg);
-      toast.error(errorMsg);
-    }
-  }, [batchesEndpoint]);
+  // const fetchBatches = useCallback(async () => {
+  //   try {
+  //     const res = await fetch(batchesEndpoint);
+  //     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+  //     const data = await res.json();
+  //     setBatches(data.data || []);
+  //   } catch (err) {
+  //     const errorMsg = err instanceof Error ? err.message : "Failed to load batches";
+  //     setError(errorMsg);
+  //     toast.error(errorMsg);
+  //   }
+  // }, [batchesEndpoint]);
 
   const fetchCandidates = useCallback(
     async (
@@ -200,10 +200,10 @@ export default function CandidatesPage() {
     fetchCandidates(1, pageSize, searchTerm, searchBy, sortModel, filterModelFromGrid);
   }, [pageSize, searchTerm, searchBy, sortModel, fetchCandidates]);
 
-  useEffect(() => {
-    fetchBatches();
-    fetchCandidates(currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel);
-  }, [fetchBatches]);
+  // useEffect(() => {
+  //   fetchBatches();
+  //   fetchCandidates(currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel);
+  // }, [fetchBatches]);
 
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
@@ -996,12 +996,12 @@ export default function CandidatesPage() {
                   className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 >
-                  <option value={0} disabled>Select Batch</option>
+                  {/* <option value={0} disabled>Select Batch</option>
                   {batches.map((batch) => (
                     <option key={batch.batchid} value={batch.batchid}>
                       {batch.batchname}
                     </option>
-                  ))}
+                  ))} */}
                 </select>
               </div>
               <div>
