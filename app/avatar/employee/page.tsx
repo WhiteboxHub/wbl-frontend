@@ -13,7 +13,7 @@ import AGGridTable from "@/components/AGGridTable";
 const DateFormatter = (params: any) => {
   if (!params.value) return "";
   const [year, month, day] = params.value.split("-");
-  return `${month}/${day}/${year}`; // MM/DD/YYYY
+  return `${month}/${day}/${year}`; 
 };
 
 export default function EmployeesPage() {

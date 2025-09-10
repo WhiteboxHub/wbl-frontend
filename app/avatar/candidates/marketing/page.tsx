@@ -22,7 +22,6 @@ export default function CandidatesMarketingPage() {
   const [page] = useState(1);
   const [limit] = useState(100);
 
-  // Fetch marketing candidates
   useEffect(() => {
     const fetchCandidates = async () => {
       try {
@@ -43,7 +42,7 @@ export default function CandidatesMarketingPage() {
     fetchCandidates();
   }, [page, limit]);
 
-  // Filter candidates based on search
+ 
   const filterCandidates = useCallback(
     (term: string) => {
       if (!term.trim()) return allCandidates;
@@ -61,14 +60,12 @@ export default function CandidatesMarketingPage() {
     setFilteredCandidates(filterCandidates(searchTerm));
   }, [searchTerm, filterCandidates]);
 
-  // Status renderer
   const StatusRenderer = (params: any) => (
     <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
       {params.value?.toUpperCase()}
     </Badge>
   );
 
-  // Column definitions aligned with backend model
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => {
     return [
       {
@@ -77,14 +74,9 @@ export default function CandidatesMarketingPage() {
         headerName: "Full Name",
         sortable: true,
         minWidth: 150,
-        // valueGetter: (params) => params.data.candidate?.name || "N/A",
+      
       },
-      // {
-      //   field: "marketing_manager",
-      //   headerName: "Marketing Manager",
-      //   sortable: true,
-      //   minWidth: 150,
-      // },
+
       {
         field: "start_date",
         headerName: "Start Date",
@@ -97,7 +89,6 @@ export default function CandidatesMarketingPage() {
         cellRenderer: StatusRenderer,
         maxWidth: 110,
       },
-      // Show instructor names (from backend relationship)
       {
         field: "instructor1.name",
         headerName: "Instructor 1",
