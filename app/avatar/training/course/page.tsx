@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { ColDef } from "ag-grid-community";
-import { AGGridTable } from "@/components/AGGridTable";
+// import { AGGridTable } from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { Button } from "@/components/admin_ui/button";
@@ -16,6 +16,8 @@ import {
 import { SearchIcon } from "lucide-react";
 import axios from "axios";
 import { toast, Toaster } from "sonner";
+import dynamic from "next/dynamic"; 
+const AGGridTable = dynamic(() => import("@/components/AGGridTable"), { ssr: false });
 
 const DateFormatter = (params: any) =>
   params.value ? new Date(params.value).toLocaleString() : "";

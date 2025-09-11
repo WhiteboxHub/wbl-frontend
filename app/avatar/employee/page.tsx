@@ -13,7 +13,7 @@ import AGGridTable from "@/components/AGGridTable";
 const DateFormatter = (params: any) => {
   if (!params.value) return "";
   const [year, month, day] = params.value.split("-");
-  return `${month}/${day}/${year}`; // MM/DD/YYYY
+  return `${month}/${day}/${year}`; 
 };
 
 export default function EmployeesPage() {
@@ -23,7 +23,7 @@ export default function EmployeesPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(50);
   const [showEmployeeForm, setShowEmployeeForm] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
@@ -72,7 +72,7 @@ export default function EmployeesPage() {
         ...emp,
         full_name: emp.name,
         startdate: emp.startdate,
-        lastmoddate: emp.enddate,
+        // lastmoddate: emp.enddate,
       }));
       setEmployees(mappedData);
       setFilteredEmployees(mappedData);
@@ -273,6 +273,13 @@ export default function EmployeesPage() {
       editable: true,
       onCellValueChanged: (params) => handleRowUpdated(params.data),
     },
+        {
+      headerName: "End Date",
+      field: "enddate",
+      valueFormatter: DateFormatter,
+      editable: true,
+      onCellValueChanged: (params) => handleRowUpdated(params.data),
+    },
     {
       headerName: "Instructor",
       field: "instructor",
@@ -336,101 +343,109 @@ export default function EmployeesPage() {
       {/* Employee Form Modal */}
       {showEmployeeForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="relative w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
-            <h2 className="mb-6 text-center text-2xl font-bold">New Employee Form</h2>
-            <form onSubmit={handleFormSubmit} className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {Object.entries({
-                name: { label: "Full Name", type: "text", required: true },
-                email: { label: "Email", type: "email", required: true },
-                phone: { label: "Phone", type: "tel" },
-                address: { label: "Address", type: "text" },
-                state: { label: "State", type: "text" },
-                dob: { label: "Date of Birth", type: "date" },
-                startdate: { label: "Start Date", type: "date" },
-                enddate: { label: "End Date", type: "date" },
-                aadhaar: { label: "Aadhaar Number", type: "text" },
-                notes: { label: "Notes (optional)", type: "textarea" },
-                status: {
-                  label: "Status",
-                  type: "select",
-                  options: [0, 1],
-                  required: true,
-                },
-                instructor: {
-                  label: "Instructor",
-                  type: "select",
-                  options: [0, 1],
-                  required: true,
-                },
-              }).map(([name, config]) => (
-                <div key={name} className={config.type === "textarea" ? "md:col-span-2" : ""}>
-                  <label
-                    htmlFor={name}
-                    className="mb-1 block text-sm font-medium text-gray-700"
-                  >
-                    {config.label}
-                  </label>
-                  {config.type === "select" ? (
-                    <select
-                      id={name}
-                      name={name}
-                      value={formData[name as keyof typeof formData]}
-                      onChange={handleFormChange}
-                      className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required={config.required}
-                    >
-                      <option value="" disabled>
-                        Select {config.label}
-                      </option>
-                      {config.options.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  ) : config.type === "textarea" ? (
-                    <textarea
-                      id={name}
-                      name={name}
-                      value={formData[name as keyof typeof formData]}
-                      onChange={handleFormChange}
-                      rows={3}
-                      className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  ) : (
-                    <input
-                      type={config.type}
-                      id={name}
-                      name={name}
-                      value={formData[name as keyof typeof formData]}
-                      onChange={handleFormChange}
-                      className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required={config.required}
-                    />
-                  )}
-                </div>
-              ))}
-              <div className="md:col-span-2">
-                <button
-                  type="submit"
-                  disabled={formSaveLoading}
-                  className={`w-full rounded-md py-2 transition duration-200 ${formSaveLoading
-                      ? "cursor-not-allowed bg-gray-400"
-                      : "bg-green-600 text-white hover:bg-green-700"
-                    }`}
-                >
-                  {formSaveLoading ? "Saving..." : "Save"}
-                </button>
-              </div>
-            </form>
-            <button
-              onClick={handleCloseEmployeeForm}
-              className="absolute right-3 top-3 text-2xl leading-none text-gray-500 hover:text-gray-700"
-              aria-label="Close"
-            >
-              &times;
-            </button>
-          </div>
+<div className="relative w-full max-w-2xl rounded-xl bg-white p-4 shadow-md">
+  <h2 className="mb-4 text-center text-xl font-semibold">New Employee Form</h2>
+  <form
+    onSubmit={handleFormSubmit}
+    className="grid grid-cols-1 gap-2 md:grid-cols-2"
+  >
+    {Object.entries({
+      name: { label: "Full Name", type: "text", required: true },
+      email: { label: "Email", type: "email", required: true },
+      phone: { label: "Phone", type: "tel" },
+      address: { label: "Address", type: "text" },
+      state: { label: "State", type: "text" },
+      dob: { label: "Date of Birth", type: "date" },
+      startdate: { label: "Start Date", type: "date" },
+      enddate: { label: "End Date", type: "date" },
+      aadhaar: { label: "Aadhaar Number", type: "text" },
+      notes: { label: "Notes (optional)", type: "textarea" },
+      status: {
+        label: "Status",
+        type: "select",
+        options: [0, 1],
+        required: true,
+      },
+      instructor: {
+        label: "Instructor",
+        type: "select",
+        options: [0, 1],
+        required: true,
+      },
+    }).map(([name, config]) => (
+      <div
+        key={name}
+        className={config.type === "textarea" ? "md:col-span-2" : ""}
+      >
+        <label
+          htmlFor={name}
+          className="mb-0.5 block text-xs font-medium text-gray-700"
+        >
+          {config.label}
+        </label>
+        {config.type === "select" ? (
+          <select
+            id={name}
+            name={name}
+            value={formData[name as keyof typeof formData]}
+            onChange={handleFormChange}
+            className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+            required={config.required}
+          >
+            <option value="" disabled>
+              Select {config.label}
+            </option>
+            {config.options.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        ) : config.type === "textarea" ? (
+          <textarea
+            id={name}
+            name={name}
+            value={formData[name as keyof typeof formData]}
+            onChange={handleFormChange}
+            rows={2}
+            className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        ) : (
+          <input
+            type={config.type}
+            id={name}
+            name={name}
+            value={formData[name as keyof typeof formData]}
+            onChange={handleFormChange}
+            className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+            required={config.required}
+          />
+        )}
+      </div>
+    ))}
+    <div className="md:col-span-2">
+      <button
+        type="submit"
+        disabled={formSaveLoading}
+        className={`w-full rounded-md py-1.5 text-sm transition duration-200 ${
+          formSaveLoading
+            ? "cursor-not-allowed bg-gray-400"
+            : "bg-green-600 text-white hover:bg-green-700"
+        }`}
+      >
+        {formSaveLoading ? "Saving..." : "Save"}
+      </button>
+    </div>
+  </form>
+  <button
+    onClick={handleCloseEmployeeForm}
+    className="absolute right-2 top-2 text-xl leading-none text-gray-500 hover:text-gray-700"
+    aria-label="Close"
+  >
+    &times;
+  </button>
+</div>
+
         </div>
       )}
 

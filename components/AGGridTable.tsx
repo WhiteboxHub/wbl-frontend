@@ -1,10 +1,12 @@
 
-"use client";
+"use client"
+
 import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
 ModuleRegistry.registerModules([AllCommunityModule]);
+
 import { useMemo, useCallback, useRef, useState, useEffect } from "react";
 import { AgGridReact } from "ag-grid-react";
-import { ColDef, GridReadyEvent, GridApi, ColumnMovedEvent } from "ag-grid-community";
+import { ColDef, GridReadyEvent, GridApi ,ColumnMovedEvent  } from "ag-grid-community";
 import { Button } from "@/components/admin_ui/button";
 import { SearchIcon, ExpandIcon, EyeIcon, EditIcon, TrashIcon } from "lucide-react";
 import { ViewModal } from "./ViewModal";
@@ -17,7 +19,7 @@ import "@/styles/admin.css";
 interface AGGridTableProps {
   rowData: any[];
   columnDefs: ColDef[];
-  defaultColDef?: ColDef;
+  defaultColDef?:ColDef;
   onRowClicked?: (data: any) => void;
   onRowUpdated?: (data: any) => void;
   onRowDeleted?: (id: string | number) => void;
@@ -39,6 +41,7 @@ interface RowData {
 
 export function AGGridTable({
   rowData,
+  // columnDefs,,initialColumnDefs,
   columnDefs: initialColumnDefs,
   onRowClicked,
   onRowUpdated,
@@ -76,10 +79,14 @@ export function AGGridTable({
     setGridApi(params.api);
   }, []);
 
-  const onColumnMoved = useCallback((event: ColumnMovedEvent) => {
+    const onColumnMoved = useCallback((event: ColumnMovedEvent) => {
     const newColumnDefs = event.api.getColumnDefs();
     setColumnDefs([...newColumnDefs]);
   }, []);
+
+  // const toggleExpand = useCallback(() => {
+  //   setIsExpanded((prev) => !prev);
+  // }, []);
 
   const refreshData = useCallback(() => {
     if (gridApi) {
@@ -228,14 +235,14 @@ export function AGGridTable({
           </Button>
         </div>
       </div>
-
+      
       <div className="flex justify-center">
         <div
           className={`ag-theme-alpine ${isDarkMode ? "ag-grid-dark-mode" : ""} rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm transition-all duration-300 ${
             isExpanded ? "w-full" : "w-full max-w-6xl"
           }`}
           style={{
-            height: "calc(100vh - 200px)",
+            height:  "calc(100vh - 200px)",
             minHeight: "400px",
           }}
         >
@@ -250,7 +257,6 @@ export function AGGridTable({
             onColumnMoved={onColumnMoved}
             animateRows={true}
             theme="legacy"
-            suppressDragLeaveHidesColumns={true}
             defaultColDef={{
               resizable: true,
               sortable: true,
@@ -304,4 +310,3 @@ export function AGGridTable({
 }
 
 export default AGGridTable;
-
