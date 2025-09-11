@@ -1,3 +1,4 @@
+
 "use client";
 import React from "react";
 import {
@@ -17,23 +18,40 @@ interface EditModalProps {
   onSave: (updatedData: Record<string, any>) => void;
 }
 
+// Country codes configuration
+const countryCodes = [
+  { code: "+1", country: "US", flag: "🇺🇸" },
+  { code: "+44", country: "UK", flag: "🇬🇧" },
+  { code: "+91", country: "India", flag: "🇮🇳" },
+  { code: "+61", country: "Australia", flag: "🇦🇺" },
+  { code: "+86", country: "China", flag: "🇨🇳" },
+  { code: "+81", country: "Japan", flag: "🇯🇵" },
+  { code: "+49", country: "Germany", flag: "🇩🇪" },
+  { code: "+33", country: "France", flag: "🇫🇷" },
+];
+
 const excludedFields = [
   "candidate",
   "instructor1",
   "instructor2",
   "instructor3",
   "id",
-  "sessionid",
   "vendor_type",
+  "sessionid",
   "lastmoddatetime",
   "last_modified",
+  "name",
   "logincount",
   "googleId",
   "subject_id",
   "new_subject_id",
   "last_mod_datetime"
   
+
 ];
+
+
+
 
 const fieldSections: Record<string, string> = {
    candidate_full_name: "Basic Information",
@@ -48,7 +66,7 @@ const fieldSections: Record<string, string> = {
   extraction_date: "Basic Information",
   filename: "Basic Information",
   type: "Professional Information",
-  email: "Basic Information",
+  email: "Contact Information",
   company_name: "Basic Information",
   linkedin_id: "Contact Information",
   status: "Basic Information",
@@ -56,7 +74,7 @@ const fieldSections: Record<string, string> = {
   intro_email_sent: "Professional Information",
   intro_call: "Professional Information",
   moved_to_vendor: "Professional Information",
-  phone_number: "Basic Information",
+  phone_number: "Contact Information",
   secondary_phone: "Contact Information",
   location: "Contact Information",
   agreement: "Professional Information",
@@ -78,7 +96,7 @@ const fieldSections: Record<string, string> = {
   dob: "Basic Information",
   contact: "Basic Information",
   secondaryphone: "Contact Information",
-  phone: "Basic Information",
+  phone: "Contact Information",
   secondaryemail: "Contact Information",
   ssn: "Professional Information",
   priority: "Basic Information",
@@ -124,16 +142,15 @@ const fieldSections: Record<string, string> = {
   marketing_startdate: "Professional Information",
   recruiterassesment: "Professional Information",
   statuschangedate: "Professional Information",
-  aadhaar: "Basic Information",
-  entry_date: "Professional Information",
-  closed_date: "Professional Information",
   closed: "Professional Information",
+  aadhaar: "Basic Information",
   secondary_email: "Contact Information",
-  massemail_email_sent: "Contact Information",
-  massemail_unsubscribe: "Contact Information",
-  moved_to_candidate: "Contact Information",
+  massemail_email_sent: "Professional Information",
+  massemail_unsubscribe: "Professional Information",
+  moved_to_candidate: "Professional Information",
   link: "Professional Information",
-  address: "Professional Information",
+  videoid: "Professional Information",
+  address: "Contact Information",
   city: "Contact Information",
   state: "Contact Information",
   country: "Contact Information",
@@ -152,7 +169,7 @@ const fieldSections: Record<string, string> = {
   spousephone: "Emergency Contact",
   spouseemail: "Emergency Contact",
   spouseoccupationinfo: "Emergency Contact",
-  notes: "Notes", // merged into Other
+  notes: "Notes",
 };
 
 const workVisaStatusOptions = [
@@ -167,6 +184,19 @@ const workVisaStatusOptions = [
   { value: "waiting for status", label: "Waiting for Status" },
 ];
 
+
+
+const vendorStatuses = [
+  { value: "active", label: "Active" },
+  { value: "working", label: "Working" },
+  { value: "not_useful", label: "Not Useful" },
+  { value: "do_not_contact", label: "Do Not Contact" },
+  { value: "inactive", label: "Inactive" },
+  { value: "prospect", label: "Prospect" },
+];
+
+// Enum dropdown options
+
 const enumOptions: Record<string, { value: string; label: string }[]> = {
   type: [
     { value: "client", label: "Client" },
@@ -176,26 +206,22 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "contact-from-ip", label: "Contact from IP" },
   ],
   linkedin_connected: [
-    { value: "yes", label: "Yes" },
     { value: "no", label: "No" },
+    { value: "yes", label: "Yes" },
   ],
   intro_email_sent: [
-    { value: "yes", label: "Yes" },
     { value: "no", label: "No" },
+    { value: "yes", label: "Yes" },
   ],
   intro_call: [
-    { value: "yes", label: "Yes" },
     { value: "no", label: "No" },
+    { value: "yes", label: "Yes" },
   ],
   moved_to_vendor: [
     { value: "true", label: "Yes" },
     { value: "false", label: "No" },
   ],
   moved_to_candidate: [
-    { value: "true", label: "Yes" },
-    { value: "false", label: "No" },
-  ],
-  massemail_email_sent: [
     { value: "true", label: "Yes" },
     { value: "false", label: "No" },
   ],
@@ -207,6 +233,7 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "true", label: "Yes" },
     { value: "false", label: "No" },
   ],
+  // Default non-vendor statuses
   status: [
     { value: "active", label: "Active" },
     { value: "inactive", label: "Inactive" },
@@ -268,6 +295,7 @@ const labelOverrides: Record<string, string> = {
   instructor1_id: "Instructor 1",
   instructor2_id: "Instructor 2",
   instructor3_id: "Instructor 3",
+
 };
 
 const dateFields = [
@@ -279,7 +307,6 @@ const dateFields = [
   "created_at",
   "classdate",
   "sessiondate",
-  "enrolled_date",
 ];
 
 export function EditModal({
@@ -348,32 +375,40 @@ React.useEffect(() => {
     sectionedFields[section].push({ key, value });
   });
 
-  // Exclude Notes from the grid
   const visibleSections = Object.keys(sectionedFields).filter(
-    (section) => section !== "Notes" && sectionedFields[section]?.length > 0
+    (section) => sectionedFields[section]?.length > 0
   );
 
   const columnCount = Math.min(visibleSections.length, 4);
-  const modalWidthClass = {
-    1: "max-w-xl",
-    2: "max-w-3xl",
-    3: "max-w-5xl",
-    4: "max-w-6xl",
-  }[columnCount] || "max-w-6xl";
 
-  const gridColsClass = {
-    1: "grid-cols-1",
-    2: "md:grid-cols-2",
-    3: "md:grid-cols-3",
-    4: "lg:grid-cols-4 md:grid-cols-2",
-  }[columnCount] || "lg:grid-cols-4 md:grid-cols-2";
+
+  const modalWidthClass =
+    {
+      1: "max-w-xl",
+      2: "max-w-3xl",
+      3: "max-w-5xl",
+      4: "max-w-6xl",
+    }[columnCount] || "max-w-6xl";
+
+  const gridColsClass =
+    {
+      1: "grid-cols-1",
+      2: "md:grid-cols-2",
+      3: "md:grid-cols-3",
+      4: "lg:grid-cols-4 md:grid-cols-2",
+    }[columnCount] || "lg:grid-cols-4 md:grid-cols-2";
+
+
+  const isVendorTable = title.toLowerCase().includes("vendor"); 
 
   const isVendorModal = title.toLowerCase().includes("vendor");
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+
       <DialogContent className={`${modalWidthClass} max-h-[80vh] overflow-y-auto p-0`}>
         {/* Header */}
+
         <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
             {title} - Edit Details
@@ -400,13 +435,6 @@ React.useEffect(() => {
           </button>
         </div>
 
-        {/* Content */}
-        {/* <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            onSave(formData);
-            onClose();
-          }}
         > */}
         <form
   onSubmit={(e) => {
@@ -442,6 +470,20 @@ React.useEffect(() => {
                 {sectionedFields[section].map(({ key, value }) => {
                   const isTypeField = key.toLowerCase() === "type";
                   return (
+
+        >
+
+          <div className={`grid ${gridColsClass} gap-6 p-6`}>
+            {visibleSections
+              .filter((section) => section !== "Notes")
+              .map((section) => (
+                <div key={section} className="space-y-4">
+                  <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
+                    {section}
+                  </h3>
+
+                  {sectionedFields[section].map(({ key, value }) => (
+
                     <div key={key} className="space-y-1">
                       <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                         {toLabel(key)}
@@ -457,23 +499,18 @@ React.useEffect(() => {
                           onChange={(e) => handleChange(key, e.target.value)}
                           className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
                         />
-                      ) : isTypeField && isVendorModal ? (
+                      ) : key.toLowerCase() === "status" && isVendorTable ? (
                         <select
                           value={String(formData[key] ?? "")}
                           onChange={(e) => handleChange(key, e.target.value)}
                           className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
                         >
-                          {enumOptions["type"].map((opt) => (
+                          {vendorStatuses.map((opt) => (
                             <option key={opt.value} value={opt.value}>
                               {opt.label}
                             </option>
                           ))}
                         </select>
-                      ) : isTypeField && !isVendorModal ? (
-                        <Input
-                          value={formData[key] ?? ""}
-                          onChange={(e) => handleChange(key, e.target.value)}
-                        />
                       ) : enumOptions[key.toLowerCase()] ? (
                         <select
                           value={String(formData[key] ?? "")}
@@ -507,21 +544,24 @@ React.useEffect(() => {
                         />
                       )}
                     </div>
-                  );
-                })}
-              </div>
-            ))}
+                  ))}
+
+
+                </div>
+              ))}
           </div>
 
-          {/* Notes Section */}
           {sectionedFields["Notes"].length > 0 && (
-            <div className="px-6 pb-6 mt-6">
+            <div className="px-6 pb-6">
               <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                 Notes
               </h3>
               <div className="space-y-6 mt-4">
-                {sectionedFields["Notes"].map(({ key }) => (
+                {sectionedFields["Notes"].map(({ key, value }) => (
                   <div key={key} className="space-y-1">
+                    <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      {toLabel(key)}
+                    </Label>
                     <Textarea
                       value={formData[key] || ""}
                       onChange={(e) => handleChange(key, e.target.value)}
@@ -533,7 +573,6 @@ React.useEffect(() => {
             </div>
           )}
 
-          {/* Footer */}
           <div className="flex justify-end px-6 pb-6">
             <button
               type="submit"
