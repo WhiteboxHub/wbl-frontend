@@ -151,7 +151,7 @@ export default function CandidatesInterviews() {
       { field: "interview_type", headerName: "Type", maxWidth: 110, editable: true },
       { field: "interview_date", headerName: "Date", maxWidth: 120, editable: true },
       { field: "recording_link", headerName: "Recording", cellRenderer: RecordingRenderer, minWidth: 200, editable: true },
-      { field: "status", headerName: "Status", cellRenderer: StatusRenderer, maxWidth: 130, editable: true },
+      { field: "status", headerName: "Status", cellRenderer: StatusRenderer, maxWidth: 150, editable: true },
       { field: "feedback", headerName: "Feedback", cellRenderer: FeedbackRenderer, maxWidth: 130, editable: true },
       { field: "interviewer_emails", headerName: "Emails", minWidth: 180, editable: true },
       { field: "interviewer_contact", headerName: "Contact", minWidth: 140, editable: true },

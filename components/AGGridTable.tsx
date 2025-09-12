@@ -6,7 +6,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 
 import { useMemo, useCallback, useRef, useState, useEffect } from "react";
 import { AgGridReact } from "ag-grid-react";
-import { ColDef, GridReadyEvent, GridApi } from "ag-grid-community";
+import { ColDef, GridReadyEvent, GridApi ,ColumnMovedEvent  } from "ag-grid-community";
 import { Button } from "@/components/admin_ui/button";
 import { SearchIcon, ExpandIcon, EyeIcon, EditIcon, TrashIcon } from "lucide-react";
 import { ViewModal } from "./ViewModal";
@@ -41,7 +41,8 @@ interface RowData {
 
 export function AGGridTable({
   rowData,
-  columnDefs,
+  // columnDefs,,initialColumnDefs,
+  columnDefs: initialColumnDefs,
   onRowClicked,
   onRowUpdated,
   onRowDeleted,
@@ -59,6 +60,7 @@ export function AGGridTable({
   const [editData, setEditData] = useState<RowData | null>(null);
   const [deleteConfirmData, setDeleteConfirmData] = useState<RowData | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [columnDefs, setColumnDefs] = useState<ColDef[]>(initialColumnDefs);
 
   useEffect(() => {
     const checkDarkMode = () => {
@@ -75,6 +77,11 @@ export function AGGridTable({
 
   const onGridReady = useCallback((params: GridReadyEvent) => {
     setGridApi(params.api);
+  }, []);
+
+    const onColumnMoved = useCallback((event: ColumnMovedEvent) => {
+    const newColumnDefs = event.api.getColumnDefs();
+    setColumnDefs([...newColumnDefs]);
   }, []);
 
   // const toggleExpand = useCallback(() => {
@@ -247,6 +254,7 @@ export function AGGridTable({
             onRowClicked={onRowClickedHandler}
             onCellClicked={onCellClickedHandler}
             onSelectionChanged={handleRowSelection}
+            onColumnMoved={onColumnMoved}
             animateRows={true}
             theme="legacy"
             defaultColDef={{
