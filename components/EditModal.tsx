@@ -9,6 +9,8 @@ import {
 import { Label } from "@/components/admin_ui/label";
 import { Input } from "@/components/admin_ui/input";
 import { Textarea } from "@/components/admin_ui/textarea";
+import axios from "axios";
+
 
 
 interface EditModalProps {
@@ -354,7 +356,20 @@ export function EditModal({
       setFormData(flattenData(data));
     }, [data]);
 
-  
+  const [courses, setCourses] = React.useState<{ id: number; name: string }[]>([]);
+
+  React.useEffect(() => {
+  const fetchCourses = async () => {
+    try {
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/courses`);
+      setCourses(res.data);
+    } catch (error) {
+      console.error("Failed to fetch courses:", error);
+    }
+  };
+
+  fetchCourses();
+}, []);
 
    if (!data) return null;
 
@@ -496,7 +511,26 @@ export function EditModal({
                         <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                           {toLabel(key)}
                         </Label>
-                        {isBatchField ? (
+                        {/* Course ID Dropdown  */}
+                        {key.toLowerCase() === "courseid" ? (
+                          
+                          <select
+                            value={formData["courseid"]}
+                            onChange={(e) =>
+                              handleChange("courseid", Number(e.target.value))
+                            }
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          >
+                            {courses.map((course) => (
+                              <option key={course.id} value={course.id}>
+                                {course.id} 
+                              </option>
+                            ))}
+                            {/* 0 and 9 IDs */}
+                            <option value="0">0</option>
+                            <option value="9">9</option>
+                          </select> 
+                         ) : isBatchField ? (
                           <Input
                             value={formData["batchid"] ?? ""}
                             onChange={(e) => handleChange("batchid", e.target.value)}

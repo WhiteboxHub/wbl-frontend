@@ -270,7 +270,7 @@ export function AGGridTable({
             suppressRowClickSelection={false}
             suppressCellFocus={false}
             enableCellTextSelection={true}
-            maintainColumnOrder={true} 
+            maintainColumnOrder={true}         
           />
         </div>
       </div>
