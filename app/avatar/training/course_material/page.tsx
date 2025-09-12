@@ -22,10 +22,7 @@ export default function CourseMaterialPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-
-  
-  // Modal state for adding new material
+  const [pageSize, setPageSize] = useState(50);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newMaterial, setNewMaterial] = useState({
     subjectid: "",
@@ -42,8 +39,11 @@ export default function CourseMaterialPage() {
     try {
       setLoading(true);
       const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/course-materials`);
-      setMaterials(res.data);
-      setFilteredMaterials(res.data);
+
+      const sortedMaterials = res.data.sort((a: any, b: any) => b.id - a.id);
+
+      setMaterials(sortedMaterials);
+      setFilteredMaterials(sortedMaterials);
       toast.success("Course Materials fetched successfully", { position: "top-center" });
     } catch (e: any) {
       setError(e.response?.data?.message || e.message);
@@ -130,8 +130,10 @@ const handleAddMaterial = async () => {
       `${process.env.NEXT_PUBLIC_API_URL}/course-materials`,
       payload
     );
-    setMaterials(prev => [...prev, res.data]);
-    setFilteredMaterials(prev => [...prev, res.data]);
+
+    const updated = [...materials, res.data].sort((a, b) => b.id - a.id);
+    setMaterials(updated);
+    setFilteredMaterials(updated);
     toast.success("Course Material added successfully", { position: "top-center" });
     setIsModalOpen(false);
     setNewMaterial({
@@ -151,7 +153,7 @@ const handleAddMaterial = async () => {
   }
 };
 
-  // update row
+  // update 
   const handleRowUpdated = async (updatedRow: any) => {
     if (updatedRow.type && !validTypes.includes(updatedRow.type)) {
       alert(`Invalid type. Must be one of: ${validTypes.join(", ")}`);
@@ -166,7 +168,7 @@ const handleAddMaterial = async () => {
     }
   };
 
-  // delete row
+  // delete 
   const handleRowDeleted = async (id: number) => {
     try {
       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/course-materials/${id}`);
@@ -301,7 +303,7 @@ const handleAddMaterial = async () => {
         </DialogContent>
       </Dialog>
 
-      {/* AG Grid */}
+
       <AGGridTable
         rowData={filteredMaterials.slice((page-1)*pageSize,page*pageSize)}
         columnDefs={columnDefs}

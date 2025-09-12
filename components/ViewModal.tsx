@@ -80,6 +80,9 @@ const fieldSections: Record<string, string> = {
   vendor_company: "Professional Information",
 
   course: "Professional Information",
+  course_id: "Professional Information",
+  subject_name: "Basic Information",
+  course_name: "Professional Information",
   subjectid: "Professional Information",
   courseid: "Professional Information",
   link: "Professional Information",
@@ -149,6 +152,7 @@ const fieldLabels: Record<string, string> = {
   id: "ID",
   sessionid: "ID",
   subject_id: "Subject ID",
+  subjectid:"Subject ID",
   course_id: "Course ID",
   courseid: "Course ID",
   new_subject_id: "New Subject ID",
@@ -197,6 +201,7 @@ const fieldLabels: Record<string, string> = {
 // Excluded fields (won’t render in modal)
 const excludedFields: string[] = [
   "vendor_type",
+  "lastmoddatetime",
 ];
 
 export function ViewModal({ isOpen, onClose, data, title }: ViewModalProps) {
