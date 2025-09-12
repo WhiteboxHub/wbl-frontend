@@ -1248,7 +1248,6 @@ const excludedFields = [
   "logincount",
   "googleId",
   "subject_id",
-  "course_id",
   "new_subject_id",
 ];
 
@@ -1486,8 +1485,6 @@ const labelOverrides: Record<string, string> = {
   emergcontactphone: "Contact Phone",
   emergcontactemail: "Contact Email",
   emergcontactaddrs: "Contact Address",
-  course_name: "Course Name",
-  subject_name: "Subject Name",
 };
 
 const dateFields = [
@@ -1508,13 +1505,8 @@ export function EditModal({
   title,
   onSave,
 }: EditModalProps) {
-  const [formData, setFormData] = React.useState<Record<string, any>>(data || {});
-  const [batches, setBatches] = React.useState<any[]>([]);
-  const [courses, setCourses] = React.useState<any[]>([]);
-  const [batchLoading, setBatchLoading] = React.useState(false);
-  const [courseLoading, setCourseLoading] = React.useState(false);
-  const [batchError, setBatchError] = React.useState<string | null>(null);
-  const [courseError, setCourseError] = React.useState<string | null>(null);
+  if (!data) return null;
+  const [formData, setFormData] = React.useState<Record<string, any>>(data);
 
   React.useEffect(() => {
     if (data) {
@@ -1618,158 +1610,6 @@ export function EditModal({
   const isVendorModal = title.toLowerCase().includes("vendor");
   const isVendorTable = title.toLowerCase().includes("vendor");
 
-  
-  const renderFieldInput = (key: string) => {
-    const lowerKey = key.toLowerCase();
-    const currentValue = String(formData[key] ?? "");
-    
-    // Batch field
-    if (lowerKey === "batchid") {
-      if (batchLoading) return <p className="text-sm text-gray-500">Loading batches...</p>;
-      if (batchError) return <p className="text-sm text-red-500">{batchError}</p>;
-      return (
-        <select
-          value={currentValue}
-          onChange={(e) => handleChange(key, e.target.value)}
-          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-        >
-          <option value="">Select Batch</option>
-          {batches.map((batch) => (
-            <option key={batch.batchid || batch.id} value={String(batch.batchid || batch.id)}>
-              {batch.batchname || batch.name}
-            </option>
-          ))}
-        </select>
-      );
-    }
-
-    // Course name field 
-    if (lowerKey === "course_name") {
-      if (courseLoading) return <p className="text-sm text-gray-500">Loading courses...</p>;
-      if (courseError) return <p className="text-sm text-red-500">{courseError}</p>;
-  const currentCourseValue = currentValue || "Machine Learning";
-  
-  return (
-    <select
-      value={currentCourseValue}
-      onChange={(e) => handleChange(key, e.target.value)}
-      className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-    >
-      {courses.map((course) => (
-        <option key={course.id} value={course.name}>
-          {course.name}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-    // Date fields
-    if (dateFields.includes(lowerKey)) {
-      return (
-        <input
-          type="date"
-          value={
-            formData[key] && !isNaN(new Date(formData[key]).getTime())
-              ? new Date(formData[key]).toISOString().split("T")[0]
-              : ""
-          }
-          onChange={(e) => handleChange(key, e.target.value)}
-          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-        />
-      );
-    }
-
-    //  Type dropdown to ONLY show for vendor modals
-    if (lowerKey === "type") {
-      if (isVendorModal) {
-        return (
-          <select
-            value={currentValue}
-            onChange={(e) => handleChange(key, e.target.value)}
-            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-          >
-            <option value="">Select Type</option>
-            {enumOptions["type"].map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        );
-      } else {
-        // For non-vendor modals, 
-        return (
-          <Input
-            value={currentValue}
-            onChange={(e) => handleChange(key, e.target.value)}
-          />
-        );
-      }
-    }
-
-    // Status field with vendor table
-    if (lowerKey === "status" && isVendorTable) {
-      return (
-        <select
-          value={currentValue}
-          onChange={(e) => handleChange(key, e.target.value)}
-          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-        >
-          {vendorStatuses.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      );
-    }
-
-    // Enum options (other than type)
-    if (enumOptions[lowerKey] && lowerKey !== "type") {
-      return (
-        <select
-          value={currentValue}
-          onChange={(e) =>
-            handleChange(
-              key,
-              e.target.value === "true"
-                ? true
-                : e.target.value === "false"
-                ? false
-                : e.target.value
-            )
-          }
-          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-        >
-          {enumOptions[lowerKey].map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      );
-    }
-
-    // Textarea for long text
-    if (typeof formData[key] === "string" && formData[key].length > 100) {
-      return (
-        <Textarea
-          value={formData[key] || ""}
-          onChange={(e) => handleChange(key, e.target.value)}
-        />
-      );
-    }
-
-    // Default input
-    return (
-      <Input
-        value={formData[key] ?? ""}
-        onChange={(e) => handleChange(key, e.target.value)}
-      />
-    );
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
@@ -1801,7 +1641,6 @@ export function EditModal({
             </svg>
           </button>
         </div>
-
         {/* Form */}
         <form
           onSubmit={(e) => {
@@ -1819,19 +1658,97 @@ export function EditModal({
                   <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                     {section}
                   </h3>
-
-                  {sectionedFields[section].map(({ key, value }) => (
-                    <div key={key} className="space-y-1">
-                      <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                        {toLabel(key)}
-                      </Label>
-                      {renderFieldInput(key)}
-                    </div>
-                  ))}
+                  {sectionedFields[section].map(({ key, value }) => {
+                    const isTypeField = key.toLowerCase() === "type";
+                    const isBatchField = key.toLowerCase() === "batchid";
+                    return (
+                      <div key={key} className="space-y-1">
+                        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                          {toLabel(key)}
+                        </Label>
+                        {isBatchField ? (
+                          <Input
+                            value={formData["batchid"] ?? ""}
+                            onChange={(e) => handleChange("batchid", e.target.value)}
+                          />
+                        ) : dateFields.includes(key.toLowerCase()) ? (
+                          <input
+                            type="date"
+                            value={
+                              formData[key] && !isNaN(new Date(formData[key]).getTime())
+                                ? new Date(formData[key]).toISOString().split("T")[0]
+                                : ""
+                            }
+                            onChange={(e) => handleChange(key, e.target.value)}
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          />
+                        ) : isTypeField && isVendorModal ? (
+                          <select
+                            value={String(formData[key] ?? "")}
+                            onChange={(e) => handleChange(key, e.target.value)}
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          >
+                            {enumOptions["type"].map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : isTypeField && !isVendorModal ? (
+                          <Input
+                            value={formData[key] ?? ""}
+                            onChange={(e) => handleChange(key, e.target.value)}
+                          />
+                        ) : key.toLowerCase() === "status" && isVendorTable ? (
+                          <select
+                            value={String(formData[key] ?? "")}
+                            onChange={(e) => handleChange(key, e.target.value)}
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          >
+                            {vendorStatuses.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : enumOptions[key.toLowerCase()] ? (
+                          <select
+                            value={String(formData[key] ?? "")}
+                            onChange={(e) =>
+                              handleChange(
+                                key,
+                                e.target.value === "true"
+                                  ? true
+                                  : e.target.value === "false"
+                                    ? false
+                                    : e.target.value
+                              )
+                            }
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          >
+                            {enumOptions[key.toLowerCase()].map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : typeof value === "string" && value.length > 100 ? (
+                          <Textarea
+                            value={formData[key] || ""}
+                            onChange={(e) => handleChange(key, e.target.value)}
+                          />
+                        ) : (
+                          <Input
+                            value={formData[key] ?? ""}
+                            onChange={(e) => handleChange(key, e.target.value)}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               ))}
           </div>
-
           {sectionedFields["Notes"].length > 0 && (
             <div className="px-6 pb-6">
               <div className="space-y-6 mt-4">
@@ -1850,7 +1767,6 @@ export function EditModal({
               </div>
             </div>
           )}
-
           {/* Footer */}
           <div className="flex justify-end px-6 pb-6">
             <button

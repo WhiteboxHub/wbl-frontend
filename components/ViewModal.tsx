@@ -17,12 +17,32 @@ interface ViewModalProps {
 
 const fieldSections: Record<string, string> = {
   id: "Basic Information",
-  sessionid: "Basic Information",
   alias: "Basic Information",
-  subject: "Basic Information",
+  Fundamentals: "Basic Information",
+  AIML: "Basic Information",
+  full_name: "Basic Information",
+  extraction_date: "Basic Information",
+  filename: "Basic Information",
+  type: "Professional Information",
+  email: "Basic Information",
+  company_name: "Basic Information",
+  linkedin_id: "Contact Information",
+  status: "Basic Information",
+  linkedin_connected: "Professional Information",
+  intro_email_sent: "Professional Information",
+  intro_call: "Professional Information",
+  moved_to_vendor: "Professional Information",
+  phone_number: "Basic Information",
+  secondary_phone: "Contact Information",
+  location: "Contact Information",
+  agreement: "Professional Information",
+  sessionid: "Basic Information",
   subject_id: "Basic Information",
+  subjectid: "Professional Information",
+  courseid: "Professional Information",
   candidateid: "Basic Information",
   uname: "Basic Information",
+  enrolled_date: "Professional Information",
   fullname: "Basic Information",
   candidate_id: "Basic Information",
   candidate_email: "Basic Information",
@@ -34,64 +54,23 @@ const fieldSections: Record<string, string> = {
   candidate_role: "Basic Information",
   dob: "Basic Information",
   contact: "Basic Information",
-
-  phone: "Contact Information",
-  Phone: "Contact Information",
   secondaryphone: "Contact Information",
-  phone_number: "Contact Information",
-  email: "Contact Information",
-  created_at: "",
-  linkedin_connected: "Professional Information",
-  intro_email_sent: "Professional Information",
-  intro_call: "Professional Information",
+  phone: "Basic Information",
   secondaryemail: "Contact Information",
   ssn: "Professional Information",
   priority: "Basic Information",
   source: "Basic Information",
+  subject: "Basic Information",
   title: "Basic Information",
   enrolleddate: "Basic Information",
   orientationdate: "Basic Information",
   batchname: "Basic Information",
   batchid: "Professional Information",
-  agreement: "Professional Information",
   promissory: "Basic Information",
-  status: "Basic Information",
-  filename: "Basic Information",
-
-  full_name: "Basic Information",
-  
-  linkedin_id: "Professional Information",
-  company_name: "Basic Information",
-  location: "Contact Information",
-  extraction_date: "Basic Information",
-  Fundamentals: "Basic Information",
-  AIML: "Basic Information",
-
-  vendor_id: "Basic Information",
-  vendor_name: "Basic Information",
-  vendor_email: "Basic Information",
-  vendor_phone: "Contact Information",
-  vendor_secondary_phone: "Contact Information",
-  vendor_city: "Contact Information",
-  vendor_address: "Contact Information",
-  vendor_country: "Contact Information",
-  vendor_status: "Professional Information",
-  vendor_linkedin: "Professional Information",
-  vendor_company: "Professional Information",
-
-  course: "Professional Information",
-  course_id: "Professional Information",
-  subject_name: "Basic Information",
-  course_name: "Professional Information",
-  subjectid: "Professional Information",
-  courseid: "Professional Information",
-  link: "Professional Information",
-  videoid: "Professional Information",
-  type: "Professional Information",
-
   lastlogin: "Professional Information",
   logincount: "Professional Information",
-
+  course: "Professional Information",
+  course_id: "Professional Information",
   registereddate: "Professional Information",
   company: "Professional Information",
   client_id: "Professional Information",
@@ -103,14 +82,14 @@ const fieldSections: Record<string, string> = {
   interview_date: "Professional Information",
   interview_mode: "Professional Information",
   visa_status: "Professional Information",
-  work_status: "Professional Information",
-  workstatus: "Professional Information",
+  // work_status: "Basic Information",
+  workstatus: "Basic Information",
   message: "Professional Information",
   education: "Professional Information",
   workexperience: "Professional Information",
   faq: "Professional Information",
   callsmade: "Professional Information",
-  feepaid: "Professional Information",
+  fee_paid: "Basic Information",
   feedue: "Professional Information",
   salary0: "Professional Information",
   salary6: "Professional Information",
@@ -121,21 +100,24 @@ const fieldSections: Record<string, string> = {
   recruiterassesment: "Professional Information",
   statuschangedate: "Professional Information",
   aadhaar: "Basic Information",
-
+  candidate_folder: "Professional Information",
+  entry_date: "Professional Information",
+  closed_date: "Professional Information",
+  created_at: "",
   closed: "Professional Information",
-
   secondary_email: "Contact Information",
-  massemail_email_sent: "Professional Information",
-  massemail_unsubscribe: "Professional Information",
-  moved_to_candidate: "Professional Information",
-  moved_to_vendor: "Professional Information",
-
-  address: "Contact Information",
+  massemail_email_sent: "Contact Information",
+  massemail_unsubscribe: "Contact Information",
+  moved_to_candidate: "Contact Information",
+  startdate: "Professional Information",
+  link: "Professional Information",
+  videoid: "Professional Information",
+  address: "Professional Information",
+  enddate: "Professional Information",
   city: "Contact Information",
   state: "Contact Information",
   country: "Contact Information",
   zip: "Contact Information",
-
   emergcontactname: "Emergency Contact",
   emergcontactemail: "Emergency Contact",
   emergcontactphone: "Emergency Contact",
@@ -144,9 +126,20 @@ const fieldSections: Record<string, string> = {
   spousephone: "Emergency Contact",
   spouseemail: "Emergency Contact",
   spouseoccupationinfo: "Emergency Contact",
-
-  notes: "Notes",
+  notes: "Other",
 };
+
+const dateFields = [
+  "orientationdate",
+  "startdate",
+  "enddate",
+  // "closed_date",
+  "entry_date",
+  "created_at",
+  "classdate",
+  "sessiondate",
+  "enrolled_date"
+];
 
 const fieldLabels: Record<string, string> = {
   id: "ID",
@@ -183,19 +176,20 @@ const fieldLabels: Record<string, string> = {
   client_id: "Client ID",
   registereddate: "Registered Date",
   level3date: "Level 3 Date",
-  emergcontactname: "Emergency Contact Name",
+  emergcontactname: "Contact Name",
   lastmoddatetime: "Last Mod Date Time",
   classdate: "Class Date",
   filename: "File Name",
   enddate: "End Date",
   sessiondate: "Session Date",
-  emergcontactphone: "Emergency Contact Phone",
-  emergcontactemail: "Emergency Contact Email",
-  emergcontactaddrs: "Emergency Contact Address",
+  emergcontactphone: "Contact Phone",
+  emergcontactemail: "Contact Email",
+  emergcontactaddrs: "Contact Address",
   spousename: "Spouse Name",
   spousephone: "Spouse Phone",
   spouseemail: "Spouse Email",
   spouseoccupationinfo: "Spouse Occupation Info",
+  candidate_folder: "Candidate Folder Link"
 };
 
 // Excluded fields (won’t render in modal)
@@ -251,10 +245,30 @@ export function ViewModal({ isOpen, onClose, data, title }: ViewModalProps) {
       .replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
+
+
+
   const renderValue = (key: string, value: any) => {
     const lowerKey = key.toLowerCase();
     if (!value) return null;
 
+    // Handle date fields
+    if (dateFields.includes(lowerKey) && value) {
+      try {
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) {
+          return (
+            <p className="text-sm font-medium dark:text-gray-200">
+              {date.toISOString().split("T")[0]}
+            </p>
+          );
+        }
+      } catch (e) {
+        console.error("Invalid date:", value);
+      }
+    }
+
+   
     if (lowerKey === "status") {
       return <Badge className={getStatusColor(value)}>{value}</Badge>;
     }
@@ -271,6 +285,7 @@ export function ViewModal({ isOpen, onClose, data, title }: ViewModalProps) {
       );
     }
 
+    
     if (lowerKey.includes("rating")) {
       return (
         <p className="text-sm font-medium dark:text-gray-200">
@@ -279,6 +294,7 @@ export function ViewModal({ isOpen, onClose, data, title }: ViewModalProps) {
       );
     }
 
+    
     return (
       <p className="text-sm font-medium dark:text-gray-200">
         {String(value)}
@@ -296,7 +312,7 @@ export function ViewModal({ isOpen, onClose, data, title }: ViewModalProps) {
   };
 
   Object.entries(data).forEach(([key, value]) => {
-    if (excludedFields.includes(key)) return; 
+    if (excludedFields.includes(key)) return;
 
     const section = fieldSections[key] || "Other";
     if (!sectionedFields[section]) sectionedFields[section] = [];
@@ -373,6 +389,7 @@ export function ViewModal({ isOpen, onClose, data, title }: ViewModalProps) {
             </div>
           ))}
         </div>
+
 
         {/* Notes Section Full Width */}
         {sectionedFields["Notes"].length > 0 && (

@@ -130,7 +130,6 @@ export default function VendorPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(100);
 
-
   const fetchVendors = async () => {
     try {
       setLoading(true);
@@ -154,9 +153,12 @@ export default function VendorPage() {
       setFilteredVendors(vendors);
       return;
     }
-    const filtered = vendors.filter((v) =>
-      v.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+  const filtered = vendors.filter((v) =>
+    v.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    v.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    v.company_name?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
     setFilteredVendors(filtered);
   }, [searchTerm, vendors]);
 
@@ -329,7 +331,7 @@ export default function VendorPage() {
             id="search"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by name..."
+            placeholder="Search by name, email, or company..."
             className="pl-10"
           />
         </div>
