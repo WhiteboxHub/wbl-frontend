@@ -1,3 +1,5 @@
+
+
 "use client";
 import React from "react";
 import {
@@ -8,6 +10,7 @@ import {
 import { Label } from "@/components/admin_ui/label";
 import { Input } from "@/components/admin_ui/input";
 import { Textarea } from "@/components/admin_ui/textarea";
+
 
 interface EditModalProps {
   isOpen: boolean;
@@ -26,6 +29,7 @@ const excludedFields = [
   "logincount",
   "googleId",
   "subject_id",
+  "course_id",
   "new_subject_id",
 ];
 
@@ -140,6 +144,9 @@ const fieldSections: Record<string, string> = {
   spouseemail: "Emergency Contact",
   spouseoccupationinfo: "Emergency Contact",
   notes: "Notes",
+  course_name: "Professional Information",
+  subject_name: "Basic Information",
+
 };
 
 const workVisaStatusOptions = [
@@ -261,6 +268,9 @@ const labelOverrides: Record<string, string> = {
   emergcontactphone: "Contact Phone",
   emergcontactemail: "Contact Email",
   emergcontactaddrs: "Contact Address",
+  course_name: "Course Name",
+  subject_name: "Subject Name",
+
 };
 
 const dateFields = [
@@ -282,12 +292,16 @@ export function EditModal({
   title,
   onSave,
 }: EditModalProps) {
-  if (!data) return null;
+
   const [formData, setFormData] = React.useState<Record<string, any>>(data);
 
   React.useEffect(() => {
     setFormData(data);
   }, [data]);
+
+  
+
+   if (!data) return null;
 
   const handleChange = (key: string, value: any) => {
     setFormData((prev) => {
@@ -503,6 +517,7 @@ export function EditModal({
               </div>
             </div>
           )}
+
           {/* Footer */}
           <div className="flex justify-end px-6 pb-6">
             <button

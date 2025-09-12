@@ -19,8 +19,7 @@ import { SearchIcon } from "lucide-react";
 import axios from "axios";
 import { toast, Toaster } from "sonner";
 
-const DateFormatter = (params: any) =>
-  params.value ? new Date(params.value).toLocaleString() : "";
+
 
 export default function SubjectPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -30,9 +29,7 @@ export default function SubjectPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-
-  // Modal states
+  const [pageSize, setPageSize] = useState(50);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newSubject, setNewSubject] = useState({
     name: "",
@@ -45,8 +42,11 @@ export default function SubjectPage() {
       const res = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/subjects`
       );
-      setSubjects(res.data);
-      setFilteredSubjects(res.data);
+
+      const sortedSubjects = res.data.sort((a: any, b: any) => b.id - a.id);
+      
+      setSubjects(sortedSubjects);
+      setFilteredSubjects(sortedSubjects);
       toast.success("Subjects loaded successfully.");
     } catch (e: any) {
       setError(e.response?.data?.detail || e.message);
@@ -86,7 +86,7 @@ export default function SubjectPage() {
       };
 
       const defs: ColDef[] = Object.keys(subjects[0])
-        .filter((key) => key !== "lastmoddatetime" && key !== "createdate")
+        .filter((key) => key !== "lastmoddatetime")
         .map((key) => {
           const col: ColDef = {
             field: key,
@@ -100,9 +100,6 @@ export default function SubjectPage() {
             editable: key !== "id",
           };
 
-          if (key.toLowerCase().includes("date"))
-            col.valueFormatter = DateFormatter;
-
           if (key === "id") {
             col.pinned = "left";
           }
@@ -114,7 +111,7 @@ export default function SubjectPage() {
     }
   }, [subjects]);
 
-  // Update row
+  // Update 
   const handleRowUpdated = async (updatedRow: any) => {
     try {
       await axios.put(
@@ -130,7 +127,7 @@ export default function SubjectPage() {
     }
   };
 
-  // Delete row
+  // Delete 
   const handleRowDeleted = async (id: number) => {
     try {
       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/subjects/${id}`);
@@ -141,15 +138,18 @@ export default function SubjectPage() {
     }
   };
 
-  // Add subject
+  // Add 
   const handleAddSubject = async () => {
     try {
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/subjects`,
         newSubject
       );
-      setSubjects((prev) => [...prev, res.data]);
-      setFilteredSubjects((prev) => [...prev, res.data]);
+
+      const updated = [...subjects, res.data].sort((a, b) => b.id - a.id);
+
+      setSubjects(updated);
+      setFilteredSubjects(updated);
       toast.success("New subject created.");
       setIsModalOpen(false);
       setNewSubject({ name: "", description: "" });
