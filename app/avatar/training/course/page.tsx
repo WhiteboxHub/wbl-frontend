@@ -19,8 +19,7 @@ import { toast, Toaster } from "sonner";
 import dynamic from "next/dynamic"; 
 const AGGridTable = dynamic(() => import("@/components/AGGridTable"), { ssr: false });
 
-const DateFormatter = (params: any) =>
-  params.value ? new Date(params.value).toLocaleString() : "";
+
 
 export default function CoursePage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -30,7 +29,7 @@ export default function CoursePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(50);
 
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -47,8 +46,11 @@ export default function CoursePage() {
       const res = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/courses`
       );
-      setCourses(res.data);
-      setFilteredCourses(res.data);
+
+      const sortedCourses = res.data.sort((a: any, b: any) => b.id - a.id);
+      
+      setCourses(sortedCourses);
+      setFilteredCourses(sortedCourses);
       toast.success("Fetched courses successfully.");
     } catch (e: any) {
       setError(e.response?.data?.detail || e.message);
@@ -93,7 +95,7 @@ export default function CoursePage() {
       };
 
       const defs: ColDef[] = Object.keys(courses[0])
-        .filter((key) => key !== "lastmoddatetime" && key !== "createdate")
+        .filter((key) => key !== "lastmoddatetime")
         .map((key) => {
           const col: ColDef = {
             field: key,
@@ -107,9 +109,7 @@ export default function CoursePage() {
             editable: key !== "id",
           };
 
-          if (key.toLowerCase().includes("date"))
-            col.valueFormatter = DateFormatter;
-
+          
           if (key === "id") {
             col.pinned = "left";
           }
@@ -121,27 +121,33 @@ export default function CoursePage() {
     }
   }, [courses]);
 
-  // Update row
+  // Update 
   const handleRowUpdated = async (updatedRow: any) => {
     try {
       await axios.put(
         `${process.env.NEXT_PUBLIC_API_URL}/courses/${updatedRow.id}`,
         updatedRow
       );
-      setFilteredCourses((prev) =>
-        prev.map((r) => (r.id === updatedRow.id ? updatedRow : r))
-      );
+
+      const updated = courses
+      .map((c) => (c.id === updatedRow.id ? updatedRow : c))
+      .sort((a, b) => b.id - a.id);
+
+      setCourses(updated);
+      setFilteredCourses(updated);
       toast.success("Row updated successfully.");
     } catch (e: any) {
       toast.error(e.response?.data?.detail || e.message);
     }
   };
 
-  // Delete row
+  // Delete 
   const handleRowDeleted = async (id: number) => {
     try {
       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/courses/${id}`);
-      setFilteredCourses((prev) => prev.filter((row) => row.id !== id));
+      const updated = courses.filter((c) => c.id !== id);
+      setCourses(updated);
+      setFilteredCourses(updated);
       toast.success(`Course ${id} deleted.`);
     } catch (e: any) {
       toast.error(e.response?.data?.detail || e.message);
@@ -155,8 +161,10 @@ export default function CoursePage() {
         `${process.env.NEXT_PUBLIC_API_URL}/courses`,
         newCourse
       );
-      setCourses((prev) => [...prev, res.data]);
-      setFilteredCourses((prev) => [...prev, res.data]);
+
+      const updated = [...courses, res.data].sort((a, b) => b.id - a.id);
+      setCourses(updated);
+      setFilteredCourses(updated);
       toast.success("New course created.");
       setIsModalOpen(false);
       setNewCourse({ name: "", alias: "", description: "", syllabus: "" });

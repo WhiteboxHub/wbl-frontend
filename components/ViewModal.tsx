@@ -145,6 +145,7 @@ const fieldLabels: Record<string, string> = {
   id: "ID",
   sessionid: "ID",
   subject_id: "Subject ID",
+  subjectid:"Subject ID",
   course_id: "Course ID",
   courseid: "Course ID",
   new_subject_id: "New Subject ID",
@@ -194,6 +195,7 @@ const fieldLabels: Record<string, string> = {
 // Excluded fields (won’t render in modal)
 const excludedFields: string[] = [
   "vendor_type",
+  "lastmoddatetime",
 ];
 
 export function ViewModal({ isOpen, onClose, data, title }: ViewModalProps) {
