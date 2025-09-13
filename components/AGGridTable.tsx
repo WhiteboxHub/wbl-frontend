@@ -7,7 +7,11 @@ import { useMemo, useCallback, useRef, useState, useEffect } from "react";
 import { AgGridReact } from "ag-grid-react";
 import { ColDef, GridReadyEvent, GridApi, ColumnMovedEvent } from "ag-grid-community";
 import { Button } from "@/components/admin_ui/button";
-import { EyeIcon, EditIcon, TrashIcon } from "lucide-react";
+import {
+  EyeIcon,
+  EditIcon,
+  TrashIcon,
+} from "lucide-react";
 import { ViewModal } from "./ViewModal";
 import { EditModal } from "@/components/EditModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -52,12 +56,19 @@ export function AGGridTable({
   const gridRef = useRef<AgGridReact>(null);
   const gridApiRef = useRef<GridApi | null>(null);
   const [searchText, setSearchText] = useState("");
-  const [selectedRowData, setSelectedRowData] = useState<RowData[] | null>(null);
+  const [selectedRowData, setSelectedRowData] = useState<RowData | null>(null);
+
   const [viewData, setViewData] = useState<RowData | null>(null);
   const [editData, setEditData] = useState<RowData | null>(null);
-  const [deleteConfirmData, setDeleteConfirmData] = useState<RowData | null>(null);
+  const [deleteConfirmData, setDeleteConfirmData] = useState<RowData | null>(
+    null
+  );
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [columnDefs, setColumnDefs] = useState<ColDef[]>(initialColumnDefs);
+  const [pageSize, setPageSize] = useState(10);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Pagination state
   const [pageSize, setPageSize] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -74,9 +85,29 @@ export function AGGridTable({
     return () => observer.disconnect();
   }, []);
 
+  const gridOptions = {
+    defaultColDef: {
+      editable: true,        // required to allow copy
+      resizable: true,
+      sortable: true,
+      filter: true,
+    },
+    enableRangeSelection: true,  // allows selecting cells
+    suppressCopySingleCellRanges: false, // optional
+  };
+
+
   const onGridReady = useCallback((params: GridReadyEvent) => {
     gridApiRef.current = params.api;
   }, []);
+  const rowSelection = {
+    mode: 'multiRow',
+    checkboxes: false,
+    headerCheckbox: false,
+    enableSelectionWithoutKeys: true,
+    enableClickSelection: true,
+  };
+
 
   const handleRowSelection = useCallback(() => {
     if (gridApiRef.current) {
@@ -90,10 +121,12 @@ export function AGGridTable({
     setColumnDefs([...newColumnDefs]);
   }, []);
 
+
   const handleView = useCallback(() => {
     if (selectedRowData && selectedRowData.length > 0) {
       setEditData(null);
       setViewData(selectedRowData[0]);
+
     }
   }, [selectedRowData]);
 
@@ -105,8 +138,10 @@ export function AGGridTable({
   }, [selectedRowData]);
 
   const handleDelete = useCallback(() => {
+
     if (selectedRowData && selectedRowData.length > 0) {
       setDeleteConfirmData(selectedRowData[0]);
+
     }
   }, [selectedRowData]);
 
@@ -160,6 +195,9 @@ export function AGGridTable({
     [onRowClicked]
   );
 
+
+  // Pagination logic
+
   const totalItems = rowData.length;
   const totalPages = Math.ceil(totalItems / pageSize);
   const paginatedData = useMemo(() => {
@@ -174,7 +212,9 @@ export function AGGridTable({
 
   const handlePageSizeChange = (size: number) => {
     setPageSize(size);
-    setCurrentPage(1);
+
+    setCurrentPage(1); // reset to first page when size changes
+
   };
 
   return (
@@ -251,41 +291,7 @@ export function AGGridTable({
           />
         </div>
       </div>
-      {/* <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
-        <div className="flex items-center space-x-2">
-          <span className="text-sm">Rows per page:</span>
-          <select
-            value={pageSize}
-            onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-            className="border rounded px-2 py-1 text-sm"
-          >
-            {[10, 20, 50, 100].map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-            className="px-2 py-1 border rounded text-sm disabled:opacity-50"
-          >
-            Previous
-          </button>
-          <span className="text-sm">
-            Page {currentPage} of {totalPages || 1}
-          </span>
-          <button
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages || totalPages === 0}
-            className="px-2 py-1 border rounded text-sm disabled:opacity-50"
-          >
-            Next
-          </button>
-        </div>
-      </div> */}
+     
       {viewData && (
         <ViewModal
           isOpen={true}
@@ -314,6 +320,7 @@ export function AGGridTable({
               ? `\n\nRecord: ${deleteConfirmData.fullName || deleteConfirmData.company}`
               : ""
           }`}
+
           confirmText="Delete"
           cancelText="Cancel"
         />
