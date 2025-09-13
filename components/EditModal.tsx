@@ -30,10 +30,12 @@ const excludedFields = [
   "sessionid",
   "vendor_type",
   "last_mod_datetime",
+  "last_mod_datetime",
   "last_modified",
   "logincount",
   "googleId",
   "subject_id",
+  "lastmoddatetime",
   "course_id",
   "new_subject_id",
   "instructor_1id",
@@ -41,7 +43,8 @@ const excludedFields = [
   "instructor_3id",
   "instructor1_id",
   "instructor2_id",
-  "instructor3_id"
+  "instructor3_id",
+
 
 ];
 
@@ -328,7 +331,7 @@ export function EditModal({
   if (!data) return null;
 
 
-  const [formData, setFormData] = React.useState<Record<string, any>>(data);
+  // const [formData, setFormData] = React.useState<Record<string, any>>(data);
 
 
   const flattenData = (data: Record<string, any>) => {
