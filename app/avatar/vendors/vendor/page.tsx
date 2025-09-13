@@ -4,13 +4,14 @@ import React, { useEffect, useState } from "react";
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { ColDef } from "ag-grid-community";
-import { AGGridTable } from "@/components/AGGridTable";
+// import { AGGridTable } from "@/components/AGGridTable";
+import dynamic from "next/dynamic"; 
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import axios from "axios";
-
+const AGGridTable = dynamic(() => import("@/components/AGGridTable"), { ssr: false });
 const BadgeRenderer = (params: any, map: Record<string, string>) => {
   const value = params?.value?.toString() || "None";
   const cls = map[value.toLowerCase()] || "bg-gray-100 text-gray-800";
