@@ -1,5 +1,4 @@
 
-
 "use client";
 import React from "react";
 import {
@@ -329,6 +328,10 @@ export function EditModal({
   onSave,
 }: EditModalProps) {
   if (!data) return null;
+
+
+  // const [formData, setFormData] = React.useState<Record<string, any>>(data);
+
 
   const flattenData = (data: Record<string, any>) => {
     const flattened: Record<string, any> = { ...data };
