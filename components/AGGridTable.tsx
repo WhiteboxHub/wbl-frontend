@@ -7,11 +7,7 @@ import { useMemo, useCallback, useRef, useState, useEffect } from "react";
 import { AgGridReact } from "ag-grid-react";
 import { ColDef, GridReadyEvent, GridApi, ColumnMovedEvent } from "ag-grid-community";
 import { Button } from "@/components/admin_ui/button";
-import {
-  EyeIcon,
-  EditIcon,
-  TrashIcon,
-} from "lucide-react";
+import { EyeIcon, EditIcon, TrashIcon } from "lucide-react";
 import { ViewModal } from "./ViewModal";
 import { EditModal } from "@/components/EditModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -55,9 +51,10 @@ export function AGGridTable({
 }: AGGridTableProps) {
   const gridRef = useRef<AgGridReact>(null);
   const gridApiRef = useRef<GridApi | null>(null);
-  const [searchText, setSearchText] = useState("");
-  const [selectedRowData, setSelectedRowData] = useState<RowData | null>(null);
 
+
+  const [searchText, setSearchText] = useState("");
+  const [selectedRowData, setSelectedRowData] = useState<RowData[] | null>(null);
   const [viewData, setViewData] = useState<RowData | null>(null);
   const [editData, setEditData] = useState<RowData | null>(null);
   const [deleteConfirmData, setDeleteConfirmData] = useState<RowData | null>(
@@ -65,12 +62,6 @@ export function AGGridTable({
   );
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [columnDefs, setColumnDefs] = useState<ColDef[]>(initialColumnDefs);
-  const [pageSize, setPageSize] = useState(10);
-  const [currentPage, setCurrentPage] = useState(1);
-
-  // Pagination state
-  const [pageSize, setPageSize] = useState(10);
-  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     const checkDarkMode = () => {
@@ -87,19 +78,19 @@ export function AGGridTable({
 
   const gridOptions = {
     defaultColDef: {
-      editable: true,        // required to allow copy
+      editable: true,
       resizable: true,
       sortable: true,
       filter: true,
     },
-    enableRangeSelection: true,  // allows selecting cells
-    suppressCopySingleCellRanges: false, // optional
+    //enableRangeSelection: true,
+    suppressCopySingleCellRanges: false,
   };
-
 
   const onGridReady = useCallback((params: GridReadyEvent) => {
     gridApiRef.current = params.api;
   }, []);
+  
   const rowSelection = {
     mode: 'multiRow',
     checkboxes: false,
@@ -109,9 +100,10 @@ export function AGGridTable({
   };
 
 
+
   const handleRowSelection = useCallback(() => {
     if (gridApiRef.current) {
-      const selectedRows = gridApiRef.current.getSelectedRows();
+      const selectedRows = gridApiRef.current.getSelectedRows() as RowData[];
       setSelectedRowData(selectedRows.length > 0 ? selectedRows : null);
     }
   }, []);
@@ -126,7 +118,6 @@ export function AGGridTable({
     if (selectedRowData && selectedRowData.length > 0) {
       setEditData(null);
       setViewData(selectedRowData[0]);
-
     }
   }, [selectedRowData]);
 
@@ -138,10 +129,8 @@ export function AGGridTable({
   }, [selectedRowData]);
 
   const handleDelete = useCallback(() => {
-
-    if (selectedRowData && selectedRowData.length > 0) {
+   if (selectedRowData && selectedRowData.length > 0) {
       setDeleteConfirmData(selectedRowData[0]);
-
     }
   }, [selectedRowData]);
 
@@ -194,29 +183,7 @@ export function AGGridTable({
     },
     [onRowClicked]
   );
-
-
-  // Pagination logic
-
-  const totalItems = rowData.length;
-  const totalPages = Math.ceil(totalItems / pageSize);
-  const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return rowData.slice(start, start + pageSize);
-  }, [rowData, currentPage, pageSize]);
-
-  const handlePageChange = (page: number) => {
-    if (page < 1 || page > totalPages) return;
-    setCurrentPage(page);
-  };
-
-  const handlePageSizeChange = (size: number) => {
-    setPageSize(size);
-
-    setCurrentPage(1); // reset to first page when size changes
-
-  };
-
+  
   return (
     <div className="mx-auto space-y-4 w-full max-w-7xl">
       <div className="flex items-center justify-between">
@@ -270,7 +237,7 @@ export function AGGridTable({
         >
           <AgGridReact
             ref={gridRef}
-            rowData={paginatedData}
+            rowData={rowData}
             columnDefs={columnDefs}
             onGridReady={onGridReady}
             onRowClicked={onRowClickedHandler}
@@ -287,7 +254,10 @@ export function AGGridTable({
             }}
             rowSelection="multiple"
             suppressRowClickSelection={false}
-            enableRangeSelection={true}
+            //enableRangeSelection={true}
+            pagination={true}             
+            paginationPageSize={50}        
+            paginationPageSizeSelector={[10, 25, 50, 100]} 
           />
         </div>
       </div>

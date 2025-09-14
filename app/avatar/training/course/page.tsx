@@ -1,3 +1,5 @@
+
+
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -19,19 +21,12 @@ import { toast, Toaster } from "sonner";
 import dynamic from "next/dynamic"; 
 const AGGridTable = dynamic(() => import("@/components/AGGridTable"), { ssr: false });
 
-
-
 export default function CoursePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [courses, setCourses] = useState<any[]>([]);
   const [filteredCourses, setFilteredCourses] = useState<any[]>([]);
-  const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
-
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newCourse, setNewCourse] = useState({
     name: "",
@@ -39,6 +34,41 @@ export default function CoursePage() {
     description: "",
     syllabus: "",
   });
+
+
+  const columnDefs: ColDef[] = [
+    {
+      field: "id",
+      headerName: "ID",
+      width: 100,
+      pinned: "left",
+      editable: false,
+    },
+    {
+      field: "name",
+      headerName: "Name",
+      width: 200,
+      editable: true,
+    },
+    {
+      field: "alias",
+      headerName: "Alias",
+      width: 150,
+      editable: true,
+    },
+    {
+      field: "description",
+      headerName: "Description",
+      width: 350,
+      editable: true,
+    },
+    {
+      field: "syllabus",
+      headerName: "Syllabus",
+      width: 350,
+      editable: true,
+    },
+  ];
 
   const fetchCourses = async () => {
     try {
@@ -48,7 +78,7 @@ export default function CoursePage() {
       );
 
       const sortedCourses = res.data.sort((a: any, b: any) => b.id - a.id);
-      
+
       setCourses(sortedCourses);
       setFilteredCourses(sortedCourses);
       toast.success("Fetched courses successfully.");
@@ -63,7 +93,6 @@ export default function CoursePage() {
   useEffect(() => {
     fetchCourses();
   }, []);
-
 
   // Search filter
   useEffect(() => {
@@ -83,44 +112,6 @@ export default function CoursePage() {
     setFilteredCourses(filtered);
   }, [searchTerm, courses]);
 
-
-  useEffect(() => {
-    if (courses.length > 0) {
-      const columnConfig: Record<string, number> = {
-        id: 100,
-        name: 200,
-        alias: 150,
-        description: 350,
-        syllabus: 350,
-      };
-
-      const defs: ColDef[] = Object.keys(courses[0])
-        .filter((key) => key !== "lastmoddatetime")
-        .map((key) => {
-          const col: ColDef = {
-            field: key,
-            headerName:
-              key === "id"
-                ? "ID"
-                : key
-                    .replace(/_/g, " ")
-                    .replace(/\b\w/g, (l) => l.toUpperCase()),
-            width: columnConfig[key] || 200,
-            editable: key !== "id",
-          };
-
-          
-          if (key === "id") {
-            col.pinned = "left";
-          }
-
-          return col;
-        });
-
-      setColumnDefs(defs);
-    }
-  }, [courses]);
-
   // Update 
   const handleRowUpdated = async (updatedRow: any) => {
     try {
@@ -130,8 +121,8 @@ export default function CoursePage() {
       );
 
       const updated = courses
-      .map((c) => (c.id === updatedRow.id ? updatedRow : c))
-      .sort((a, b) => b.id - a.id);
+        .map((c) => (c.id === updatedRow.id ? updatedRow : c))
+        .sort((a, b) => b.id - a.id);
 
       setCourses(updated);
       setFilteredCourses(updated);
@@ -204,7 +195,7 @@ export default function CoursePage() {
       </div>
 
       <AGGridTable
-        rowData={filteredCourses.slice((page - 1) * pageSize, page * pageSize)}
+        rowData={filteredCourses}
         columnDefs={columnDefs}
         title={`Courses (${filteredCourses.length})`}
         height="calc(70vh)"
@@ -212,44 +203,6 @@ export default function CoursePage() {
         onRowDeleted={handleRowDeleted}
         showSearch={false}
       />
-
-      {/* Pagination */}
-      <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
-        <div className="flex items-center space-x-2">
-          <span className="text-sm">Rows per page:</span>
-          <select
-            value={pageSize}
-            onChange={(e) => {
-              setPageSize(Number(e.target.value));
-              setPage(1);
-            }}
-            className="border rounded px-2 py-1 text-sm"
-          >
-            {[10, 20, 50, 100].map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setPage((p) => Math.max(p - 1, 1))}
-            disabled={page === 1}
-            className="px-2 py-1 border rounded text-sm disabled:opacity-50"
-          >
-            Previous
-          </button>
-          <span className="text-sm">Page {page}</span>
-          <button
-            onClick={() => setPage((p) => p + 1)}
-            className="px-2 py-1 border rounded text-sm"
-          >
-            Next
-          </button>
-        </div>
-      </div>
 
       {/* Add Course */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -315,4 +268,3 @@ export default function CoursePage() {
     </div>
   );
 }
-

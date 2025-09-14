@@ -21,8 +21,8 @@ export default function CourseMaterialPage() {
   // const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
+  // const [page, setPage] = useState(1);
+  // const [pageSize, setPageSize] = useState(50);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newMaterial, setNewMaterial] = useState({
     subjectid: "",
@@ -305,7 +305,7 @@ const handleAddMaterial = async () => {
 
 
       <AGGridTable
-        rowData={filteredMaterials.slice((page-1)*pageSize,page*pageSize)}
+        rowData={filteredMaterials}
         columnDefs={columnDefs}
         title={`Course Materials (${filteredMaterials.length})`}
         height="calc(70vh)"
@@ -315,7 +315,7 @@ const handleAddMaterial = async () => {
       />
 
       {/* Pagination */}
-      <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
+      {/* <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
         <div className="flex items-center space-x-2">
           <span className="text-sm">Rows per page:</span>
           <select
@@ -338,7 +338,7 @@ const handleAddMaterial = async () => {
             className="px-2 py-1 border rounded text-sm"
           >Next</button>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }
