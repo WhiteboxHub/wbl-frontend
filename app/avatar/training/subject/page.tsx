@@ -20,6 +20,8 @@ import { SearchIcon } from "lucide-react";
 import axios from "axios";
 import { toast, Toaster } from "sonner";
 
+
+
 export default function SubjectPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [subjects, setSubjects] = useState<any[]>([]);

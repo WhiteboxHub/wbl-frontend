@@ -3,7 +3,7 @@
 "use client";
 import { ModuleRegistry, AllCommunityModule } from "ag-grid-community";
 ModuleRegistry.registerModules([AllCommunityModule]);
-import { useCallback, useRef, useState, useEffect } from "react";
+import { useMemo, useCallback, useRef, useState, useEffect } from "react";
 import { AgGridReact } from "ag-grid-react";
 import { ColDef, GridReadyEvent, GridApi, ColumnMovedEvent } from "ag-grid-community";
 import { Button } from "@/components/admin_ui/button";
@@ -52,12 +52,14 @@ export function AGGridTable({
   const gridRef = useRef<AgGridReact>(null);
   const gridApiRef = useRef<GridApi | null>(null);
 
+
   const [searchText, setSearchText] = useState("");
   const [selectedRowData, setSelectedRowData] = useState<RowData[] | null>(null);
-
   const [viewData, setViewData] = useState<RowData | null>(null);
   const [editData, setEditData] = useState<RowData | null>(null);
-  const [deleteConfirmData, setDeleteConfirmData] = useState<RowData | null>(null);
+  const [deleteConfirmData, setDeleteConfirmData] = useState<RowData | null>(
+    null
+  );
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [columnDefs, setColumnDefs] = useState<ColDef[]>(initialColumnDefs);
 
@@ -88,14 +90,16 @@ export function AGGridTable({
   const onGridReady = useCallback((params: GridReadyEvent) => {
     gridApiRef.current = params.api;
   }, []);
-
+  
   const rowSelection = {
-    mode: "multiRow",
+    mode: 'multiRow',
     checkboxes: false,
     headerCheckbox: false,
     enableSelectionWithoutKeys: true,
     enableClickSelection: true,
   };
+
+
 
   const handleRowSelection = useCallback(() => {
     if (gridApiRef.current) {
@@ -108,6 +112,7 @@ export function AGGridTable({
     const newColumnDefs = event.api.getColumnDefs();
     setColumnDefs([...newColumnDefs]);
   }, []);
+
 
   const handleView = useCallback(() => {
     if (selectedRowData && selectedRowData.length > 0) {
@@ -124,7 +129,7 @@ export function AGGridTable({
   }, [selectedRowData]);
 
   const handleDelete = useCallback(() => {
-    if (selectedRowData && selectedRowData.length > 0) {
+   if (selectedRowData && selectedRowData.length > 0) {
       setDeleteConfirmData(selectedRowData[0]);
     }
   }, [selectedRowData]);
@@ -178,7 +183,7 @@ export function AGGridTable({
     },
     [onRowClicked]
   );
-
+  
   return (
     <div className="mx-auto space-y-4 w-full max-w-7xl">
       <div className="flex items-center justify-between">
@@ -224,9 +229,7 @@ export function AGGridTable({
       </div>
       <div className="flex justify-center">
         <div
-          className={`ag-theme-alpine ${
-            isDarkMode ? "ag-grid-dark-mode" : ""
-          } rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm transition-all duration-300 w-full`}
+          className={`ag-theme-alpine ${isDarkMode ? "ag-grid-dark-mode" : ""} rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm transition-all duration-300 w-full`}
           style={{
             height: "calc(100vh - 260px)",
             minHeight: "400px",
@@ -258,7 +261,7 @@ export function AGGridTable({
           />
         </div>
       </div>
-
+     
       {viewData && (
         <ViewModal
           isOpen={true}
@@ -284,11 +287,10 @@ export function AGGridTable({
           title="Delete Record"
           message={`Are you sure you want to delete this record? This action cannot be undone.${
             deleteConfirmData.fullName || deleteConfirmData.company
-              ? `\n\nRecord: ${
-                  deleteConfirmData.fullName || deleteConfirmData.company
-                }`
+              ? `\n\nRecord: ${deleteConfirmData.fullName || deleteConfirmData.company}`
               : ""
           }`}
+
           confirmText="Delete"
           cancelText="Cancel"
         />

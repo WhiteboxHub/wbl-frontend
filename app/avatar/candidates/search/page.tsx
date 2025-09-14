@@ -94,7 +94,7 @@ export default function CandidateSearchPage() {
         setSuggestions([]);
         console.error("Search failed:", error);
       }
-    }, 300); // Reduced to 300ms for faster response
+    }, 100); // Reduced to 100ms for faster response
   }, [searchTerm]);
 
   // Select candidate and get full details
@@ -210,8 +210,31 @@ export default function CandidateSearchPage() {
                   >
                     {(() => {
                       // Special handling for interview table column names
-                      if (column === 'interview_type') return 'Interview Mode';
-                      if (column === 'notes') return 'Interview Type';
+                      if (column === 'id') return 'ID';
+                      if (column === 'full_name') return 'Full Name';
+                      if (column === 'enrolled_date') return 'Enrolled Date';
+                      if (column === 'email') return 'Email';
+                      if (column === 'phone') return 'Phone';
+                      if (column === 'status') return 'Status';
+                      if (column === 'workstatus') return 'Work Status';
+                      if (column === 'education') return 'Education';
+                      if (column === 'workexperience') return 'Work Experience';
+                      if (column === 'ssn') return 'SSN';
+                      if (column === 'agreement') return 'Agreement';
+                      if (column === 'secondaryemail') return 'Secondary Email';
+                      if (column === 'secondaryphone') return 'Secondary Phone';
+                      if (column === 'address') return 'Address';
+                      if (column === 'linkedin_id') return 'LinkedIn ID';
+                      if (column === 'dob') return 'Date of Birth';
+                      if (column === 'emergcontactname') return 'Emergency Contact Name';
+                      if (column === 'emergcontactemail') return 'Emergency Contact Email';
+                      if (column === 'emergcontactphone') return 'Emergency Contact Phone';
+                      if (column === 'emergcontactaddrs') return 'Emergency Contact Address';
+                      if (column === 'fee_paid') return 'Fee Paid';
+                      if (column === 'notes') return 'Notes';
+                      if (column === 'batchid') return 'Batch ID';
+                      if (column === 'candidate_folder') return 'Candidate Folder';
+
                       
                       // Default column name formatting
                       return column.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()

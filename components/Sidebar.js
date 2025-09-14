@@ -647,7 +647,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                   </h3>
                   <div className="relative">
                     <div className="absolute -left-4 top-0 bottom-0 w-1 bg-gradient-to-b from-indigo-400 via-purple-400 to-pink-300 rounded-full"></div>
-                    {interviewsData.slice(0, 6).map((interview) => (
+                    {interviewsData.slice(0, 8).map((interview) => (
                       <div
                         key={interview.id}
                         className={`${

@@ -1,5 +1,4 @@
 
-
 "use client";
 import React from "react";
 import {
@@ -23,19 +22,37 @@ interface EditModalProps {
 }
 
 const excludedFields = [
+   "candidate",
+  "instructor1",
+  "instructor2",
+  "instructor3",
   "id",
   "sessionid",
   "vendor_type",
-  "lastmoddatetime",
+  "last_mod_datetime",
+  "last_mod_datetime",
   "last_modified",
   "logincount",
   "googleId",
   "subject_id",
+  "lastmoddatetime",
   "course_id",
   "new_subject_id",
+  "instructor_1id",
+  "instructor_2id",
+  "instructor_3id",
+  "instructor1_id",
+  "instructor2_id",
+  "instructor3_id",
+
+
 ];
 
 const fieldSections: Record<string, string> = {
+  candidate_full_name: "Basic Information",
+  instructor1_name: "Professional Information",
+  instructor2_name: "Professional Information",
+  instructor3_name: "Professional Information",
   id: "Basic Information",
   alias: "Basic Information",
   Fundamentals: "Basic Information",
@@ -56,6 +73,7 @@ const fieldSections: Record<string, string> = {
   moved_to_vendor: "Professional Information",
   phone_number: "Basic Information",
   secondary_phone: "Contact Information",
+  last_mod_datetime:"Contact Information",
   location: "Contact Information",
   agreement: "Professional Information",
   sessionid: "Basic Information",
@@ -137,6 +155,12 @@ const fieldSections: Record<string, string> = {
   state: "Contact Information",
   country: "Contact Information",
   zip: "Contact Information",
+  // instructor_1id: "Professional Information",
+  // instructor_2id: "Professional Information",
+  // instructor_3id: "Professional Information",
+  // instructor1_id: "Professional Information",
+  // instructor2_id: "Professional Information",
+  // instructor3_id: "Professional Information",
   emergcontactname: "Emergency Contact",
   emergcontactemail: "Emergency Contact",
   emergcontactphone: "Emergency Contact",
@@ -227,6 +251,10 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
 };
 
 const labelOverrides: Record<string, string> = {
+  candidate_full_name: "Candidate Full Name",
+  instructor1_name: "Instructor 1 Name",
+  instructor2_name: "Instructor 2 Name",
+  instructor3_name: "Instructor 3 Name",
   id: "ID",
   subject_id: "Subject ID",
   subjectid: "Subject ID",
@@ -265,6 +293,12 @@ const labelOverrides: Record<string, string> = {
   massemail_email_sent: "Massemail Email Sent",
   massemail_unsubscribe: "Massemail Unsubscribe",
   moved_to_candidate: "Moved To Candidate",
+  // instructor_1id: "Instructor 1",
+  // instructor_2id: "Instructor 2",
+  // instructor_3id: "Instructor 3",
+  // instructor1_id: "Instructor 1",
+  // instructor2_id: "Instructor 2",
+  // instructor3_id: "Instructor 3",
   emergcontactname: "Contact Name",
   candidate_folder: "Candidate Folder Link",
   emergcontactphone: "Contact Phone",
@@ -294,12 +328,36 @@ export function EditModal({
   title,
   onSave,
 }: EditModalProps) {
+  if (!data) return null;
 
-  const [formData, setFormData] = React.useState<Record<string, any>>(data);
 
-  React.useEffect(() => {
-    setFormData(data);
-  }, [data]);
+  // const [formData, setFormData] = React.useState<Record<string, any>>(data);
+
+
+  const flattenData = (data: Record<string, any>) => {
+    const flattened: Record<string, any> = { ...data };
+    if (data.candidate) {
+      flattened.candidate_full_name = data.candidate.full_name;
+    }
+    if (data.instructor1) {
+      flattened.instructor1_name = data.instructor1.name;
+    }
+    if (data.instructor2) {
+      flattened.instructor2_name = data.instructor2.name;
+    }
+    if (data.instructor3) {
+      flattened.instructor3_name = data.instructor3.name;
+    }
+    return flattened;
+  };
+
+  const [formData, setFormData] = React.useState<Record<string, any>>(
+    flattenData(data)
+  );
+
+    React.useEffect(() => {
+      setFormData(flattenData(data));
+    }, [data]);
 
   const [courses, setCourses] = React.useState<{ id: number; name: string }[]>([]);
 
@@ -341,8 +399,8 @@ export function EditModal({
     "Professional Information": [],
     "Contact Information": [],
     "Emergency Contact": [],
-    "Other": [],
-    "Notes": [],
+    Other: [],
+    Notes: [],
   };
 
   Object.entries(formData).forEach(([key, value]) => {
@@ -410,11 +468,36 @@ export function EditModal({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            onSave(formData);
+            const reconstructedData = { ...formData };
+            if (formData.candidate_full_name) {
+              reconstructedData.candidate = {
+                ...data.candidate,
+                full_name: formData.candidate_full_name,
+              };
+            }
+            if (formData.instructor1_name) {
+              reconstructedData.instructor1 = {
+                ...data.instructor1,
+                name: formData.instructor1_name,
+              };
+            }
+            if (formData.instructor2_name) {
+              reconstructedData.instructor2 = {
+                ...data.instructor2,
+                name: formData.instructor2_name,
+              };
+            }
+            if (formData.instructor3_name) {
+              reconstructedData.instructor3 = {
+                ...data.instructor3,
+                name: formData.instructor3_name,
+              };
+            }
+            onSave(reconstructedData);
             onClose();
           }}
         >
-          {/* Grid for all sections except Notes */}
+          {/* All Sections in Grid Layout */}
           <div className={`grid ${gridColsClass} gap-6 p-6`}>
             {visibleSections
               .filter((section) => section !== "Notes")
