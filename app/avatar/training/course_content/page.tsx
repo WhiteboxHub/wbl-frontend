@@ -19,8 +19,8 @@ export default function CourseContentPage() {
   //const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50); 
+  // const [page, setPage] = useState(1);
+  // const [pageSize, setPageSize] = useState(50); 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newContent, setNewContent] = useState({
     Fundamentals: "",
@@ -218,7 +218,7 @@ export default function CourseContentPage() {
 
 
       <AGGridTable
-        rowData={filteredContents.slice((page - 1) * pageSize, page * pageSize)}
+        rowData={filteredContents}
         columnDefs={columnDefs}
         title={`Course Contents (${filteredContents.length})`}
         height="calc(70vh)"
@@ -228,7 +228,7 @@ export default function CourseContentPage() {
       />
 
       {/* Pagination */}
-      <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
+      {/* <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
         <div className="flex items-center space-x-2">
           <span className="text-sm">Rows per page:</span>
           <select
@@ -263,7 +263,7 @@ export default function CourseContentPage() {
             Next
           </button>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }
