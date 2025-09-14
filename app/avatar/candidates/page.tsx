@@ -12,7 +12,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AGGridTable } from "@/components/AGGridTable";
 import { ModuleRegistry } from "ag-grid-community";
 
-
 type Candidate = {
   id: number;
   full_name?: string | null;
@@ -38,13 +37,6 @@ type Candidate = {
   notes?: string | null;
   batchid: number;
   candidate_folder?: string | null;
-};
-
-type PaginatedCandidatesResponse = {
-  data: Candidate[];
-  total: number;
-  page: number;
-  limit: number;
 };
 
 type FormData = {
@@ -110,10 +102,6 @@ export default function CandidatesPage() {
   const isNewCandidate = searchParams.get("newcandidate") === "true";
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
-  const [totalCandidates, setTotalCandidates] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchBy, setSearchBy] = useState("all");
@@ -124,6 +112,7 @@ export default function CandidatesPage() {
   const [formSaveLoading, setFormSaveLoading] = useState(false);
   const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
   const [batches, setBatches] = useState<Batch[]>([]);
+
   const apiEndpoint = useMemo(
     () => `${process.env.NEXT_PUBLIC_API_URL}/candidates`,
     []
@@ -133,23 +122,15 @@ export default function CandidatesPage() {
     []
   );
 
-  // const fetchBatches = useCallback(async () => {
-  //   try {
-  //     const res = await fetch(batchesEndpoint);
-  //     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-  //     const data = await res.json();
-  //     setBatches(data.data || []);
-  //   } catch (err) {
-  //     const errorMsg = err instanceof Error ? err.message : "Failed to load batches";
-  //     setError(errorMsg);
-  //     toast.error(errorMsg);
-  //   }
-  // }, [batchesEndpoint]);
+  // Sync form visibility with URL
+  useEffect(() => {
+    const newCandidateParam = searchParams.get("newcandidate") === "true";
+    setNewCandidateForm(newCandidateParam);
+  }, [searchParams]);
 
+  // Fetch all candidates (non-paginated)
   const fetchCandidates = useCallback(
     async (
-      page: number = 1,
-      limit: number = 50,
       search?: string,
       searchBy: string = "all",
       sort: any[] = [{ colId: 'enrolled_date', sort: 'desc' }],
@@ -157,7 +138,7 @@ export default function CandidatesPage() {
     ) => {
       setLoading(true);
       try {
-        let url = `${apiEndpoint}?page=${page}&limit=${limit}`;
+        let url = `${apiEndpoint}?limit=0`; // Fetch all records
         if (search && search.trim()) {
           url += `&search=${encodeURIComponent(search.trim())}&search_by=${searchBy}`;
         }
@@ -169,11 +150,8 @@ export default function CandidatesPage() {
         }
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        const data: PaginatedCandidatesResponse = await res.json();
+        const data = await res.json();
         setCandidates(data.data);
-        setTotalCandidates(data.total);
-        setTotalPages(Math.ceil(data.total / limit));
-        setCurrentPage(page);
       } catch (err) {
         const error = err instanceof Error ? err.message : "Failed to load candidates";
         setError(error);
@@ -197,33 +175,29 @@ export default function CandidatesPage() {
 
   const handleFilterChanged = useCallback((filterModelFromGrid: any) => {
     setFilterModel(filterModelFromGrid);
-    fetchCandidates(1, pageSize, searchTerm, searchBy, sortModel, filterModelFromGrid);
-  }, [pageSize, searchTerm, searchBy, sortModel, fetchCandidates]);
-
-  // useEffect(() => {
-  //   fetchBatches();
-  //   fetchCandidates(currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel);
-  // }, [fetchBatches]);
+    fetchCandidates(searchTerm, searchBy, sortModel, filterModelFromGrid);
+  }, [searchTerm, searchBy, sortModel, fetchCandidates]);
 
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
       if (searchTerm !== undefined) {
         const autoSearchBy = detectSearchBy(searchTerm);
-        fetchCandidates(1, pageSize, searchTerm, autoSearchBy, sortModel, filterModel);
+        fetchCandidates(searchTerm, autoSearchBy, sortModel, filterModel);
       }
     }, 500);
     return () => clearTimeout(debounceTimer);
   }, [searchTerm]);
 
-  const handlePageSizeChange = useCallback((newSize: number) => {
-    setPageSize(newSize);
-    setCurrentPage(1);
-    fetchCandidates(1, newSize, searchTerm, searchBy, sortModel, filterModel);
-  }, [searchTerm, searchBy, sortModel, filterModel, fetchCandidates]);
+  const handleOpenNewCandidateForm = () => {
+    router.push("/avatar/candidates?newcandidate=true");
+    setNewCandidateForm(true);
+  };
 
-  const handlePageChange = useCallback((newPage: number) => {
-    fetchCandidates(newPage, pageSize, searchTerm, searchBy, sortModel, filterModel);
-  }, [pageSize, searchTerm, searchBy, sortModel, filterModel, fetchCandidates]);
+  const handleCloseNewCandidateForm = () => {
+    router.push("/avatar/candidates");
+    setNewCandidateForm(false);
+    setFormData(initialFormData);
+  };
 
   const handleNewCandidateFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -242,15 +216,12 @@ export default function CandidatesPage() {
     setFormSaveLoading(true);
     try {
       const updatedData = { ...formData };
-      // Set default status to "active" if empty
       if (!updatedData.status || updatedData.status === '') {
         updatedData.status = 'active';
       }
-      // Set enrolled_date to today if not set
       if (!updatedData.enrolled_date) {
         updatedData.enrolled_date = new Date().toISOString().split('T')[0];
       }
-      // Set default values for other fields if necessary
       if (!updatedData.workstatus) {
         updatedData.workstatus = 'Waiting for Status';
       }
@@ -260,8 +231,7 @@ export default function CandidatesPage() {
       if (!updatedData.fee_paid) {
         updatedData.fee_paid = 0;
       }
-      // Exclude id from payload for create
-      const payload = { ...updatedData }; // formData doesn't have id
+      const payload = { ...updatedData };
       const response = await fetch(apiEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -271,11 +241,11 @@ export default function CandidatesPage() {
         const errorData = await response.json();
         throw new Error(JSON.stringify(errorData));
       }
-      const newId = await response.json(); // Assuming it returns the new id
+      const newId = await response.json();
       toast.success(`Candidate created successfully with ID: ${newId}`);
       setNewCandidateForm(false);
       setFormData(initialFormData);
-      fetchCandidates(1, pageSize, searchTerm, searchBy, sortModel, filterModel);
+      fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
     } catch (error) {
       toast.error("Failed to create candidate: " + error.message);
       console.error("Error creating candidate:", error);
@@ -284,27 +254,14 @@ export default function CandidatesPage() {
     }
   };
 
-  const handleOpenNewCandidateForm = () => {
-    router.push("/avatar/candidates?newcandidate=true");
-    setNewCandidateForm(true);
-  };
-
-  const handleCloseNewCandidateForm = () => {
-    router.push("/avatar/candidates");
-    setNewCandidateForm(false);
-    setFormData(initialFormData);
-  };
-
   const handleRowUpdated = useCallback(
     async (updatedRow: Candidate) => {
       setLoadingRowId(updatedRow.id);
       try {
         const updatedData = { ...updatedRow };
-        // Set default status to "active" if empty
         if (!updatedData.status || updatedData.status === '') {
           updatedData.status = 'active';
         }
-        // Exclude id from payload for update
         const { id, ...payload } = updatedData;
         const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
           method: "PUT",
@@ -312,7 +269,7 @@ export default function CandidatesPage() {
           body: JSON.stringify(payload),
         });
         if (!response.ok) throw new Error("Failed to update candidate");
-        fetchCandidates(currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel);
+        fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
         toast.success("Candidate updated successfully");
       } catch (error) {
         toast.error("Failed to update candidate");
@@ -321,7 +278,7 @@ export default function CandidatesPage() {
         setLoadingRowId(null);
       }
     },
-    [apiEndpoint, currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel, fetchCandidates]
+    [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchCandidates]
   );
 
   const handleRowDeleted = useCallback(
@@ -332,16 +289,13 @@ export default function CandidatesPage() {
         });
         if (!response.ok) throw new Error("Failed to delete candidate");
         toast.success("Candidate deleted successfully");
-        const newTotalCandidates = totalCandidates - 1;
-        const newTotalPages = Math.ceil(newTotalCandidates / pageSize);
-        const targetPage = currentPage > newTotalPages ? Math.max(1, newTotalPages) : currentPage;
-        fetchCandidates(targetPage, pageSize, searchTerm, searchBy, sortModel, filterModel);
+        fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
       } catch (error) {
         toast.error("Failed to delete candidate");
         console.error("Error deleting candidate:", error);
       }
     },
-    [apiEndpoint, currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel, totalCandidates, fetchCandidates]
+    [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchCandidates]
   );
 
   const StatusRenderer = ({ value }: { value?: string }) => {
@@ -603,7 +557,7 @@ export default function CandidatesPage() {
         <div className="text-red-500">{error}</div>
         <Button
           variant="outline"
-          onClick={() => fetchCandidates(currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel)}
+          onClick={() => fetchCandidates(searchTerm, searchBy, sortModel, filterModel)}
           className="ml-4"
         >
           <RefreshCw className="mr-2 h-4 w-4" />
@@ -622,7 +576,7 @@ export default function CandidatesPage() {
             Candidates Management
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            All Candidates ({totalCandidates}) - Sorted by latest first
+            All Candidates - Sorted by latest first
           </p>
         </div>
         <Button
@@ -652,7 +606,7 @@ export default function CandidatesPage() {
         </div>
         {searchTerm && (
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {totalCandidates} candidates found
+            {candidates.length} candidates found
           </p>
         )}
       </div>
@@ -666,40 +620,8 @@ export default function CandidatesPage() {
           showFilters={true}
           showSearch={false}
           height="600px"
+          // pagination={false}
         />
-      </div>
-      <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
-        <div className="flex items-center space-x-2">
-          <span className="text-sm">Rows per page:</span>
-          <select
-            value={pageSize}
-            onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-            className="border rounded px-2 py-1 text-sm"
-          >
-            {[10, 20, 50, 100].map((size) => (
-              <option key={size} value={size}>{size}</option>
-            ))}
-          </select>
-        </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1 || loading}
-            className="px-2 py-1 border rounded text-sm disabled:opacity-50"
-          >
-            Previous
-          </button>
-          <span className="text-sm">
-            Page {currentPage} of {totalPages || 1}
-          </span>
-          <button
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages || totalPages === 0 || loading}
-            className="px-2 py-1 border rounded text-sm disabled:opacity-50"
-          >
-            Next
-          </button>
-        </div>
       </div>
       {newCandidateForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
@@ -996,12 +918,12 @@ export default function CandidatesPage() {
                   className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 >
-                  {/* <option value={0} disabled>Select Batch</option>
+                  <option value={0} disabled>Select Batch</option>
                   {batches.map((batch) => (
                     <option key={batch.batchid} value={batch.batchid}>
                       {batch.batchname}
                     </option>
-                  ))} */}
+                  ))}
                 </select>
               </div>
               <div>
@@ -1056,4 +978,3 @@ export default function CandidatesPage() {
     </div>
   );
 }
-
