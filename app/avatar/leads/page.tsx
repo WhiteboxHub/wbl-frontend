@@ -1,5 +1,4 @@
 
-
 "use client";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
@@ -33,12 +32,7 @@ type Lead = {
   massemail_unsubscribe?: boolean;
   massemail_email_sent?: boolean;
 };
-type PaginatedLeadsResponse = {
-  data: Lead[];
-  total: number;
-  page: number;
-  limit: number;
-};
+
 type FormData = {
   full_name: string;
   email: string;
@@ -52,6 +46,7 @@ type FormData = {
   massemail_unsubscribe: boolean;
   massemail_email_sent: boolean;
 };
+
 const initialFormData: FormData = {
   full_name: "",
   email: "",
@@ -64,18 +59,15 @@ const initialFormData: FormData = {
   massemail_unsubscribe: false,
   massemail_email_sent: false,
 };
+
 export default function LeadsPage() {
-  const gridRef = useRef<any>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const isNewLead = searchParams.get("newlead") === "true";
   const [leads, setLeads] = useState<Lead[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
   const [totalLeads, setTotalLeads] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchBy, setSearchBy] = useState("full_name");
@@ -85,14 +77,15 @@ export default function LeadsPage() {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [formSaveLoading, setFormSaveLoading] = useState(false);
   const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
+  
   const apiEndpoint = useMemo(
     () => `${process.env.NEXT_PUBLIC_API_URL}/leads`,
     []
   );
+
+  // Modified fetchLeads function - removed pagination parameters
   const fetchLeads = useCallback(
     async (
-      page: number = 1,
-      limit: number = 20,
       search?: string,
       searchBy: string = "all",
       sort: any[] = [{ colId: 'entry_date', sort: 'desc' }],
@@ -100,23 +93,40 @@ export default function LeadsPage() {
     ) => {
       setLoading(true);
       try {
-        let url = `${apiEndpoint}?page=${page}&limit=${limit}`;
+        let url = `${apiEndpoint}`;
+        const params = new URLSearchParams();
+
         if (search && search.trim()) {
-          url += `&search=${encodeURIComponent(search.trim())}&search_by=${searchBy}`;
+          params.append('search', search.trim());
+          params.append('search_by', searchBy);
         }
+
         const sortToApply = sort && sort.length > 0 ? sort : [{ colId: 'entry_date', sort: 'desc' }];
         const sortParam = sortToApply.map(s => `${s.colId}:${s.sort}`).join(',');
-        url += `&sort=${encodeURIComponent(sortParam)}`;
+        params.append('sort', sortParam);
+
         if (Object.keys(filters).length > 0) {
-          url += `&filters=${encodeURIComponent(JSON.stringify(filters))}`;
+          params.append('filters', JSON.stringify(filters));
         }
+
+        if (params.toString()) {
+          url += `?${params.toString()}`;
+        }
+
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        const data: PaginatedLeadsResponse = await res.json();
-        setLeads(data.data);
-        setTotalLeads(data.total);
-        setTotalPages(Math.ceil(data.total / limit));
-        setCurrentPage(page);
+        const data = await res.json();
+        
+        // Handle both paginated and non-paginated responses
+        if (data.data && Array.isArray(data.data)) {
+          setLeads(data.data);
+          setTotalLeads(data.total || data.data.length);
+        } else if (Array.isArray(data)) {
+          setLeads(data);
+          setTotalLeads(data.length);
+        } else {
+          throw new Error('Invalid response format');
+        }
       } catch (err) {
         const error = err instanceof Error ? err.message : "Failed to load leads";
         setError(error);
@@ -139,39 +149,37 @@ export default function LeadsPage() {
     "OPT",
     "CPT"
   ];
+
   const formFields = {
-  workstatus: { label: "Work Status", type: "select", options: workVisaStatusOptions },
-};
+    workstatus: { label: "Work Status", type: "select", options: workVisaStatusOptions },
+  };
+
   const detectSearchBy = (search: string) => {
     if (/^\d+$/.test(search)) return "id";
     if (/^\S+@\S+\.\S+$/.test(search)) return "email";
     if (/^[\d\s\+\-()]+$/.test(search)) return "phone";
     return "full_name";
   };
+
   const handleFilterChanged = useCallback((filterModelFromGrid: any) => {
     setFilterModel(filterModelFromGrid);
-    fetchLeads(1, pageSize, searchTerm, searchBy, sortModel, filterModelFromGrid);
-  }, [pageSize, searchTerm, searchBy, sortModel, fetchLeads]);
+    fetchLeads(searchTerm, searchBy, sortModel, filterModelFromGrid);
+  }, [searchTerm, searchBy, sortModel, fetchLeads]);
+
   useEffect(() => {
-    fetchLeads(currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel);
+    fetchLeads('', searchBy, sortModel, filterModel);
   }, []);
+
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
       if (searchTerm !== undefined) {
         const autoSearchBy = detectSearchBy(searchTerm);
-        fetchLeads(1, pageSize, searchTerm, autoSearchBy, sortModel, filterModel);
+        fetchLeads(searchTerm, autoSearchBy, sortModel, filterModel);
       }
     }, 500);
     return () => clearTimeout(debounceTimer);
   }, [searchTerm]);
-  const handlePageSizeChange = useCallback((newSize: number) => {
-    setPageSize(newSize);
-    setCurrentPage(1);
-    fetchLeads(1, newSize, searchTerm, searchBy, sortModel, filterModel);
-  }, [searchTerm, searchBy, sortModel, filterModel, fetchLeads]);
-  const handlePageChange = useCallback((newPage: number) => {
-    fetchLeads(newPage, pageSize, searchTerm, searchBy, sortModel, filterModel);
-  }, [pageSize, searchTerm, searchBy, sortModel, filterModel, fetchLeads]);
+
   const handleNewLeadFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     if (type === 'checkbox') {
@@ -181,6 +189,7 @@ export default function LeadsPage() {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
   };
+
   const handleNewLeadFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormSaveLoading(true);
@@ -215,7 +224,7 @@ export default function LeadsPage() {
       toast.success("Lead created successfully!");
       setNewLeadForm(false);
       setFormData(initialFormData);
-      fetchLeads(1, pageSize, searchTerm, searchBy, sortModel, filterModel);
+      fetchLeads(searchTerm, searchBy, sortModel, filterModel);
     } catch (error) {
       toast.error("Failed to create lead");
       console.error("Error creating lead:", error);
@@ -223,46 +232,44 @@ export default function LeadsPage() {
       setFormSaveLoading(false);
     }
   };
+
   const handleOpenNewLeadForm = () => {
     router.push("/avatar/leads?newlead=true");
     setNewLeadForm(true);
   };
+
   const handleCloseNewLeadForm = () => {
     router.push("/avatar/leads");
     setNewLeadForm(false);
     setFormData(initialFormData);
   };
+
   const handleRowUpdated = useCallback(
     async (updatedRow: Lead) => {
       setLoadingRowId(updatedRow.id);
       try {
-        const updatedData = { ...updatedRow };
-        // Set default status to "waiting" if empty
-        if (!updatedData.status || updatedData.status === '') {
-          updatedData.status = 'waiting';
+        const { id, entry_date, ...payload } = updatedRow;
+      
+        payload.moved_to_candidate = Boolean(payload.moved_to_candidate);
+        payload.massemail_unsubscribe = Boolean(payload.massemail_unsubscribe);
+        payload.massemail_email_sent = Boolean(payload.massemail_email_sent);
+  
+        if (payload.status === "Closed") {
+          payload.closed_date = new Date().toISOString().split('T')[0];
+        } else {
+          payload.closed_date = null;
         }
-        // Set default workstatus to "waiting" if empty
-        if (!updatedData.workstatus || updatedData.workstatus === '') {
-          updatedData.workstatus = 'waiting';
-        }
-        // Set default boolean values to false if empty or undefined
-        const booleanFields = ['moved_to_candidate', 'massemail_email_sent', 'massemail_unsubscribe'];
-        booleanFields.forEach(field => {
-          if (updatedData[field] === undefined || updatedData[field] === null || updatedData[field] === '') {
-            updatedData[field] = false;
-          }
-        });
-        const payload = {
-          ...updatedData,
-          closed_date: updatedData.status === "Closed" ? new Date().toISOString() : null,
-        };
+  
         const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        if (!response.ok) throw new Error("Failed to update lead");
-        fetchLeads(currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || "Failed to update lead");
+        }
+        fetchLeads(searchTerm, searchBy, sortModel, filterModel);
         toast.success("Lead updated successfully");
       } catch (error) {
         toast.error("Failed to update lead");
@@ -271,8 +278,9 @@ export default function LeadsPage() {
         setLoadingRowId(null);
       }
     },
-    [apiEndpoint, currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel, fetchLeads]
+    [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchLeads]
   );
+  
   const handleRowDeleted = useCallback(
     async (id: number) => {
       try {
@@ -281,17 +289,15 @@ export default function LeadsPage() {
         });
         if (!response.ok) throw new Error("Failed to delete lead");
         toast.success("Lead deleted successfully");
-        const newTotalLeads = totalLeads - 1;
-        const newTotalPages = Math.ceil(newTotalLeads / pageSize);
-        const targetPage = currentPage > newTotalPages ? Math.max(1, newTotalPages) : currentPage;
-        fetchLeads(targetPage, pageSize, searchTerm, searchBy, sortModel, filterModel);
+        fetchLeads(searchTerm, searchBy, sortModel, filterModel);
       } catch (error) {
         toast.error("Failed to delete lead");
         console.error("Error deleting lead:", error);
       }
     },
-    [apiEndpoint, currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel, totalLeads, fetchLeads]
+    [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchLeads]
   );
+
   const handleMoveToCandidate = useCallback(
     async (leadId: { id: number }, Moved: boolean) => {
       setLoadingRowId(leadId.id);
@@ -307,7 +313,7 @@ export default function LeadsPage() {
           throw new Error(errorData.detail || "Failed to move lead to candidate");
         }
         const data = await response.json();
-        fetchLeads(currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel);
+        fetchLeads(searchTerm, searchBy, sortModel, filterModel);
         if (Moved) {
           toast.success(`Lead removed from candidate list (Candidate ID: ${data.candidate_id})`);
         } else {
@@ -320,8 +326,9 @@ export default function LeadsPage() {
         setLoadingRowId(null);
       }
     },
-    [apiEndpoint, currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel, fetchLeads]
+    [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchLeads]
   );
+
   const StatusRenderer = ({ value }: { value?: string }) => {
     const status = value?.toLowerCase() || "";
     const variantMap: Record<string, string> = {
@@ -337,6 +344,7 @@ export default function LeadsPage() {
       </Badge>
     );
   };
+
   const formatPhoneNumber = (phoneNumberString: string) => {
     const cleaned = ('' + phoneNumberString).replace(/\D/g, '');
     const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
@@ -345,6 +353,7 @@ export default function LeadsPage() {
     }
     return `+1 ${phoneNumberString}`;
   };
+
   const columnDefs: ColDef<any, any>[] = useMemo(
     () => [
       {
@@ -492,13 +501,14 @@ export default function LeadsPage() {
     ],
     []
   );
+
   if (error) {
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="text-red-500">{error}</div>
         <Button
           variant="outline"
-          onClick={() => fetchLeads(currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel)}
+          onClick={() => fetchLeads(searchTerm, searchBy, sortModel, filterModel)}
           className="ml-4"
         >
           <RefreshCw className="mr-2 h-4 w-4" />
@@ -507,6 +517,7 @@ export default function LeadsPage() {
       </div>
     );
   }
+
   return (
     <div className="space-y-6">
       <Toaster position="top-center" />
@@ -562,39 +573,6 @@ export default function LeadsPage() {
           height="600px"
         />
       </div>
-      <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
-        <div className="flex items-center space-x-2">
-          <span className="text-sm">Rows per page:</span>
-          <select
-            value={pageSize}
-            onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-            className="border rounded px-2 py-1 text-sm"
-          >
-            {[10, 20, 50, 100].map((size) => (
-              <option key={size} value={size}>{size}</option>
-            ))}
-          </select>
-        </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1 || loading}
-            className="px-2 py-1 border rounded text-sm disabled:opacity-50"
-          >
-            Previous
-          </button>
-          <span className="text-sm">
-            Page {currentPage} of {totalPages || 1}
-          </span>
-          <button
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages || totalPages === 0 || loading}
-            className="px-2 py-1 border rounded text-sm disabled:opacity-50"
-          >
-            Next
-          </button>
-        </div>
-      </div>
 
       {newLeadForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
@@ -606,7 +584,6 @@ export default function LeadsPage() {
               onSubmit={handleNewLeadFormSubmit}
               className="grid grid-cols-1 gap-4 md:grid-cols-2"
             >
-           
               {Object.entries({
                 full_name: { label: "Full Name", type: "text", required: true },
                 email: { label: "Email", type: "email", required: true },
@@ -736,7 +713,6 @@ export default function LeadsPage() {
           </div>
         </div>
       )}
-
     </div>
   );
 }
