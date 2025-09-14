@@ -1,5 +1,6 @@
 
 
+
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -10,12 +11,20 @@ import { Label } from "@/components/admin_ui/label";
 import { Button } from "@/components/admin_ui/button";
 import { SearchIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
 import axios from "axios";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/admin_ui/dialog";
 import { toast, Toaster } from "sonner";
 
 interface CourseSubject {
   subject_id: number;
   course_id: number;
-  //lastmoddatetime: string;
+  course_name: string;   
+  subject_name: string;
   id?: string; 
 }
 
@@ -46,8 +55,6 @@ export default function CourseSubjectPage() {
   const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
   const [showModal, setShowModal] = useState(false);
   const [newMapping, setNewMapping] = useState<NewMapping>({ course_id: "", subject_id: "" });
   const [saving, setSaving] = useState(false);
@@ -63,7 +70,7 @@ export default function CourseSubjectPage() {
         ...item,
         id: `${item.course_id}-${item.subject_id}` 
       }));
-      
+
       setCourseSubjects(dataWithId);
       setFilteredCourseSubjects(dataWithId);
       toast.success("Course-subject mappings loaded successfully!");
@@ -93,77 +100,45 @@ export default function CourseSubjectPage() {
     const lower = searchTerm.trim().toLowerCase();
     if (!lower) {
       setFilteredCourseSubjects(courseSubjects);
-      setPage(1);
       return;
     }
+
+    const parts = lower.split(/\s+/).filter(Boolean);
 
     const filtered = courseSubjects.filter((row) => {
       const courseIdStr = row.course_id?.toString() || "";
       const subjectIdStr = row.subject_id?.toString() || "";
-      //const lastModStr = row.lastmoddatetime?.toLowerCase() || "";
+      const courseNameStr = row.course_name?.toLowerCase() || "";
+      const subjectNameStr = row.subject_name?.toLowerCase() || "";
 
-      const parts = lower.split(/\s+/).filter(Boolean);
-      
-      if (parts.length === 2) {
+      const haystack = `${courseIdStr} ${subjectIdStr} ${courseNameStr} ${subjectNameStr} ${courseIdStr}-${subjectIdStr} ${subjectIdStr}-${courseIdStr}`;
+
+      if (parts.length === 2 && parts.every((p) => /^\d+$/.test(p))) {
         return (
           (parts[0] === courseIdStr && parts[1] === subjectIdStr) ||
           (parts[1] === courseIdStr && parts[0] === subjectIdStr)
         );
       }
 
-      return (
-        courseIdStr.includes(lower) ||
-        subjectIdStr.includes(lower) ||
-        //lastModStr.includes(lower) ||
-        `${courseIdStr}-${subjectIdStr}`.includes(lower) ||
-        `${subjectIdStr}-${courseIdStr}`.includes(lower)
-      );
+      return parts.every((word) => haystack.includes(word));
     });
 
     setFilteredCourseSubjects(filtered);
-    setPage(1); 
   }, [searchTerm, courseSubjects]);
 
+  // ✅ Fixed column definitions (course_id & subject_id hidden, others visible)
   useEffect(() => {
-    if (courseSubjects.length > 0) {
-      const defs: ColDef[] = Object.keys(courseSubjects[0])
-        .filter(key => key !== 'id') 
-        .map((key) => {
-          const col: ColDef = {
-            field: key,
-            headerName: key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
-            width: 180,
-            editable: false,
-            sortable: true,
-            filter: true,
-          };
-
-          if (key === "course_id") {
-            col.headerName = "Course ID";
-            col.pinned = "left";
-            col.width = 150;
-            col.cellClass = "font-medium";
-          }
-
-          if (key === "subject_id") {
-            col.headerName = "Subject ID";
-            col.pinned = "left";
-            col.width = 150;
-            col.cellClass = "font-medium";
-          }
-
-          return col;
-        });
-
-      setColumnDefs(defs);
-    }
-  }, [courseSubjects]);
+    setColumnDefs([
+      { field: "course_id", headerName: "Course ID", hide: true },
+      { field: "subject_id", headerName: "Subject ID", hide: true },
+      { field: "course_name", headerName: "Course", width: 300, editable: false },
+      { field: "subject_name", headerName: "Subject", width: 400, editable: false },
+    ]);
+  }, []);
 
   const handleRowDeleted = async (compositeId: string) => {
     try {
-
       const [courseId, subjectId] = compositeId.split('-');
-      
       if (!courseId || !subjectId) {
         toast.error("Invalid record ID format");
         return;
@@ -173,16 +148,11 @@ export default function CourseSubjectPage() {
         `${process.env.NEXT_PUBLIC_API_URL}/course-subjects/${courseId}/${subjectId}`
       );
 
-      setCourseSubjects((prev) => 
-        prev.filter((r) => r.id !== compositeId)
-      );
-      setFilteredCourseSubjects((prev) => 
-        prev.filter((r) => r.id !== compositeId)
-      );
+      setCourseSubjects((prev) => prev.filter((r) => r.id !== compositeId));
+      setFilteredCourseSubjects((prev) => prev.filter((r) => r.id !== compositeId));
 
       toast.success("Course-subject mapping deleted successfully!");
     } catch (e: any) {
-      console.error("Delete failed", e.response?.data || e.message);
       const errorMsg = getErrorMessage(e);
       setError(errorMsg);
       toast.error(`Delete failed: ${errorMsg}`);
@@ -219,15 +189,14 @@ export default function CourseSubjectPage() {
         subject_id: subjectId,
       });
 
-    
       const newRecordWithId = {
         ...res.data,
         id: `${res.data.course_id}-${res.data.subject_id}`
       };
 
-      setCourseSubjects((prev) => [...prev, newRecordWithId]);
-      setFilteredCourseSubjects((prev) => [...prev, newRecordWithId]);
-
+      const updated = [...courseSubjects, newRecordWithId];
+      setCourseSubjects(updated);
+      setFilteredCourseSubjects(updated);
       toast.success("Course-subject mapping added successfully!");
       setShowModal(false);
       setNewMapping({ course_id: "", subject_id: "" });
@@ -238,11 +207,6 @@ export default function CourseSubjectPage() {
       setSaving(false);
     }
   };
-
-  const totalPages = Math.ceil(filteredCourseSubjects.length / pageSize);
-  const startIndex = (page - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const paginatedData = filteredCourseSubjects.slice(startIndex, endIndex);
 
   if (loading) {
     return (
@@ -298,7 +262,6 @@ export default function CourseSubjectPage() {
         </div>
        </div>
 
-      
       <div className="max-w-md">
         <Label htmlFor="search" className="text-sm font-medium">
           Search Mappings
@@ -320,9 +283,8 @@ export default function CourseSubjectPage() {
         )}
       </div>
 
-     
       <AGGridTable
-        rowData={paginatedData}
+        rowData={filteredCourseSubjects}
         columnDefs={columnDefs}
         title={`Course-Subject Mappings (${filteredCourseSubjects.length} results)`}
         height="calc(70vh - 100px)"
@@ -331,126 +293,71 @@ export default function CourseSubjectPage() {
         showSearch={false}
       />
 
-      <div className="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
-        <div className="flex items-center space-x-2">
-          <span className="text-sm text-gray-600 dark:text-gray-400">Rows per page:</span>
-          <select
-            value={pageSize}
-            onChange={(e) => {
-              setPageSize(Number(e.target.value));
-              setPage(1);
-            }}
-            className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-          >
-            {[10, 20, 50, 100].map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
-        </div>
-        
-        <div className="flex items-center space-x-4">
-          <span className="text-sm text-gray-600 dark:text-gray-400">
-            Showing {startIndex + 1}-{Math.min(endIndex, filteredCourseSubjects.length)} of {filteredCourseSubjects.length}
-          </span>
-          <div className="flex items-center space-x-2">
-            <Button
-              onClick={() => setPage((p) => Math.max(p - 1, 1))}
-              disabled={page === 1}
-              variant="outline"
-              size="sm"
-            >
-              Previous
-            </Button>
-            <span className="text-sm font-medium px-2">
-              Page {page} of {totalPages || 1}
-            </span>
-            <Button
-              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-              disabled={page >= totalPages}
-              variant="outline"
-              size="sm"
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      </div>
 
-      {showModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-96 max-w-[90vw]">
-            <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
-              Add Course-Subject Mapping
-            </h2>
-            
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="course_id" className="text-sm font-medium">
-                  Course ID <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="course_id"
-                  type="number"
-                  value={newMapping.course_id}
-                  onChange={(e) =>
-                    setNewMapping({ ...newMapping, course_id: e.target.value })
-                  }
-                  placeholder="Enter course ID"
-                  className="mt-1"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="subject_id" className="text-sm font-medium">
-                  Subject ID <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="subject_id"
-                  type="number"
-                  value={newMapping.subject_id}
-                  onChange={(e) =>
-                    setNewMapping({ ...newMapping, subject_id: e.target.value })
-                  }
-                  placeholder="Enter subject ID"
-                  className="mt-1"
-                />
-              </div>
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent  className="max-w-sm p-4">
+          <DialogHeader>
+            <DialogTitle>Add Course-Subject Mapping</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="course_id" className="text-sm font-medium">
+                Course ID <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="course_id"
+                type="number"
+                value={newMapping.course_id}
+                onChange={(e) =>
+                  setNewMapping((prev) => ({ ...prev, course_id: e.target.value }))
+                }
+                placeholder="Enter course ID"
+              />
             </div>
 
-            <div className="flex justify-end gap-3 mt-6">
-              <Button
-                onClick={() => {
-                  setShowModal(false);
-                  setNewMapping({ course_id: "", subject_id: "" });
-                }}
-                variant="outline"
-                disabled={saving}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleAddMapping}
-                disabled={saving || !newMapping.course_id || !newMapping.subject_id}
-              >
-                {saving ? (
-                  <>
-                    <RefreshCwIcon className="h-4 w-4 mr-2 animate-spin" />
-                    Adding...
-                  </>
-                ) : (
-                  <>
-                    <PlusIcon className="h-4 w-4 mr-2" />
-                    Add Mapping
-                  </>
-                )}
-              </Button>
+            <div>
+              <Label htmlFor="subject_id" className="text-sm font-medium">
+                Subject ID <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="subject_id"
+                type="number"
+                value={newMapping.subject_id}
+                onChange={(e) =>
+                  setNewMapping((prev) => ({ ...prev, subject_id: e.target.value }))
+                }
+                placeholder="Enter subject ID"
+              />
             </div>
           </div>
-        </div>
-      )}
-    
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowModal(false);
+                setNewMapping({ course_id: "", subject_id: "" });
+              }}
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddMapping}
+              disabled={saving || !newMapping.course_id || !newMapping.subject_id}
+            >
+              {saving ? (
+                <>
+                  <RefreshCwIcon className="h-4 w-4 mr-2 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                "Save"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

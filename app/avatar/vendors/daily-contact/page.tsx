@@ -58,8 +58,8 @@ export default function VendorContactsGrid() {
   const [contacts, setContacts] = useState<any[]>([]);
   const [filteredContacts, setFilteredContacts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(100);
+  // const [page, setPage] = useState(1);
+  // const [pageSize, setPageSize] = useState(100);
 
   const apiEndpoint = useMemo(
     () => `${process.env.NEXT_PUBLIC_API_URL}/vendor_contact_extracts`,
@@ -191,11 +191,11 @@ export default function VendorContactsGrid() {
     []
   );
 
-  const paginatedContacts = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    const end = start + pageSize;
-    return filteredContacts.slice(start, end);
-  }, [filteredContacts, page, pageSize]);
+  // const paginatedContacts = useMemo(() => {
+  //   const start = (page - 1) * pageSize;
+  //   const end = start + pageSize;
+  //   return filteredContacts.slice(start, end);
+  // }, [filteredContacts, page, pageSize]);
 
   return (
     <div className="space-y-6">
@@ -235,7 +235,7 @@ export default function VendorContactsGrid() {
       <div className="flex justify-center w-full">
         <div className="w-full max-w-7xl">
           <AGGridTable
-            rowData={paginatedContacts}
+            rowData={filteredContacts}
             columnDefs={columnDefs}
             defaultColDef={defaultColDef}
             height="600px"
@@ -247,7 +247,7 @@ export default function VendorContactsGrid() {
         </div>
       </div>
 
-      <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
+      {/* <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
         <div className="flex items-center space-x-2">
           <span className="text-sm">Rows per page:</span>
           <select
@@ -289,7 +289,7 @@ export default function VendorContactsGrid() {
             Next <ChevronRight className="h-4 w-4" />
           </button>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }
