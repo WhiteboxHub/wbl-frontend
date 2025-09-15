@@ -1,5 +1,6 @@
 
 
+
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -19,8 +20,7 @@ import { SearchIcon } from "lucide-react";
 import axios from "axios";
 import { toast, Toaster } from "sonner";
 
-const DateFormatter = (params: any) =>
-  params.value ? new Date(params.value).toLocaleString() : "";
+
 
 export default function SubjectPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -29,10 +29,8 @@ export default function SubjectPage() {
   const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-
-  // Modal states
+  // const [page, setPage] = useState(1);
+  // const [pageSize, setPageSize] = useState(10);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newSubject, setNewSubject] = useState({
     name: "",
@@ -45,8 +43,11 @@ export default function SubjectPage() {
       const res = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/subjects`
       );
-      setSubjects(res.data);
-      setFilteredSubjects(res.data);
+
+      const sortedSubjects = res.data.sort((a: any, b: any) => b.id - a.id);
+
+      setSubjects(sortedSubjects);
+      setFilteredSubjects(sortedSubjects);
       toast.success("Subjects loaded successfully.");
     } catch (e: any) {
       setError(e.response?.data?.detail || e.message);
@@ -76,45 +77,16 @@ export default function SubjectPage() {
     setFilteredSubjects(filtered);
   }, [searchTerm, subjects]);
 
-  
+
   useEffect(() => {
-    if (subjects.length > 0) {
-      const columnConfig: Record<string, number> = {
-        id: 150,
-        name: 300,
-        description: 400,
-      };
+    setColumnDefs([
+      { field: "id", headerName: "ID", width: 150, editable: false },
+      { field: "name", headerName: "Name", width: 300, editable: true },
+      { field: "description", headerName: "Description", width: 400, editable: true },
+    ]);
+  }, []);
 
-      const defs: ColDef[] = Object.keys(subjects[0])
-        .filter((key) => key !== "lastmoddatetime" && key !== "createdate")
-        .map((key) => {
-          const col: ColDef = {
-            field: key,
-            headerName:
-              key === "id"
-                ? "ID"
-                : key
-                    .replace(/_/g, " ")
-                    .replace(/\b\w/g, (l) => l.toUpperCase()),
-            width: columnConfig[key] || 200,
-            editable: key !== "id",
-          };
-
-          if (key.toLowerCase().includes("date"))
-            col.valueFormatter = DateFormatter;
-
-          if (key === "id") {
-            col.pinned = "left";
-          }
-
-          return col;
-        });
-
-      setColumnDefs(defs);
-    }
-  }, [subjects]);
-
-  // Update row
+  // Update
   const handleRowUpdated = async (updatedRow: any) => {
     try {
       await axios.put(
@@ -130,7 +102,7 @@ export default function SubjectPage() {
     }
   };
 
-  // Delete row
+  // Delete
   const handleRowDeleted = async (id: number) => {
     try {
       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/subjects/${id}`);
@@ -141,15 +113,18 @@ export default function SubjectPage() {
     }
   };
 
-  // Add subject
+  // Add
   const handleAddSubject = async () => {
     try {
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/subjects`,
         newSubject
       );
-      setSubjects((prev) => [...prev, res.data]);
-      setFilteredSubjects((prev) => [...prev, res.data]);
+
+      const updated = [...subjects, res.data].sort((a, b) => b.id - a.id);
+
+      setSubjects(updated);
+      setFilteredSubjects(updated);
       toast.success("New subject created.");
       setIsModalOpen(false);
       setNewSubject({ name: "", description: "" });
@@ -189,7 +164,7 @@ export default function SubjectPage() {
       </div>
 
       <AGGridTable
-        rowData={filteredSubjects.slice((page - 1) * pageSize, page * pageSize)}
+        rowData={filteredSubjects}
         columnDefs={columnDefs}
         title={`Subjects (${filteredSubjects.length})`}
         height="calc(70vh)"
@@ -199,7 +174,7 @@ export default function SubjectPage() {
       />
 
       {/* Pagination */}
-      <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
+      {/* <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
         <div className="flex items-center space-x-2">
           <span className="text-sm">Rows per page:</span>
           <select
@@ -234,9 +209,9 @@ export default function SubjectPage() {
             Next
           </button>
         </div>
-      </div>
+      </div> */}
 
-      {/* Add Subject  */}
+      {/* Add Subject */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
           <DialogHeader>
@@ -247,7 +222,7 @@ export default function SubjectPage() {
               <Label htmlFor="name">Name</Label>
               <Input
                 id="name"
-                maxLength={100}   
+                maxLength={100}
                 className="w-[400px]"
                 value={newSubject.name}
                 onChange={(e) =>
@@ -259,8 +234,7 @@ export default function SubjectPage() {
               <Label htmlFor="description">Description</Label>
               <Input
                 id="description"
-                maxLength={300} 
-                //className="w-[500px] h-[120px]"
+                maxLength={300}
                 className="w-full min-h-[120px] p-2 border rounded-md"
                 value={newSubject.description}
                 onChange={(e) =>

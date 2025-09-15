@@ -18,29 +18,21 @@ export default function SessionsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [total, setTotal] = useState(0);
-
-  // Pagination
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
 
   // Debounce search
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(searchTerm);
-      setPage(1);
     }, 500);
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  // Fetch sessions
+  // Fetch sessions (no pagination)
   const fetchSessions = async () => {
     try {
       setLoading(true);
 
       const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/session`);
-      url.searchParams.append("page", page.toString());
-      url.searchParams.append("per_page", pageSize.toString());
       if (debouncedSearch.trim()) {
         url.searchParams.append("search_title", debouncedSearch.trim());
       }
@@ -48,18 +40,16 @@ export default function SessionsPage() {
       const res = await fetch(url.toString());
       if (!res.ok) {
         setSessions([]);
-        setTotal(0);
         return;
       }
-      const data = await res.json();
 
-      setSessions(data.data || []);
-      setTotal(data.total || 0);
+      // Backend now directly returns a list (not {data, total})
+      const data = await res.json();
+      setSessions(data || []);
     } catch (err: any) {
       console.error(err);
       toast.error("Failed to fetch sessions.");
       setSessions([]);
-      setTotal(0);
     } finally {
       setLoading(false);
     }
@@ -67,16 +57,15 @@ export default function SessionsPage() {
 
   useEffect(() => {
     fetchSessions();
-  }, [page, pageSize, debouncedSearch]);
+  }, [debouncedSearch]);
 
   // Column definitions
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
-    { field: "sessionid", headerName: "ID", width: 90, pinned: "left" },
-    { field: "title", headerName: "Title", width: 200, editable: true },
+    { field: "sessionid", headerName: "ID", width: 120, pinned: "left" },
+    { field: "title", headerName: "Title", width: 380, editable: true },
     { field: "videoid", headerName: "Video ID", width: 160, editable: true },
     { field: "type", headerName: "Type", width: 140, editable: true },
-    // { field: "subject_id", headerName: "Subject ID", width: 120, editable: true },         
-    {field: "subject", headerName: "Subject",width: 180,editable: true},
+    { field: "subject", headerName: "Subject", width: 180, editable: true },
     {
       field: "sessiondate",
       headerName: "Session Date",
@@ -88,7 +77,7 @@ export default function SessionsPage() {
     {
       field: "link",
       headerName: "Link",
-      width: 250,
+      width: 200,
       cellRenderer: (params: any) => {
         if (!params.value) return "";
         return (
@@ -143,7 +132,6 @@ export default function SessionsPage() {
       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/session/${id}`);
 
       setSessions((prev) => prev.filter((row) => row.sessionid !== id));
-      setTotal((prev) => prev - 1);
 
       toast.success(`Session ${id} deleted.`);
     } catch (err: any) {
@@ -199,53 +187,12 @@ export default function SessionsPage() {
         <AGGridTable
           rowData={sessions}
           columnDefs={columnDefs}
-          title={`Sessions (${total})`}
+          title={`Sessions (${sessions.length})`}
           height="600px"
           showSearch={false}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
         />
-      )}
-
-      {/* Pagination Controls */}
-      {sessions.length > 0 && (
-        <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
-          <div className="flex items-center space-x-2">
-            <span className="text-sm">Rows per page:</span>
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
-                setPage(1);
-              }}
-              className="border rounded px-2 py-1 text-sm"
-            >
-              {[10, 20, 50, 100].map((size) => (
-                <option key={size} value={size}>{size}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setPage((p) => Math.max(p - 1, 1))}
-              disabled={page === 1}
-              className="px-2 py-1 border rounded text-sm disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <span className="text-sm">
-              Page {page} of {Math.ceil(total / pageSize)}
-            </span>
-            <button
-              onClick={() => setPage((p) => p + 1)}
-              disabled={page * pageSize >= total}
-              className="px-2 py-1 border rounded text-sm disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-        </div>
       )}
     </div>
   );

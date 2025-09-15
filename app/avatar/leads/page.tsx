@@ -1,8 +1,7 @@
 
-
 "use client";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
-import { ColDef, ValueFormatterParams, SortChangedEvent } from "ag-grid-community";
+import { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
@@ -11,8 +10,7 @@ import { Button } from "@/components/admin_ui/button";
 import { toast, Toaster } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AGGridTable } from "@/components/AGGridTable";
-import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
-ModuleRegistry.registerModules([AllCommunityModule]);
+import { ModuleRegistry } from "ag-grid-community";
 
 type Lead = {
   id: number;
@@ -35,13 +33,6 @@ type Lead = {
   massemail_email_sent?: boolean;
 };
 
-type PaginatedLeadsResponse = {
-  data: Lead[];
-  total: number;
-  page: number;
-  limit: number;
-};
-
 type FormData = {
   full_name: string;
   email: string;
@@ -52,58 +43,49 @@ type FormData = {
   moved_to_candidate: boolean;
   notes: string;
   entry_date?: string;
+  massemail_unsubscribe: boolean;
+  massemail_email_sent: boolean;
 };
 
 const initialFormData: FormData = {
   full_name: "",
   email: "",
   phone: "",
-  workstatus: "",
+  workstatus: "Waiting for Status",
   address: "",
   status: "Open",
   moved_to_candidate: false,
   notes: "",
+  massemail_unsubscribe: false,
+  massemail_email_sent: false,
 };
 
 export default function LeadsPage() {
-  const gridRef = useRef<any>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-
   const router = useRouter();
   const searchParams = useSearchParams();
   const isNewLead = searchParams.get("newlead") === "true";
-
-  // State for leads data
   const [leads, setLeads] = useState<Lead[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
   const [totalLeads, setTotalLeads] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const [searchBy, setSearchBy] = useState("full_name");
-  // FIXED: Initialize with proper default sort
   const [sortModel, setSortModel] = useState([{ colId: 'entry_date', sort: 'desc' as 'desc' }]);
   const [filterModel, setFilterModel] = useState({});
-
-  // State for new lead form
   const [newLeadForm, setNewLeadForm] = useState(isNewLead);
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [formSaveLoading, setFormSaveLoading] = useState(false);
   const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
-
+  
   const apiEndpoint = useMemo(
     () => `${process.env.NEXT_PUBLIC_API_URL}/leads`,
     []
   );
 
-  // FIXED: Fetch leads with proper server-side sorting
+  // Modified fetchLeads function - removed pagination parameters
   const fetchLeads = useCallback(
     async (
-      page: number = 1,
-      limit: number = 20,
       search?: string,
       searchBy: string = "all",
       sort: any[] = [{ colId: 'entry_date', sort: 'desc' }],
@@ -111,35 +93,40 @@ export default function LeadsPage() {
     ) => {
       setLoading(true);
       try {
-        let url = `${apiEndpoint}?page=${page}&limit=${limit}`;
+        let url = `${apiEndpoint}`;
+        const params = new URLSearchParams();
 
-        // Add search parameters
         if (search && search.trim()) {
-          url += `&search=${encodeURIComponent(search.trim())}&search_by=${searchBy}`;
+          params.append('search', search.trim());
+          params.append('search_by', searchBy);
         }
 
-        // FIXED: Ensure sorting is always applied (default to entry_date desc)
         const sortToApply = sort && sort.length > 0 ? sort : [{ colId: 'entry_date', sort: 'desc' }];
         const sortParam = sortToApply.map(s => `${s.colId}:${s.sort}`).join(',');
-        url += `&sort=${encodeURIComponent(sortParam)}`;
+        params.append('sort', sortParam);
 
-        // Add filter parameters
         if (Object.keys(filters).length > 0) {
-          url += `&filters=${encodeURIComponent(JSON.stringify(filters))}`;
+          params.append('filters', JSON.stringify(filters));
         }
 
-        console.log('Fetching URL:', url); // Debug log
+        if (params.toString()) {
+          url += `?${params.toString()}`;
+        }
 
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-
-        const data: PaginatedLeadsResponse = await res.json();
-        setLeads(data.data);
-        setTotalLeads(data.total);
-        setTotalPages(Math.ceil(data.total / limit));
-        setCurrentPage(page);
-
-        console.log('Fetched leads:', data.data.length, 'Total:', data.total); // Debug log
+        const data = await res.json();
+        
+        // Handle both paginated and non-paginated responses
+        if (data.data && Array.isArray(data.data)) {
+          setLeads(data.data);
+          setTotalLeads(data.total || data.data.length);
+        } else if (Array.isArray(data)) {
+          setLeads(data);
+          setTotalLeads(data.length);
+        } else {
+          throw new Error('Invalid response format');
+        }
       } catch (err) {
         const error = err instanceof Error ? err.message : "Failed to load leads";
         setError(error);
@@ -153,70 +140,91 @@ export default function LeadsPage() {
     },
     [apiEndpoint]
   );
+
+  const workVisaStatusOptions = [
+    "H1B",
+    "H4 EAD",
+    "Green Card",
+    "US Citizen",
+    "OPT",
+    "CPT"
+  ];
+
+  const formFields = {
+    workstatus: { label: "Work Status", type: "select", options: workVisaStatusOptions },
+  };
+
   const detectSearchBy = (search: string) => {
-    if (/^\d+$/.test(search)) return "id"; 
-    if (/^\S+@\S+\.\S+$/.test(search)) return "email"; 
-    if (/^[\d\s\+\-()]+$/.test(search)) return "phone"; 
+    if (/^\d+$/.test(search)) return "id";
+    if (/^\S+@\S+\.\S+$/.test(search)) return "email";
+    if (/^[\d\s\+\-()]+$/.test(search)) return "phone";
     return "full_name";
   };
-  
 
   const handleFilterChanged = useCallback((filterModelFromGrid: any) => {
-    console.log('Filter changed:', filterModelFromGrid); // Debug log
     setFilterModel(filterModelFromGrid);
-    fetchLeads(1, pageSize, searchTerm, searchBy, sortModel, filterModelFromGrid);
-  }, [pageSize, searchTerm, searchBy, sortModel, fetchLeads]);
+    fetchLeads(searchTerm, searchBy, sortModel, filterModelFromGrid);
+  }, [searchTerm, searchBy, sortModel, fetchLeads]);
 
   useEffect(() => {
-    fetchLeads(currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel);
-  }, []); 
-
- 
+    fetchLeads('', searchBy, sortModel, filterModel);
+  }, []);
 
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
       if (searchTerm !== undefined) {
         const autoSearchBy = detectSearchBy(searchTerm);
-        fetchLeads(1, pageSize, searchTerm, autoSearchBy, sortModel, filterModel);
+        fetchLeads(searchTerm, autoSearchBy, sortModel, filterModel);
       }
     }, 500);
     return () => clearTimeout(debounceTimer);
   }, [searchTerm]);
-  
-  // Handle page size changes
-  const handlePageSizeChange = useCallback((newSize: number) => {
-    setPageSize(newSize);
-    setCurrentPage(1); // Reset to first page
-    fetchLeads(1, newSize, searchTerm, searchBy, sortModel, filterModel);
-  }, [searchTerm, searchBy, sortModel, filterModel, fetchLeads]);
 
-  // Handle pagination
-  const handlePageChange = useCallback((newPage: number) => {
-    fetchLeads(newPage, pageSize, searchTerm, searchBy, sortModel, filterModel);
-  }, [pageSize, searchTerm, searchBy, sortModel, filterModel, fetchLeads]);
+  const handleNewLeadFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    if (type === 'checkbox') {
+      const checked = (e.target as HTMLInputElement).checked;
+      setFormData(prev => ({ ...prev, [name]: checked }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+  };
 
   const handleNewLeadFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormSaveLoading(true);
     try {
-      const formDataWithEntryDate = {
-        ...formData,
+      const updatedData = { ...formData };
+      // Set default status to "waiting" if empty
+      if (!updatedData.status || updatedData.status === '') {
+        updatedData.status = 'waiting';
+      }
+      // Set default workstatus to "waiting" if empty
+      if (!updatedData.workstatus || updatedData.workstatus === '') {
+        updatedData.workstatus = 'waiting';
+      }
+      // Set default boolean values to false if empty or undefined
+      const booleanFields = ['moved_to_candidate', 'massemail_email_sent', 'massemail_unsubscribe'];
+      booleanFields.forEach(field => {
+        if (updatedData[field] === undefined || updatedData[field] === null || updatedData[field] === '') {
+          updatedData[field] = false;
+        }
+      });
+      const payload = {
+        ...updatedData,
         entry_date: new Date().toISOString(),
+        closed_date: updatedData.status === "Closed" ? new Date().toISOString() : null,
       };
-
       const response = await fetch(apiEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formDataWithEntryDate),
+        body: JSON.stringify(payload),
       });
-
       if (!response.ok) throw new Error("Failed to create lead");
-
       toast.success("Lead created successfully!");
       setNewLeadForm(false);
       setFormData(initialFormData);
-      // Refresh to show the new lead (should appear at top with default sort)
-      fetchLeads(1, pageSize, searchTerm, searchBy, sortModel, filterModel);
+      fetchLeads(searchTerm, searchBy, sortModel, filterModel);
     } catch (error) {
       toast.error("Failed to create lead");
       console.error("Error creating lead:", error);
@@ -233,23 +241,35 @@ export default function LeadsPage() {
   const handleCloseNewLeadForm = () => {
     router.push("/avatar/leads");
     setNewLeadForm(false);
+    setFormData(initialFormData);
   };
 
-  // Row operation handlers
   const handleRowUpdated = useCallback(
     async (updatedRow: Lead) => {
       setLoadingRowId(updatedRow.id);
       try {
+        const { id, entry_date, ...payload } = updatedRow;
+      
+        payload.moved_to_candidate = Boolean(payload.moved_to_candidate);
+        payload.massemail_unsubscribe = Boolean(payload.massemail_unsubscribe);
+        payload.massemail_email_sent = Boolean(payload.massemail_email_sent);
+  
+        if (payload.status === "Closed") {
+          payload.closed_date = new Date().toISOString().split('T')[0];
+        } else {
+          payload.closed_date = null;
+        }
+  
         const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updatedRow),
+          body: JSON.stringify(payload),
         });
-
-        if (!response.ok) throw new Error("Failed to update lead");
-
-        // Refresh data to maintain server-side sort order
-        fetchLeads(currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || "Failed to update lead");
+        }
+        fetchLeads(searchTerm, searchBy, sortModel, filterModel);
         toast.success("Lead updated successfully");
       } catch (error) {
         toast.error("Failed to update lead");
@@ -258,34 +278,24 @@ export default function LeadsPage() {
         setLoadingRowId(null);
       }
     },
-    [apiEndpoint, currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel, fetchLeads]
+    [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchLeads]
   );
-
+  
   const handleRowDeleted = useCallback(
     async (id: number) => {
       try {
         const response = await fetch(`${apiEndpoint}/${id}`, {
           method: "DELETE",
         });
-
         if (!response.ok) throw new Error("Failed to delete lead");
-
         toast.success("Lead deleted successfully");
-
-        // Refetch to maintain proper pagination and sorting
-        const newTotalLeads = totalLeads - 1;
-        const newTotalPages = Math.ceil(newTotalLeads / pageSize);
-
-        // If we're on the last page and it becomes empty, go to previous page
-        const targetPage = currentPage > newTotalPages ? Math.max(1, newTotalPages) : currentPage;
-
-        fetchLeads(targetPage, pageSize, searchTerm, searchBy, sortModel, filterModel);
+        fetchLeads(searchTerm, searchBy, sortModel, filterModel);
       } catch (error) {
         toast.error("Failed to delete lead");
         console.error("Error deleting lead:", error);
       }
     },
-    [apiEndpoint, currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel, totalLeads, fetchLeads]
+    [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchLeads]
   );
 
   const handleMoveToCandidate = useCallback(
@@ -294,22 +304,16 @@ export default function LeadsPage() {
       try {
         const method = Moved ? "DELETE" : "POST";
         const url = `${apiEndpoint}/${leadId.id}/move-to-candidate`;
-
         const response = await fetch(url, {
           method: method,
           headers: { "Content-Type": "application/json" },
         });
-
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.detail || "Failed to move lead to candidate");
         }
-
         const data = await response.json();
-
-        // Refresh data to maintain server-side consistency
-        fetchLeads(currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel);
-
+        fetchLeads(searchTerm, searchBy, sortModel, filterModel);
         if (Moved) {
           toast.success(`Lead removed from candidate list (Candidate ID: ${data.candidate_id})`);
         } else {
@@ -322,10 +326,9 @@ export default function LeadsPage() {
         setLoadingRowId(null);
       }
     },
-    [apiEndpoint, currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel, fetchLeads]
+    [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchLeads]
   );
 
-  // Status renderer for AG Grid
   const StatusRenderer = ({ value }: { value?: string }) => {
     const status = value?.toLowerCase() || "";
     const variantMap: Record<string, string> = {
@@ -342,8 +345,7 @@ export default function LeadsPage() {
     );
   };
 
-
-  const formatPhoneNumber = (phoneNumberString) => {
+  const formatPhoneNumber = (phoneNumberString: string) => {
     const cleaned = ('' + phoneNumberString).replace(/\D/g, '');
     const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
     if (match) {
@@ -352,7 +354,6 @@ export default function LeadsPage() {
     return `+1 ${phoneNumberString}`;
   };
 
-  // FIXED: Column definitions with proper server-side sorting
   const columnDefs: ColDef<any, any>[] = useMemo(
     () => [
       {
@@ -360,7 +361,7 @@ export default function LeadsPage() {
         headerName: "ID",
         width: 80,
         pinned: "left",
-        sortable: true // Enable server-side sorting
+        sortable: true
       },
       {
         field: "full_name",
@@ -368,7 +369,6 @@ export default function LeadsPage() {
         width: 180,
         sortable: true
       },
-
       {
         field: "phone",
         headerName: "Phone",
@@ -377,9 +377,7 @@ export default function LeadsPage() {
         sortable: true,
         cellRenderer: (params: any) => {
           if (!params.value) return "";
-    
           const formattedPhone = formatPhoneNumber(params.value);
-    
           return (
             <a
               href={`tel:${params.value}`}
@@ -388,9 +386,8 @@ export default function LeadsPage() {
               {formattedPhone}
             </a>
           );
-       },
+        },
       },
-
       {
         field: "email",
         headerName: "Email",
@@ -410,8 +407,6 @@ export default function LeadsPage() {
           );
         },
       },
-    
-
       {
         field: "entry_date",
         headerName: "Entry Date",
@@ -426,8 +421,6 @@ export default function LeadsPage() {
             })
             : "-",
       },
-
-
       {
         field: "workstatus",
         headerName: "Work Status",
@@ -482,25 +475,28 @@ export default function LeadsPage() {
         field: "massemail_unsubscribe",
         headerName: "Mass Email Unsubscribe",
         width: 180,
+        editable: true,
         sortable: true,
-        valueGetter: (params) => !!params.data.massemail_unsubscribe,
-        valueFormatter: ({ value }: ValueFormatterParams) => (value ? "True" : "False"),
+        valueGetter: (params) => params.data.massemail_unsubscribe !== undefined ? params.data.massemail_unsubscribe : false,
+        valueFormatter: ({ value }) => (value ? "True" : "False"),
       },
       {
         field: "massemail_email_sent",
         headerName: "Mass Email Sent",
         width: 180,
+        editable: true,
         sortable: true,
-        valueGetter: (params) => !!params.data.massemail_email_sent,
-        valueFormatter: ({ value }: ValueFormatterParams) => (value ? "True" : "False"),
+        valueGetter: (params) => params.data.massemail_email_sent !== undefined ? params.data.massemail_email_sent : false,
+        valueFormatter: ({ value }) => (value ? "True" : "False"),
       },
       {
         field: "moved_to_candidate",
         headerName: "Moved to Candidate",
         width: 180,
+        editable: true,
         sortable: true,
-        valueGetter: (params) => !!params.data.moved_to_candidate,
-        valueFormatter: ({ value }: ValueFormatterParams) => (value ? "True" : "False"),
+        valueGetter: (params) => params.data.moved_to_candidate !== undefined ? params.data.moved_to_candidate : false,
+        valueFormatter: ({ value }) => (value ? "True" : "False"),
       },
     ],
     []
@@ -512,7 +508,7 @@ export default function LeadsPage() {
         <div className="text-red-500">{error}</div>
         <Button
           variant="outline"
-          onClick={() => fetchLeads(currentPage, pageSize, searchTerm, searchBy, sortModel, filterModel)}
+          onClick={() => fetchLeads(searchTerm, searchBy, sortModel, filterModel)}
           className="ml-4"
         >
           <RefreshCw className="mr-2 h-4 w-4" />
@@ -525,7 +521,6 @@ export default function LeadsPage() {
   return (
     <div className="space-y-6">
       <Toaster position="top-center" />
-      {/* Header Section */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
@@ -535,9 +530,14 @@ export default function LeadsPage() {
             All Leads ({totalLeads}) - Sorted by latest first
           </p>
         </div>
+        <Button
+          onClick={handleOpenNewLeadForm}
+          className="bg-green-600 hover:bg-green-700 text-white"
+        >
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Add New Lead
+        </Button>
       </div>
-
-      {/* Search Section */}
       <div key="search-container" className="max-w-md">
         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
           Search Leads
@@ -561,15 +561,12 @@ export default function LeadsPage() {
           </p>
         )}
       </div>
-
-      {/* AG Grid Table */}
       <div className="flex w-full justify-center">
         <AGGridTable
           rowData={leads}
           columnDefs={columnDefs}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
-          // onSortChanged={handleSortChanged} // FIXED: Enable server-side sorting
           title="Leads"
           showFilters={true}
           showSearch={false}
@@ -577,40 +574,145 @@ export default function LeadsPage() {
         />
       </div>
 
-      {/* Pagination Controls */}
-      <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
-        <div className="flex items-center space-x-2">
-          <span className="text-sm">Rows per page:</span>
-          <select
-            value={pageSize}
-            onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-            className="border rounded px-2 py-1 text-sm"
-          >
-            {[10, 20, 50, 100].map((size) => (
-              <option key={size} value={size}>{size}</option>
-            ))}
-          </select>
+      {newLeadForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="relative w-full max-w-2xl rounded-2xl bg-white dark:bg-gray-800 p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+            <h2 className="mb-6 text-center text-2xl font-bold text-gray-900 dark:text-gray-100">
+              New Lead Form
+            </h2>
+            <form
+              onSubmit={handleNewLeadFormSubmit}
+              className="grid grid-cols-1 gap-4 md:grid-cols-2"
+            >
+              {Object.entries({
+                full_name: { label: "Full Name", type: "text", required: true },
+                email: { label: "Email", type: "email", required: true },
+                phone: { label: "Phone", type: "tel", required: true },
+                workstatus: { label: "Work Status", type: "text" },
+                address: { label: "Address", type: "text" },
+                status: {
+                  label: "Status",
+                  type: "select",
+                  options: ["Open", "In Progress", "Closed"],
+                  required: true,
+                },
+                notes: { label: "Notes (optional)", type: "textarea" },
+                moved_to_candidate: {
+                  label: "Moved to Candidate",
+                  type: "checkbox",
+                },
+                massemail_unsubscribe: {
+                  label: "Mass Email Unsubscribe",
+                  type: "checkbox",
+                },
+                massemail_email_sent: {
+                  label: "Mass Email Sent",
+                  type: "checkbox",
+                },
+              }).map(([name, config]) => (
+                <div
+                  key={name}
+                  className={config.type === "textarea" ? "md:col-span-2" : ""}
+                >
+                  <label
+                    htmlFor={name}
+                    className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    {config.label}
+                  </label>
+                  {config.type === "select" ? (
+                    <select
+                      id={name}
+                      name={name}
+                      value={formData[name as keyof FormData] as string}
+                      onChange={handleNewLeadFormChange}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required={config.required}
+                    >
+                      <option value="" disabled>
+                        Select Status
+                      </option>
+                      {config.options?.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  ) : config.type === "textarea" ? (
+                    <textarea
+                      id={name}
+                      name={name}
+                      value={formData[name as keyof FormData] as string}
+                      onChange={handleNewLeadFormChange}
+                      rows={3}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  ) : config.type === "checkbox" ? (
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={name}
+                        name={name}
+                        checked={formData[name as keyof FormData] as boolean}
+                        onChange={handleNewLeadFormChange}
+                        className="h-4 w-4"
+                      />
+                      <label htmlFor={name} className="text-sm text-gray-700 dark:text-gray-300">
+                        {config.label}
+                      </label>
+                    </div>
+                  ) : (
+                    <input
+                      type={config.type}
+                      id={name}
+                      name={name}
+                      value={formData[name as keyof FormData] as string}
+                      onChange={handleNewLeadFormChange}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required={config.required}
+                    />
+                  )}
+                </div>
+              ))}
+              <div className="md:col-span-2">
+                <label
+                  htmlFor="entry_date"
+                  className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  Entry Date
+                </label>
+                <input
+                  type="text"
+                  id="entry_date"
+                  name="entry_date"
+                  value={new Date().toLocaleDateString()}
+                  readOnly
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-2 bg-gray-100 dark:bg-gray-600 focus:outline-none"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <button
+                  type="submit"
+                  disabled={formSaveLoading}
+                  className={`w-full rounded-md py-2 transition duration-200 ${formSaveLoading
+                    ? "cursor-not-allowed bg-gray-400"
+                    : "bg-green-600 text-white hover:bg-green-700"
+                    }`}
+                >
+                  {formSaveLoading ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </form>
+            <button
+              onClick={handleCloseNewLeadForm}
+              className="absolute right-3 top-3 text-2xl leading-none text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              aria-label="Close"
+            >
+              &times;
+            </button>
+          </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1 || loading}
-            className="px-2 py-1 border rounded text-sm disabled:opacity-50"
-          >
-            Previous
-          </button>
-          <span className="text-sm">
-            Page {currentPage} of {totalPages || 1}
-          </span>
-          <button
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages || totalPages === 0 || loading}
-            className="px-2 py-1 border rounded text-sm disabled:opacity-50"
-          >
-            Next
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

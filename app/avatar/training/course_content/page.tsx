@@ -19,10 +19,8 @@ export default function CourseContentPage() {
   //const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-
-   
+  // const [page, setPage] = useState(1);
+  // const [pageSize, setPageSize] = useState(50); 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newContent, setNewContent] = useState({
     Fundamentals: "",
@@ -37,8 +35,11 @@ export default function CourseContentPage() {
       const res = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/course-contents`
       );
-      setContents(res.data);
-      setFilteredContents(res.data);
+
+      const sortedContents = res.data.sort((a: any, b: any) => b.id - a.id);
+
+      setContents(sortedContents);
+      setFilteredContents(sortedContents);
       toast.success("Course Content fetched successfully", { position: "top-center" });
     } catch (e: any) {
       setError(e.response?.data?.message || e.message);
@@ -52,7 +53,7 @@ export default function CourseContentPage() {
     fetchContents();
   }, []);
 
-  // search filter
+  // search 
   useEffect(() => {
     const lower = searchTerm.trim().toLowerCase();
     if (!lower) return setFilteredContents(contents);
@@ -78,12 +79,15 @@ export default function CourseContentPage() {
     ], []);
 
 
-  // Add new content
+  // Add 
   const handleAddContent = async () => {
     try {
       const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/course-contents`, newContent);
-      setContents(prev => [...prev, res.data]);
-      setFilteredContents(prev => [...prev, res.data]);
+
+      const updated = [...contents, res.data].sort((a, b) => b.id - a.id);
+
+      setContents(updated);
+      setFilteredContents(updated);
       toast.success("Course Content added successfully", { position: "top-center" });
       setIsModalOpen(false);
       setNewContent({ Fundamentals: "", AIML: "", UI: "", QE: "" });
@@ -92,7 +96,7 @@ export default function CourseContentPage() {
     }
   };
 
-  // update row
+  // update 
   const handleRowUpdated = async (updatedRow: any) => {
     try {
       await axios.put(
@@ -108,7 +112,7 @@ export default function CourseContentPage() {
     }
   };
 
-  // delete row
+  // delete 
   const handleRowDeleted = async (id: number) => {
     try {
       await axios.delete(
@@ -211,25 +215,10 @@ export default function CourseContentPage() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
- 
-      {/* Search
-      <div className="max-w-md">
-        <Label htmlFor="search">Search</Label>
-        <div className="relative mt-1">
-          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            id="search"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by ID or content field..."
-            className="pl-10"
-          />
-        </div>
-      </div> */}
 
-      {/* AG Grid */}
+
       <AGGridTable
-        rowData={filteredContents.slice((page - 1) * pageSize, page * pageSize)}
+        rowData={filteredContents}
         columnDefs={columnDefs}
         title={`Course Contents (${filteredContents.length})`}
         height="calc(70vh)"
@@ -239,7 +228,7 @@ export default function CourseContentPage() {
       />
 
       {/* Pagination */}
-      <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
+      {/* <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
         <div className="flex items-center space-x-2">
           <span className="text-sm">Rows per page:</span>
           <select
@@ -274,7 +263,7 @@ export default function CourseContentPage() {
             Next
           </button>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }

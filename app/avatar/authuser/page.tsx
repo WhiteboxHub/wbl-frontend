@@ -18,63 +18,32 @@ export default function AuthUsersPage() {
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [total, setTotal] = useState(0);
-
-  // Pagination
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
 
   // Debounce search
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(searchTerm);
-      setPage(1);
     }, 500);
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  // Fetch users (pagination or search)
+  // Fetch ALL users once (no pagination)
   const fetchUsers = async () => {
     try {
       setLoading(true);
 
-      const trimmed = debouncedSearch.trim();
-      const isIdSearch = !isNaN(Number(trimmed)) && trimmed !== "";
-
-      if (isIdSearch) {
-        // Search by numeric ID using /user/{id}
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/${trimmed}`);
-        if (!res.ok) {
-          setUsers([]);
-          setTotal(0);
-          return;
-        }
-        const data = await res.json();
-        setUsers([data]);
-        setTotal(1);
-        setPage(1);
-      } else {
-        // Search by name or role using /user route
-        const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/user`);
-        url.searchParams.append("page", page.toString());
-        url.searchParams.append("per_page", pageSize.toString());
-        if (trimmed) url.searchParams.append("search_name", trimmed);
-
-        const res = await fetch(url.toString());
-        if (!res.ok) {
-          setUsers([]);
-          setTotal(0);
-          return;
-        }
-        const data = await res.json();
-        setUsers(data.users);
-        setTotal(data.total);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users`);
+      if (!res.ok) {
+        setUsers([]);
+        return;
       }
+
+      const data = await res.json();
+      setUsers(data);
     } catch (err) {
       console.error(err);
-      toast.error("Failed to fetch recordings.");
+      toast.error("Failed to fetch users.");
       setUsers([]);
-      setTotal(0);
     } finally {
       setLoading(false);
     }
@@ -82,7 +51,19 @@ export default function AuthUsersPage() {
 
   useEffect(() => {
     fetchUsers();
-  }, [page, pageSize, debouncedSearch]);
+  }, []);
+
+  // Filtered users (searching locally)
+  const filteredUsers = users.filter((u) => {
+    const term = debouncedSearch.toLowerCase();
+    return (
+      u.uname?.toLowerCase().includes(term) ||
+      u.fullname?.toLowerCase().includes(term) ||
+      u.phone?.toLowerCase().includes(term) ||
+      u.role?.toLowerCase().includes(term) ||
+      String(u.id).includes(term)
+    );
+  });
 
   // Status Renderer
   const StatusRenderer = (params: any) => {
@@ -172,7 +153,6 @@ export default function AuthUsersPage() {
     { field: "googleId", headerName: "Google ID", width: 220 },
     { field: "team", headerName: "Team", width: 180, editable: true },
     { field: "message", headerName: "Message", width: 250, editable: true },
-    // { field: "logincount", headerName: "Login Count", width: 140 },
     { field: "enddate", headerName: "End Date", width: 150, valueFormatter: (params) => params.value ? new Date(params.value).toLocaleDateString() : "" },
     { field: "role", headerName: "Role", width: 150, editable: true, cellRenderer: RoleRenderer },
     { field: "notes", headerName: "Notes", width: 250, editable: true },
@@ -182,35 +162,30 @@ export default function AuthUsersPage() {
   const handleRowUpdated = async (updatedRow: any) => {
     try {
       await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/user/${updatedRow.id}`, updatedRow);
-
-      // Update just the edited row in state
       setUsers((prev) =>
         prev.map((user) =>
           user.id === updatedRow.id ? { ...user, ...updatedRow } : user
         )
       );
-
       toast.success("User updated successfully");
     } catch (err) {
       console.error("Failed to update user:", err);
       toast.error("Failed to update user");
     }
   };
+
   // DELETE request on row deletion
   const handleRowDeleted = async (id: number | string) => {
     try {
       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/user/${id}`);
-
-      // Remove the deleted row from state
       setUsers((prev) => prev.filter((user) => user.id !== id));
-      setTotal((prev) => prev - 1);
-
       toast.success("User deleted successfully");
     } catch (err) {
       console.error("Failed to delete user:", err);
       toast.error("Failed to delete user");
     }
   };
+
   return (
     <div className="space-y-6">
       <Toaster position="top-center" richColors />
@@ -252,59 +227,18 @@ export default function AuthUsersPage() {
       {/* AG Grid Table */}
       {loading ? (
         <p className="text-center mt-8">Loading...</p>
-      ) : users.length === 0 ? (
+      ) : filteredUsers.length === 0 ? (
         <p className="text-center mt-8 text-gray-500">No users found.</p>
       ) : (
         <AGGridTable
-          rowData={users}
+          rowData={filteredUsers}
           columnDefs={columnDefs}
-          title={`Users (${total})`}
+          title={`Users (${filteredUsers.length})`}
           height="600px"
           showSearch={false}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
         />
-      )}
-
-      {/* Pagination Controls */}
-      {users.length > 0 && (
-        <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
-          <div className="flex items-center space-x-2">
-            <span className="text-sm">Rows per page:</span>
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
-                setPage(1);
-              }}
-              className="border rounded px-2 py-1 text-sm"
-            >
-              {[10, 20, 50, 100].map((size) => (
-                <option key={size} value={size}>{size}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setPage((p) => Math.max(p - 1, 1))}
-              disabled={page === 1}
-              className="px-2 py-1 border rounded text-sm disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <span className="text-sm">
-              Page {page} of {Math.ceil(total / pageSize)}
-            </span>
-            <button
-              onClick={() => setPage((p) => p + 1)}
-              disabled={page * pageSize >= total}
-              className="px-2 py-1 border rounded text-sm disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-        </div>
       )}
     </div>
   );

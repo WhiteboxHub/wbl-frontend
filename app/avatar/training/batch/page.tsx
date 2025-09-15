@@ -24,12 +24,7 @@ export default function BatchPage() {
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
   const [batches, setBatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [total, setTotal] = useState(0);
 
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
-
-  // Add Batch modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newBatch, setNewBatch] = useState({
     batchname: "",
@@ -44,47 +39,43 @@ export default function BatchPage() {
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(searchTerm);
-      setPage(1);
     }, 500);
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
+  // Fetch batches
   const fetchBatches = async () => {
     try {
       setLoading(true);
-      const isIdSearch =
-        !isNaN(Number(debouncedSearch)) && debouncedSearch.trim() !== "";
+      const trimmedSearch = debouncedSearch.trim();
+
+      // Determine if numeric search (batchid)
+      const isIdSearch = !isNaN(Number(trimmedSearch)) && trimmedSearch !== "";
+
+      let url = "";
 
       if (isIdSearch) {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/batch/${debouncedSearch.trim()}`
-        );
-        if (!res.ok) {
-          setBatches([]);
-          setTotal(0);
-          return;
-        }
-        const data = await res.json();
-        setBatches([data]);
-        setTotal(1);
-        setPage(1);
+        // Search by batch ID
+        url = `${process.env.NEXT_PUBLIC_API_URL}/batch/${trimmedSearch}`;
+      } else if (trimmedSearch) {
+        // Search by batch name
+        url = `${process.env.NEXT_PUBLIC_API_URL}/batch?search=${encodeURIComponent(trimmedSearch)}`;
       } else {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/batch?page=${page}&per_page=${pageSize}&search=${debouncedSearch}`
-        );
-        if (!res.ok) {
-          setBatches([]);
-          setTotal(0);
-          return;
-        }
-        const data = await res.json();
-        setBatches(data.batches);
-        setTotal(data.total);
+        // Get all batches
+        url = `${process.env.NEXT_PUBLIC_API_URL}/batch`;
       }
+
+      const res = await fetch(url);
+      if (!res.ok) {
+        setBatches([]);
+        return;
+      }
+
+      const data = await res.json();
+      setBatches(isIdSearch ? [data] : data);
     } catch (err: any) {
       toast.error("Failed to fetch batches: " + err.message);
       setBatches([]);
-      setTotal(0);
     } finally {
       setLoading(false);
     }
@@ -92,8 +83,9 @@ export default function BatchPage() {
 
   useEffect(() => {
     fetchBatches();
-  }, [debouncedSearch, page, pageSize]);
+  }, [debouncedSearch]);
 
+  // Date formatter
   const dateFormatter = (params: any) => {
     if (!params.value) return "";
     try {
@@ -107,6 +99,7 @@ export default function BatchPage() {
     }
   };
 
+  // Subject badge renderer
   const SubjectRenderer = (props: any) => {
     const value = props.value || "";
     const colors: Record<string, string> = {
@@ -120,17 +113,18 @@ export default function BatchPage() {
     return <span className={className}>{value}</span>;
   };
 
+  // AG Grid columns
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
-    { field: "batchid", headerName: "Batch ID", width: 130, pinned: "left" },
-    { field: "batchname", headerName: "Batch Name", width: 190, editable: true },
-    { field: "orientationdate", headerName: "Orientation Date", width: 190, editable: true, valueFormatter: dateFormatter },
+    { field: "batchid", headerName: "Batch ID", width: 170, pinned: "left" },
+    { field: "batchname", headerName: "Batch Name", width: 210, editable: true },
+    { field: "orientationdate", headerName: "Orientation Date", width: 220, editable: true, valueFormatter: dateFormatter },
     { field: "subject", headerName: "Subject", width: 140, editable: true, cellRenderer: SubjectRenderer },
-    { field: "startdate", headerName: "Start Date", width: 170, editable: true, valueFormatter: dateFormatter },
-    { field: "enddate", headerName: "End Date", width: 190, editable: true, valueFormatter: dateFormatter },
+    { field: "startdate", headerName: "Start Date", width: 200, editable: true, valueFormatter: dateFormatter },
+    { field: "enddate", headerName: "End Date", width: 210, editable: true, valueFormatter: dateFormatter },
     { field: "courseid", headerName: "Course ID", width: 140 },
   ], []);
 
-  // Optimistic Update
+  // Update row
   const handleRowUpdated = async (updatedRow: any) => {
     try {
       await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/batch/${updatedRow.batchid}`, updatedRow);
@@ -143,23 +137,22 @@ export default function BatchPage() {
     }
   };
 
-  // Optimistic Delete
+  // Delete row
   const handleRowDeleted = async (id: number | string) => {
     try {
       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/batch/${id}`);
       setBatches((prev) => prev.filter((row) => row.batchid !== id));
-      setTotal((t) => t - 1);
       toast.success(`Batch ${id} deleted`);
     } catch (err: any) {
       toast.error(err.response?.data?.detail || "Failed to delete batch");
     }
   };
 
+  // Add new batch
   const handleAddBatch = async () => {
     try {
       const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/batch`, newBatch);
       setBatches((prev) => [...prev, res.data]);
-      setTotal((t) => t + 1);
       setIsModalOpen(false);
       setNewBatch({
         batchname: "",
@@ -169,7 +162,7 @@ export default function BatchPage() {
         enddate: "",
         courseid: "",
       });
-      toast.success("New batch created successfully ");
+      toast.success("New batch created successfully");
     } catch (err: any) {
       toast.error(err.response?.data?.detail || "Failed to create batch");
     }
@@ -195,7 +188,13 @@ export default function BatchPage() {
         <Label htmlFor="search">Search by Batch Name or ID</Label>
         <div className="relative mt-1">
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input id="search" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Type batch name or numeric ID..." className="pl-10" />
+          <Input
+            id="search"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Type batch name or numeric ID..."
+            className="pl-10"
+          />
         </div>
       </div>
 
@@ -206,31 +205,14 @@ export default function BatchPage() {
         <p className="text-center mt-8 text-gray-500">No batches found.</p>
       ) : (
         <AGGridTable
-          rowData={batches.slice((page - 1) * pageSize, page * pageSize)}
+          rowData={batches}
           columnDefs={columnDefs}
-          title={`Batches (${total})`}
-          height="500px"
+          title={`Batches (${batches.length})`}
+          height="600px"
           showSearch={false}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
         />
-      )}
-
-      {/* Pagination */}
-      {batches.length > 0 && (
-        <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
-          <div className="flex items-center space-x-2">
-            <span className="text-sm">Rows per page:</span>
-            <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} className="border rounded px-2 py-1 text-sm">
-              {[10, 20, 50, 100].map((size) => (<option key={size} value={size}>{size}</option>))}
-            </select>
-          </div>
-          <div className="flex items-center space-x-2">
-            <button onClick={() => setPage((p) => Math.max(p - 1, 1))} disabled={page === 1} className="px-2 py-1 border rounded text-sm disabled:opacity-50">Previous</button>
-            <span className="text-sm">Page {page} of {Math.ceil(total / pageSize)}</span>
-            <button onClick={() => setPage((p) => p + 1)} disabled={page * pageSize >= total} className="px-2 py-1 border rounded text-sm disabled:opacity-50">Next</button>
-          </div>
-        </div>
       )}
 
       {/* Add Batch Modal */}
