@@ -261,12 +261,14 @@ export function AGGridTable({
               resizable: true,
               sortable: true,
               filter: true,
+              editable: false,
               cellClass: 'custom-cell-style',
             }}
             rowSelection="single"
             rowMultiSelectWithClick={false}
             suppressRowClickSelection={false}
             suppressCellFocus={false}
+            suppressClickEdit={true}
           />
         </div>
       </div>

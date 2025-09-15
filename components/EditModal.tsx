@@ -9,7 +9,6 @@ import {
 import { Label } from "@/components/admin_ui/label";
 import { Input } from "@/components/admin_ui/input";
 import { Textarea } from "@/components/admin_ui/textarea";
-
 interface EditModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -26,6 +25,8 @@ const excludedFields = [
   "last_modified",
   "logincount",
   "googleId",
+  "subject_id",
+  "new_subject_id",
 ];
 
 const fieldSections: Record<string, string> = {
@@ -37,7 +38,7 @@ const fieldSections: Record<string, string> = {
   extraction_date: "Basic Information",
   filename: "Basic Information",
   type: "Professional Information",
-  email: "Contact Information",
+  email: "Basic Information",
   company_name: "Basic Information",
   linkedin_id: "Contact Information",
   status: "Basic Information",
@@ -45,7 +46,7 @@ const fieldSections: Record<string, string> = {
   intro_email_sent: "Professional Information",
   intro_call: "Professional Information",
   moved_to_vendor: "Professional Information",
-  phone_number: "Contact Information",
+  phone_number: "Basic Information",
   secondary_phone: "Contact Information",
   location: "Contact Information",
   agreement: "Professional Information",
@@ -67,7 +68,7 @@ const fieldSections: Record<string, string> = {
   dob: "Basic Information",
   contact: "Basic Information",
   secondaryphone: "Contact Information",
-  phone: "Contact Information",
+  phone: "Basic Information",
   secondaryemail: "Contact Information",
   ssn: "Professional Information",
   priority: "Basic Information",
@@ -111,12 +112,15 @@ const fieldSections: Record<string, string> = {
   marketing_startdate: "Professional Information",
   recruiterassesment: "Professional Information",
   statuschangedate: "Professional Information",
-  closed: "Professional Information",
   aadhaar: "Basic Information",
+  entry_date: "Professional Information",
+  closed_date: "Professional Information",
+  closed: "Professional Information",
+
   secondary_email: "Contact Information",
-  massemail_email_sent: "Professional Information",
-  massemail_unsubscribe: "Professional Information",
-  moved_to_candidate: "Professional Information",
+  massemail_email_sent: "Contact Information",
+  massemail_unsubscribe: "Contact Information",
+  moved_to_candidate: "Contact Information",
   link: "Professional Information",
   address: "Professional Information",
   city: "Contact Information",
@@ -144,6 +148,15 @@ const workVisaStatusOptions = [
   { value: "h1b", label: "H1B" },
   { value: "ead", label: "EAD" },
   { value: "waiting for status", label: "Waiting for Status" },
+];
+
+const vendorStatuses = [
+  { value: "active", label: "Active" },
+  { value: "working", label: "Working" },
+  { value: "not_useful", label: "Not Useful" },
+  { value: "do_not_contact", label: "Do Not Contact" },
+  { value: "inactive", label: "Inactive" },
+  { value: "prospect", label: "Prospect" },
 ];
 
 // Enum dropdown options
@@ -365,15 +378,13 @@ export function EditModal({
         >
           {/* All Sections in Grid Layout */}
           <div className={`grid ${gridColsClass} gap-6 p-6`}>
-            {visibleSections
-              .filter((section) => section !== "Notes")
-              .map((section) => (
-                <div key={section} className="space-y-4">
-                  <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
-                    {section}
-                  </h3>
-                  {sectionedFields[section].map(({ key, value }) => {
-                    const isTypeField = key.toLowerCase() === "type";
+            {visibleSections.map((section) => (
+              <div key={section} className="space-y-4">
+                <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
+                  {section}
+                </h3>
+                {sectionedFields[section].map(({ key, value }) => {
+                  const isTypeField = key.toLowerCase() === "type";
 
                   return (
                     <div key={key} className="space-y-1">
