@@ -1,4 +1,3 @@
-// whiteboxLearning-wbl/app/avatar/recordings/class/page.tsx
 "use client";
 
 import "@/styles/admin.css";
@@ -18,29 +17,21 @@ export default function RecordingsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
   const [recordings, setRecordings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [total, setTotal] = useState(0);
-
-  // Pagination
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
 
   // Debounce search
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(searchTerm);
-      setPage(1);
     }, 500);
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  // Fetch recordings
+  // Fetch recordings (updated for no pagination)
   const fetchRecordings = async () => {
     try {
       setLoading(true);
 
       const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/recordings`);
-      url.searchParams.append("page", page.toString());
-      url.searchParams.append("per_page", pageSize.toString());
       if (debouncedSearch.trim()) {
         url.searchParams.append("search", debouncedSearch.trim());
       }
@@ -48,18 +39,16 @@ export default function RecordingsPage() {
       const res = await fetch(url.toString());
       if (!res.ok) {
         setRecordings([]);
-        setTotal(0);
         return;
       }
-      const data = await res.json();
 
-      setRecordings(data.recordings || []);
-      setTotal(data.total || 0);
+      // Backend now directly returns a list
+      const data = await res.json();
+      setRecordings(data || []);
     } catch (err: any) {
       console.error(err);
       toast.error("Failed to fetch recordings.");
       setRecordings([]);
-      setTotal(0);
     } finally {
       setLoading(false);
     }
@@ -67,7 +56,7 @@ export default function RecordingsPage() {
 
   useEffect(() => {
     fetchRecordings();
-  }, [page, pageSize, debouncedSearch]);
+  }, [debouncedSearch]);
 
   // Column definitions
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
@@ -105,7 +94,7 @@ export default function RecordingsPage() {
     },
   ], []);
 
-  // PUT request on row update (without re-fetch)
+  // PUT request on row update
   const handleRowUpdated = async (updatedRow: any) => {
     try {
       await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/recordings/${updatedRow.id}`, updatedRow);
@@ -121,14 +110,12 @@ export default function RecordingsPage() {
     }
   };
 
-  // DELETE request on row deletion (without re-fetch)
+  // DELETE request on row deletion
   const handleRowDeleted = async (id: number | string) => {
     try {
       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/recordings/${id}`);
 
       setRecordings((prev) => prev.filter((row) => row.id !== id));
-      setTotal((prev) => prev - 1);
-
       toast.success(`Recording ${id} deleted.`);
     } catch (err: any) {
       console.error("Failed to delete recording:", err);
@@ -183,53 +170,12 @@ export default function RecordingsPage() {
         <AGGridTable
           rowData={recordings}
           columnDefs={columnDefs}
-          title={`Class Recordings (${total})`}
+          title={`Class Recordings (${recordings.length})`}
           height="600px"
           showSearch={false}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
         />
-      )}
-
-      {/* Pagination Controls */}
-      {recordings.length > 0 && (
-        <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
-          <div className="flex items-center space-x-2">
-            <span className="text-sm">Rows per page:</span>
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
-                setPage(1);
-              }}
-              className="border rounded px-2 py-1 text-sm"
-            >
-              {[10, 20, 50, 100].map((size) => (
-                <option key={size} value={size}>{size}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setPage((p) => Math.max(p - 1, 1))}
-              disabled={page === 1}
-              className="px-2 py-1 border rounded text-sm disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <span className="text-sm">
-              Page {page} of {Math.ceil(total / pageSize)}
-            </span>
-            <button
-              onClick={() => setPage((p) => p + 1)}
-              disabled={page * pageSize >= total}
-              className="px-2 py-1 border rounded text-sm disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-        </div>
       )}
     </div>
   );

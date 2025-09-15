@@ -44,6 +44,7 @@ const excludedFields = [
   "instructor1_id",
   "instructor2_id",
   "instructor3_id",
+  "enddate",
 
 
 ];
