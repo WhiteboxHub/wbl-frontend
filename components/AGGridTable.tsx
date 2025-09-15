@@ -6,13 +6,6 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 import { useMemo, useCallback, useRef, useState, useEffect } from "react";
 import { AgGridReact } from "ag-grid-react";
 import { ColDef, GridReadyEvent, ColumnMovedEvent, CellValueChangedEvent, GridApi, } from "ag-grid-community";
-import {
-  ColDef,
-  GridReadyEvent,
-  ColumnMovedEvent,
-  CellValueChangedEvent,
-  GridApi,
-} from "ag-grid-community";
 import { Button } from "@/components/admin_ui/button";
 import { EyeIcon, EditIcon, TrashIcon, DownloadIcon } from "lucide-react";
 import { ViewModal } from "./ViewModal";
