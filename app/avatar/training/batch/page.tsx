@@ -32,7 +32,7 @@ export default function BatchPage() {
     subject: "ML",
     startdate: "",
     enddate: "",
-    courseid: "",
+    courseid: "3", // default to 3
   });
 
   // Debounce search
@@ -48,20 +48,14 @@ export default function BatchPage() {
     try {
       setLoading(true);
       const trimmedSearch = debouncedSearch.trim();
-
-      // Determine if numeric search (batchid)
       const isIdSearch = !isNaN(Number(trimmedSearch)) && trimmedSearch !== "";
 
       let url = "";
-
       if (isIdSearch) {
-        // Search by batch ID
         url = `${process.env.NEXT_PUBLIC_API_URL}/batch/${trimmedSearch}`;
       } else if (trimmedSearch) {
-        // Search by batch name
         url = `${process.env.NEXT_PUBLIC_API_URL}/batch?search=${encodeURIComponent(trimmedSearch)}`;
       } else {
-        // Get all batches
         url = `${process.env.NEXT_PUBLIC_API_URL}/batch`;
       }
 
@@ -160,7 +154,7 @@ export default function BatchPage() {
         subject: "ML",
         startdate: "",
         enddate: "",
-        courseid: "",
+        courseid: "3", // reset to default 3
       });
       toast.success("New batch created successfully");
     } catch (err: any) {
@@ -255,15 +249,34 @@ export default function BatchPage() {
             </div>
             <div>
               <Label htmlFor="startdate">Start Date</Label>
-              <Input type="date" id="startdate" value={newBatch.startdate} onChange={(e) => setNewBatch({ ...newBatch, startdate: e.target.value })} />
+              <Input
+                type="date"
+                id="startdate"
+                value={newBatch.startdate}
+                onChange={(e) => setNewBatch({ ...newBatch, startdate: e.target.value })}
+              />
             </div>
             <div>
               <Label htmlFor="enddate">End Date</Label>
-              <Input type="date" id="enddate" value={newBatch.enddate} onChange={(e) => setNewBatch({ ...newBatch, enddate: e.target.value })} />
+              <Input
+                type="date"
+                id="enddate"
+                value={newBatch.enddate}
+                onChange={(e) => setNewBatch({ ...newBatch, enddate: e.target.value })}
+              />
             </div>
             <div>
               <Label htmlFor="courseid">Course ID</Label>
-              <Input type="number" id="courseid" value={newBatch.courseid} onChange={(e) => setNewBatch({ ...newBatch, courseid: e.target.value })} />
+              <select
+                id="courseid"
+                value={newBatch.courseid}
+                onChange={(e) => setNewBatch({ ...newBatch, courseid: e.target.value })}
+                className="border rounded px-2 py-1 w-full dark:bg-gray-800 dark:text-white"
+              >
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+              </select>
             </div>
           </div>
           <DialogFooter>
