@@ -64,7 +64,7 @@
     "eslint-config-next": "13.1.6",
     "express": "^4.19.2",
     "express-session": "^1.18.0",
-    "framer-motion": "^12.22.0",
+    "framer-motion": "^12.23.12",
     "google-auth-library": "^9.11.0",
     "handlebars": "^4.7.8",
     "handlebars-wax": "^6.1.0",
