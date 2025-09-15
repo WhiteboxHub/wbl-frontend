@@ -567,7 +567,7 @@ export default function LeadsPage() {
           columnDefs={columnDefs}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
-          title="Leads"
+          // title="Leads"
           showFilters={true}
           showSearch={false}
           height="600px"
