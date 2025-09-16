@@ -252,7 +252,24 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
   work_status: workVisaStatusOptions,
   workstatus: workVisaStatusOptions,
   visa_status: workVisaStatusOptions,
+
+  //Added candidate interview enums
+  mode_of_interview: [
+    { value: "Virtual", label: "Virtual" },
+    { value: "In Person", label: "In Person" },
+    { value: "Phone", label: "Phone" },
+    { value: "Assessment", label: "Assessment" },
+  ],
+  type_of_interview: [
+    { value: "Assessment", label: "Assessment" },
+    { value: "Recruiter Call", label: "Recruiter Call" },
+    { value: "Technical", label: "Technical" },
+    { value: "HR Round", label: "HR Round" },
+    { value: "In Person", label: "In Person" },
+    { value: "Prep Call", label: "Prep Call" },
+  ],
 };
+
 
 const labelOverrides: Record<string, string> = {
   candidate_full_name: "Candidate Full Name",
@@ -315,14 +332,16 @@ const labelOverrides: Record<string, string> = {
 
 const dateFields = [
   "orientationdate",
-  "startdate",
+  "start_date",
   "enddate",
   "closed_date",
   "entry_date",
   "created_at",
   "classdate",
   "sessiondate",
-  "enrolled_date"
+  "enrolled_date",
+  "interview_date",
+  "placement_date",
 ];
 
 export function EditModal({
