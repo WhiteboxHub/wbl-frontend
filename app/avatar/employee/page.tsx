@@ -448,7 +448,7 @@ export default function EmployeesPage() {
             rowData={filteredEmployees}
             columnDefs={columnDefs}
             onRowClicked={(event) => console.log("Row clicked:", event.data)}
-            title="Employee"
+            // title="Employee"
             height="70vh"
             onRowUpdated={handleRowUpdated}
             onRowDeleted={handleRowDeleted}

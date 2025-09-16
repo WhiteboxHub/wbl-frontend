@@ -1,11 +1,19 @@
+
+
 "use client";
 import { ModuleRegistry, AllCommunityModule } from "ag-grid-community";
 ModuleRegistry.registerModules([AllCommunityModule]);
 import { useMemo, useCallback, useRef, useState, useEffect } from "react";
 import { AgGridReact } from "ag-grid-react";
-import { ColDef, GridReadyEvent, ColumnMovedEvent, CellValueChangedEvent, GridApi, } from "ag-grid-community";
+import {
+  ColDef,
+  GridReadyEvent,
+  ColumnMovedEvent,
+  CellValueChangedEvent,
+  GridApi,
+} from "ag-grid-community";
 import { Button } from "@/components/admin_ui/button";
-import { EyeIcon, EditIcon, TrashIcon } from "lucide-react";
+import { EyeIcon, EditIcon, TrashIcon, DownloadIcon } from "lucide-react";
 import { ViewModal } from "./ViewModal";
 import { EditModal } from "@/components/EditModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -34,7 +42,7 @@ interface RowData {
   batchid?: string | number;
   fullName?: string;
   company?: string;
-  [key: string]: any; // Allow for other fields
+  [key: string]: any;
 }
 
 export function AGGridTable({
@@ -54,7 +62,9 @@ export function AGGridTable({
   const [selectedRowData, setSelectedRowData] = useState<RowData[] | null>(null);
   const [viewData, setViewData] = useState<RowData | null>(null);
   const [editData, setEditData] = useState<RowData | null>(null);
-  const [deleteConfirmData, setDeleteConfirmData] = useState<RowData | null>(null);
+  const [deleteConfirmData, setDeleteConfirmData] = useState<RowData | null>(
+    null
+  );
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [columnDefs, setColumnDefs] = useState<ColDef[]>(initialColumnDefs);
 
@@ -161,9 +171,6 @@ export function AGGridTable({
     [onRowClicked]
   );
 
-  // -------------------------------------------------------------
-  // THE KEY CHANGE: Handling Cell Value Changes
-  // -------------------------------------------------------------
   const onCellValueChanged = useCallback(
     (event: CellValueChangedEvent) => {
       console.log("Cell value changed:", event.data);
@@ -173,6 +180,15 @@ export function AGGridTable({
     },
     [onRowUpdated]
   );
+
+  // NEW: Download CSV handler
+  const handleDownload = useCallback(() => {
+    if (gridApiRef.current) {
+      gridApiRef.current.exportDataAsCsv({
+        fileName: `${title || "grid-data"}.csv`,
+      });
+    }
+  }, [title]);
 
   return (
     <div className="mx-auto space-y-4 w-full max-w-7xl">
@@ -215,11 +231,24 @@ export function AGGridTable({
           >
             <TrashIcon className="h-4 w-4" />
           </Button>
+
+          {/* 🔽 NEW Download Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownload}
+            className="h-8 w-8 p-0 text-green-600 hover:text-green-700 dark:text-green-400"
+            title="Download CSV"
+          >
+            <DownloadIcon className="h-4 w-4" />
+          </Button>
         </div>
       </div>
       <div className="flex justify-center">
         <div
-          className={`ag-theme-alpine ${isDarkMode ? "ag-grid-dark-mode" : ""} rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm transition-all duration-300 w-full`}
+          className={`ag-theme-alpine ${
+            isDarkMode ? "ag-grid-dark-mode" : ""
+          } rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm transition-all duration-300 w-full`}
           style={{
             height: "calc(100vh - 260px)",
             minHeight: "400px",
@@ -233,8 +262,9 @@ export function AGGridTable({
             onRowClicked={onRowClickedHandler}
             onSelectionChanged={handleRowSelection}
             onColumnMoved={onColumnMoved}
-            onCellValueChanged={onCellValueChanged} // ADDED THIS LINE
+            onCellValueChanged={onCellValueChanged}
             animateRows={true}
+            // loading={true}
             theme="legacy"
             defaultColDef={{
               resizable: true,
@@ -249,7 +279,7 @@ export function AGGridTable({
             paginationPageSize={50}
             paginationPageSizeSelector={[10, 25, 50, 100]}
             paginationNumberFormatter={paginationNumberFormatter}
-            maintainColumnOrder={true} // ADDED THIS LINE
+            maintainColumnOrder={true}
           />
         </div>
       </div>
@@ -279,7 +309,9 @@ export function AGGridTable({
           title="Delete Record"
           message={`Are you sure you want to delete this record? This action cannot be undone.${
             deleteConfirmData.fullName || deleteConfirmData.company
-              ? `\n\nRecord: ${deleteConfirmData.fullName || deleteConfirmData.company}`
+              ? `\n\nRecord: ${
+                  deleteConfirmData.fullName || deleteConfirmData.company
+                }`
               : ""
           }`}
           confirmText="Delete"

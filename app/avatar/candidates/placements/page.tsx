@@ -1196,7 +1196,7 @@ export default function CandidatesPlacements() {
             }));
 
           const dynamicColumns: ColDef[] = Object.keys(data[0])
-            .filter((key) => !orderedFields.includes(key))
+            .filter((key) => !orderedFields.includes(key) && key !== "last_mod_datetime")
             .map((key) => ({
               field: key,
               headerName: key

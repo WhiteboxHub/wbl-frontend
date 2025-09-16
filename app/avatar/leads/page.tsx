@@ -33,6 +33,7 @@ type Lead = {
   massemail_email_sent?: boolean;
 };
 
+
 type FormData = {
   full_name: string;
   email: string;
@@ -60,6 +61,7 @@ const initialFormData: FormData = {
   massemail_email_sent: false,
 };
 
+
 export default function LeadsPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -77,7 +79,7 @@ export default function LeadsPage() {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [formSaveLoading, setFormSaveLoading] = useState(false);
   const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
-  
+
   const apiEndpoint = useMemo(
     () => `${process.env.NEXT_PUBLIC_API_URL}/leads`,
     []
@@ -116,7 +118,7 @@ export default function LeadsPage() {
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         const data = await res.json();
-        
+
         // Handle both paginated and non-paginated responses
         if (data.data && Array.isArray(data.data)) {
           setLeads(data.data);
@@ -142,6 +144,7 @@ export default function LeadsPage() {
   );
 
   const workVisaStatusOptions = [
+    "Waiting for Status",
     "H1B",
     "H4 EAD",
     "Green Card",
@@ -151,9 +154,13 @@ export default function LeadsPage() {
   ];
 
   const formFields = {
-    workstatus: { label: "Work Status", type: "select", options: workVisaStatusOptions },
+    workstatus: {
+      label: "Work Status",
+      type: "select",
+      options: workVisaStatusOptions,
+      required: true,
+    },
   };
-
   const detectSearchBy = (search: string) => {
     if (/^\d+$/.test(search)) return "id";
     if (/^\S+@\S+\.\S+$/.test(search)) return "email";
@@ -195,9 +202,9 @@ export default function LeadsPage() {
     setFormSaveLoading(true);
     try {
       const updatedData = { ...formData };
-      // Set default status to "waiting" if empty
+
       if (!updatedData.status || updatedData.status === '') {
-        updatedData.status = 'waiting';
+        updatedData.status = 'waiting for status';
       }
       // Set default workstatus to "waiting" if empty
       if (!updatedData.workstatus || updatedData.workstatus === '') {
@@ -249,17 +256,17 @@ export default function LeadsPage() {
       setLoadingRowId(updatedRow.id);
       try {
         const { id, entry_date, ...payload } = updatedRow;
-      
+
         payload.moved_to_candidate = Boolean(payload.moved_to_candidate);
         payload.massemail_unsubscribe = Boolean(payload.massemail_unsubscribe);
         payload.massemail_email_sent = Boolean(payload.massemail_email_sent);
-  
+
         if (payload.status === "Closed") {
           payload.closed_date = new Date().toISOString().split('T')[0];
         } else {
           payload.closed_date = null;
         }
-  
+
         const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -280,7 +287,7 @@ export default function LeadsPage() {
     },
     [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchLeads]
   );
-  
+
   const handleRowDeleted = useCallback(
     async (id: number) => {
       try {
@@ -297,6 +304,7 @@ export default function LeadsPage() {
     },
     [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchLeads]
   );
+
 
   const handleMoveToCandidate = useCallback(
     async (leadId: { id: number }, Moved: boolean) => {
@@ -588,7 +596,9 @@ export default function LeadsPage() {
                 full_name: { label: "Full Name", type: "text", required: true },
                 email: { label: "Email", type: "email", required: true },
                 phone: { label: "Phone", type: "tel", required: true },
-                workstatus: { label: "Work Status", type: "text" },
+                secondary_email: { label: "Secondary Email", type: "email" },
+                secondary_phone: { label: "Secondary Phone", type: "tel" },
+                workstatus: formFields.workstatus,
                 address: { label: "Address", type: "text" },
                 status: {
                   label: "Status",
@@ -716,3 +726,4 @@ export default function LeadsPage() {
     </div>
   );
 }
+
