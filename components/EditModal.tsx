@@ -30,10 +30,12 @@ const excludedFields = [
   "sessionid",
   "vendor_type",
   "last_mod_datetime",
+  "last_mod_datetime",
   "last_modified",
   "logincount",
   "googleId",
   "subject_id",
+  "lastmoddatetime",
   "course_id",
   "new_subject_id",
   "instructor_1id",
@@ -41,7 +43,8 @@ const excludedFields = [
   "instructor_3id",
   "instructor1_id",
   "instructor2_id",
-  "instructor3_id"
+  "instructor3_id",
+
 
 ];
 
@@ -57,6 +60,7 @@ const fieldSections: Record<string, string> = {
   full_name: "Basic Information",
   extraction_date: "Basic Information",
   filename: "Basic Information",
+  start_date: "Basic Information",
   type: "Professional Information",
   email: "Basic Information",
   company_name: "Basic Information",

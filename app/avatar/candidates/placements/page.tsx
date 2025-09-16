@@ -1448,8 +1448,8 @@ export default function CandidatesPlacements() {
                 }
                 className="w-full p-2 border rounded-md"
               >
-                <option>scheduled</option>
-                <option>cancelled</option>
+                <option>Active</option>
+                <option>In Active</option>
               </select>
               <Input
                 placeholder="Base Salary"
