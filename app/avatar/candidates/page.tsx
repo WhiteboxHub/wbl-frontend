@@ -616,7 +616,7 @@ export default function CandidatesPage() {
           columnDefs={columnDefs}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
-          title="Candidates"
+          // title="Candidates"
           showFilters={true}
           showSearch={false}
           height="600px"
