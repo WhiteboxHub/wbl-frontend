@@ -10,7 +10,8 @@ import { Button } from "@/components/admin_ui/button";
 import { toast, Toaster } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AGGridTable } from "@/components/AGGridTable";
-import { ModuleRegistry } from "ag-grid-community";
+import { createPortal } from "react-dom";
+
 
 type Lead = {
   id: number;
@@ -33,7 +34,6 @@ type Lead = {
   massemail_email_sent?: boolean;
 };
 
-
 type FormData = {
   full_name: string;
   email: string;
@@ -47,6 +47,7 @@ type FormData = {
   massemail_unsubscribe: boolean;
   massemail_email_sent: boolean;
 };
+
 
 const initialFormData: FormData = {
   full_name: "",
@@ -62,36 +63,395 @@ const initialFormData: FormData = {
 };
 
 
+const statusOptions = ["Open", "In Progress", "Closed", "Future"];
+const workStatusOptions = [
+  "Waiting for Status",
+  "H1B",
+  "H4 EAD",
+  "Permanent Resident",
+  "Citizen",
+  "OPT",
+  "CPT"
+];
+
+// ---------------- Status Renderer ----------------
+const StatusRenderer = ({ value }: { value?: string }) => {
+  const status = value?.toLowerCase() || "";
+  const variantMap: Record<string, string> = {
+    open: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+    closed: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    "in progress": "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+    future: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+    default: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
+  };
+  return (
+    <Badge className={`${variantMap[status] || variantMap.default} capitalize`}>
+      {value || "N/A"}
+    </Badge>
+  );
+};
+
+// ---------------- Improved Status Filter Header ----------------
+const StatusFilterHeaderComponent = (props: any) => {
+  const { selectedStatuses, setSelectedStatuses } = props;
+  const filterButtonRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
+  const [filterVisible, setFilterVisible] = useState(false);
+
+  const toggleFilter = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (filterButtonRef.current) {
+      const rect = filterButtonRef.current.getBoundingClientRect();
+      setDropdownPos({
+        top: rect.bottom + window.scrollY,
+        left: Math.max(0, rect.left + window.scrollX - 100), // Adjust to prevent going off screen
+      });
+    }
+    setFilterVisible((v) => !v);
+  };
+
+  const handleStatusChange = (status: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    setSelectedStatuses((prev: string[]) => {
+      const isSelected = prev.includes(status);
+      if (isSelected) {
+        return prev.filter((s) => s !== status);
+      } else {
+        return [...prev, status];
+      }
+    });
+  };
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    if (e.target.checked) {
+      setSelectedStatuses([...statusOptions]);
+    } else {
+      setSelectedStatuses([]);
+    }
+  };
+
+  const isAllSelected = selectedStatuses.length === statusOptions.length;
+  const isIndeterminate = selectedStatuses.length > 0 && selectedStatuses.length < statusOptions.length;
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        filterButtonRef.current &&
+        !filterButtonRef.current.contains(event.target as Node) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setFilterVisible(false);
+      }
+    };
+
+    const handleScroll = () => setFilterVisible(false);
+
+    if (filterVisible) {
+      document.addEventListener("mousedown", handleClickOutside);
+      window.addEventListener("scroll", handleScroll, true);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleScroll, true);
+    };
+  }, [filterVisible]);
+
+  return (
+    <div className="relative flex items-center w-full">
+      <span className="mr-2 flex-grow">Status</span>
+      <div
+        ref={filterButtonRef}
+        className="flex items-center gap-1 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-1 rounded"
+        onClick={toggleFilter}
+      >
+        {selectedStatuses.length > 0 && (
+          <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-0.5 min-w-[20px] text-center">
+            {selectedStatuses.length}
+          </span>
+        )}
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-4 w-4 text-gray-500 hover:text-gray-700"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z"
+          />
+        </svg>
+      </div>
+
+      {filterVisible &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            className="fixed bg-white border rounded-lg shadow-xl p-3 flex flex-col space-y-2 w-56 pointer-events-auto dark:bg-gray-800 dark:border-gray-600"
+            style={{
+              top: dropdownPos.top + 5,
+              left: dropdownPos.left,
+              zIndex: 99999,
+              maxHeight: '300px',
+              overflowY: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="border-b pb-2 mb-2">
+              <label className="flex items-center px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded font-medium">
+                <input
+                  type="checkbox"
+                  checked={isAllSelected}
+                  ref={(el) => { if (el) el.indeterminate = isIndeterminate; }}
+                  onChange={handleSelectAll}
+                  className="mr-3"
+
+                  onClick={(e) => e.stopPropagation()}
+                />
+                Select All
+              </label>
+            </div>
+            {statusOptions.map((status) => (
+              <label
+                key={status}
+                className="flex items-center px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedStatuses.includes(status)}
+                  onChange={(e) => handleStatusChange(status, e)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="mr-3"
+                />
+
+                <StatusRenderer value={status} />
+              </label>
+            ))}
+            {selectedStatuses.length > 0 && (
+              <div className="border-t pt-2 mt-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedStatuses([]);
+                  }}
+                  className="w-full text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 py-1"
+                >
+                  Clear All
+                </button>
+              </div>
+            )}
+          </div>,
+          document.body
+        )}
+    </div>
+  );
+};
+
+const WorkStatusFilterHeaderComponent = (props: any) => {
+  const { selectedWorkStatuses, setSelectedWorkStatuses } = props;
+  const filterButtonRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
+  const [filterVisible, setFilterVisible] = useState(false);
+
+  const toggleFilter = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (filterButtonRef.current) {
+      const rect = filterButtonRef.current.getBoundingClientRect();
+      setDropdownPos({
+        top: rect.bottom + window.scrollY,
+        left: Math.max(0, rect.left + window.scrollX - 100),
+      });
+    }
+    setFilterVisible((v) => !v);
+  };
+
+  const handleWorkStatusChange = (workStatus: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation(); // you can keep this
+    setSelectedWorkStatuses((prev: string[]) => {
+      if (prev.includes(workStatus)) {
+        return prev.filter(s => s !== workStatus);
+      } else {
+        return [...prev, workStatus];
+      }
+    });
+  };
+
+
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    if (e.target.checked) {
+      setSelectedWorkStatuses([...workStatusOptions]);
+    } else {
+      setSelectedWorkStatuses([]);
+    }
+  };
+
+  const isAllSelected = selectedWorkStatuses.length === workStatusOptions.length;
+  const isIndeterminate = selectedWorkStatuses.length > 0 && selectedWorkStatuses.length < workStatusOptions.length;
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        filterButtonRef.current &&
+        !filterButtonRef.current.contains(event.target as Node) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setFilterVisible(false);
+      }
+    };
+
+    const handleScroll = () => setFilterVisible(false);
+
+    if (filterVisible) {
+      document.addEventListener("mousedown", handleClickOutside);
+      window.addEventListener("scroll", handleScroll, true);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleScroll, true);
+    };
+  }, [filterVisible]);
+
+  return (
+    <div className="relative flex items-center w-full">
+      <span className="mr-2 flex-grow">Work Status</span>
+      <div
+        ref={filterButtonRef}
+        className="flex items-center gap-1 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-1 rounded"
+        onClick={toggleFilter}
+      >
+        {selectedWorkStatuses.length > 0 && (
+          <span className="bg-green-500 text-white text-xs rounded-full px-2 py-0.5 min-w-[20px] text-center">
+            {selectedWorkStatuses.length}
+          </span>
+        )}
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-4 w-4 text-gray-500 hover:text-gray-700"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z"
+          />
+        </svg>
+      </div>
+
+      {filterVisible &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            className="fixed bg-white border rounded-lg shadow-xl p-3 flex flex-col space-y-2 w-56 pointer-events-auto dark:bg-gray-800 dark:border-gray-600"
+            style={{
+              top: dropdownPos.top + 5,
+              left: dropdownPos.left,
+              zIndex: 99999,
+              maxHeight: '300px',
+              overflowY: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="border-b pb-2 mb-2">
+              <label className="flex items-center px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded font-medium">
+                <input
+                  type="checkbox"
+                  checked={isAllSelected}
+                  ref={(el) => { if (el) el.indeterminate = isIndeterminate; }}
+                  onChange={handleSelectAll} // just this
+                  className="mr-3"
+                />
+
+                Select All
+              </label>
+            </div>
+            {workStatusOptions.map((workStatus) => (
+              <label
+                key={workStatus}
+                className="flex items-center px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedWorkStatuses.includes(workStatus)}
+                  onChange={(e) => handleWorkStatusChange(workStatus, e)}
+                  onClick={(e) => e.stopPropagation()} // Keep this
+                  className="mr-3"
+                />
+
+                {workStatus}
+              </label>
+            ))}
+            {selectedWorkStatuses.length > 0 && (
+              <div className="border-t pt-2 mt-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedWorkStatuses([]);
+                  }}
+                  className="w-full text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 py-1"
+                >
+                  Clear All
+                </button>
+              </div>
+            )}
+          </div>,
+          document.body
+        )}
+    </div>
+  );
+};
+
+// Main LeadsPage Component
 export default function LeadsPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const isNewLead = searchParams.get("newlead") === "true";
+
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [totalLeads, setTotalLeads] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchBy, setSearchBy] = useState("full_name");
   const [sortModel, setSortModel] = useState([{ colId: 'entry_date', sort: 'desc' as 'desc' }]);
-  const [filterModel, setFilterModel] = useState({});
   const [newLeadForm, setNewLeadForm] = useState(isNewLead);
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [formSaveLoading, setFormSaveLoading] = useState(false);
   const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
 
   const apiEndpoint = useMemo(
     () => `${process.env.NEXT_PUBLIC_API_URL}/leads`,
     []
   );
 
-  // Modified fetchLeads function - removed pagination parameters
+  // Fetch leads function
   const fetchLeads = useCallback(
     async (
       search?: string,
       searchBy: string = "all",
-      sort: any[] = [{ colId: 'entry_date', sort: 'desc' }],
-      filters: any = {}
+      sort: any[] = [{ colId: 'entry_date', sort: 'desc' }]
     ) => {
       setLoading(true);
       try {
@@ -107,10 +467,6 @@ export default function LeadsPage() {
         const sortParam = sortToApply.map(s => `${s.colId}:${s.sort}`).join(',');
         params.append('sort', sortParam);
 
-        if (Object.keys(filters).length > 0) {
-          params.append('filters', JSON.stringify(filters));
-        }
-
         if (params.toString()) {
           url += `?${params.toString()}`;
         }
@@ -119,16 +475,16 @@ export default function LeadsPage() {
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         const data = await res.json();
 
-        // Handle both paginated and non-paginated responses
+        let leadsData = [];
         if (data.data && Array.isArray(data.data)) {
-          setLeads(data.data);
-          setTotalLeads(data.total || data.data.length);
+          leadsData = data.data;
         } else if (Array.isArray(data)) {
-          setLeads(data);
-          setTotalLeads(data.length);
+          leadsData = data;
         } else {
           throw new Error('Invalid response format');
         }
+
+        setLeads(leadsData);
       } catch (err) {
         const error = err instanceof Error ? err.message : "Failed to load leads";
         setError(error);
@@ -143,24 +499,62 @@ export default function LeadsPage() {
     [apiEndpoint]
   );
 
-  const workVisaStatusOptions = [
-    "Waiting for Status",
-    "H1B",
-    "H4 EAD",
-    "Green Card",
-    "US Citizen",
-    "OPT",
-    "CPT"
-  ];
+  // Filter leads locally when status or work status changes
+  useEffect(() => {
+    let filtered = [...leads];
 
-  const formFields = {
-    workstatus: {
-      label: "Work Status",
-      type: "select",
-      options: workVisaStatusOptions,
-      required: true,
-    },
-  };
+    if (selectedStatuses.length > 0) {
+      filtered = filtered.filter(lead =>
+        selectedStatuses.some(
+          status => status.toLowerCase() === (lead.status || "").toLowerCase()
+        )
+      );
+    }
+
+    // Apply work status filter - if any work status is selected, show only those
+    if (selectedWorkStatuses.length > 0) {
+      filtered = filtered.filter(lead =>
+        selectedWorkStatuses.some(
+          ws => ws.toLowerCase() === (lead.workstatus || "").toLowerCase()
+        )
+      );
+    }
+
+
+    if (searchTerm.trim() !== "") {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(lead =>
+        lead.full_name?.toLowerCase().includes(term) ||
+        lead.email?.toLowerCase().includes(term) ||
+        lead.phone?.toLowerCase().includes(term) ||
+        lead.id.toString().includes(term)
+      );
+    }
+
+    setFilteredLeads(filtered);
+    setTotalLeads(filtered.length);
+  }, [leads, selectedStatuses, selectedWorkStatuses, searchTerm]);
+
+
+  useEffect(() => {
+    fetchLeads();
+  }, [fetchLeads]);
+
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchTerm.trim()) {
+        const detectedSearchBy = detectSearchBy(searchTerm);
+        fetchLeads(searchTerm, detectedSearchBy, sortModel);
+      } else {
+        fetchLeads("", searchBy, sortModel);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, searchBy, sortModel, fetchLeads]);
+
+  // Detect search by field
   const detectSearchBy = (search: string) => {
     if (/^\d+$/.test(search)) return "id";
     if (/^\S+@\S+\.\S+$/.test(search)) return "email";
@@ -168,25 +562,7 @@ export default function LeadsPage() {
     return "full_name";
   };
 
-  const handleFilterChanged = useCallback((filterModelFromGrid: any) => {
-    setFilterModel(filterModelFromGrid);
-    fetchLeads(searchTerm, searchBy, sortModel, filterModelFromGrid);
-  }, [searchTerm, searchBy, sortModel, fetchLeads]);
-
-  useEffect(() => {
-    fetchLeads('', searchBy, sortModel, filterModel);
-  }, []);
-
-  useEffect(() => {
-    const debounceTimer = setTimeout(() => {
-      if (searchTerm !== undefined) {
-        const autoSearchBy = detectSearchBy(searchTerm);
-        fetchLeads(searchTerm, autoSearchBy, sortModel, filterModel);
-      }
-    }, 500);
-    return () => clearTimeout(debounceTimer);
-  }, [searchTerm]);
-
+  // Handle form changes and submissions
   const handleNewLeadFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     if (type === 'checkbox') {
@@ -202,36 +578,38 @@ export default function LeadsPage() {
     setFormSaveLoading(true);
     try {
       const updatedData = { ...formData };
-
       if (!updatedData.status || updatedData.status === '') {
         updatedData.status = 'waiting for status';
       }
-      // Set default workstatus to "waiting" if empty
       if (!updatedData.workstatus || updatedData.workstatus === '') {
         updatedData.workstatus = 'waiting';
       }
-      // Set default boolean values to false if empty or undefined
+
       const booleanFields = ['moved_to_candidate', 'massemail_email_sent', 'massemail_unsubscribe'];
       booleanFields.forEach(field => {
         if (updatedData[field] === undefined || updatedData[field] === null || updatedData[field] === '') {
           updatedData[field] = false;
         }
       });
+
       const payload = {
         ...updatedData,
         entry_date: new Date().toISOString(),
         closed_date: updatedData.status === "Closed" ? new Date().toISOString() : null,
       };
+
       const response = await fetch(apiEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+
       if (!response.ok) throw new Error("Failed to create lead");
+
       toast.success("Lead created successfully!");
       setNewLeadForm(false);
       setFormData(initialFormData);
-      fetchLeads(searchTerm, searchBy, sortModel, filterModel);
+      fetchLeads(searchTerm, searchBy, sortModel);
     } catch (error) {
       toast.error("Failed to create lead");
       console.error("Error creating lead:", error);
@@ -256,7 +634,6 @@ export default function LeadsPage() {
       setLoadingRowId(updatedRow.id);
       try {
         const { id, entry_date, ...payload } = updatedRow;
-
         payload.moved_to_candidate = Boolean(payload.moved_to_candidate);
         payload.massemail_unsubscribe = Boolean(payload.massemail_unsubscribe);
         payload.massemail_email_sent = Boolean(payload.massemail_email_sent);
@@ -272,11 +649,13 @@ export default function LeadsPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
+
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.detail || "Failed to update lead");
         }
-        fetchLeads(searchTerm, searchBy, sortModel, filterModel);
+
+        fetchLeads(searchTerm, searchBy, sortModel);
         toast.success("Lead updated successfully");
       } catch (error) {
         toast.error("Failed to update lead");
@@ -285,7 +664,7 @@ export default function LeadsPage() {
         setLoadingRowId(null);
       }
     },
-    [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchLeads]
+    [apiEndpoint, searchTerm, searchBy, sortModel, fetchLeads]
   );
 
   const handleRowDeleted = useCallback(
@@ -296,15 +675,14 @@ export default function LeadsPage() {
         });
         if (!response.ok) throw new Error("Failed to delete lead");
         toast.success("Lead deleted successfully");
-        fetchLeads(searchTerm, searchBy, sortModel, filterModel);
+        fetchLeads(searchTerm, searchBy, sortModel);
       } catch (error) {
         toast.error("Failed to delete lead");
         console.error("Error deleting lead:", error);
       }
     },
-    [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchLeads]
+    [apiEndpoint, searchTerm, searchBy, sortModel, fetchLeads]
   );
-
 
   const handleMoveToCandidate = useCallback(
     async (leadId: { id: number }, Moved: boolean) => {
@@ -321,7 +699,7 @@ export default function LeadsPage() {
           throw new Error(errorData.detail || "Failed to move lead to candidate");
         }
         const data = await response.json();
-        fetchLeads(searchTerm, searchBy, sortModel, filterModel);
+        fetchLeads(searchTerm, searchBy, sortModel);
         if (Moved) {
           toast.success(`Lead removed from candidate list (Candidate ID: ${data.candidate_id})`);
         } else {
@@ -334,25 +712,10 @@ export default function LeadsPage() {
         setLoadingRowId(null);
       }
     },
-    [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchLeads]
+    [apiEndpoint, searchTerm, searchBy, sortModel, fetchLeads]
   );
 
-  const StatusRenderer = ({ value }: { value?: string }) => {
-    const status = value?.toLowerCase() || "";
-    const variantMap: Record<string, string> = {
-      open: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-      closed: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-      pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-      rejected: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
-      default: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
-    };
-    return (
-      <Badge className={`${variantMap[status] || variantMap.default} capitalize`}>
-        {value || "N/A"}
-      </Badge>
-    );
-  };
-
+  // Format phone number
   const formatPhoneNumber = (phoneNumberString: string) => {
     const cleaned = ('' + phoneNumberString).replace(/\D/g, '');
     const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
@@ -362,6 +725,7 @@ export default function LeadsPage() {
     return `+1 ${phoneNumberString}`;
   };
 
+  // Column definitions for AG Grid
   const columnDefs: ColDef<any, any>[] = useMemo(
     () => [
       {
@@ -432,15 +796,19 @@ export default function LeadsPage() {
       {
         field: "workstatus",
         headerName: "Work Status",
-        width: 150,
-        sortable: true
+        width: 200,
+        sortable: true,
+        headerComponent: WorkStatusFilterHeaderComponent,
+        headerComponentParams: { selectedWorkStatuses, setSelectedWorkStatuses },
       },
       {
         field: "status",
         headerName: "Status",
-        width: 120,
+        width: 150,
         sortable: true,
         cellRenderer: StatusRenderer,
+        headerComponent: StatusFilterHeaderComponent,
+        headerComponentParams: { selectedStatuses, setSelectedStatuses },
       },
       {
         field: "secondary_email",
@@ -507,16 +875,17 @@ export default function LeadsPage() {
         valueFormatter: ({ value }) => (value ? "True" : "False"),
       },
     ],
-    []
+    [selectedStatuses, selectedWorkStatuses]
   );
 
+  // Handle errors
   if (error) {
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="text-red-500">{error}</div>
         <Button
           variant="outline"
-          onClick={() => fetchLeads(searchTerm, searchBy, sortModel, filterModel)}
+          onClick={() => fetchLeads(searchTerm, searchBy, sortModel)}
           className="ml-4"
         >
           <RefreshCw className="mr-2 h-4 w-4" />
@@ -526,6 +895,7 @@ export default function LeadsPage() {
     );
   }
 
+  // Main UI
   return (
     <div className="space-y-6">
       <Toaster position="top-center" />
@@ -535,20 +905,19 @@ export default function LeadsPage() {
             Leads Management
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            All Leads ({totalLeads}) - Sorted by latest first
+            All Leads ({totalLeads})
+            {selectedStatuses.length > 0 || selectedWorkStatuses.length > 0 ? (
+              <span className="ml-2 text-blue-600 dark:text-blue-400">
+                - Filtered ({filteredLeads.length} shown)
+              </span>
+            ) : (
+              " - Sorted by latest first"
+            )}
           </p>
-        </div>
-        <Button
-          onClick={handleOpenNewLeadForm}
-          className="bg-green-600 hover:bg-green-700 text-white"
-        >
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Add New Lead
-        </Button>
-      </div>
+
       <div key="search-container" className="max-w-md">
         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          Search Leads
+          Search Candidates
         </Label>
         <div className="relative mt-1">
           <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
@@ -565,23 +934,38 @@ export default function LeadsPage() {
         </div>
         {searchTerm && (
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {totalLeads} leads found
+            {leads.length} candidates found
           </p>
         )}
       </div>
+
+        </div>
+        <Button
+          onClick={handleOpenNewLeadForm}
+          className="bg-green-600 hover:bg-green-700 text-white"
+        >
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Add New Lead
+        </Button>
+      </div>
+
+    
+      {/* AG Grid Table */}
       <div className="flex w-full justify-center">
         <AGGridTable
-          rowData={leads}
+          key={`${filteredLeads.length}-${selectedStatuses.join(',')}-${selectedWorkStatuses.join(',')}`}
+          rowData={filteredLeads}
           columnDefs={columnDefs}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
-          // title="Leads"
+          loading={loading}
           showFilters={true}
           showSearch={false}
           height="600px"
         />
       </div>
 
+      {/* New Lead Form */}
       {newLeadForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
           <div className="relative w-full max-w-2xl rounded-2xl bg-white dark:bg-gray-800 p-6 shadow-xl max-h-[90vh] overflow-y-auto">
@@ -598,12 +982,17 @@ export default function LeadsPage() {
                 phone: { label: "Phone", type: "tel", required: true },
                 secondary_email: { label: "Secondary Email", type: "email" },
                 secondary_phone: { label: "Secondary Phone", type: "tel" },
-                workstatus: formFields.workstatus,
+                workstatus: {
+                  label: "Work Status",
+                  type: "select",
+                  options: workStatusOptions,
+                  required: true,
+                },
                 address: { label: "Address", type: "text" },
                 status: {
                   label: "Status",
                   type: "select",
-                  options: ["Open", "In Progress", "Closed"],
+                  options: statusOptions,
                   required: true,
                 },
                 notes: { label: "Notes (optional)", type: "textarea" },
@@ -640,7 +1029,7 @@ export default function LeadsPage() {
                       required={config.required}
                     >
                       <option value="" disabled>
-                        Select Status
+                        Select {config.label}
                       </option>
                       {config.options?.map((option) => (
                         <option key={option} value={option}>
@@ -726,4 +1115,3 @@ export default function LeadsPage() {
     </div>
   );
 }
-
