@@ -50,7 +50,7 @@ const excludedFields = [
 ];
 
 const fieldSections: Record<string, string> = {
-  candidate_full_name: "Basic Information",
+  candidate_full_name: "Professional Information",
   instructor1_name: "Professional Information",
   instructor2_name: "Professional Information",
   instructor3_name: "Professional Information",
@@ -61,6 +61,7 @@ const fieldSections: Record<string, string> = {
   full_name: "Basic Information",
   extraction_date: "Basic Information",
   filename: "Basic Information",
+  start_date: "Basic Information",
   type: "Professional Information",
   email: "Basic Information",
   company_name: "Basic Information",
@@ -93,8 +94,10 @@ const fieldSections: Record<string, string> = {
   enddate: "Professional Information",
   candidate_name: "Basic Information",
   candidate_role: "Basic Information",
+  google_voice_number: "Basic Information",
   dob: "Basic Information",
   contact: "Basic Information",
+  password: "Basic Information",
   end_date: "Professional Information",
   secondaryphone: "Contact Information",
   phone: "Basic Information",

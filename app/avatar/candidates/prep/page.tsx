@@ -1,3 +1,4 @@
+
 "use client";
 import "@/styles/admin.css";
 import "@/styles/App.css";
@@ -138,7 +139,7 @@ export default function CandidatesPrepPage() {
     candidate_id: "",
     batch: "",
     start_date: "",
-    status: "active",
+    status: "",
     instructor1_id: "",
     instructor2_id: "",
     instructor3_id: "",
@@ -287,7 +288,7 @@ export default function CandidatesPrepPage() {
         candidate_id: "",
         batch: "",
         start_date: "",
-        status: "active",
+        status: "",
         instructor1_id: "",
         instructor2_id: "",
         instructor3_id: "",
@@ -321,7 +322,7 @@ export default function CandidatesPrepPage() {
           onClick={() => setShowAddForm(true)}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
-          + Add 
+          + Add Preparation
         </button>
       </div>
 
@@ -412,21 +413,40 @@ export default function CandidatesPrepPage() {
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4">Add Candidate Preparation</h2>
             <div className="space-y-3">
-              {Object.keys(newCandidate).map((field) => (
-                <Input
-                  key={field}
-                  placeholder={field.replace(/_/g, " ").toUpperCase()}
-                  value={newCandidate[field]}
-                  onChange={(e) =>
-                    setNewCandidate({ ...newCandidate, [field]: e.target.value })
-                  }
-                />
-              ))}
+              {Object.keys(newCandidate).map((field) => {
+                // Calendar inputs for date fields
+                if (field === "start_date" || field === "target_date_of_marketing") {
+                  return (
+                    <Input
+                      key={field}
+                      type="date"
+                      placeholder={field.replace(/_/g, " ").toUpperCase()}
+                      value={newCandidate[field]}
+                      onChange={(e) =>
+                        setNewCandidate({ ...newCandidate, [field]: e.target.value })
+                      }
+                    />
+                  );
+                }
+                if (field === "status") return null;
+                return (
+                  <Input
+                    key={field}
+                    placeholder={field.replace(/_/g, " ").toUpperCase()}
+                    value={newCandidate[field]}
+                    onChange={(e) =>
+                      setNewCandidate({ ...newCandidate, [field]: e.target.value })
+                    }
+                  />
+                );
+              })}
+              {/* Status dropdown */}
               <select
                 value={newCandidate.status}
                 onChange={(e) => setNewCandidate({ ...newCandidate, status: e.target.value })}
                 className="w-full p-2 border rounded"
               >
+                <option value="Status">Status</option>
                 <option value="active">Active</option>
                 <option value="break">Break</option>
                 <option value="inactive">Inactive</option>
