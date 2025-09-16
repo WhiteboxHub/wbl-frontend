@@ -348,6 +348,15 @@ export function EditModal({
     if (data.instructor3) {
       flattened.instructor3_name = data.instructor3.name;
     }
+    if (data.visa_status) {
+    flattened.visa_status = String(data.visa_status).toLowerCase();
+    }
+    if (data.workstatus) {
+      flattened.workstatus = String(data.workstatus).toLowerCase();
+    }
+    if (data.work_status) {
+      flattened.work_status = String(data.work_status).toLowerCase();
+    }
     return flattened;
   };
 

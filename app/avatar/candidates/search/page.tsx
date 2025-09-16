@@ -27,7 +27,7 @@ interface CandidateData {
   miscellaneous: any;
 }
 
-const StatusRenderer = ({ status }: { status: string }) => {
+const StatusRenderer = ({ status }: {status: string }) => {
   const statusStr = status?.toString().toLowerCase() ?? "";
   const colorMap: Record<string, string> = {
     active: "bg-green-100 text-green-800",
@@ -126,20 +126,33 @@ export default function CandidateSearchPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-1 text-sm">
           {Object.entries(data).map(([key, value]) => {
             if (value === null || value === undefined || value === "") return null;
-            
+
             const displayKey = key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()
               .split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-            
+
             let displayValue = value;
+
+                if ((key === 'Last Login' && value) || (key === 'Last Modified' && value)) {
+                  const date = new Date(value as string | number | Date);
+                  displayValue = date.toLocaleString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                  });
+                }
+            // --- Begin extended rendering logic ---
             if (key === 'candidate_folder' && value && value.toString().trim() !== '') {
               const url = value.toString().trim();
               let finalUrl = url;
               if (!url.startsWith('http://') && !url.startsWith('https://')) {
                 finalUrl = 'https://' + url;
               }
-              
+
               displayValue = (
-                <button 
+                <button
                   className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer whitespace-nowrap inline-block min-w-0 max-w-fit"
                   onClick={(e) => {
                     e.preventDefault();
@@ -150,14 +163,55 @@ export default function CandidateSearchPage() {
                 Folder
                 </button>
               );
+            } else if (key === 'email' && value && value.toString().trim() !== '') {
+              // Render email as mailto link/button
+              displayValue = (
+                <a
+                  href={`mailto:${value}`}
+                  className="text-blue-600 hover:underline font-medium"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {value as React.ReactNode}
+                </a>
+              );
+            } else if (key.toLowerCase().includes('phone') && value && value.toString().trim() !== '') {
+              // Render phone as tel: link/button
+              displayValue = (
+                <a
+                  href={`tel:${value}`}
+                  className="text-blue-600 hover:underline font-medium"
+                >
+                  {value as React.ReactNode}
+                </a>
+              );
+            } else if (key === 'linkedin_id' && value && value.toString().trim() !== '') {
+              // Render LinkedIn as button, similar to recording_link
+              let url = value.toString().trim();
+              let finalUrl = url;
+              // If value is not a URL, prefix with https://
+              if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                finalUrl = 'https://' + url;
+              }
+              displayValue = (
+                <button
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer whitespace-nowrap inline-block min-w-0 max-w-fit"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.open(finalUrl, '_blank', 'noopener,noreferrer');
+                  }}
+                >
+                  LinkedIn
+                </button>
+              );
             } else if (key.toLowerCase().includes('date')) {
               displayValue = DateFormatter(value);
             } else if (key === 'status') {
               displayValue = <StatusRenderer status={value as string} />;
             } else if (key === 'agreement') {
               displayValue = value === 'Y' ? ' Yes' : ' No';
-            }
-
+            }         
 
             return (
               <div key={key} className="flex items-center py-3 border-b border-gray-100 dark:border-gray-600 last:border-b-0">
@@ -196,9 +250,18 @@ export default function CandidateSearchPage() {
 
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm table-fixed">
-            <thead>
-              <tr className="border-b border-gray-200 dark:border-gray-600">
-                {columns.map(column => (
+          <thead>
+            <tr className="border-b border-gray-200 dark:border-gray-600">
+              {columns.map(column => {
+                const displayColumn = column
+                  .replace(/_/g, ' ')
+                  .replace(/([A-Z])/g, ' $1')
+                  .trim()
+                  .split(' ')
+                  .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                  .join(' ');
+
+                return (
                   <th 
                     key={column} 
                     className={`text-left p-2 font-medium text-gray-700 dark:text-gray-300 ${
@@ -208,42 +271,12 @@ export default function CandidateSearchPage() {
                       'w-auto'
                     }`}
                   >
-                    {(() => {
-                      // Special handling for interview table column names
-                      if (column === 'id') return 'ID';
-                      if (column === 'full_name') return 'Full Name';
-                      if (column === 'enrolled_date') return 'Enrolled Date';
-                      if (column === 'email') return 'Email';
-                      if (column === 'phone') return 'Phone';
-                      if (column === 'status') return 'Status';
-                      if (column === 'workstatus') return 'Work Status';
-                      if (column === 'education') return 'Education';
-                      if (column === 'workexperience') return 'Work Experience';
-                      if (column === 'ssn') return 'SSN';
-                      if (column === 'agreement') return 'Agreement';
-                      if (column === 'secondaryemail') return 'Secondary Email';
-                      if (column === 'secondaryphone') return 'Secondary Phone';
-                      if (column === 'address') return 'Address';
-                      if (column === 'linkedin_id') return 'LinkedIn ID';
-                      if (column === 'dob') return 'Date of Birth';
-                      if (column === 'emergcontactname') return 'Emergency Contact Name';
-                      if (column === 'emergcontactemail') return 'Emergency Contact Email';
-                      if (column === 'emergcontactphone') return 'Emergency Contact Phone';
-                      if (column === 'emergcontactaddrs') return 'Emergency Contact Address';
-                      if (column === 'fee_paid') return 'Fee Paid';
-                      if (column === 'notes') return 'Notes';
-                      if (column === 'batchid') return 'Batch ID';
-                      if (column === 'candidate_folder') return 'Candidate Folder';
-
-                      
-                      // Default column name formatting
-                      return column.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()
-                        .split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-                    })()}
+                    {displayColumn}
                   </th>
-                ))}
-              </tr>
-            </thead>
+                );
+              })}
+            </tr>
+          </thead>
             <tbody>
               {records.map((record, idx) => (
                 <tr key={idx} className="border-b border-gray-100 dark:border-gray-700">
@@ -252,6 +285,16 @@ export default function CandidateSearchPage() {
   
   if (column.toLowerCase().includes('date')) {
     value = DateFormatter(value);
+  } else if (column === 'Last Modified' && value) {
+    const date = new Date(value as string | number | Date);
+    value = date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
   } else if (column.toLowerCase().includes('amount') || column.toLowerCase().includes('salary') || column === 'fee_paid') {
     value = AmountFormatter(value);
   } else if (column === 'status') {
@@ -404,7 +447,7 @@ export default function CandidateSearchPage() {
                 <div className="px-6 pb-4 space-y-4">
                   {renderInfoCard("Candidate Details", <User className="h-4 w-4" />, {
                     ...selectedCandidate.basic_info,
-                    ...selectedCandidate.emergency_contact
+                    ...selectedCandidate.emergency_contact                   
                   })}
                 </div>
               )}
@@ -431,6 +474,26 @@ export default function CandidateSearchPage() {
               )}
             </div>
 
+            {/* Login & Access Info */}
+            <div className="accordion-item">
+              <button
+                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
+                onClick={() => toggleSection('login')}
+              >
+                <div className="flex items-center gap-2">
+                  <Eye className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                  <span className="font-medium text-gray-900 dark:text-gray-100">Login & Access Info</span>
+                </div>
+                <span className="text-xl font-bold text-gray-400">
+                  {openSections['login'] ? '−' : '+'}
+                </span>
+              </button>
+              {openSections['login'] && (
+                <div className="px-6 pb-4">
+                  {renderInfoCard("Access Information", <Eye className="h-4 w-4" />, selectedCandidate.login_access)}
+                </div>
+              )}
+            </div>
 
             {/* Marketing Info - Now shows marketing manager name */}
             <div className="accordion-item">
@@ -486,29 +549,6 @@ export default function CandidateSearchPage() {
               )}
             </div>
 
-
-
-            {/* Login & Access Info */}
-            <div className="accordion-item">
-              <button
-                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
-                onClick={() => toggleSection('login')}
-              >
-                <div className="flex items-center gap-2">
-                  <Eye className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                  <span className="font-medium text-gray-900 dark:text-gray-100">Login & Access Info</span>
-                </div>
-                <span className="text-xl font-bold text-gray-400">
-                  {openSections['login'] ? '−' : '+'}
-                </span>
-              </button>
-              {openSections['login'] && (
-                <div className="px-6 pb-4">
-                  {renderInfoCard("Access Information", <Eye className="h-4 w-4" />, selectedCandidate.login_access)}
-                </div>
-              )}
-            </div>
-
             {/* Miscellaneous */}
             <div className="accordion-item">
               <button
@@ -525,12 +565,14 @@ export default function CandidateSearchPage() {
               </button>
               {openSections['misc'] && (
                 <div className="px-6 pb-4 space-y-4">
-                  {renderInfoCard("Additional Information", <Settings className="h-4 w-4" />, {
-                    notes: selectedCandidate.miscellaneous?.notes || "No notes available",
-                    preparation_active: selectedCandidate.miscellaneous?.preparation_active ? "Yes" : "No",
-                    marketing_active: selectedCandidate.miscellaneous?.marketing_active ? "Yes" : "No",
-                    placement_active: selectedCandidate.miscellaneous?.placement_active ? "Yes" : "No"
-                  })}
+                  {
+                  renderInfoCard("Additional Information", <Settings className="h-4 w-4" />, {
+                    notes: selectedCandidate.miscellaneous?.["Notes"] || "No notes available",
+                    preparation_active: selectedCandidate.miscellaneous?.["Preparation Active"] ? "Yes" : "No",
+                    marketing_active: selectedCandidate.miscellaneous?.["Marketing Active"] ? "Yes" : "No",
+                    placement_active: selectedCandidate.miscellaneous?.["Placement Active"] ? "Yes" : "No",
+                  })
+                  }
                 </div>
               )}
             </div>
