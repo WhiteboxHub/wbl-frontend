@@ -32,7 +32,7 @@ export default function BatchPage() {
     subject: "ML",
     startdate: "",
     enddate: "",
-    courseid: "3", // default to 3
+    courseid: "3", // default for ML
   });
 
   // Debounce search
@@ -239,7 +239,14 @@ export default function BatchPage() {
               <select
                 id="subject"
                 value={newBatch.subject}
-                onChange={(e) => setNewBatch({ ...newBatch, subject: e.target.value })}
+                onChange={(e) => {
+                  const selectedSubject = e.target.value;
+                  let courseid = "3"; // default ML
+                  if (selectedSubject === "QA") courseid = "1";
+                  else if (selectedSubject === "UI") courseid = "2";
+                  else if (selectedSubject === "ML") courseid = "3";
+                  setNewBatch({ ...newBatch, subject: selectedSubject, courseid });
+                }}
                 className="border rounded px-2 py-1 w-full dark:bg-gray-800 dark:text-white"
               >
                 <option value="QA">QA</option>
@@ -264,19 +271,6 @@ export default function BatchPage() {
                 value={newBatch.enddate}
                 onChange={(e) => setNewBatch({ ...newBatch, enddate: e.target.value })}
               />
-            </div>
-            <div>
-              <Label htmlFor="courseid">Course ID</Label>
-              <select
-                id="courseid"
-                value={newBatch.courseid}
-                onChange={(e) => setNewBatch({ ...newBatch, courseid: e.target.value })}
-                className="border rounded px-2 py-1 w-full dark:bg-gray-800 dark:text-white"
-              >
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-              </select>
             </div>
           </div>
           <DialogFooter>
