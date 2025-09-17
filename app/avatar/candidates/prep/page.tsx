@@ -24,19 +24,13 @@ const StatusHeaderComponent = (props: any) => {
   const { selectedStatuses, setSelectedStatuses } = props;
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({
-    top: 0,
-    left: 0,
-  });
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const [filterVisible, setFilterVisible] = useState(false);
 
   const toggleFilter = () => {
     if (filterButtonRef.current) {
       const rect = filterButtonRef.current.getBoundingClientRect();
-      setDropdownPos({
-        top: rect.bottom,
-        left: rect.left,
-      });
+      setDropdownPos({ top: rect.bottom, left: rect.left });
     }
     setFilterVisible((v) => !v);
   };
@@ -78,43 +72,28 @@ const StatusHeaderComponent = (props: any) => {
         viewBox="0 0 24 24"
         stroke="currentColor"
       >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z"
-        />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z" />
       </svg>
       {filterVisible &&
         createPortal(
           <div
             ref={dropdownRef}
             className="z-[99999] bg-white border rounded shadow-lg p-3 flex flex-col space-y-2 w-48 pointer-events-auto"
-            style={{
-              top: dropdownPos.top,
-              left: dropdownPos.left,
-              position: "fixed",
-            }}
+            style={{ top: dropdownPos.top, left: dropdownPos.left, position: "fixed" }}
           >
-            {[
-              { value: "active", label: "Active" },
-              { value: "break", label: "Break" },
-              { value: "inactive", label: "Inactive" },
-              { value: "discontinued", label: "Discontinued" },
-            ].map(({ value, label }) => (
-              <label
-                key={value}
-                className="flex items-center px-2 py-1 hover:bg-gray-100 cursor-pointer rounded"
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedStatuses.includes(value)}
-                  onChange={() => handleStatusChange(value)}
-                  className="mr-3"
-                />
-                {label}
-              </label>
-            ))}
+            {[{ value: "active", label: "Active" }, { value: "break", label: "Break" }, { value: "inactive", label: "Inactive" }, { value: "discontinued", label: "Discontinued" }].map(
+              ({ value, label }) => (
+                <label key={value} className="flex items-center px-2 py-1 hover:bg-gray-100 cursor-pointer rounded">
+                  <input
+                    type="checkbox"
+                    checked={selectedStatuses.includes(value)}
+                    onChange={() => handleStatusChange(value)}
+                    className="mr-3"
+                  />
+                  {label}
+                </label>
+              )
+            )}
           </div>,
           document.body
         )}
@@ -130,19 +109,22 @@ export default function CandidatesPrepPage() {
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  const [instructors, setInstructors] = useState<any[]>([]); // all active instructors
 
   // --- Add Candidate Form State ---
   const [showAddForm, setShowAddForm] = useState(false);
   const [newCandidate, setNewCandidate] = useState<any>({
-    candidate_id: "",
+    candidate_Name: "",
     batch: "",
     start_date: "",
     status: "",
     instructor1_id: "",
+    instructor1_Name: "",
     instructor2_id: "",
+    instructor2_Name: "",
     instructor3_id: "",
+    instructor3_Name: "",
     rating: "",
     tech_rating: "",
     communication: "",
@@ -155,47 +137,36 @@ export default function CandidatesPrepPage() {
 
   // ---------------- Fetch Data ----------------
   useEffect(() => {
-    const fetchCandidates = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations?page=1&limit=100`
-        );
-        const data = res.data;
-        if (!Array.isArray(data)) throw new Error("Invalid data format");
-        setAllCandidates(data);
+        const [candidatesRes, instructorsRes] = await Promise.all([
+          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations`),
+          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/employees?status=1`) // only active instructors
+        ]);
+        setAllCandidates(candidatesRes.data || []);
+        setInstructors(instructorsRes.data || []);
       } catch {
-        setError("Failed to load candidate preparations.");
+        setError("Failed to load data.");
       } finally {
         setLoading(false);
       }
     };
-    fetchCandidates();
+    fetchData();
   }, []);
 
   // ---------------- Filtering ----------------
   useEffect(() => {
     let filtered = allCandidates;
     if (selectedStatuses.length > 0) {
-      filtered = filtered.filter((c) =>
-        selectedStatuses.includes(c.status?.toLowerCase())
-      );
+      filtered = filtered.filter((c) => selectedStatuses.includes(c.status?.toLowerCase()));
     }
     if (searchTerm.trim() !== "") {
       const term = searchTerm.toLowerCase();
-      filtered = filtered.filter((c) =>
-        c.candidate?.full_name?.toLowerCase().includes(term)
-      );
+      filtered = filtered.filter((c) => c.candidate?.full_name?.toLowerCase().includes(term));
     }
     setFilteredCandidates(filtered);
-    setCurrentPage(1);
   }, [allCandidates, searchTerm, selectedStatuses]);
-
-  const totalPages = Math.ceil(filteredCandidates.length / itemsPerPage);
-  const paginatedCandidates = filteredCandidates.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
 
   // ---------------- Column Defs ----------------
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => {
@@ -229,31 +200,9 @@ export default function CandidatesPrepPage() {
   // ---------------- CRUD Handlers ----------------
   const handleRowUpdated = async (updatedRow: any) => {
     try {
-      const payload = {
-        batch: updatedRow.batch,
-        start_date: updatedRow.start_date,
-        status: updatedRow.status,
-        instructor1_id: updatedRow.instructor1_id,
-        instructor2_id: updatedRow.instructor2_id,
-        instructor3_id: updatedRow.instructor3_id,
-        rating: updatedRow.rating,
-        tech_rating: updatedRow.tech_rating,
-        communication: updatedRow.communication,
-        years_of_experience: updatedRow.years_of_experience,
-        topics_finished: updatedRow.topics_finished,
-        current_topics: updatedRow.current_topics,
-        target_date_of_marketing: updatedRow.target_date_of_marketing,
-        notes: updatedRow.notes,
-      };
-
-      await axios.put(
-        `${process.env.NEXT_PUBLIC_API_URL}/candidate_preparation/${updatedRow.id}`,
-        payload
-      );
-
-      setFilteredCandidates((prev) =>
-        prev.map((row) => (row.id === updatedRow.id ? { ...row, ...payload } : row))
-      );
+      const payload = { ...updatedRow };
+      await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/candidate_preparation/${updatedRow.id}`, payload);
+      setFilteredCandidates((prev) => prev.map((row) => (row.id === updatedRow.id ? { ...row, ...payload } : row)));
     } catch (err) {
       console.error("Failed to update:", err);
     }
@@ -261,37 +210,30 @@ export default function CandidatesPrepPage() {
 
   const handleRowDeleted = async (id: number | string) => {
     try {
-      await axios.delete(
-        `${process.env.NEXT_PUBLIC_API_URL}/candidate_preparation/${id}`
-      );
+      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/candidate_preparation/${id}`);
       setFilteredCandidates((prev) => prev.filter((row) => row.id !== id));
     } catch (err) {
       console.error("Failed to delete:", err);
     }
   };
 
-  const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setItemsPerPage(Number(e.target.value));
-    setCurrentPage(1);
-  };
-
   // ---------------- Add Candidate ----------------
   const handleAddCandidate = async () => {
     try {
-      const res = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/candidate_preparation`,
-        newCandidate
-      );
+      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/candidate_preparation`, newCandidate);
       setAllCandidates((prev) => [...prev, res.data]);
       setShowAddForm(false);
       setNewCandidate({
-        candidate_id: "",
+        candidate_Name: "",
         batch: "",
         start_date: "",
         status: "",
         instructor1_id: "",
+        instructor1_Name: "",
         instructor2_id: "",
+        instructor2_Name: "",
         instructor3_id: "",
+        instructor3_Name: "",
         rating: "",
         tech_rating: "",
         communication: "",
@@ -311,12 +253,8 @@ export default function CandidatesPrepPage() {
     <div className="space-y-6 p-4">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Candidate Preparations
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Tracking candidate preparation status
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Candidate Preparations</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">Tracking candidate preparation status</p>
         </div>
         <button
           onClick={() => setShowAddForm(true)}
@@ -328,10 +266,7 @@ export default function CandidatesPrepPage() {
 
       {/* Search */}
       <div className="max-w-md">
-        <Label
-          htmlFor="search"
-          className="text-sm font-medium text-gray-700 dark:text-gray-300"
-        >
+        <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
           Search Candidates
         </Label>
         <div className="relative mt-2">
@@ -349,62 +284,23 @@ export default function CandidatesPrepPage() {
 
       {/* Data Table */}
       {loading ? (
-        <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-          Loading...
-        </p>
+        <p className="text-center text-sm text-gray-500 dark:text-gray-400">Loading...</p>
       ) : error ? (
         <p className="text-center text-red-500">{error}</p>
       ) : (
-        <>
-          <div className="flex justify-center w-full">
-            <div className="w-full max-w-7xl p-2 bg-white dark:bg-gray-800 rounded-lg shadow">
-              <AGGridTable
-                rowData={paginatedCandidates}
-                columnDefs={columnDefs}
-                title={`Candidate Preparations (${filteredCandidates.length})`}
-                height="calc(60vh)"
-                showSearch={false}
-                onRowUpdated={handleRowUpdated}
-                onRowDeleted={handleRowDeleted}
-              />
-            </div>
+        <div className="flex justify-center w-full">
+          <div className="w-full max-w-7xl p-2 bg-white dark:bg-gray-800 rounded-lg shadow">
+            <AGGridTable
+              rowData={filteredCandidates}
+              columnDefs={columnDefs}
+              title={`Candidate Preparations (${filteredCandidates.length})`}
+              height="calc(80vh)"
+              showSearch={false}
+              onRowUpdated={handleRowUpdated}
+              onRowDeleted={handleRowDeleted}
+            />
           </div>
-          <div className="flex items-center justify-between px-2 py-3 bg-white dark:bg-gray-800 rounded-b-lg border-t border-gray-200 dark:border-gray-700">
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-700 dark:text-gray-300">
-                Rows per page:
-              </span>
-              <select
-                value={itemsPerPage}
-                onChange={handleItemsPerPageChange}
-                className="px-2 py-1 border rounded text-sm"
-              >
-                <option value="10">10</option>
-                <option value="20">20</option>
-                <option value="50">50</option>
-              </select>
-            </div>
-            <div className="flex items-center space-x-2">
-              <button
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage((p) => p - 1)}
-                className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
-              >
-                Previous
-              </button>
-              <span className="text-sm text-gray-700 dark:text-gray-300">
-                Page {currentPage} of {totalPages}
-              </span>
-              <button
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage((p) => p + 1)}
-                className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        </>
+        </div>
       )}
 
       {/* Add Candidate Modal */}
@@ -414,56 +310,94 @@ export default function CandidatesPrepPage() {
             <h2 className="text-xl font-bold mb-4">Add Candidate Preparation</h2>
             <div className="space-y-3">
               {Object.keys(newCandidate).map((field) => {
-                // Calendar inputs for date fields
+                if (field === "status" || field.includes("instructor")) return null;
+                const label = field.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
                 if (field === "start_date" || field === "target_date_of_marketing") {
                   return (
-                    <Input
-                      key={field}
-                      type="date"
-                      placeholder={field.replace(/_/g, " ").toUpperCase()}
-                      value={newCandidate[field]}
-                      onChange={(e) =>
-                        setNewCandidate({ ...newCandidate, [field]: e.target.value })
-                      }
-                    />
+                    <div key={field} className="space-y-1">
+                      <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</Label>
+                      <Input
+                        type="date"
+                        placeholder={label}
+                        value={newCandidate[field]}
+                        onChange={(e) => setNewCandidate({ ...newCandidate, [field]: e.target.value })}
+                        className="w-full p-2 border rounded"
+                      />
+                    </div>
                   );
                 }
-                if (field === "status") return null;
                 return (
-                  <Input
-                    key={field}
-                    placeholder={field.replace(/_/g, " ").toUpperCase()}
-                    value={newCandidate[field]}
-                    onChange={(e) =>
-                      setNewCandidate({ ...newCandidate, [field]: e.target.value })
-                    }
-                  />
+                  <div key={field} className="space-y-1">
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</Label>
+                    <Input
+                      placeholder={label}
+                      value={newCandidate[field]}
+                      onChange={(e) => setNewCandidate({ ...newCandidate, [field]: e.target.value })}
+                      className="w-full p-2 border rounded"
+                    />
+                  </div>
                 );
               })}
-              {/* Status dropdown */}
-              <select
-                value={newCandidate.status}
-                onChange={(e) => setNewCandidate({ ...newCandidate, status: e.target.value })}
-                className="w-full p-2 border rounded"
-              >
-                <option value="Status">Status</option>
-                <option value="active">Active</option>
-                <option value="break">Break</option>
-                <option value="inactive">Inactive</option>
-                <option value="discontinued">Discontinued</option>
-              </select>
+
+              {/* Instructor Dropdowns */}
+              {["1", "2", "3"].map((num) => (
+                <div key={num} className="space-y-1">
+                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Instructor {num}
+                  </Label>
+                  <select
+                    value={newCandidate[`instructor${num}_id`] || ""}
+                    onChange={(e) => {
+                      const selected = instructors.find((ins) => ins.id === Number(e.target.value));
+                      setNewCandidate({
+                        ...newCandidate,
+                        [`instructor${num}_id`]: selected?.id || "",
+                        [`instructor${num}_Name`]: selected?.name || "",
+                      });
+                    }}
+                    className="w-full p-2 border rounded"
+                  >
+                    <option value="">Select Instructor</option>
+
+                    {/* Ensure current instructor shows even if not in list */}
+                    {newCandidate[`instructor${num}_id`] &&
+                      !instructors.some((ins) => ins.id === Number(newCandidate[`instructor${num}_id`])) && (
+                        <option value={newCandidate[`instructor${num}_id`]}>
+                          {newCandidate[`instructor${num}_Name`] || "Current Instructor"}
+                        </option>
+                    )}
+
+                    {instructors.map((ins) => (
+                      <option key={ins.id} value={ins.id}>
+                        {ins.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ))}
+
+              {/* Status Dropdown */}
+              <div className="space-y-1">
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Status</Label>
+                <select
+                  value={newCandidate.status}
+                  onChange={(e) => setNewCandidate({ ...newCandidate, status: e.target.value })}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="">Select Status</option>
+                  <option value="active">Active</option>
+                  <option value="break">Break</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="discontinued">Discontinued</option>
+                </select>
+              </div>
             </div>
+
             <div className="flex justify-end mt-6 space-x-3">
-              <button
-                onClick={() => setShowAddForm(false)}
-                className="px-4 py-2 bg-gray-300 rounded"
-              >
+              <button onClick={() => setShowAddForm(false)} className="px-4 py-2 bg-gray-300 rounded">
                 Cancel
               </button>
-              <button
-                onClick={handleAddCandidate}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
+              <button onClick={handleAddCandidate} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
                 Save
               </button>
             </div>

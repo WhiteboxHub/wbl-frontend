@@ -154,10 +154,6 @@ export default function SessionsPage() {
             Manage class sessions
           </p>
         </div>
-        <Button className="bg-whitebox-600 hover:bg-whitebox-700 text-white">
-          <PlusIcon className="h-4 w-4 mr-2" />
-          Add Session
-        </Button>
       </div>
 
       {/* Search Input */}
