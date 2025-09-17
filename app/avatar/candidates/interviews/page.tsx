@@ -594,7 +594,7 @@ export default function CandidatesInterviews() {
     mode_of_interview: "",
     type_of_interview: "",
     interview_date: "",
-    status: "",
+    // status: "",
     feedback: "",
     interviewer_emails: "",
     interviewer_contact: "",
@@ -613,7 +613,7 @@ export default function CandidatesInterviews() {
       );
       if (!res.ok) throw new Error("Failed to load interviews");
       const data = await res.json();
-      setInterviews(data.items);
+      setInterviews(data);
       setTotal(data.total);
     } catch (err) {
       setError("Failed to load interviews.");
@@ -705,7 +705,7 @@ export default function CandidatesInterviews() {
       { field: "recording_link", headerName: "Recording", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
       { field: "backup_url", headerName: "Backup URL", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
       { field: "url", headerName: "URL", cellRenderer: LinkRenderer, minWidth: 200, editable: true }, // new URL column
-      { field: "status", headerName: "Status", cellRenderer: StatusRenderer, maxWidth: 150, editable: true },
+      // { field: "status", headerName: "Status", cellRenderer: StatusRenderer, maxWidth: 150, editable: true },
       { field: "feedback", headerName: "Feedback", cellRenderer: FeedbackRenderer, maxWidth: 130, editable: true },
       { field: "interviewer_emails", headerName: "Emails", minWidth: 180, editable: true },
       { field: "interviewer_contact", headerName: "Contact", minWidth: 140, editable: true },
@@ -832,7 +832,8 @@ export default function CandidatesInterviews() {
             <AGGridTable
               rowData={filteredInterviews}
               columnDefs={columnDefs}
-              title={`Interviews (Page ${page} of ${totalPages})`}
+              // title={`Interviews (Page ${page} of ${totalPages})`}
+              title={`Interviews (${filteredInterviews.length})`}
               height="500px"
               showSearch={false}
               onRowUpdated={handleRowUpdated}
@@ -841,7 +842,7 @@ export default function CandidatesInterviews() {
           </div>
 
           {/* Pagination */}
-          <div className="flex items-center justify-between w-full max-w-7xl mt-4">
+          {/* <div className="flex items-center justify-between w-full max-w-7xl mt-4">
             <div className="flex items-center space-x-2">
               <span>Rows per page:</span>
               <select
@@ -862,7 +863,7 @@ export default function CandidatesInterviews() {
               <span>Page {page} of {totalPages}</span>
               <Button disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}>Next</Button>
             </div>
-          </div>
+          </div> */}
         </div>
       )}
 

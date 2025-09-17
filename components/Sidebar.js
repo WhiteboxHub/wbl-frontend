@@ -1117,8 +1117,6 @@
 
 // export default Sidebar;
 
-
-
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -1132,7 +1130,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   const { theme } = useTheme();
 
   const [hasCheckedLogin, setHasCheckedLogin] = useState(false);
-  const [activeSection, setActiveSection] = useState("announcements"); 
+  const [activeSection, setActiveSection] = useState("announcements");
   const [placementsData, setPlacementsData] = useState([]);
   const [interviewsData, setInterviewsData] = useState([]);
   const [mounted, setMounted] = useState(false);
@@ -1218,7 +1216,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         const interviewsRes = await axios.get(
           `${process.env.NEXT_PUBLIC_API_URL}/interviews`
         );
-        setInterviewsData(interviewsRes.data.items || []);
+        setInterviewsData(interviewsRes.data || []); // <- directly use array
       } catch (err) {
         console.error("Error fetching data:", err);
       }
@@ -1231,11 +1229,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
 
   if (!isAuthenticated) return null;
 
-  const getCandidateName = (candidate, interview) => {
-    if (!candidate || !candidate.full_name) {
-      return "Unknown Candidate";
-    }
-    return candidate.full_name;
+  const getCandidateName = (interview) => {
+    return interview.candidate?.full_name || "Unknown Candidate";
   };
 
   return (
@@ -1326,7 +1321,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                       <div key={interview.id} className={`${isDark ? "bg-gray-800/40" : "bg-white/20"} p-3 rounded-lg ${isDark ? "hover:bg-gray-700/40" : "hover:bg-white/30"} transition-all cursor-pointer backdrop-blur-sm mb-3`}>
                         <div className="flex justify-between">
                           <h4 className={`font-semibold ${isDark ? "text-gray-100" : "text-gray-800"}`}>
-                            {getCandidateName(interview.candidate, interview)}
+                            {getCandidateName(interview)}
                           </h4>
                           <span className="text-sm font-semibold whitespace-nowrap">
                             {formatDateUS(interview.interview_date)}

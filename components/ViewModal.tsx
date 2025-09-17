@@ -129,6 +129,11 @@ const fieldSections: Record<string, string> = {
   notes: "Other",
   course_name: "Professional Information",
   subject_name: "Basic Information",
+  feedback: "Basic Information",
+  url: "Basic Information",
+  mode_of_interview: "Basic Information",
+  interviewer_emails: "Professional Information",
+  interviewer_contact: "Professional Information",
 };
 
 const dateFields = [

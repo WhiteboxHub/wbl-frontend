@@ -721,13 +721,16 @@ const excludedFields = [
   "instructor2_id",
   "instructor3_id",
   "enddate",
+  "candidate_id",
 ];
 
 const fieldSections: Record<string, string> = {
-  candidate_full_name: "Professional Information",
+  candidate_full_name: "Basic Information",
   instructor1_name: "Professional Information",
   instructor2_name: "Professional Information",
   instructor3_name: "Professional Information",
+  interviewer_emails: "Professional Information",
+  interviewer_contact: "Professional Information",
   id: "Basic Information",
   alias: "Basic Information",
   Fundamentals: "Basic Information",
@@ -818,6 +821,8 @@ const fieldSections: Record<string, string> = {
   recruiterassesment: "Professional Information",
   statuschangedate: "Professional Information",
   aadhaar: "Basic Information",
+  url: "Basic Information",
+  feedback: "Basic Information",
   entry_date: "Professional Information",
   closed_date: "Professional Information",
   closed: "Professional Information",
@@ -1042,27 +1047,6 @@ export function EditModal({
   const [courses, setCourses] = React.useState<{ id: number; name: string }[]>([]);
   const [employees, setEmployees] = React.useState<{ id: number; name: string }[]>([]);
 
-  // React.useEffect(() => {
-  //   const fetchCourses = async () => {
-  //     try {
-  //       const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/courses`);
-  //       setCourses(res.data);
-  //     } catch (error) {
-  //       console.error("Failed to fetch courses:", error);
-  //     }
-  //   };
-  //   const fetchEmployees = async () => {
-  //     try {
-  //       const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/employees`);
-  //       setEmployees(res.data);
-  //     } catch (error) {
-  //       console.error("Failed to fetch employees:", error);
-  //     }
-  //   };
-  //   fetchCourses();
-  //   fetchEmployees();
-  // }, []);
-
   React.useEffect(() => {
   const fetchCourses = async () => {
     try {
@@ -1225,85 +1209,107 @@ export function EditModal({
                     // Instructor Dropdowns
                     if (key === "instructor1_name") {
                       return (
-                        <div key={key} className="space-y-1">
-                          <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                            {toLabel(key)}
-                          </Label>
-                          <select
-                            value={formData.instructor1_id || ""}
-                            onChange={(e) => {
-                              const selected = employees.find(
-                                (emp) => emp.id === Number(e.target.value)
-                              );
-                              handleChange("instructor1_name", selected?.name || "");
-                              handleChange("instructor1_id", selected?.id || null);
-                            }}
-                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                          >
-                            <option value="">Select Instructor</option>
-                            {employees.map((emp) => (
-                              <option key={emp.id} value={emp.id}>
-                                {emp.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                      <div key={key} className="space-y-1">
+                      <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      {toLabel(key)}
+                      </Label>
+                      <select
+                      value={formData.instructor1_id || ""}
+                      onChange={(e) => {
+                      const selected = employees.find(
+                      (emp) => emp.id === Number(e.target.value)
                       );
-                    }
-                    if (key === "instructor2_name") {
+                      handleChange("instructor1_name", selected?.name || "");
+                      handleChange("instructor1_id", selected?.id || null);
+                      }}
+                      className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                      >
+                      {/* Default current instructor name */}
+                      {formData.instructor1_name && (
+                      <option value={formData.instructor1_id || ""}>
+                      {formData.instructor1_name}
+                      </option>
+                      )}
+                      <option value="">Select Instructor</option>
+                      {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                      {emp.name}
+                      </option>
+                      ))}
+                      </select>
+                      </div>
+                      );
+                      }
+
+
+                      if (key === "instructor2_name") {
                       return (
-                        <div key={key} className="space-y-1">
-                          <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                            {toLabel(key)}
-                          </Label>
-                          <select
-                            value={formData.instructor2_id || ""}
-                            onChange={(e) => {
-                              const selected = employees.find(
-                                (emp) => emp.id === Number(e.target.value)
-                              );
-                              handleChange("instructor2_name", selected?.name || "");
-                              handleChange("instructor2_id", selected?.id || null);
-                            }}
-                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                          >
-                            <option value="">Select Instructor</option>
-                            {employees.map((emp) => (
-                              <option key={emp.id} value={emp.id}>
-                                {emp.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                      <div key={key} className="space-y-1">
+                      <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      {toLabel(key)}
+                      </Label>
+                      <select
+                      value={formData.instructor2_id || ""}
+                      onChange={(e) => {
+                      const selected = employees.find(
+                      (emp) => emp.id === Number(e.target.value)
                       );
-                    }
-                    if (key === "instructor3_name") {
+                      handleChange("instructor2_name", selected?.name || "");
+                      handleChange("instructor2_id", selected?.id || null);
+                      }}
+                      className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                      >
+                      {/* Default current instructor name */}
+                      {formData.instructor2_name && (
+                      <option value={formData.instructor2_id || ""}>
+                      {formData.instructor2_name}
+                      </option>
+                      )}
+                      <option value="">Select Instructor</option>
+                      {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                      {emp.name}
+                      </option>
+                      ))}
+                      </select>
+                      </div>
+                      );
+                      }
+
+
+                      if (key === "instructor3_name") {
                       return (
-                        <div key={key} className="space-y-1">
-                          <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                            {toLabel(key)}
-                          </Label>
-                          <select
-                            value={formData.instructor3_id || ""}
-                            onChange={(e) => {
-                              const selected = employees.find(
-                                (emp) => emp.id === Number(e.target.value)
-                              );
-                              handleChange("instructor3_name", selected?.name || "");
-                              handleChange("instructor3_id", selected?.id || null);
-                            }}
-                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                          >
-                            <option value="">Select Instructor</option>
-                            {employees.map((emp) => (
-                              <option key={emp.id} value={emp.id}>
-                                {emp.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                      <div key={key} className="space-y-1">
+                      <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      {toLabel(key)}
+                      </Label>
+                      <select
+                      value={formData.instructor3_id || ""}
+                      onChange={(e) => {
+                      const selected = employees.find(
+                      (emp) => emp.id === Number(e.target.value)
                       );
-                    }
+                      handleChange("instructor3_name", selected?.name || "");
+                      handleChange("instructor3_id", selected?.id || null);
+                      }}
+                      className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                      >
+                      {/* Default current instructor name */}
+                      {formData.instructor3_name && (
+                      <option value={formData.instructor3_id || ""}>
+                      {formData.instructor3_name}
+                      </option>
+                      )}
+                      <option value="">Select Instructor</option>
+                      {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                      {emp.name}
+                      </option>
+                      ))}
+                      </select>
+                      </div>
+                      );
+                      }
 
                     // Original logic for all other fields
                     return (
