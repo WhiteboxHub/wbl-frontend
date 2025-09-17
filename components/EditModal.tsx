@@ -189,6 +189,25 @@ const workVisaStatusOptions = [
   { value: "ead", label: "EAD" },
 ];
 
+const reorderYesNoOptions = (
+  key: string,
+  value: any,
+  options: { value: string; label: string }[]
+) => {
+  if (
+    ["linkedin_connected", "intro_email_sent", "intro_call", "moved_to_vendor", "moved_to_candidate"].includes(
+      key.toLowerCase()
+    )
+  ) {
+    const val = String(value).toLowerCase();
+    return val === "yes" || val === "true"
+      ? [...options.filter((o) => o.value === "yes" || o.value === "true"), ...options.filter((o) => !(o.value === "yes" || o.value === "true"))]
+      : [...options.filter((o) => o.value === "no" || o.value === "false"), ...options.filter((o) => !(o.value === "no" || o.value === "false"))];
+  }
+  return options;
+};
+
+
 const vendorStatuses = [
   { value: "active", label: "Active" },
   { value: "working", label: "Working" },
@@ -606,11 +625,12 @@ export function EditModal({
                             }
                             className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
                           >
-                            {enumOptions[key.toLowerCase()].map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </option>
-                            ))}
+                        {reorderYesNoOptions(key, value, enumOptions[key.toLowerCase()]).map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+
                           </select>
                         ) : typeof value === "string" && value.length > 100 ? (
                           <Textarea
