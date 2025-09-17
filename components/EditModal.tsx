@@ -44,9 +44,6 @@ const excludedFields = [
   "instructor1_id",
   "instructor2_id",
   "instructor3_id",
-  "enddate",
-
-
 ];
 
 const fieldSections: Record<string, string> = {
