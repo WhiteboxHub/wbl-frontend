@@ -44,6 +44,7 @@ const excludedFields = [
   "instructor3_id",
   "enddate",
   "candidate_id",
+
 ];
 
 const fieldSections: Record<string, string> = {
@@ -182,6 +183,25 @@ const workVisaStatusOptions = [
   { value: "h4", label: "H4" },
   { value: "ead", label: "EAD" },
 ];
+
+const reorderYesNoOptions = (
+  key: string,
+  value: any,
+  options: { value: string; label: string }[]
+) => {
+  if (
+    ["linkedin_connected", "intro_email_sent", "intro_call", "moved_to_vendor", "moved_to_candidate"].includes(
+      key.toLowerCase()
+    )
+  ) {
+    const val = String(value).toLowerCase();
+    return val === "yes" || val === "true"
+      ? [...options.filter((o) => o.value === "yes" || o.value === "true"), ...options.filter((o) => !(o.value === "yes" || o.value === "true"))]
+      : [...options.filter((o) => o.value === "no" || o.value === "false"), ...options.filter((o) => !(o.value === "no" || o.value === "false"))];
+  }
+  return options;
+};
+
 
 const vendorStatuses = [
   { value: "active", label: "Active" },
@@ -354,6 +374,15 @@ export function EditModal({
     if (data.instructor3) {
       flattened.instructor3_name = data.instructor3.name;
       flattened.instructor3_id = data.instructor3.id;
+    }
+    if (data.visa_status) {
+    flattened.visa_status = String(data.visa_status).toLowerCase();
+    }
+    if (data.workstatus) {
+      flattened.workstatus = String(data.workstatus).toLowerCase();
+    }
+    if (data.work_status) {
+      flattened.work_status = String(data.work_status).toLowerCase();
     }
     return flattened;
   };
@@ -716,11 +745,12 @@ export function EditModal({
                             }
                             className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
                           >
-                            {enumOptions[key.toLowerCase()].map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </option>
-                            ))}
+                        {reorderYesNoOptions(key, value, enumOptions[key.toLowerCase()]).map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+
                           </select>
                         ) : typeof value === "string" && value.length > 100 ? (
                           <Textarea
