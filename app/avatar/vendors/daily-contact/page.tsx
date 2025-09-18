@@ -11,6 +11,7 @@ import dynamic from "next/dynamic";
 import { toast, Toaster } from "sonner";
 import axios from "axios";
 
+
 const AGGridTable = dynamic(() => import("@/components/AGGridTable"), { ssr: false });
 
 const MovedToVendorRenderer = ({ value }: { value?: boolean }) => {
@@ -57,7 +58,8 @@ export default function VendorContactsGrid() {
   const [searchTerm, setSearchTerm] = useState("");
   const [contacts, setContacts] = useState<any[]>([]);
   const [filteredContacts, setFilteredContacts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); 
   // const [page, setPage] = useState(1);
   // const [pageSize, setPageSize] = useState(100);
 
@@ -130,6 +132,7 @@ export default function VendorContactsGrid() {
 
   useEffect(() => {
     fetchContacts();
+    setIsLoading(true)
   }, [fetchContacts]);
 
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
@@ -238,10 +241,14 @@ export default function VendorContactsGrid() {
             rowData={filteredContacts}
             columnDefs={columnDefs}
             defaultColDef={defaultColDef}
+            loading={loading}
             height="600px"
             title={`Vendor Contacts (${filteredContacts.length})`}
             showSearch={false}
             onRowUpdated={handleRowUpdated}
+          //   overlayNoRowsTemplate={
+          // //   loading ? "" : '<span class="ag-overlay-no-rows-center">Loading</span>'
+          // // }
             onRowDeleted={handleRowDeleted}
           />
         </div>
