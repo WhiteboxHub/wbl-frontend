@@ -185,7 +185,8 @@ type ComponentType =
   | "Installations"
   | "Newsletters"
   | "Books"
-  | "Softwares";
+  | "Softwares"
+  | "Questions";
 
 const fetchPresentationData = async (course: string, type: ComponentType) => {
   // console.log("*********************************************************",course,type);

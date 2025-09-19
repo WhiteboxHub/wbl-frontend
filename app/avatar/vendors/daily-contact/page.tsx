@@ -10,6 +10,7 @@ import { ColDef } from "ag-grid-community";
 import dynamic from "next/dynamic";
 import { toast, Toaster } from "sonner";
 import axios from "axios";
+import { Button } from "@/components/admin_ui/button";
 
 
 const AGGridTable = dynamic(() => import("@/components/AGGridTable"), { ssr: false });
@@ -129,6 +130,49 @@ export default function VendorContactsGrid() {
       toast.error(err.message || "Failed to delete contact");
     }
   };
+
+  const [selectedRows, setSelectedRows] = useState<any[]>([]);
+
+  const handleExtract = useCallback(async () => {
+    try {
+      // filter out rows already moved in UI
+      const rowsToMove = (selectedRows || []).filter((r:any) => !r.moved_to_vendor);
+      const contactIds = rowsToMove.length ? rowsToMove.map((r:any) => r.id) : undefined;
+
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/vendor_contact/move_to_vendor`,
+        contactIds ? { contact_ids: contactIds } : {}
+      );
+      const data = res.data || {};
+
+      // Success summary
+      if (data.inserted > 0) {
+        toast.success(`${data.inserted} contact(s) moved to vendor`);
+      }
+
+      // Inform about duplicates or already existing vendors
+      if ((data.skipped_existing || 0) > 0) {
+        toast.warning?.(
+          `${data.skipped_existing} contact(s) already exist in vendor and were skipped`
+        ) || toast(`${data.skipped_existing} contact(s) already exist in vendor and were skipped`);
+      }
+
+      // Missing emails
+      if ((data.skipped_missing_email || 0) > 0) {
+        toast.info?.(
+          `${data.skipped_missing_email} contact(s) missing email and were skipped`
+        ) || toast(`${data.skipped_missing_email} contact(s) missing email and were skipped`);
+      }
+
+      if (!data.inserted && !data.skipped_existing && !data.skipped_missing_email) {
+        toast("No contacts to move");
+      }
+
+      await fetchContacts();
+    } catch (err:any) {
+      toast.error(err?.response?.data?.detail || err.message || "Failed to move");
+    }
+  }, [selectedRows, fetchContacts]);
 
   useEffect(() => {
     fetchContacts();
@@ -250,6 +294,10 @@ export default function VendorContactsGrid() {
           // //   loading ? "" : '<span class="ag-overlay-no-rows-center">Loading</span>'
           // // }
             onRowDeleted={handleRowDeleted}
+            onSelectionChange={(rows:any[]) => setSelectedRows(rows)}
+            rightActions={
+              <Button size="sm" onClick={handleExtract}>Move To Vendor</Button>
+            }
           />
         </div>
       </div>
