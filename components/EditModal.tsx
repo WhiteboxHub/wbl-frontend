@@ -48,7 +48,7 @@ const excludedFields = [
 ];
 
 const fieldSections: Record<string, string> = {
-  candidate_full_name: "Basic Information",
+  candidate_full_name: "Professional Information",
   instructor1_name: "Professional Information",
   instructor2_name: "Professional Information",
   instructor3_name: "Professional Information",
@@ -64,6 +64,7 @@ const fieldSections: Record<string, string> = {
   start_date: "Basic Information",
   type: "Professional Information",
   email: "Basic Information",
+  target_date_of_marketing:"Basic Information",
   company_name: "Basic Information",
   linkedin_id: "Contact Information",
   enrolled_date: "Professional Information",
@@ -182,6 +183,8 @@ const workVisaStatusOptions = [
   { value: "permanent resident", label: "Permanent Resident" },
   { value: "h4", label: "H4" },
   { value: "ead", label: "EAD" },
+  { value: "green card", label: "Green Card" },
+  { value: "h1b", label: "H1B" },
 ];
 
 const reorderYesNoOptions = (
@@ -281,6 +284,12 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "In Person", label: "In Person" },
     { value: "Prep Call", label: "Prep Call" },
   ],
+  feedback:  [
+  { value: 'Pending', label: 'Pending' },
+  { value: 'Positive', label: 'Positive' },
+  { value: 'Negative', label: 'Negative' },
+],
+
 };
 
 const labelOverrides: Record<string, string> = {
@@ -347,6 +356,7 @@ const dateFields = [
   "enrolled_date",
   "interview_date",
   "placement_date",
+  "target_date_of_marketing",
 ];
 
 export function EditModal({

@@ -917,7 +917,7 @@ export default function LeadsPage() {
 
       <div key="search-container" className="max-w-md">
         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          Search Candidates
+          Search Lead
         </Label>
         <div className="relative mt-1">
           <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
@@ -929,7 +929,7 @@ export default function LeadsPage() {
             placeholder="Search by ID, name, email, phone..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+            className="pl-10 w-96"
           />
         </div>
         {searchTerm && (

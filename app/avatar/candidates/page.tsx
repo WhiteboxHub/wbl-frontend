@@ -85,10 +85,11 @@ const workStatusOptions = [
 // Initial form data
 const initialFormData: FormData = {
   full_name: "",
+  enrolled_date: new Date().toISOString().split("T")[0],
   email: "",
   phone: "",
   status: "active",
-  workstatus: "",
+  workstatus: "Waiting for Status",
   education: "",
   workexperience: "",
   ssn: "",
@@ -107,7 +108,7 @@ const initialFormData: FormData = {
   candidate_folder: "",
 };
 
-// ---------------- Status Renderer ----------------
+// Status Renderer
 const StatusRenderer = ({ value }: { value?: string }) => {
   const status = value?.toLowerCase() || "";
   const variantMap: Record<string, string> = {
@@ -124,7 +125,7 @@ const StatusRenderer = ({ value }: { value?: string }) => {
   );
 };
 
-// ---------------- WorkStatus Renderer ----------------
+// WorkStatus Renderer
 const WorkStatusRenderer = ({ value }: { value?: string }) => {
   const workstatus = value?.toLowerCase() || "";
   const variantMap: Record<string, string> = {
@@ -142,7 +143,7 @@ const WorkStatusRenderer = ({ value }: { value?: string }) => {
   );
 };
 
-// ---------------- Status Filter Header Component ----------------
+// Status Filter Header Component
 const StatusFilterHeaderComponent = (props: any) => {
   const { selectedStatuses, setSelectedStatuses } = props;
   const filterButtonRef = useRef<HTMLDivElement>(null);
@@ -168,7 +169,6 @@ const StatusFilterHeaderComponent = (props: any) => {
       return isSelected ? prev.filter((s) => s !== status) : [...prev, status];
     });
   };
-
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
@@ -199,6 +199,7 @@ const StatusFilterHeaderComponent = (props: any) => {
       window.removeEventListener("scroll", handleScroll, true);
     };
   }, [filterVisible]);
+
   return (
     <div className="relative flex items-center w-full">
       <span className="mr-2 flex-grow">Status</span>
@@ -227,7 +228,6 @@ const StatusFilterHeaderComponent = (props: any) => {
           />
         </svg>
       </div>
-
       {filterVisible &&
         createPortal(
           <div
@@ -240,9 +240,8 @@ const StatusFilterHeaderComponent = (props: any) => {
               maxHeight: "300px",
               overflowY: "auto",
             }}
-            onClick={(e) => e.stopPropagation()} // ✅ prevent closing on inner clicks
+            onClick={(e) => e.stopPropagation()}
           >
-            {/* Select All */}
             <div className="border-b pb-2 mb-2">
               <label
                 className="flex items-center px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded font-medium"
@@ -260,8 +259,6 @@ const StatusFilterHeaderComponent = (props: any) => {
                 Select All
               </label>
             </div>
-
-            {/* Individual options */}
             {statusOptions.map((status) => (
               <label
                 key={status}
@@ -277,8 +274,6 @@ const StatusFilterHeaderComponent = (props: any) => {
                 <StatusRenderer value={status} />
               </label>
             ))}
-
-            {/* Clear All */}
             {selectedStatuses.length > 0 && (
               <div className="border-t pt-2 mt-2">
                 <button
@@ -297,10 +292,9 @@ const StatusFilterHeaderComponent = (props: any) => {
         )}
     </div>
   );
-
 };
 
-// ---------------- WorkStatus Filter Header Component ----------------
+// WorkStatus Filter Header Component
 const WorkStatusFilterHeaderComponent = (props: any) => {
   const { selectedWorkStatuses, setSelectedWorkStatuses } = props;
   const filterButtonRef = useRef<HTMLDivElement>(null);
@@ -320,13 +314,10 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
     setFilterVisible((v) => !v);
   };
 
-  const handleWorkStatusChange = (workStatus: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    e.stopPropagation();
-    setSelectedWorkStatuses((prev: string[]) => {
-      return prev.includes(workStatus)
-        ? prev.filter((s) => s !== workStatus)
-        : [...prev, workStatus];
-    });
+  const handleWorkStatusChange = (workStatus: string) => {
+    setSelectedWorkStatuses((prev: string[]) =>
+      prev.includes(workStatus) ? prev.filter((s) => s !== workStatus) : [...prev, workStatus]
+    );
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -416,7 +407,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
                 <input
                   type="checkbox"
                   checked={selectedWorkStatuses.includes(workStatus)}
-                  onChange={(e) => handleWorkStatusChange(workStatus, e)}
+                  onChange={() => handleWorkStatusChange(workStatus)}
                   onClick={(e) => e.stopPropagation()}
                   className="mr-3"
                 />
@@ -541,11 +532,12 @@ export default function CandidatesPage() {
     const fetchBatches = async () => {
       try {
         const res = await fetch(batchesEndpoint);
-        if (!res.ok) throw new Error("Failed to fetch batches");
+        // if (!res.ok) throw new Error("Failed to fetch batches");
         const data = await res.json();
         setBatches(data.data || []);
       } catch (err) {
-        // toast.error("Failed to load batches");
+        // toast.error("Failed to load batches: " + (err as Error).message);
+        // console.error("Batch fetch error:", err);
       }
     };
     fetchBatches();
@@ -575,7 +567,7 @@ export default function CandidatesPage() {
     return "full_name";
   };
 
-  // Handlers (unchanged from your original code)
+  // Handlers
   const handleOpenNewCandidateForm = () => {
     router.push("/avatar/candidates?newcandidate=true");
     setNewCandidateForm(true);
@@ -601,33 +593,31 @@ export default function CandidatesPage() {
 
   const handleNewCandidateFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Validation - only checking full_name as required
+    if (!formData.full_name.trim()) {
+      toast.error("Full name is required");
+      return;
+    }
+
     setFormSaveLoading(true);
     try {
-      const updatedData = { ...formData };
-      if (!updatedData.status || updatedData.status === '') {
-        updatedData.status = 'active';
-      }
-      if (!updatedData.enrolled_date) {
-        updatedData.enrolled_date = new Date().toISOString().split('T')[0];
-      }
-      if (!updatedData.workstatus) {
-        updatedData.workstatus = 'Waiting for Status';
-      }
-      if (!updatedData.agreement) {
-        updatedData.agreement = 'N';
-      }
-      if (!updatedData.fee_paid) {
-        updatedData.fee_paid = 0;
-      }
-      const payload = { ...updatedData };
+      // Prepare payload with defaults
+      const payload = {
+        ...formData,
+        enrolled_date: formData.enrolled_date || new Date().toISOString().split('T')[0],
+        status: formData.status || "active",
+        workstatus: formData.workstatus || "Waiting for Status",
+        agreement: formData.agreement || "N",
+        fee_paid: formData.fee_paid || 0
+      };
       const response = await fetch(apiEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(JSON.stringify(errorData));
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to create candidate");
       }
       const newId = await response.json();
       toast.success(`Candidate created successfully with ID: ${newId}`);
@@ -635,7 +625,7 @@ export default function CandidatesPage() {
       setFormData(initialFormData);
       fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
     } catch (error) {
-      toast.error("Failed to create candidate: " + error.message);
+      toast.error("Failed to create candidate: " + (error as Error).message);
       console.error("Error creating candidate:", error);
     } finally {
       setFormSaveLoading(false);
@@ -787,7 +777,6 @@ export default function CandidatesPage() {
         />
       ),
     },
-    // ... (rest of your column definitions remain unchanged)
     {
       field: "education",
       headerName: "Education",
@@ -934,22 +923,21 @@ export default function CandidatesPage() {
     <div className="space-y-6">
       <Toaster position="top-center" />
       <div className="flex items-center justify-between">
-<div>
-  <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-    Candidates Management
-  </h1>
-  <p className="text-gray-600 dark:text-gray-400">
-    All Candidates ({candidates.length})
-    {selectedStatuses.length > 0 || selectedWorkStatuses.length > 0 ? (
-      <span className="ml-2 text-blue-600 dark:text-blue-400">
-        - Filtered ({filteredCandidates.length} shown)
-      </span>
-    ) : (
-      " - Sorted by latest first"
-    )}
-  </p>
-</div>
-
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            Candidates Management
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            All Candidates ({candidates.length})
+            {selectedStatuses.length > 0 || selectedWorkStatuses.length > 0 ? (
+              <span className="ml-2 text-blue-600 dark:text-blue-400">
+                - Filtered ({filteredCandidates.length} shown)
+              </span>
+            ) : (
+              " - Sorted by latest first"
+            )}
+          </p>
+        </div>
         <Button
           onClick={handleOpenNewCandidateForm}
           className="bg-green-600 hover:bg-green-700 text-white"
@@ -997,42 +985,339 @@ export default function CandidatesPage() {
           loading={loading}
           height="600px"
           overlayNoRowsTemplate={loading ? "" : '<span class="ag-overlay-no-rows-center">No candidates found</span>'}
-
         />
       </div>
 
-      {/* New Candidate Form (unchanged) */}
-      {newCandidateForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="relative w-full max-w-2xl rounded-2xl bg-white dark:bg-gray-800 p-6 shadow-xl overflow-y-auto max-h-[90vh]">
-            <h2 className="mb-6 text-center text-2xl font-bold text-gray-900 dark:text-gray-100">
-              New Candidate Form
-            </h2>
-            <form onSubmit={handleNewCandidateFormSubmit} className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {/* ... (your existing form fields) */}
-              <div className="md:col-span-2">
-                <button
-                  type="submit"
-                  disabled={formSaveLoading}
-                  className={`w-full rounded-md py-2 transition duration-200 ${formSaveLoading
-                    ? "cursor-not-allowed bg-gray-400"
-                    : "bg-green-600 text-white hover:bg-green-700"
-                    }`}
-                >
-                  {formSaveLoading ? "Saving..." : "Save"}
-                </button>
-              </div>
-            </form>
-            <button
-              onClick={handleCloseNewCandidateForm}
-              className="absolute right-3 top-3 text-2xl leading-none text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              aria-label="Close"
+      {/* New Candidate Form */}
+{newCandidateForm && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+    <div className="relative w-full max-w-4xl rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl overflow-y-auto max-h-[90vh]">
+      <h2 className="mb-6 text-center text-2xl font-bold text-gray-900 dark:text-gray-100">
+        New Candidate Form
+      </h2>
+      <form onSubmit={handleNewCandidateFormSubmit}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Row 1 */}
+          <div className="space-y-1">
+            <Label htmlFor="full_name" className="block text-sm font-medium">Full Name *</Label>
+            <Input
+              id="full_name"
+              name="full_name"
+              value={formData.full_name}
+              onChange={handleNewCandidateFormChange}
+              required
+              className="w-full h-10"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="email" className="block text-sm font-medium">Email *</Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              value={formData.email}
+              onChange={handleNewCandidateFormChange}
+              required
+              className="w-full h-10"
+            />
+          </div>
+
+          {/* Row 2 */}
+          <div className="space-y-1">
+            <Label htmlFor="phone" className="block text-sm font-medium">Phone *</Label>
+            <Input
+              id="phone"
+              name="phone"
+              type="tel"
+              value={formData.phone}
+              onChange={handleNewCandidateFormChange}
+              required
+              placeholder="+1 (123) 456-7890"
+              className="w-full h-10"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="status" className="block text-sm font-medium">Status</Label>
+            <select
+              id="status"
+              name="status"
+              value={formData.status}
+              onChange={handleNewCandidateFormChange}
+              className="w-full h-10 p-2 border rounded-md"
             >
-              &times;
-            </button>
+              {statusOptions.map((status) => (
+                <option key={status} value={status}>
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Row 3 */}
+          <div className="space-y-1">
+            <Label htmlFor="workstatus" className="block text-sm font-medium">Work Status</Label>
+            <select
+              id="workstatus"
+              name="workstatus"
+              value={formData.workstatus}
+              onChange={handleNewCandidateFormChange}
+              className="w-full h-10 p-2 border rounded-md"
+            >
+              <option value="">Select Work Status</option>
+              {workStatusOptions.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="education" className="block text-sm font-medium">Education</Label>
+            <Input
+              id="education"
+              name="education"
+              value={formData.education}
+              onChange={handleNewCandidateFormChange}
+              className="w-full h-10"
+            />
+          </div>
+
+          {/* Row 4 */}
+          <div className="space-y-1">
+            <Label htmlFor="workexperience" className="block text-sm font-medium">Work Experience</Label>
+            <Input
+              id="workexperience"
+              name="workexperience"
+              value={formData.workexperience}
+              onChange={handleNewCandidateFormChange}
+              className="w-full h-10"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="agreement" className="block text-sm font-medium">Agreement</Label>
+            <select
+              id="agreement"
+              name="agreement"
+              value={formData.agreement}
+              onChange={handleNewCandidateFormChange}
+              className="w-full h-10 p-2 border rounded-md"
+            >
+              <option value="Y">Yes</option>
+              <option value="N">No</option>
+            </select>
+          </div>
+
+          {/* Row 5 */}
+          <div className="space-y-1">
+            <Label htmlFor="ssn" className="block text-sm font-medium">SSN</Label>
+            <Input
+              id="ssn"
+              name="ssn"
+              type="password"
+              value={formData.ssn}
+              onChange={handleNewCandidateFormChange}
+              className="w-full h-10"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="secondaryemail" className="block text-sm font-medium">Secondary Email</Label>
+            <Input
+              id="secondaryemail"
+              name="secondaryemail"
+              type="email"
+              value={formData.secondaryemail}
+              onChange={handleNewCandidateFormChange}
+              className="w-full h-10"
+            />
+          </div>
+
+          {/* Row 6 */}
+          <div className="space-y-1">
+            <Label htmlFor="secondaryphone" className="block text-sm font-medium">Secondary Phone</Label>
+            <Input
+              id="secondaryphone"
+              name="secondaryphone"
+              type="tel"
+              value={formData.secondaryphone}
+              onChange={handleNewCandidateFormChange}
+              placeholder="+1 (123) 456-7890"
+              className="w-full h-10"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="linkedin_id" className="block text-sm font-medium">LinkedIn ID</Label>
+            <Input
+              id="linkedin_id"
+              name="linkedin_id"
+              value={formData.linkedin_id}
+              onChange={handleNewCandidateFormChange}
+              className="w-full h-10"
+            />
+          </div>
+
+          {/* Row 7 */}
+          <div className="space-y-1">
+            <Label htmlFor="dob" className="block text-sm font-medium">Date of Birth *</Label>
+            <Input
+              id="dob"
+              name="dob"
+              type="date"
+              value={formData.dob}
+              onChange={handleNewCandidateFormChange}
+              required
+              className="w-full h-10"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="emergcontactname" className="block text-sm font-medium">Emergency Contact Name</Label>
+            <Input
+              id="emergcontactname"
+              name="emergcontactname"
+              value={formData.emergcontactname}
+              onChange={handleNewCandidateFormChange}
+              className="w-full h-10"
+            />
+          </div>
+
+          {/* Row 8 */}
+          <div className="space-y-1">
+            <Label htmlFor="emergcontactemail" className="block text-sm font-medium">Emergency Contact Email</Label>
+            <Input
+              id="emergcontactemail"
+              name="emergcontactemail"
+              type="email"
+              value={formData.emergcontactemail}
+              onChange={handleNewCandidateFormChange}
+              className="w-full h-10"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="emergcontactphone" className="block text-sm font-medium">Emergency Contact Phone</Label>
+            <Input
+              id="emergcontactphone"
+              name="emergcontactphone"
+              type="tel"
+              value={formData.emergcontactphone}
+              onChange={handleNewCandidateFormChange}
+              placeholder="+1 (123) 456-7890"
+              className="w-full h-10"
+            />
+          </div>
+
+          {/* Row 9 - Full width fields */}
+          <div className="md:col-span-2 space-y-1">
+            <Label htmlFor="emergcontactaddrs" className="block text-sm font-medium">Emergency Contact Address</Label>
+            <Input
+              id="emergcontactaddrs"
+              name="emergcontactaddrs"
+              value={formData.emergcontactaddrs}
+              onChange={handleNewCandidateFormChange}
+              className="w-full h-10"
+            />
+          </div>
+
+          {/* Row 10 */}
+          <div className="space-y-1">
+            <Label htmlFor="fee_paid" className="block text-sm font-medium">Fee Paid ($)</Label>
+            <Input
+              id="fee_paid"
+              name="fee_paid"
+              type="number"
+              value={formData.fee_paid}
+              onChange={handleNewCandidateFormChange}
+              className="w-full h-10"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="batchid" className="block text-sm font-medium">Batch</Label>
+            <select
+              id="batchid"
+              name="batchid"
+              value={formData.batchid}
+              onChange={handleNewCandidateFormChange}
+              className="w-full h-10 p-2 border rounded-md"
+            >
+              <option value="0">Select a batch (optional)</option>
+              {batches.map((batch) => (
+                <option key={batch.batchid} value={batch.batchid}>
+                  {batch.batchname}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Row 11 - Full width fields */}
+          <div className="md:col-span-2 space-y-1">
+            <Label htmlFor="notes" className="block text-sm font-medium">Notes</Label>
+            <textarea
+              id="notes"
+              name="notes"
+              value={formData.notes}
+              onChange={handleNewCandidateFormChange}
+              className="w-full p-2 border rounded-md min-h-[100px]"
+            />
+          </div>
+
+          <div className="md:col-span-2 space-y-1">
+            <Label htmlFor="candidate_folder" className="block text-sm font-medium">Candidate Folder</Label>
+            <Input
+              id="candidate_folder"
+              name="candidate_folder"
+              value={formData.candidate_folder}
+              onChange={handleNewCandidateFormChange}
+              placeholder="Google Drive/Dropbox link"
+              className="w-full h-10"
+            />
           </div>
         </div>
-      )}
+             <div className="space-y-1">
+            <Label htmlFor="enrolled_date" className="block text-sm font-medium">Enrolled Date</Label>
+            <Input
+              id="enrolled_date"
+              name="enrolled_date"
+              type="date"
+              value={formData.enrolled_date}
+              onChange={handleNewCandidateFormChange}
+              className="w-full h-10"
+            />
+          </div>
+
+        {/* Submit Button */}
+        <div className="mt-6">
+          <button
+            type="submit"
+            disabled={formSaveLoading}
+            className={`w-full rounded-md py-2.5 text-sm font-medium transition duration-200 ${
+              formSaveLoading
+                ? "cursor-not-allowed bg-gray-400"
+                : "bg-green-600 text-white hover:bg-green-700"
+            }`}
+          >
+            {formSaveLoading ? "Saving..." : "Save"}
+          </button>
+        </div>
+      </form>
+
+      <button
+        onClick={handleCloseNewCandidateForm}
+        className="absolute right-3 top-3 text-2xl leading-none text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+        aria-label="Close"
+      >
+        &times;
+      </button>
+    </div>
+  </div>
+)}
+
     </div>
   );
 }
