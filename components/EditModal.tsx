@@ -925,7 +925,7 @@ export function EditModal({
   title,
   onSave,
 }: EditModalProps) {
-  if (!data) return null;
+  //if (!data) return null;
 
   const flattenData = (data: Record<string, any>) => {
     const flattened: Record<string, any> = { ...data };
@@ -960,8 +960,14 @@ export function EditModal({
     flattenData(data  || {})
   );
 
+  // React.useEffect(() => {
+  //   setFormData(flattenData(data));
+  // }, [data]);
+  
   React.useEffect(() => {
-    setFormData(flattenData(data));
+    if (data) {
+      setFormData(flattenData(data));
+    }
   }, [data]);
 
   const [courses, setCourses] = React.useState<{ id: number; name: string }[]>([]);
@@ -1048,6 +1054,8 @@ export function EditModal({
 
   const isVendorModal = title.toLowerCase().includes("vendor");
   const isVendorTable = title.toLowerCase().includes("vendor");
+
+  if (!data) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
