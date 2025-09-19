@@ -54,7 +54,7 @@ interface DashboardMetrics {
     current_active_batches_count: number;
     enrolled_candidates_current: number;
     total_candidates: number;
-    candidates_last_batch: number;
+    candidates_previous_batch: number;
     new_enrollments_month: number;
     candidate_status_breakdown: {
       active: number;
@@ -65,7 +65,7 @@ interface DashboardMetrics {
   };
   financial_metrics: {
     total_fee_current_batch: number;
-    fee_collected_last_batch: number;
+    fee_collected_previous_batch: number;
     top_batches_fee: Array<{
       batch_name: string;
       total_fee: number;
@@ -130,6 +130,7 @@ interface LeadMetrics {
   total_leads: number;
   leads_this_month: number;
   latest_lead: Lead | null;
+  leadConversionRate: number;
 }
 
 interface LeadMetricsResponse {
@@ -256,6 +257,7 @@ export default function Index() {
   const interviewsThisMonth = useCounter(metrics?.interview_metrics?.interviews_month || 0);
   const totalLeads = useCounter(leadMetrics?.total_leads || 0);
   const leadsThisMonth = useCounter(leadMetrics?.leads_this_month || 0);
+  const leadConversionRate=  useCounter(leadMetrics?.leadConversionRate || 0);
   const currentDate = new Date();
   const currentMonth = currentDate.toLocaleString("default", { month: "long" });
   const currentYear = currentDate.getFullYear();
@@ -263,7 +265,6 @@ export default function Index() {
   // Calculate derived metrics
   const placementRate = metrics ? Math.round((metrics.placement_metrics.total_placements / Math.max(1, metrics.batch_metrics.total_candidates) * 100)) : 0;
   const averageFeePerCandidate = metrics ? Math.round((metrics.financial_metrics.total_fee_current_batch / Math.max(1, metrics.batch_metrics.enrolled_candidates_current))) : 0;
-  const leadConversionRate = leadMetrics ? Math.round((leadMetrics.leads_this_month / Math.max(1, leadMetrics.total_leads) * 100)) : 0;
 
   if (loading) {
     return (
@@ -307,26 +308,20 @@ export default function Index() {
         <TabsContent value="batch">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             <EnhancedMetricCard
-              title="Current Active Batches"
+              title="Current Active Batch"
               value={metrics?.batch_metrics.current_active_batches || "No active batches"}
               icon={<Layers3 className="size-4" />}
               variant="purple"
             />
             <EnhancedMetricCard
-              title="Enrolled in Current Batches"
+              title="Enrolled in Current Batch"
               value={enrolledCandidates}
               icon={<Users className="size-4" />}     
               variant="purple"
             />
             <EnhancedMetricCard
-              title="Total Candidates (All Time)"
-              value={totalCandidates}
-              icon={<GraduationCap className="size-4" />}
-              variant="purple"
-            />
-            <EnhancedMetricCard
-              title="Candidates Enrolled in Last Batch"
-              value={metrics?.batch_metrics.candidates_last_batch || 0}
+              title="Candidates Enrolled in previous Batch"
+              value={metrics?.batch_metrics.candidates_previous_batch || 0}
               icon={<UserPlus className="size-4" />}
               variant="purple"
             />
@@ -359,10 +354,13 @@ export default function Index() {
             <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-purple-300">
               <CardHeader className="p-3 pb-1">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium text-muted-foreground border-b border-purple-200">
+                  <CardTitle className="text-sm font-semibold text-muted-foreground border-b border-purple-200">
                     Candidate Status Breakdown
                   </CardTitle>
                   <PieChartIcon className="size-4 text-indigo-600" />
+                </div>
+                <div className="mt-2 text-lg font-medium text-purple-600">
+                  Total Candidates: {totalCandidates}
                 </div>
               </CardHeader>
               <CardContent className="p-3 pt-0">
@@ -429,8 +427,8 @@ export default function Index() {
               variant="green"
             />
             <EnhancedMetricCard
-              title="Fee Collected Last Batch"
-              value={formatUSD(metrics?.financial_metrics.fee_collected_last_batch || 0)}
+              title="Fee Collected In Previous Batch"
+              value={formatUSD(metrics?.financial_metrics.fee_collected_previous_batch || 0)}
               icon={<Banknote className="size-4" />}
               variant="green"
             />
@@ -463,14 +461,15 @@ export default function Index() {
                             ? Math.round(batch.total_fee / averageFeePerCandidate)
                             : 0;
                         return {
-                          name: `${batch.batch_name} (${batch.candidate_count || calculatedCandidateCount} candidates)`,
+                          batch_name: batch.batch_name,
+                          candidates: batch.candidate_count || calculatedCandidateCount,
                           total_fee: batch.total_fee,
                         };
                       })}
                       margin={{ top: 20, right: 20, left: 0, bottom: 20 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" tick={{ fontSize: 9}}  interval={0}  angle={-8}/>
+                      <XAxis dataKey="batch_name" tick={{ fontSize: 9}}  interval={0}  angle={-8}/>
                       <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(1)}k`} />
                       <Tooltip formatter={(value: number) => `$${value.toLocaleString()}`} />
                       <Bar dataKey="total_fee" fill="#10b981" radius={[4, 4, 0, 0]} />
@@ -484,7 +483,6 @@ export default function Index() {
               )}
             </CardContent>
           </Card>
-
           </div>
         </TabsContent>
 

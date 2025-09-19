@@ -21,6 +21,7 @@ export default function EmployeesPage() {
   const [filteredEmployees, setFilteredEmployees] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showEmployeeForm, setShowEmployeeForm] = useState(false);
   const [formData, setFormData] = useState({
@@ -77,6 +78,7 @@ export default function EmployeesPage() {
 
   useEffect(() => {
     fetchEmployees();
+    setIsLoading(true)
   }, []);
 
   useEffect(() => {
@@ -305,7 +307,7 @@ export default function EmployeesPage() {
         </div>
         <button
           onClick={handleOpenEmployeeForm}
-          className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="flex items-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
         >
           <Plus className="mr-2 h-4 w-4" /> Add Employee
         </button>
@@ -448,8 +450,9 @@ export default function EmployeesPage() {
             rowData={filteredEmployees}
             columnDefs={columnDefs}
             onRowClicked={(event) => console.log("Row clicked:", event.data)}
-            title="Employee"
+            // title="Employee"
             height="70vh"
+            loading={loading}
             onRowUpdated={handleRowUpdated}
             onRowDeleted={handleRowDeleted}
             showFilters={false}

@@ -578,8 +578,6 @@ import { Input } from "@/components/admin_ui/input";
 import { Textarea } from "@/components/admin_ui/textarea";
 import axios from "axios";
 
-
-
 interface EditModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -611,7 +609,8 @@ const excludedFields = [
   "instructor1_id",
   "instructor2_id",
   "instructor3_id",
-
+  "enddate",
+  "candidate_id",
 
 ];
 
@@ -620,6 +619,8 @@ const fieldSections: Record<string, string> = {
   instructor1_name: "Professional Information",
   instructor2_name: "Professional Information",
   instructor3_name: "Professional Information",
+  interviewer_emails: "Professional Information",
+  interviewer_contact: "Professional Information",
   id: "Basic Information",
   alias: "Basic Information",
   Fundamentals: "Basic Information",
@@ -627,6 +628,7 @@ const fieldSections: Record<string, string> = {
   full_name: "Basic Information",
   extraction_date: "Basic Information",
   filename: "Basic Information",
+  start_date: "Basic Information",
   type: "Professional Information",
   email: "Basic Information",
   company_name: "Basic Information",
@@ -659,8 +661,10 @@ const fieldSections: Record<string, string> = {
   enddate: "Professional Information",
   candidate_name: "Basic Information",
   candidate_role: "Basic Information",
+  google_voice_number: "Basic Information",
   dob: "Basic Information",
   contact: "Basic Information",
+  password: "Basic Information",
   end_date: "Professional Information",
   secondaryphone: "Contact Information",
   phone: "Basic Information",
@@ -707,6 +711,8 @@ const fieldSections: Record<string, string> = {
   recruiterassesment: "Professional Information",
   statuschangedate: "Professional Information",
   aadhaar: "Basic Information",
+  url: "Basic Information",
+  feedback: "Basic Information",
   entry_date: "Professional Information",
   closed_date: "Professional Information",
   closed: "Professional Information",
@@ -722,12 +728,6 @@ const fieldSections: Record<string, string> = {
   state: "Contact Information",
   country: "Contact Information",
   zip: "Contact Information",
-  // instructor_1id: "Professional Information",
-  // instructor_2id: "Professional Information",
-  // instructor_3id: "Professional Information",
-  // instructor1_id: "Professional Information",
-  // instructor2_id: "Professional Information",
-  // instructor3_id: "Professional Information",
   emergcontactname: "Emergency Contact",
   emergcontactemail: "Emergency Contact",
   emergcontactphone: "Emergency Contact",
@@ -739,7 +739,6 @@ const fieldSections: Record<string, string> = {
   notes: "Notes",
   course_name: "Professional Information",
   subject_name: "Basic Information",
-
 };
 
 const workVisaStatusOptions = [
@@ -750,7 +749,28 @@ const workVisaStatusOptions = [
   { value: "permanent resident", label: "Permanent Resident" },
   { value: "h4", label: "H4" },
   { value: "ead", label: "EAD" },
+  { value: "green card", label: "Green Card" },
+  { value: "h1b", label: "H1B" },
 ];
+
+const reorderYesNoOptions = (
+  key: string,
+  value: any,
+  options: { value: string; label: string }[]
+) => {
+  if (
+    ["linkedin_connected", "intro_email_sent", "intro_call", "moved_to_vendor", "moved_to_candidate"].includes(
+      key.toLowerCase()
+    )
+  ) {
+    const val = String(value).toLowerCase();
+    return val === "yes" || val === "true"
+      ? [...options.filter((o) => o.value === "yes" || o.value === "true"), ...options.filter((o) => !(o.value === "yes" || o.value === "true"))]
+      : [...options.filter((o) => o.value === "no" || o.value === "false"), ...options.filter((o) => !(o.value === "no" || o.value === "false"))];
+  }
+  return options;
+};
+
 
 const vendorStatuses = [
   { value: "active", label: "Active" },
@@ -815,6 +835,21 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
   work_status: workVisaStatusOptions,
   workstatus: workVisaStatusOptions,
   visa_status: workVisaStatusOptions,
+
+  mode_of_interview: [
+    { value: "Virtual", label: "Virtual" },
+    { value: "In Person", label: "In Person" },
+    { value: "Phone", label: "Phone" },
+    { value: "Assessment", label: "Assessment" },
+  ],
+  type_of_interview: [
+    { value: "Assessment", label: "Assessment" },
+    { value: "Recruiter Call", label: "Recruiter Call" },
+    { value: "Technical", label: "Technical" },
+    { value: "HR Round", label: "HR Round" },
+    { value: "In Person", label: "In Person" },
+    { value: "Prep Call", label: "Prep Call" },
+  ],
 };
 
 const labelOverrides: Record<string, string> = {
@@ -860,12 +895,6 @@ const labelOverrides: Record<string, string> = {
   massemail_email_sent: "Massemail Email Sent",
   massemail_unsubscribe: "Massemail Unsubscribe",
   moved_to_candidate: "Moved To Candidate",
-  // instructor_1id: "Instructor 1",
-  // instructor_2id: "Instructor 2",
-  // instructor_3id: "Instructor 3",
-  // instructor1_id: "Instructor 1",
-  // instructor2_id: "Instructor 2",
-  // instructor3_id: "Instructor 3",
   emergcontactname: "Contact Name",
   candidate_folder: "Candidate Folder Link",
   emergcontactphone: "Contact Phone",
@@ -873,19 +902,20 @@ const labelOverrides: Record<string, string> = {
   emergcontactaddrs: "Contact Address",
   course_name: "Course Name",
   subject_name: "Subject Name",
-
 };
 
 const dateFields = [
   "orientationdate",
-  "startdate",
+  "start_date",
   "enddate",
   "closed_date",
   "entry_date",
   "created_at",
   "classdate",
   "sessiondate",
-  "enrolled_date"
+  "enrolled_date",
+  "interview_date",
+  "placement_date",
 ];
 
 export function EditModal({
@@ -895,11 +925,7 @@ export function EditModal({
   title,
   onSave,
 }: EditModalProps) {
-  //if (!data) return null;
-
-
-  // const [formData, setFormData] = React.useState<Record<string, any>>(data);
-
+  if (!data) return null;
 
   const flattenData = (data: Record<string, any>) => {
     const flattened: Record<string, any> = { ...data };
@@ -908,12 +934,24 @@ export function EditModal({
     }
     if (data.instructor1) {
       flattened.instructor1_name = data.instructor1.name;
+      flattened.instructor1_id = data.instructor1.id;
     }
     if (data.instructor2) {
       flattened.instructor2_name = data.instructor2.name;
+      flattened.instructor2_id = data.instructor2.id;
     }
     if (data.instructor3) {
       flattened.instructor3_name = data.instructor3.name;
+      flattened.instructor3_id = data.instructor3.id;
+    }
+    if (data.visa_status) {
+    flattened.visa_status = String(data.visa_status).toLowerCase();
+    }
+    if (data.workstatus) {
+      flattened.workstatus = String(data.workstatus).toLowerCase();
+    }
+    if (data.work_status) {
+      flattened.work_status = String(data.work_status).toLowerCase();
     }
     return flattened;
   };
@@ -922,13 +960,12 @@ export function EditModal({
     flattenData(data  || {})
   );
 
-    React.useEffect(() => {
-       if (data) {
-      setFormData(flattenData(data));
-      }
-    }, [data]);
+  React.useEffect(() => {
+    setFormData(flattenData(data));
+  }, [data]);
 
   const [courses, setCourses] = React.useState<{ id: number; name: string }[]>([]);
+  const [employees, setEmployees] = React.useState<{ id: number; name: string }[]>([]);
 
   React.useEffect(() => {
   const fetchCourses = async () => {
@@ -940,10 +977,20 @@ export function EditModal({
     }
   };
 
-  fetchCourses();
-}, []);
+  const fetchEmployees = async () => {
+    try {
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/employees`);
+      // Filter employees with status === 1
+      const activeEmployees = res.data.filter((emp: any) => emp.status === 1);
+      setEmployees(activeEmployees);
+    } catch (error) {
+      console.error("Failed to fetch employees:", error);
+    }
+  };
 
-   if (!data) return null;
+  fetchCourses();
+  fetchEmployees();
+}, []);
 
   const handleChange = (key: string, value: any) => {
     setFormData((prev) => {
@@ -1078,14 +1125,120 @@ export function EditModal({
                   {sectionedFields[section].map(({ key, value }) => {
                     const isTypeField = key.toLowerCase() === "type";
                     const isBatchField = key.toLowerCase() === "batchid";
+
+                    // Instructor Dropdowns
+                    if (key === "instructor1_name") {
+                      return (
+                      <div key={key} className="space-y-1">
+                      <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      {toLabel(key)}
+                      </Label>
+                      <select
+                      value={formData.instructor1_id || ""}
+                      onChange={(e) => {
+                      const selected = employees.find(
+                      (emp) => emp.id === Number(e.target.value)
+                      );
+                      handleChange("instructor1_name", selected?.name || "");
+                      handleChange("instructor1_id", selected?.id || null);
+                      }}
+                      className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                      >
+                      {/* Default current instructor name */}
+                      {formData.instructor1_name && (
+                      <option value={formData.instructor1_id || ""}>
+                      {formData.instructor1_name}
+                      </option>
+                      )}
+                      <option value="">Select Instructor</option>
+                      {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                      {emp.name}
+                      </option>
+                      ))}
+                      </select>
+                      </div>
+                      );
+                      }
+
+
+                      if (key === "instructor2_name") {
+                      return (
+                      <div key={key} className="space-y-1">
+                      <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      {toLabel(key)}
+                      </Label>
+                      <select
+                      value={formData.instructor2_id || ""}
+                      onChange={(e) => {
+                      const selected = employees.find(
+                      (emp) => emp.id === Number(e.target.value)
+                      );
+                      handleChange("instructor2_name", selected?.name || "");
+                      handleChange("instructor2_id", selected?.id || null);
+                      }}
+                      className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                      >
+                      {/* Default current instructor name */}
+                      {formData.instructor2_name && (
+                      <option value={formData.instructor2_id || ""}>
+                      {formData.instructor2_name}
+                      </option>
+                      )}
+                      <option value="">Select Instructor</option>
+                      {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                      {emp.name}
+                      </option>
+                      ))}
+                      </select>
+                      </div>
+                      );
+                      }
+
+
+                      if (key === "instructor3_name") {
+                      return (
+                      <div key={key} className="space-y-1">
+                      <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      {toLabel(key)}
+                      </Label>
+                      <select
+                      value={formData.instructor3_id || ""}
+                      onChange={(e) => {
+                      const selected = employees.find(
+                      (emp) => emp.id === Number(e.target.value)
+                      );
+                      handleChange("instructor3_name", selected?.name || "");
+                      handleChange("instructor3_id", selected?.id || null);
+                      }}
+                      className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                      >
+                      {/* Default current instructor name */}
+                      {formData.instructor3_name && (
+                      <option value={formData.instructor3_id || ""}>
+                      {formData.instructor3_name}
+                      </option>
+                      )}
+                      <option value="">Select Instructor</option>
+                      {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                      {emp.name}
+                      </option>
+                      ))}
+                      </select>
+                      </div>
+                      );
+                      }
+
+                    // Original logic for all other fields
                     return (
                       <div key={key} className="space-y-1">
                         <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                           {toLabel(key)}
                         </Label>
-                        {/* Course ID Dropdown  */}
+                        {/* Course ID Dropdown */}
                         {key.toLowerCase() === "courseid" ? (
-                          
                           <select
                             value={formData["courseid"]}
                             onChange={(e) =>
@@ -1095,14 +1248,13 @@ export function EditModal({
                           >
                             {courses.map((course) => (
                               <option key={course.id} value={course.id}>
-                                {course.id} 
+                                {course.id}
                               </option>
                             ))}
-                            {/* 0 and 9 IDs */}
                             <option value="0">0</option>
                             <option value="9">9</option>
-                          </select> 
-                         ) : isBatchField ? (
+                          </select>
+                        ) : isBatchField ? (
                           <Input
                             value={formData["batchid"] ?? ""}
                             onChange={(e) => handleChange("batchid", e.target.value)}
@@ -1162,11 +1314,12 @@ export function EditModal({
                             }
                             className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
                           >
-                            {enumOptions[key.toLowerCase()].map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </option>
-                            ))}
+                        {reorderYesNoOptions(key, value, enumOptions[key.toLowerCase()]).map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+
                           </select>
                         ) : typeof value === "string" && value.length > 100 ? (
                           <Textarea
@@ -1185,6 +1338,7 @@ export function EditModal({
                 </div>
               ))}
           </div>
+
           {sectionedFields["Notes"].length > 0 && (
             <div className="px-6 pb-6">
               <div className="space-y-6 mt-4">
