@@ -83,12 +83,12 @@ export default function CourseMaterialPage() {
 
 
 const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
-    { field: "id", headerName: "ID", width: 100, pinned: "left" },
-    { field: "subjectid", headerName: "Subject ID", width: 130, editable: false },
+    { field: "id", headerName: "ID", width: 130, pinned: "left",editable: false },
+    { field: "subjectid", headerName: "Subject ID", width: 130, editable: true },
     { field: "courseid", headerName: "Course ID", width: 130, editable: true },
-    { field: "name", headerName: "Name", width: 230, editable: true },
-    { field: "description", headerName: "Description", width: 180, editable: true },
-    { field: "type", headerName: "Type", width: 120, editable: true },
+    { field: "name", headerName: "Name", width: 250, editable: true },
+    { field: "description", headerName: "Description", width: 230, editable: true },
+    { field: "type", headerName: "Type", width: 130, editable: true },
     {field: "link",
       headerName: "Link",
       width: 130,

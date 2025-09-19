@@ -71,11 +71,11 @@ export default function CourseContentPage() {
 
 
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
-      { field: "id", headerName: "ID", width: 100, pinned: "left", editable: false },
-      { field: "Fundamentals", headerName: "Fundamentals", width: 250, editable: true },
-      { field: "AIML", headerName: "AIML", width: 280, editable: true },
-      { field: "UI", headerName: "UI", width: 250, editable: true },
-      { field: "QE", headerName: "QE", width: 250, editable: true },
+      { field: "id", headerName: "ID", width: 120, pinned: "left", editable: false },
+      { field: "Fundamentals", headerName: "Fundamentals", width: 300, editable: true },
+      { field: "AIML", headerName: "AIML", width: 300, editable: true },
+      { field: "UI", headerName: "UI", width: 300, editable: true },
+      { field: "QE", headerName: "QE", width: 300, editable: true },
     ], []);
 
 

@@ -118,3 +118,41 @@
   --ag-range-selection-background-color-3: rgb(59 130 246 / 0.3);
   --ag-range-selection-background-color-4: rgb(59 130 246 / 0.4);
 }
+/* AG Grid Pagination*/
+.ag-paging-panel {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+}
+
+.ag-paging-page-size {
+    order: 1;
+    margin-right: 20px;
+}
+
+.ag-paging-row-summary-panel {
+    order: 2;
+    flex: 1 1 auto;
+    text-align: center;
+    margin: 0 20px;
+}
+
+
+.ag-paging-page-summary-panel {
+    order: 3;
+}
+
+
+.ag-paging-panel > span {
+    margin: 0;
+}
+
+.ag-paging-page-size {
+    margin-right: 20px !important;
+}
+
+.ag-paging-row-summary-panel {
+    margin-right: auto !important;
+    margin-left: 0 !important;
+}

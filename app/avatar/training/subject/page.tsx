@@ -82,7 +82,7 @@ export default function SubjectPage() {
     setColumnDefs([
       { field: "id", headerName: "ID", width: 150, editable: false },
       { field: "name", headerName: "Name", width: 300, editable: true },
-      { field: "description", headerName: "Description", width: 400, editable: true },
+      { field: "description", headerName: "Description", width: 450, editable: true },
     ]);
   }, []);
 

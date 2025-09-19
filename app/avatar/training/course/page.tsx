@@ -59,13 +59,13 @@ export default function CoursePage() {
     {
       field: "description",
       headerName: "Description",
-      width: 350,
+      width: 410,
       editable: true,
     },
     {
       field: "syllabus",
       headerName: "Syllabus",
-      width: 350,
+      width: 410,
       editable: true,
     },
   ];

@@ -9,7 +9,7 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { Button } from "@/components/admin_ui/button";
-import { SearchIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
+import { SearchIcon, PlusIcon} from "lucide-react";
 import axios from "axios";
 import {
   Dialog,
@@ -58,7 +58,6 @@ export default function CourseSubjectPage() {
   const [showModal, setShowModal] = useState(false);
   const [newMapping, setNewMapping] = useState<NewMapping>({ course_id: "", subject_id: "" });
   const [saving, setSaving] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
 
   const fetchCourseSubjects = async () => {
     try {
@@ -83,14 +82,6 @@ export default function CourseSubjectPage() {
     }
   };
 
-  const refreshData = async () => {
-    try {
-      setRefreshing(true);
-      await fetchCourseSubjects();
-    } finally {
-      setRefreshing(false);
-    }
-  };
 
   useEffect(() => {
     fetchCourseSubjects();
@@ -126,7 +117,7 @@ export default function CourseSubjectPage() {
     setFilteredCourseSubjects(filtered);
   }, [searchTerm, courseSubjects]);
 
-  // ✅ Fixed column definitions (course_id & subject_id hidden, others visible)
+  
   useEffect(() => {
     setColumnDefs([
       { field: "course_id", headerName: "Course ID", hide: true },
@@ -212,8 +203,7 @@ export default function CourseSubjectPage() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <RefreshCwIcon className="h-8 w-8 animate-spin mx-auto mb-2 text-blue-600" />
-          <p className="text-gray-600">Loading course-subject mappings...</p>
+          <p className="text-gray-600">Loading...</p>
         </div>
       </div>
     );
@@ -223,38 +213,26 @@ export default function CourseSubjectPage() {
     return (
       <div className="text-center mt-8 space-y-4">
         <p className="text-red-600 text-lg">{error}</p>
-        <Button onClick={fetchCourseSubjects} variant="outline">
-          <RefreshCwIcon className="h-4 w-4 mr-2" />
-          Retry
-        </Button>
+
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <Toaster richColors position="top-center" />
       
       {/* Header Section */}
-      <div className="flex justify-between items-start">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+          <h1 className="text-2xl font-bold ">
             Course-Subject Relationships
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
+          <p>
             Manage mappings between courses and subjects. Total mappings: {courseSubjects.length}
           </p>
         </div>
         <div className="flex gap-2">
-          <Button 
-            onClick={refreshData} 
-            variant="outline" 
-            size="sm"
-            disabled={refreshing}
-          >
-            <RefreshCwIcon className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-            {refreshing ? 'Refreshing...' : 'Refresh'}
-          </Button>
           <Button onClick={() => setShowModal(true)} size="sm">
             <PlusIcon className="h-4 w-4 mr-2" />
             Add Mapping
@@ -272,7 +250,7 @@ export default function CourseSubjectPage() {
             id="search"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Enter course ID, subject ID..."
+            placeholder="Enter course or subject name or id..."
             className="pl-10"
           />
         </div>
@@ -348,7 +326,6 @@ export default function CourseSubjectPage() {
             >
               {saving ? (
                 <>
-                  <RefreshCwIcon className="h-4 w-4 mr-2 animate-spin" />
                   Adding...
                 </>
               ) : (
