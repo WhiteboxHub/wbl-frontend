@@ -1,4 +1,4 @@
-
+// wbl-frontend\app\avatar\page.tsx
 "use client";
 import { useEffect, useState } from "react";
 import {
