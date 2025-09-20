@@ -134,43 +134,26 @@ export default function VendorContactsGrid() {
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
 
   const handleExtract = useCallback(async () => {
+    // If any selected rows are already moved, show the info popup per requirement
+    const hasSelectedAlreadyMoved = (selectedRows || []).some((r:any) => r.moved_to_vendor);
     try {
-      // filter out rows already moved in UI
-      const rowsToMove = (selectedRows || []).filter((r:any) => !r.moved_to_vendor);
-      const contactIds = rowsToMove.length ? rowsToMove.map((r:any) => r.id) : undefined;
-
+      // Always move all contacts with moved_to_vendor = No, regardless of selection
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/vendor_contact/move_to_vendor`,
-        contactIds ? { contact_ids: contactIds } : {}
+        {}
       );
       const data = res.data || {};
 
-      // Success summary
-      if (data.inserted > 0) {
-        toast.success(`${data.inserted} contact(s) moved to vendor`);
-      }
-
-      // Inform about duplicates or already existing vendors
-      if ((data.skipped_existing || 0) > 0) {
-        toast.warning?.(
-          `${data.skipped_existing} contact(s) already exist in vendor and were skipped`
-        ) || toast(`${data.skipped_existing} contact(s) already exist in vendor and were skipped`);
-      }
-
-      // Missing emails
-      if ((data.skipped_missing_email || 0) > 0) {
-        toast.info?.(
-          `${data.skipped_missing_email} contact(s) missing email and were skipped`
-        ) || toast(`${data.skipped_missing_email} contact(s) missing email and were skipped`);
-      }
-
-      if (!data.inserted && !data.skipped_existing && !data.skipped_missing_email) {
-        toast("No contacts to move");
+      // Only the required popups
+      toast.success(`${data.inserted ?? 0} contact(s) moved to vendor`);
+      if (hasSelectedAlreadyMoved) {
+        toast.info("Selected contacts are already in vendor list.");
       }
 
       await fetchContacts();
     } catch (err:any) {
-      toast.error(err?.response?.data?.detail || err.message || "Failed to move");
+      // Suppress other popups; log to console for troubleshooting
+      console.error(err?.response?.data?.detail || err.message || "Failed to move");
     }
   }, [selectedRows, fetchContacts]);
 
