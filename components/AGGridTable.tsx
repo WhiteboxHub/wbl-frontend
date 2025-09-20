@@ -3,7 +3,7 @@
 // import { ModuleRegistry } from "ag-grid-community";
 import { ModuleRegistry, AllCommunityModule } from "ag-grid-community";
 ModuleRegistry.registerModules([AllCommunityModule]);
-import { useMemo, useCallback, useRef, useState, useEffect } from "react";
+import { useMemo, useCallback, useRef, useState, useEffect, ReactNode } from "react";
 import { AgGridReact } from "ag-grid-react";
 import {
   ColDef,
@@ -37,7 +37,8 @@ interface AGGridTableProps {
   showFilters?: boolean;
   height?: string;
   overlayNoRowsTemplate?: string;
-
+  rightActions?: ReactNode;
+  onSelectionChange?: (rows: any[]) => void;
 }
 
 interface RowData {
@@ -59,6 +60,8 @@ export function AGGridTable({
   onRowUpdated,
   onRowDeleted,
   overlayNoRowsTemplate, 
+  rightActions,
+  onSelectionChange,
   title,
   showSearch = true,
   showFilters = true,
@@ -100,8 +103,11 @@ export function AGGridTable({
     if (gridApiRef.current) {
       const selectedRows = gridApiRef.current.getSelectedRows() as RowData[];
       setSelectedRowData(selectedRows.length > 0 ? selectedRows : null);
+      if (onSelectionChange) {
+        onSelectionChange(selectedRows);
+      }
     }
-  }, []);
+  }, [onSelectionChange]);
 
   const onColumnMoved = useCallback((event: ColumnMovedEvent) => {
     const newColumnDefs = event.api.getColumnDefs();
@@ -246,6 +252,7 @@ export function AGGridTable({
           >
             <DownloadIcon className="h-4 w-4" />
           </Button>
+          {rightActions}
         </div>
       </div>
       <div className="flex justify-center">

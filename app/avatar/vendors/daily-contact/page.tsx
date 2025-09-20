@@ -10,6 +10,7 @@ import { ColDef } from "ag-grid-community";
 import dynamic from "next/dynamic";
 import { toast, Toaster } from "sonner";
 import axios from "axios";
+import { Button } from "@/components/admin_ui/button";
 
 
 const AGGridTable = dynamic(() => import("@/components/AGGridTable"), { ssr: false });
@@ -129,6 +130,32 @@ export default function VendorContactsGrid() {
       toast.error(err.message || "Failed to delete contact");
     }
   };
+
+  const [selectedRows, setSelectedRows] = useState<any[]>([]);
+
+  const handleExtract = useCallback(async () => {
+    // If any selected rows are already moved, show the info popup per requirement
+    const hasSelectedAlreadyMoved = (selectedRows || []).some((r:any) => r.moved_to_vendor);
+    try {
+      // Always move all contacts with moved_to_vendor = No, regardless of selection
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/vendor_contact/move_to_vendor`,
+        {}
+      );
+      const data = res.data || {};
+
+      // Only the required popups
+      toast.success(`${data.inserted ?? 0} contact(s) moved to vendor`);
+      if (hasSelectedAlreadyMoved) {
+        toast.info("Selected contacts are already in vendor list.");
+      }
+
+      await fetchContacts();
+    } catch (err:any) {
+      // Suppress other popups; log to console for troubleshooting
+      console.error(err?.response?.data?.detail || err.message || "Failed to move");
+    }
+  }, [selectedRows, fetchContacts]);
 
   useEffect(() => {
     fetchContacts();
@@ -250,6 +277,10 @@ export default function VendorContactsGrid() {
           // //   loading ? "" : '<span class="ag-overlay-no-rows-center">Loading</span>'
           // // }
             onRowDeleted={handleRowDeleted}
+            onSelectionChange={(rows:any[]) => setSelectedRows(rows)}
+            rightActions={
+              <Button size="sm" onClick={handleExtract}>Move To Vendor</Button>
+            }
           />
         </div>
       </div>
