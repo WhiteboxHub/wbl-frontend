@@ -23,6 +23,8 @@ export default function CandidatesMarketingPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredCandidates, setFilteredCandidates] = useState<any[]>([]);
   const [allCandidates, setAllCandidates] = useState<any[]>([]);
+  const [prepCandidates, setPrepCandidates] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]); // 🔹 Employee list for instructors
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [page] = useState(1);
@@ -45,7 +47,7 @@ export default function CandidatesMarketingPage() {
     instructor3_id: "",
   });
 
-  // Fetch candidates
+  // Fetch marketing candidates
   const fetchCandidates = useCallback(async () => {
     try {
       setLoading(true);
@@ -63,9 +65,31 @@ export default function CandidatesMarketingPage() {
     }
   }, [page, limit]);
 
+  // Fetch prep candidates
+  const fetchPrepCandidates = useCallback(async () => {
+    try {
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations`);
+      setPrepCandidates(res.data || []);
+    } catch (err) {
+      console.error("Failed to load prep candidates:", err);
+    }
+  }, []);
+
+  // Fetch employees for instructor dropdowns
+  const fetchEmployees = useCallback(async () => {
+    try {
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/employees`);
+      setEmployees(res.data || []);
+    } catch (err) {
+      console.error("Failed to load employees:", err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchCandidates();
-  }, [fetchCandidates]);
+    fetchPrepCandidates();
+    fetchEmployees();
+  }, [fetchCandidates, fetchPrepCandidates, fetchEmployees]);
 
   // Filter candidates
   const filterCandidates = useCallback(
@@ -141,90 +165,28 @@ export default function CandidatesMarketingPage() {
   // Column definitions
   const columnDefs: ColDef[] = useMemo(
     () => [
-      {
-        field: "candidate.full_name",
-        headerName: "Full Name",
-        sortable: true,
-        minWidth: 150,
-        editable: true,
-      },
-      {
-        field: "start_date",
-        headerName: "Start Date",
-        sortable: true,
-        maxWidth: 120,
-        editable: true,
-      },
-      {
-        field: "status",
-        headerName: "Status",
-        cellRenderer: StatusRenderer,
-        maxWidth: 110,
-        editable: true,
-      },
-      {
-        field: "instructor1.name",
-        headerName: "Instructor 1",
-        minWidth: 150,
-        valueGetter: (params) => params.data.instructor1?.name || "N/A",
-        editable: true,
-      },
-      {
-        field: "instructor2.name",
-        headerName: "Instructor 2",
-        minWidth: 150,
-        valueGetter: (params) => params.data.instructor2?.name || "N/A",
-        editable: true,
-      },
-      {
-        field: "instructor3.name",
-        headerName: "Instructor 3",
-        minWidth: 150,
-        valueGetter: (params) => params.data.instructor3?.name || "N/A",
-        editable: true,
-      },
+      { field: "candidate.full_name", headerName: "Full Name", sortable: true, minWidth: 150, editable: true },
+      { field: "start_date", headerName: "Start Date", sortable: true, maxWidth: 120, editable: true },
+      { field: "status", headerName: "Status", cellRenderer: StatusRenderer, maxWidth: 110, editable: true },
+      { field: "instructor1.name", headerName: "Instructor 1", minWidth: 150, valueGetter: (params) => params.data.instructor1?.name || "N/A", editable: true },
+      { field: "instructor2.name", headerName: "Instructor 2", minWidth: 150, valueGetter: (params) => params.data.instructor2?.name || "N/A", editable: true },
+      { field: "instructor3.name", headerName: "Instructor 3", minWidth: 150, valueGetter: (params) => params.data.instructor3?.name || "N/A", editable: true },
       { field: "email", headerName: "Email", minWidth: 150, editable: true },
-      {
-        field: "password",
-        headerName: "Password",
-        minWidth: 150,
-        editable: false,
-      },
-      {
-        field: "google_voice_number",
-        headerName: "Google Voice Number",
-        minWidth: 150,
-        editable: true,
-      },
+      { field: "password", headerName: "Password", minWidth: 150, editable: false },
+      { field: "google_voice_number", headerName: "Google Voice Number", minWidth: 150, editable: true },
       { field: "rating", headerName: "Rating", maxWidth: 100, editable: true },
-      {
-        field: "priority",
-        headerName: "Priority",
-        maxWidth: 100,
-        editable: true,
-      },
+      { field: "priority", headerName: "Priority", maxWidth: 100, editable: true },
       { field: "notes", headerName: "Notes", minWidth: 100, editable: true },
-      {
-        field: "candidate_resume",
-        headerName: "Resume",
-        minWidth: 200,
-        cellRenderer: ResumeRenderer,
-      },
+      { field: "candidate_resume", headerName: "Resume", minWidth: 200, cellRenderer: ResumeRenderer },
     ],
     []
   );
 
   // Handle row updates
   const handleRowUpdated = async (updatedRow: any) => {
-    if (!updatedRow || !updatedRow.candidate_id) {
-      console.error("Updated row missing candidate_id", updatedRow);
-      return;
-    }
+    if (!updatedRow || !updatedRow.candidate_id) return;
     try {
-      await axios.put(
-        `${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing/${updatedRow.candidate_id}`,
-        updatedRow
-      );
+      await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing/${updatedRow.candidate_id}`, updatedRow);
       await fetchCandidates();
     } catch (err) {
       console.error("Failed to update candidate:", err);
@@ -234,33 +196,17 @@ export default function CandidatesMarketingPage() {
   // Handle row deletion
   const handleRowDeleted = async (candidate_id: number | string) => {
     try {
-      await axios.delete(
-        `${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing/${candidate_id}`
-      );
+      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing/${candidate_id}`);
       await fetchCandidates();
     } catch (err) {
       console.error("Failed to delete candidate:", err);
     }
   };
 
-  // Handle adding a new candidate
+  // Handle add candidate
   const handleAddCandidate = async () => {
     try {
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing`, {
-        candidate_id: newCandidate.candidate_id,
-        full_name: newCandidate.full_name,
-        start_date: newCandidate.start_date,
-        status: newCandidate.status,
-        email: newCandidate.email,
-        password: newCandidate.password,
-        google_voice_number: newCandidate.google_voice_number,
-        rating: newCandidate.rating,
-        priority: newCandidate.priority,
-        notes: newCandidate.notes,
-        instructor1_id: newCandidate.instructor1_id,
-        instructor2_id: newCandidate.instructor2_id,
-        instructor3_id: newCandidate.instructor3_id,
-      });
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing`, newCandidate);
       setIsAddOpen(false);
       setNewCandidate({
         candidate_id: "",
@@ -283,9 +229,28 @@ export default function CandidatesMarketingPage() {
     }
   };
 
+  // Handle selecting prep candidate
+  const handlePrepSelect = (id: string) => {
+    const selected = prepCandidates.find((c) => c.id.toString() === id);
+    if (!selected) return;
+
+    setNewCandidate((prev) => ({
+      ...prev,
+      candidate_id: selected.candidate_id || selected.id,
+      full_name: selected.candidate?.full_name || "",
+      start_date: selected.start_date || "",
+      status: selected.status || "",
+      rating: selected.rating || "",
+      notes: selected.notes || "",
+      instructor1_id: selected.instructor1?.id || "",
+      instructor2_id: selected.instructor2?.id || "",
+      instructor3_id: selected.instructor3?.id || "",
+    }));
+  };
+
   return (
     <div className="space-y-6">
-      {/* Header Section with Add Button on Right */}
+      {/* Header Section */}
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
@@ -296,7 +261,7 @@ export default function CandidatesMarketingPage() {
           </p>
         </div>
 
-        {/* Add Candidate Button + Modal */}
+        {/* Add Candidate Modal */}
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
           <DialogTrigger asChild>
             <Button>+ Add Marketing</Button>
@@ -305,32 +270,24 @@ export default function CandidatesMarketingPage() {
             <DialogHeader>
               <DialogTitle>Add New Candidate</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 mt-2 max-h-[70vh] overflow-y-auto pr-2">
-              <Input
-                placeholder="Candidate ID"
+            <div className="space-y-4 mt-2">
+              {/* Prep candidate selection */}
+              <Label>Select Candidate (from Prep)</Label>
+              <select
                 value={newCandidate.candidate_id}
-                onChange={(e) =>
-                  setNewCandidate({ ...newCandidate, candidate_id: e.target.value })
-                }
-              />
-              <Input
-                placeholder="Start Date"
-                type="date"
-                value={newCandidate.start_date}
-                onChange={(e) =>
-                  setNewCandidate({ ...newCandidate, start_date: e.target.value })
-                }
-              />
-              <Input
-                placeholder="Status"
-                value={newCandidate.status}
-                onChange={(e) =>
-                  setNewCandidate({ ...newCandidate, status: e.target.value })
-                }
-              />
+                onChange={(e) => handlePrepSelect(e.target.value)}
+                className="w-full border rounded p-2"
+              >
+                <option value=""> Select Prep Candidate</option>
+                {prepCandidates.map((cand) => (
+                  <option key={cand.id} value={cand.id}>
+                    {cand.candidate?.full_name} ({cand.status})
+                  </option>
+                ))}
+              </select>
+
               <Input
                 placeholder="Email"
-                type="email"
                 value={newCandidate.email}
                 onChange={(e) =>
                   setNewCandidate({ ...newCandidate, email: e.target.value })
@@ -348,64 +305,59 @@ export default function CandidatesMarketingPage() {
                 placeholder="Google Voice Number"
                 value={newCandidate.google_voice_number}
                 onChange={(e) =>
-                  setNewCandidate({
-                    ...newCandidate,
-                    google_voice_number: e.target.value,
-                  })
+                  setNewCandidate({ ...newCandidate, google_voice_number: e.target.value })
                 }
               />
-              <Input
-                placeholder="Rating"
-                value={newCandidate.rating}
-                onChange={(e) =>
-                  setNewCandidate({ ...newCandidate, rating: e.target.value })
-                }
-              />
-              <Input
-                placeholder="Priority"
-                value={newCandidate.priority}
-                onChange={(e) =>
-                  setNewCandidate({ ...newCandidate, priority: e.target.value })
-                }
-              />
-              <Input
-                placeholder="Notes"
-                value={newCandidate.notes}
-                onChange={(e) =>
-                  setNewCandidate({ ...newCandidate, notes: e.target.value })
-                }
-              />
-              <Input
-                placeholder="Instructor 1 ID"
+              {/* Instructor dropdowns */}
+              <Label>Instructor 1</Label>
+              <select
                 value={newCandidate.instructor1_id}
-                onChange={(e) =>
-                  setNewCandidate({
-                    ...newCandidate,
-                    instructor1_id: e.target.value,
-                  })
-                }
-              />
-              <Input
-                placeholder="Instructor 2 ID"
+                onChange={(e) => setNewCandidate({ ...newCandidate, instructor1_id: e.target.value })}
+                className="w-full border rounded p-2"
+              >
+                <option value="">Select Instructor</option>
+                {employees
+                  .filter((emp) => emp.status === 1)
+                  .map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name}
+                    </option>
+                  ))}
+              </select>
+
+              <Label>Instructor 2</Label>
+              <select
                 value={newCandidate.instructor2_id}
-                onChange={(e) =>
-                  setNewCandidate({
-                    ...newCandidate,
-                    instructor2_id: e.target.value,
-                  })
-                }
-              />
-              <Input
-                placeholder="Instructor 3 ID"
+                onChange={(e) => setNewCandidate({ ...newCandidate, instructor2_id: e.target.value })}
+                className="w-full border rounded p-2"
+              >
+                <option value=""> Select Instructor</option>
+                {employees
+                  .filter((emp) => emp.status === 1)
+                  .map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name}
+                    </option>
+                  ))}
+              </select>
+
+              <Label>Instructor 3</Label>
+              <select
                 value={newCandidate.instructor3_id}
-                onChange={(e) =>
-                  setNewCandidate({
-                    ...newCandidate,
-                    instructor3_id: e.target.value,
-                  })
-                }
-              />
-              <Button className="mt-2 w-full" onClick={handleAddCandidate}>
+                onChange={(e) => setNewCandidate({ ...newCandidate, instructor3_id: e.target.value })}
+                className="w-full border rounded p-2"
+              >
+                <option value="">Select Instructor</option>
+                {employees
+                  .filter((emp) => emp.status === 1)
+                  .map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name}
+                    </option>
+                  ))}
+              </select>
+
+              <Button className="w-full" onClick={handleAddCandidate}>
                 Add Candidate
               </Button>
             </div>
@@ -415,12 +367,7 @@ export default function CandidatesMarketingPage() {
 
       {/* Search */}
       <div className="max-w-md">
-        <Label
-          htmlFor="search"
-          className="text-sm font-medium text-gray-700 dark:text-gray-300"
-        >
-          Search Candidates
-        </Label>
+        <Label htmlFor="search">Search Candidates</Label>
         <div className="relative mt-1">
           <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
           <Input
@@ -432,18 +379,11 @@ export default function CandidatesMarketingPage() {
             className="pl-10"
           />
         </div>
-        {searchTerm && (
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            {filteredCandidates.length} candidate(s) found
-          </p>
-        )}
       </div>
 
-      {/* Data Table */}
+      {/* Table */}
       {loading ? (
-        <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-          Loading...
-        </p>
+        <p className="text-center text-sm text-gray-500">Loading...</p>
       ) : error ? (
         <p className="text-center text-red-500">{error}</p>
       ) : (
