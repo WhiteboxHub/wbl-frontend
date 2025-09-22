@@ -104,7 +104,6 @@ export default function Presentation() {
             </div>
           </div>
           <div className="mt-10 flex justify-center sm:-mt-10 sm:w-4/5">
-            {/* Let ResourcesTable handle the fetch */}
             {activeComponent === "Questions" ? (
               <Questions />
             ) : (
