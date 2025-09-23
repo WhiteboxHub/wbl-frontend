@@ -37,13 +37,26 @@ const excludedFields = [
 ];
 
 const fieldSections: Record<string, string> = {
-  candidate_full_name: "Basic Information",
+
+  candidate_full_name: "Professional Information",
+  instructor1_name: "Professional Information",
+  instructor2_name: "Professional Information",
+  instructor3_name: "Professional Information",
+  interviewer_emails: "Professional Information",
+  interviewer_contact: "Professional Information",
+  id: "Basic Information",
+  alias: "Basic Information",
+  Fundamentals: "Basic Information",
+  AIML: "Basic Information",
+
   full_name: "Basic Information",
   email: "Basic Information",
   phone: "Basic Information",
   status: "Basic Information",
-  batchid: "Basic Information",
+  batchid: "Contact Information",
   batchname: "Basic Information",
+  target_date_of_marketing:"Basic Information",
+  company_name: "Basic Information",
   linkedin_id: "Contact Information",
   enrolled_date: "Professional Information",
   startdate: "Professional Information",
@@ -252,6 +265,12 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "In Person", label: "In Person" },
     { value: "Prep Call", label: "Prep Call" },
   ],
+  feedback:  [
+  { value: 'Pending', label: 'Pending' },
+  { value: 'Positive', label: 'Positive' },
+  { value: 'Negative', label: 'Negative' },
+],
+
 };
 
 const labelOverrides: Record<string, string> = {
@@ -319,6 +338,7 @@ const dateFields = [
   "enrolled_date",
   "interview_date",
   "placement_date",
+  "target_date_of_marketing",
 ];
 
 export function EditModal({
