@@ -146,26 +146,34 @@ export default function CandidatesPrepPage() {
   });
 
   // ---------------- Fetch Data ----------------
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [candidatesRes, instructorsRes, allCandidatesRes] = await Promise.all([
-          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/candidates/all`),
-          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/employees?status=1`),
-          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations`),
-        ]);
-        setCandidates(candidatesRes.data || []);
-        setInstructors(instructorsRes.data || []);
-        setAllCandidates(allCandidatesRes.data || []);
-      } catch {
-        setError("Failed to load data.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token"); // get the auth token
+
+      const [candidatesRes, instructorsRes] = await Promise.all([
+        axios.get(`${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        axios.get(`${process.env.NEXT_PUBLIC_API_URL}/employees?status=1`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }), // only active instructors
+      ]);
+
+      setAllCandidates(candidatesRes.data || []);
+      setInstructors(instructorsRes.data || []);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load data.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchData();
+}, []);
+
 
   // ---------------- Filtering ----------------
   useEffect(() => {
@@ -430,3 +438,4 @@ export default function CandidatesPrepPage() {
     </div>
   );
 }
+

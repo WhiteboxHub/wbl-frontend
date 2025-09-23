@@ -1,14 +1,22 @@
-
-
 "use client";
-
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon, User, Phone, DollarSign, BookOpen, Briefcase, Mail, Eye, Settings } from "lucide-react";
+import {
+  SearchIcon,
+  User,
+  Phone,
+  DollarSign,
+  BookOpen,
+  Briefcase,
+  Mail,
+  Eye,
+  Settings,
+} from "lucide-react";
+import axios from "axios";
 
 interface CandidateSuggestion {
   id: number;
@@ -29,44 +37,46 @@ interface CandidateData {
   miscellaneous: any;
 }
 
-const StatusRenderer = ({ status }: {status: string }) => {
+const StatusRenderer = ({ status }: { status: string }) => {
   const statusStr = status?.toString().toLowerCase() ?? "";
   const colorMap: Record<string, string> = {
     active: "bg-green-100 text-green-800",
-    preparation: "bg-yellow-100 text-yellow-800", 
+    preparation: "bg-yellow-100 text-yellow-800",
     marketing: "bg-blue-100 text-blue-800",
     placed: "bg-purple-100 text-purple-800",
     discontinued: "bg-red-100 text-red-800",
     break: "bg-pink-100 text-pink-800",
   };
   const badgeClass = colorMap[statusStr] ?? "bg-gray-100 text-gray-800";
-  return <Badge className={badgeClass}>{status?.toString().toUpperCase()}</Badge>;
+  return (
+    <Badge className={badgeClass}>{status?.toString().toUpperCase()}</Badge>
+  );
 };
 
-const DateFormatter = (date: any) => 
+const DateFormatter = (date: any) =>
   date ? new Date(date).toLocaleDateString() : "Not Set";
 
-const AmountFormatter = (amount: any) => 
+const AmountFormatter = (amount: any) =>
   amount ? `$${Number(amount).toLocaleString()}` : "Not Set";
 
 export default function CandidateSearchPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [suggestions, setSuggestions] = useState<CandidateSuggestion[]>([]);
-  const [selectedCandidate, setSelectedCandidate] = useState<CandidateData | null>(null);
+  const [selectedCandidate, setSelectedCandidate] =
+    useState<CandidateData | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [loading, setLoading] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
-  
+
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const toggleSection = (section: string) => {
-    setOpenSections(prev => ({
+    setOpenSections((prev) => ({
       ...prev,
-      [section]: !prev[section]
+      [section]: !prev[section],
     }));
   };
 
-  // Optimized search with better error handling
   useEffect(() => {
     if (debounceTimeout.current) {
       clearTimeout(debounceTimeout.current);
@@ -80,37 +90,50 @@ export default function CandidateSearchPage() {
 
     debounceTimeout.current = setTimeout(async () => {
       try {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/candidates/search-names/${encodeURIComponent(searchTerm)}`
+        const token = localStorage.getItem("token");
+
+        const res = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/candidates/search-names/${encodeURIComponent(
+            searchTerm
+          )}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
         );
-        
-        if (res.ok) {
-          const data = await res.json();
-          setSuggestions(data || []);
-          setShowSuggestions(true);
-        } else {
-          console.error('Search failed:', res.status);
-          setSuggestions([]);
-        }
-      } catch (error) {
-        setSuggestions([]);
+
+        const data = res.data || [];
+        setSuggestions(data);
+        setShowSuggestions(true);
+      } catch (error: any) {
         console.error("Search failed:", error);
+        setSuggestions([]);
       }
-    }, 100); // Reduced to 100ms for faster response
+    }, 300); 
+
+    return () => {
+      if (debounceTimeout.current) {
+        clearTimeout(debounceTimeout.current);
+      }
+    };
   }, [searchTerm]);
 
-  // Select candidate and get full details
-  const selectCandidate = async (suggestion: CandidateSuggestion) => {
-    setLoading(true);
-    setShowSuggestions(false);
-    setSearchTerm("");
-    
+
+const selectCandidate = async (suggestion: CandidateSuggestion) => {
+  setLoading(true);
+  setShowSuggestions(false);
+  setSearchTerm("");
+
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/candidates/details/${suggestion.id}`
+      const token = localStorage.getItem("token");
+
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/candidates/details/${suggestion.id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
       );
-      const data = await res.json();
-      setSelectedCandidate(data);
+
+      setSelectedCandidate(res.data);
     } catch (error) {
       console.error("Failed to fetch candidate details:", error);
     } finally {
@@ -145,7 +168,7 @@ export default function CandidateSearchPage() {
                     hour12: true
                   });
                 }
-            // --- Begin extended rendering logic ---
+
             if (key === 'candidate_folder' && value && value.toString().trim() !== '') {
               const url = value.toString().trim();
               let finalUrl = url;
@@ -166,7 +189,7 @@ export default function CandidateSearchPage() {
                 </button>
               );
             } else if (key === 'email' && value && value.toString().trim() !== '') {
-              // Render email as mailto link/button
+            
               displayValue = (
                 <a
                   href={`mailto:${value}`}
@@ -178,7 +201,7 @@ export default function CandidateSearchPage() {
                 </a>
               );
             } else if (key.toLowerCase().includes('phone') && value && value.toString().trim() !== '') {
-              // Render phone as tel: link/button
+              
               displayValue = (
                 <a
                   href={`tel:${value}`}
@@ -188,10 +211,10 @@ export default function CandidateSearchPage() {
                 </a>
               );
             } else if (key === 'linkedin_id' && value && value.toString().trim() !== '') {
-              // Render LinkedIn as button, similar to recording_link
+              
               let url = value.toString().trim();
               let finalUrl = url;
-              // If value is not a URL, prefix with https://
+              
               if (!url.startsWith('http://') && !url.startsWith('https://')) {
                 finalUrl = 'https://' + url;
               }
@@ -282,62 +305,60 @@ export default function CandidateSearchPage() {
             <tbody>
               {records.map((record, idx) => (
                 <tr key={idx} className="border-b border-gray-100 dark:border-gray-700">
-{columns.map(column => {
-  let value = record[column];
-  
-  if (column.toLowerCase().includes('date')) {
-    value = DateFormatter(value);
-  } else if (column === 'Last Modified' && value) {
-    const date = new Date(value as string | number | Date);
-    value = date.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-  } else if (column.toLowerCase().includes('amount') || column.toLowerCase().includes('salary') || column === 'fee_paid') {
-    value = AmountFormatter(value);
-  } else if (column === 'status') {
-    value = <StatusRenderer status={value as string} />;
-  } else if (column === 'feedback') {
-    const feedbackColors = {
-      'Positive': 'bg-green-100 text-green-800',
-      'Negative': 'bg-red-100 text-red-800', 
-      'No Response': 'bg-gray-100 text-gray-800',
-      'Cancelled': 'bg-orange-100 text-orange-800'
-    };
-    value = <Badge className={feedbackColors[value as keyof typeof feedbackColors] || 'bg-gray-100 text-gray-800'}>{value}</Badge>;
-  } else if (column === 'recording_link' && value && value.toString().trim() !== '') {
-    const url = value.toString().trim();
-    let finalUrl = url;
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      finalUrl = 'https://' + url;
-    }
-    
-    value = (
-      <button 
-        className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer whitespace-nowrap inline-block min-w-0 max-w-fit"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          window.open(finalUrl, '_blank', 'noopener,noreferrer');
-        }}
-      >
-      Link
-      </button>
-    );
-  }
+                {columns.map(column => {
+                  let value = record[column];
+                  
+                  if (column.toLowerCase().includes('date')) {
+                    value = DateFormatter(value);
+                  } else if (column === 'Last Modified' && value) {
+                    const date = new Date(value as string | number | Date);
+                    value = date.toLocaleString('en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true,
+                    });
+                  } else if (column.toLowerCase().includes('amount') || column.toLowerCase().includes('salary') || column === 'fee_paid') {
+                    value = AmountFormatter(value);
+                  } else if (column === 'status') {
+                    value = <StatusRenderer status={value as string} />;
+                  } else if (column === 'feedback') {
+                    const feedbackColors = {
+                      'Positive': 'bg-green-100 text-green-800',
+                      'Negative': 'bg-red-100 text-red-800', 
+                      'No Response': 'bg-gray-100 text-gray-800',
+                      'Cancelled': 'bg-orange-100 text-orange-800'
+                    };
+                    value = <Badge className={feedbackColors[value as keyof typeof feedbackColors] || 'bg-gray-100 text-gray-800'}>{value}</Badge>;
+                  } else if (column === 'recording_link' && value && value.toString().trim() !== '') {
+                    const url = value.toString().trim();
+                    let finalUrl = url;
+                    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                      finalUrl = 'https://' + url;
+                    }
+                    
+                    value = (
+                      <button 
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer whitespace-nowrap inline-block min-w-0 max-w-fit"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          window.open(finalUrl, '_blank', 'noopener,noreferrer');
+                        }}
+                      >
+                      Link
+                      </button>
+                    );
+                  }
 
-  return (
-    <td key={column} className="p-2 text-gray-900 max-w-xs break-words dark:text-gray-100">
-      {value || "—"}
-    </td>
-  );
-})}
-
-
+                  return (
+                    <td key={column} className="p-2 text-gray-900 max-w-xs break-words dark:text-gray-100">
+                      {value || "—"}
+                    </td>
+                  );
+                })}
                 </tr>
               ))}
             </tbody>
@@ -380,7 +401,6 @@ export default function CandidateSearchPage() {
           />
         </div>
 
-        {/* Enhanced Dropdown Suggestions */}
         {showSuggestions && suggestions.length > 0 && (
           <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg max-h-60 overflow-auto">
             {suggestions.map((suggestion) => (
@@ -396,7 +416,6 @@ export default function CandidateSearchPage() {
           </div>
         )}
 
-        {/* Click outside to close dropdown */}
         {showSuggestions && (
           <div 
             className="fixed inset-0 z-0" 
@@ -404,7 +423,7 @@ export default function CandidateSearchPage() {
           />
         )}
 
-        {/* Enhanced Loading and Error States */}
+
         {loading && (
           <div className="mt-2 flex items-center gap-2">
             <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -417,7 +436,6 @@ export default function CandidateSearchPage() {
         )}
       </div>
 
-      {/* Enhanced Candidate Details with All New Fields */}
       {selectedCandidate && (
         <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
@@ -431,7 +449,7 @@ export default function CandidateSearchPage() {
           </div>
 
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {/* Basic Information - Merged with Emergency Contact */}
+            
             <div className="accordion-item">
               <button
                 className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
@@ -455,7 +473,7 @@ export default function CandidateSearchPage() {
               )}
             </div>
 
-            {/* Fee & Financials */}
+            
             <div className="accordion-item">
               <button
                 className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
@@ -476,7 +494,7 @@ export default function CandidateSearchPage() {
               )}
             </div>
 
-            {/* Login & Access Info */}
+           
             <div className="accordion-item">
               <button
                 className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
@@ -497,7 +515,6 @@ export default function CandidateSearchPage() {
               )}
             </div>
 
-            {/* Marketing Info - Now shows marketing manager name */}
             <div className="accordion-item">
               <button
                 className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
@@ -520,7 +537,6 @@ export default function CandidateSearchPage() {
               )}
             </div>
 
-            {/* Interview Info - Now shows recording links */}
             <div className="accordion-item">
               <button
                 className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
@@ -539,7 +555,6 @@ export default function CandidateSearchPage() {
                 <div className="pb-4">
                   {renderTable("Interview Records", <Briefcase className="h-4 w-4" />, 
                     selectedCandidate.interview_records.sort((a, b) => {
-                      // Sort by interview_date in descending order (most recent first)
                       if (!a.interview_date && !b.interview_date) return 0;
                       if (!a.interview_date) return 1;
                       if (!b.interview_date) return -1;
@@ -551,7 +566,6 @@ export default function CandidateSearchPage() {
               )}
             </div>
 
-            {/* Miscellaneous */}
             <div className="accordion-item">
               <button
                 className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
@@ -584,3 +598,4 @@ export default function CandidateSearchPage() {
     </div>
   );
 }
+
