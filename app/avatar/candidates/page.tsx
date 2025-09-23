@@ -12,7 +12,7 @@ import { toast, Toaster } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AGGridTable } from "@/components/AGGridTable";
 import { createPortal } from "react-dom";
-
+import axios from "axios";
 // Define types
 type Candidate = {
   id: number;
@@ -528,21 +528,37 @@ export default function CandidatesPage() {
   }, [candidates, selectedStatuses, selectedWorkStatuses, searchTerm]);
 
   // Fetch batches
+  // useEffect(() => {
+  //   const fetchBatches = async () => {
+  //     try {
+  //       const res = await fetch(batchesEndpoint);
+  //       // if (!res.ok) throw new Error("Failed to fetch batches");
+  //       const data = await res.json();
+  //       setBatches(data.data || []);
+  //     } catch (err) {
+  //       // toast.error("Failed to load batches: " + (err as Error).message);
+  //       // console.error("Batch fetch error:", err);
+  //     }
+  //   };
+  //   fetchBatches();
+  // }, [batchesEndpoint]);
+
+  const courseId = "3";
+
   useEffect(() => {
     const fetchBatches = async () => {
       try {
-        const res = await fetch(batchesEndpoint);
-        // if (!res.ok) throw new Error("Failed to fetch batches");
-        const data = await res.json();
-        setBatches(data.data || []);
-      } catch (err) {
-        // toast.error("Failed to load batches: " + (err as Error).message);
-        // console.error("Batch fetch error:", err);
+        const res = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/batches?course=${courseId}`
+        );
+        setBatches(res.data);
+      } catch (error) {
+        console.error("Failed to load batches", error);
       }
     };
-    fetchBatches();
-  }, [batchesEndpoint]);
 
+    fetchBatches();
+  }, [courseId]);
   // Initial data load
   useEffect(() => {
     fetchCandidates();
@@ -869,6 +885,19 @@ export default function CandidatesPage() {
       width: 300,
       sortable: true,
     },
+    // {
+    //   field: "batchid",
+    //   headerName: "Batch",
+    //   width: 140,
+    //   sortable: true,
+    //   cellRenderer: (params: any) => {
+    //     if (!params.value || !batches.length) return params.value || "";
+    //     const batch = batches.find(b => b.batchid === params.value);
+    //     return batch ? batch.batchname : params.value;
+    //   },
+    // },
+
+
     {
       field: "batchid",
       headerName: "Batch",
@@ -877,7 +906,11 @@ export default function CandidatesPage() {
       cellRenderer: (params: any) => {
         if (!params.value || !batches.length) return params.value || "";
         const batch = batches.find(b => b.batchid === params.value);
-        return batch ? batch.batchname : params.value;
+        return batch ? (
+          <span title={`Batch ID: ${params.value}`}>
+            {batch.batchname}
+          </span>
+        ) : params.value;
       },
     },
     {
@@ -982,6 +1015,7 @@ export default function CandidatesPage() {
           onRowDeleted={handleRowDeleted}
           showFilters={true}
           showSearch={false}
+          batches={batches} // Add this line
           loading={loading}
           height="600px"
           overlayNoRowsTemplate={loading ? "" : '<span class="ag-overlay-no-rows-center">No candidates found</span>'}
