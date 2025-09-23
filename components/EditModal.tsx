@@ -971,7 +971,11 @@ export function EditModal({
   }, [data]);
 
   const [courses, setCourses] = React.useState<{ id: number; name: string }[]>([]);
+  const [subjects, setSubjects] = React.useState<{ id: number; name: string }[]>([]);
   const [employees, setEmployees] = React.useState<{ id: number; name: string }[]>([]);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  
 
   React.useEffect(() => {
   const fetchCourses = async () => {
@@ -982,6 +986,15 @@ export function EditModal({
       console.error("Failed to fetch courses:", error);
     }
   };
+  
+  const fetchSubjects = async () => {
+      try {
+        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/subjects`);
+        setSubjects(res.data);
+      } catch (error) {
+        console.error("Failed to fetch subjects:", error);
+      }
+    };
 
   const fetchEmployees = async () => {
     try {
@@ -995,6 +1008,7 @@ export function EditModal({
   };
 
   fetchCourses();
+  fetchSubjects();
   fetchEmployees();
 }, []);
 
@@ -1238,6 +1252,84 @@ export function EditModal({
                       </div>
                       );
                       }
+                      
+                    // Subject ID Dropdown
+                    if (key.toLowerCase() === "subjectid") {
+                      return (
+                        <div key={key} className="space-y-1">
+                          <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                            {toLabel(key)}
+                          </Label>
+                          <select
+                            value={formData[key] || "0"}
+                            onChange={(e) => handleChange(key, Number(e.target.value))}
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          >
+                            <option value="0">0</option>
+                            {subjects.map((subject) => (
+                              <option key={subject.id} value={subject.id}>
+                                {subject.id}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    }
+                    // Course Name Dropdown
+                    if (key.toLowerCase() === "course_name") {
+                      return (
+                        <div key={key} className="space-y-1">
+                          <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                            {toLabel(key)}
+                          </Label>
+                          <select
+                            value={formData["course_name"] || ""}
+                            onChange={(e) => handleChange("course_name", e.target.value)}
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          >
+                            {courses.length === 0 ? (
+                              <option value="">Loading...</option>
+                            ) : (
+                              <>
+                                {courses.map((course) => (
+                                  <option key={course.id} value={course.name}>
+                                    {course.name}
+                                  </option>
+                                ))}
+                              </>
+                            )}
+                          </select>
+                        </div>
+                      );
+                    }
+                    
+                    // Subject Name Dropdown
+                    if (key.toLowerCase() === "subject_name") {
+                      return (
+                        <div key={key} className="space-y-1">
+                          <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                            {toLabel(key)}
+                          </Label>
+                          <select
+                            value={formData["subject_name"] || ""}
+                            onChange={(e) => handleChange("subject_name", e.target.value)}
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          >
+                            {subjects.length === 0 ? (
+                              <option value="">Loading...</option>
+                            ) : (
+                              <>
+                                {subjects.map((subject) => (
+                                  <option key={subject.id} value={subject.name}>
+                                    {subject.name}
+                                  </option>
+                                ))}
+                              </>
+                            )}
+                          </select>
+                        </div>
+                      );
+                    }
 
                     // Original logic for all other fields
                     return (
@@ -1245,7 +1337,7 @@ export function EditModal({
                         <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                           {toLabel(key)}
                         </Label>
-                        {/* Course ID Dropdown */}
+                        {/* Course ID */}
                         {key.toLowerCase() === "courseid" ? (
                           <select
                             value={formData["courseid"]}

@@ -16,11 +16,8 @@ export default function CourseContentPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [contents, setContents] = useState<any[]>([]);
   const [filteredContents, setFilteredContents] = useState<any[]>([]);
-  //const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  // const [page, setPage] = useState(1);
-  // const [pageSize, setPageSize] = useState(50); 
+  const [error, setError] = useState(""); 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newContent, setNewContent] = useState({
     Fundamentals: "",
@@ -227,43 +224,6 @@ export default function CourseContentPage() {
         showSearch={false}
       />
 
-      {/* Pagination */}
-      {/* <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
-        <div className="flex items-center space-x-2">
-          <span className="text-sm">Rows per page:</span>
-          <select
-            value={pageSize}
-            onChange={(e) => {
-              setPageSize(Number(e.target.value));
-              setPage(1);
-            }}
-            className="border rounded px-2 py-1 text-sm"
-          >
-            {[10, 20, 50, 100].map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setPage((p) => Math.max(p - 1, 1))}
-            disabled={page === 1}
-            className="px-2 py-1 border rounded text-sm disabled:opacity-50"
-          >
-            Previous
-          </button>
-          <span className="text-sm">Page {page}</span>
-          <button
-            onClick={() => setPage((p) => p + 1)}
-            className="px-2 py-1 border rounded text-sm"
-          >
-            Next
-          </button>
-        </div>
-      </div> */}
     </div>
   );
 }

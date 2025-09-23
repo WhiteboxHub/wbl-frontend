@@ -33,6 +33,16 @@ interface NewMapping {
   subject_id: string;
 }
 
+interface Course {
+  id: number;
+  name: string;
+}
+
+interface Subject {
+  id: number;
+  name: string;
+}
+
 function getErrorMessage(e: any): string {
   if (typeof e === "string") return e;
   if (e?.response?.data?.detail) {
@@ -58,6 +68,10 @@ export default function CourseSubjectPage() {
   const [showModal, setShowModal] = useState(false);
   const [newMapping, setNewMapping] = useState<NewMapping>({ course_id: "", subject_id: "" });
   const [saving, setSaving] = useState(false);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [selectedCourseName, setSelectedCourseName] = useState("");
+  const [selectedSubjectName, setSelectedSubjectName] = useState("");
 
   const fetchCourseSubjects = async () => {
     try {
@@ -82,9 +96,32 @@ export default function CourseSubjectPage() {
     }
   };
 
+  const fetchCourses = async () => {
+    try {
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/courses`);
+      const sortedCourses = res.data.sort((a: Course, b: Course) => b.id - a.id);
+      setCourses(sortedCourses);
+    } catch (e: any) {
+      console.error("Failed to fetch courses:", e);
+      toast.error("Failed to load courses");
+    }
+  };
+
+  const fetchSubjects = async () => {
+    try {
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/subjects`);
+      const sortedSubjects = res.data.sort((a: Subject, b: Subject) => b.id - a.id);
+      setSubjects(sortedSubjects);
+    } catch (e: any) {
+      console.error("Failed to fetch subjects:", e);
+      toast.error("Failed to load subjects");
+    }
+  };
 
   useEffect(() => {
     fetchCourseSubjects();
+    fetchCourses();
+    fetchSubjects();
   }, []);
 
   useEffect(() => {
@@ -151,18 +188,21 @@ export default function CourseSubjectPage() {
   };
 
   const handleAddMapping = async () => {
-    if (!newMapping.course_id || !newMapping.subject_id) {
-      toast.error("Course ID and Subject ID are required!");
+    if (!selectedCourseName || !selectedSubjectName) {
+      toast.error("Please select both a course and a subject!");
       return;
     }
 
-    const courseId = Number(newMapping.course_id);
-    const subjectId = Number(newMapping.subject_id);
+    const selectedCourse = courses.find(course => course.name === selectedCourseName);
+    const selectedSubject = subjects.find(subject => subject.name === selectedSubjectName);
     
-    if (isNaN(courseId) || isNaN(subjectId)) {
-      toast.error("Course ID and Subject ID must be valid numbers!");
+    if (!selectedCourse || !selectedSubject) {
+      toast.error("Invalid selection. Please try again.");
       return;
     }
+
+    const courseId = selectedCourse.id;
+    const subjectId = selectedSubject.id;
 
     const exists = courseSubjects.some(
       (item) => item.course_id === courseId && item.subject_id === subjectId
@@ -185,11 +225,13 @@ export default function CourseSubjectPage() {
         id: `${res.data.course_id}-${res.data.subject_id}`
       };
 
-      const updated = [...courseSubjects, newRecordWithId];
+      const updated = [newRecordWithId, ...courseSubjects];
       setCourseSubjects(updated);
       setFilteredCourseSubjects(updated);
       toast.success("Course-subject mapping added successfully!");
       setShowModal(false);
+      setSelectedCourseName("");
+      setSelectedSubjectName("");
       setNewMapping({ course_id: "", subject_id: "" });
     } catch (e: any) {
       const errorMsg = getErrorMessage(e);
@@ -213,7 +255,6 @@ export default function CourseSubjectPage() {
     return (
       <div className="text-center mt-8 space-y-4">
         <p className="text-red-600 text-lg">{error}</p>
-
       </div>
     );
   }
@@ -267,45 +308,56 @@ export default function CourseSubjectPage() {
         title={`Course-Subject Mappings (${filteredCourseSubjects.length} results)`}
         height="calc(70vh - 100px)"
         onRowDeleted={handleRowDeleted}
-        //onRowUpdated={handleRowUpdated}
         showSearch={false}
       />
 
-
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent  className="max-w-sm p-4">
+        <DialogContent className="max-w-sm p-4">
           <DialogHeader>
             <DialogTitle>Add Course-Subject Mapping</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="course_id" className="text-sm font-medium">
-                Course ID <span className="text-red-500">*</span>
+              <Label htmlFor="course" className="text-sm font-medium">
+                Course <span className="text-red-500">*</span>
               </Label>
-              <Input
-                id="course_id"
-                type="number"
-                value={newMapping.course_id}
-                onChange={(e) =>
-                  setNewMapping((prev) => ({ ...prev, course_id: e.target.value }))
-                }
-                placeholder="Enter course ID"
-              />
+              <select
+                id="course"
+                value={selectedCourseName}
+                onChange={(e) => setSelectedCourseName(e.target.value)}
+                className="w-full border rounded-md p-2"
+              >
+              <option value="" disabled hidden>
+                Select course
+              </option>
+
+                {courses.map((course) => (
+                  <option key={course.id} value={course.name}>
+                    {course.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
-              <Label htmlFor="subject_id" className="text-sm font-medium">
-                Subject ID <span className="text-red-500">*</span>
+              <Label htmlFor="subject" className="text-sm font-medium">
+                Subject <span className="text-red-500">*</span>
               </Label>
-              <Input
-                id="subject_id"
-                type="number"
-                value={newMapping.subject_id}
-                onChange={(e) =>
-                  setNewMapping((prev) => ({ ...prev, subject_id: e.target.value }))
-                }
-                placeholder="Enter subject ID"
-              />
+              <select
+                id="subject"
+                value={selectedSubjectName}
+                onChange={(e) => setSelectedSubjectName(e.target.value)}
+                className="w-full border rounded-md p-2"
+              >
+              <option value="" disabled hidden>
+                Select subject
+              </option>
+                {subjects.map((subject) => (
+                  <option key={subject.id} value={subject.name}>
+                    {subject.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -314,7 +366,8 @@ export default function CourseSubjectPage() {
               variant="outline"
               onClick={() => {
                 setShowModal(false);
-                setNewMapping({ course_id: "", subject_id: "" });
+                setSelectedCourseName("");
+                setSelectedSubjectName("");
               }}
               disabled={saving}
             >
@@ -322,15 +375,9 @@ export default function CourseSubjectPage() {
             </Button>
             <Button
               onClick={handleAddMapping}
-              disabled={saving || !newMapping.course_id || !newMapping.subject_id}
+              disabled={saving || !selectedCourseName || !selectedSubjectName}
             >
-              {saving ? (
-                <>
-                  Adding...
-                </>
-              ) : (
-                "Save"
-              )}
+              {saving ? "Adding..." : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
