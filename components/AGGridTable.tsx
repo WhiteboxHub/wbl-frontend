@@ -37,7 +37,7 @@ interface AGGridTableProps {
   showFilters?: boolean;
   height?: string;
   overlayNoRowsTemplate?: string;
-
+  batches?: any[]; // Add batches prop
 }
 
 interface RowData {
@@ -63,6 +63,7 @@ export function AGGridTable({
   showSearch = true,
   showFilters = true,
   height = "400px",
+  batches // Add batches with default empty array
 }: AGGridTableProps) {
   const gridRef = useRef<AgGridReact>(null);
   const gridApiRef = useRef<GridApi | null>(null);
@@ -269,11 +270,6 @@ export function AGGridTable({
             animateRows={true}
             loading={loading}
             overlayNoRowsTemplate={overlayNoRowsTemplate}
-            // overlayNoRowsTemplate='
-            //   <div class="ag-overlay-no-rows-center">
-            //     <span>No Rows To Show</span>
-            //   </div>
-            // '
             theme="legacy"
             defaultColDef={{
               resizable: true,
@@ -307,6 +303,7 @@ export function AGGridTable({
           onSave={handleSave}
           data={editData}
           title={title || "Record"}
+          batches={batches} // Pass batches to EditModal
         />
       )}
       {deleteConfirmData && (
