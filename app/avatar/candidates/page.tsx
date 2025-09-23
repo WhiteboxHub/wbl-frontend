@@ -38,6 +38,7 @@ type Candidate = {
   fee_paid?: number | null;
   notes?: string | null;
   batchid: number;
+  github_link?: string | null;
   candidate_folder?: string | null;
 };
 
@@ -64,6 +65,7 @@ type FormData = {
   fee_paid: number;
   notes: string;
   batchid: number;
+  github_link: string;
   candidate_folder: string;
 };
 
@@ -105,6 +107,7 @@ const initialFormData: FormData = {
   fee_paid: 0,
   notes: "",
   batchid: 0,
+  github_link: "",
   candidate_folder: "",
 };
 
@@ -900,6 +903,26 @@ export default function CandidatesPage() {
         );
       },
     },
+    {
+      field: "github_link",
+      headerName: "GitHub profile",
+      width: 200,
+      sortable: true,
+      cellRenderer: (params: any) => {
+        if (!params.value) return "";
+        return (
+          <a
+            href={params.value}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 underline hover:text-blue-800"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {params.value}
+          </a>
+        );
+      },
+    }
   ], [batches, selectedStatuses, selectedWorkStatuses]);
 
   // Error handling

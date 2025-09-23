@@ -5,6 +5,7 @@ import { isAuthenticated } from "@/utils/auth";
 import Layout from "@/components/Common/Layout";
 import ResourcesTable from "@/components/Common/resourcesTable";
 import CourseNavigation from "@/components/Common/CourseNavigation";
+import Questions from "@/components/Common/Questions";
 
 type ComponentType =
   | "Presentations"
@@ -13,6 +14,7 @@ type ComponentType =
   | "Installations"
   | "Newsletters"
   | "Books"
+  |"Questions"
   | "Softwares";
 
 export default function Presentation() {
@@ -30,6 +32,7 @@ export default function Presentation() {
     { type: "Installations", label: "Installations" },
     { type: "Books", label: "Books" },
     { type: "Newsletters", label: "Newsletters" },
+    { type: "Questions", label: "Questions" }
   ];
 
   const handleButtonClick = (component: ComponentType) => {
@@ -103,7 +106,11 @@ export default function Presentation() {
           </div>
           <div className="mt-10 flex justify-center sm:-mt-10 sm:w-4/5">
             {/* Let ResourcesTable handle the fetch */}
-            <ResourcesTable course={course} type={activeComponent} />
+            {activeComponent === "Questions" ? (
+              <Questions />
+            ) : (
+              <ResourcesTable course={course} type={activeComponent} />
+            )}
           </div>
         </section>
       </main>
