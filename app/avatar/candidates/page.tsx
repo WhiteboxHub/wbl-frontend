@@ -470,37 +470,57 @@ export default function CandidatesPage() {
   }, [searchParams]);
 
   // Fetch candidates
-  const fetchCandidates = useCallback(async (
+const fetchCandidates = useCallback(
+  async (
     search?: string,
     searchBy: string = "all",
-    sort: any[] = [{ colId: 'enrolled_date', sort: 'desc' }],
+    sort: any[] = [{ colId: "enrolled_date", sort: "desc" }],
     filters: any = {}
   ) => {
     setLoading(true);
     try {
       let url = `${apiEndpoint}?limit=0`;
+
       if (search && search.trim()) {
         url += `&search=${encodeURIComponent(search.trim())}&search_by=${searchBy}`;
       }
-      const sortToApply = sort && sort.length > 0 ? sort : [{ colId: 'enrolled_date', sort: 'desc' }];
-      const sortParam = sortToApply.map(s => `${s.colId}:${s.sort}`).join(',');
+
+      const sortToApply =
+        sort && sort.length > 0 ? sort : [{ colId: "enrolled_date", sort: "desc" }];
+      const sortParam = sortToApply.map((s) => `${s.colId}:${s.sort}`).join(",");
       url += `&sort=${encodeURIComponent(sortParam)}`;
+
       if (Object.keys(filters).length > 0) {
         url += `&filters=${encodeURIComponent(JSON.stringify(filters))}`;
       }
-      const res = await fetch(url);
+
+      // 🔑 Get token from localStorage (or cookies/session depending on your auth setup)
+      const token = localStorage.getItem("token");
+
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,  // ✅ pass token here
+          "Content-Type": "application/json",
+        },
+      });
+
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
       const data = await res.json();
       setCandidates(data.data);
     } catch (err) {
-      const error = err instanceof Error ? err.message : "Failed to load candidates";
+      const error =
+        err instanceof Error ? err.message : "Failed to load candidates";
       setError(error);
       toast.error(error);
     } finally {
       setLoading(false);
       if (searchInputRef.current) searchInputRef.current.focus();
     }
-  }, [apiEndpoint]);
+  },
+  [apiEndpoint]
+);
+
 
   // Filter candidates locally
   useEffect(() => {

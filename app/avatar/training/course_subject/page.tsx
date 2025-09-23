@@ -59,16 +59,24 @@ export default function CourseSubjectPage() {
   const [newMapping, setNewMapping] = useState<NewMapping>({ course_id: "", subject_id: "" });
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const token = localStorage.getItem("token"); // get token once
 
   const fetchCourseSubjects = async () => {
     try {
       setLoading(true);
       setError("");
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/course-subjects`);
-      
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/course-subjects`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // pass token in headers
+          },
+        }
+      );
+
       const dataWithId = res.data.map((item: CourseSubject) => ({
         ...item,
-        id: `${item.course_id}-${item.subject_id}` 
+        id: `${item.course_id}-${item.subject_id}`,
       }));
 
       setCourseSubjects(dataWithId);
@@ -361,3 +369,4 @@ export default function CourseSubjectPage() {
     </div>
   );
 }
+

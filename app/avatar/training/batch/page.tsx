@@ -44,6 +44,8 @@ export default function BatchPage() {
   }, [searchTerm]);
 
   // Fetch batches
+ const token = localStorage.getItem("token"); // get token once
+
   const fetchBatches = async () => {
     try {
       setLoading(true);
@@ -59,16 +61,15 @@ export default function BatchPage() {
         url = `${process.env.NEXT_PUBLIC_API_URL}/batch`;
       }
 
-      const res = await fetch(url);
-      if (!res.ok) {
-        setBatches([]);
-        return;
-      }
+      const res = await axios.get(url, {
+        headers: {
+          Authorization: `Bearer ${token}`, // pass token in headers
+        },
+      });
 
-      const data = await res.json();
-      setBatches(isIdSearch ? [data] : data);
+      setBatches(isIdSearch ? [res.data] : res.data);
     } catch (err: any) {
-      toast.error("Failed to fetch batches: " + err.message);
+      toast.error("Failed to fetch batches: " + (err.response?.data?.message || err.message));
       setBatches([]);
     } finally {
       setLoading(false);
@@ -78,7 +79,7 @@ export default function BatchPage() {
   useEffect(() => {
     fetchBatches();
   }, [debouncedSearch]);
-
+  
   // Date formatter
   const dateFormatter = (params: any) => {
     if (!params.value) return "";
@@ -282,3 +283,5 @@ export default function BatchPage() {
     </div>
   );
 }
+
+

@@ -12,7 +12,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AGGridTable } from "@/components/AGGridTable";
 import { createPortal } from "react-dom";
 
-
 type Lead = {
   id: number;
   full_name?: string | null;
@@ -421,6 +420,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
 
 // Main LeadsPage Component
 export default function LeadsPage() {
+
   const searchInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -445,61 +445,75 @@ export default function LeadsPage() {
     () => `${process.env.NEXT_PUBLIC_API_URL}/leads`,
     []
   );
+const fetchLeads = useCallback(
+  async (
+    search?: string,
+    searchBy: string = "all",
+    sort: any[] = [{ colId: 'entry_date', sort: 'desc' }]
+  ) => {
+    setLoading(true);
+    try {
+      let url = `${apiEndpoint}`;
+      const params = new URLSearchParams();
 
-  // Fetch leads function
-  const fetchLeads = useCallback(
-    async (
-      search?: string,
-      searchBy: string = "all",
-      sort: any[] = [{ colId: 'entry_date', sort: 'desc' }]
-    ) => {
-      setLoading(true);
-      try {
-        let url = `${apiEndpoint}`;
-        const params = new URLSearchParams();
-
-        if (search && search.trim()) {
-          params.append('search', search.trim());
-          params.append('search_by', searchBy);
-        }
-
-        const sortToApply = sort && sort.length > 0 ? sort : [{ colId: 'entry_date', sort: 'desc' }];
-        const sortParam = sortToApply.map(s => `${s.colId}:${s.sort}`).join(',');
-        params.append('sort', sortParam);
-
-        if (params.toString()) {
-          url += `?${params.toString()}`;
-        }
-
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        const data = await res.json();
-
-        let leadsData = [];
-        if (data.data && Array.isArray(data.data)) {
-          leadsData = data.data;
-        } else if (Array.isArray(data)) {
-          leadsData = data;
-        } else {
-          throw new Error('Invalid response format');
-        }
-
-        setLeads(leadsData);
-      } catch (err) {
-        const error = err instanceof Error ? err.message : "Failed to load leads";
-        setError(error);
-        toast.error(error);
-      } finally {
-        setLoading(false);
-        if (searchInputRef.current) {
-          searchInputRef.current.focus();
-        }
+      if (search && search.trim()) {
+        params.append('search', search.trim());
+        params.append('search_by', searchBy);
       }
-    },
-    [apiEndpoint]
-  );
 
-  // Filter leads locally when status or work status changes
+      const sortToApply = sort && sort.length > 0 ? sort : [{ colId: 'entry_date', sort: 'desc' }];
+      const sortParam = sortToApply.map(s => `${s.colId}:${s.sort}`).join(',');
+      params.append('sort', sortParam);
+
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+
+      // Get token from localStorage
+      const token = localStorage.getItem("token");
+
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json', // optional
+        },
+      });
+
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      const data = await res.json();
+
+      let leadsData = [];
+      if (data.data && Array.isArray(data.data)) {
+        leadsData = data.data;
+      } else if (Array.isArray(data)) {
+        leadsData = data;
+      } else {
+        throw new Error('Invalid response format');
+      }
+
+      setLeads(leadsData);
+    } catch (err) {
+      const error = err instanceof Error ? err.message : "Failed to load leads";
+      setError(error);
+      toast.error(error);
+    } finally {
+      setLoading(false);
+      if (searchInputRef.current) {
+        searchInputRef.current.focus();
+      }
+    }
+  },
+  [apiEndpoint]
+);
+
+  const isToken = localStorage.getItem('access-token')
+  useEffect(()=>{
+    if(isToken){
+      console.log("the use has token will check the token access")
+    }else{
+      router.push('/login')
+    }
+  },[])
   useEffect(() => {
     let filtered = [...leads];
 
@@ -554,7 +568,7 @@ export default function LeadsPage() {
     return () => clearTimeout(timeoutId);
   }, [searchTerm, searchBy, sortModel, fetchLeads]);
 
-  // Detect search by field
+
   const detectSearchBy = (search: string) => {
     if (/^\d+$/.test(search)) return "id";
     if (/^\S+@\S+\.\S+$/.test(search)) return "email";
@@ -562,7 +576,7 @@ export default function LeadsPage() {
     return "full_name";
   };
 
-  // Handle form changes and submissions
+
   const handleNewLeadFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     if (type === 'checkbox') {
@@ -1115,3 +1129,4 @@ export default function LeadsPage() {
     </div>
   );
 }
+

@@ -40,22 +40,33 @@ export default function CandidatesInterviews() {
   });
 
   // Fetch interviews
-  const fetchInterviews = async (page: number, perPage: number) => {
-    try {
-      setLoading(true);
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/interviews?page=${page}&per_page=${perPage}`
-      );
-      if (!res.ok) throw new Error("Failed to load interviews");
-      const data = await res.json();
-      setInterviews(data);
-      setTotal(data.total);
-    } catch (err) {
-      setError("Failed to load interviews.");
-    } finally {
-      setLoading(false);
-    }
-  };
+const fetchInterviews = async (page: number, perPage: number) => {
+  try {
+    setLoading(true);
+    const token = localStorage.getItem("token"); // get the auth token
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/interviews?page=${page}&per_page=${perPage}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!res.ok) throw new Error("Failed to load interviews");
+
+    const data = await res.json();
+    setInterviews(data);
+    setTotal(data.total);
+  } catch (err) {
+    setError("Failed to load interviews.");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   useEffect(() => {
     fetchInterviews(page, perPage);

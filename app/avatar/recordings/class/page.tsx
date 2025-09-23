@@ -25,29 +25,30 @@ export default function RecordingsPage() {
     }, 500);
     return () => clearTimeout(handler);
   }, [searchTerm]);
+ const token = localStorage.getItem("token"); // get token once
 
-  // Fetch recordings (updated for no pagination)
+  // Fetch recordings with token auth
   const fetchRecordings = async () => {
     try {
       setLoading(true);
 
-      const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/recordings`);
+      const url = `${process.env.NEXT_PUBLIC_API_URL}/recordings`;
+      const params: Record<string, string> = {};
       if (debouncedSearch.trim()) {
-        url.searchParams.append("search", debouncedSearch.trim());
+        params["search"] = debouncedSearch.trim();
       }
 
-      const res = await fetch(url.toString());
-      if (!res.ok) {
-        setRecordings([]);
-        return;
-      }
+      const res = await axios.get(url, {
+        headers: {
+          Authorization: `Bearer ${token}`, // pass token
+        },
+        params, // query parameters
+      });
 
-      // Backend now directly returns a list
-      const data = await res.json();
-      setRecordings(data || []);
+      setRecordings(res.data || []);
     } catch (err: any) {
       console.error(err);
-      toast.error("Failed to fetch recordings.");
+      toast.error(err.response?.data?.message || "Failed to fetch recordings.");
       setRecordings([]);
     } finally {
       setLoading(false);
@@ -56,7 +57,7 @@ export default function RecordingsPage() {
 
   useEffect(() => {
     fetchRecordings();
-  }, [debouncedSearch]);
+  }, [debouncedSearch, token]);
 
   // Column definitions
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
@@ -180,3 +181,5 @@ export default function RecordingsPage() {
     </div>
   );
 }
+
+
