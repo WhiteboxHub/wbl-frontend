@@ -12,6 +12,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AGGridTable } from "@/components/AGGridTable";
 import { createPortal } from "react-dom";
 
+
 type Lead = {
   id: number;
   full_name?: string | null;
@@ -420,7 +421,6 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
 
 // Main LeadsPage Component
 export default function LeadsPage() {
-
   const searchInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -506,14 +506,7 @@ const fetchLeads = useCallback(
   [apiEndpoint]
 );
 
-  const isToken = localStorage.getItem('access-token')
-  useEffect(()=>{
-    if(isToken){
-      console.log("the use has token will check the token access")
-    }else{
-      router.push('/login')
-    }
-  },[])
+  // Filter leads locally when status or work status changes
   useEffect(() => {
     let filtered = [...leads];
 
@@ -568,7 +561,7 @@ const fetchLeads = useCallback(
     return () => clearTimeout(timeoutId);
   }, [searchTerm, searchBy, sortModel, fetchLeads]);
 
-
+  // Detect search by field
   const detectSearchBy = (search: string) => {
     if (/^\d+$/.test(search)) return "id";
     if (/^\S+@\S+\.\S+$/.test(search)) return "email";
@@ -576,7 +569,7 @@ const fetchLeads = useCallback(
     return "full_name";
   };
 
-
+  // Handle form changes and submissions
   const handleNewLeadFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     if (type === 'checkbox') {
@@ -1129,4 +1122,3 @@ const fetchLeads = useCallback(
     </div>
   );
 }
-

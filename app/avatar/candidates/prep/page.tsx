@@ -1,4 +1,5 @@
 
+
 "use client";
 import "@/styles/admin.css";
 import "@/styles/App.css";
@@ -13,11 +14,17 @@ import axios from "axios";
 import { createPortal } from "react-dom";
 
 // ---------------- Status Renderer ----------------
-const StatusRenderer = (params: any) => (
-  <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-    {params.value?.toUpperCase()}
-  </Badge>
-);
+const StatusRenderer = (params: any) => {
+  const status = params.value?.toLowerCase();
+  const statusColors: Record<string, string> = {
+    active: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    break: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+    inactive: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+    discontinued: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300",
+  };
+  const className = statusColors[status] || "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
+  return <Badge className={className}>{params.value?.toUpperCase()}</Badge>;
+};
 
 // ---------------- Status Filter Header ----------------
 const StatusHeaderComponent = (props: any) => {
@@ -81,19 +88,22 @@ const StatusHeaderComponent = (props: any) => {
             className="z-[99999] bg-white border rounded shadow-lg p-3 flex flex-col space-y-2 w-48 pointer-events-auto"
             style={{ top: dropdownPos.top, left: dropdownPos.left, position: "fixed" }}
           >
-            {[{ value: "active", label: "Active" }, { value: "break", label: "Break" }, { value: "inactive", label: "Inactive" }, { value: "discontinued", label: "Discontinued" }].map(
-              ({ value, label }) => (
-                <label key={value} className="flex items-center px-2 py-1 hover:bg-gray-100 cursor-pointer rounded">
-                  <input
-                    type="checkbox"
-                    checked={selectedStatuses.includes(value)}
-                    onChange={() => handleStatusChange(value)}
-                    className="mr-3"
-                  />
-                  {label}
-                </label>
-              )
-            )}
+            {[
+              { value: "active", label: "Active" },
+              { value: "break", label: "Break" },
+              { value: "inactive", label: "Inactive" },
+              { value: "discontinued", label: "Discontinued" }
+            ].map(({ value, label }) => (
+              <label key={value} className="flex items-center px-2 py-1 hover:bg-gray-100 cursor-pointer rounded">
+                <input
+                  type="checkbox"
+                  checked={selectedStatuses.includes(value)}
+                  onChange={() => handleStatusChange(value)}
+                  className="mr-3"
+                />
+                {label}
+              </label>
+            ))}
           </div>,
           document.body
         )}
@@ -106,16 +116,16 @@ export default function CandidatesPrepPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredCandidates, setFilteredCandidates] = useState<any[]>([]);
   const [allCandidates, setAllCandidates] = useState<any[]>([]);
+  const [candidates, setCandidates] = useState<any[]>([]); // all candidates for dropdown
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  const [instructors, setInstructors] = useState<any[]>([]); // all active instructors
+  const [instructors, setInstructors] = useState<any[]>([]);
 
   // --- Add Candidate Form State ---
   const [showAddForm, setShowAddForm] = useState(false);
   const [newCandidate, setNewCandidate] = useState<any>({
-    candidate_Name: "",
+    candidate_id: "",
     batch: "",
     start_date: "",
     status: "",
@@ -179,33 +189,31 @@ useEffect(() => {
   }, [allCandidates, searchTerm, selectedStatuses]);
 
   // ---------------- Column Defs ----------------
-  const columnDefs: ColDef[] = useMemo<ColDef[]>(() => {
-    return [
-      { field: "id", headerName: "ID", pinned: "left", width: 80 },
-      { field: "candidate.full_name", headerName: "Full Name", minWidth: 150 },
-      { field: "batch", headerName: "Batch", sortable: true, maxWidth: 150 },
-      { field: "start_date", headerName: "Start Date", sortable: true, maxWidth: 130 },
-      {
-        field: "status",
-        headerName: "Status",
-        cellRenderer: StatusRenderer,
-        maxWidth: 150,
-        headerComponent: StatusHeaderComponent,
-        headerComponentParams: { selectedStatuses, setSelectedStatuses },
-      },
-      { headerName: "Instructor 1", minWidth: 150, valueGetter: (params) => params.data.instructor1?.name || "N/A" },
-      { headerName: "Instructor 2", minWidth: 150, valueGetter: (params) => params.data.instructor2?.name || "N/A" },
-      { headerName: "Instructor 3", minWidth: 150, valueGetter: (params) => params.data.instructor3?.name || "N/A" },
-      { field: "rating", headerName: "Rating", minWidth: 100 },
-      { field: "tech_rating", headerName: "Tech Rating", minWidth: 120 },
-      { field: "communication", headerName: "Communication", minWidth: 120 },
-      { field: "years_of_experience", headerName: "Experience (Years)", minWidth: 140 },
-      { field: "topics_finished", headerName: "Topics Finished", minWidth: 150 },
-      { field: "current_topics", headerName: "Current Topics", minWidth: 150 },
-      { field: "target_date_of_marketing", headerName: "Target Marketing Date", minWidth: 160 },
-      { field: "notes", headerName: "Notes", minWidth: 90 },
-    ];
-  }, [selectedStatuses]);
+  const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
+    { field: "id", headerName: "ID", pinned: "left", width: 80 },
+    { field: "candidate.full_name", headerName: "Full Name", minWidth: 150 },
+    { field: "batch", headerName: "Batch", sortable: true, maxWidth: 150 },
+    { field: "start_date", headerName: "Start Date", sortable: true, maxWidth: 130 },
+    {
+      field: "status",
+      headerName: "Status",
+      cellRenderer: StatusRenderer,
+      maxWidth: 150,
+      headerComponent: StatusHeaderComponent,
+      headerComponentParams: { selectedStatuses, setSelectedStatuses },
+    },
+    { headerName: "Instructor 1", minWidth: 150, valueGetter: (params) => params.data.instructor1?.name || "N/A" },
+    { headerName: "Instructor 2", minWidth: 150, valueGetter: (params) => params.data.instructor2?.name || "N/A" },
+    { headerName: "Instructor 3", minWidth: 150, valueGetter: (params) => params.data.instructor3?.name || "N/A" },
+    { field: "rating", headerName: "Rating", minWidth: 100 },
+    { field: "tech_rating", headerName: "Tech Rating", minWidth: 120 },
+    { field: "communication", headerName: "Communication", minWidth: 120 },
+    { field: "years_of_experience", headerName: "Experience (Years)", minWidth: 140 },
+    { field: "topics_finished", headerName: "Topics Finished", minWidth: 150 },
+    { field: "current_topics", headerName: "Current Topics", minWidth: 150 },
+    { field: "target_date_of_marketing", headerName: "Target Marketing Date", minWidth: 160 },
+    { field: "notes", headerName: "Notes", minWidth: 90 },
+  ], [selectedStatuses]);
 
   // ---------------- CRUD Handlers ----------------
   const handleRowUpdated = async (updatedRow: any) => {
@@ -234,7 +242,7 @@ useEffect(() => {
       setAllCandidates((prev) => [...prev, res.data]);
       setShowAddForm(false);
       setNewCandidate({
-        candidate_Name: "",
+        candidate_id: "",
         batch: "",
         start_date: "",
         status: "",
@@ -261,6 +269,7 @@ useEffect(() => {
   // ---------------- Render ----------------
   return (
     <div className="space-y-6 p-4">
+      {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Candidate Preparations</h1>
@@ -315,39 +324,57 @@ useEffect(() => {
 
       {/* Add Candidate Modal */}
       {showAddForm && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          {/* Overlay */}
+          <div
+            className="fixed inset-0 bg-black bg-opacity-40"
+            onClick={() => setShowAddForm(false)}
+          />
+          {/* Modal content */}
+          <div
+            className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto relative"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2 className="text-xl font-bold mb-4">Add Candidate Preparation</h2>
             <div className="space-y-3">
-              {Object.keys(newCandidate).map((field) => {
-                if (field === "status" || field.includes("instructor")) return null;
-                const label = field.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
-                if (field === "start_date" || field === "target_date_of_marketing") {
-                  return (
-                    <div key={field} className="space-y-1">
-                      <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</Label>
-                      <Input
-                        type="date"
-                        placeholder={label}
-                        value={newCandidate[field]}
-                        onChange={(e) => setNewCandidate({ ...newCandidate, [field]: e.target.value })}
-                        className="w-full p-2 border rounded"
-                      />
-                    </div>
-                  );
-                }
-                return (
-                  <div key={field} className="space-y-1">
-                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</Label>
-                    <Input
-                      placeholder={label}
-                      value={newCandidate[field]}
-                      onChange={(e) => setNewCandidate({ ...newCandidate, [field]: e.target.value })}
-                      className="w-full p-2 border rounded"
-                    />
-                  </div>
-                );
-              })}
+              {/* Candidate Dropdown */}
+              <div className="space-y-1">
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Candidate</Label>
+                <select
+                  value={newCandidate.candidate_id}
+                  onChange={(e) => setNewCandidate({ ...newCandidate, candidate_id: e.target.value })}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="">Select Candidate</option>
+                  {candidates.map((cand) => (
+                    <option key={cand.id} value={cand.id}>
+                      {cand.full_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Batch */}
+              <div className="space-y-1">
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Batch</Label>
+                <Input
+                  placeholder="Batch"
+                  value={newCandidate.batch}
+                  onChange={(e) => setNewCandidate({ ...newCandidate, batch: e.target.value })}
+                  className="w-full p-2 border rounded"
+                />
+              </div>
+
+              {/* Start Date */}
+              <div className="space-y-1">
+                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Start Date</Label>
+                <Input
+                  type="date"
+                  value={newCandidate.start_date}
+                  onChange={(e) => setNewCandidate({ ...newCandidate, start_date: e.target.value })}
+                  className="w-full p-2 border rounded"
+                />
+              </div>
 
               {/* Instructor Dropdowns */}
               {["1", "2", "3"].map((num) => (
@@ -368,20 +395,13 @@ useEffect(() => {
                     className="w-full p-2 border rounded"
                   >
                     <option value="">Select Instructor</option>
-
-                    {/* Ensure current instructor shows even if not in list */}
-                    {newCandidate[`instructor${num}_id`] &&
-                      !instructors.some((ins) => ins.id === Number(newCandidate[`instructor${num}_id`])) && (
-                        <option value={newCandidate[`instructor${num}_id`]}>
-                          {newCandidate[`instructor${num}_Name`] || "Current Instructor"}
+                    {instructors
+                      .filter((ins) => ins.status === 1)
+                      .map((ins) => (
+                        <option key={ins.id} value={ins.id}>
+                          {ins.name}
                         </option>
-                    )}
-
-                    {instructors.map((ins) => (
-                      <option key={ins.id} value={ins.id}>
-                        {ins.name}
-                      </option>
-                    ))}
+                      ))}
                   </select>
                 </div>
               ))}
@@ -403,6 +423,7 @@ useEffect(() => {
               </div>
             </div>
 
+            {/* Modal Buttons */}
             <div className="flex justify-end mt-6 space-x-3">
               <button onClick={() => setShowAddForm(false)} className="px-4 py-2 bg-gray-300 rounded">
                 Cancel
