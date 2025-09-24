@@ -96,7 +96,7 @@ export default function CandidateSearchPage() {
   const [loading, setLoading] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
-
+  
   // Get candidateId from URL query string if present
   const searchParams = useSearchParams();
   const candidateIdFromUrl = searchParams.get("candidateId");
@@ -105,8 +105,11 @@ export default function CandidateSearchPage() {
     setOpenSections(prev => ({
       ...prev,
       [section]: !prev[section]
-    }));
+    }));   
   };
+      const getAuthHeaders = () => {
+    const token = localStorage.getItem("token");
+    return token ? { Authorization: `Bearer ${token}` } : {};};
 
   // Optimized search with better error handling
   useEffect(() => {
@@ -123,7 +126,13 @@ export default function CandidateSearchPage() {
     debounceTimeout.current = setTimeout(async () => {
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/candidates/search-names/${encodeURIComponent(searchTerm)}`
+          `${process.env.NEXT_PUBLIC_API_URL}/candidates/search-names/${encodeURIComponent(searchTerm)}`,
+          {
+            headers: {
+              ...getAuthHeaders(),
+              'Content-Type': 'application/json'
+            }
+          }
         );
         
         if (res.ok) {
@@ -149,13 +158,25 @@ export default function CandidateSearchPage() {
     try {
       // Get candidate details
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/candidates/details/${suggestion.id}`
-      );
+  `${process.env.NEXT_PUBLIC_API_URL}/candidates/details/${suggestion.id}`,
+      {
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json'
+        }
+      }
+    );
       const data = await res.json();
       // Get candidate sessions
       const sessionRes = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/candidates/sessions/${suggestion.id}`
-      );
+      `${process.env.NEXT_PUBLIC_API_URL}/candidates/sessions/${suggestion.id}`,
+      {
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json'
+        }
+      }
+    );
       const sessionData = await sessionRes.json();
       // Merge data
       setSelectedCandidate({
@@ -177,12 +198,24 @@ export default function CandidateSearchPage() {
     try {
       // Get candidate details
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/candidates/details/${id}`
+        `${process.env.NEXT_PUBLIC_API_URL}/candidates/details/${id}`,
+        {
+          headers: {
+            ...getAuthHeaders(),
+            'Content-Type': 'application/json'
+          }
+        }
       );
       const data = await res.json();
       // Get candidate sessions
       const sessionRes = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/candidates/sessions/${id}`
+  `${process.env.NEXT_PUBLIC_API_URL}/candidates/sessions/${id}`,
+        {
+          headers: {
+            ...getAuthHeaders(),
+            'Content-Type': 'application/json'
+          }
+        }
       );
       const sessionData = await sessionRes.json();
       // Merge data
