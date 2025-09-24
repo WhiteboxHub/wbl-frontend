@@ -53,19 +53,16 @@ const fieldSections: Record<string, string> = {
   email: "Basic Information",
   phone: "Basic Information",
   status: "Basic Information",
-
-  // batchid: "Basic Information",
-
   batchid: "Contact Information",
-
+  // batchid: "Basic Information",
   batchname: "Basic Information",
   target_date_of_marketing:"Basic Information",
-  // company_name: "Basic Information",
+  company_name: "Basic Information",
   linkedin_id: "Contact Information",
   enrolled_date: "Professional Information",
   startdate: "Professional Information",
   type: "Professional Information",
-  company_name: "Professional Information",
+  // company_name: "Professional Information",
   linkedin_connected: "Professional Information",
   intro_email_sent: "Professional Information",
   intro_call: "Professional Information",
