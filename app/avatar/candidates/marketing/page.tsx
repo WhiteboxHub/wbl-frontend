@@ -1,5 +1,6 @@
 
 "use client";
+import Link from "next/link"; 
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable";
@@ -45,23 +46,31 @@ export default function CandidatesMarketingPage() {
     instructor3_id: "",
   });
 
-  // Fetch candidates
-  const fetchCandidates = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing?page=${page}&limit=${limit}`
-      );
-      const data = Array.isArray(res.data.data) ? res.data.data : [];
-      setAllCandidates(data);
-      setFilteredCandidates(data);
-    } catch (err) {
-      console.error(err);
-      setError("Failed to load candidates.");
-    } finally {
-      setLoading(false);
-    }
-  }, [page, limit]);
+const token = localStorage.getItem("token");
+
+const fetchCandidates = useCallback(async () => {
+  try {
+    setLoading(true);
+    const res = await axios.get(
+      `${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing?page=${page}&limit=${limit}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+    const data = Array.isArray(res.data.data) ? res.data.data : [];
+    setAllCandidates(data);
+    setFilteredCandidates(data);
+  } catch (err: any) {
+    console.error(err);
+    setError(err.response?.data?.message || "Failed to load candidates.");
+  } finally {
+    setLoading(false);
+  }
+}, [page, limit, token]);
+
+useEffect(() => {
+  fetchCandidates();
+}, [fetchCandidates]);
 
   useEffect(() => {
     fetchCandidates();
@@ -138,15 +147,39 @@ export default function CandidatesMarketingPage() {
     </div>
   );
 
+  const CandidateNameRenderer = (params: any) => {
+  const candidateId = params.data?.candidate_id; // Get candidate ID from row data
+  const candidateName = params.value; // Get candidate name
+  
+  if (!candidateId || !candidateName) {
+    return <span className="text-gray-500">{candidateName || "N/A"}</span>;
+  }
+  
+  return (
+    <Link 
+      href={`/avatar/candidates/search?candidateId=${candidateId}`}  
+      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
+    >
+      {candidateName}
+    </Link>
+  );
+};
+
   // Column definitions
   const columnDefs: ColDef[] = useMemo(
     () => [
       {
-        field: "candidate.full_name",
+        field: "candidate_name",
         headerName: "Full Name",
         sortable: true,
         minWidth: 150,
+
         editable: true,
+        cellRenderer: CandidateNameRenderer,
+
+        
+        valueGetter: (params) => params.data.candidate?.full_name || "N/A",
+
       },
       {
         field: "start_date",
@@ -163,33 +196,32 @@ export default function CandidatesMarketingPage() {
         editable: true,
       },
       {
-        field: "instructor1.name",
+        field: "instructor1_name",
         headerName: "Instructor 1",
-        minWidth: 150,
-        valueGetter: (params) => params.data.instructor1?.name || "N/A",
-        editable: true,
-      },
-      {
-        field: "instructor2.name",
-        headerName: "Instructor 2",
-        minWidth: 150,
-        valueGetter: (params) => params.data.instructor2?.name || "N/A",
-        editable: true,
-      },
-      {
-        field: "instructor3.name",
-        headerName: "Instructor 3",
-        minWidth: 150,
-        valueGetter: (params) => params.data.instructor3?.name || "N/A",
-        editable: true,
-      },
-      { field: "email", headerName: "Email", minWidth: 150, editable: true },
-      {
-        field: "password",
-        headerName: "Password",
         minWidth: 150,
         editable: false,
       },
+      {
+        field: "instructor2_name",
+        headerName: "Instructor 2",
+        minWidth: 150,
+        editable: false,
+      },
+      {
+        field: "instructor3_name",
+        headerName: "Instructor 3",
+        minWidth: 150,
+        editable: false,
+      },
+      {
+        field: "marketing_manager_obj",
+        headerName: "Marketing Manager",
+        minWidth: 150,
+        editable: false,
+        valueGetter: (params) => params.data.marketing_manager_obj?.name || "N/A",
+      },
+      { field: "email", headerName: "Email", minWidth: 150, editable: true },
+      { field: "password", headerName: "Password", minWidth: 150, editable: true },
       {
         field: "google_voice_number",
         headerName: "Google Voice Number",
@@ -197,12 +229,7 @@ export default function CandidatesMarketingPage() {
         editable: true,
       },
       { field: "rating", headerName: "Rating", maxWidth: 100, editable: true },
-      {
-        field: "priority",
-        headerName: "Priority",
-        maxWidth: 100,
-        editable: true,
-      },
+      { field: "priority", headerName: "Priority", maxWidth: 100, editable: true },
       { field: "notes", headerName: "Notes", minWidth: 100, editable: true },
       {
         field: "candidate_resume",
@@ -213,7 +240,6 @@ export default function CandidatesMarketingPage() {
     ],
     []
   );
-
   // Handle row updates
   const handleRowUpdated = async (updatedRow: any) => {
     if (!updatedRow || !updatedRow.candidate_id) {
@@ -464,3 +490,4 @@ export default function CandidatesMarketingPage() {
     </div>
   );
 }
+

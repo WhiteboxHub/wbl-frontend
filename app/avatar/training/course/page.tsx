@@ -4,7 +4,7 @@
 
 import React, { useEffect, useState } from "react";
 import { ColDef } from "ag-grid-community";
-// import { AGGridTable } from "@/components/AGGridTable";
+import { AGGridTable } from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { Button } from "@/components/admin_ui/button";
@@ -18,8 +18,7 @@ import {
 import { SearchIcon } from "lucide-react";
 import axios from "axios";
 import { toast, Toaster } from "sonner";
-import dynamic from "next/dynamic"; 
-const AGGridTable = dynamic(() => import("@/components/AGGridTable"), { ssr: false });
+
 
 export default function CoursePage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -59,22 +58,28 @@ export default function CoursePage() {
     {
       field: "description",
       headerName: "Description",
-      width: 350,
+      width: 410,
       editable: true,
     },
     {
       field: "syllabus",
       headerName: "Syllabus",
-      width: 350,
+      width: 410,
       editable: true,
     },
   ];
+  const token = localStorage.getItem("token"); // get token once
 
   const fetchCourses = async () => {
     try {
       setLoading(true);
       const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/courses`
+        `${process.env.NEXT_PUBLIC_API_URL}/courses`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // pass token in headers
+          },
+        }
       );
 
       const sortedCourses = res.data.sort((a: any, b: any) => b.id - a.id);
@@ -268,3 +273,5 @@ export default function CoursePage() {
     </div>
   );
 }
+
+
