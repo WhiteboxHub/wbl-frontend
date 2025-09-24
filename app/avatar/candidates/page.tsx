@@ -430,31 +430,45 @@ const fetchCandidates = useCallback(
 
 
   // Fetch batches
-  useEffect(() => {
-    const fetchBatches = async () => {
-      setBatchesLoading(true);
-      try {
-        const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/batch?course=${courseId}`
-        );
-        
-        const sortedBatches = [...res.data].sort((a: Batch, b: Batch) => b.batchid - a.batchid);
-        setBatches(sortedBatches);
-
-        if (isNewCandidate && sortedBatches.length > 0) {
-          setFormData(prev => ({
-            ...prev,
-            batchid: sortedBatches[0].batchid
-          }));
-        }
-      } catch (error) {
-        console.error("Failed to load batches", error);
-      } finally {
+useEffect(() => {
+  const fetchBatches = async () => {
+    setBatchesLoading(true);
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        console.error("No access token found");
         setBatchesLoading(false);
+        return;
       }
-    };
-    fetchBatches();
-  }, [courseId, isNewCandidate]);
+
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/batch?course=${courseId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const sortedBatches = [...res.data].sort((a: Batch, b: Batch) => b.batchid - a.batchid);
+      setBatches(sortedBatches);
+
+      if (isNewCandidate && sortedBatches.length > 0) {
+        setFormData(prev => ({
+          ...prev,
+          batchid: sortedBatches[0].batchid
+        }));
+      }
+    } catch (error) {
+      console.error("Failed to load batches", error);
+    } finally {
+      setBatchesLoading(false);
+    }
+  };
+
+  fetchBatches();
+}, [courseId, isNewCandidate]);
+
 
   useEffect(() => {
     let filtered = [...candidates];

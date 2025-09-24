@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -18,6 +17,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   const [mounted, setMounted] = useState(false);
   const [pulseCount, setPulseCount] = useState(0);
   const [showPulse, setShowPulse] = useState(true);
+
   const sidebarRef = useRef(null);
   const toggleBtnRef = useRef(null);
 
@@ -30,9 +30,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     if (pulseCount < 3 && showPulse && !sidebarOpen) {
       const timer = setTimeout(() => {
         setPulseCount((prev) => prev + 1);
-        if (pulseCount >= 2) {
-          setShowPulse(false);
-        }
+        if (pulseCount >= 2) setShowPulse(false);
       }, 2000);
       return () => clearTimeout(timer);
     }
@@ -86,19 +84,35 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [setSidebarOpen]);
 
-  // Fetch placements + interviews
+  // Fetch placements + interviews with Authorization header
   useEffect(() => {
     const fetchData = async () => {
       try {
+        const token = localStorage.getItem("access_token");
+        if (!token) {
+          console.error("No access token found");
+          return;
+        }
+
         const placementsRes = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/candidate/placements`
+          `${process.env.NEXT_PUBLIC_API_URL}/candidate/placements`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
         setPlacementsData(placementsRes.data.data || placementsRes.data);
 
         const interviewsRes = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/interviews`
+          `${process.env.NEXT_PUBLIC_API_URL}/interviews`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
-        setInterviewsData(interviewsRes.data || []); // <- directly use array
+        setInterviewsData(interviewsRes.data || []);
       } catch (err) {
         console.error("Error fetching data:", err);
       }
@@ -111,9 +125,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
 
   if (!isAuthenticated) return null;
 
-  const getCandidateName = (interview) => {
-    return interview.candidate?.full_name || "Unknown Candidate";
-  };
+  const getCandidateName = (interview) => interview.candidate?.full_name || "Unknown Candidate";
 
   return (
     <>
@@ -139,11 +151,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           stroke="currentColor"
           strokeWidth={2.5}
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d={sidebarOpen ? "M15 19l-7-7 7-7" : "M9 5l7 7-7 7"}
-          />
+          <path strokeLinecap="round" strokeLinejoin="round" d={sidebarOpen ? "M15 19l-7-7 7-7" : "M9 5l7 7-7 7"} />
         </svg>
       </button>
 
@@ -211,14 +219,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                         </div>
                         <p className="text-blue-500 font-semibold">{interview.company}</p>
 
-                        {/* URL link */}
                         {interview.url && (
-                          <a
-                            href={interview.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="mt-1 block text-sm text-indigo-400 underline hover:text-indigo-600"
-                          >
+                          <a href={interview.url} target="_blank" rel="noopener noreferrer" className="mt-1 block text-sm text-indigo-400 underline hover:text-indigo-600">
                             Open Interview URL
                           </a>
                         )}

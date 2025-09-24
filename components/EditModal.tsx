@@ -381,18 +381,33 @@ export function EditModal({
   };
   const [batches, setBatches] = useState<Batch[]>([]);
 
+const courseId = "3";
 
-  const courseId = "3";
-  const fetchBatches = async (courseId: string) => { // Accept courseId as param
-    try {
-      const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/batch?course=${courseId}`
-      );
-      setBatches(res.data);
-    } catch (error) {
-      console.error("Failed to fetch batches:", error);
+const fetchBatches = async (courseId: string) => {
+  try {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      console.error("No access token found");
+      setBatches([]);
+      return;
     }
-  };
+
+    const res = await axios.get(
+      `${process.env.NEXT_PUBLIC_API_URL}/batch?course=${courseId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    setBatches(res.data);
+  } catch (error) {
+    console.error("Failed to fetch batches:", error);
+    setBatches([]);
+  }
+};
+
 
   React.useEffect(() => {
     if (isOpen) {

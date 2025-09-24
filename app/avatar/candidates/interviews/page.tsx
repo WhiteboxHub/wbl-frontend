@@ -49,21 +49,36 @@ export default function CandidatesInterviews() {
   };
 
   // Marketing candidates
-  const [marketingCandidates, setMarketingCandidates] = useState<any[]>([]);
-  useEffect(() => {
-    const fetchMarketingCandidates = async () => {
-      try {
-        const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/candidates/marketing/active`
-        );
-        setMarketingCandidates(Array.isArray(res.data) ? res.data : []);
-      } catch (err) {
-        console.error("Failed to fetch marketing candidates", err);
+const [marketingCandidates, setMarketingCandidates] = useState<any[]>([]);
+
+useEffect(() => {
+  const fetchMarketingCandidates = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        console.error("No access token found");
         setMarketingCandidates([]);
+        return;
       }
-    };
-    fetchMarketingCandidates();
-  }, []);
+
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/candidates/marketing/active`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      setMarketingCandidates(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error("Failed to fetch marketing candidates", err);
+      setMarketingCandidates([]);
+    }
+  };
+
+  fetchMarketingCandidates();
+}, []);
 
   // Fetch interviews
 const fetchInterviews = async (page: number, perPage: number) => {
