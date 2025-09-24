@@ -7,7 +7,6 @@ import {
 } from "@/components/admin_ui/dialog";
 import { Label } from "@/components/admin_ui/label";
 import { Badge } from "@/components/admin_ui/badge";
-
 interface ViewModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -134,6 +133,7 @@ const fieldSections: Record<string, string> = {
   mode_of_interview: "Basic Information",
   interviewer_emails: "Professional Information",
   interviewer_contact: "Professional Information",
+  employee_name: "Basic Information"
 };
 
 const dateFields = [

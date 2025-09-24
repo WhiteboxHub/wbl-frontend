@@ -10,8 +10,6 @@ import { Label } from "@/components/admin_ui/label";
 import { Input } from "@/components/admin_ui/input";
 import { Textarea } from "@/components/admin_ui/textarea";
 import axios from "axios";
-
-
 interface Batch {
   batchid: number;
   batchname: string;
@@ -155,6 +153,9 @@ const fieldSections: Record<string, string> = {
   notes: "Notes",
   course_name: "Professional Information",
   subject_name: "Basic Information",
+  assigned_date:"Basic Information",
+  employee_name:"Basic Information",
+
 };
 
 const workVisaStatusOptions = [
@@ -338,6 +339,8 @@ const dateFields = [
   "interview_date",
   "placement_date",
   "target_date_of_marketing",
+  "assigned_date",
+  "due_date"
 ];
 
 export function EditModal({
