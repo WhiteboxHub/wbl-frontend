@@ -42,7 +42,7 @@ const fieldSections: Record<string, string> = {
   email: "Basic Information",
   phone: "Basic Information",
   status: "Basic Information",
-  batchid: "Basic Information",
+  // batchid: "Basic Information",
   batchname: "Basic Information",
   linkedin_id: "Contact Information",
   enrolled_date: "Professional Information",
@@ -182,6 +182,11 @@ const vendorStatuses = [
   { value: "do_not_contact", label: "Do Not Contact" },
   { value: "inactive", label: "Inactive" },
   { value: "prospect", label: "Prospect" },
+];
+const statusOptions = [
+  { value: "open", label: "Open" },
+  { value: "future", label: "Future" },
+  { value: "closed", label: "Closed" },
 ];
 
 const enumOptions: Record<string, { value: string; label: string }[]> = {
@@ -474,7 +479,10 @@ export function EditModal({
 
   const isVendorModal = title.toLowerCase().includes("vendor");
   const isVendorTable = title.toLowerCase().includes("vendor");
+  // const statusOptions =title.toLowerCase().includes("lead")
+  
 
+  
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
@@ -559,6 +567,7 @@ export function EditModal({
                     const isTypeField = key.toLowerCase() === "type";
                     const isBatchField = key.toLowerCase() === "batchid";
                     const isVendorField = isVendorModal && key.toLowerCase() === "status";
+                    const isLeadModal = title.toLowerCase().includes("lead");
 
                     // Instructor Dropdowns
                     if (key === "instructor1_name") {
@@ -765,6 +774,20 @@ export function EditModal({
                               </option>
                             ))}
                           </select>
+                        ) : isLeadModal && key.toLowerCase() === "status" ? (
+                          <select
+                            value={String(formData[key] ?? "")}
+                            onChange={(e) => handleChange(key, e.target.value)}
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          >
+                            {statusOptions.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+
+
                         ) : typeof value === "string" && value.length > 100 ? (
                           <Textarea
                             value={formData[key] || ""}
