@@ -380,18 +380,33 @@ export function EditModal({
   };
   const [batches, setBatches] = useState<Batch[]>([]);
 
+const courseId = "3";
 
-  const courseId = "3";
-  const fetchBatches = async (courseId: string) => { // Accept courseId as param
-    try {
-      const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/batch?course=${courseId}`
-      );
-      setBatches(res.data);
-    } catch (error) {
-      console.error("Failed to fetch batches:", error);
+const fetchBatches = async (courseId: string) => {
+  try {
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      console.error("No access token found");
+      setBatches([]);
+      return;
     }
-  };
+
+    const res = await axios.get(
+      `${process.env.NEXT_PUBLIC_API_URL}/batch?course=${courseId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    setBatches(res.data);
+  } catch (error) {
+    console.error("Failed to fetch batches:", error);
+    setBatches([]);
+  }
+};
+
 
   React.useEffect(() => {
     if (isOpen) {
@@ -418,41 +433,48 @@ export function EditModal({
   
 
   React.useEffect(() => {
-
   const fetchCourses = async () => {
     try {
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/courses`);
+      const token = localStorage.getItem("token"); // ✅ get token
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/courses`, {
+        headers: { Authorization: `Bearer ${token}` }, // ✅ send token
+      });
       setCourses(res.data);
     } catch (error) {
       console.error("Failed to fetch courses:", error);
     }
   };
-  
+
   const fetchSubjects = async () => {
-      try {
-        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/subjects`);
-        setSubjects(res.data);
-      } catch (error) {
-        console.error("Failed to fetch subjects:", error);
-      }
-    };
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/subjects`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setSubjects(res.data);
+    } catch (error) {
+      console.error("Failed to fetch subjects:", error);
+    }
+  };
 
+  const fetchEmployees = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/employees`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-    const fetchEmployees = async () => {
-      try {
-        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/employees`);
+      const activeEmployees = res.data.filter((emp: any) => emp.status === 1);
+      setEmployees(activeEmployees);
+    } catch (error) {
+      console.error("Failed to fetch employees:", error);
+    }
+  };
 
-        const activeEmployees = res.data.filter((emp: any) => emp.status === 1);
-        setEmployees(activeEmployees);
-      } catch (error) {
-        console.error("Failed to fetch employees:", error);
-      }
-    };
-
-    fetchCourses();
-    fetchSubjects();
-    fetchEmployees();
-  }, []);
+  fetchCourses();
+  fetchSubjects();
+  fetchEmployees();
+}, []);
 
 
   const handleChange = (key: string, value: any) => {
