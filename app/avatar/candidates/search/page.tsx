@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
@@ -26,10 +27,10 @@ interface CandidateData {
   placement_records: any[];
   login_access: any;
   miscellaneous: any;
-  session_records?: any[]; // Added to fix the error
+  session_records?: any[];
 }
 
-const StatusRenderer = ({ status }: {status: string }) => {
+const StatusRenderer = ({ status }: { status: string }) => {
   const statusStr = status?.toString().toLowerCase() ?? "";
   const colorMap: Record<string, string> = {
     active: "bg-green-100 text-green-800",
@@ -39,7 +40,7 @@ const StatusRenderer = ({ status }: {status: string }) => {
     discontinued: "bg-red-100 text-red-800",
     break: "bg-pink-100 text-pink-800",
   };
-  const badgeClass = colorMap[statusStr] ?? "bg-black-100 text-black-800";
+  const badgeClass = colorMap[statusStr] ?? "bg-gray-100 text-gray-800";
   return <Badge className={badgeClass}>{status?.toString().toUpperCase()}</Badge>;
 };
 
@@ -49,26 +50,19 @@ const DateFormatter = (date: any) =>
 const AmountFormatter = (amount: any) => 
   amount ? `$${Number(amount).toLocaleString()}` : "Not Set";
 
-// Helper: Check if a value is a potential URL (basic check)
+// Helper: Check if a value is a potential URL
 function isPotentialUrl(val: any): boolean {
   if (typeof val !== "string") return false;
   const trimmed = val.trim();
 
-  // Case 1: starts with http:// or https://
   if (/^https?:\/\//i.test(trimmed)) return true;
-
-  // Case 2: starts with www.
   if (/^www\./i.test(trimmed)) return true;
-
-  // Case 3: looks like domain.tld with no spaces, ending in a common TLD
-  if (/^[a-z0-9.-]+\.(com|org|net|io|co)(\/.*)?$/i.test(trimmed)) {
-    return true;
-  }
+  if (/^[a-z0-9.-]+\.(com|org|net|io|co)(\/.*)?$/i.test(trimmed)) return true;
 
   return false;
 }
 
-// Helper: Render a button to open a link in a new tab (with optional label)
+// Helper: Render a button to open a link in a new tab
 function renderOpenLinkButton(url: string, label: string = "Open") {
   let finalUrl = url.trim();
   if (!/^https?:\/\//.test(finalUrl)) {
@@ -97,7 +91,7 @@ export default function CandidateSearchPage() {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
   
-  // Get candidateId from URL query string if present
+
   const searchParams = useSearchParams();
   const candidateIdFromUrl = searchParams.get("candidateId");
 
@@ -106,6 +100,13 @@ export default function CandidateSearchPage() {
       ...prev,
       [section]: !prev[section]
     }));   
+
+  };
+
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem("token");
+    return token ? { Authorization: `Bearer ${token}` } : {};
+
   };
       const getAuthHeaders = () => {
     const token = localStorage.getItem("token");
@@ -147,7 +148,7 @@ export default function CandidateSearchPage() {
         setSuggestions([]);
         console.error("Search failed:", error);
       }
-    }, 100); // Reduced to 100ms for faster response
+    }, 100);
   }, [searchTerm]);
 
   // Select candidate and get full details
@@ -156,6 +157,7 @@ export default function CandidateSearchPage() {
     setShowSuggestions(false);
     setSearchTerm("");
     try {
+
       // Get candidate details
       const res = await fetch(
   `${process.env.NEXT_PUBLIC_API_URL}/candidates/details/${suggestion.id}`,
@@ -179,6 +181,7 @@ export default function CandidateSearchPage() {
     );
       const sessionData = await sessionRes.json();
       // Merge data
+
       setSelectedCandidate({
         ...data,
         session_records: sessionData.sessions || []
@@ -190,12 +193,13 @@ export default function CandidateSearchPage() {
     }
   };
 
-  // Helper: Fetch candidate by ID (for query string flow)
+  // Fetch candidate by ID
   const fetchCandidateById = async (id: number) => {
     setLoading(true);
     setShowSuggestions(false);
     setSearchTerm("");
     try {
+
       // Get candidate details
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/candidates/details/${id}`,
@@ -219,6 +223,7 @@ export default function CandidateSearchPage() {
       );
       const sessionData = await sessionRes.json();
       // Merge data
+
       setSelectedCandidate({
         ...data,
         session_records: sessionData.sessions || []
@@ -233,152 +238,138 @@ export default function CandidateSearchPage() {
   // Effect: If candidateIdFromUrl is present, fetch candidate by ID
   useEffect(() => {
     if (candidateIdFromUrl) {
-      // Only fetch if the selected candidate is not already the right one
-      if (
-        !selectedCandidate ||
-        selectedCandidate.candidate_id !== Number(candidateIdFromUrl)
-      ) {
-        fetchCandidateById(Number(candidateIdFromUrl));
+      const candidateId = Number(candidateIdFromUrl);
+      if (!isNaN(candidateId)) {
+        fetchCandidateById(candidateId);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidateIdFromUrl]);
 
-
   const renderInfoCard = (title: string, icon: React.ReactNode, data: any) => (
-    <div className="bg-white dark:bg-black-800 rounded-lg border border-black-200 dark:border-black-700 p-6 shadow-sm">
-      <div className="flex items-center gap-3 mb-4 pb-2 border-b border-black-200 dark:border-black-700">
+    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
+      <div className="flex items-center gap-3 mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
         {icon}
-        <h4 className="font-semibold text-lg text-black-900 dark:text-black-100">{title}</h4>
+        <h4 className="font-semibold text-lg text-gray-900 dark:text-gray-100">{title}</h4>
       </div>
       
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-1 text-sm">
-          {Object.entries(data).map(([key, value]) => {
-            if (value === null || value === undefined || value === "") return null;
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-1 text-sm">
+        {Object.entries(data).map(([key, value]) => {
+          if (value === null || value === undefined || value === "") return null;
 
-            const displayKey = key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()
-              .split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+          const displayKey = key.replace(/_/g, ' ')
+            .replace(/([A-Z])/g, ' $1')
+            .trim()
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
 
-            let displayValue = value;
+          let displayValue: React.ReactNode = value as React.ReactNode;
 
-                if ((key === 'Last Login' && value) || (key === 'Last Modified' && value)) {
-                  const date = new Date(value as string | number | Date);
-                  displayValue = date.toLocaleString('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true
-                  });
-                }
-            // --- Begin extended rendering logic ---
-            if (key === 'candidate_folder' && value && value.toString().trim() !== '') {
-              const url = value.toString().trim();
-              let finalUrl = url;
-              if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                finalUrl = 'https://' + url;
-              }
+          if ((key === 'Last Login' && value) || (key === 'Last Modified' && value)) {
+            const date = new Date(value as string | number | Date);
+            displayValue = date.toLocaleString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true
+            });
+          } else if (key === 'candidate_folder' && value && value.toString().trim() !== '') {
+            const url = value.toString().trim();
+            let finalUrl = url;
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+              finalUrl = 'https://' + url;
+            }
 
-              displayValue = (
-                <button
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer whitespace-nowrap inline-block min-w-0 max-w-fit"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    window.open(finalUrl, '_blank', 'noopener,noreferrer');
-                  }}
-                >
+            displayValue = (
+              <button
+                className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer whitespace-nowrap inline-block min-w-0 max-w-fit"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  window.open(finalUrl, '_blank', 'noopener,noreferrer');
+                }}
+              >
                 Folder
-                </button>
-              );
-            } else if (key === 'email' && value && value.toString().trim() !== '') {
-              // Render email as mailto link/button
-              displayValue = (
-                <a
-                  href={`mailto:${value}`}
-                  className="text-blue-600 hover:underline font-medium"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {value as React.ReactNode}
-                </a>
-              );
-            } else if (key.toLowerCase().includes('phone') && value && value.toString().trim() !== '') {
-              // Render phone as tel: link/button
-              displayValue = (
-                <a
-                  href={`tel:${value}`}
-                  className="text-blue-600 hover:underline font-medium"
-                >
-                  {value as React.ReactNode}
-                </a>
-              );
-            } else if (key === 'linkedin_id' && value && value.toString().trim() !== '') {
-              // Render LinkedIn as button, similar to recording_link
-              let url = value.toString().trim();
-              let finalUrl = url;
-              // If value is not a URL, prefix with https://
-              if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                finalUrl = 'https://' + url;
-              }
-              displayValue = (
-                <button
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer whitespace-nowrap inline-block min-w-0 max-w-fit"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    window.open(finalUrl, '_blank', 'noopener,noreferrer');
-                  }}
-                >
-                  LinkedIn
-                </button>
-              );
-            } else if (key.toLowerCase().includes('date')) {
-              displayValue = DateFormatter(value);
-            } else if (key === 'status') {
-              displayValue = <StatusRenderer status={value as string} />;
+              </button>
+            );
+          } else if (key === 'email' && value && value.toString().trim() !== '') {
+            displayValue = (
+              <a
+                href={`mailto:${value}`}
+                className="text-blue-600 hover:underline font-medium"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {value as string}
+              </a>
+            );
+          } else if (key.toLowerCase().includes('phone') && value && value.toString().trim() !== '') {
+            displayValue = (
+              <a
+                href={`tel:${value}`}
+                className="text-blue-600 hover:underline font-medium"
+              >
+                {value as string}
+              </a>
+            );
+          } else if (key === 'linkedin_id' && value && value.toString().trim() !== '') {
+            let url = value.toString().trim();
+            let finalUrl = url;
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+              finalUrl = 'https://' + url;
             }
-            // --- Enhanced logic for agreement, arrays, and url-like strings ---
-            else if (key === "agreement") {
-              displayValue = value === "Y" ? " Yes" : " No";
-            }
-            // If value is an array, check if items are potential URLs and render buttons
-            else if (Array.isArray(value) && value.length > 0 && value.every(v => isPotentialUrl(v))) {
-              displayValue = (
-                <div className="flex flex-wrap gap-1">
-                  {value.map((url: string, idx: number) => (
-                    <span key={url + idx}>{renderOpenLinkButton(url, `Link ${idx + 1}`)}</span>
-                  ))}
-                </div>
-              );
-            }
-            // If value is a url-like string, render open link button
-            else if (typeof value === "string" && isPotentialUrl(value)) {
-              displayValue = renderOpenLinkButton(value, "Open Link");
-            }
-
-            return (
-              <div key={key} className="flex items-center py-3 border-b border-black-100 dark:border-black-600 last:border-b-0">
-                <span className="text-black-600 dark:text-black-400 font-semibold w-auto flex-shrink-0 mr-3">{displayKey}:</span>
-                <span className="text-black-900 dark:text-black-100 font-medium">{displayValue as React.ReactNode}</span>
+            displayValue = (
+              <button
+                className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer whitespace-nowrap inline-block min-w-0 max-w-fit"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  window.open(finalUrl, '_blank', 'noopener,noreferrer');
+                }}
+              >
+                LinkedIn
+              </button>
+            );
+          } else if (key.toLowerCase().includes('date')) {
+            displayValue = DateFormatter(value);
+          } else if (key === 'status') {
+            displayValue = <StatusRenderer status={value as string} />;
+          } else if (key === "agreement") {
+            displayValue = value === "Y" ? "Yes" : "No";
+          } else if (Array.isArray(value) && value.length > 0 && value.every(v => isPotentialUrl(v))) {
+            displayValue = (
+              <div className="flex flex-wrap gap-1">
+                {value.map((url: string, idx: number) => (
+                  <span key={idx}>{renderOpenLinkButton(url, `Link ${idx + 1}`)}</span>
+                ))}
               </div>
             );
-          })}
-        </div>
+          } else if (typeof value === "string" && isPotentialUrl(value)) {
+            displayValue = renderOpenLinkButton(value, "Open Link");
+          }
 
+          return (
+            <div key={key} className="flex items-center py-3 border-b border-gray-100 dark:border-gray-600 last:border-b-0">
+              <span className="text-gray-600 dark:text-gray-400 font-semibold w-auto flex-shrink-0 mr-3">{displayKey}:</span>
+              <span className="text-gray-900 dark:text-gray-100 font-medium">{displayValue}</span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 
   const renderTable = (title: string, icon: React.ReactNode, records: any[]) => {
     if (!records || records.length === 0) {
       return (
-        <div className="bg-white dark:bg-black-800 rounded-lg border border-black-200 dark:border-black-700 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
           <div className="flex items-center gap-2 mb-3">
             {icon}
-            <h4 className="font-semibold text-black-900 dark:text-black-100">{title}</h4>
+            <h4 className="font-semibold text-gray-900 dark:text-gray-100">{title}</h4>
           </div>
-          <p className="text-black-500 dark:text-black-400 text-sm">No records found</p>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">No records found</p>
         </div>
       );
     }
@@ -386,114 +377,109 @@ export default function CandidateSearchPage() {
     const columns = Object.keys(records[0]).filter(key => key !== 'id' && key !== 'error');
 
     return (
-      <div className="bg-white dark:bg-black-800 rounded-lg border border-black-200 dark:border-black-700 p-6 shadow-sm">
-        <div className="flex items-center gap-3 mb-4 pb-2 border-b border-black-200 dark:border-black-700">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
+        <div className="flex items-center gap-3 mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
           {icon}
-          <h4 className="font-semibold text-lg text-black-900 dark:text-black-100">{title}</h4>
+          <h4 className="font-semibold text-lg text-gray-900 dark:text-gray-100">{title}</h4>
           <Badge variant="secondary">{records.length}</Badge>
         </div>
 
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm table-fixed">
-          <thead>
-            <tr className="border-b border-black-200 dark:border-black-600">
-              {columns.map(column => {
-                const displayColumn = column
-                  .replace(/_/g, ' ')
-                  .replace(/([A-Z])/g, ' $1')
-                  .trim()
-                  .split(' ')
-                  .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                  .join(' ');
+            <thead>
+              <tr className="border-b border-gray-200 dark:border-gray-600">
+                {columns.map(column => {
+                  const displayColumn = column
+                    .replace(/_/g, ' ')
+                    .replace(/([A-Z])/g, ' $1')
+                    .trim()
+                    .split(' ')
+                    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                    .join(' ');
 
-                return (
-                  <th 
-                    key={column} 
-                    className={`text-left p-2 font-semibold text-black-700 dark:text-black-300 ${
-                      column.toLowerCase().includes('email') ? 'w-48' : 
-                      column === 'recording_link' ? 'w-20' : 
-                      column.toLowerCase().includes('date') ? 'w-24' : 
-                      'w-auto'
-                    }`}
-                  >
-                    {displayColumn}
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
+                  return (
+                    <th 
+                      key={column} 
+                      className={`text-left p-2 font-semibold text-gray-700 dark:text-gray-300 ${
+                        column.toLowerCase().includes('email') ? 'w-48' : 
+                        column === 'recording_link' ? 'w-20' : 
+                        column.toLowerCase().includes('date') ? 'w-24' : 
+                        'w-auto'
+                      }`}
+                    >
+                      {displayColumn}
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
             <tbody>
               {records.map((record, idx) => (
-                <tr key={idx} className="border-b border-black-100 dark:border-black-700">
-{columns.map(column => {
-  let value = record[column];
-  
-  if (column.toLowerCase().includes('date')) {
-    value = DateFormatter(value);
-  } else if (column === 'Last Modified' && value) {
-    const date = new Date(value as string | number | Date);
-    value = date.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-  } else if (column.toLowerCase().includes('amount') || column.toLowerCase().includes('salary') || column === 'fee_paid') {
-    value = AmountFormatter(value);
-  } else if (column === 'status') {
-    value = <StatusRenderer status={value as string} />;
-  } else if (column === 'feedback') {
-    const feedbackColors = {
-      'Positive': 'bg-green-100 text-green-800',
-      'Negative': 'bg-red-100 text-red-800', 
-      'No Response': 'bg-black-100 text-black-800',
-      'Cancelled': 'bg-orange-100 text-orange-800'
-    };
-    value = <Badge className={feedbackColors[value as keyof typeof feedbackColors] || 'bg-black-100 text-black-800'}>{value}</Badge>;
-  } else if (column === 'recording_link' && value && value.toString().trim() !== '') {
-    const url = value.toString().trim();
-    let finalUrl = url;
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      finalUrl = 'https://' + url;
-    }
-    
-    value = (
-      <button 
-        className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer whitespace-nowrap inline-block min-w-0 max-w-fit"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          window.open(finalUrl, '_blank', 'noopener,noreferrer');
-        }}
-      >
-      Link
-      </button>
-    );
-  }
-  // --- Insert: render array of urls or url-like strings as open link buttons ---
-  else if (Array.isArray(value) && value.length > 0 && value.every(v => isPotentialUrl(v))) {
-    value = (
-      <div className="flex flex-wrap gap-1">
-        {value.map((url: string, idx: number) => (
-          <span key={url + idx}>{renderOpenLinkButton(url, `Link ${idx + 1}`)}</span>
-        ))}
-      </div>
-    );
-  }
-  else if (typeof value === "string" && isPotentialUrl(value)) {
-    value = renderOpenLinkButton(value, "Open Link");
-  }
+                <tr key={idx} className="border-b border-gray-100 dark:border-gray-700">
+                  {columns.map(column => {
+                    let value = record[column];
+                    
+                    if (column.toLowerCase().includes('date')) {
+                      value = DateFormatter(value);
+                    } else if (column === 'Last Modified' && value) {
+                      const date = new Date(value as string | number | Date);
+                      value = date.toLocaleString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true,
+                      });
+                    } else if (column.toLowerCase().includes('amount') || column.toLowerCase().includes('salary') || column === 'fee_paid') {
+                      value = AmountFormatter(value);
+                    } else if (column === 'status') {
+                      value = <StatusRenderer status={value as string} />;
+                    } else if (column === 'feedback') {
+                      const feedbackColors = {
+                        'Positive': 'bg-green-100 text-green-800',
+                        'Negative': 'bg-red-100 text-red-800', 
+                        'No Response': 'bg-gray-100 text-gray-800',
+                        'Cancelled': 'bg-orange-100 text-orange-800'
+                      };
+                      value = <Badge className={feedbackColors[value as keyof typeof feedbackColors] || 'bg-gray-100 text-gray-800'}>{value}</Badge>;
+                    } else if (column === 'recording_link' && value && value.toString().trim() !== '') {
+                      const url = value.toString().trim();
+                      let finalUrl = url;
+                      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                        finalUrl = 'https://' + url;
+                      }
+                      
+                      value = (
+                        <button 
+                          className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer whitespace-nowrap inline-block min-w-0 max-w-fit"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            window.open(finalUrl, '_blank', 'noopener,noreferrer');
+                          }}
+                        >
+                          Link
+                        </button>
+                      );
+                    } else if (Array.isArray(value) && value.length > 0 && value.every(v => isPotentialUrl(v))) {
+                      value = (
+                        <div className="flex flex-wrap gap-1">
+                          {value.map((url: string, idx: number) => (
+                            <span key={idx}>{renderOpenLinkButton(url, `Link ${idx + 1}`)}</span>
+                          ))}
+                        </div>
+                      );
+                    } else if (typeof value === "string" && isPotentialUrl(value)) {
+                      value = renderOpenLinkButton(value, "Open Link");
+                    }
 
-  return (
-    <td key={column} className="p-2 text-black-900 max-w-xs break-words dark:text-black-100">
-      {value || "—"}
-    </td>
-  );
-})}
-
-
+                    return (
+                      <td key={column} className="p-2 text-gray-900 max-w-xs break-words dark:text-gray-100">
+                        {value || "—"}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>
@@ -503,16 +489,15 @@ export default function CandidateSearchPage() {
     );
   };
 
-  // Add renderSessionsTable function to render session records
   const renderSessionsTable = (title: string, icon: React.ReactNode, records: any[]) => {
     if (!records || records.length === 0) {
       return (
-        <div className="bg-white dark:bg-black-800 rounded-lg border border-black-200 dark:border-black-700 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
           <div className="flex items-center gap-2 mb-3">
             {icon}
-            <h4 className="font-semibold text-black-900 dark:text-black-100">{title}</h4>
+            <h4 className="font-semibold text-gray-900 dark:text-gray-100">{title}</h4>
           </div>
-          <p className="text-black-500 dark:text-black-400 text-sm">No session records found</p>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">No session records found</p>
         </div>
       );
     }
@@ -520,16 +505,16 @@ export default function CandidateSearchPage() {
     const columns = Object.keys(records[0]).filter(key => key !== 'id' && key !== 'error');
   
     return (
-      <div className="bg-white dark:bg-black-800 rounded-lg border border-black-200 dark:border-black-700 p-6 shadow-sm">
-        <div className="flex items-center gap-3 mb-4 pb-2 border-b border-black-200 dark:border-black-700">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
+        <div className="flex items-center gap-3 mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
           {icon}
-          <h4 className="font-semibold text-lg text-black-900 dark:text-black-100">{title}</h4>
+          <h4 className="font-semibold text-lg text-gray-900 dark:text-gray-100">{title}</h4>
           <Badge variant="secondary">{records.length}</Badge>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm table-fixed">
             <thead>
-              <tr className="border-b border-black-200 dark:border-black-600">
+              <tr className="border-b border-gray-200 dark:border-gray-600">
                 {columns.map(column => {
                   const displayColumn = column
                     .replace(/_/g, ' ')
@@ -541,7 +526,7 @@ export default function CandidateSearchPage() {
                   return (
                     <th 
                       key={column} 
-                      className={`text-left p-2 font-semibold text-black-700 dark:text-black-300 ${
+                      className={`text-left p-2 font-semibold text-gray-700 dark:text-gray-300 ${
                         column.toLowerCase().includes('email') ? 'w-48' : 
                         column.toLowerCase().includes('date') ? 'w-24' : 
                         'w-auto'
@@ -555,27 +540,24 @@ export default function CandidateSearchPage() {
             </thead>
             <tbody>
               {records.map((record, idx) => (
-                <tr key={idx} className="border-b border-black-100 dark:border-black-700">
+                <tr key={idx} className="border-b border-gray-100 dark:border-gray-700">
                   {columns.map(column => {
                     let value = record[column];
                     if (column.toLowerCase().includes('date')) {
                       value = DateFormatter(value);
-                    }
-                    // Insert: handle arrays and url-like strings
-                    else if (Array.isArray(value) && value.length > 0 && value.every(v => isPotentialUrl(v))) {
+                    } else if (Array.isArray(value) && value.length > 0 && value.every(v => isPotentialUrl(v))) {
                       value = (
                         <div className="flex flex-wrap gap-1">
                           {value.map((url: string, idx: number) => (
-                            <span key={url + idx}>{renderOpenLinkButton(url, `Link ${idx + 1}`)}</span>
+                            <span key={idx}>{renderOpenLinkButton(url, `Link ${idx + 1}`)}</span>
                           ))}
                         </div>
                       );
-                    }
-                    else if (typeof value === "string" && isPotentialUrl(value)) {
+                    } else if (typeof value === "string" && isPotentialUrl(value)) {
                       value = renderOpenLinkButton(value, "Open Link");
                     }
                     return (
-                      <td key={column} className="p-2 text-black-900 max-w-xs break-words dark:text-black-100">
+                      <td key={column} className="p-2 text-gray-900 max-w-xs break-words dark:text-gray-100">
                         {value || "—"}
                       </td>
                     );
@@ -589,26 +571,26 @@ export default function CandidateSearchPage() {
     );
   };
   
-    return (
-      <div className="space-y-6">
+  return (
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-black-900 dark:text-black-100">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             Search Candidates
           </h1>
-          <p className="text-black-600 dark:text-black-400">
+          <p className="text-gray-600 dark:text-gray-400">
             Search candidates by name to view comprehensive information
           </p>
         </div>
       </div>
 
-      {/* Optimized Search Box */}
+      {/* Search Box */}
       <div className="max-w-md relative">
-        <Label htmlFor="search" className="text-sm font-medium text-black-700 dark:text-black-300">
+        <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
           Search by Name
         </Label>
         <div className="relative mt-1">
-          <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-black-400" />
+          <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             id="search"
             type="text"
@@ -622,17 +604,17 @@ export default function CandidateSearchPage() {
           />
         </div>
 
-        {/* Enhanced Dropdown Suggestions */}
+        {/* Dropdown Suggestions */}
         {showSuggestions && suggestions.length > 0 && (
-          <div className="absolute z-10 w-full mt-1 bg-white dark:bg-black-800 border border-black-200 dark:border-black-700 rounded-md shadow-lg max-h-60 overflow-auto">
+          <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg max-h-60 overflow-auto">
             {suggestions.map((suggestion) => (
               <button
                 key={suggestion.id}
-                className="w-full px-4 py-3 text-left hover:bg-black-50 dark:hover:bg-black-700 border-b border-black-100 dark:border-black-600 last:border-b-0 focus:outline-none focus:bg-black-50 dark:focus:bg-black-700 transition-colors"
+                className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-600 last:border-b-0 focus:outline-none focus:bg-gray-50 dark:focus:bg-gray-700 transition-colors"
                 onClick={() => selectCandidate(suggestion)}
               >
-                <div className="font-medium text-black-900 dark:text-black-100">{suggestion.name}</div>
-                <div className="text-sm text-black-500 dark:text-black-400">{suggestion.email}</div>
+                <div className="font-medium text-gray-900 dark:text-gray-100">{suggestion.name}</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">{suggestion.email}</div>
               </button>
             ))}
           </div>
@@ -646,7 +628,7 @@ export default function CandidateSearchPage() {
           />
         )}
 
-        {/* Enhanced Loading and Error States */}
+        {/* Loading and Error States */}
         {loading && (
           <div className="mt-2 flex items-center gap-2">
             <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -655,35 +637,35 @@ export default function CandidateSearchPage() {
         )}
         
         {searchTerm.length >= 2 && !loading && suggestions.length === 0 && (
-          <p className="mt-2 text-sm text-black-500 dark:text-black-400">No candidates found</p>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">No candidates found</p>
         )}
       </div>
 
-      {/* Enhanced Candidate Details with All New Fields */}
+      {/* Candidate Details */}
       {selectedCandidate && (
-        <div className="border border-black-200 dark:border-black-700 rounded-lg overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-black-800 dark:to-black-700 px-6 py-4 border-b border-black-200 dark:border-black-700">
-            <h2 className="text-xl font-bold text-black-900 dark:text-black-100">
+        <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
               {selectedCandidate?.basic_info?.full_name || "Unnamed Candidate"}
             </h2>
-            <p className="text-black-600 dark:text-black-400">
+            <p className="text-gray-600 dark:text-gray-400">
               ID: {selectedCandidate.candidate_id} • 
               Email: {selectedCandidate?.basic_info?.email || "No email"}
             </p>
           </div>
 
-          <div className="divide-y divide-black-200 dark:divide-black-700">
-            {/* Basic Information - Merged with Emergency Contact */}
+          <div className="divide-y divide-gray-200 dark:divide-gray-700">
+            {/* Basic Information */}
             <div className="accordion-item">
               <button
-                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-black-50 dark:hover:bg-black-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
+                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
                 onClick={() => toggleSection('basic')}
               >
                 <div className="flex items-center gap-3">
-                  <User className="h-5 w-5 text-black-600 dark:text-black-400" />
-                  <span className="font-semibold text-black-900 dark:text-black-100">Candidate Information</span>
+                  <User className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">Candidate Information</span>
                 </div>
-                <span className="text-2xl font-bold text-black-400 transition-transform duration-200">
+                <span className="text-2xl font-bold text-gray-400 transition-transform duration-200">
                   {openSections['basic'] ? '−' : '+'}
                 </span>
               </button>
@@ -700,14 +682,14 @@ export default function CandidateSearchPage() {
             {/* Fee & Financials */}
             <div className="accordion-item">
               <button
-                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-black-50 dark:hover:bg-black-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
+                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
                 onClick={() => toggleSection('fee')}
               >
                 <div className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5 text-black-600 dark:text-black-400" />
-                  <span className="font-medium text-black-900 dark:text-black-100">Fee & Financials</span>
+                  <DollarSign className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                  <span className="font-medium text-gray-900 dark:text-gray-100">Fee & Financials</span>
                 </div>
-                <span className="text-xl font-bold text-black-400">
+                <span className="text-xl font-bold text-gray-400">
                   {openSections['fee'] ? '−' : '+'}
                 </span>
               </button>
@@ -721,14 +703,14 @@ export default function CandidateSearchPage() {
             {/* Login & Access Info */}
             <div className="accordion-item">
               <button
-                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-black-50 dark:hover:bg-black-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
+                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
                 onClick={() => toggleSection('login')}
               >
                 <div className="flex items-center gap-2">
-                  <Eye className="h-5 w-5 text-black-600 dark:text-black-400" />
-                  <span className="font-medium text-black-900 dark:text-black-100">Login & Access Info</span>
+                  <Eye className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                  <span className="font-medium text-gray-900 dark:text-gray-100">Login & Access Info</span>
                 </div>
-                <span className="text-xl font-bold text-black-400">
+                <span className="text-xl font-bold text-gray-400">
                   {openSections['login'] ? '−' : '+'}
                 </span>
               </button>
@@ -739,18 +721,18 @@ export default function CandidateSearchPage() {
               )}
             </div>
 
-            {/* Marketing Info - Now shows marketing manager name */}
+            {/* Marketing Info */}
             <div className="accordion-item">
               <button
-                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-black-50 dark:hover:bg-black-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
+                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
                 onClick={() => toggleSection('marketing')}
               >
                 <div className="flex items-center gap-2">
-                  <Mail className="h-5 w-5 text-black-600 dark:text-black-400" />
-                  <span className="font-medium text-black-900 dark:text-black-100">Marketing Info</span>
+                  <Mail className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                  <span className="font-medium text-gray-900 dark:text-gray-100">Marketing Info</span>
                   <Badge variant="secondary">{selectedCandidate.marketing_records.length}</Badge>
                 </div>
-                <span className="text-xl font-bold text-black-400">
+                <span className="text-xl font-bold text-gray-400">
                   {openSections['marketing'] ? '−' : '+'}
                 </span>
               </button>
@@ -762,18 +744,18 @@ export default function CandidateSearchPage() {
               )}
             </div>
 
-            {/* Interview Info - Now shows recording links */}
+            {/* Interview Info */}
             <div className="accordion-item">
               <button
-                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-black-50 dark:hover:bg-black-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
+                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
                 onClick={() => toggleSection('interviews')}
               >
                 <div className="flex items-center gap-2">
-                  <Briefcase className="h-5 w-5 text-black-600 dark:text-black-400" />
-                  <span className="font-medium text-black-900 dark:text-black-100">Interview Info</span>
+                  <Briefcase className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                  <span className="font-medium text-gray-900 dark:text-gray-100">Interview Info</span>
                   <Badge variant="secondary">{selectedCandidate.interview_records.length}</Badge>
                 </div>
-                <span className="text-xl font-bold text-black-400">
+                <span className="text-xl font-bold text-gray-400">
                   {openSections['interviews'] ? '−' : '+'}
                 </span>
               </button>
@@ -783,25 +765,26 @@ export default function CandidateSearchPage() {
                     [...selectedCandidate.interview_records].sort((a, b) => {
                       const ad = a["Interview Date"] ? new Date(a["Interview Date"]).getTime() : -Infinity;
                       const bd = b["Interview Date"] ? new Date(b["Interview Date"]).getTime() : -Infinity;
-                      return bd - ad; // Most recent first
+                      return bd - ad;
                     })
                   )}
                   {renderTable("Placement Records", <DollarSign className="h-4 w-4" />, selectedCandidate.placement_records)}
                 </div>
               )}
             </div>
+
             {/* Sessions Info */}
             <div className="accordion-item">
               <button
-                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-black-50 dark:hover:bg-black-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
+                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
                 onClick={() => toggleSection('sessions')}
               >
                 <div className="flex items-center gap-2">
-                  <Eye className="h-5 w-5 text-black-600 dark:text-black-400" />
-                  <span className="font-medium text-black-900 dark:text-black-100">Sessions</span>
+                  <Eye className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                  <span className="font-medium text-gray-900 dark:text-gray-100">Sessions</span>
                   <Badge variant="secondary">{selectedCandidate.session_records?.length || 0}</Badge>
                 </div>
-                <span className="text-xl font-bold text-black-400">
+                <span className="text-xl font-bold text-gray-400">
                   {openSections['sessions'] ? '−' : '+'}
                 </span>
               </button>
@@ -812,31 +795,28 @@ export default function CandidateSearchPage() {
               )}
             </div>
 
-
             {/* Miscellaneous */}
             <div className="accordion-item">
               <button
-                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-black-50 dark:hover:bg-black-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
+                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
                 onClick={() => toggleSection('misc')}
               >
                 <div className="flex items-center gap-2">
-                  <Settings className="h-5 w-5 text-black-600 dark:text-black-400" />
-                  <span className="font-medium text-black-900 dark:text-black-100">Miscellaneous</span>
+                  <Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                  <span className="font-medium text-gray-900 dark:text-gray-100">Miscellaneous</span>
                 </div>
-                <span className="text-xl font-bold text-black-400">
+                <span className="text-xl font-bold text-gray-400">
                   {openSections['misc'] ? '−' : '+'}
                 </span>
               </button>
               {openSections['misc'] && (
                 <div className="px-6 pb-4 space-y-4">
-                  {
-                  renderInfoCard("Additional Information", <Settings className="h-4 w-4" />, {
+                  {renderInfoCard("Additional Information", <Settings className="h-4 w-4" />, {
                     notes: selectedCandidate.miscellaneous?.["Notes"] || "No notes available",
                     preparation_active: selectedCandidate.miscellaneous?.["Preparation Active"] ? "Yes" : "No",
                     marketing_active: selectedCandidate.miscellaneous?.["Marketing Active"] ? "Yes" : "No",
                     placement_active: selectedCandidate.miscellaneous?.["Placement Active"] ? "Yes" : "No",
-                  })
-                  }
+                  })}
                 </div>
               )}
             </div>

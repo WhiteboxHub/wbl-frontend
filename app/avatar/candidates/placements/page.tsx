@@ -71,6 +71,7 @@ export default function CandidatesPlacements() {
     );
   };
 
+
   const getCustomRenderer = (key: string) => {
   if (key === "status") return StatusRenderer;
   if (key === "fee_paid") return AmountRenderer;
@@ -78,87 +79,100 @@ export default function CandidatesPlacements() {
   return undefined;
 };
 
-  /** --- Fetch Placements --- */
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/candidate/placements?page=1&limit=1000`
-        );
-        if (!res.ok) throw new Error("Failed to fetch placements");
-        const responseData = await res.json();
-        const data = responseData.data || [];
-        setAllCandidates(data);
-        setFilteredCandidates(data);
+    /** --- Fetch Placements --- */
+    
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
 
-        if (data.length > 0) {
-          const orderedFields = [
-            "id",
-            "candidate_name",
-            "candidate_id",
-            "position",
-            "placement",
-            "company",
-          ];
-
-          const orderedColumns: ColDef[] = orderedFields
-            .filter((field) => field in data[0])
-            .map((key) => ({
-              field: key,
-              headerName: key
-                .replace(/([A-Z])/g, " $1")
-                .replace(/^./, (str) => str.toUpperCase()),
-              width: 150,
-              minWidth: 120,
-              cellRenderer: getCustomRenderer(key),
-              editable: true,
-              ...(key === "fee_paid" && {
-                valueParser: (params) => {
-                  if (!params.newValue) return 0;
-                  const numericValue = Number(
-                    String(params.newValue).replace(/[$,]/g, "")
-                  );
-                  return isNaN(numericValue) ? 0 : numericValue;
-                },
-              }),
-            }));
-
-          const dynamicColumns: ColDef[] = Object.keys(data[0])
-            .filter((key) => !orderedFields.includes(key) && key !== "last_mod_datetime")
-            .map((key) => ({
-              field: key,
-              headerName: key
-                .replace(/([A-Z])/g, " $1")
-                .replace(/^./, (str) => str.toUpperCase()),
-              width: 150,
-              minWidth: 120,
-              cellRenderer: getCustomRenderer(key),
-              editable: true,
-              ...(key === "fee_paid" && {
-                valueParser: (params) => {
-                  if (!params.newValue) return 0;
-                  const numericValue = Number(
-                    String(params.newValue).replace(/[$,]/g, "")
-                  );
-                  return isNaN(numericValue) ? 0 : numericValue;
-                },
-              }),
-            }));
-
-          setColumnDefs([...orderedColumns, ...dynamicColumns]);
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/candidate/placements?page=1&limit=1000`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         }
-      } catch (err) {
-        setError("Unable to fetch placements data.");
-      } finally {
-        setLoading(false);
+      );
+
+      if (!res.ok) throw new Error("Failed to fetch placements");
+      const responseData = await res.json();
+      const data = responseData.data || [];
+      setAllCandidates(data);
+      setFilteredCandidates(data);
+
+      if (data.length > 0) {
+        const orderedFields = [
+          "id",
+          "candidate_id",
+          "position",
+          "placement",
+          "company",
+        ];
+
+        const orderedColumns: ColDef[] = orderedFields
+          .filter((field) => field in data[0])
+          .map((key) => ({
+            field: key,
+            headerName: key
+              .replace(/([A-Z])/g, " $1")
+              .replace(/^./, (str) => str.toUpperCase()),
+            width: 150,
+            minWidth: 120,
+            cellRenderer: getCustomRenderer(key),
+            editable: true,
+            ...(key === "fee_paid" && {
+              valueParser: (params) => {
+                if (!params.newValue) return 0;
+                const numericValue = Number(
+                  String(params.newValue).replace(/[$,]/g, "")
+                );
+                return isNaN(numericValue) ? 0 : numericValue;
+              },
+            }),
+          }));
+
+        const dynamicColumns: ColDef[] = Object.keys(data[0])
+          .filter(
+            (key) =>
+              !orderedFields.includes(key) && key !== "last_mod_datetime"
+          )
+          .map((key) => ({
+            field: key,
+            headerName: key
+              .replace(/([A-Z])/g, " $1")
+              .replace(/^./, (str) => str.toUpperCase()),
+            width: 150,
+            minWidth: 120,
+            cellRenderer: getCustomRenderer(key),
+            editable: true,
+            ...(key === "fee_paid" && {
+              valueParser: (params) => {
+                if (!params.newValue) return 0;
+                const numericValue = Number(
+                  String(params.newValue).replace(/[$,]/g, "")
+                );
+                return isNaN(numericValue) ? 0 : numericValue;
+              },
+            }),
+          }));
+
+        setColumnDefs([...orderedColumns, ...dynamicColumns]);
       }
-    };
+    } catch (err: any) {
+      console.error("Fetch error:", err);
+      setError(err.message || "Unable to fetch placements data.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchData();
-  }, []);
+  fetchData();
+}, []);
 
-  /** --- Search / Filter --- */
+
   const filterCandidates = useCallback(
     (term: string) => {
       if (!term.trim()) return allCandidates;
@@ -456,3 +470,4 @@ export default function CandidatesPlacements() {
     </div>
   );
 }
+

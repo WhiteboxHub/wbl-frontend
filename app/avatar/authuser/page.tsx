@@ -20,39 +20,39 @@ export default function AuthUsersPage() {
   const [loading, setLoading] = useState(true);
 
   // Debounce search
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearch(searchTerm);
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [searchTerm]);
+// Assuming you store the token in localStorage after login
+const token = localStorage.getItem("token");
 
-  // Fetch ALL users once (no pagination)
-  const fetchUsers = async () => {
-    try {
-      setLoading(true);
+const fetchUsers = async () => {
+  try {
+    setLoading(true);
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users`);
-      if (!res.ok) {
-        setUsers([]);
-        return;
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users`, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
       }
+    });
 
-      const data = await res.json();
-      setUsers(data);
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to fetch users.");
+    if (!res.ok) {
       setUsers([]);
-    } finally {
-      setLoading(false);
+      return;
     }
-  };
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+    const data = await res.json();
+    setUsers(data);
+  } catch (err) {
+    console.error(err);
+    toast.error("Failed to fetch users.");
+    setUsers([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
+useEffect(() => {
+  fetchUsers();
+}, []);
   // Filtered users (searching locally)
   const filteredUsers = users.filter((u) => {
     const term = debouncedSearch.toLowerCase();
