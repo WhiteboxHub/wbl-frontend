@@ -52,10 +52,19 @@ export default function CourseMaterialPage() {
     }
   };
 
+  const token = localStorage.getItem("token"); // get token once
+
   const fetchMaterials = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/course-materials`);
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/course-materials`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // pass token in headers
+          },
+        }
+      );
 
       const sortedMaterials = res.data.sort((a: any, b: any) => b.id - a.id);
 

@@ -55,7 +55,7 @@ const fieldSections: Record<string, string> = {
   batchid: "Contact Information",
   batchname: "Basic Information",
   target_date_of_marketing:"Basic Information",
-  company_name: "Basic Information",
+  // company_name: "Basic Information",
   linkedin_id: "Contact Information",
   enrolled_date: "Professional Information",
   startdate: "Professional Information",

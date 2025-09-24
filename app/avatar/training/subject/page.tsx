@@ -34,11 +34,18 @@ export default function SubjectPage() {
     description: "",
   });
 
+  const token = localStorage.getItem("token");
+
   const fetchSubjects = async () => {
     try {
       setLoading(true);
       const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/subjects`
+        `${process.env.NEXT_PUBLIC_API_URL}/subjects`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, 
+          },
+        }
       );
 
       const sortedSubjects = res.data.sort((a: any, b: any) => b.id - a.id);
@@ -169,8 +176,6 @@ export default function SubjectPage() {
         onRowDeleted={handleRowDeleted}
         showSearch={false}
       />
-      
-      {/* Add Subject */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
           <DialogHeader>

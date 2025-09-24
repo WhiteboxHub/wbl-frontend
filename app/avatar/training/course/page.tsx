@@ -68,12 +68,18 @@ export default function CoursePage() {
       editable: true,
     },
   ];
+  const token = localStorage.getItem("token"); // get token once
 
   const fetchCourses = async () => {
     try {
       setLoading(true);
       const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/courses`
+        `${process.env.NEXT_PUBLIC_API_URL}/courses`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // pass token in headers
+          },
+        }
       );
 
       const sortedCourses = res.data.sort((a: any, b: any) => b.id - a.id);
@@ -267,3 +273,5 @@ export default function CoursePage() {
     </div>
   );
 }
+
+

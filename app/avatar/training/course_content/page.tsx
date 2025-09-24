@@ -26,11 +26,18 @@ export default function CourseContentPage() {
     QE: "",
   });
 
+  const token = localStorage.getItem("token"); // get token once
+
   const fetchContents = async () => {
     try {
       setLoading(true);
       const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/course-contents`
+        `${process.env.NEXT_PUBLIC_API_URL}/course-contents`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // pass token in headers
+          },
+        }
       );
 
       const sortedContents = res.data.sort((a: any, b: any) => b.id - a.id);
@@ -212,8 +219,7 @@ export default function CourseContentPage() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-
-
+      
       <AGGridTable
         rowData={filteredContents}
         columnDefs={columnDefs}
@@ -223,7 +229,6 @@ export default function CourseContentPage() {
         onRowDeleted={handleRowDeleted}
         showSearch={false}
       />
-
     </div>
   );
 }

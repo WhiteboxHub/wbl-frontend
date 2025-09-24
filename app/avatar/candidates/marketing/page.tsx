@@ -45,23 +45,31 @@ export default function CandidatesMarketingPage() {
     instructor3_id: "",
   });
 
-  // Fetch candidates
-  const fetchCandidates = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing?page=${page}&limit=${limit}`
-      );
-      const data = Array.isArray(res.data.data) ? res.data.data : [];
-      setAllCandidates(data);
-      setFilteredCandidates(data);
-    } catch (err) {
-      console.error(err);
-      setError("Failed to load candidates.");
-    } finally {
-      setLoading(false);
-    }
-  }, [page, limit]);
+const token = localStorage.getItem("token");
+
+const fetchCandidates = useCallback(async () => {
+  try {
+    setLoading(true);
+    const res = await axios.get(
+      `${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing?page=${page}&limit=${limit}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+    const data = Array.isArray(res.data.data) ? res.data.data : [];
+    setAllCandidates(data);
+    setFilteredCandidates(data);
+  } catch (err: any) {
+    console.error(err);
+    setError(err.response?.data?.message || "Failed to load candidates.");
+  } finally {
+    setLoading(false);
+  }
+}, [page, limit, token]);
+
+useEffect(() => {
+  fetchCandidates();
+}, [fetchCandidates]);
 
   useEffect(() => {
     fetchCandidates();
@@ -464,3 +472,4 @@ export default function CandidatesMarketingPage() {
     </div>
   );
 }
+
