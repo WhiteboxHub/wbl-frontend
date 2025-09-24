@@ -1,6 +1,7 @@
 
 
 "use client";
+import Link from "next/link";
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable";
@@ -26,6 +27,7 @@ export default function CandidatesPlacements() {
   /** --- State for New Placement --- */
   const [newPlacement, setNewPlacement] = useState<any>({
     candidate_id: "",
+    candidate_name: "",
     company: "",
     position: "",
     placement_date: "",
@@ -51,11 +53,30 @@ export default function CandidatesPlacements() {
   const AmountRenderer = (params: any) =>
     `$${params.value?.toLocaleString?.() || params.value || 0}`;
 
-  const getCustomRenderer = (key: string) => {
-    if (key === "status") return StatusRenderer;
-    if (key === "fee_paid") return AmountRenderer;
-    return undefined;
+    const CandidateNameRenderer = (params: any) => {
+    const candidateId = params.data?.candidate_id; // Get candidate ID from row data
+    const candidateName = params.value; // Get candidate name
+    
+    if (!candidateId || !candidateName) {
+      return <span className="text-gray-500">{candidateName || "N/A"}</span>;
+    }
+    
+    return (
+      <Link 
+        href={`/avatar/candidates/search?candidateId=${candidateId}`}
+        className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
+      >
+        {candidateName}
+      </Link>
+    );
   };
+
+  const getCustomRenderer = (key: string) => {
+  if (key === "status") return StatusRenderer;
+  if (key === "fee_paid") return AmountRenderer;
+  if (key === "candidate_name" || key === "placement" || key === "candidate") return CandidateNameRenderer; // Add this line
+  return undefined;
+};
 
   /** --- Fetch Placements --- */
   useEffect(() => {
@@ -74,6 +95,7 @@ export default function CandidatesPlacements() {
         if (data.length > 0) {
           const orderedFields = [
             "id",
+            "candidate_name",
             "candidate_id",
             "position",
             "placement",

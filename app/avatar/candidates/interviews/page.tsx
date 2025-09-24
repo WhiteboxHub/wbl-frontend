@@ -1,5 +1,6 @@
 
 "use client";
+import Link from "next/link";
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable";
@@ -101,7 +102,23 @@ export default function CandidatesInterviews() {
       return <Badge className="bg-red-100 text-red-800">Failure</Badge>;
     return <Badge className="bg-gray-100 text-gray-800">{params.value}</Badge>;
   };
-
+    const CandidateNameRenderer = (params: any) => {
+      const candidateId = params.data?.candidate_id; 
+      const candidateName = params.value; 
+      
+      if (!candidateId || !candidateName) {
+        return <span className="text-gray-500">{candidateName || "N/A"}</span>;
+      }
+      
+      return (
+        <Link 
+          href={`/avatar/candidates/search?candidateId=${candidateId}`}  
+          className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
+        >
+          {candidateName}
+        </Link>
+      );
+    };
   // Link renderer for recording_link, backup_url, url
   const LinkRenderer = (params: any) => {
     const value = params.value;
@@ -132,7 +149,7 @@ export default function CandidatesInterviews() {
   const columnDefs = useMemo<ColDef[]>(
     () => [
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
-      { field: "candidate.full_name", headerName: "Full Name", sortable: true, minWidth: 140 },
+      { field: "candidate.full_name", headerName: "Full Name", sortable: true, minWidth: 140, cellRenderer: CandidateNameRenderer },
       { field: "company", headerName: "Company", sortable: true, minWidth: 110, editable: true },
       { field: "mode_of_interview", headerName: "Mode", maxWidth: 130, editable: true },
       { field: "type_of_interview", headerName: "Type", maxWidth: 150, editable: true },

@@ -1,5 +1,6 @@
 
 "use client";
+import Link from "next/link";
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable";
@@ -18,6 +19,26 @@ const StatusRenderer = (params: any) => (
     {params.value?.toUpperCase()}
   </Badge>
 );
+
+const CandidateNameRenderer = (params: any) => {
+  // Try multiple possible candidate ID fields
+  const candidateId = params.data?.candidate_id || params.data?.candidate?.id || params.data?.id;
+  const candidateName = params.value; // Get candidate name
+  
+  if (!candidateId || !candidateName) {
+    return <span className="text-gray-500">{candidateName || "N/A"}</span>;
+  }
+  
+  return (
+    <Link 
+      href={`/avatar/candidates/search?candidateId=${candidateId}`}
+      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
+    >
+      {candidateName}
+    </Link>
+  );
+};
+
 
 // ---------------- Status Filter Header ----------------
 const StatusHeaderComponent = (props: any) => {
@@ -172,7 +193,7 @@ export default function CandidatesPrepPage() {
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => {
     return [
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
-      { field: "candidate.full_name", headerName: "Full Name", minWidth: 150 },
+      { field: "candidate.full_name", headerName: "Full Name", minWidth: 150, cellRenderer: CandidateNameRenderer },
       { field: "batch", headerName: "Batch", sortable: true, maxWidth: 150 },
       { field: "start_date", headerName: "Start Date", sortable: true, maxWidth: 130 },
       {

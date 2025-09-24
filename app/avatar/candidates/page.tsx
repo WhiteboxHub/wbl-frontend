@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link"; 
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { Badge } from "@/components/admin_ui/badge";
@@ -144,6 +145,23 @@ const WorkStatusRenderer = ({ value }: { value?: string }) => {
   );
 };
 
+const CandidateNameRenderer = (params: any) => {
+  const candidateId = params.data?.id; // Get candidate ID from row data
+  const candidateName = params.value; // Get candidate name
+  
+  if (!candidateId || !candidateName) {
+    return <span className="text-gray-500">{candidateName || "N/A"}</span>;
+  }
+  
+  return (
+    <Link 
+      href={`/avatar/candidates/search?candidateId=${candidateId}`}
+      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
+    >
+      {candidateName}
+    </Link>
+  );
+};
 // Status Filter Header Component
 const StatusFilterHeaderComponent = (props: any) => {
   const { selectedStatuses, setSelectedStatuses } = props;
@@ -706,7 +724,8 @@ export default function CandidatesPage() {
       field: "full_name",
       headerName: "Full Name",
       width: 180,
-      sortable: true
+      sortable: true,
+      cellRenderer: CandidateNameRenderer,
     },
     {
       field: "phone",

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { Badge } from "@/components/admin_ui/badge";
@@ -94,8 +95,11 @@ export default function CandidateSearchPage() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [loading, setLoading] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
-  
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  // Get candidateId from URL query string if present
+  const searchParams = useSearchParams();
+  const candidateIdFromUrl = searchParams.get("candidateId");
 
   const toggleSection = (section: string) => {
     setOpenSections(prev => ({
@@ -142,20 +146,17 @@ export default function CandidateSearchPage() {
     setLoading(true);
     setShowSuggestions(false);
     setSearchTerm("");
-    
     try {
       // Get candidate details
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/candidates/details/${suggestion.id}`
       );
       const data = await res.json();
-      
       // Get candidate sessions
       const sessionRes = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/candidates/sessions/${suggestion.id}`
       );
       const sessionData = await sessionRes.json();
-      
       // Merge data
       setSelectedCandidate({
         ...data,
@@ -167,6 +168,48 @@ export default function CandidateSearchPage() {
       setLoading(false);
     }
   };
+
+  // Helper: Fetch candidate by ID (for query string flow)
+  const fetchCandidateById = async (id: number) => {
+    setLoading(true);
+    setShowSuggestions(false);
+    setSearchTerm("");
+    try {
+      // Get candidate details
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/candidates/details/${id}`
+      );
+      const data = await res.json();
+      // Get candidate sessions
+      const sessionRes = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/candidates/sessions/${id}`
+      );
+      const sessionData = await sessionRes.json();
+      // Merge data
+      setSelectedCandidate({
+        ...data,
+        session_records: sessionData.sessions || []
+      });
+    } catch (error) {
+      console.error("Failed to fetch candidate details:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Effect: If candidateIdFromUrl is present, fetch candidate by ID
+  useEffect(() => {
+    if (candidateIdFromUrl) {
+      // Only fetch if the selected candidate is not already the right one
+      if (
+        !selectedCandidate ||
+        selectedCandidate.candidate_id !== Number(candidateIdFromUrl)
+      ) {
+        fetchCandidateById(Number(candidateIdFromUrl));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candidateIdFromUrl]);
 
 
   const renderInfoCard = (title: string, icon: React.ReactNode, data: any) => (
