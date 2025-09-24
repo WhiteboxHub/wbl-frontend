@@ -54,27 +54,37 @@ export default function EmployeesPage() {
     notes: "",
     aadhaar: "",
   };
-
-  const fetchEmployees = async () => {
+const token = localStorage.getItem("token");
+const fetchEmployees = async () => {
+  try {
     setLoading(true);
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/employees`);
-      if (!res.ok) throw new Error("Failed to fetch employees");
-      const rawData = await res.json();
-      const mappedData = rawData.map((emp: any) => ({
-        ...emp,
-        full_name: emp.name,
-        startdate: emp.startdate,
-        // lastmoddate: emp.enddate,
-      }));
-      setEmployees(mappedData);
-      setFilteredEmployees(mappedData);
-    } catch (err: any) {
-      setError(err.message || "Something went wrong");
-    } finally {
-      setLoading(false);
-    }
-  };
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/employees`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`, 
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!res.ok) throw new Error("Failed to fetch employees");
+
+    const rawData = await res.json();
+    const mappedData = rawData.map((emp: any) => ({
+      ...emp,
+      full_name: emp.name,
+    }));
+
+    setEmployees(mappedData);
+    setFilteredEmployees(mappedData);
+  } catch (e: any) {
+    setError(e.message);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   useEffect(() => {
     fetchEmployees();
