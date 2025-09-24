@@ -9,7 +9,7 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { Button } from "@/components/admin_ui/button";
-import { SearchIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
+import { SearchIcon, PlusIcon} from "lucide-react";
 import axios from "axios";
 import {
   Dialog,
@@ -31,6 +31,16 @@ interface CourseSubject {
 interface NewMapping {
   course_id: string;
   subject_id: string;
+}
+
+interface Course {
+  id: number;
+  name: string;
+}
+
+interface Subject {
+  id: number;
+  name: string;
 }
 
 function getErrorMessage(e: any): string {
@@ -58,17 +68,29 @@ export default function CourseSubjectPage() {
   const [showModal, setShowModal] = useState(false);
   const [newMapping, setNewMapping] = useState<NewMapping>({ course_id: "", subject_id: "" });
   const [saving, setSaving] = useState(false);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [selectedCourseName, setSelectedCourseName] = useState("");
+  const [selectedSubjectName, setSelectedSubjectName] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const token = localStorage.getItem("token"); // get token once
 
   const fetchCourseSubjects = async () => {
     try {
       setLoading(true);
       setError("");
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/course-subjects`);
-      
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/course-subjects`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // pass token in headers
+          },
+        }
+      );
+
       const dataWithId = res.data.map((item: CourseSubject) => ({
         ...item,
-        id: `${item.course_id}-${item.subject_id}` 
+        id: `${item.course_id}-${item.subject_id}`,
       }));
 
       setCourseSubjects(dataWithId);
@@ -83,17 +105,32 @@ export default function CourseSubjectPage() {
     }
   };
 
-  const refreshData = async () => {
+  const fetchCourses = async () => {
     try {
-      setRefreshing(true);
-      await fetchCourseSubjects();
-    } finally {
-      setRefreshing(false);
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/courses`);
+      const sortedCourses = res.data.sort((a: Course, b: Course) => b.id - a.id);
+      setCourses(sortedCourses);
+    } catch (e: any) {
+      console.error("Failed to fetch courses:", e);
+      toast.error("Failed to load courses");
+    }
+  };
+
+  const fetchSubjects = async () => {
+    try {
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/subjects`);
+      const sortedSubjects = res.data.sort((a: Subject, b: Subject) => b.id - a.id);
+      setSubjects(sortedSubjects);
+    } catch (e: any) {
+      console.error("Failed to fetch subjects:", e);
+      toast.error("Failed to load subjects");
     }
   };
 
   useEffect(() => {
     fetchCourseSubjects();
+    fetchCourses();
+    fetchSubjects();
   }, []);
 
   useEffect(() => {
@@ -126,7 +163,7 @@ export default function CourseSubjectPage() {
     setFilteredCourseSubjects(filtered);
   }, [searchTerm, courseSubjects]);
 
-  // ✅ Fixed column definitions (course_id & subject_id hidden, others visible)
+  
   useEffect(() => {
     setColumnDefs([
       { field: "course_id", headerName: "Course ID", hide: true },
@@ -160,18 +197,21 @@ export default function CourseSubjectPage() {
   };
 
   const handleAddMapping = async () => {
-    if (!newMapping.course_id || !newMapping.subject_id) {
-      toast.error("Course ID and Subject ID are required!");
+    if (!selectedCourseName || !selectedSubjectName) {
+      toast.error("Please select both a course and a subject!");
       return;
     }
 
-    const courseId = Number(newMapping.course_id);
-    const subjectId = Number(newMapping.subject_id);
+    const selectedCourse = courses.find(course => course.name === selectedCourseName);
+    const selectedSubject = subjects.find(subject => subject.name === selectedSubjectName);
     
-    if (isNaN(courseId) || isNaN(subjectId)) {
-      toast.error("Course ID and Subject ID must be valid numbers!");
+    if (!selectedCourse || !selectedSubject) {
+      toast.error("Invalid selection. Please try again.");
       return;
     }
+
+    const courseId = selectedCourse.id;
+    const subjectId = selectedSubject.id;
 
     const exists = courseSubjects.some(
       (item) => item.course_id === courseId && item.subject_id === subjectId
@@ -194,11 +234,13 @@ export default function CourseSubjectPage() {
         id: `${res.data.course_id}-${res.data.subject_id}`
       };
 
-      const updated = [...courseSubjects, newRecordWithId];
+      const updated = [newRecordWithId, ...courseSubjects];
       setCourseSubjects(updated);
       setFilteredCourseSubjects(updated);
       toast.success("Course-subject mapping added successfully!");
       setShowModal(false);
+      setSelectedCourseName("");
+      setSelectedSubjectName("");
       setNewMapping({ course_id: "", subject_id: "" });
     } catch (e: any) {
       const errorMsg = getErrorMessage(e);
@@ -212,8 +254,7 @@ export default function CourseSubjectPage() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <RefreshCwIcon className="h-8 w-8 animate-spin mx-auto mb-2 text-blue-600" />
-          <p className="text-gray-600">Loading course-subject mappings...</p>
+          <p className="text-gray-600">Loading...</p>
         </div>
       </div>
     );
@@ -223,38 +264,25 @@ export default function CourseSubjectPage() {
     return (
       <div className="text-center mt-8 space-y-4">
         <p className="text-red-600 text-lg">{error}</p>
-        <Button onClick={fetchCourseSubjects} variant="outline">
-          <RefreshCwIcon className="h-4 w-4 mr-2" />
-          Retry
-        </Button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <Toaster richColors position="top-center" />
       
       {/* Header Section */}
-      <div className="flex justify-between items-start">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+          <h1 className="text-2xl font-bold ">
             Course-Subject Relationships
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
+          <p>
             Manage mappings between courses and subjects. Total mappings: {courseSubjects.length}
           </p>
         </div>
         <div className="flex gap-2">
-          <Button 
-            onClick={refreshData} 
-            variant="outline" 
-            size="sm"
-            disabled={refreshing}
-          >
-            <RefreshCwIcon className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-            {refreshing ? 'Refreshing...' : 'Refresh'}
-          </Button>
           <Button onClick={() => setShowModal(true)} size="sm">
             <PlusIcon className="h-4 w-4 mr-2" />
             Add Mapping
@@ -272,7 +300,7 @@ export default function CourseSubjectPage() {
             id="search"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Enter course ID, subject ID..."
+            placeholder="Enter course or subject name or id..."
             className="pl-10"
           />
         </div>
@@ -289,45 +317,56 @@ export default function CourseSubjectPage() {
         title={`Course-Subject Mappings (${filteredCourseSubjects.length} results)`}
         height="calc(70vh - 100px)"
         onRowDeleted={handleRowDeleted}
-        //onRowUpdated={handleRowUpdated}
         showSearch={false}
       />
 
-
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent  className="max-w-sm p-4">
+        <DialogContent className="max-w-sm p-4">
           <DialogHeader>
             <DialogTitle>Add Course-Subject Mapping</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="course_id" className="text-sm font-medium">
-                Course ID <span className="text-red-500">*</span>
+              <Label htmlFor="course" className="text-sm font-medium">
+                Course <span className="text-red-500">*</span>
               </Label>
-              <Input
-                id="course_id"
-                type="number"
-                value={newMapping.course_id}
-                onChange={(e) =>
-                  setNewMapping((prev) => ({ ...prev, course_id: e.target.value }))
-                }
-                placeholder="Enter course ID"
-              />
+              <select
+                id="course"
+                value={selectedCourseName}
+                onChange={(e) => setSelectedCourseName(e.target.value)}
+                className="w-full border rounded-md p-2"
+              >
+              <option value="" disabled hidden>
+                Select course
+              </option>
+
+                {courses.map((course) => (
+                  <option key={course.id} value={course.name}>
+                    {course.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
-              <Label htmlFor="subject_id" className="text-sm font-medium">
-                Subject ID <span className="text-red-500">*</span>
+              <Label htmlFor="subject" className="text-sm font-medium">
+                Subject <span className="text-red-500">*</span>
               </Label>
-              <Input
-                id="subject_id"
-                type="number"
-                value={newMapping.subject_id}
-                onChange={(e) =>
-                  setNewMapping((prev) => ({ ...prev, subject_id: e.target.value }))
-                }
-                placeholder="Enter subject ID"
-              />
+              <select
+                id="subject"
+                value={selectedSubjectName}
+                onChange={(e) => setSelectedSubjectName(e.target.value)}
+                className="w-full border rounded-md p-2"
+              >
+              <option value="" disabled hidden>
+                Select subject
+              </option>
+                {subjects.map((subject) => (
+                  <option key={subject.id} value={subject.name}>
+                    {subject.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -336,7 +375,8 @@ export default function CourseSubjectPage() {
               variant="outline"
               onClick={() => {
                 setShowModal(false);
-                setNewMapping({ course_id: "", subject_id: "" });
+                setSelectedCourseName("");
+                setSelectedSubjectName("");
               }}
               disabled={saving}
             >
@@ -344,16 +384,9 @@ export default function CourseSubjectPage() {
             </Button>
             <Button
               onClick={handleAddMapping}
-              disabled={saving || !newMapping.course_id || !newMapping.subject_id}
+              disabled={saving || !selectedCourseName || !selectedSubjectName}
             >
-              {saving ? (
-                <>
-                  <RefreshCwIcon className="h-4 w-4 mr-2 animate-spin" />
-                  Adding...
-                </>
-              ) : (
-                "Save"
-              )}
+              {saving ? "Adding..." : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -361,3 +394,4 @@ export default function CourseSubjectPage() {
     </div>
   );
 }
+

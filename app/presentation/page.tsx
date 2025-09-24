@@ -5,6 +5,7 @@ import { isAuthenticated } from "@/utils/auth";
 import Layout from "@/components/Common/Layout";
 import ResourcesTable from "@/components/Common/resourcesTable";
 import CourseNavigation from "@/components/Common/CourseNavigation";
+import Questions from "@/components/Common/Questions";
 
 type ComponentType =
   | "Presentations"
@@ -13,7 +14,8 @@ type ComponentType =
   | "Installations"
   | "Newsletters"
   | "Books"
-  | "Softwares";
+  | "Softwares"
+  | "Questions";
 
 export default function Presentation() {
   const router = useRouter();
@@ -30,6 +32,7 @@ export default function Presentation() {
     { type: "Installations", label: "Installations" },
     { type: "Books", label: "Books" },
     { type: "Newsletters", label: "Newsletters" },
+    { type: "Questions", label: "Questions" }
   ];
 
   const handleButtonClick = (component: ComponentType) => {
@@ -89,11 +92,10 @@ export default function Presentation() {
               {buttons.map((button) => (
                 <button
                   key={button.type}
-                  className={`mb-1 w-full rounded-md px-4 py-2 font-bold text-black hover:bg-gradient-to-tl hover:from-primary hover:to-blue-300 sm:w-36 ${
-                    activeComponent === button.type
+                  className={`mb-1 w-full rounded-md px-4 py-2 font-bold text-black hover:bg-gradient-to-tl hover:from-primary hover:to-blue-300 sm:w-36 ${activeComponent === button.type
                       ? "bg-gradient-to-br from-primary to-blue-400 text-white border-2 border-blue-600 shadow-lg"
                       : "bg-gradient-to-br from-primary to-blue-300"
-                  }`}
+                    }`}
                   onClick={() => handleButtonClick(button.type as ComponentType)}
                 >
                   {button.label}
@@ -102,8 +104,11 @@ export default function Presentation() {
             </div>
           </div>
           <div className="mt-10 flex justify-center sm:-mt-10 sm:w-4/5">
-            {/* Let ResourcesTable handle the fetch */}
-            <ResourcesTable course={course} type={activeComponent} />
+            {activeComponent === "Questions" ? (
+              <Questions />
+            ) : (
+              <ResourcesTable course={course} type={activeComponent} />
+            )}
           </div>
         </section>
       </main>

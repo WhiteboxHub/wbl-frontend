@@ -16,11 +16,8 @@ export default function CourseContentPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [contents, setContents] = useState<any[]>([]);
   const [filteredContents, setFilteredContents] = useState<any[]>([]);
-  //const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  // const [page, setPage] = useState(1);
-  // const [pageSize, setPageSize] = useState(50); 
+  const [error, setError] = useState(""); 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newContent, setNewContent] = useState({
     Fundamentals: "",
@@ -29,11 +26,18 @@ export default function CourseContentPage() {
     QE: "",
   });
 
+  const token = localStorage.getItem("token"); // get token once
+
   const fetchContents = async () => {
     try {
       setLoading(true);
       const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/course-contents`
+        `${process.env.NEXT_PUBLIC_API_URL}/course-contents`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // pass token in headers
+          },
+        }
       );
 
       const sortedContents = res.data.sort((a: any, b: any) => b.id - a.id);
@@ -71,11 +75,11 @@ export default function CourseContentPage() {
 
 
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
-      { field: "id", headerName: "ID", width: 100, pinned: "left", editable: false },
-      { field: "Fundamentals", headerName: "Fundamentals", width: 250, editable: true },
-      { field: "AIML", headerName: "AIML", width: 280, editable: true },
-      { field: "UI", headerName: "UI", width: 250, editable: true },
-      { field: "QE", headerName: "QE", width: 250, editable: true },
+      { field: "id", headerName: "ID", width: 120, pinned: "left", editable: false },
+      { field: "Fundamentals", headerName: "Fundamentals", width: 300, editable: true },
+      { field: "AIML", headerName: "AIML", width: 300, editable: true },
+      { field: "UI", headerName: "UI", width: 300, editable: true },
+      { field: "QE", headerName: "QE", width: 300, editable: true },
     ], []);
 
 
@@ -215,8 +219,7 @@ export default function CourseContentPage() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-
-
+      
       <AGGridTable
         rowData={filteredContents}
         columnDefs={columnDefs}
@@ -226,44 +229,6 @@ export default function CourseContentPage() {
         onRowDeleted={handleRowDeleted}
         showSearch={false}
       />
-
-      {/* Pagination */}
-      {/* <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
-        <div className="flex items-center space-x-2">
-          <span className="text-sm">Rows per page:</span>
-          <select
-            value={pageSize}
-            onChange={(e) => {
-              setPageSize(Number(e.target.value));
-              setPage(1);
-            }}
-            className="border rounded px-2 py-1 text-sm"
-          >
-            {[10, 20, 50, 100].map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setPage((p) => Math.max(p - 1, 1))}
-            disabled={page === 1}
-            className="px-2 py-1 border rounded text-sm disabled:opacity-50"
-          >
-            Previous
-          </button>
-          <span className="text-sm">Page {page}</span>
-          <button
-            onClick={() => setPage((p) => p + 1)}
-            className="px-2 py-1 border rounded text-sm"
-          >
-            Next
-          </button>
-        </div>
-      </div> */}
     </div>
   );
 }

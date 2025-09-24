@@ -396,11 +396,17 @@ export default function VendorPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const token = localStorage.getItem("token");
 
   const fetchVendors = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/vendors`);
+      const res = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/vendors`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
       setVendors(res.data);
       setFilteredVendors(res.data);
     } catch (e: any) {
@@ -569,3 +575,5 @@ export default function VendorPage() {
     </div>
   );
 }
+
+
