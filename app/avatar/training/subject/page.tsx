@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -85,7 +86,7 @@ export default function SubjectPage() {
     setColumnDefs([
       { field: "id", headerName: "ID", width: 150, editable: false },
       { field: "name", headerName: "Name", width: 300, editable: true },
-      { field: "description", headerName: "Description", width: 400, editable: true },
+      { field: "description", headerName: "Description", width: 450, editable: true },
     ]);
   }, []);
 
@@ -175,7 +176,6 @@ export default function SubjectPage() {
         onRowDeleted={handleRowDeleted}
         showSearch={false}
       />
-
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent>
           <DialogHeader>
