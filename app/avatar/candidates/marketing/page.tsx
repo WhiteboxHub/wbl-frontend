@@ -1,5 +1,6 @@
 
 "use client";
+import Link from "next/link"; 
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable";
@@ -146,15 +147,39 @@ useEffect(() => {
     </div>
   );
 
+  const CandidateNameRenderer = (params: any) => {
+  const candidateId = params.data?.candidate_id; // Get candidate ID from row data
+  const candidateName = params.value; // Get candidate name
+  
+  if (!candidateId || !candidateName) {
+    return <span className="text-gray-500">{candidateName || "N/A"}</span>;
+  }
+  
+  return (
+    <Link 
+      href={`/avatar/candidates/search?candidateId=${candidateId}`}  
+      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
+    >
+      {candidateName}
+    </Link>
+  );
+};
+
   // Column definitions
   const columnDefs: ColDef[] = useMemo(
     () => [
       {
-        field: "candidate.full_name",
+        field: "candidate_name",
         headerName: "Full Name",
         sortable: true,
         minWidth: 150,
+
         editable: true,
+        cellRenderer: CandidateNameRenderer,
+
+        
+        valueGetter: (params) => params.data.candidate?.full_name || "N/A",
+
       },
       {
         field: "start_date",
@@ -171,33 +196,32 @@ useEffect(() => {
         editable: true,
       },
       {
-        field: "instructor1.name",
+        field: "instructor1_name",
         headerName: "Instructor 1",
-        minWidth: 150,
-        valueGetter: (params) => params.data.instructor1?.name || "N/A",
-        editable: true,
-      },
-      {
-        field: "instructor2.name",
-        headerName: "Instructor 2",
-        minWidth: 150,
-        valueGetter: (params) => params.data.instructor2?.name || "N/A",
-        editable: true,
-      },
-      {
-        field: "instructor3.name",
-        headerName: "Instructor 3",
-        minWidth: 150,
-        valueGetter: (params) => params.data.instructor3?.name || "N/A",
-        editable: true,
-      },
-      { field: "email", headerName: "Email", minWidth: 150, editable: true },
-      {
-        field: "password",
-        headerName: "Password",
         minWidth: 150,
         editable: false,
       },
+      {
+        field: "instructor2_name",
+        headerName: "Instructor 2",
+        minWidth: 150,
+        editable: false,
+      },
+      {
+        field: "instructor3_name",
+        headerName: "Instructor 3",
+        minWidth: 150,
+        editable: false,
+      },
+      {
+        field: "marketing_manager_obj",
+        headerName: "Marketing Manager",
+        minWidth: 150,
+        editable: false,
+        valueGetter: (params) => params.data.marketing_manager_obj?.name || "N/A",
+      },
+      { field: "email", headerName: "Email", minWidth: 150, editable: true },
+      { field: "password", headerName: "Password", minWidth: 150, editable: true },
       {
         field: "google_voice_number",
         headerName: "Google Voice Number",
@@ -205,12 +229,7 @@ useEffect(() => {
         editable: true,
       },
       { field: "rating", headerName: "Rating", maxWidth: 100, editable: true },
-      {
-        field: "priority",
-        headerName: "Priority",
-        maxWidth: 100,
-        editable: true,
-      },
+      { field: "priority", headerName: "Priority", maxWidth: 100, editable: true },
       { field: "notes", headerName: "Notes", minWidth: 100, editable: true },
       {
         field: "candidate_resume",
@@ -221,7 +240,6 @@ useEffect(() => {
     ],
     []
   );
-
   // Handle row updates
   const handleRowUpdated = async (updatedRow: any) => {
     if (!updatedRow || !updatedRow.candidate_id) {

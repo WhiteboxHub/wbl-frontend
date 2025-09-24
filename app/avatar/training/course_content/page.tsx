@@ -16,11 +16,8 @@ export default function CourseContentPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [contents, setContents] = useState<any[]>([]);
   const [filteredContents, setFilteredContents] = useState<any[]>([]);
-  //const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  // const [page, setPage] = useState(1);
-  // const [pageSize, setPageSize] = useState(50); 
+  const [error, setError] = useState(""); 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newContent, setNewContent] = useState({
     Fundamentals: "",
@@ -78,11 +75,11 @@ export default function CourseContentPage() {
 
 
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
-      { field: "id", headerName: "ID", width: 100, pinned: "left", editable: false },
-      { field: "Fundamentals", headerName: "Fundamentals", width: 250, editable: true },
-      { field: "AIML", headerName: "AIML", width: 280, editable: true },
-      { field: "UI", headerName: "UI", width: 250, editable: true },
-      { field: "QE", headerName: "QE", width: 250, editable: true },
+      { field: "id", headerName: "ID", width: 120, pinned: "left", editable: false },
+      { field: "Fundamentals", headerName: "Fundamentals", width: 300, editable: true },
+      { field: "AIML", headerName: "AIML", width: 300, editable: true },
+      { field: "UI", headerName: "UI", width: 300, editable: true },
+      { field: "QE", headerName: "QE", width: 300, editable: true },
     ], []);
 
 
@@ -222,8 +219,7 @@ export default function CourseContentPage() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-
-
+      
       <AGGridTable
         rowData={filteredContents}
         columnDefs={columnDefs}
