@@ -63,7 +63,7 @@ const initialFormData: FormData = {
 };
 
 
-const statusOptions = ["Open", "In Progress", "Closed", "Future"];
+const statusOptions = ["Open", "Closed", "Future"];
 const workStatusOptions = [
   "Waiting for Status",
   "H1B",
