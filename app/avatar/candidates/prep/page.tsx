@@ -1,6 +1,7 @@
 
 
 "use client";
+import Link from "next/link";
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable";
@@ -25,6 +26,26 @@ const StatusRenderer = (params: any) => {
   const className = statusColors[status] || "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
   return <Badge className={className}>{params.value?.toUpperCase()}</Badge>;
 };
+
+const CandidateNameRenderer = (params: any) => {
+  // Try multiple possible candidate ID fields
+  const candidateId = params.data?.candidate_id || params.data?.candidate?.id || params.data?.id;
+  const candidateName = params.value; // Get candidate name
+  
+  if (!candidateId || !candidateName) {
+    return <span className="text-gray-500">{candidateName || "N/A"}</span>;
+  }
+  
+  return (
+    <Link 
+      href={`/avatar/candidates/search?candidateId=${candidateId}`}
+      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
+    >
+      {candidateName}
+    </Link>
+  );
+};
+
 
 // ---------------- Status Filter Header ----------------
 const StatusHeaderComponent = (props: any) => {
@@ -189,31 +210,35 @@ useEffect(() => {
   }, [allCandidates, searchTerm, selectedStatuses]);
 
   // ---------------- Column Defs ----------------
-  const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
-    { field: "id", headerName: "ID", pinned: "left", width: 80 },
-    { field: "candidate.full_name", headerName: "Full Name", minWidth: 150 },
-    { field: "batch", headerName: "Batch", sortable: true, maxWidth: 150 },
-    { field: "start_date", headerName: "Start Date", sortable: true, maxWidth: 130 },
-    {
-      field: "status",
-      headerName: "Status",
-      cellRenderer: StatusRenderer,
-      maxWidth: 150,
-      headerComponent: StatusHeaderComponent,
-      headerComponentParams: { selectedStatuses, setSelectedStatuses },
-    },
-    { headerName: "Instructor 1", minWidth: 150, valueGetter: (params) => params.data.instructor1?.name || "N/A" },
-    { headerName: "Instructor 2", minWidth: 150, valueGetter: (params) => params.data.instructor2?.name || "N/A" },
-    { headerName: "Instructor 3", minWidth: 150, valueGetter: (params) => params.data.instructor3?.name || "N/A" },
-    { field: "rating", headerName: "Rating", minWidth: 100 },
-    { field: "tech_rating", headerName: "Tech Rating", minWidth: 120 },
-    { field: "communication", headerName: "Communication", minWidth: 120 },
-    { field: "years_of_experience", headerName: "Experience (Years)", minWidth: 140 },
-    { field: "topics_finished", headerName: "Topics Finished", minWidth: 150 },
-    { field: "current_topics", headerName: "Current Topics", minWidth: 150 },
-    { field: "target_date_of_marketing", headerName: "Target Marketing Date", minWidth: 160 },
-    { field: "notes", headerName: "Notes", minWidth: 90 },
-  ], [selectedStatuses]);
+
+  const columnDefs: ColDef[] = useMemo<ColDef[]>(() => {
+    return [
+      { field: "id", headerName: "ID", pinned: "left", width: 80 },
+      { field: "candidate.full_name", headerName: "Full Name", minWidth: 150, cellRenderer: CandidateNameRenderer },
+      { field: "batch", headerName: "Batch", sortable: true, maxWidth: 150 },
+      { field: "start_date", headerName: "Start Date", sortable: true, maxWidth: 130 },
+      {
+        field: "status",
+        headerName: "Status",
+        cellRenderer: StatusRenderer,
+        maxWidth: 150,
+        headerComponent: StatusHeaderComponent,
+        headerComponentParams: { selectedStatuses, setSelectedStatuses },
+      },
+      { headerName: "Instructor 1", minWidth: 150, valueGetter: (params) => params.data.instructor1?.name || "N/A" },
+      { headerName: "Instructor 2", minWidth: 150, valueGetter: (params) => params.data.instructor2?.name || "N/A" },
+      { headerName: "Instructor 3", minWidth: 150, valueGetter: (params) => params.data.instructor3?.name || "N/A" },
+      { field: "rating", headerName: "Rating", minWidth: 100 },
+      { field: "tech_rating", headerName: "Tech Rating", minWidth: 120 },
+      { field: "communication", headerName: "Communication", minWidth: 120 },
+      { field: "years_of_experience", headerName: "Experience (Years)", minWidth: 140 },
+      { field: "topics_finished", headerName: "Topics Finished", minWidth: 150 },
+      { field: "current_topics", headerName: "Current Topics", minWidth: 150 },
+      { field: "target_date_of_marketing", headerName: "Target Marketing Date", minWidth: 160 },
+      { field: "notes", headerName: "Notes", minWidth: 90 },
+    ];
+  }, [selectedStatuses]);
+
 
   // ---------------- CRUD Handlers ----------------
   const handleRowUpdated = async (updatedRow: any) => {

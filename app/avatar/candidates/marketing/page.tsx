@@ -1,5 +1,6 @@
 
 "use client";
+import Link from "next/link"; 
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable";
@@ -146,6 +147,24 @@ useEffect(() => {
     </div>
   );
 
+  const CandidateNameRenderer = (params: any) => {
+  const candidateId = params.data?.candidate_id; // Get candidate ID from row data
+  const candidateName = params.value; // Get candidate name
+  
+  if (!candidateId || !candidateName) {
+    return <span className="text-gray-500">{candidateName || "N/A"}</span>;
+  }
+  
+  return (
+    <Link 
+      href={`/avatar/candidates/search?candidateId=${candidateId}`}  
+      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
+    >
+      {candidateName}
+    </Link>
+  );
+};
+
   // Column definitions
   const columnDefs: ColDef[] = useMemo(
     () => [
@@ -154,8 +173,13 @@ useEffect(() => {
         headerName: "Full Name",
         sortable: true,
         minWidth: 150,
-        editable: false,
+
+        editable: true,
+        cellRenderer: CandidateNameRenderer,
+
+        
         valueGetter: (params) => params.data.candidate?.full_name || "N/A",
+
       },
       {
         field: "start_date",

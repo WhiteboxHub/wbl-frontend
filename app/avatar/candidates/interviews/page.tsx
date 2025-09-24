@@ -1,5 +1,6 @@
 
 "use client";
+import Link from "next/link";
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable";
@@ -139,7 +140,25 @@ const fetchInterviews = async (page: number, perPage: number) => {
     return <Badge className="bg-gray-100 text-gray-800">{params.value}</Badge>;
   };
 
-  // Link renderer
+    const CandidateNameRenderer = (params: any) => {
+      const candidateId = params.data?.candidate_id; 
+      const candidateName = params.value; 
+      
+      if (!candidateId || !candidateName) {
+        return <span className="text-gray-500">{candidateName || "N/A"}</span>;
+      }
+      
+      return (
+        <Link 
+          href={`/avatar/candidates/search?candidateId=${candidateId}`}  
+          className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
+        >
+          {candidateName}
+        </Link>
+      );
+    };
+ 
+
   const LinkRenderer = (params: any) => {
     const value = params.value;
     if (!value) return <span className="text-gray-500">Not Available</span>;
@@ -170,77 +189,20 @@ const fetchInterviews = async (page: number, perPage: number) => {
   const columnDefs = useMemo<ColDef[]>(
     () => [
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
-      {
-        field: "candidate.full_name",
-        headerName: "Full Name",
-        sortable: true,
-        minWidth: 140,
-      },
-      {
-        field: "company",
-        headerName: "Company",
-        sortable: true,
-        minWidth: 110,
-        editable: true,
-      },
-      {
-        field: "mode_of_interview",
-        headerName: "Mode",
-        maxWidth: 130,
-        editable: true,
-      },
-      {
-        field: "type_of_interview",
-        headerName: "Type",
-        maxWidth: 150,
-        editable: true,
-      },
-      {
-        field: "interview_date",
-        headerName: "Date",
-        maxWidth: 120,
-        editable: true,
-      },
-      {
-        field: "recording_link",
-        headerName: "Recording",
-        cellRenderer: LinkRenderer,
-        minWidth: 200,
-        editable: true,
-      },
-      {
-        field: "backup_url",
-        headerName: "Backup URL",
-        cellRenderer: LinkRenderer,
-        minWidth: 200,
-        editable: true,
-      },
-      {
-        field: "url",
-        headerName: "job_posting_url",
-        cellRenderer: LinkRenderer,
-        minWidth: 200,
-        editable: true,
-      },
-      {
-        field: "feedback",
-        headerName: "Feedback",
-        cellRenderer: FeedbackRenderer,
-        maxWidth: 130,
-        editable: true,
-      },
-      {
-        field: "interviewer_emails",
-        headerName: "Emails",
-        minWidth: 180,
-        editable: true,
-      },
-      {
-        field: "interviewer_contact",
-        headerName: "Contact",
-        minWidth: 140,
-        editable: true,
-      },
+
+      { field: "candidate.full_name", headerName: "Full Name", sortable: true, minWidth: 140, cellRenderer: CandidateNameRenderer },
+      { field: "company", headerName: "Company", sortable: true, minWidth: 110, editable: true },
+      { field: "mode_of_interview", headerName: "Mode", maxWidth: 130, editable: true },
+      { field: "type_of_interview", headerName: "Type", maxWidth: 150, editable: true },
+      { field: "interview_date", headerName: "Date", maxWidth: 120, editable: true },
+      { field: "recording_link", headerName: "Recording", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
+      { field: "backup_url", headerName: "Backup URL", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
+      { field: "url", headerName: "URL", cellRenderer: LinkRenderer, minWidth: 200, editable: true }, // new URL column
+      // { field: "status", headerName: "Status", cellRenderer: StatusRenderer, maxWidth: 150, editable: true },
+      { field: "feedback", headerName: "Feedback", cellRenderer: FeedbackRenderer, maxWidth: 130, editable: true },
+      { field: "interviewer_emails", headerName: "Emails", minWidth: 180, editable: true },
+      { field: "interviewer_contact", headerName: "Contact", minWidth: 140, editable: true },
+
       { field: "notes", headerName: "Notes", minWidth: 120, editable: true },
     ],
     []
