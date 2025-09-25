@@ -1,5 +1,6 @@
 
 "use client";
+import Link from "next/link";
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable";
@@ -25,6 +26,7 @@ export default function CandidatesPlacements() {
   /** --- State for New Placement --- */
   const [newPlacement, setNewPlacement] = useState<any>({
     candidate_id: "",
+    candidate_name: "",
     company: "",
     position: "",
     placement_date: "",
@@ -63,98 +65,126 @@ export default function CandidatesPlacements() {
   const AmountRenderer = (params: any) =>
     `$${params.value?.toLocaleString?.() || params.value || 0}`;
 
-  const getCustomRenderer = (key: string) => {
-    if (key === "status") return StatusRenderer;
-    if (key === "fee_paid") return AmountRenderer;
-    if (key === "base_salary_offered") return AmountRenderer;
-    if (key === "candidate_id") return (params: any) => String(params.value);
-    return undefined;
+    const CandidateNameRenderer = (params: any) => {
+    const candidateId = params.data?.candidate_id; // Get candidate ID from row data
+    const candidateName = params.value; // Get candidate name
+    
+    if (!candidateId || !candidateName) {
+      return <span className="text-gray-500">{candidateName || "N/A"}</span>;
+    }
+    
+    return (
+      <Link 
+        href={`/avatar/candidates/search?candidateId=${candidateId}`}
+        className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
+      >
+        {candidateName}
+      </Link>
+    );
   };
 
-  /** --- Fetch Placements --- */
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/candidate/placements?page=1&limit=1000`
-        );
-        if (!res.ok) throw new Error("Failed to fetch placements");
-        const responseData = await res.json();
-        const data = responseData.data || [];
-        setAllCandidates(data);
-        setFilteredCandidates(data);
 
-        if (data.length > 0) {
-          const orderedFields = [
-            "id",
-            "candidate_id",
-            "position",
-            "company",
-            "placement_date",
-            "status",
-            "benefits",
-            "notes",
-            "type",
-            "base_salary_offered",
-            "fee_paid",
-            "priority",
-            "candidate_name",
-          ];
+  const getCustomRenderer = (key: string) => {
+  if (key === "status") return StatusRenderer;
+  if (key === "fee_paid") return AmountRenderer;
+  if (key === "candidate_name" || key === "placement" || key === "candidate") return CandidateNameRenderer; // Add this line
+  return undefined;
+};
 
-          const orderedColumns: ColDef[] = orderedFields
-            .filter((field) => field in data[0])
-            .map((key) => ({
-              field: key,
-              headerName: key
-                .replace(/([A-Z])/g, " $1")
-                .replace(/^./, (str) => str.toUpperCase()),
-              width: 150,
-              minWidth: 120,
-              cellRenderer: getCustomRenderer(key),
-              editable: true,
-              ...(key === "fee_paid" || key === "base_salary_offered"
-                ? {
-                    valueParser: (params) => {
-                      if (!params.newValue) return 0;
-                      const numericValue = Number(
-                        String(params.newValue).replace(/[$,]/g, "")
-                      );
-                      return isNaN(numericValue) ? 0 : numericValue;
-                    },
-                  }
-                : {}),
-            }));
+    /** --- Fetch Placements --- */
+    
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
 
-          setColumnDefs(orderedColumns);
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/candidate/placements?page=1&limit=1000`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         }
-      } catch (err) {
-        setError("Unable to fetch placements data.");
-      } finally {
-        setLoading(false);
+      );
+
+      if (!res.ok) throw new Error("Failed to fetch placements");
+      const responseData = await res.json();
+      const data = responseData.data || [];
+      setAllCandidates(data);
+      setFilteredCandidates(data);
+
+      if (data.length > 0) {
+        const orderedFields = [
+          "id",
+          "candidate_id",
+          "position",
+          "placement",
+          "company",
+        ];
+
+        const orderedColumns: ColDef[] = orderedFields
+          .filter((field) => field in data[0])
+          .map((key) => ({
+            field: key,
+            headerName: key
+              .replace(/([A-Z])/g, " $1")
+              .replace(/^./, (str) => str.toUpperCase()),
+            width: 150,
+            minWidth: 120,
+            cellRenderer: getCustomRenderer(key),
+            editable: true,
+            ...(key === "fee_paid" && {
+              valueParser: (params) => {
+                if (!params.newValue) return 0;
+                const numericValue = Number(
+                  String(params.newValue).replace(/[$,]/g, "")
+                );
+                return isNaN(numericValue) ? 0 : numericValue;
+              },
+            }),
+          }));
+
+        const dynamicColumns: ColDef[] = Object.keys(data[0])
+          .filter(
+            (key) =>
+              !orderedFields.includes(key) && key !== "last_mod_datetime"
+          )
+          .map((key) => ({
+            field: key,
+            headerName: key
+              .replace(/([A-Z])/g, " $1")
+              .replace(/^./, (str) => str.toUpperCase()),
+            width: 150,
+            minWidth: 120,
+            cellRenderer: getCustomRenderer(key),
+            editable: true,
+            ...(key === "fee_paid" && {
+              valueParser: (params) => {
+                if (!params.newValue) return 0;
+                const numericValue = Number(
+                  String(params.newValue).replace(/[$,]/g, "")
+                );
+                return isNaN(numericValue) ? 0 : numericValue;
+              },
+            }),
+          }));
+
+        setColumnDefs([...orderedColumns, ...dynamicColumns]);
       }
-    };
+    } catch (err: any) {
+      console.error("Fetch error:", err);
+      setError(err.message || "Unable to fetch placements data.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchData();
-  }, []);
+  fetchData();
+}, []);
 
-  /** --- Fetch Marketing Candidates --- */
-  useEffect(() => {
-    const fetchMarketingCandidates = async () => {
-      try {
-        const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/candidates/marketing/active`
-        );
-        setMarketingCandidates(Array.isArray(res.data) ? res.data : []);
-      } catch (err) {
-        console.error("Failed to fetch marketing candidates", err);
-        setMarketingCandidates([]);
-      }
-    };
-    fetchMarketingCandidates();
-  }, []);
 
-  /** --- Search / Filter --- */
   const filterCandidates = useCallback(
     (term: string) => {
       if (!term.trim()) return allCandidates;
@@ -440,3 +470,4 @@ export default function CandidatesPlacements() {
     </div>
   );
 }
+
