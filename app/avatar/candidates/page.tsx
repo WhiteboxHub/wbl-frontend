@@ -1263,12 +1263,13 @@ useEffect(() => {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="batchid" className="block text-sm font-medium">Batch</Label>
+                  <Label htmlFor="batchid" className="block text-sm font-medium">Batch *</Label>
                   <select
                     id="batchid"
                     name="batchid"
                     value={formData.batchid}
                     onChange={handleNewCandidateFormChange}
+                    required
                     className="w-full h-10 p-2 border rounded-md"
                     disabled={batchesLoading}
                   >
@@ -1276,7 +1277,7 @@ useEffect(() => {
                       <option value="0">Loading batches...</option>
                     ) : (
                       <>
-                        <option value="0">Select a batch (optional)</option>
+                        <option value="0">Select a batch </option>
                         {batches.map((batch) => (
                           <option key={batch.batchid} value={batch.batchid}>
                             {batch.batchname}
