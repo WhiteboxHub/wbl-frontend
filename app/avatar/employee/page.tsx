@@ -160,14 +160,14 @@ const fetchEmployees = async () => {
     const { name, value } = e.target;
      // Validation for "Full Name" field
   if (name === "name") {
-    const regex = /^[A-Za-z. ]*$/; // allow letters, dot, and spaces
+    const regex = /^[A-Za-z. ]*$/; 
     if (!regex.test(value)) {
-      return; // block invalid characters
+      return; 
     }
   }
   // Validation for "Full Name"
   if (name === "name") {
-    const regex = /^[A-Za-z. ]*$/; // letters, dot, space
+    const regex = /^[A-Za-z. ]*$/; 
     if (!regex.test(value)) return;
   }
 

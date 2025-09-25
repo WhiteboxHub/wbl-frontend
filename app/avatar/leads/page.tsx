@@ -572,27 +572,7 @@ const fetchLeads = useCallback(
   // Handle form changes and submissions
   const handleNewLeadFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-  //   if (type === 'checkbox') {
-  //     const checked = (e.target as HTMLInputElement).checked;
-  //     setFormData(prev => ({ ...prev, [name]: checked }));
-  //   } else {
-  //     setFormData(prev => ({ ...prev, [name]: value }));
-  //   }
-  // };
-
-//      if (type === 'checkbox') {
-//     const checked = (e.target as HTMLInputElement).checked;
-//     setFormData(prev => ({ ...prev, [name]: checked }));
-//   } else if (name === 'phone' || name === 'secondary_phone') {
-//     // Only allow digits
-//     const numericValue = value.replace(/\D/g, '');
-//     setFormData(prev => ({ ...prev, [name]: numericValue }));
-//   } else {
-//     setFormData(prev => ({ ...prev, [name]: value }));
-//   }
-// };
-
-if (type === 'checkbox') {
+  if (type === 'checkbox') {
     const checked = (e.target as HTMLInputElement).checked;
     setFormData(prev => ({ ...prev, [name]: checked }));
   } 
