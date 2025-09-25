@@ -1,5 +1,3 @@
-
-
 "use client";
 import Link from "next/link";
 import "@/styles/admin.css";
@@ -28,9 +26,8 @@ const StatusRenderer = (params: any) => {
 };
 
 const CandidateNameRenderer = (params: any) => {
-  // Try multiple possible candidate ID fields
   const candidateId = params.data?.candidate_id || params.data?.candidate?.id || params.data?.id;
-  const candidateName = params.value; // Get candidate name
+  const candidateName = params.value;
   
   if (!candidateId || !candidateName) {
     return <span className="text-gray-500">{candidateName || "N/A"}</span>;
@@ -45,7 +42,6 @@ const CandidateNameRenderer = (params: any) => {
     </Link>
   );
 };
-
 
 // ---------------- Status Filter Header ----------------
 const StatusHeaderComponent = (props: any) => {
@@ -109,8 +105,7 @@ const StatusHeaderComponent = (props: any) => {
             className="z-[99999] bg-white border rounded shadow-lg p-3 flex flex-col space-y-2 w-48 pointer-events-auto"
             style={{ top: dropdownPos.top, left: dropdownPos.left, position: "fixed" }}
           >
-            {[
-              { value: "active", label: "Active" },
+            {[{ value: "active", label: "Active" },
               { value: "break", label: "Break" },
               { value: "inactive", label: "Inactive" },
               { value: "discontinued", label: "Discontinued" }
@@ -137,13 +132,12 @@ export default function CandidatesPrepPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredCandidates, setFilteredCandidates] = useState<any[]>([]);
   const [allCandidates, setAllCandidates] = useState<any[]>([]);
-  const [candidates, setCandidates] = useState<any[]>([]); // all candidates for dropdown
+  const [candidates, setCandidates] = useState<any[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [instructors, setInstructors] = useState<any[]>([]);
 
-  // --- Add Candidate Form State ---
   const [showAddForm, setShowAddForm] = useState(false);
   const [newCandidate, setNewCandidate] = useState<any>({
     candidate_id: "",
@@ -167,34 +161,33 @@ export default function CandidatesPrepPage() {
   });
 
   // ---------------- Fetch Data ----------------
-useEffect(() => {
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem("token"); // get the auth token
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem("token");
 
-      const [candidatesRes, instructorsRes] = await Promise.all([
-        axios.get(`${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        axios.get(`${process.env.NEXT_PUBLIC_API_URL}/employees?status=1`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }), // only active instructors
-      ]);
+        const [candidatesRes, instructorsRes] = await Promise.all([
+          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/employees?status=1`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
 
-      setAllCandidates(candidatesRes.data || []);
-      setInstructors(instructorsRes.data || []);
-    } catch (err) {
-      console.error(err);
-      setError("Failed to load data.");
-    } finally {
-      setLoading(false);
-    }
-  };
+        setAllCandidates(candidatesRes.data || []);
+        setInstructors(instructorsRes.data || []);
+      } catch (err) {
+        console.error(err);
+        setError("Failed to load data.");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  fetchData();
-}, []);
-
+    fetchData();
+  }, []);
 
   // ---------------- Filtering ----------------
   useEffect(() => {
@@ -210,7 +203,6 @@ useEffect(() => {
   }, [allCandidates, searchTerm, selectedStatuses]);
 
   // ---------------- Column Defs ----------------
-
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => {
     return [
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
@@ -239,13 +231,22 @@ useEffect(() => {
     ];
   }, [selectedStatuses]);
 
-
   // ---------------- CRUD Handlers ----------------
   const handleRowUpdated = async (updatedRow: any) => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
     try {
       const payload = { ...updatedRow };
-      await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/candidate_preparation/${updatedRow.id}`, payload);
-      setFilteredCandidates((prev) => prev.map((row) => (row.id === updatedRow.id ? { ...row, ...payload } : row)));
+      await axios.put(
+        `${process.env.NEXT_PUBLIC_API_URL}/candidate_preparation/${updatedRow.id}`,
+        payload,
+        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+      );
+
+      setFilteredCandidates((prev) =>
+        prev.map((row) => (row.id === updatedRow.id ? { ...row, ...payload } : row))
+      );
     } catch (err) {
       console.error("Failed to update:", err);
     }
@@ -260,7 +261,6 @@ useEffect(() => {
     }
   };
 
-  // ---------------- Add Candidate ----------------
   const handleAddCandidate = async () => {
     try {
       const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/candidate_preparation`, newCandidate);
@@ -340,7 +340,7 @@ useEffect(() => {
               title={`Candidate Preparations (${filteredCandidates.length})`}
               height="calc(80vh)"
               showSearch={false}
-              onRowUpdated={handleRowUpdated}
+              onRowUpdated={handleRowUpdated} // <-- now matches signature
               onRowDeleted={handleRowDeleted}
             />
           </div>
@@ -350,19 +350,16 @@ useEffect(() => {
       {/* Add Candidate Modal */}
       {showAddForm && (
         <div className="fixed inset-0 flex items-center justify-center z-50">
-          {/* Overlay */}
           <div
             className="fixed inset-0 bg-black bg-opacity-40"
             onClick={() => setShowAddForm(false)}
           />
-          {/* Modal content */}
           <div
             className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto relative"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-xl font-bold mb-4">Add Candidate Preparation</h2>
             <div className="space-y-3">
-              {/* Candidate Dropdown */}
               <div className="space-y-1">
                 <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Candidate</Label>
                 <select
@@ -379,7 +376,6 @@ useEffect(() => {
                 </select>
               </div>
 
-              {/* Batch */}
               <div className="space-y-1">
                 <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Batch</Label>
                 <Input
@@ -390,7 +386,6 @@ useEffect(() => {
                 />
               </div>
 
-              {/* Start Date */}
               <div className="space-y-1">
                 <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Start Date</Label>
                 <Input
@@ -401,7 +396,6 @@ useEffect(() => {
                 />
               </div>
 
-              {/* Instructor Dropdowns */}
               {["1", "2", "3"].map((num) => (
                 <div key={num} className="space-y-1">
                   <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -420,18 +414,13 @@ useEffect(() => {
                     className="w-full p-2 border rounded"
                   >
                     <option value="">Select Instructor</option>
-                    {instructors
-                      .filter((ins) => ins.status === 1)
-                      .map((ins) => (
-                        <option key={ins.id} value={ins.id}>
-                          {ins.name}
-                        </option>
-                      ))}
+                    {instructors.filter((ins) => ins.status === 1).map((ins) => (
+                      <option key={ins.id} value={ins.id}>{ins.name}</option>
+                    ))}
                   </select>
                 </div>
               ))}
 
-              {/* Status Dropdown */}
               <div className="space-y-1">
                 <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Status</Label>
                 <select
@@ -448,7 +437,6 @@ useEffect(() => {
               </div>
             </div>
 
-            {/* Modal Buttons */}
             <div className="flex justify-end mt-6 space-x-3">
               <button onClick={() => setShowAddForm(false)} className="px-4 py-2 bg-gray-300 rounded">
                 Cancel
@@ -463,4 +451,3 @@ useEffect(() => {
     </div>
   );
 }
-

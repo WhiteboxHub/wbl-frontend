@@ -33,7 +33,7 @@ const excludedFields = [
 ];
 
 const fieldSections: Record<string, string> = {
-  candidate_full_name: "Professional Information",
+  candidate_full_name: "Basic Information",
   instructor1_name: "Professional Information",
   instructor2_name: "Professional Information",
   instructor3_name: "Professional Information",

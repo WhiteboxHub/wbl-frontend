@@ -13,7 +13,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AGGridTable } from "@/components/AGGridTable";
 import { createPortal } from "react-dom";
 import axios from "axios";
-
+import Link from "next/link";
 
 type Candidate = {
   id: number;
@@ -142,6 +142,24 @@ const WorkStatusRenderer = ({ value }: { value?: string }) => {
     <Badge className={`${variantMap[workstatus] || variantMap.default} capitalize`}>
       {value || "N/A"}
     </Badge>
+  );
+};
+
+const CandidateNameRenderer = (params: any) => {
+  const candidateId = params.data?.id; 
+  const candidateName = params.value;
+
+  if (!candidateId || !candidateName) {
+    return <span className="text-gray-500">{candidateName || "N/A"}</span>;
+  }
+
+  return (
+    <Link
+      href={`/avatar/candidates/search?candidateId=${candidateId}`} 
+      className="text-blue-600 hover:text-blue-800 hover:underline font-medium cursor-pointer"
+    >
+      {candidateName}
+    </Link>
   );
 };
 
@@ -646,6 +664,7 @@ useEffect(() => {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
+      timeZone:"UTC"
     });
   };
 
@@ -662,7 +681,8 @@ useEffect(() => {
       field: "full_name",
       headerName: "Full Name",
       width: 180,
-      sortable: true
+      sortable: true,
+      cellRenderer: CandidateNameRenderer,
     },
     {
       field: "phone",
@@ -823,33 +843,26 @@ useEffect(() => {
       width: 150,
       sortable: true,
     },
-    {
-      field: "dob",
-      headerName: "Date of Birth",
-      width: 150,
-      sortable: true,
-      editable: true,
-      valueFormatter: ({ value }: ValueFormatterParams) => formatDate(value),
-      valueParser: (params) => {
-        if (!params.newValue) return null;
-
-        // Try to parse the input as a date
-        const date = new Date(params.newValue);
-
-        // If it's a valid date, return ISO string
-        if (!isNaN(date.getTime())) {
-          return date.toISOString();
-        }
-
-        // If not valid, return the original value
-        return params.oldValue;
-      },
-      cellEditor: 'agTextCellEditor',
-      cellEditorParams: {
-        placeholder: 'MM/DD/YYYY or YYYY-MM-DD'
-      }
-    },
-
+{
+  field: "dob",
+  headerName: "Date of Birth",
+  width: 150,
+  sortable: true,
+  editable: true,
+  valueFormatter: ({ value }: ValueFormatterParams) => formatDate(value),
+  valueParser: (params) => {
+    if (!params.newValue) return null;
+   
+    const date = new Date(params.newValue);
+    return date.toISOString();
+  },
+  cellEditor: 'agDateCellEditor', // Use AG Grid's built-in date editor
+  cellEditorParams: {
+    // Optional: Configure the date picker format
+    min: '1900-01-01', // Example: Set min date
+    max: new Date().toISOString().split('T')[0] // Example: Set max date to today
+  }
+},
     {
       field: "emergcontactname",
       headerName: "Emergency Contact Name",
