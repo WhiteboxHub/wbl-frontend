@@ -154,7 +154,12 @@ const fieldSections: Record<string, string> = {
   assigned_date:"Basic Information",
   due_date:"Basic Information",
   employee_name:"Basic Information",
-  
+  secondary_email:"Contact Information",
+  secondaryphone:"Contact Information"
+
+  assigned_date:"Basic Information",
+  employee_name:"Basic Information",
+
 
 };
 
@@ -337,9 +342,12 @@ const dateFields = [
   "enrolled_date",
   "interview_date",
   "placement_date",
+
+
   "target_date_of_marketing",
   "assigned_date",
   "due_date"
+
 ];
 
 export function EditModal({
@@ -969,3 +977,5 @@ export function EditModal({
     </Dialog>
   );
 }
+
+
