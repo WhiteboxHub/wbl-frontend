@@ -177,38 +177,76 @@ export default function Index() {
     today: [],
     upcoming: [],
   });
-  const [leadMetrics, setLeadMetrics] = useState<LeadMetrics | null>(null);
-  const [activeTab, setActiveTab] = useState("batch");
+const [leadMetrics, setLeadMetrics] = useState<LeadMetrics | null>(null);
+const [activeTab, setActiveTab] = useState("batch");
 
+useEffect(() => {
+  const fetchInterviewPerformance = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) return;
 
-   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/interview/performance`)
-      .then((res) => res.json())
-      .then((res) => {
-        if (res.success) setData(res.data);
-      })
-      .catch((err) => console.error("Error fetching interview performance:", err))
-      .finally(() => setLoading(false));
-  }, []);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/interview/performance`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
+      const data = await res.json();
+      if (data.success) setData(data.data);
+    } catch (err) {
+      console.error("Error fetching interview performance:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  useEffect(() => {
-    fetch(`${API_BASE_URL}/employee-birthdays`)
-      .then((res) => res.json())
-      .then((data) => setBirthdays(data))
-      .catch((err) => console.error("Error fetching birthdays:", err));
-  }, []);
+  fetchInterviewPerformance();
+}, []);
 
-  useEffect(() => {
-    fetch(`${API_BASE_URL}/leads/metrics`)
-      .then((res) => res.json())
-      .then((data: LeadMetricsResponse) => {
-        if (data.success) {
-          setLeadMetrics(data.data);
-        }
-      })
-      .catch((err) => console.error("Error fetching lead metrics:", err));
-  }, []);
+useEffect(() => {
+  const fetchEmployeeBirthdays = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) return;
+
+      const res = await fetch(`${API_BASE_URL}/employee-birthdays`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+      setBirthdays(data);
+    } catch (err) {
+      console.error("Error fetching birthdays:", err);
+    }
+  };
+
+  fetchEmployeeBirthdays();
+}, []);
+
+useEffect(() => {
+  const fetchLeadMetrics = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) return;
+
+      const res = await fetch(`${API_BASE_URL}/leads/metrics`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data: LeadMetricsResponse = await res.json();
+      if (data.success) setLeadMetrics(data.data);
+    } catch (err) {
+      console.error("Error fetching lead metrics:", err);
+    }
+  };
+
+  fetchLeadMetrics();
+}, []);
 
   useEffect(() => {
     setTime(new Date());

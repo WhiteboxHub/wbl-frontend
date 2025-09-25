@@ -50,21 +50,36 @@ export default function CandidatesInterviews() {
   };
 
   // Marketing candidates
-  const [marketingCandidates, setMarketingCandidates] = useState<any[]>([]);
-  useEffect(() => {
-    const fetchMarketingCandidates = async () => {
-      try {
-        const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/candidates/marketing/active`
-        );
-        setMarketingCandidates(Array.isArray(res.data) ? res.data : []);
-      } catch (err) {
-        console.error("Failed to fetch marketing candidates", err);
+const [marketingCandidates, setMarketingCandidates] = useState<any[]>([]);
+
+useEffect(() => {
+  const fetchMarketingCandidates = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        console.error("No access token found");
         setMarketingCandidates([]);
+        return;
       }
-    };
-    fetchMarketingCandidates();
-  }, []);
+
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/candidates/marketing/active`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      setMarketingCandidates(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error("Failed to fetch marketing candidates", err);
+      setMarketingCandidates([]);
+    }
+  };
+
+  fetchMarketingCandidates();
+}, []);
 
   // Fetch interviews
 const fetchInterviews = async (page: number, perPage: number) => {
@@ -191,13 +206,18 @@ const fetchInterviews = async (page: number, perPage: number) => {
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
 
       { field: "candidate.full_name", headerName: "Full Name", sortable: true, minWidth: 140, cellRenderer: CandidateNameRenderer },
+      { field: "instructor1_name", headerName: "Instructor 1", minWidth: 140 },
+      { field: "instructor2_name", headerName: "Instructor 2", minWidth: 140 },
+      { field: "instructor3_name", headerName: "Instructor 3", minWidth: 140 },
       { field: "company", headerName: "Company", sortable: true, minWidth: 110, editable: true },
       { field: "mode_of_interview", headerName: "Mode", maxWidth: 130, editable: true },
       { field: "type_of_interview", headerName: "Type", maxWidth: 150, editable: true },
       { field: "interview_date", headerName: "Date", maxWidth: 120, editable: true },
       { field: "recording_link", headerName: "Recording", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
       { field: "backup_url", headerName: "Backup URL", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
-      { field: "url", headerName: "URL", cellRenderer: LinkRenderer, minWidth: 200, editable: true }, // new URL column
+      { field: "url", headerName: "URL", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
+
+
       // { field: "status", headerName: "Status", cellRenderer: StatusRenderer, maxWidth: 150, editable: true },
       { field: "feedback", headerName: "Feedback", cellRenderer: FeedbackRenderer, maxWidth: 130, editable: true },
       { field: "interviewer_emails", headerName: "Emails", minWidth: 180, editable: true },

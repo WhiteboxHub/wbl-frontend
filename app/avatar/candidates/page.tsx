@@ -1,5 +1,6 @@
+
+
 "use client";
-import Link from "next/link"; 
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { Badge } from "@/components/admin_ui/badge";
@@ -12,7 +13,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AGGridTable } from "@/components/AGGridTable";
 import { createPortal } from "react-dom";
 import axios from "axios";
-
+import Link from "next/link";
 
 type Candidate = {
   id: number;
@@ -38,7 +39,6 @@ type Candidate = {
   fee_paid?: number | null;
   notes?: string | null;
   batchid: number;
-  github_link?: string | null;
   candidate_folder?: string | null;
 };
 
@@ -65,7 +65,6 @@ type FormData = {
   fee_paid: number;
   notes: string;
   batchid: number;
-  github_link: string;
   candidate_folder: string;
 };
 
@@ -108,7 +107,6 @@ const initialFormData: FormData = {
   fee_paid: 0,
   notes: "",
   batchid: 0,
-  github_link: "",
   candidate_folder: "",
 };
 
@@ -147,27 +145,23 @@ const WorkStatusRenderer = ({ value }: { value?: string }) => {
   );
 };
 
-
 const CandidateNameRenderer = (params: any) => {
-  const candidateId = params.data?.id; // Get candidate ID from row data
-  const candidateName = params.value; // Get candidate name
-  
+  const candidateId = params.data?.id; 
+  const candidateName = params.value;
+
   if (!candidateId || !candidateName) {
     return <span className="text-gray-500">{candidateName || "N/A"}</span>;
   }
-  
+
   return (
-    <Link 
-      href={`/avatar/candidates/search?candidateId=${candidateId}`}
-      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
+    <Link
+      href={`/avatar/candidates/search?candidateId=${candidateId}`} 
+      className="text-blue-600 hover:text-blue-800 hover:underline font-medium cursor-pointer"
     >
       {candidateName}
     </Link>
   );
 };
-// Status Filter Header Component
-const StatusFilterHeaderComponent = (props: any) => {
-  const { selectedStatuses, setSelectedStatuses } = props;
 
 const FilterHeaderComponent = ({
   selectedItems,
@@ -198,7 +192,6 @@ const FilterHeaderComponent = ({
         : [...prev, item];
     });
   }
-
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
@@ -426,12 +419,12 @@ const fetchCandidates = useCallback(
         url += `&filters=${encodeURIComponent(JSON.stringify(filters))}`;
       }
 
-   
+      // 🔑 Get token from localStorage (or cookies/session depending on your auth setup)
       const token = localStorage.getItem("token");
 
       const res = await fetch(url, {
         headers: {
-          Authorization: `Bearer ${token}`, 
+          Authorization: `Bearer ${token}`,  // ✅ pass token here
           "Content-Type": "application/json",
         },
       });
@@ -455,31 +448,45 @@ const fetchCandidates = useCallback(
 
 
   // Fetch batches
-  useEffect(() => {
-    const fetchBatches = async () => {
-      setBatchesLoading(true);
-      try {
-        const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/batch?course=${courseId}`
-        );
-        
-        const sortedBatches = [...res.data].sort((a: Batch, b: Batch) => b.batchid - a.batchid);
-        setBatches(sortedBatches);
-
-        if (isNewCandidate && sortedBatches.length > 0) {
-          setFormData(prev => ({
-            ...prev,
-            batchid: sortedBatches[0].batchid
-          }));
-        }
-      } catch (error) {
-        console.error("Failed to load batches", error);
-      } finally {
+useEffect(() => {
+  const fetchBatches = async () => {
+    setBatchesLoading(true);
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        console.error("No access token found");
         setBatchesLoading(false);
+        return;
       }
-    };
-    fetchBatches();
-  }, [courseId, isNewCandidate]);
+
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/batch?course=${courseId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const sortedBatches = [...res.data].sort((a: Batch, b: Batch) => b.batchid - a.batchid);
+      setBatches(sortedBatches);
+
+      if (isNewCandidate && sortedBatches.length > 0) {
+        setFormData(prev => ({
+          ...prev,
+          batchid: sortedBatches[0].batchid
+        }));
+      }
+    } catch (error) {
+      console.error("Failed to load batches", error);
+    } finally {
+      setBatchesLoading(false);
+    }
+  };
+
+  fetchBatches();
+}, [courseId, isNewCandidate]);
+
 
   useEffect(() => {
     let filtered = [...candidates];
@@ -657,6 +664,7 @@ const fetchCandidates = useCallback(
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
+      timeZone:"UTC"
     });
   };
 
@@ -835,33 +843,26 @@ const fetchCandidates = useCallback(
       width: 150,
       sortable: true,
     },
-    {
-      field: "dob",
-      headerName: "Date of Birth",
-      width: 150,
-      sortable: true,
-      editable: true,
-      valueFormatter: ({ value }: ValueFormatterParams) => formatDate(value),
-      valueParser: (params) => {
-        if (!params.newValue) return null;
-
-        // Try to parse the input as a date
-        const date = new Date(params.newValue);
-
-        // If it's a valid date, return ISO string
-        if (!isNaN(date.getTime())) {
-          return date.toISOString();
-        }
-
-        // If not valid, return the original value
-        return params.oldValue;
-      },
-      cellEditor: 'agTextCellEditor',
-      cellEditorParams: {
-        placeholder: 'MM/DD/YYYY or YYYY-MM-DD'
-      }
-    },
-
+{
+  field: "dob",
+  headerName: "Date of Birth",
+  width: 150,
+  sortable: true,
+  editable: true,
+  valueFormatter: ({ value }: ValueFormatterParams) => formatDate(value),
+  valueParser: (params) => {
+    if (!params.newValue) return null;
+   
+    const date = new Date(params.newValue);
+    return date.toISOString();
+  },
+  cellEditor: 'agDateCellEditor', // Use AG Grid's built-in date editor
+  cellEditorParams: {
+    // Optional: Configure the date picker format
+    min: '1900-01-01', // Example: Set min date
+    max: new Date().toISOString().split('T')[0] // Example: Set max date to today
+  }
+},
     {
       field: "emergcontactname",
       headerName: "Emergency Contact Name",
@@ -920,31 +921,7 @@ const fetchCandidates = useCallback(
         );
       },
     },
-
-    {
-      field: "github_link",
-      headerName: "GitHub profile",
-      width: 200,
-      sortable: true,
-      cellRenderer: (params: any) => {
-        if (!params.value) return "";
-        return (
-          <a
-            href={params.value}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 underline hover:text-blue-800"
-            onClick={(event) => event.stopPropagation()}
-          >
-            {params.value}
-          </a>
-        );
-      },
-    }
-
-
   ], [batches, selectedStatuses, selectedWorkStatuses, selectedBatches]);
-
 
   // Error handling
   if (error) {
