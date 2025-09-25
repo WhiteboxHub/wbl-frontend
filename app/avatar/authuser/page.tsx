@@ -20,39 +20,45 @@ export default function AuthUsersPage() {
   const [loading, setLoading] = useState(true);
 
   // Debounce search
-// Assuming you store the token in localStorage after login
-const token = localStorage.getItem("token");
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
 
-const fetchUsers = async () => {
-  try {
-    setLoading(true);
+  // Fetch ALL users once (no pagination)
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
 
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users`, {
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json"
+      const token = localStorage.getItem("token"); // 🔑 get token
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        setUsers([]);
+        return;
       }
-    });
 
-    if (!res.ok) {
+      const data = await res.json();
+      setUsers(data);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to fetch users.");
       setUsers([]);
-      return;
+    } finally {
+      setLoading(false);
     }
+  };
 
-    const data = await res.json();
-    setUsers(data);
-  } catch (err) {
-    console.error(err);
-    toast.error("Failed to fetch users.");
-    setUsers([]);
-  } finally {
-    setLoading(false);
-  }
-};
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
-useEffect(() => {
-  fetchUsers();
-}, []);
   // Filtered users (searching locally)
   const filteredUsers = users.filter((u) => {
     const term = debouncedSearch.toLowerCase();
@@ -85,7 +91,9 @@ useEffect(() => {
       USER: "bg-gray-100 text-gray-800",
       MANAGER: "bg-emerald-100 text-emerald-800",
     };
-    return <Badge className={map[role] ?? "bg-gray-200 text-gray-700"}>{role}</Badge>;
+    return (
+      <Badge className={map[role] ?? "bg-gray-200 text-gray-700"}>{role}</Badge>
+    );
   };
 
   // Visa Status Renderer
@@ -100,68 +108,112 @@ useEffect(() => {
       F1: "bg-pink-100 text-pink-800",
       "Waiting for Status": "bg-orange-100 text-orange-800",
     };
-    return <Badge className={map[visa] ?? "bg-gray-200 text-gray-700"}>{visa}</Badge>;
+    return (
+      <Badge className={map[visa] ?? "bg-gray-200 text-gray-700"}>{visa}</Badge>
+    );
   };
 
   // Column definitions
-  const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
-    { field: "id", headerName: "ID", width: 100, pinned: "left" },
-    {
-      field: "uname",
-      headerName: "Email",
-      width: 250,
-      editable: true,
-      cellRenderer: (params: any) => {
-        if (!params.value) return "";
-        return (
-          <a
-            href={`mailto:${params.value}`}
-            className="text-blue-600 underline hover:text-blue-800"
-            onClick={(event) => event.stopPropagation()}
-          >
-            {params.value}
-          </a>
-        );
+  const columnDefs: ColDef[] = useMemo<ColDef[]>(
+    () => [
+      { field: "id", headerName: "ID", width: 100, pinned: "left" },
+      {
+        field: "uname",
+        headerName: "Email",
+        width: 250,
+        editable: true,
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          return (
+            <a
+              href={`mailto:${params.value}`}
+              className="text-blue-600 underline hover:text-blue-800"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {params.value}
+            </a>
+          );
+        },
       },
-    },
-    {
-      field: "phone",
-      headerName: "Phone",
-      width: 150,
-      editable: true,
-      cellRenderer: (params: any) => {
-        if (!params.value) return "";
-        return (
-          <a
-            href={`tel:${params.value}`}
-            className="text-blue-600 underline hover:text-blue-800"
-          >
-            {params.value}
-          </a>
-        );
+      {
+        field: "phone",
+        headerName: "Phone",
+        width: 150,
+        editable: true,
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          return (
+            <a
+              href={`tel:${params.value}`}
+              className="text-blue-600 underline hover:text-blue-800"
+            >
+              {params.value}
+            </a>
+          );
+        },
       },
-    },
-    { field: "fullname", headerName: "Full Name", width: 180, editable: true },
-    { field: "status", headerName: "Status", width: 150, editable: true, cellRenderer: StatusRenderer },
-    { field: "visa_status", headerName: "Visa Status", width: 160, editable: true, cellRenderer: VisaStatusRenderer },
-    { field: "address", headerName: "Address", width: 200, editable: true },
-    { field: "state", headerName: "State", width: 140, editable: true },
-    { field: "zip", headerName: "Zip Code", width: 120, editable: true },
-    { field: "city", headerName: "City", width: 140, editable: true },
-    { field: "country", headerName: "Country", width: 140, editable: true },
-    { field: "registereddate", headerName: "Registered Date", width: 180, valueFormatter: (params) => params.value ? new Date(params.value).toLocaleDateString() : "" },
-    { field: "googleId", headerName: "Google ID", width: 220 },
-    { field: "team", headerName: "Team", width: 180, editable: true },
-    { field: "message", headerName: "Message", width: 250, editable: true },
-    { field: "enddate", headerName: "End Date", width: 150, valueFormatter: (params) => params.value ? new Date(params.value).toLocaleDateString() : "" },
-    { field: "role", headerName: "Role", width: 150, editable: true, cellRenderer: RoleRenderer },
-    { field: "notes", headerName: "Notes", width: 250, editable: true },
-  ], []);
+      { field: "fullname", headerName: "Full Name", width: 180, editable: true },
+      {
+        field: "status",
+        headerName: "Status",
+        width: 150,
+        editable: true,
+        cellRenderer: StatusRenderer,
+      },
+      {
+        field: "visa_status",
+        headerName: "Visa Status",
+        width: 160,
+        editable: true,
+        cellRenderer: VisaStatusRenderer,
+      },
+      { field: "address", headerName: "Address", width: 200, editable: true },
+      { field: "state", headerName: "State", width: 140, editable: true },
+      { field: "zip", headerName: "Zip Code", width: 120, editable: true },
+      { field: "city", headerName: "City", width: 140, editable: true },
+      { field: "country", headerName: "Country", width: 140, editable: true },
+      {
+        field: "registereddate",
+        headerName: "Registered Date",
+        width: 180,
+        valueFormatter: (params) =>
+          params.value ? new Date(params.value).toLocaleDateString() : "",
+      },
+      { field: "googleId", headerName: "Google ID", width: 220 },
+      { field: "team", headerName: "Team", width: 180, editable: true },
+      { field: "message", headerName: "Message", width: 250, editable: true },
+      {
+        field: "enddate",
+        headerName: "End Date",
+        width: 150,
+        valueFormatter: (params) =>
+          params.value ? new Date(params.value).toLocaleDateString() : "",
+      },
+      {
+        field: "role",
+        headerName: "Role",
+        width: 150,
+        editable: true,
+        cellRenderer: RoleRenderer,
+      },
+      { field: "notes", headerName: "Notes", width: 250, editable: true },
+    ],
+    []
+  );
 
   // PUT request on row update
   const handleRowUpdated = async (updatedRow: any) => {
     try {
-      await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/user/${updatedRow.id}`, updatedRow);
+      const token = localStorage.getItem("token");
+
+      await axios.put(
+        `${process.env.NEXT_PUBLIC_API_URL}/user/${updatedRow.id}`,
+        updatedRow,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
       setUsers((prev) =>
         prev.map((user) =>
           user.id === updatedRow.id ? { ...user, ...updatedRow } : user
@@ -177,7 +229,12 @@ useEffect(() => {
   // DELETE request on row deletion
   const handleRowDeleted = async (id: number | string) => {
     try {
-      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/user/${id}`);
+      const token = localStorage.getItem("token");
+
+      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/user/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
       setUsers((prev) => prev.filter((user) => user.id !== id));
       toast.success("User deleted successfully");
     } catch (err) {
@@ -208,7 +265,10 @@ useEffect(() => {
 
       {/* Search Input */}
       <div className="max-w-md">
-        <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <Label
+          htmlFor="search"
+          className="text-sm font-medium text-gray-700 dark:text-gray-300"
+        >
           Search by Name, Email or ID
         </Label>
         <div className="relative mt-1">

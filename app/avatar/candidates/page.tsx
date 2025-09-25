@@ -424,7 +424,7 @@ const fetchCandidates = useCallback(
 
       const res = await fetch(url, {
         headers: {
-          Authorization: `Bearer ${token}`,  // ✅ pass token here
+          Authorization: `Bearer ${token}`,  // pass token here
           "Content-Type": "application/json",
         },
       });
