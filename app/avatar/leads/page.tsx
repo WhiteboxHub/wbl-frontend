@@ -572,13 +572,49 @@ const fetchLeads = useCallback(
   // Handle form changes and submissions
   const handleNewLeadFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-    if (type === 'checkbox') {
-      const checked = (e.target as HTMLInputElement).checked;
-      setFormData(prev => ({ ...prev, [name]: checked }));
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    }
-  };
+  //   if (type === 'checkbox') {
+  //     const checked = (e.target as HTMLInputElement).checked;
+  //     setFormData(prev => ({ ...prev, [name]: checked }));
+  //   } else {
+  //     setFormData(prev => ({ ...prev, [name]: value }));
+  //   }
+  // };
+
+//      if (type === 'checkbox') {
+//     const checked = (e.target as HTMLInputElement).checked;
+//     setFormData(prev => ({ ...prev, [name]: checked }));
+//   } else if (name === 'phone' || name === 'secondary_phone') {
+//     // Only allow digits
+//     const numericValue = value.replace(/\D/g, '');
+//     setFormData(prev => ({ ...prev, [name]: numericValue }));
+//   } else {
+//     setFormData(prev => ({ ...prev, [name]: value }));
+//   }
+// };
+
+if (type === 'checkbox') {
+    const checked = (e.target as HTMLInputElement).checked;
+    setFormData(prev => ({ ...prev, [name]: checked }));
+  } 
+  else if (name === 'phone' || name === 'secondary_phone') {
+    // Only allow digits
+    const numericValue = value.replace(/\D/g, '');
+    setFormData(prev => ({ ...prev, [name]: numericValue }));
+  } 
+  else if (name === 'address') {
+    // Allow letters, numbers, comma, and space only
+    const sanitizedValue = value.replace(/[^a-zA-Z0-9, ]/g, '');
+    setFormData(prev => ({ ...prev, [name]: sanitizedValue }));
+  } 
+  else if (name === 'full_name') {
+    // Allow letters and dot only
+    const sanitizedValue = value.replace(/[^a-zA-Z. ]/g, '');
+    setFormData(prev => ({ ...prev, [name]: sanitizedValue }));
+  } 
+  else {
+    setFormData(prev => ({ ...prev, [name]: value }));
+  }
+};
 
   const handleNewLeadFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

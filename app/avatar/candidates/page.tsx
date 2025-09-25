@@ -559,6 +559,23 @@ useEffect(() => {
 
   const handleNewCandidateFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
+     if (["phone", "secondaryphone", "emergcontactphone"].includes(name)) {
+    const digitsOnly = value.replace(/\D/g, ""); 
+    setFormData(prev => ({ ...prev, [name]: digitsOnly }));
+    return;
+  }
+    // Address field: allow only letters, numbers, and comma
+  if (name === "emergcontactaddrs" || name === "address") {
+    const allowedChars = value.replace(/[^a-zA-Z0-9, ]/g, ""); 
+    setFormData(prev => ({ ...prev, [name]: allowedChars }));
+    return;
+  }
+  if (name === "full_name" || name === "emergcontactname" ) {
+  // Only allow letters, spaces, and dot
+  const sanitized = value.replace(/[^a-zA-Z. ]/g, '');
+  setFormData(prev => ({ ...prev, [name]: sanitized }));
+  return;
+  }
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
       setFormData(prev => ({ ...prev, [name]: checked ? 'Y' : 'N' }));
@@ -683,6 +700,7 @@ useEffect(() => {
       width: 180,
       sortable: true,
       cellRenderer: CandidateNameRenderer,
+      
     },
     {
       field: "phone",
