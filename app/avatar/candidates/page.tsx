@@ -1,6 +1,4 @@
 
-
-
 "use client";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
@@ -72,6 +70,11 @@ type FormData = {
 type Batch = {
   batchid: number;
   batchname: string;
+  subject?: string;       
+  courseid?: number;      
+  orientationdate?: string; 
+  startdate?: string;      
+  enddate?: string;        
 };
 
 
@@ -355,7 +358,7 @@ const FilterHeaderComponent = ({
   );
 };
 
-// Main Component
+
 export default function CandidatesPage() {
   const gridRef = useRef<any>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -363,7 +366,7 @@ export default function CandidatesPage() {
   const searchParams = useSearchParams();
   const isNewCandidate = searchParams.get("newcandidate") === "true";
 
-  // State
+
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [filteredCandidates, setFilteredCandidates] = useState<Candidate[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -376,8 +379,25 @@ export default function CandidatesPage() {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [formSaveLoading, setFormSaveLoading] = useState(false);
   const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
-  const [batches, setBatches] = useState<Batch[]>([]);
+
+  const [allBatches, setAllBatches] = useState<Batch[]>([]);
+
+  const [mlBatches, setMlBatches] = useState<Batch[]>([]);
   const [batchesLoading, setBatchesLoading] = useState(true);
+
+  useEffect(() => {
+    console.log('📊 Batch State Update:');
+    console.log('   - All batches:', allBatches.length);
+    console.log('   - ML batches for form:', mlBatches.length);
+    if (mlBatches.length > 0) {
+      console.log('   - ML batches details:', mlBatches.map(b => ({
+        id: b.batchid,
+        name: b.batchname,
+        subject: b.subject,
+        courseid: b.courseid
+      })));
+    }
+  }, [allBatches, mlBatches]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
   const [selectedBatches, setSelectedBatches] = useState<Batch[]>([]);
@@ -445,42 +465,62 @@ const fetchCandidates = useCallback(
 );
 
 
-  // Fetch batches
+
 useEffect(() => {
   const fetchBatches = async () => {
     setBatchesLoading(true);
     try {
-      const token = localStorage.getItem("access_token");
-      if (!token) {
-        console.error("No access token found");
-        setBatchesLoading(false);
-        return;
+      const token = localStorage.getItem('accesstoken');
+
+
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/batch`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+    
+      const sortedAllBatches = [...res.data].sort((a: Batch, b: Batch) => b.batchid - a.batchid);
+      setAllBatches(sortedAllBatches);
+
+      
+      const uniqueSubjects = [...new Set(sortedAllBatches.map(batch => batch.subject))];
+      const uniqueCourseIds = [...new Set(sortedAllBatches.map(batch => batch.courseid))];
+      console.log('🔍 Available subjects:', uniqueSubjects);
+      console.log('🔍 Available course IDs:', uniqueCourseIds);
+      console.log('🔍 Total batches:', sortedAllBatches.length);
+
+    
+      let mlBatchesOnly = sortedAllBatches.filter(batch => {
+        const subject = batch.subject?.toLowerCase();
+        return subject === 'ml' || 
+               subject === 'machine learning' || 
+               subject === 'machinelearning' ||
+               subject?.includes('ml');
+      });
+
+      if (mlBatchesOnly.length === 0) {
+        console.log('⚠️ No ML batches found by subject, trying courseid = 3');
+        mlBatchesOnly = sortedAllBatches.filter(batch => batch.courseid === 3);
       }
 
-      const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/batch?course=${courseId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      const sortedBatches = [...res.data].sort((a: Batch, b: Batch) => b.batchid - a.batchid);
-      setBatches(sortedBatches);
-
-      if (isNewCandidate && sortedBatches.length > 0) {
-        setFormData(prev => ({
-          ...prev,
-          batchid: sortedBatches[0].batchid
-        }));
+      if (mlBatchesOnly.length === 0) {
+        console.warn('⚠️ No ML batches found! Showing all batches in form as fallback');
+        mlBatchesOnly = sortedAllBatches;
       }
+
+      console.log('🎯 Filtered ML batches for form:', mlBatchesOnly.length);
+      setMlBatches(mlBatchesOnly); 
+
+      
+      if (isNewCandidate && mlBatchesOnly.length > 0 && mlBatchesOnly[0]?.batchid) {
+        setFormData(prev => ({ ...prev, batchid: mlBatchesOnly[0].batchid }));
+      }
+
     } catch (error) {
-      console.error("Failed to load batches", error);
+      console.error('Failed to load batches:', error);
     } finally {
       setBatchesLoading(false);
     }
-  };
+  };;
 
   fetchBatches();
 }, [courseId, isNewCandidate]);
@@ -540,11 +580,11 @@ useEffect(() => {
     router.push("/avatar/candidates?newcandidate=true", { scroll: false });
     setNewCandidateForm(true);
 
-    if (batches.length > 0) {
-      const latestBatch = batches[0];
+    if (mlBatches.length > 0) {
+      const latestBatch = mlBatches[0];
       setFormData(prev => ({
         ...prev,
-        batchid: latestBatch.batchid
+        batchid: latestBatch?.batchid
       }));
     }
   };
@@ -723,8 +763,8 @@ useEffect(() => {
       width: 140,
       sortable: true,
       cellRenderer: (params: any) => {
-        if (!params.value || !batches.length) return params.value || "";
-        const batch = batches.find(b => b.batchid === params.value);
+        if (!params.value || !allBatches.length) return params.value || "";
+        const batch = allBatches.find(b => b.batchid === params.value);
         return batch ? (
           <span title={`Batch ID: ${params.value}`}>
             {batch.batchname}
@@ -736,7 +776,7 @@ useEffect(() => {
           {...props}
           selectedItems={selectedBatches}
           setSelectedItems={setSelectedBatches}
-          options={batches}
+          options={allBatches}
           label="Batch"
           color="purple"
           renderOption={(option: Batch) => option.batchname}
@@ -919,7 +959,7 @@ useEffect(() => {
               );
             },
           },
-        ], [batches, selectedStatuses, selectedWorkStatuses, selectedBatches]);
+        ], [allBatches, selectedStatuses, selectedWorkStatuses, selectedBatches]);
 
         // Error handling
         if (error) {
@@ -1022,7 +1062,7 @@ useEffect(() => {
                 onRowDeleted={handleRowDeleted}
                 showFilters={true}
                 showSearch={false}
-                batches={batches}
+                batches={allBatches}
                 loading={loading}
                 height="600px"
                 overlayNoRowsTemplate={loading ? "" : '<span class="ag-overlay-no-rows-center">No candidates found</span>'}
@@ -1276,7 +1316,7 @@ useEffect(() => {
                     ) : (
                       <>
                         <option value="0">Select a batch </option>
-                        {batches.map((batch) => (
+                        {mlBatches.map((batch) => (
                           <option key={batch.batchid} value={batch.batchid}>
                             {batch.batchname}
                           </option>
@@ -1285,7 +1325,7 @@ useEffect(() => {
                     )}
                   </select>
                 </div>
-                {/* Row 11 - Full width fields */}
+              
                 <div className="md:col-span-2 space-y-1">
                   <Label htmlFor="notes" className="block text-sm font-medium">Notes</Label>
                   <textarea
@@ -1319,7 +1359,7 @@ useEffect(() => {
                   />
                 </div>
               </div>
-              {/* Submit Button */}
+             
               <div className="mt-6">
                 <button
                   type="submit"

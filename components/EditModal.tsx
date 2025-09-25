@@ -149,6 +149,8 @@ const fieldSections: Record<string, string> = {
   notes: "Notes",
   course_name: "Professional Information",
   subject_name: "Basic Information",
+  secondary_email:"Contact Information",
+  secondaryphone:"Contact Information"
 };
 
 const workVisaStatusOptions = [
