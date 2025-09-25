@@ -212,7 +212,12 @@ const fetchInterviews = async (page: number, perPage: number) => {
       { field: "interview_date", headerName: "Date", maxWidth: 120, editable: true },
       { field: "recording_link", headerName: "Recording", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
       { field: "backup_url", headerName: "Backup URL", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
-      { field: "url", headerName: "URL", cellRenderer: LinkRenderer, minWidth: 200, editable: true }, // new URL column
+      { field: "url", headerName: "URL", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
+
+      { field: "instructor1_name", headerName: "Instructor 1", minWidth: 140 },
+      { field: "instructor2_name", headerName: "Instructor 2", minWidth: 140 },
+      { field: "instructor3_name", headerName: "Instructor 3", minWidth: 140 },
+
       // { field: "status", headerName: "Status", cellRenderer: StatusRenderer, maxWidth: 150, editable: true },
       { field: "feedback", headerName: "Feedback", cellRenderer: FeedbackRenderer, maxWidth: 130, editable: true },
       { field: "interviewer_emails", headerName: "Emails", minWidth: 180, editable: true },
