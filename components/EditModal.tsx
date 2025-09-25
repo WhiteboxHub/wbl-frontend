@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useState } from "react";
 import {
@@ -10,6 +9,7 @@ import { Label } from "@/components/admin_ui/label";
 import { Input } from "@/components/admin_ui/input";
 import { Textarea } from "@/components/admin_ui/textarea";
 import axios from "axios";
+
 interface Batch {
   batchid: number;
   batchname: string;
@@ -24,7 +24,6 @@ interface EditModalProps {
   batches: Batch[];
 }
 
-
 const excludedFields = [
   "candidate", "instructor1", "instructor2", "instructor3", "id", "sessionid",
   "vendor_type", "last_mod_datetime", "last_modified", "logincount", "googleId",
@@ -34,7 +33,6 @@ const excludedFields = [
 ];
 
 const fieldSections: Record<string, string> = {
-
   candidate_full_name: "Professional Information",
   instructor1_name: "Professional Information",
   instructor2_name: "Professional Information",
@@ -45,15 +43,13 @@ const fieldSections: Record<string, string> = {
   alias: "Basic Information",
   Fundamentals: "Basic Information",
   AIML: "Basic Information",
-
   full_name: "Basic Information",
   email: "Basic Information",
   phone: "Basic Information",
   status: "Basic Information",
   batchid: "Contact Information",
   batchname: "Basic Information",
-  target_date_of_marketing:"Basic Information",
-  // company_name: "Basic Information",
+  target_date_of_marketing: "Basic Information",
   linkedin_id: "Contact Information",
   enrolled_date: "Professional Information",
   startdate: "Professional Information",
@@ -270,7 +266,6 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
   { value: 'Positive', label: 'Positive' },
   { value: 'Negative', label: 'Negative' },
 ],
-
 };
 
 const labelOverrides: Record<string, string> = {
@@ -349,9 +344,7 @@ export function EditModal({
   data,
   title,
   onSave,
-  // batches,
 }: EditModalProps) {
-  //if (!data) return null;
 
   const flattenData = (data: Record<string, any>) => {
     const flattened: Record<string, any> = { ...data };
@@ -381,18 +374,30 @@ export function EditModal({
     }
     return flattened;
   };
+
   const [batches, setBatches] = useState<Batch[]>([]);
-
-
   const courseId = "3";
-  const fetchBatches = async (courseId: string) => { // Accept courseId as param
+
+  const fetchBatches = async (courseId: string) => {
     try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        console.error("No access token found");
+        setBatches([]);
+        return;
+      }
       const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/batch?course=${courseId}`
+        `${process.env.NEXT_PUBLIC_API_URL}/batch?course=${courseId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
       setBatches(res.data);
     } catch (error) {
       console.error("Failed to fetch batches:", error);
+      setBatches([]);
     }
   };
 
@@ -402,11 +407,10 @@ export function EditModal({
     }
   }, [isOpen, courseId]);
 
-
   const [formData, setFormData] = React.useState<Record<string, any>>(
-    flattenData(data  || {})
+    flattenData(data || {})
   );
-  
+
   React.useEffect(() => {
     if (data) {
       setFormData(flattenData(data));
@@ -418,45 +422,46 @@ export function EditModal({
   const [employees, setEmployees] = React.useState<{ id: number; name: string }[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  
 
   React.useEffect(() => {
-
-  const fetchCourses = async () => {
-    try {
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/courses`);
-      setCourses(res.data);
-    } catch (error) {
-      console.error("Failed to fetch courses:", error);
-    }
-  };
-  
-  const fetchSubjects = async () => {
+    const fetchCourses = async () => {
       try {
-        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/subjects`);
+        const token = localStorage.getItem("token");
+        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/courses`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setCourses(res.data);
+      } catch (error) {
+        console.error("Failed to fetch courses:", error);
+      }
+    };
+    const fetchSubjects = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/subjects`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         setSubjects(res.data);
       } catch (error) {
         console.error("Failed to fetch subjects:", error);
       }
     };
-
-
     const fetchEmployees = async () => {
       try {
-        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/employees`);
-
+        const token = localStorage.getItem("token");
+        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/employees`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const activeEmployees = res.data.filter((emp: any) => emp.status === 1);
         setEmployees(activeEmployees);
       } catch (error) {
         console.error("Failed to fetch employees:", error);
       }
     };
-
     fetchCourses();
     fetchSubjects();
     fetchEmployees();
   }, []);
-
 
   const handleChange = (key: string, value: any) => {
     setFormData((prev) => {
@@ -496,6 +501,7 @@ export function EditModal({
   const visibleSections = Object.keys(sectionedFields).filter(
     (section) => sectionedFields[section]?.length > 0 && section !== "Notes"
   );
+
   const columnCount = Math.min(visibleSections.length, 4);
   const modalWidthClass = {
     1: "max-w-xl",
@@ -512,7 +518,6 @@ export function EditModal({
   }[columnCount] || "lg:grid-cols-4 md:grid-cols-2";
 
   const isVendorModal = title.toLowerCase().includes("vendor");
-  const isVendorTable = title.toLowerCase().includes("vendor");
 
   if (!data) return null;
 
@@ -547,13 +552,10 @@ export function EditModal({
             </svg>
           </button>
         </div>
-
-
         <form
           onSubmit={(e) => {
             e.preventDefault();
             const reconstructedData = { ...formData };
-
             if (formData.candidate_full_name) {
               reconstructedData.candidate = {
                 ...data.candidate,
@@ -581,7 +583,6 @@ export function EditModal({
                 id: formData.instructor3_id,
               };
             }
-
             onSave(reconstructedData);
             onClose();
           }}
@@ -595,7 +596,6 @@ export function EditModal({
                   <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                     {section}
                   </h3>
-
                   {sectionedFields[section].map(({ key, value }) => {
                     const isTypeField = key.toLowerCase() === "type";
                     const isBatchField = key.toLowerCase() === "batchid";
@@ -619,7 +619,6 @@ export function EditModal({
                             }}
                             className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
                           >
-                            {/* Default current instructor name */}
                             {formData.instructor1_name && (
                               <option value={formData.instructor1_id || ""}>
                                 {formData.instructor1_name}
@@ -635,7 +634,6 @@ export function EditModal({
                         </div>
                       );
                     }
-
                     if (key === "instructor2_name") {
                       return (
                         <div key={key} className="space-y-1">
@@ -653,7 +651,6 @@ export function EditModal({
                             }}
                             className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
                           >
-                            {/* Default current instructor name */}
                             {formData.instructor2_name && (
                               <option value={formData.instructor2_id || ""}>
                                 {formData.instructor2_name}
@@ -669,7 +666,6 @@ export function EditModal({
                         </div>
                       );
                     }
-
                     if (key === "instructor3_name") {
                       return (
                         <div key={key} className="space-y-1">
@@ -687,7 +683,6 @@ export function EditModal({
                             }}
                             className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
                           >
-                            {/* Default current instructor name */}
                             {formData.instructor3_name && (
                               <option value={formData.instructor3_id || ""}>
                                 {formData.instructor3_name}
@@ -702,8 +697,8 @@ export function EditModal({
                           </select>
                         </div>
                       );
-                      }
-                      
+                    }
+
                     // Subject ID Dropdown
                     if (key.toLowerCase() === "subjectid") {
                       return (
@@ -726,6 +721,7 @@ export function EditModal({
                         </div>
                       );
                     }
+
                     // Course Name Dropdown
                     if (key.toLowerCase() === "course_name") {
                       return (
@@ -753,7 +749,7 @@ export function EditModal({
                         </div>
                       );
                     }
-                    
+
                     // Subject Name Dropdown
                     if (key.toLowerCase() === "subject_name") {
                       return (
@@ -782,14 +778,49 @@ export function EditModal({
                       );
                     }
 
+                    // Type Field: Dropdown only for vendor modals, else read-only
+                    if (isTypeField) {
+                      if (isVendorModal) {
+                        return (
+                          <div key={key} className="space-y-1">
+                            <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                              {toLabel(key)}
+                            </Label>
+                            <select
+                              value={String(formData[key] ?? "")}
+                              onChange={(e) => handleChange(key, e.target.value)}
+                              className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                            >
+                              {enumOptions["type"].map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        );
+                      } else {
+                        return (
+                          <div key={key} className="space-y-1">
+                            <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                              {toLabel(key)}
+                            </Label>
+                            <Input
+                              value={formData[key] ?? ""}
+                              readOnly
+                              className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100 bg-gray-100 cursor-not-allowed"
+                            />
+                          </div>
+                        );
+                      }
+                    }
+
                     // Original logic for all other fields
                     return (
                       <div key={key} className="space-y-1">
                         <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                           {toLabel(key)}
                         </Label>
-
-                        {/* Course ID */}
                         {key.toLowerCase() === "courseid" ? (
                           <select
                             value={formData["courseid"]}
@@ -825,9 +856,6 @@ export function EditModal({
                               </option>
                             ))}
                           </select>
-
-
-
                         ) : dateFields.includes(key.toLowerCase()) ? (
                           <input
                             type="date"
@@ -839,18 +867,6 @@ export function EditModal({
                             onChange={(e) => handleChange(key, e.target.value)}
                             className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
                           />
-                        ) : isTypeField && isVendorModal ? (
-                          <select
-                            value={String(formData[key] ?? "")}
-                            onChange={(e) => handleChange(key, e.target.value)}
-                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                          >
-                            {enumOptions["type"].map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </option>
-                            ))}
-                          </select>
                         ) : isVendorField ? (
                           <select
                             value={String(formData[key] ?? "")}
@@ -901,7 +917,6 @@ export function EditModal({
                 </div>
               ))}
           </div>
-
           {sectionedFields["Notes"].length > 0 && (
             <div className="px-6 pb-6">
               <div className="space-y-6 mt-4">
@@ -920,7 +935,6 @@ export function EditModal({
               </div>
             </div>
           )}
-
           {/* Footer */}
           <div className="flex justify-end px-6 pb-6">
             <button

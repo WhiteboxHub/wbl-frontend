@@ -32,58 +32,67 @@ export default function CourseMaterialPage() {
     sortorder: "9999"
   });
 
-  const fetchCourses = async () => {
-    try {
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/courses`);
-      const sortedCourses = res.data.sort((a: any, b: any) => b.id - a.id);
-      setCourses(sortedCourses);
-    } catch (e: any) {
-      console.error("Failed to fetch courses", e);
-    }
-  };
+const fetchCourses = async () => {
+  try {
+    const token = localStorage.getItem("token"); // ✅ get token
+    const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/courses`, {
+      headers: { Authorization: `Bearer ${token}` }, // ✅ send token
+    });
 
-  const fetchSubjects = async () => {
-    try {
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/subjects`);
-      const sortedSubjects = res.data.sort((a: any, b: any) => b.id - a.id);
-      setSubjects(sortedSubjects);
-    } catch (e: any) {
-      console.error("Failed to fetch subjects", e);
-    }
-  };
+    const sortedCourses = res.data.sort((a: any, b: any) => b.id - a.id);
+    setCourses(sortedCourses);
+  } catch (e: any) {
+    console.error("Failed to fetch courses", e);
+  }
+};
 
-  const token = localStorage.getItem("token"); // get token once
+const fetchSubjects = async () => {
+  try {
+    const token = localStorage.getItem("token");
+    const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/subjects`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-  const fetchMaterials = async () => {
-    try {
-      setLoading(true);
-      const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/course-materials`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`, // pass token in headers
-          },
-        }
-      );
+    const sortedSubjects = res.data.sort((a: any, b: any) => b.id - a.id);
+    setSubjects(sortedSubjects);
+  } catch (e: any) {
+    console.error("Failed to fetch subjects", e);
+  }
+};
 
-      const sortedMaterials = res.data.sort((a: any, b: any) => b.id - a.id);
+const fetchMaterials = async () => {
+  try {
+    setLoading(true);
+    const token = localStorage.getItem("token");
+    const res = await axios.get(
+      `${process.env.NEXT_PUBLIC_API_URL}/course-materials`,
+      {
+        headers: { Authorization: `Bearer ${token}` }, // ✅ pass token in headers
+      }
+    );
 
-      setMaterials(sortedMaterials);
-      setFilteredMaterials(sortedMaterials);
-      toast.success("Course Materials fetched successfully", { position: "top-center" });
-    } catch (e: any) {
-      setError(e.response?.data?.message || e.message);
-      toast.error("Failed to fetch Course Materials", { position: "top-center" });
-    } finally {
-      setLoading(false);
-    }
-  };
+    const sortedMaterials = res.data.sort((a: any, b: any) => b.id - a.id);
 
-  useEffect(() => {
-    fetchMaterials();
-    fetchCourses();
-    fetchSubjects();
-  }, []);
+    setMaterials(sortedMaterials);
+    setFilteredMaterials(sortedMaterials);
+
+    toast.success("Course Materials fetched successfully", {
+      position: "top-center",
+    });
+  } catch (e: any) {
+    setError(e.response?.data?.message || e.message);
+    toast.error("Failed to fetch Course Materials", { position: "top-center" });
+  } finally {
+    setLoading(false);
+  }
+};
+
+useEffect(() => {
+  fetchMaterials();
+  fetchCourses();
+  fetchSubjects();
+}, []);
+
 
   const getOrphanCourseIds = () => {
     const courseIdsFromMaterials = [...new Set(materials.map(m => m.courseid))];
