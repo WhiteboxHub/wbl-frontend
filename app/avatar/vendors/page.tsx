@@ -73,23 +73,30 @@ export default function VendorPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(100);
+const fetchVendors = async () => {
+  try {
+    setLoading(true);
 
-  const fetchVendors = async () => {
-    try {
-      setLoading(true);
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/vendors`);
-      setVendors(res.data);
-      setFilteredVendors(res.data);
-    } catch (e: any) {
-      setError(e.response?.data?.message || e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    // Example: token stored in localStorage after login
+    const token = localStorage.getItem("token");
 
-  useEffect(() => {
-    fetchVendors();
-  }, []);
+    const res = await axios.get(
+      `${process.env.NEXT_PUBLIC_API_URL}/vendors`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`, // <-- pass token here
+        },
+      }
+    );
+
+    setVendors(res.data);
+    setFilteredVendors(res.data);
+  } catch (e: any) {
+    setError(e.response?.data?.message || e.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     if (!searchTerm.trim()) {
