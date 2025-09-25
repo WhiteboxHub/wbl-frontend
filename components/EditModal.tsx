@@ -9,7 +9,8 @@ import { Label } from "@/components/admin_ui/label";
 import { Input } from "@/components/admin_ui/input";
 import { Textarea } from "@/components/admin_ui/textarea";
 import axios from "axios";
-
+import dynamic from "next/dynamic";
+import "react-quill/dist/quill.snow.css";
 interface Batch {
   batchid: number;
   batchname: string;
@@ -22,8 +23,9 @@ interface EditModalProps {
   title: string;
   onSave: (updatedData: Record<string, any>) => void;
   batches: Batch[];
+  isEmployeeTask?: boolean;
 }
-
+const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
 const excludedFields = [
   "candidate", "instructor1", "instructor2", "instructor3", "id", "sessionid",
   "vendor_type", "last_mod_datetime", "last_modified", "logincount", "googleId",
@@ -149,12 +151,15 @@ const fieldSections: Record<string, string> = {
   notes: "Notes",
   course_name: "Professional Information",
   subject_name: "Basic Information",
-
+  assigned_date:"Basic Information",
+  due_date:"Basic Information",
+  employee_name:"Basic Information",
   secondary_email:"Contact Information",
   secondaryphone:"Contact Information"
 
   assigned_date:"Basic Information",
   employee_name:"Basic Information",
+
 
 };
 
@@ -351,6 +356,7 @@ export function EditModal({
   data,
   title,
   onSave,
+  isEmployeeTask,
 }: EditModalProps) {
 
   const flattenData = (data: Record<string, any>) => {
@@ -604,6 +610,21 @@ export function EditModal({
                     {section}
                   </h3>
                   {sectionedFields[section].map(({ key, value }) => {
+                    if (key.toLowerCase() === "task" || (key.toLowerCase() === "notes" && isEmployeeTask)){
+                            return (
+                              <div key={key} className="space-y-1">
+                                <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                                  {toLabel(key)}
+                                </Label>
+                                <ReactQuill
+                                  theme="snow"
+                                  value={formData[key] || ""}
+                                  onChange={(val) => handleChange(key, val)}
+                                  style={{ height: "100px" }}
+                                />
+                              </div>
+                            );
+                          }
                     const isTypeField = key.toLowerCase() === "type";
                     const isBatchField = key.toLowerCase() === "batchid";
                     const isVendorField = isVendorModal && key.toLowerCase() === "status";

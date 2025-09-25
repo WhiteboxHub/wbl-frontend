@@ -207,7 +207,7 @@ const excludedFields: string[] = [
   "lastmoddatetime",
 ];
 
-export function ViewModal({ isOpen, onClose, data, title }: ViewModalProps) {
+export function ViewModal({ isOpen, onClose, data, title, }: ViewModalProps) {
   if (!data) return null;
 
   const getStatusColor = (
@@ -303,7 +303,16 @@ export function ViewModal({ isOpen, onClose, data, title }: ViewModalProps) {
       );
     }
 
-    
+
+    if (["notes", "task"].includes(lowerKey)) {
+      return (
+        <div
+          className="text-sm font-medium dark:text-gray-200"
+          dangerouslySetInnerHTML={{ __html: value }}
+        />
+      );
+    }
+
     return (
       <p className="text-sm font-medium dark:text-gray-200">
         {String(value)}
