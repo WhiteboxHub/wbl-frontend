@@ -14,6 +14,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AGGridTable } from "@/components/AGGridTable";
 import { createPortal } from "react-dom";
 import axios from "axios";
+import Link from "next/link";
 
 type Candidate = {
   id: number;
@@ -142,6 +143,23 @@ const WorkStatusRenderer = ({ value }: { value?: string }) => {
   );
 };
 
+const CandidateNameRenderer = (params: any) => {
+  const candidateId = params.data?.id; 
+  const candidateName = params.value;
+
+  if (!candidateId || !candidateName) {
+    return <span className="text-gray-500">{candidateName || "N/A"}</span>;
+  }
+
+  return (
+    <Link
+      href={`/avatar/candidates/search?candidateId=${candidateId}`} 
+      className="text-blue-600 hover:text-blue-800 hover:underline font-medium cursor-pointer"
+    >
+      {candidateName}
+    </Link>
+  );
+};
 
 const FilterHeaderComponent = ({
   selectedItems,
@@ -375,100 +393,132 @@ export default function CandidatesPage() {
   }, [searchParams]);
 
   // Fetch candidates
-  const fetchCandidates = useCallback(async (
+const fetchCandidates = useCallback(
+  async (
     search?: string,
     searchBy: string = "all",
-    sort: any[] = [{ colId: 'enrolled_date', sort: 'desc' }],
+    sort: any[] = [{ colId: "enrolled_date", sort: "desc" }],
     filters: any = {}
   ) => {
     setLoading(true);
     try {
       let url = `${apiEndpoint}?limit=0`;
+
       if (search && search.trim()) {
         url += `&search=${encodeURIComponent(search.trim())}&search_by=${searchBy}`;
       }
-      const sortToApply = sort && sort.length > 0 ? sort : [{ colId: 'enrolled_date', sort: 'desc' }];
-      const sortParam = sortToApply.map(s => `${s.colId}:${s.sort}`).join(',');
+
+      const sortToApply =
+        sort && sort.length > 0 ? sort : [{ colId: "enrolled_date", sort: "desc" }];
+      const sortParam = sortToApply.map((s) => `${s.colId}:${s.sort}`).join(",");
       url += `&sort=${encodeURIComponent(sortParam)}`;
+
       if (Object.keys(filters).length > 0) {
         url += `&filters=${encodeURIComponent(JSON.stringify(filters))}`;
       }
-      const res = await fetch(url);
+
+      // 🔑 Get token from localStorage (or cookies/session depending on your auth setup)
+      const token = localStorage.getItem("token");
+
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,  // pass token here
+          "Content-Type": "application/json",
+        },
+      });
+
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
       const data = await res.json();
       setCandidates(data.data);
     } catch (err) {
-      const error = err instanceof Error ? err.message : "Failed to load candidates";
+      const error =
+        err instanceof Error ? err.message : "Failed to load candidates";
       setError(error);
       toast.error(error);
     } finally {
       setLoading(false);
       if (searchInputRef.current) searchInputRef.current.focus();
     }
-  }, [apiEndpoint]);
+  },
+  [apiEndpoint]
+);
 
 
-  useEffect(() => {
-    const fetchBatches = async () => {
-      setBatchesLoading(true);
-      try {
-        const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/batch?course=${courseId}`
-        );
-    
-        const sortedBatches = [...res.data].sort((a: Batch, b: Batch) => b.batchid - a.batchid);
-        setBatches(sortedBatches);
-
-        if (isNewCandidate && sortedBatches.length > 0) {
-          setFormData(prev => ({
-            ...prev,
-            batchid: sortedBatches[0].batchid
-          }));
-        }
-      } catch (error) {
-        console.error("Failed to load batches", error);
-      } finally {
+  // Fetch batches
+useEffect(() => {
+  const fetchBatches = async () => {
+    setBatchesLoading(true);
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        console.error("No access token found");
         setBatchesLoading(false);
+        return;
       }
-    };
-    fetchBatches();
-  }, [courseId, isNewCandidate]);
 
-  useEffect(() => {
-    let filtered = [...candidates];
-    if (selectedStatuses.length > 0) {
-      filtered = filtered.filter(candidate =>
-        selectedStatuses.some(status => status.toLowerCase() === (candidate.status || "").toLowerCase())
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/batch?course=${courseId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
-    }
-    if (selectedWorkStatuses.length > 0) {
-      filtered = filtered.filter(candidate =>
-        selectedWorkStatuses.some(ws => ws.toLowerCase() === (candidate.workstatus || "").toLowerCase())
-      );
-    }
-    if (selectedBatches.length > 0) {
-      filtered = filtered.filter(candidate =>
-        selectedBatches.some(batch => batch.batchid === candidate.batchid)
-      );
-    }
-    if (searchTerm.trim() !== "") {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(candidate =>
-        candidate.full_name?.toLowerCase().includes(term) ||
-        candidate.email?.toLowerCase().includes(term) ||
-        candidate.phone?.toLowerCase().includes(term) ||
-        candidate.id.toString().includes(term)
-      );
-    }
-    setFilteredCandidates(filtered);
-  }, [candidates, selectedStatuses, selectedWorkStatuses, selectedBatches, searchTerm]);
 
-  // Initial data load
+      const sortedBatches = [...res.data].sort((a: Batch, b: Batch) => b.batchid - a.batchid);
+      setBatches(sortedBatches);
+
+      if (isNewCandidate && sortedBatches.length > 0) {
+        setFormData(prev => ({
+          ...prev,
+          batchid: sortedBatches[0].batchid
+        }));
+      }
+    } catch (error) {
+      console.error("Failed to load batches", error);
+    } finally {
+      setBatchesLoading(false);
+    }
+  };
+
+  fetchBatches();
+}, [courseId, isNewCandidate]);
+
+
+        useEffect(() => {
+          let filtered = [...candidates];
+          if (selectedStatuses.length > 0) {
+            filtered = filtered.filter(candidate =>
+              selectedStatuses.some(status => status.toLowerCase() === (candidate.status || "").toLowerCase())
+            );
+          }
+          if (selectedWorkStatuses.length > 0) {
+            filtered = filtered.filter(candidate =>
+              selectedWorkStatuses.some(ws => ws.toLowerCase() === (candidate.workstatus || "").toLowerCase())
+            );
+          }
+          if (selectedBatches.length > 0) {
+            filtered = filtered.filter(candidate =>
+              selectedBatches.some(batch => batch.batchid === candidate.batchid)
+            );
+          }
+          if (searchTerm.trim() !== "") {
+            const term = searchTerm.toLowerCase();
+            filtered = filtered.filter(candidate =>
+              candidate.full_name?.toLowerCase().includes(term) ||
+              candidate.email?.toLowerCase().includes(term) ||
+              candidate.phone?.toLowerCase().includes(term) ||
+              candidate.id.toString().includes(term)
+            );
+          }
+          setFilteredCandidates(filtered);
+        }, [candidates, selectedStatuses, selectedWorkStatuses, selectedBatches, searchTerm]);
+
   useEffect(() => {
     fetchCandidates();
   }, [fetchCandidates]);
 
-  // Search debounce
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
       if (searchTerm !== undefined) {
@@ -479,7 +529,6 @@ export default function CandidatesPage() {
     return () => clearTimeout(debounceTimer);
   }, [searchTerm, searchBy, sortModel, filterModel, fetchCandidates]);
 
-  // Detect search field
   const detectSearchBy = (search: string) => {
     if (/^\d+$/.test(search)) return "id";
     if (/^\S+@\S+\.\S+$/.test(search)) return "email";
@@ -487,12 +536,10 @@ export default function CandidatesPage() {
     return "full_name";
   };
 
-  // Handlers
   const handleOpenNewCandidateForm = () => {
     router.push("/avatar/candidates?newcandidate=true", { scroll: false });
     setNewCandidateForm(true);
 
-    // Set default batch if available
     if (batches.length > 0) {
       const latestBatch = batches[0];
       setFormData(prev => ({
@@ -502,111 +549,111 @@ export default function CandidatesPage() {
     }
   };
 
-  const handleCloseNewCandidateForm = () => {
-    router.push("/avatar/candidates", { scroll: false });
-    setNewCandidateForm(false);
-    setFormData(initialFormData);
-  };
+        const handleCloseNewCandidateForm = () => {
+          router.push("/avatar/candidates", { scroll: false });
+          setNewCandidateForm(false);
+          setFormData(initialFormData);
+        };
 
-  const handleNewCandidateFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    if (type === 'checkbox') {
-      const checked = (e.target as HTMLInputElement).checked;
-      setFormData(prev => ({ ...prev, [name]: checked ? 'Y' : 'N' }));
-    } else if (type === 'number') {
-      setFormData(prev => ({ ...prev, [name]: parseInt(value) || 0 }));
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    }
-  };
+        const handleNewCandidateFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+          const { name, value, type } = e.target;
+          if (type === 'checkbox') {
+            const checked = (e.target as HTMLInputElement).checked;
+            setFormData(prev => ({ ...prev, [name]: checked ? 'Y' : 'N' }));
+          } else if (type === 'number') {
+            setFormData(prev => ({ ...prev, [name]: parseInt(value) || 0 }));
+          } else {
+            setFormData(prev => ({ ...prev, [name]: value }));
+          }
+        };
 
-  const handleNewCandidateFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.full_name.trim()) {
-      toast.error("Full name is required");
-      return;
-    }
-    setFormSaveLoading(true);
-    try {
-      const payload = {
-        ...formData,
-        enrolled_date: formData.enrolled_date || new Date().toISOString().split('T')[0],
-        status: formData.status || "active",
-        workstatus: formData.workstatus || "Waiting for Status",
-        agreement: formData.agreement || "N",
-        fee_paid: formData.fee_paid || 0
-      };
-      const response = await fetch(apiEndpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to create candidate");
-      }
-      const newId = await response.json();
-      toast.success(`Candidate created successfully with ID: ${newId}`);
-      setNewCandidateForm(false);
-      setFormData(initialFormData);
-      fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
-    } catch (error) {
-      toast.error("Failed to create candidate: " + (error as Error).message);
-      console.error("Error creating candidate:", error);
-    } finally {
-      setFormSaveLoading(false);
-    }
-  };
+        const handleNewCandidateFormSubmit = async (e: React.FormEvent) => {
+          e.preventDefault();
+          if (!formData.full_name.trim()) {
+            toast.error("Full name is required");
+            return;
+          }
+          setFormSaveLoading(true);
+          try {
+            const payload = {
+              ...formData,
+              enrolled_date: formData.enrolled_date || new Date().toISOString().split('T')[0],
+              status: formData.status || "active",
+              workstatus: formData.workstatus || "Waiting for Status",
+              agreement: formData.agreement || "N",
+              fee_paid: formData.fee_paid || 0
+            };
+            const response = await fetch(apiEndpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({}));
+              throw new Error(errorData.message || "Failed to create candidate");
+            }
+            const newId = await response.json();
+            toast.success(`Candidate created successfully with ID: ${newId}`);
+            setNewCandidateForm(false);
+            setFormData(initialFormData);
+            fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
+          } catch (error) {
+            toast.error("Failed to create candidate: " + (error as Error).message);
+            console.error("Error creating candidate:", error);
+          } finally {
+            setFormSaveLoading(false);
+          }
+        };
 
-  const handleRowUpdated = useCallback(async (updatedRow: Candidate) => {
-    setLoadingRowId(updatedRow.id);
-    try {
-      const updatedData = { ...updatedRow };
-      if (!updatedData.status || updatedData.status === '') {
-        updatedData.status = 'active';
-      }
-      const { id, ...payload } = updatedData;
-      const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) throw new Error("Failed to update candidate");
-      fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
-      toast.success("Candidate updated successfully");
-    } catch (error) {
-      toast.error("Failed to update candidate");
-      console.error("Error updating candidate:", error);
-    } finally {
-      setLoadingRowId(null);
-    }
-  }, [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchCandidates]);
+        const handleRowUpdated = useCallback(async (updatedRow: Candidate) => {
+          setLoadingRowId(updatedRow.id);
+          try {
+            const updatedData = { ...updatedRow };
+            if (!updatedData.status || updatedData.status === '') {
+              updatedData.status = 'active';
+            }
+            const { id, ...payload } = updatedData;
+            const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            if (!response.ok) throw new Error("Failed to update candidate");
+            fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
+            toast.success("Candidate updated successfully");
+          } catch (error) {
+            toast.error("Failed to update candidate");
+            console.error("Error updating candidate:", error);
+          } finally {
+            setLoadingRowId(null);
+          }
+        }, [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchCandidates]);
 
-  const handleRowDeleted = useCallback(async (id: number) => {
-    try {
-      const response = await fetch(`${apiEndpoint}/${id}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) throw new Error("Failed to delete candidate");
-      toast.success("Candidate deleted successfully");
-      fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
-    } catch (error) {
-      toast.error("Failed to delete candidate");
-      console.error("Error deleting candidate:", error);
-    }
-  }, [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchCandidates]);
+        const handleRowDeleted = useCallback(async (id: number) => {
+          try {
+            const response = await fetch(`${apiEndpoint}/${id}`, {
+              method: "DELETE",
+            });
+            if (!response.ok) throw new Error("Failed to delete candidate");
+            toast.success("Candidate deleted successfully");
+            fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
+          } catch (error) {
+            toast.error("Failed to delete candidate");
+            console.error("Error deleting candidate:", error);
+          }
+        }, [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchCandidates]);
 
-  const handleFilterChanged = useCallback((filterModelFromGrid: any) => {
-    setFilterModel(filterModelFromGrid);
-    fetchCandidates(searchTerm, searchBy, sortModel, filterModelFromGrid);
-  }, [searchTerm, searchBy, sortModel, fetchCandidates]);
+        const handleFilterChanged = useCallback((filterModelFromGrid: any) => {
+          setFilterModel(filterModelFromGrid);
+          fetchCandidates(searchTerm, searchBy, sortModel, filterModelFromGrid);
+        }, [searchTerm, searchBy, sortModel, fetchCandidates]);
 
-  const formatPhoneNumber = (phoneNumberString: string) => {
-    const cleaned = ('' + phoneNumberString).replace(/\D/g, '');
-    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
-    if (match) return `+1 (${match[1]}) ${match[2]}-${match[3]}`;
-    return `+1 ${phoneNumberString}`;
-  };
+        const formatPhoneNumber = (phoneNumberString: string) => {
+          const cleaned = ('' + phoneNumberString).replace(/\D/g, '');
+          const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
+          if (match) return `+1 (${match[1]}) ${match[2]}-${match[3]}`;
+          return `+1 ${phoneNumberString}`;
+        };
 
   const formatDate = (dateString: string | Date | null | undefined) => {
     if (!dateString) return "-";
@@ -615,7 +662,7 @@ export default function CandidatesPage() {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
-      timeZone: "UTC"
+      timeZone:"UTC"
     });
   };
 
@@ -632,7 +679,8 @@ export default function CandidatesPage() {
       field: "full_name",
       headerName: "Full Name",
       width: 180,
-      sortable: true
+      sortable: true,
+      cellRenderer: CandidateNameRenderer,
     },
     {
       field: "phone",
@@ -793,28 +841,26 @@ export default function CandidatesPage() {
       width: 150,
       sortable: true,
     },
-    {
-      field: "dob",
-      headerName: "Date of Birth",
-      width: 150,
-      sortable: true,
-      editable: true,
-      valueFormatter: ({ value }: ValueFormatterParams) => formatDate(value),
-      valueParser: (params) => {
-        if (!params.newValue) return null;
-        // Parse the input date as UTC
-        const date = new Date(params.newValue);
-        // Return ISO string (UTC) to avoid timezone issues
-        return date.toISOString();
-      },
-      cellEditor: 'agDateCellEditor', // Use AG Grid's built-in date editor
-      cellEditorParams: {
-        // Optional: Configure the date picker format
-        min: '1900-01-01', // Example: Set min date
-        max: new Date().toISOString().split('T')[0] // Example: Set max date to today
-      }
-    },
-
+{
+  field: "dob",
+  headerName: "Date of Birth",
+  width: 150,
+  sortable: true,
+  editable: true,
+  valueFormatter: ({ value }: ValueFormatterParams) => formatDate(value),
+  valueParser: (params) => {
+    if (!params.newValue) return null;
+   
+    const date = new Date(params.newValue);
+    return date.toISOString();
+  },
+  cellEditor: 'agDateCellEditor', // Use AG Grid's built-in date editor
+  cellEditorParams: {
+    // Optional: Configure the date picker format
+    min: '1900-01-01', // Example: Set min date
+    max: new Date().toISOString().split('T')[0] // Example: Set max date to today
+  }
+},
     {
       field: "emergcontactname",
       headerName: "Emergency Contact Name",
@@ -853,49 +899,49 @@ export default function CandidatesPage() {
       sortable: true,
     },
 
-    {
-      field: "candidate_folder",
-      headerName: "Candidate Folder",
-      width: 200,
-      sortable: true,
-      cellRenderer: (params: any) => {
-        if (!params.value) return "";
+          {
+            field: "candidate_folder",
+            headerName: "Candidate Folder",
+            width: 200,
+            sortable: true,
+            cellRenderer: (params: any) => {
+              if (!params.value) return "";
+              return (
+                <a
+                  href={params.value}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 underline hover:text-blue-800"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {params.value}
+                </a>
+              );
+            },
+          },
+        ], [batches, selectedStatuses, selectedWorkStatuses, selectedBatches]);
+
+        // Error handling
+        if (error) {
+          return (
+            <div className="flex h-64 items-center justify-center">
+              <div className="text-red-500">{error}</div>
+              <Button
+                variant="outline"
+                onClick={() => fetchCandidates(searchTerm, searchBy, sortModel, filterModel)}
+                className="ml-4"
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Retry
+              </Button>
+            </div>
+          );
+        }
+
         return (
-          <a
-            href={params.value}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 underline hover:text-blue-800"
-            onClick={(event) => event.stopPropagation()}
-          >
-            {params.value}
-          </a>
-        );
-      },
-    },
-  ], [batches, selectedStatuses, selectedWorkStatuses, selectedBatches]);
-
-  // Error handling
-  if (error) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="text-red-500">{error}</div>
-        <Button
-          variant="outline"
-          onClick={() => fetchCandidates(searchTerm, searchBy, sortModel, filterModel)}
-          className="ml-4"
-        >
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Retry
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Add CSS for scrollable dropdowns */}
-      <style jsx global>{`
+          <div className="space-y-6">
+            {/* Add CSS for scrollable dropdowns */}
+            <style jsx global>{`
         .filter-dropdown {
           scrollbar-width: thin;
         }
@@ -915,33 +961,33 @@ export default function CandidatesPage() {
         }
       `}</style>
 
-      <Toaster position="top-center" />
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Candidates Management
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            All Candidates ({candidates.length})
-            {selectedStatuses.length > 0 || selectedWorkStatuses.length > 0 || selectedBatches.length > 0 ? (
-              <span className="ml-2 text-blue-600 dark:text-blue-400">
-                - Filtered ({filteredCandidates.length} shown)
-              </span>
-            ) : (
-              " - Sorted by latest first"
-            )}
-          </p>
-        </div>
-        <Button
-          onClick={handleOpenNewCandidateForm}
-          className="bg-green-600 hover:bg-green-700 text-white"
-        >
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Add New Candidate
-        </Button>
-      </div>
+            <Toaster position="top-center" />
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  Candidates Management
+                </h1>
+                <p className="text-gray-600 dark:text-gray-400">
+                  All Candidates ({candidates.length})
+                  {selectedStatuses.length > 0 || selectedWorkStatuses.length > 0 || selectedBatches.length > 0 ? (
+                    <span className="ml-2 text-blue-600 dark:text-blue-400">
+                      - Filtered ({filteredCandidates.length} shown)
+                    </span>
+                  ) : (
+                    " - Sorted by latest first"
+                  )}
+                </p>
+              </div>
+              <Button
+                onClick={handleOpenNewCandidateForm}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Add New Candidate
+              </Button>
+            </div>
 
-    
+      {/* Search */}
       <div key="search-container" className="max-w-md">
         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
           Search Candidates
@@ -966,22 +1012,22 @@ export default function CandidatesPage() {
         )}
       </div>
 
-      {/* AG Grid Table */}
-      <div className="flex w-full justify-center">
-        <AGGridTable
-          key={`${filteredCandidates.length}-${selectedStatuses.join(',')}-${selectedWorkStatuses.join(',')}-${selectedBatches.map(b => b.batchid).join(',')}`}
-          rowData={loading ? undefined : filteredCandidates}
-          columnDefs={columnDefs}
-          onRowUpdated={handleRowUpdated}
-          onRowDeleted={handleRowDeleted}
-          showFilters={true}
-          showSearch={false}
-          batches={batches}
-          loading={loading}
-          height="600px"
-          overlayNoRowsTemplate={loading ? "" : '<span class="ag-overlay-no-rows-center">No candidates found</span>'}
-        />
-      </div>
+            {/* AG Grid Table */}
+            <div className="flex w-full justify-center">
+              <AGGridTable
+                key={`${filteredCandidates.length}-${selectedStatuses.join(',')}-${selectedWorkStatuses.join(',')}-${selectedBatches.map(b => b.batchid).join(',')}`}
+                rowData={loading ? undefined : filteredCandidates}
+                columnDefs={columnDefs}
+                onRowUpdated={handleRowUpdated}
+                onRowDeleted={handleRowDeleted}
+                showFilters={true}
+                showSearch={false}
+                batches={batches}
+                loading={loading}
+                height="600px"
+                overlayNoRowsTemplate={loading ? "" : '<span class="ag-overlay-no-rows-center">No candidates found</span>'}
+              />
+            </div>
 
       {/* New Candidate Form */}
       {newCandidateForm && (
@@ -1215,12 +1261,13 @@ export default function CandidatesPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="batchid" className="block text-sm font-medium">Batch</Label>
+                  <Label htmlFor="batchid" className="block text-sm font-medium">Batch *</Label>
                   <select
                     id="batchid"
                     name="batchid"
                     value={formData.batchid}
                     onChange={handleNewCandidateFormChange}
+                    required
                     className="w-full h-10 p-2 border rounded-md"
                     disabled={batchesLoading}
                   >
@@ -1228,7 +1275,7 @@ export default function CandidatesPage() {
                       <option value="0">Loading batches...</option>
                     ) : (
                       <>
-                        <option value="0">Select a batch (optional)</option>
+                        <option value="0">Select a batch </option>
                         {batches.map((batch) => (
                           <option key={batch.batchid} value={batch.batchid}>
                             {batch.batchname}

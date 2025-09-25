@@ -1620,59 +1620,66 @@ export default function LeadsPage() {
     () => `${process.env.NEXT_PUBLIC_API_URL}/leads`,
     []
   );
+const fetchLeads = useCallback(
+  async (
+    search?: string,
+    searchBy: string = "all",
+    sort: any[] = [{ colId: 'entry_date', sort: 'desc' }]
+  ) => {
+    setLoading(true);
+    try {
+      let url = `${apiEndpoint}`;
+      const params = new URLSearchParams();
 
-  // Fetch leads function
-  const fetchLeads = useCallback(
-    async (
-      search?: string,
-      searchBy: string = "all",
-      sort: any[] = [{ colId: 'entry_date', sort: 'desc' }]
-    ) => {
-      setLoading(true);
-      try {
-        let url = `${apiEndpoint}`;
-        const params = new URLSearchParams();
-
-        if (search && search.trim()) {
-          params.append('search', search.trim());
-          params.append('search_by', searchBy);
-        }
-
-        const sortToApply = sort && sort.length > 0 ? sort : [{ colId: 'entry_date', sort: 'desc' }];
-        const sortParam = sortToApply.map(s => `${s.colId}:${s.sort}`).join(',');
-        params.append('sort', sortParam);
-
-        if (params.toString()) {
-          url += `?${params.toString()}`;
-        }
-
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        const data = await res.json();
-
-        let leadsData = [];
-        if (data.data && Array.isArray(data.data)) {
-          leadsData = data.data;
-        } else if (Array.isArray(data)) {
-          leadsData = data;
-        } else {
-          throw new Error('Invalid response format');
-        }
-
-        setLeads(leadsData);
-      } catch (err) {
-        const error = err instanceof Error ? err.message : "Failed to load leads";
-        setError(error);
-        toast.error(error);
-      } finally {
-        setLoading(false);
-        if (searchInputRef.current) {
-          searchInputRef.current.focus();
-        }
+      if (search && search.trim()) {
+        params.append('search', search.trim());
+        params.append('search_by', searchBy);
       }
-    },
-    [apiEndpoint]
-  );
+
+      const sortToApply = sort && sort.length > 0 ? sort : [{ colId: 'entry_date', sort: 'desc' }];
+      const sortParam = sortToApply.map(s => `${s.colId}:${s.sort}`).join(',');
+      params.append('sort', sortParam);
+
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+
+      // Get token from localStorage
+      const token = localStorage.getItem("token");
+
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json', // optional
+        },
+      });
+
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      const data = await res.json();
+
+      let leadsData = [];
+      if (data.data && Array.isArray(data.data)) {
+        leadsData = data.data;
+      } else if (Array.isArray(data)) {
+        leadsData = data;
+      } else {
+        throw new Error('Invalid response format');
+      }
+
+      setLeads(leadsData);
+    } catch (err) {
+      const error = err instanceof Error ? err.message : "Failed to load leads";
+      setError(error);
+      toast.error(error);
+    } finally {
+      setLoading(false);
+      if (searchInputRef.current) {
+        searchInputRef.current.focus();
+      }
+    }
+  },
+  [apiEndpoint]
+);
 
   // Filter leads locally when status or work status changes
   useEffect(() => {
@@ -1804,47 +1811,6 @@ export default function LeadsPage() {
     setFormData(initialFormData);
   };
 
-  // const handleRowUpdated = useCallback(
-  //   async (updatedRow: Lead) => {
-  //     setLoadingRowId(updatedRow.id);
-  //     try {
-  //       const { id, entry_date, ...payload } = updatedRow;
-  //       payload.moved_to_candidate = Boolean(payload.moved_to_candidate);
-  //       payload.massemail_unsubscribe = Boolean(payload.massemail_unsubscribe);
-  //       payload.massemail_email_sent = Boolean(payload.massemail_email_sent);
-
-  //       if (payload.status === "Closed") {
-  //         payload.closed_date = new Date().toISOString().split('T')[0];
-  //       } else {
-  //         payload.closed_date = null;
-  //       }
-
-  //       const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
-  //         method: "PUT",
-  //         headers: { "Content-Type": "application/json" },
-  //         body: JSON.stringify(payload),
-  //       });
-
-  //       if (!response.ok) {
-  //         const errorData = await response.json();
-  //         throw new Error(errorData.detail || "Failed to update lead");
-  //       }
-
-  //       fetchLeads(searchTerm, searchBy, sortModel);
-  //       toast.success("Lead updated successfully");
-  //     } catch (error) {
-  //       toast.error("Failed to update lead");
-  //       console.error("Error updating lead:", error);
-  //     } finally {
-  //       setLoadingRowId(null);
-  //     }
-  //   },
-  //   [apiEndpoint, searchTerm, searchBy, sortModel, fetchLeads]
-  // );
-
-
-
-
   const handleRowUpdated = useCallback(
     async (updatedRow: Lead) => {
       setLoadingRowId(updatedRow.id);
@@ -1854,11 +1820,7 @@ export default function LeadsPage() {
         payload.massemail_unsubscribe = Boolean(payload.massemail_unsubscribe);
         payload.massemail_email_sent = Boolean(payload.massemail_email_sent);
 
-        // Auto-set status to "Closed" if moved_to_candidate is true
-        if (payload.moved_to_candidate) {
-          payload.status = "Closed";
-          payload.closed_date = new Date().toISOString().split('T')[0];
-        } else if (payload.status === "Closed") {
+        if (payload.status === "Closed") {
           payload.closed_date = new Date().toISOString().split('T')[0];
         } else {
           payload.closed_date = null;
@@ -1904,63 +1866,22 @@ export default function LeadsPage() {
     [apiEndpoint, searchTerm, searchBy, sortModel, fetchLeads]
   );
 
-  // const handleMoveToCandidate = useCallback(
-  //   async (leadId: { id: number }, Moved: boolean) => {
-  //     setLoadingRowId(leadId.id);
-  //     try {
-  //       const method = Moved ? "DELETE" : "POST";
-  //       const url = `${apiEndpoint}/${leadId.id}/move-to-candidate`;
-  //       const response = await fetch(url, {
-  //         method: method,
-  //         headers: { "Content-Type": "application/json" },
-  //       });
-  //       if (!response.ok) {
-  //         const errorData = await response.json();
-  //         throw new Error(errorData.detail || "Failed to move lead to candidate");
-  //       }
-  //       const data = await response.json();
-  //       fetchLeads(searchTerm, searchBy, sortModel);
-  //       if (Moved) {
-  //         toast.success(`Lead removed from candidate list (Candidate ID: ${data.candidate_id})`);
-  //       } else {
-  //         toast.success(`Lead moved to candidate (Candidate ID: ${data.candidate_id})`);
-  //       }
-  //     } catch (error: any) {
-  //       console.error("Error moving lead to candidate:", error);
-  //       toast.error(error.message || "Failed to move lead to candidate");
-  //     } finally {
-  //       setLoadingRowId(null);
-  //     }
-  //   },
-  //   [apiEndpoint, searchTerm, searchBy, sortModel, fetchLeads]
-  // );
-
-  // Format phone number
-
   const handleMoveToCandidate = useCallback(
     async (leadId: { id: number }, Moved: boolean) => {
       setLoadingRowId(leadId.id);
       try {
         const method = Moved ? "DELETE" : "POST";
         const url = `${apiEndpoint}/${leadId.id}/move-to-candidate`;
-
-        // Prepare payload to update status to "Closed" when moving to candidate
-        const payload = Moved ? {} : { status: "Closed" };
-
         const response = await fetch(url, {
           method: method,
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
         });
-
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.detail || "Failed to move lead to candidate");
         }
-
         const data = await response.json();
         fetchLeads(searchTerm, searchBy, sortModel);
-
         if (Moved) {
           toast.success(`Lead removed from candidate list (Candidate ID: ${data.candidate_id})`);
         } else {
@@ -1976,6 +1897,7 @@ export default function LeadsPage() {
     [apiEndpoint, searchTerm, searchBy, sortModel, fetchLeads]
   );
 
+  // Format phone number
   const formatPhoneNumber = (phoneNumberString: string) => {
     const cleaned = ('' + phoneNumberString).replace(/\D/g, '');
     const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
@@ -2175,29 +2097,29 @@ export default function LeadsPage() {
             )}
           </p>
 
-          <div key="search-container" className="max-w-md">
-            <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Search Lead
-            </Label>
-            <div className="relative mt-1">
-              <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-              <Input
-                key="search-input"
-                id="search"
-                type="text"
-                ref={searchInputRef}
-                placeholder="Search by ID, name, email, phone..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 w-96"
-              />
-            </div>
-            {searchTerm && (
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                {leads.length} candidates found
-              </p>
-            )}
-          </div>
+      <div key="search-container" className="max-w-md">
+        <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          Search Lead
+        </Label>
+        <div className="relative mt-1">
+          <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+          <Input
+            key="search-input"
+            id="search"
+            type="text"
+            ref={searchInputRef}
+            placeholder="Search by ID, name, email, phone..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 w-96"
+          />
+        </div>
+        {searchTerm && (
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            {leads.length} candidates found
+          </p>
+        )}
+      </div>
 
         </div>
         <Button
@@ -2209,7 +2131,7 @@ export default function LeadsPage() {
         </Button>
       </div>
 
-
+    
       {/* AG Grid Table */}
       <div className="flex w-full justify-center">
         <AGGridTable

@@ -60,8 +60,6 @@ export default function VendorContactsGrid() {
   const [filteredContacts, setFilteredContacts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true); 
-  // const [page, setPage] = useState(1);
-  // const [pageSize, setPageSize] = useState(100);
 
   const apiEndpoint = useMemo(
     () => `${process.env.NEXT_PUBLIC_API_URL}/vendor_contact_extracts`,
@@ -71,7 +69,16 @@ export default function VendorContactsGrid() {
   const fetchContacts = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await axios.get(apiEndpoint);
+      // const res = await axios.get(apiEndpoint);
+      const token = localStorage.getItem("token");
+
+        const res = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/vendor_contact_extracts`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+
       const data = res.data || [];
       setContacts(data);
       setFilteredContacts(data);
@@ -194,11 +201,6 @@ export default function VendorContactsGrid() {
     []
   );
 
-  // const paginatedContacts = useMemo(() => {
-  //   const start = (page - 1) * pageSize;
-  //   const end = start + pageSize;
-  //   return filteredContacts.slice(start, end);
-  // }, [filteredContacts, page, pageSize]);
 
   return (
     <div className="space-y-6">
@@ -246,57 +248,12 @@ export default function VendorContactsGrid() {
             title={`Vendor Contacts (${filteredContacts.length})`}
             showSearch={false}
             onRowUpdated={handleRowUpdated}
-          //   overlayNoRowsTemplate={
-          // //   loading ? "" : '<span class="ag-overlay-no-rows-center">Loading</span>'
-          // // }
             onRowDeleted={handleRowDeleted}
           />
         </div>
       </div>
-
-      {/* <div className="flex justify-between items-center mt-4 max-w-7xl mx-auto">
-        <div className="flex items-center space-x-2">
-          <span className="text-sm">Rows per page:</span>
-          <select
-            value={pageSize}
-            onChange={(e) => {
-              setPageSize(Number(e.target.value));
-              setPage(1);
-            }}
-            className="border rounded px-2 py-1 text-sm"
-          >
-            {[10, 20, 50, 100].map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setPage((p) => Math.max(p - 1, 1))}
-            disabled={page === 1}
-            className="px-2 py-1 border rounded text-sm disabled:opacity-50"
-          >
-            <ChevronLeft className="h-4 w-4" /> Previous
-          </button>
-          <span className="text-sm">
-            Page {page} of {Math.ceil(filteredContacts.length / pageSize)}
-          </span>
-          <button
-            onClick={() =>
-              setPage((p) =>
-                p < Math.ceil(filteredContacts.length / pageSize) ? p + 1 : p
-              )
-            }
-            disabled={page >= Math.ceil(filteredContacts.length / pageSize)}
-            className="px-2 py-1 border rounded text-sm disabled:opacity-50"
-          >
-            Next <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-      </div> */}
     </div>
   );
 }
+
+

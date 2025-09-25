@@ -18,9 +18,9 @@ export default function AvatarSectionLayout({ children }: { children: React.Reac
 
       // If not authenticated or not admin, redirect
       if (!auth.valid || role !== "admin") {
-        router.replace("/"); // Or redirect to a custom "Access Denied" page
+        router.replace("/"); 
       } else {
-        setLoading(false); // Allow access
+        setLoading(false); 
       }
     })();
   }, [router]);
@@ -29,7 +29,7 @@ export default function AvatarSectionLayout({ children }: { children: React.Reac
   if (loading) {
     return (
       <div className="flex justify-center items-center h-screen">
-        <p className="text-gray-500 text-lg">Checking access...</p>
+        {/* <p className="text-gray-500 text-lg">Checking access...</p> */}
       </div>
     );
   }
