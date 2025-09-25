@@ -441,7 +441,6 @@ export default function EmployeeTasksPage() {
   }, [tasks, searchTerm]);
 
   const taskStats = {
-    total: tasks.length,
     pending: tasks.filter((t) => t.status === "pending").length,
     inProgress: tasks.filter((t) => t.status === "in_progress").length,
     completed: tasks.filter((t) => t.status === "completed").length,
@@ -534,12 +533,6 @@ export default function EmployeeTasksPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="text-2xl font-bold text-gray-900">
-            {taskStats.total}
-          </div>
-          <div className="text-gray-600">Total Tasks</div>
-        </div>
         <div className="bg-white p-4 rounded-lg border border-yellow-200">
           <div className="text-2xl font-bold text-yellow-600">
             {taskStats.pending}
