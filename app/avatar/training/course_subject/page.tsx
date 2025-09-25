@@ -104,34 +104,41 @@ export default function CourseSubjectPage() {
       setLoading(false);
     }
   };
+const fetchCourses = async () => {
+  try {
+    const token = localStorage.getItem("token"); // ✅ get token
+    const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/courses`, {
+      headers: { Authorization: `Bearer ${token}` }, // ✅ pass token
+    });
 
-  const fetchCourses = async () => {
-    try {
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/courses`);
-      const sortedCourses = res.data.sort((a: Course, b: Course) => b.id - a.id);
-      setCourses(sortedCourses);
-    } catch (e: any) {
-      console.error("Failed to fetch courses:", e);
-      toast.error("Failed to load courses");
-    }
-  };
+    const sortedCourses = res.data.sort((a: Course, b: Course) => b.id - a.id);
+    setCourses(sortedCourses);
+  } catch (e: any) {
+    console.error("Failed to fetch courses:", e);
+    toast.error("Failed to load courses");
+  }
+};
 
-  const fetchSubjects = async () => {
-    try {
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/subjects`);
-      const sortedSubjects = res.data.sort((a: Subject, b: Subject) => b.id - a.id);
-      setSubjects(sortedSubjects);
-    } catch (e: any) {
-      console.error("Failed to fetch subjects:", e);
-      toast.error("Failed to load subjects");
-    }
-  };
+const fetchSubjects = async () => {
+  try {
+    const token = localStorage.getItem("token"); // ✅ get token
+    const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/subjects`, {
+      headers: { Authorization: `Bearer ${token}` }, // ✅ pass token
+    });
 
-  useEffect(() => {
-    fetchCourseSubjects();
-    fetchCourses();
-    fetchSubjects();
-  }, []);
+    const sortedSubjects = res.data.sort((a: Subject, b: Subject) => b.id - a.id);
+    setSubjects(sortedSubjects);
+  } catch (e: any) {
+    console.error("Failed to fetch subjects:", e);
+    toast.error("Failed to load subjects");
+  }
+};
+
+useEffect(() => {
+  fetchCourseSubjects();
+  fetchCourses();
+  fetchSubjects();
+}, []);
 
   useEffect(() => {
     const lower = searchTerm.trim().toLowerCase();
