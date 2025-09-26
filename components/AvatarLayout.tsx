@@ -116,7 +116,10 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       title: "Employees",
       href: "/avatar/employee",
       icon: UsersIcon,
-    
+       children: [
+        { title: "Employee", href: "/avatar/employee" },
+        { title: "Employee Tasks", href: "/avatar/employee/employeetasks" },
+       ],
     },
 
    {
