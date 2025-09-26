@@ -51,18 +51,14 @@ const DateFormatter = (date: any) =>
 const AmountFormatter = (amount: any) => 
   amount ? `$${Number(amount).toLocaleString()}` : "Not Set";
 
-// Helper: Check if a value is a potential URL (basic check)
 function isPotentialUrl(val: any): boolean {
   if (typeof val !== "string") return false;
   const trimmed = val.trim();
 
-  // Case 1: starts with http:// or https://
   if (/^https?:\/\//i.test(trimmed)) return true;
 
-  // Case 2: starts with www.
   if (/^www\./i.test(trimmed)) return true;
 
-  // Case 3: looks like domain.tld with no spaces, ending in a common TLD
   if (/^[a-z0-9.-]+\.(com|org|net|io|co)(\/.*)?$/i.test(trimmed)) {
     return true;
   }
@@ -70,7 +66,6 @@ function isPotentialUrl(val: any): boolean {
   return false;
 }
 
-// Helper: Render a button to open a link in a new tab (with optional label)
 function renderOpenLinkButton(url: string, label: string = "Open") {
   let finalUrl = url.trim();
   if (!/^https?:\/\//.test(finalUrl)) {
@@ -99,7 +94,6 @@ export default function CandidateSearchPage() {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
   
-  // Get candidateId from URL query string if present
   const searchParams = useSearchParams();
   const candidateIdFromUrl = searchParams.get("candidateId");
 
@@ -113,7 +107,6 @@ export default function CandidateSearchPage() {
     const token = localStorage.getItem("token");
     return token ? { Authorization: `Bearer ${token}` } : {};};
 
-  // Optimized search with better error handling
 useEffect(() => {
   if (debounceTimeout.current) {
     clearTimeout(debounceTimeout.current);
@@ -139,7 +132,7 @@ useEffect(() => {
         `${process.env.NEXT_PUBLIC_API_URL}/candidates/search-names/${encodeURIComponent(searchTerm)}`,
         {
           headers: {
-            Authorization: `Bearer ${token}`, // ✅ use correct token
+            Authorization: `Bearer ${token}`, 
             "Content-Type": "application/json",
           },
         }
@@ -161,13 +154,12 @@ useEffect(() => {
 }, [searchTerm]);
 
 
-  // Select candidate and get full details
   const selectCandidate = async (suggestion: CandidateSuggestion) => {
     setLoading(true);
     setShowSuggestions(false);
     setSearchTerm("");
     try {
-      // Get candidate details
+
       const res = await fetch(
   `${process.env.NEXT_PUBLIC_API_URL}/candidates/details/${suggestion.id}`,
       {
@@ -178,7 +170,7 @@ useEffect(() => {
       }
     );
       const data = await res.json();
-      // Get candidate sessions
+    
       const sessionRes = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/candidates/sessions/${suggestion.id}`,
       {
@@ -189,7 +181,6 @@ useEffect(() => {
       }
     );
       const sessionData = await sessionRes.json();
-      // Merge data
       setSelectedCandidate({
         ...data,
         session_records: sessionData.sessions || []
@@ -201,13 +192,11 @@ useEffect(() => {
     }
   };
 
-  // Helper: Fetch candidate by ID (for query string flow)
   const fetchCandidateById = async (id: number) => {
     setLoading(true);
     setShowSuggestions(false);
     setSearchTerm("");
     try {
-      // Get candidate details
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/candidates/details/${id}`,
         {
@@ -218,7 +207,6 @@ useEffect(() => {
         }
       );
       const data = await res.json();
-      // Get candidate sessions
       const sessionRes = await fetch(
   `${process.env.NEXT_PUBLIC_API_URL}/candidates/sessions/${id}`,
         {
@@ -229,7 +217,6 @@ useEffect(() => {
         }
       );
       const sessionData = await sessionRes.json();
-      // Merge data
       setSelectedCandidate({
         ...data,
         session_records: sessionData.sessions || []
@@ -241,10 +228,8 @@ useEffect(() => {
     }
   };
 
-  // Effect: If candidateIdFromUrl is present, fetch candidate by ID
   useEffect(() => {
     if (candidateIdFromUrl) {
-      // Only fetch if the selected candidate is not already the right one
       if (
         !selectedCandidate ||
         selectedCandidate.candidate_id !== Number(candidateIdFromUrl)
@@ -252,7 +237,6 @@ useEffect(() => {
         fetchCandidateById(Number(candidateIdFromUrl));
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidateIdFromUrl]);
 
 
@@ -283,7 +267,6 @@ useEffect(() => {
                     hour12: true
                   });
                 }
-            // --- Begin extended rendering logic ---
             if (key === 'candidate_folder' && value && value.toString().trim() !== '') {
               const url = value.toString().trim();
               let finalUrl = url;
@@ -326,10 +309,8 @@ useEffect(() => {
                 </a>
               );
             } else if (key === 'linkedin_id' && value && value.toString().trim() !== '') {
-              // Render LinkedIn as button, similar to recording_link
               let url = value.toString().trim();
               let finalUrl = url;
-              // If value is not a URL, prefix with https://
               if (!url.startsWith('http://') && !url.startsWith('https://')) {
                 finalUrl = 'https://' + url;
               }
@@ -613,7 +594,6 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Optimized Search Box */}
       <div className="max-w-md relative">
         <Label htmlFor="search" className="text-sm font-medium text-black-700 dark:text-black-300">
           Search by Name
@@ -633,7 +613,6 @@ useEffect(() => {
           />
         </div>
 
-        {/* Enhanced Dropdown Suggestions */}
         {showSuggestions && suggestions.length > 0 && (
           <div className="absolute z-10 w-full mt-1 bg-white dark:bg-black-800 border border-black-200 dark:border-black-700 rounded-md shadow-lg max-h-60 overflow-auto">
             {suggestions.map((suggestion) => (
@@ -649,7 +628,6 @@ useEffect(() => {
           </div>
         )}
 
-        {/* Click outside to close dropdown */}
         {showSuggestions && (
           <div 
             className="fixed inset-0 z-0" 
@@ -657,7 +635,6 @@ useEffect(() => {
           />
         )}
 
-        {/* Enhanced Loading and Error States */}
         {loading && (
           <div className="mt-2 flex items-center gap-2">
             <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -670,7 +647,6 @@ useEffect(() => {
         )}
       </div>
 
-      {/* Enhanced Candidate Details with All New Fields */}
       {selectedCandidate && (
         <div className="border border-black-200 dark:border-black-700 rounded-lg overflow-hidden">
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-black-800 dark:to-black-700 px-6 py-4 border-b border-black-200 dark:border-black-700">
@@ -684,7 +660,6 @@ useEffect(() => {
           </div>
 
           <div className="divide-y divide-black-200 dark:divide-black-700">
-            {/* Basic Information - Merged with Emergency Contact */}
             <div className="accordion-item">
               <button
                 className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-black-50 dark:hover:bg-black-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
@@ -707,8 +682,6 @@ useEffect(() => {
                 </div>
               )}
             </div>
-
-            {/* Fee & Financials */}
             <div className="accordion-item">
               <button
                 className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-black-50 dark:hover:bg-black-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
@@ -728,8 +701,6 @@ useEffect(() => {
                 </div>
               )}
             </div>
-
-            {/* Login & Access Info */}
             <div className="accordion-item">
               <button
                 className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-black-50 dark:hover:bg-black-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
@@ -749,8 +720,6 @@ useEffect(() => {
                 </div>
               )}
             </div>
-
-            {/* Marketing Info - Now shows marketing manager name */}
             <div className="accordion-item">
               <button
                 className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-black-50 dark:hover:bg-black-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
@@ -773,7 +742,6 @@ useEffect(() => {
               )}
             </div>
 
-            {/* Interview Info - Now shows recording links */}
             <div className="accordion-item">
               <button
                 className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-black-50 dark:hover:bg-black-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
@@ -794,14 +762,13 @@ useEffect(() => {
                     [...selectedCandidate.interview_records].sort((a, b) => {
                       const ad = a["Interview Date"] ? new Date(a["Interview Date"]).getTime() : -Infinity;
                       const bd = b["Interview Date"] ? new Date(b["Interview Date"]).getTime() : -Infinity;
-                      return bd - ad; // Most recent first
+                      return bd - ad;
                     })
                   )}
                   {renderTable("Placement Records", <DollarSign className="h-4 w-4" />, selectedCandidate.placement_records)}
                 </div>
               )}
             </div>
-            {/* Sessions Info */}
             <div className="accordion-item">
               <button
                 className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-black-50 dark:hover:bg-black-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"

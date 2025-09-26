@@ -1,4 +1,3 @@
-// whiteboxLearning-wbl\components\CourseContent\index.tsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import CourseContentTable from "@/components/Common/CourseContentTable";
@@ -11,15 +10,13 @@ const CourseContent = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // 👉 get token (adjust this based on where you store it)
         const token = localStorage.getItem("token");  
-        // or from cookies / context / Redux
 
         const response = await axios.get(
           `${process.env.NEXT_PUBLIC_API_URL}/course-content`,
           {
             headers: {
-              Authorization: `Bearer ${token}`,  // 🔐 send token
+              Authorization: `Bearer ${token}`,
             },
           }
         );
