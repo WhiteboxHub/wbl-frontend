@@ -63,7 +63,7 @@ const initialFormData: FormData = {
 };
 
 
-const statusOptions = ["Open", "In Progress", "Closed", "Future"];
+const statusOptions = ["Open", "Closed", "Future"];
 const workStatusOptions = [
   "Waiting for Status",
   "H1B",
@@ -74,7 +74,7 @@ const workStatusOptions = [
   "CPT"
 ];
 
-// ---------------- Status Renderer ----------------
+
 const StatusRenderer = ({ value }: { value?: string }) => {
   const status = value?.toLowerCase() || "";
   const variantMap: Record<string, string> = {
@@ -91,7 +91,6 @@ const StatusRenderer = ({ value }: { value?: string }) => {
   );
 };
 
-// ---------------- Improved Status Filter Header ----------------
 const StatusFilterHeaderComponent = (props: any) => {
   const { selectedStatuses, setSelectedStatuses } = props;
   const filterButtonRef = useRef<HTMLDivElement>(null);
@@ -279,7 +278,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
   };
 
   const handleWorkStatusChange = (workStatus: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    e.stopPropagation(); // you can keep this
+    e.stopPropagation(); 
     setSelectedWorkStatuses((prev: string[]) => {
       if (prev.includes(workStatus)) {
         return prev.filter(s => s !== workStatus);
@@ -376,7 +375,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
                   type="checkbox"
                   checked={isAllSelected}
                   ref={(el) => { if (el) el.indeterminate = isIndeterminate; }}
-                  onChange={handleSelectAll} // just this
+                  onChange={handleSelectAll} 
                   className="mr-3"
                 />
 
@@ -392,7 +391,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
                   type="checkbox"
                   checked={selectedWorkStatuses.includes(workStatus)}
                   onChange={(e) => handleWorkStatusChange(workStatus, e)}
-                  onClick={(e) => e.stopPropagation()} // Keep this
+                  onClick={(e) => e.stopPropagation()} 
                   className="mr-3"
                 />
 
@@ -419,7 +418,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
   );
 };
 
-// Main LeadsPage Component
+
 export default function LeadsPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -445,66 +444,66 @@ export default function LeadsPage() {
     () => `${process.env.NEXT_PUBLIC_API_URL}/leads`,
     []
   );
-const fetchLeads = useCallback(
-  async (
-    search?: string,
-    searchBy: string = "all",
-    sort: any[] = [{ colId: 'entry_date', sort: 'desc' }]
-  ) => {
-    setLoading(true);
-    try {
-      let url = `${apiEndpoint}`;
-      const params = new URLSearchParams();
+  const fetchLeads = useCallback(
+    async (
+      search?: string,
+      searchBy: string = "all",
+      sort: any[] = [{ colId: 'entry_date', sort: 'desc' }]
+    ) => {
+      setLoading(true);
+      try {
+        let url = `${apiEndpoint}`;
+        const params = new URLSearchParams();
 
-      if (search && search.trim()) {
-        params.append('search', search.trim());
-        params.append('search_by', searchBy);
+        if (search && search.trim()) {
+          params.append('search', search.trim());
+          params.append('search_by', searchBy);
+        }
+
+        const sortToApply = sort && sort.length > 0 ? sort : [{ colId: 'entry_date', sort: 'desc' }];
+        const sortParam = sortToApply.map(s => `${s.colId}:${s.sort}`).join(',');
+        params.append('sort', sortParam);
+
+        if (params.toString()) {
+          url += `?${params.toString()}`;
+        }
+
+        
+        const token = localStorage.getItem("token");
+
+        const res = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        const data = await res.json();
+
+        let leadsData = [];
+        if (data.data && Array.isArray(data.data)) {
+          leadsData = data.data;
+        } else if (Array.isArray(data)) {
+          leadsData = data;
+        } else {
+          throw new Error('Invalid response format');
+        }
+
+        setLeads(leadsData);
+      } catch (err) {
+        const error = err instanceof Error ? err.message : "Failed to load leads";
+        setError(error);
+        toast.error(error);
+      } finally {
+        setLoading(false);
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+        }
       }
-
-      const sortToApply = sort && sort.length > 0 ? sort : [{ colId: 'entry_date', sort: 'desc' }];
-      const sortParam = sortToApply.map(s => `${s.colId}:${s.sort}`).join(',');
-      params.append('sort', sortParam);
-
-      if (params.toString()) {
-        url += `?${params.toString()}`;
-      }
-
-      // Get token from localStorage
-      const token = localStorage.getItem("token");
-
-      const res = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json', // optional
-        },
-      });
-
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      const data = await res.json();
-
-      let leadsData = [];
-      if (data.data && Array.isArray(data.data)) {
-        leadsData = data.data;
-      } else if (Array.isArray(data)) {
-        leadsData = data;
-      } else {
-        throw new Error('Invalid response format');
-      }
-
-      setLeads(leadsData);
-    } catch (err) {
-      const error = err instanceof Error ? err.message : "Failed to load leads";
-      setError(error);
-      toast.error(error);
-    } finally {
-      setLoading(false);
-      if (searchInputRef.current) {
-        searchInputRef.current.focus();
-      }
-    }
-  },
-  [apiEndpoint]
-);
+    },
+    [apiEndpoint]
+  );
 
   // Filter leads locally when status or work status changes
   useEffect(() => {
@@ -608,17 +607,28 @@ const fetchLeads = useCallback(
         updatedData.workstatus = 'waiting';
       }
 
+      if (updatedData.moved_to_candidate) {
+        updatedData.status = "Closed";
+      }
+      if (!updatedData.status || updatedData.status === '') {
+        updatedData.status = updatedData.moved_to_candidate ? "Closed" : "Open";
+      }
+      if (!updatedData.workstatus || updatedData.workstatus === '') {
+        updatedData.workstatus = 'Waiting for Status';
+      }
+
       const booleanFields = ['moved_to_candidate', 'massemail_email_sent', 'massemail_unsubscribe'];
       booleanFields.forEach(field => {
         if (updatedData[field] === undefined || updatedData[field] === null || updatedData[field] === '') {
           updatedData[field] = false;
         }
       });
+   
 
       const payload = {
         ...updatedData,
         entry_date: new Date().toISOString(),
-        closed_date: updatedData.status === "Closed" ? new Date().toISOString() : null,
+        closed_date: updatedData.status === "Closed" ? new Date().toISOString().split('T')[0] : null,
       };
 
       const response = await fetch(apiEndpoint, {
@@ -657,15 +667,21 @@ const fetchLeads = useCallback(
       setLoadingRowId(updatedRow.id);
       try {
         const { id, entry_date, ...payload } = updatedRow;
+
+        if (payload.moved_to_candidate && payload.status !== "Closed") {
+          payload.status = "Closed";
+          payload.closed_date = new Date().toISOString().split('T')[0];
+        }
+        
+        else if (!payload.moved_to_candidate && payload.status === "Closed") {
+          payload.status = "Open";
+          payload.closed_date = null;
+        }
+
+        
         payload.moved_to_candidate = Boolean(payload.moved_to_candidate);
         payload.massemail_unsubscribe = Boolean(payload.massemail_unsubscribe);
         payload.massemail_email_sent = Boolean(payload.massemail_email_sent);
-
-        if (payload.status === "Closed") {
-          payload.closed_date = new Date().toISOString().split('T')[0];
-        } else {
-          payload.closed_date = null;
-        }
 
         const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
           method: "PUT",
@@ -678,8 +694,12 @@ const fetchLeads = useCallback(
           throw new Error(errorData.detail || "Failed to update lead");
         }
 
-        fetchLeads(searchTerm, searchBy, sortModel);
-        toast.success("Lead updated successfully");
+        await fetchLeads(searchTerm, searchBy, sortModel);
+        toast.success(
+          payload.moved_to_candidate
+            ? "Lead moved to candidate and marked Closed"
+            : "Lead updated successfully"
+        );
       } catch (error) {
         toast.error("Failed to update lead");
         console.error("Error updating lead:", error);
@@ -707,26 +727,38 @@ const fetchLeads = useCallback(
     [apiEndpoint, searchTerm, searchBy, sortModel, fetchLeads]
   );
 
+ 
   const handleMoveToCandidate = useCallback(
-    async (leadId: { id: number }, Moved: boolean) => {
-      setLoadingRowId(leadId.id);
+    async (lead: Lead, Moved: boolean) => {
+      setLoadingRowId(lead.id);
       try {
         const method = Moved ? "DELETE" : "POST";
-        const url = `${apiEndpoint}/${leadId.id}/move-to-candidate`;
+        const url = `${apiEndpoint}/${lead.id}/move-to-candidate`;
+
+        const payload: Partial<Lead> = {
+          moved_to_candidate: !Moved, 
+          status: !Moved ? "Closed" : "Open", 
+          closed_date: !Moved ? new Date().toISOString().split("T")[0] : null,
+        };
+
         const response = await fetch(url, {
-          method: method,
+          method,
           headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
         });
+
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.detail || "Failed to move lead to candidate");
         }
+
         const data = await response.json();
         fetchLeads(searchTerm, searchBy, sortModel);
+
         if (Moved) {
           toast.success(`Lead removed from candidate list (Candidate ID: ${data.candidate_id})`);
         } else {
-          toast.success(`Lead moved to candidate (Candidate ID: ${data.candidate_id})`);
+          toast.success(`Lead moved to candidate (Candidate ID: ${data.candidate_id}) and status set to Closed`);
         }
       } catch (error: any) {
         console.error("Error moving lead to candidate:", error);
@@ -738,7 +770,6 @@ const fetchLeads = useCallback(
     [apiEndpoint, searchTerm, searchBy, sortModel, fetchLeads]
   );
 
-  // Format phone number
   const formatPhoneNumber = (phoneNumberString: string) => {
     const cleaned = ('' + phoneNumberString).replace(/\D/g, '');
     const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
@@ -748,7 +779,7 @@ const fetchLeads = useCallback(
     return `+1 ${phoneNumberString}`;
   };
 
-  // Column definitions for AG Grid
+
   const columnDefs: ColDef<any, any>[] = useMemo(
     () => [
       {
@@ -953,29 +984,29 @@ const fetchLeads = useCallback(
             )}
           </p>
 
-      <div key="search-container" className="max-w-md">
-        <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          Search Lead
-        </Label>
-        <div className="relative mt-1">
-          <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-          <Input
-            key="search-input"
-            id="search"
-            type="text"
-            ref={searchInputRef}
-            placeholder="Search by ID, name, email, phone..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 w-96"
-          />
-        </div>
-        {searchTerm && (
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {leads.length} candidates found
-          </p>
-        )}
-      </div>
+          <div key="search-container" className="max-w-md">
+            <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Search Lead
+            </Label>
+            <div className="relative mt-1">
+              <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+              <Input
+                key="search-input"
+                id="search"
+                type="text"
+                ref={searchInputRef}
+                placeholder="Search by ID, name, email, phone..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 w-96"
+              />
+            </div>
+            {searchTerm && (
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                {leads.length} candidates found
+              </p>
+            )}
+          </div>
 
         </div>
         <Button
@@ -987,7 +1018,7 @@ const fetchLeads = useCallback(
         </Button>
       </div>
 
-    
+
       {/* AG Grid Table */}
       <div className="flex w-full justify-center">
         <AGGridTable

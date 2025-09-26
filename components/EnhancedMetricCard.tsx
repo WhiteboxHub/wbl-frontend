@@ -6,7 +6,7 @@ interface EnhancedMetricCardProps {
   title: string;
   value: string | number;
   icon?: ReactNode;
-  variant?: "default" | "purple" | "blue" | "green" | "orange" | "red" | "teal";
+  variant?: "default" | "purple" | "blue" | "green" | "orange" | "red" | "teal"  ;
   trend?: {
     value: number;
     isPositive: boolean;

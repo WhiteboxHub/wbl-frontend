@@ -130,7 +130,7 @@ interface LeadMetrics {
   total_leads: number;
   leads_this_month: number;
   latest_lead: Lead | null;
-  leadConversionRate: number;
+  leads_this_week: number;
 }
 
 interface LeadMetricsResponse {
@@ -178,7 +178,7 @@ export default function Index() {
     upcoming: [],
   });
 const [leadMetrics, setLeadMetrics] = useState<LeadMetrics | null>(null);
-const [activeTab, setActiveTab] = useState("batch");
+const [activeTab, setActiveTab] = useState("leads");
 
 useEffect(() => {
   const fetchInterviewPerformance = async () => {
@@ -295,13 +295,12 @@ useEffect(() => {
   const interviewsThisMonth = useCounter(metrics?.interview_metrics?.interviews_month || 0);
   const totalLeads = useCounter(leadMetrics?.total_leads || 0);
   const leadsThisMonth = useCounter(leadMetrics?.leads_this_month || 0);
-  const leadConversionRate=  useCounter(leadMetrics?.leadConversionRate || 0);
+  const leads_this_week =  useCounter(leadMetrics?.leads_this_week || 0);
   const currentDate = new Date();
   const currentMonth = currentDate.toLocaleString("default", { month: "long" });
   const currentYear = currentDate.getFullYear();
 
   // Calculate derived metrics
-  const placementRate = metrics ? Math.round((metrics.placement_metrics.total_placements / Math.max(1, metrics.batch_metrics.total_candidates) * 100)) : 0;
   const averageFeePerCandidate = metrics ? Math.round((metrics.financial_metrics.total_fee_current_batch / Math.max(1, metrics.batch_metrics.enrolled_candidates_current))) : 0;
 
   if (loading) {
@@ -334,12 +333,13 @@ useEffect(() => {
     <div className="mx-auto max-w-screen-2xl space-y-6 p-4">
       <Tabs defaultValue="batch" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="border-2 border-gray-200 rounded-xl bg-gradient-to-br from-blue-50/50 via-white to-purple-50/50 p-2 shadow-sm">
-          <TabsTrigger value="batch" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800">Batch</TabsTrigger>
-          <TabsTrigger value="finance" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-800">Finance</TabsTrigger>
-          <TabsTrigger value="placement" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-800">Placement</TabsTrigger>
-          <TabsTrigger value="interview" className="data-[state=active]:bg-orange-100 data-[state=active]:text-orange-800">Interview</TabsTrigger>
           <TabsTrigger value="leads" className="data-[state=active]:bg-sky-100 data-[state=active]:text-teal-800">Leads</TabsTrigger>
+          <TabsTrigger value="batch" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800">Batch</TabsTrigger>
+          <TabsTrigger value="interview" className="data-[state=active]:bg-orange-100 data-[state=active]:text-orange-800">Interview</TabsTrigger>
+          <TabsTrigger value="marketing" className="data-[state=active]:bg-pink-100 data-[state=active]:text-pink-800">Marketing</TabsTrigger>
+          <TabsTrigger value="placement" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-800">Placement</TabsTrigger> 
           <TabsTrigger value="employee" className="data-[state=active]:bg-pink-100 data-[state=active]:text-pink-800">Employee</TabsTrigger>
+          <TabsTrigger value="finance" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-800">Finance</TabsTrigger>
         </TabsList>
 
         {/* 1. Batch & Enrollment */}
@@ -531,7 +531,6 @@ useEffect(() => {
             <EnhancedMetricCard title={`Placements (${currentYear})`} value={placementsYear} icon={<Award className="size-4" />} variant="blue" />
             <EnhancedMetricCard title="Placements Last Month" value={placementsMonth} icon={<Clock className="size-4" />} variant="blue" />
             <EnhancedMetricCard title="Active Placements" value={activePlacements} icon={<CheckCircle2 className="size-4" />} variant="blue" />
-            <EnhancedMetricCard title="Placement Rate" value={`${placementRate}%`} icon={<Percent className="size-4" />} variant="blue" />
             
             {metrics?.placement_metrics.last_placement && (
               <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-blue-200">
@@ -560,13 +559,13 @@ useEffect(() => {
           </div>
         </TabsContent>
 
-        {/* 4. Interview & Marketing */}
+        {/* 4. Interview */}
         <TabsContent value="interview">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             <EnhancedMetricCard title="Upcoming Interviews (Next 7 Days)" value={upcomingInterviews} icon={<CalendarDays className="size-4" />} variant="orange" />
             <EnhancedMetricCard title="Total Interviews Scheduled" value={totalInterviews} icon={<ClipboardList className="size-4" />} variant="orange" />
             <EnhancedMetricCard title={`Interviews This Month (${currentMonth})`} value={interviewsThisMonth} icon={<BarChart2 className="size-4" />} variant="orange" />
-            <EnhancedMetricCard title="Candidates in Marketing Phase" value={metrics?.interview_metrics.marketing_candidates || 0} icon={<Mic className="size-4" />} variant="orange" />
+            
             <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-orange-300">
               <CardHeader className="p-3 pb-1">
                 <div className="flex items-center justify-between border-b border-orange-200">
@@ -674,12 +673,19 @@ useEffect(() => {
           </div>
         </TabsContent>
 
-        {/* 5. Lead metrics */}
+        {/* Marketing */}
+        <TabsContent value="marketing">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+            <EnhancedMetricCard title="Active Marketing Candidates" value={metrics?.interview_metrics.marketing_candidates || 0} icon={<Mic className="size-4" />} variant="default" />
+          </div>
+        </TabsContent>
+
+        {/*  Lead metrics */}
         <TabsContent value="leads">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             <EnhancedMetricCard title="Total Leads" value={totalLeads} icon={<Users className="size-4" />} variant="teal" />
             <EnhancedMetricCard title="Leads In This Month" value={leadsThisMonth} icon={<CalendarDays className="size-4" />} variant="teal" />
-            <EnhancedMetricCard title="Lead Conversion Rate" value={`${leadConversionRate}%`} icon={<Percent className="size-4" />} variant="teal" />
+            <EnhancedMetricCard title="Lead In This Week" value={leads_this_week} icon={<Target className="size-4" />} variant="teal" />
             
             {leadMetrics?.latest_lead && (
               <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-teal-200">
@@ -770,7 +776,3 @@ function formatUSD(amount: number) {
     maximumFractionDigits: 0,
   }).format(amount);
 }
-
-
-
-

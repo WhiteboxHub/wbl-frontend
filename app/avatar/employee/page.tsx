@@ -369,7 +369,7 @@ const fetchEmployees = async () => {
         )}
       </div>
 
-      {/* Employee Form Modal */}
+      
       {showEmployeeForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
           <div className="relative w-full max-w-2xl rounded-xl bg-white p-4 shadow-md">
@@ -477,7 +477,7 @@ const fetchEmployees = async () => {
         </div>
       )}
 
-      {/* Table */}
+      
       {loading ? (
         <p className="text-gray-500">Loading employees...</p>
       ) : error ? (

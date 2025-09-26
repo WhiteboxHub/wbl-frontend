@@ -1,3 +1,4 @@
+
 "use client";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
@@ -69,6 +70,11 @@ type FormData = {
 type Batch = {
   batchid: number;
   batchname: string;
+  subject?: string;       
+  courseid?: number;      
+  orientationdate?: string; 
+  startdate?: string;      
+  enddate?: string;        
 };
 
 const statusOptions = ["active", "discontinued", "break", "closed"];
@@ -76,7 +82,6 @@ const workStatusOptions = [
   "Waiting for Status",
   "Citizen",
   "Visa",
-  "others",
   "Permanent resident",
   "EAD",
 ];
@@ -106,7 +111,7 @@ const initialFormData: FormData = {
   candidate_folder: "",
 };
 
-// Status Renderer
+
 const StatusRenderer = ({ value }: { value?: string }) => {
   const status = value?.toLowerCase() || "";
   const variantMap: Record<string, string> = {
@@ -157,8 +162,8 @@ const CandidateNameRenderer = (params: any) => {
 
   return (
     <Link
-      href={`/avatar/candidates/search?candidateId=${candidateId}`}
-      className="cursor-pointer font-medium text-blue-600 hover:text-blue-800 hover:underline"
+      href={`/avatar/candidates/search?candidateId=${candidateId}`} 
+      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
     >
       {candidateName}
     </Link>
@@ -213,15 +218,16 @@ const FilterHeaderComponent = ({
     setFilterVisible((v) => !v);
   };
 
+
+
+
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
     setSelectedItems(e.target.checked ? [...options] : []);
   };
 
-  const isAllSelected =
-    selectedItems.length === options.length && options.length > 0;
-  const isIndeterminate =
-    selectedItems.length > 0 && selectedItems.length < options.length;
+  const isAllSelected = selectedItems.length === options.length && options.length > 0;
+  const isIndeterminate = selectedItems.length > 0 && selectedItems.length < options.length;
 
   const colorMap: Record<string, string> = {
     blue: "bg-blue-500",
@@ -367,7 +373,7 @@ const FilterHeaderComponent = ({
   );
 };
 
-// Main Component
+
 export default function CandidatesPage() {
   const gridRef = useRef<any>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -375,7 +381,7 @@ export default function CandidatesPage() {
   const searchParams = useSearchParams();
   const isNewCandidate = searchParams.get("newcandidate") === "true";
 
-  // State
+
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [filteredCandidates, setFilteredCandidates] = useState<Candidate[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -390,8 +396,25 @@ export default function CandidatesPage() {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [formSaveLoading, setFormSaveLoading] = useState(false);
   const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
-  const [batches, setBatches] = useState<Batch[]>([]);
+
+  const [allBatches, setAllBatches] = useState<Batch[]>([]);
+
+  const [mlBatches, setMlBatches] = useState<Batch[]>([]);
   const [batchesLoading, setBatchesLoading] = useState(true);
+
+  useEffect(() => {
+    console.log('📊 Batch State Update:');
+    console.log('   - All batches:', allBatches.length);
+    console.log('   - ML batches for form:', mlBatches.length);
+    if (mlBatches.length > 0) {
+      console.log('   - ML batches details:', mlBatches.map(b => ({
+        id: b.batchid,
+        name: b.batchname,
+        subject: b.subject,
+        courseid: b.courseid
+      })));
+    }
+  }, [allBatches, mlBatches]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>(
     []
@@ -469,89 +492,94 @@ export default function CandidatesPage() {
     [apiEndpoint]
   );
 
-  // Fetch batches
-  useEffect(() => {
-    const fetchBatches = async () => {
-      setBatchesLoading(true);
-      try {
-        const token = localStorage.getItem("access_token");
-        if (!token) {
-          console.error("No access token found");
-          setBatchesLoading(false);
-          return;
-        }
 
-        const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/batch?course=${courseId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+useEffect(() => {
+  const fetchBatches = async () => {
+    setBatchesLoading(true);
+    try {
+      const token = localStorage.getItem('accesstoken');
 
-        const sortedBatches = [...res.data].sort(
-          (a: Batch, b: Batch) => b.batchid - a.batchid
-        );
-        setBatches(sortedBatches);
 
-        if (isNewCandidate && sortedBatches.length > 0) {
-          setFormData((prev) => ({
-            ...prev,
-            batchid: sortedBatches[0].batchid,
-          }));
-        }
-      } catch (error) {
-        console.error("Failed to load batches", error);
-      } finally {
-        setBatchesLoading(false);
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/batch`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+    
+      const sortedAllBatches = [...res.data].sort((a: Batch, b: Batch) => b.batchid - a.batchid);
+      setAllBatches(sortedAllBatches);
+
+      
+      const uniqueSubjects = [...new Set(sortedAllBatches.map(batch => batch.subject))];
+      const uniqueCourseIds = [...new Set(sortedAllBatches.map(batch => batch.courseid))];
+      console.log('🔍 Available subjects:', uniqueSubjects);
+      console.log('🔍 Available course IDs:', uniqueCourseIds);
+      console.log('🔍 Total batches:', sortedAllBatches.length);
+
+    
+      let mlBatchesOnly = sortedAllBatches.filter(batch => {
+        const subject = batch.subject?.toLowerCase();
+        return subject === 'ml' || 
+               subject === 'machine learning' || 
+               subject === 'machinelearning' ||
+               subject?.includes('ml');
+      });
+
+      if (mlBatchesOnly.length === 0) {
+        console.log('⚠️ No ML batches found by subject, trying courseid = 3');
+        mlBatchesOnly = sortedAllBatches.filter(batch => batch.courseid === 3);
       }
-    };
+
+      if (mlBatchesOnly.length === 0) {
+        console.warn('⚠️ No ML batches found! Showing all batches in form as fallback');
+        mlBatchesOnly = sortedAllBatches;
+      }
+
+      console.log('🎯 Filtered ML batches for form:', mlBatchesOnly.length);
+      setMlBatches(mlBatchesOnly); 
+
+      
+      if (isNewCandidate && mlBatchesOnly.length > 0 && mlBatchesOnly[0]?.batchid) {
+        setFormData(prev => ({ ...prev, batchid: mlBatchesOnly[0].batchid }));
+      }
+
+    } catch (error) {
+      console.error('Failed to load batches:', error);
+    } finally {
+      setBatchesLoading(false);
+    }
+  };;
 
     fetchBatches();
   }, [courseId, isNewCandidate]);
 
-  useEffect(() => {
-    let filtered = [...candidates];
-    if (selectedStatuses.length > 0) {
-      filtered = filtered.filter((candidate) =>
-        selectedStatuses.some(
-          (status) =>
-            status.toLowerCase() === (candidate.status || "").toLowerCase()
-        )
-      );
-    }
-    if (selectedWorkStatuses.length > 0) {
-      filtered = filtered.filter((candidate) =>
-        selectedWorkStatuses.some(
-          (ws) =>
-            ws.toLowerCase() === (candidate.workstatus || "").toLowerCase()
-        )
-      );
-    }
-    if (selectedBatches.length > 0) {
-      filtered = filtered.filter((candidate) =>
-        selectedBatches.some((batch) => batch.batchid === candidate.batchid)
-      );
-    }
-    if (searchTerm.trim() !== "") {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (candidate) =>
-          candidate.full_name?.toLowerCase().includes(term) ||
-          candidate.email?.toLowerCase().includes(term) ||
-          candidate.phone?.toLowerCase().includes(term) ||
-          candidate.id.toString().includes(term)
-      );
-    }
-    setFilteredCandidates(filtered);
-  }, [
-    candidates,
-    selectedStatuses,
-    selectedWorkStatuses,
-    selectedBatches,
-    searchTerm,
-  ]);
+        useEffect(() => {
+          let filtered = [...candidates];
+          if (selectedStatuses.length > 0) {
+            filtered = filtered.filter(candidate =>
+              selectedStatuses.some(status => status.toLowerCase() === (candidate.status || "").toLowerCase())
+            );
+          }
+          if (selectedWorkStatuses.length > 0) {
+            filtered = filtered.filter(candidate =>
+              selectedWorkStatuses.some(ws => ws.toLowerCase() === (candidate.workstatus || "").toLowerCase())
+            );
+          }
+          if (selectedBatches.length > 0) {
+            filtered = filtered.filter(candidate =>
+              selectedBatches.some(batch => batch.batchid === candidate.batchid)
+            );
+          }
+          if (searchTerm.trim() !== "") {
+            const term = searchTerm.toLowerCase();
+            filtered = filtered.filter(candidate =>
+              candidate.full_name?.toLowerCase().includes(term) ||
+              candidate.email?.toLowerCase().includes(term) ||
+              candidate.phone?.toLowerCase().includes(term) ||
+              candidate.id.toString().includes(term)
+            );
+          }
+          setFilteredCandidates(filtered);
+        }, [candidates, selectedStatuses, selectedWorkStatuses, selectedBatches, searchTerm]);
 
   useEffect(() => {
     fetchCandidates();
@@ -594,160 +622,120 @@ const getWorkStatusColor = (status) => {
     router.push("/avatar/candidates?newcandidate=true", { scroll: false });
     setNewCandidateForm(true);
 
-    if (batches.length > 0) {
-      const latestBatch = batches[0];
-      setFormData((prev) => ({
+    if (mlBatches.length > 0) {
+      const latestBatch = mlBatches[0];
+      setFormData(prev => ({
         ...prev,
-        batchid: latestBatch.batchid,
+        batchid: latestBatch?.batchid
       }));
     }
   };
 
-  const handleCloseNewCandidateForm = () => {
-    router.push("/avatar/candidates", { scroll: false });
-    setNewCandidateForm(false);
-    setFormData(initialFormData);
-  };
+        const handleCloseNewCandidateForm = () => {
+          router.push("/avatar/candidates", { scroll: false });
+          setNewCandidateForm(false);
+          setFormData(initialFormData);
+        };
 
-  const handleNewCandidateFormChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
-  ) => {
-    const { name, value, type } = e.target;
-    if (["phone", "secondaryphone", "emergcontactphone"].includes(name)) {
-      const digitsOnly = value.replace(/\D/g, "");
-      setFormData((prev) => ({ ...prev, [name]: digitsOnly }));
-      return;
-    }
-    // Address field: allow only letters, numbers, and comma
-    if (name === "emergcontactaddrs" || name === "address") {
-      const allowedChars = value.replace(/[^a-zA-Z0-9, ]/g, "");
-      setFormData((prev) => ({ ...prev, [name]: allowedChars }));
-      return;
-    }
-    if (name === "full_name" || name === "emergcontactname") {
-      // Only allow letters, spaces, and dot
-      const sanitized = value.replace(/[^a-zA-Z. ]/g, "");
-      setFormData((prev) => ({ ...prev, [name]: sanitized }));
-      return;
-    }
-    if (type === "checkbox") {
-      const checked = (e.target as HTMLInputElement).checked;
-      setFormData((prev) => ({ ...prev, [name]: checked ? "Y" : "N" }));
-    } else if (type === "number") {
-      setFormData((prev) => ({ ...prev, [name]: parseInt(value) || 0 }));
-    } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
-    }
-  };
+        const handleNewCandidateFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+          const { name, value, type } = e.target;
+          if (type === 'checkbox') {
+            const checked = (e.target as HTMLInputElement).checked;
+            setFormData(prev => ({ ...prev, [name]: checked ? 'Y' : 'N' }));
+          } else if (type === 'number') {
+            setFormData(prev => ({ ...prev, [name]: parseInt(value) || 0 }));
+          } else {
+            setFormData(prev => ({ ...prev, [name]: value }));
+          }
+        };
 
-  const handleNewCandidateFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.full_name.trim()) {
-      toast.error("Full name is required");
-      return;
-    }
-    setFormSaveLoading(true);
-    try {
-      const payload = {
-        ...formData,
-        enrolled_date:
-          formData.enrolled_date || new Date().toISOString().split("T")[0],
-        status: formData.status || "active",
-        workstatus: formData.workstatus || "Waiting for Status",
-        agreement: formData.agreement || "N",
-        fee_paid: formData.fee_paid || 0,
-      };
-      const response = await fetch(apiEndpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to create candidate");
-      }
-      const newId = await response.json();
-      toast.success(`Candidate created successfully with ID: ${newId}`);
-      setNewCandidateForm(false);
-      setFormData(initialFormData);
-      fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
-    } catch (error) {
-      toast.error("Failed to create candidate: " + (error as Error).message);
-      console.error("Error creating candidate:", error);
-    } finally {
-      setFormSaveLoading(false);
-    }
-  };
-// Add ESC key listener
-useEffect(() => {
-  const handleEsc = (event) => {
-    if (event.key === "Escape") {
-      handleCloseNewCandidateForm();
-    }
-  };
-  window.addEventListener("keydown", handleEsc);
-  return () => window.removeEventListener("keydown", handleEsc);
-}, []);
-  const handleRowUpdated = useCallback(
-    async (updatedRow: Candidate) => {
-      setLoadingRowId(updatedRow.id);
-      try {
-        const updatedData = { ...updatedRow };
-        if (!updatedData.status || updatedData.status === "") {
-          updatedData.status = "active";
-        }
-        const { id, ...payload } = updatedData;
-        const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        if (!response.ok) throw new Error("Failed to update candidate");
-        fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
-        toast.success("Candidate updated successfully");
-      } catch (error) {
-        toast.error("Failed to update candidate");
-        console.error("Error updating candidate:", error);
-      } finally {
-        setLoadingRowId(null);
-      }
-    },
-    [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchCandidates]
-  );
+        const handleNewCandidateFormSubmit = async (e: React.FormEvent) => {
+          e.preventDefault();
+          if (!formData.full_name.trim()) {
+            toast.error("Full name is required");
+            return;
+          }
+          setFormSaveLoading(true);
+          try {
+            const payload = {
+              ...formData,
+              enrolled_date: formData.enrolled_date || new Date().toISOString().split('T')[0],
+              status: formData.status || "active",
+              workstatus: formData.workstatus || "Waiting for Status",
+              agreement: formData.agreement || "N",
+              fee_paid: formData.fee_paid || 0
+            };
+            const response = await fetch(apiEndpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({}));
+              throw new Error(errorData.message || "Failed to create candidate");
+            }
+            const newId = await response.json();
+            toast.success(`Candidate created successfully with ID: ${newId}`);
+            setNewCandidateForm(false);
+            setFormData(initialFormData);
+            fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
+          } catch (error) {
+            toast.error("Failed to create candidate: " + (error as Error).message);
+            console.error("Error creating candidate:", error);
+          } finally {
+            setFormSaveLoading(false);
+          }
+        };
 
-  const handleRowDeleted = useCallback(
-    async (id: number) => {
-      try {
-        const response = await fetch(`${apiEndpoint}/${id}`, {
-          method: "DELETE",
-        });
-        if (!response.ok) throw new Error("Failed to delete candidate");
-        toast.success("Candidate deleted successfully");
-        fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
-      } catch (error) {
-        toast.error("Failed to delete candidate");
-        console.error("Error deleting candidate:", error);
-      }
-    },
-    [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchCandidates]
-  );
+        const handleRowUpdated = useCallback(async (updatedRow: Candidate) => {
+          setLoadingRowId(updatedRow.id);
+          try {
+            const updatedData = { ...updatedRow };
+            if (!updatedData.status || updatedData.status === '') {
+              updatedData.status = 'active';
+            }
+            const { id, ...payload } = updatedData;
+            const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            if (!response.ok) throw new Error("Failed to update candidate");
+            fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
+            toast.success("Candidate updated successfully");
+          } catch (error) {
+            toast.error("Failed to update candidate");
+            console.error("Error updating candidate:", error);
+          } finally {
+            setLoadingRowId(null);
+          }
+        }, [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchCandidates]);
 
-  const handleFilterChanged = useCallback(
-    (filterModelFromGrid: any) => {
-      setFilterModel(filterModelFromGrid);
-      fetchCandidates(searchTerm, searchBy, sortModel, filterModelFromGrid);
-    },
-    [searchTerm, searchBy, sortModel, fetchCandidates]
-  );
+        const handleRowDeleted = useCallback(async (id: number) => {
+          try {
+            const response = await fetch(`${apiEndpoint}/${id}`, {
+              method: "DELETE",
+            });
+            if (!response.ok) throw new Error("Failed to delete candidate");
+            toast.success("Candidate deleted successfully");
+            fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
+          } catch (error) {
+            toast.error("Failed to delete candidate");
+            console.error("Error deleting candidate:", error);
+          }
+        }, [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchCandidates]);
 
-  const formatPhoneNumber = (phoneNumberString: string) => {
-    const cleaned = ("" + phoneNumberString).replace(/\D/g, "");
-    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
-    if (match) return `+1 (${match[1]}) ${match[2]}-${match[3]}`;
-    return `+1 ${phoneNumberString}`;
-  };
+        const handleFilterChanged = useCallback((filterModelFromGrid: any) => {
+          setFilterModel(filterModelFromGrid);
+          fetchCandidates(searchTerm, searchBy, sortModel, filterModelFromGrid);
+        }, [searchTerm, searchBy, sortModel, fetchCandidates]);
+
+        const formatPhoneNumber = (phoneNumberString: string) => {
+          const cleaned = ('' + phoneNumberString).replace(/\D/g, '');
+          const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
+          if (match) return `+1 (${match[1]}) ${match[2]}-${match[3]}`;
+          return `+1 ${phoneNumberString}`;
+        };
 
   const formatDate = (dateString: string | Date | null | undefined) => {
     if (!dateString) return "-";
@@ -760,89 +748,96 @@ useEffect(() => {
     });
   };
 
+  // Add ESC key listener
+useEffect(() => {
+  const handleEsc = (event: KeyboardEvent) => {
+    if (event.key === "Escape") {
+      handleCloseNewCandidateForm();
+    }
+  };
+  window.addEventListener("keydown", handleEsc);
+  return () => window.removeEventListener("keydown", handleEsc);
+}, []);
+
   // Column Definitions
-  const columnDefs: ColDef<any, any>[] = useMemo(
-    () => [
-      {
-        field: "id",
-        headerName: "ID",
-        width: 80,
-        pinned: "left",
-        sortable: true,
+  const columnDefs: ColDef<any, any>[] = useMemo(() => [
+    {
+      field: "id",
+      headerName: "ID",
+      width: 80,
+      pinned: "left",
+      sortable: true
+    },
+    {
+      field: "full_name",
+      headerName: "Full Name",
+      width: 180,
+      sortable: true,
+      cellRenderer: CandidateNameRenderer,
+    },
+    {
+      field: "phone",
+      headerName: "Phone",
+      width: 150,
+      editable: true,
+      sortable: true,
+      cellRenderer: (params: any) => {
+        if (!params.value) return "";
+        const formattedPhone = formatPhoneNumber(params.value);
+        return (
+          <a href={`tel:${params.value}`} className="text-blue-600 underline hover:text-blue-800">
+            {formattedPhone}
+          </a>
+        );
       },
-      {
-        field: "full_name",
-        headerName: "Full Name",
-        width: 180,
-        sortable: true,
-        cellRenderer: CandidateNameRenderer,
+    },
+    {
+      field: "email",
+      headerName: "Email",
+      width: 200,
+      editable: true,
+      sortable: true,
+      cellRenderer: (params: any) => {
+        if (!params.value) return "";
+        return (
+          <a
+            href={`mailto:${params.value}`}
+            className="text-blue-600 underline hover:text-blue-800"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {params.value}
+          </a>
+        );
       },
-      {
-        field: "phone",
-        headerName: "Phone",
-        width: 150,
-        editable: true,
-        sortable: true,
-        cellRenderer: (params: any) => {
-          if (!params.value) return "";
-          const formattedPhone = formatPhoneNumber(params.value);
-          return (
-            <a
-              href={`tel:${params.value}`}
-              className="text-blue-600 underline hover:text-blue-800"
-            >
-              {formattedPhone}
-            </a>
-          );
-        },
+    },
+    {
+      field: "batchid",
+      headerName: "Batch",
+      width: 140,
+      sortable: true,
+      cellRenderer: (params: any) => {
+        if (!params.value || !allBatches.length) return params.value || "";
+        const batch = allBatches.find(b => b.batchid === params.value);
+        return batch ? (
+          <span title={`Batch ID: ${params.value}`}>
+            {batch.batchname}
+          </span>
+        ) : params.value;
       },
-      {
-        field: "email",
-        headerName: "Email",
-        width: 200,
-        editable: true,
-        sortable: true,
-        cellRenderer: (params: any) => {
-          if (!params.value) return "";
-          return (
-            <a
-              href={`mailto:${params.value}`}
-              className="text-blue-600 underline hover:text-blue-800"
-              onClick={(event) => event.stopPropagation()}
-            >
-              {params.value}
-            </a>
-          );
-        },
-      },
-      {
-        field: "batchid",
-        headerName: "Batch",
-        width: 140,
-        sortable: true,
-        cellRenderer: (params: any) => {
-          if (!params.value || !batches.length) return params.value || "";
-          const batch = batches.find((b) => b.batchid === params.value);
-          return batch ? (
-            <span title={`Batch ID: ${params.value}`}>{batch.batchname}</span>
-          ) : (
-            params.value
-          );
-        },
-        headerComponent: (props: any) => (
-          <FilterHeaderComponent
-            {...props}
-            selectedItems={selectedBatches}
-            setSelectedItems={setSelectedBatches}
-            options={batches}
-            label="Batch"
-            color="purple"
-            renderOption={(option: Batch) => option.batchname}
-            getOptionValue={(option: Batch) => option}
-            getOptionKey={(option: Batch) => option.batchid}
-          />
-        ),
-      },
+      headerComponent: (props: any) => (
+        <FilterHeaderComponent
+          {...props}
+          selectedItems={selectedBatches}
+          setSelectedItems={setSelectedBatches}
+          options={allBatches}
+          label="Batch"
+          color="purple"
+          renderOption={(option: Batch) => option.batchname}
+          getOptionValue={(option: Batch) => option}
+          getOptionKey={(option: Batch) => option.batchid}
+        />
+      ),
+    },
 
       {
         field: "status",
@@ -998,53 +993,49 @@ useEffect(() => {
         sortable: true,
       },
 
-      {
-        field: "candidate_folder",
-        headerName: "Candidate Folder",
-        width: 200,
-        sortable: true,
-        cellRenderer: (params: any) => {
-          if (!params.value) return "";
+          {
+            field: "candidate_folder",
+            headerName: "Candidate Folder",
+            width: 200,
+            sortable: true,
+            cellRenderer: (params: any) => {
+              if (!params.value) return "";
+              return (
+                <a
+                  href={params.value}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 underline hover:text-blue-800"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {params.value}
+                </a>
+              );
+            },
+          },
+        ], [allBatches, selectedStatuses, selectedWorkStatuses, selectedBatches]);
+
+        // Error handling
+        if (error) {
           return (
-            <a
-              href={params.value}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 underline hover:text-blue-800"
-              onClick={(event) => event.stopPropagation()}
-            >
-              {params.value}
-            </a>
+            <div className="flex h-64 items-center justify-center">
+              <div className="text-red-500">{error}</div>
+              <Button
+                variant="outline"
+                onClick={() => fetchCandidates(searchTerm, searchBy, sortModel, filterModel)}
+                className="ml-4"
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Retry
+              </Button>
+            </div>
           );
-        },
-      },
-    ],
-    [batches, selectedStatuses, selectedWorkStatuses, selectedBatches]
-  );
+        }
 
-  // Error handling
-  if (error) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="text-red-500">{error}</div>
-        <Button
-          variant="outline"
-          onClick={() =>
-            fetchCandidates(searchTerm, searchBy, sortModel, filterModel)
-          }
-          className="ml-4"
-        >
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Retry
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Add CSS for scrollable dropdowns */}
-      <style jsx global>{`
+        return (
+          <div className="space-y-6">
+            {/* Add CSS for scrollable dropdowns */}
+            <style jsx global>{`
         .filter-dropdown {
           scrollbar-width: thin;
         }
@@ -1064,33 +1055,31 @@ useEffect(() => {
         }
       `}</style>
 
-      <Toaster position="top-center" />
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Candidates Management
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            All Candidates ({candidates.length})
-            {selectedStatuses.length > 0 ||
-            selectedWorkStatuses.length > 0 ||
-            selectedBatches.length > 0 ? (
-              <span className="ml-2 text-blue-600 dark:text-blue-400">
-                - Filtered ({filteredCandidates.length} shown)
-              </span>
-            ) : (
-              " - Sorted by latest first"
-            )}
-          </p>
-        </div>
-        <Button
-          onClick={handleOpenNewCandidateForm}
-          className="bg-green-600 text-white hover:bg-green-700"
-        >
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Add New Candidate
-        </Button>
-      </div>
+            <Toaster position="top-center" />
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                  Candidates Management
+                </h1>
+                <p className="text-gray-600 dark:text-gray-400">
+                  All Candidates ({candidates.length})
+                  {selectedStatuses.length > 0 || selectedWorkStatuses.length > 0 || selectedBatches.length > 0 ? (
+                    <span className="ml-2 text-blue-600 dark:text-blue-400">
+                      - Filtered ({filteredCandidates.length} shown)
+                    </span>
+                  ) : (
+                    " - Sorted by latest first"
+                  )}
+                </p>
+              </div>
+              <Button
+                onClick={handleOpenNewCandidateForm}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Add New Candidate
+              </Button>
+            </div>
 
       {/* Search */}
       <div key="search-container" className="max-w-md">
@@ -1120,30 +1109,22 @@ useEffect(() => {
         )}
       </div>
 
-      {/* AG Grid Table */}
-      <div className="flex w-full justify-center">
-        <AGGridTable
-          key={`${filteredCandidates.length}-${selectedStatuses.join(
-            ","
-          )}-${selectedWorkStatuses.join(",")}-${selectedBatches
-            .map((b) => b.batchid)
-            .join(",")}`}
-          rowData={loading ? undefined : filteredCandidates}
-          columnDefs={columnDefs}
-          onRowUpdated={handleRowUpdated}
-          onRowDeleted={handleRowDeleted}
-          showFilters={true}
-          showSearch={false}
-          batches={batches}
-          loading={loading}
-          height="600px"
-          overlayNoRowsTemplate={
-            loading
-              ? ""
-              : '<span class="ag-overlay-no-rows-center">No candidates found</span>'
-          }
-        />
-      </div>
+            {/* AG Grid Table */}
+            <div className="flex w-full justify-center">
+              <AGGridTable
+                key={`${filteredCandidates.length}-${selectedStatuses.join(',')}-${selectedWorkStatuses.join(',')}-${selectedBatches.map(b => b.batchid).join(',')}`}
+                rowData={loading ? undefined : filteredCandidates}
+                columnDefs={columnDefs}
+                onRowUpdated={handleRowUpdated}
+                onRowDeleted={handleRowDeleted}
+                showFilters={true}
+                showSearch={false}
+                batches={allBatches}
+                loading={loading}
+                height="600px"
+                overlayNoRowsTemplate={loading ? "" : '<span class="ag-overlay-no-rows-center">No candidates found</span>'}
+              />
+            </div>
 
 {/* + Add New candidate */}
 {newCandidateForm && (
@@ -1463,7 +1444,7 @@ useEffect(() => {
               ) : (
                 <>
                   {/* <option value="0">Select a batch </option> */}
-                  {batches.map((batch) => (
+                  {mlBatches.map((batch) => (
                     <option key={batch.batchid} value={batch.batchid}>
                       {batch.batchname}
                     </option>
