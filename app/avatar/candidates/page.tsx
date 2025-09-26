@@ -157,7 +157,7 @@ const CandidateNameRenderer = (params: any) => {
   return (
     <Link
       href={`/avatar/candidates/search?candidateId=${candidateId}`} 
-      className="text-blue-600 hover:text-blue-800 hover:underline font-medium cursor-pointer"
+      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
     >
       {candidateName}
     </Link>
