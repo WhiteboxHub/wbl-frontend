@@ -78,16 +78,15 @@ const fieldSections: Record<string, string> = {
   leadid: "Basic Information",
   name: "Basic Information",
   enddate: "Professional Information",
-  candidate_resume: "Professional Information",
   candidate_name: "Basic Information",
   candidate_role: "Basic Information",
-  google_voice_number: "Professional Information",
+  google_voice_number: "Basic Information",
   dob: "Basic Information",
   contact: "Basic Information",
   password: "Basic Information",
   secondaryemail: "Contact Information",
   ssn: "Professional Information",
-  priority: "Professional Information",
+  priority: "Basic Information",
   source: "Basic Information",
   subject: "Basic Information",
   title: "Basic Information",
@@ -262,10 +261,10 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "Prep Call", label: "Prep Call" },
   ],
   feedback:  [
-    { value: 'Pending', label: 'Pending' },
-    { value: 'Positive', label: 'Positive' },
-    { value: 'Negative', label: 'Negative' },
-  ],
+  { value: 'Pending', label: 'Pending' },
+  { value: 'Positive', label: 'Positive' },
+  { value: 'Negative', label: 'Negative' },
+],
 };
 
 const labelOverrides: Record<string, string> = {
@@ -560,16 +559,15 @@ export function EditModal({
   }[columnCount] || "lg:grid-cols-4 md:grid-cols-2";
 
   const isVendorModal = title.toLowerCase().includes("vendor");
-  const isInterviewOrMarketingOrCandidates = title.toLowerCase().includes("interview") || title.toLowerCase().includes("marketing") || title.toLowerCase().includes("candidates");
-  const isPrepOrMarketingOrInterview = title.toLowerCase().includes("preparation") ||
-                                        title.toLowerCase().includes("marketing") ||
-                                        title.toLowerCase().includes("interview");
+  const isInterviewOrMarketing = title.toLowerCase().includes("interview") || title.toLowerCase().includes("marketing");
 
   if (!data) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className={`${modalWidthClass} max-h-[80vh] overflow-y-auto p-0`}>
+      <DialogContent
+        className={`${modalWidthClass} max-h-[80vh] overflow-y-auto p-0`}
+      >
         {/* Header */}
         <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
@@ -596,6 +594,7 @@ export function EditModal({
             </svg>
           </button>
         </div>
+
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -640,8 +639,9 @@ export function EditModal({
                   <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                     {section}
                   </h3>
+
                   {/* Always render instructor dropdowns in Professional Information section */}
-                  {section === "Professional Information" && !isInterviewOrMarketingOrCandidates && (
+                  {section === "Professional Information" && (
                     <>
                       {/* Instructor 1 Dropdown */}
                       <div className="space-y-1">
@@ -667,6 +667,7 @@ export function EditModal({
                           ))}
                         </select>
                       </div>
+
                       {/* Instructor 2 Dropdown */}
                       <div className="space-y-1">
                         <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
@@ -691,6 +692,7 @@ export function EditModal({
                           ))}
                         </select>
                       </div>
+
                       {/* Instructor 3 Dropdown */}
                       <div className="space-y-1">
                         <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
@@ -717,24 +719,26 @@ export function EditModal({
                       </div>
                     </>
                   )}
+
                   {/* Render other fields in the section */}
                   {sectionedFields[section]
                     .filter(
-                      ({ key }) => {
-                        const isInstructorField = ["instructor1_name", "instructor2_name", "instructor3_name", "instructor1_id", "instructor2_id", "instructor3_id"].includes(key);
-                        const isStatusField = key.toLowerCase() === "status";
-
-                        if (isInterviewOrMarketingOrCandidates && isInstructorField) return false;
-                        if (isPrepOrMarketingOrInterview && isStatusField) return false;
-                        return true;
-                      }
+                      ({ key }) =>
+                        ![
+                          "instructor1_name",
+                          "instructor2_name",
+                          "instructor3_name",
+                          "instructor1_id",
+                          "instructor2_id",
+                          "instructor3_id",
+                        ].includes(key)
                     )
                     .map(({ key, value }) => {
                       const isTypeField = key.toLowerCase() === "type";
                       const isBatchField = key.toLowerCase() === "batchid";
                       const isVendorField = isVendorModal && key.toLowerCase() === "status";
 
-                      if (isInterviewOrMarketingOrCandidates && ["instructor1_name", "instructor2_name", "instructor3_name"].includes(key)) {
+                      if (isInterviewOrMarketing && ["instructor1_name", "instructor2_name", "instructor3_name"].includes(key)) {
                         return null;
                       }
 
@@ -978,6 +982,7 @@ export function EditModal({
                 </div>
               ))}
           </div>
+
           {/* Notes Section */}
           {sectionedFields["Notes"].length > 0 && (
             <div className="px-6 pb-6">
@@ -997,6 +1002,7 @@ export function EditModal({
               </div>
             </div>
           )}
+
           {/* Footer */}
           <div className="flex justify-end px-6 pb-6">
             <button
