@@ -9,7 +9,8 @@ import { Label } from "@/components/admin_ui/label";
 import { Input } from "@/components/admin_ui/input";
 import { Textarea } from "@/components/admin_ui/textarea";
 import axios from "axios";
-
+import dynamic from "next/dynamic";
+import "react-quill/dist/quill.snow.css";
 interface Batch {
   batchid: number;
   batchname: string;
@@ -22,8 +23,9 @@ interface EditModalProps {
   title: string;
   onSave: (updatedData: Record<string, any>) => void;
   batches: Batch[];
+  isEmployeeTask?: boolean;
 }
-
+const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
 const excludedFields = [
   "candidate", "instructor1", "instructor2", "instructor3", "id", "sessionid",
   "vendor_type", "last_mod_datetime", "last_modified", "logincount", "googleId",
@@ -152,6 +154,16 @@ const fieldSections: Record<string, string> = {
   notes: "Notes",
   course_name: "Professional Information",
   subject_name: "Basic Information",
+  assigned_date:"Basic Information",
+  due_date:"Basic Information",
+  employee_name:"Basic Information",
+  secondary_email:"Contact Information",
+  secondaryphone:"Contact Information"
+
+  assigned_date:"Basic Information",
+  employee_name:"Basic Information",
+
+
 };
 
 const workVisaStatusOptions = [
@@ -377,7 +389,12 @@ const dateFields = [
   "enrolled_date",
   "interview_date",
   "placement_date",
+
+
   "target_date_of_marketing",
+  "assigned_date",
+  "due_date"
+
 ];
 
 export function EditModal({
@@ -386,6 +403,7 @@ export function EditModal({
   data,
   title,
   onSave,
+  isEmployeeTask,
 }: EditModalProps) {
   const flattenData = (data: Record<string, any>) => {
     const flattened: Record<string, any> = { ...data };
@@ -640,6 +658,7 @@ export function EditModal({
                   <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                     {section}
                   </h3>
+
                   {/* Always render instructor dropdowns in Professional Information section */}
                   {section === "Professional Information" && !isInterviewOrMarketingOrCandidates && (
                     <>
@@ -737,6 +756,7 @@ export function EditModal({
                       if (isInterviewOrMarketingOrCandidates && ["instructor1_name", "instructor2_name", "instructor3_name"].includes(key)) {
                         return null;
                       }
+
 
                       if (isTypeField) {
                         if (isVendorModal) {
@@ -1011,3 +1031,5 @@ export function EditModal({
     </Dialog>
   );
 }
+
+
