@@ -1,4 +1,3 @@
-// whiteboxLearning-wbl\components\CourseContent\index.tsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import CourseContentTable from "@/components/Common/CourseContentTable";
@@ -11,10 +10,18 @@ const CourseContent = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
+        const token = localStorage.getItem("token");  
+
         const response = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/course-content`
+          `${process.env.NEXT_PUBLIC_API_URL}/course-content`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
-        setSubjects(response.data); 
+
+        setSubjects(response.data);
         console.log(response.data);
       } catch (error) {
         console.error("Error fetching course content:", error);

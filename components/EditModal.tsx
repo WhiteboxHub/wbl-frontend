@@ -9,8 +9,7 @@ import { Label } from "@/components/admin_ui/label";
 import { Input } from "@/components/admin_ui/input";
 import { Textarea } from "@/components/admin_ui/textarea";
 import axios from "axios";
-import dynamic from "next/dynamic";
-import "react-quill/dist/quill.snow.css";
+
 interface Batch {
   batchid: number;
   batchname: string;
@@ -23,9 +22,8 @@ interface EditModalProps {
   title: string;
   onSave: (updatedData: Record<string, any>) => void;
   batches: Batch[];
-  isEmployeeTask?: boolean;
 }
-const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
+
 const excludedFields = [
   "candidate", "instructor1", "instructor2", "instructor3", "id", "sessionid",
   "vendor_type", "last_mod_datetime", "last_modified", "logincount", "googleId",
@@ -39,8 +37,8 @@ const fieldSections: Record<string, string> = {
   instructor1_name: "Professional Information",
   instructor2_name: "Professional Information",
   instructor3_name: "Professional Information",
-  interviewer_emails: "Professional Information",
-  interviewer_contact: "Professional Information",
+  interviewer_emails: "Contact Information",
+  interviewer_contact: "Contact Information",
   id: "Basic Information",
   alias: "Basic Information",
   Fundamentals: "Basic Information",
@@ -51,7 +49,7 @@ const fieldSections: Record<string, string> = {
   status: "Basic Information",
   batchid: "Contact Information",
   batch: "Basic Information",
-  start_date: "Basic Information",
+  start_date: "Professional Information",
   batchname: "Basic Information",
   target_date_of_marketing: "Basic Information",
   linkedin_id: "Contact Information",
@@ -74,13 +72,11 @@ const fieldSections: Record<string, string> = {
   candidateid: "Basic Information",
   uname: "Basic Information",
   fullname: "Basic Information",
-  candidate_id: "Basic Information",
   candidate_email: "Basic Information",
   placement_date: "Basic Information",
   leadid: "Basic Information",
   name: "Basic Information",
   enddate: "Professional Information",
-  candidate_resume: "Professional Information",
   candidate_name: "Basic Information",
   candidate_role: "Basic Information",
   google_voice_number: "Professional Information",
@@ -154,16 +150,8 @@ const fieldSections: Record<string, string> = {
   notes: "Notes",
   course_name: "Professional Information",
   subject_name: "Basic Information",
-  assigned_date:"Basic Information",
-  due_date:"Basic Information",
-  employee_name:"Basic Information",
-  secondary_email:"Contact Information",
-  secondaryphone:"Contact Information"
-
-  assigned_date:"Basic Information",
-  employee_name:"Basic Information",
-
-
+  assigned_date: "Professional Information",
+  employee_name: "Basic Information"
 };
 
 const workVisaStatusOptions = [
@@ -274,10 +262,10 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "Prep Call", label: "Prep Call" },
   ],
   feedback:  [
-    { value: 'Pending', label: 'Pending' },
-    { value: 'Positive', label: 'Positive' },
-    { value: 'Negative', label: 'Negative' },
-  ],
+  { value: 'Pending', label: 'Pending' },
+  { value: 'Positive', label: 'Positive' },
+  { value: 'Negative', label: 'Negative' },
+],
 };
 
 const labelOverrides: Record<string, string> = {
@@ -374,6 +362,8 @@ const labelOverrides: Record<string, string> = {
   notes: "Notes",
   course_name: "Course Name",
   subject_name: "Subject Name",
+  assigned_date: "Assigned Date",
+  employee_name: "Employee Name"
 };
 
 const dateFields = [
@@ -389,12 +379,7 @@ const dateFields = [
   "enrolled_date",
   "interview_date",
   "placement_date",
-
-
   "target_date_of_marketing",
-  "assigned_date",
-  "due_date"
-
 ];
 
 export function EditModal({
@@ -403,7 +388,6 @@ export function EditModal({
   data,
   title,
   onSave,
-  isEmployeeTask,
 }: EditModalProps) {
   const flattenData = (data: Record<string, any>) => {
     const flattened: Record<string, any> = { ...data };
@@ -553,6 +537,10 @@ export function EditModal({
   Object.entries(formData).forEach(([key, value]) => {
     if (excludedFields.includes(key)) return;
     if (key === "id") return;
+    // Exclude "status" field for Preparation and Marketing pages
+    if (key.toLowerCase() === "status" && (title.toLowerCase().includes("preparation") || title.toLowerCase().includes("marketing"))) {
+      return;
+    }
     const section = fieldSections[key] || "Other";
     if (!sectionedFields[section]) sectionedFields[section] = [];
     sectionedFields[section].push({ key, value });
@@ -578,16 +566,15 @@ export function EditModal({
   }[columnCount] || "lg:grid-cols-4 md:grid-cols-2";
 
   const isVendorModal = title.toLowerCase().includes("vendor");
-  const isInterviewOrMarketingOrCandidates = title.toLowerCase().includes("interview") || title.toLowerCase().includes("marketing") || title.toLowerCase().includes("candidates");
-  const isPrepOrMarketingOrInterview = title.toLowerCase().includes("preparation") ||
-                                        title.toLowerCase().includes("marketing") ||
-                                        title.toLowerCase().includes("interview");
+  const isInterviewOrMarketing = title.toLowerCase().includes("interview") || title.toLowerCase().includes("marketing");
 
   if (!data) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className={`${modalWidthClass} max-h-[80vh] overflow-y-auto p-0`}>
+      <DialogContent
+        className={`${modalWidthClass} max-h-[80vh] overflow-y-auto p-0`}
+      >
         {/* Header */}
         <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
@@ -658,9 +645,8 @@ export function EditModal({
                   <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                     {section}
                   </h3>
-
-                  {/* Always render instructor dropdowns in Professional Information section */}
-                  {section === "Professional Information" && !isInterviewOrMarketingOrCandidates && (
+                  {/* Conditionally render instructor dropdowns only for Preparation page */}
+                  {section === "Professional Information" && title.toLowerCase().includes("preparation") && (
                     <>
                       {/* Instructor 1 Dropdown */}
                       <div className="space-y-1">
@@ -739,25 +725,23 @@ export function EditModal({
                   {/* Render other fields in the section */}
                   {sectionedFields[section]
                     .filter(
-                      ({ key }) => {
-                        const isInstructorField = ["instructor1_name", "instructor2_name", "instructor3_name", "instructor1_id", "instructor2_id", "instructor3_id"].includes(key);
-                        const isStatusField = key.toLowerCase() === "status";
-
-                        if (isInterviewOrMarketingOrCandidates && isInstructorField) return false;
-                        if (isPrepOrMarketingOrInterview && isStatusField) return false;
-                        return true;
-                      }
+                      ({ key }) =>
+                        ![
+                          "instructor1_name",
+                          "instructor2_name",
+                          "instructor3_name",
+                          "instructor1_id",
+                          "instructor2_id",
+                          "instructor3_id",
+                        ].includes(key)
                     )
                     .map(({ key, value }) => {
                       const isTypeField = key.toLowerCase() === "type";
                       const isBatchField = key.toLowerCase() === "batchid";
                       const isVendorField = isVendorModal && key.toLowerCase() === "status";
-
-                      if (isInterviewOrMarketingOrCandidates && ["instructor1_name", "instructor2_name", "instructor3_name"].includes(key)) {
+                      if (isInterviewOrMarketing && ["instructor1_name", "instructor2_name", "instructor3_name"].includes(key)) {
                         return null;
                       }
-
-
                       if (isTypeField) {
                         if (isVendorModal) {
                           return (
@@ -793,7 +777,6 @@ export function EditModal({
                           );
                         }
                       }
-
                       if (key.toLowerCase() === "subjectid") {
                         return (
                           <div key={key} className="space-y-1">
@@ -815,7 +798,6 @@ export function EditModal({
                           </div>
                         );
                       }
-
                       if (key.toLowerCase() === "course_name") {
                         return (
                           <div key={key} className="space-y-1">
@@ -842,7 +824,6 @@ export function EditModal({
                           </div>
                         );
                       }
-
                       if (key.toLowerCase() === "subject_name") {
                         return (
                           <div key={key} className="space-y-1">
@@ -869,7 +850,6 @@ export function EditModal({
                           </div>
                         );
                       }
-
                       if (isBatchField) {
                         return (
                           <div key={key} className="space-y-1">
@@ -897,7 +877,6 @@ export function EditModal({
                           </div>
                         );
                       }
-
                       if (dateFields.includes(key.toLowerCase())) {
                         return (
                           <div key={key} className="space-y-1">
@@ -917,7 +896,6 @@ export function EditModal({
                           </div>
                         );
                       }
-
                       if (isVendorField) {
                         return (
                           <div key={key} className="space-y-1">
@@ -938,7 +916,6 @@ export function EditModal({
                           </div>
                         );
                       }
-
                       if (enumOptions[key.toLowerCase()]) {
                         return (
                           <div key={key} className="space-y-1">
@@ -968,7 +945,6 @@ export function EditModal({
                           </div>
                         );
                       }
-
                       if (typeof value === "string" && value.length > 100) {
                         return (
                           <div key={key} className="space-y-1">
@@ -982,7 +958,6 @@ export function EditModal({
                           </div>
                         );
                       }
-
                       return (
                         <div key={key} className="space-y-1">
                           <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
@@ -1031,5 +1006,3 @@ export function EditModal({
     </Dialog>
   );
 }
-
-

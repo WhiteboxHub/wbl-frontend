@@ -8,11 +8,11 @@ import { Plus } from "lucide-react";
 import AGGridTable from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import DatePicker from "react-datepicker";
+// import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import ReactQuill from "react-quill";
+// import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
-
+import dynamic from "next/dynamic";
 
 interface EmployeeTask {
   id: number;
@@ -45,52 +45,22 @@ function RichTextEditor({
   );
 }
 
-
-const RichTextCellEditor = forwardRef((props: any, ref) => {
+const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
+const DatePicker = dynamic(() => import("react-datepicker"), { ssr: false });
+const RichTextCellEditor = forwardRef<any, any>((props, ref) => {
   const [value, setValue] = useState(props.value || "");
-  const containerRef = useRef<HTMLDivElement>(null);
 
-  
   useImperativeHandle(ref, () => ({
     getValue: () => value,
   }));
 
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    const quillEditor = containerRef.current.querySelector(".ql-editor") as HTMLElement;
-
-    const handleBlur = () => {
-      
-      props.stopEditing?.();
-    };
-
-    quillEditor?.addEventListener("blur", handleBlur);
-
-    
-    const range = document.createRange();
-    range.selectNodeContents(quillEditor);
-    range.collapse(false);
-    const sel = window.getSelection();
-    sel?.removeAllRanges();
-    sel?.addRange(range);
-    quillEditor?.focus();
-
-    return () => {
-      quillEditor?.removeEventListener("blur", handleBlur);
-    };
-  }, [containerRef]);
-
   return (
-    <div ref={containerRef} style={{ minWidth: "200px" }}>
-      <ReactQuill
-        theme="snow"
-        value={value}
-        onChange={(val) => setValue(val)}
-        style={{ height: "120px" }}
-      />
-    </div>
+    <ReactQuill
+      value={value}
+      onChange={setValue}
+      theme="snow"
+      style={{ height: "120px" }}
+    />
   );
 });
 
