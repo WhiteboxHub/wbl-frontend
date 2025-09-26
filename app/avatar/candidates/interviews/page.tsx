@@ -10,6 +10,7 @@ import { SearchIcon, PlusIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect, useCallback } from "react";
 import axios from "axios";
+import { toast, Toaster } from "sonner";
 
 export default function CandidatesInterviews() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -59,6 +60,7 @@ export default function CandidatesInterviews() {
       setTotal(data.total);
     } catch (err) {
       setError("Failed to load interviews.");
+      toast.error("Failed to load interviews.");
     } finally {
       setLoading(false);
     }
@@ -101,7 +103,7 @@ export default function CandidatesInterviews() {
   const FeedbackRenderer = (params: any) => {
     const value = params.value?.toLowerCase() ?? "";
     if (!value || value === "no response")
-      return <Badge className="bg-gray-100 text-gray-800">No Response</Badge>;
+      return <Badge className="bg-gray-100 text-gray-800">Pending</Badge>;
     if (value === "positive")
       return <Badge className="bg-green-300 text-green-800">Positive</Badge>;
     if (value === "failure" || value === "negative")
@@ -182,11 +184,17 @@ export default function CandidatesInterviews() {
           payload,
           { headers: getAuthHeaders() }
         );
-        fetchInterviews(page, perPage);
+
+        // Update the local state directly instead of refetching
+        setInterviews((prev) =>
+          prev.map((row) => (row.id === updatedRow.id ? { ...row, ...updatedRow } : row))
+        );
+
+        toast.success('Interview updated successfully!');
       }
     } catch (err) {
       console.error(err);
-      alert("Failed to update interview.");
+      toast.error('Failed to update interview.');
     }
   };
 
@@ -194,23 +202,24 @@ export default function CandidatesInterviews() {
   const handleRowDeleted = async (row: any) => {
     try {
       if (row.id) {
-        await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/interviews/${row.id}`, {
-          headers: getAuthHeaders(),
-        });
+        await axios.delete(
+          `${process.env.NEXT_PUBLIC_API_URL}/interviews/${row.id}`,
+          { headers: getAuthHeaders() }
+        );
       }
       setInterviews((prev) => prev.filter((r) => r !== row));
+      toast.success('Interview deleted successfully!');
     } catch (err) {
-      alert("Failed to delete interview.");
+      toast.error('Failed to delete interview.');
     }
   };
 
   // Add new interview
   const handleAddInterview = async () => {
     if (!newInterview.candidate_id || !newInterview.company) {
-      alert("Candidate ID and Company are required!");
+      toast.error("Candidate ID and Company are required!");
       return;
     }
-
     try {
       const payload = {
         ...newInterview,
@@ -221,7 +230,6 @@ export default function CandidatesInterviews() {
         payload,
         { headers: getAuthHeaders() }
       );
-
       setInterviews((prev) => [res.data, ...prev]);
       setShowAddForm(false);
       setNewInterview({
@@ -239,9 +247,10 @@ export default function CandidatesInterviews() {
         backup_url: "",
         url: "",
       });
+      toast.success('Interview added successfully!');
     } catch (err: any) {
       console.error("Failed to add interview:", err.response?.data || err);
-      alert("Failed to add interview. Make sure all fields are valid.");
+      toast.error("Failed to add interview. Make sure all fields are valid.");
     }
   };
 
@@ -249,6 +258,7 @@ export default function CandidatesInterviews() {
 
   return (
     <div className="space-y-6">
+      <Toaster position="top-center" richColors />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -259,7 +269,6 @@ export default function CandidatesInterviews() {
           <PlusIcon className="h-4 w-4 mr-2" /> Add Interview
         </Button>
       </div>
-
       {/* Search */}
       <div className="max-w-md">
         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">Search</Label>
@@ -275,7 +284,6 @@ export default function CandidatesInterviews() {
           />
         </div>
       </div>
-
       {/* Table */}
       {loading ? (
         <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-8">Loading...</p>
@@ -296,7 +304,6 @@ export default function CandidatesInterviews() {
           </div>
         </div>
       )}
-
       {/* Add Interview Modal */}
       {showAddForm && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
@@ -313,7 +320,6 @@ export default function CandidatesInterviews() {
                 value={newInterview.company}
                 onChange={(e) => setNewInterview({ ...newInterview, company: e.target.value })}
               />
-
               {/* Mode of Interview */}
               <select
                 value={newInterview.mode_of_interview}
@@ -326,7 +332,6 @@ export default function CandidatesInterviews() {
                 <option value="Phone">Phone</option>
                 <option value="Assessment">Assessment</option>
               </select>
-
               {/* Type of Interview */}
               <select
                 value={newInterview.type_of_interview}
@@ -341,7 +346,6 @@ export default function CandidatesInterviews() {
                 <option value="In Person">In Person</option>
                 <option value="Prep Call">Prep Call</option>
               </select>
-
               <Input
                 placeholder="Interview Date"
                 type="date"
@@ -378,7 +382,6 @@ export default function CandidatesInterviews() {
                 value={newInterview.url}
                 onChange={(e) => setNewInterview({ ...newInterview, url: e.target.value })}
               />
-
               {/* Status Dropdown */}
               <select
                 value={newInterview.status}
@@ -390,7 +393,6 @@ export default function CandidatesInterviews() {
                 <option value="Cleared">Cleared</option>
                 <option value="Rejected">Rejected</option>
               </select>
-
               {/* Feedback Dropdown */}
               <select
                 value={newInterview.feedback}

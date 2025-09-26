@@ -95,6 +95,7 @@
     "react-resizable-panels": "^3.0.3",
     "react-router-dom": "^6.26.1",
     "react-spinners": "^0.17.0",
+    "react-toastify": "^11.0.5",
     "react-tooltip": "^5.28.0",
     "react-world-flags": "^1.6.0",
     "recharts": "^3.0.0",
