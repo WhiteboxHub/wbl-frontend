@@ -11,10 +11,20 @@ const CourseContent = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
+        // 👉 get token (adjust this based on where you store it)
+        const token = localStorage.getItem("token");  
+        // or from cookies / context / Redux
+
         const response = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/course-content`
+          `${process.env.NEXT_PUBLIC_API_URL}/course-content`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,  // 🔐 send token
+            },
+          }
         );
-        setSubjects(response.data); 
+
+        setSubjects(response.data);
         console.log(response.data);
       } catch (error) {
         console.error("Error fetching course content:", error);

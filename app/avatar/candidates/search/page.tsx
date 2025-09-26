@@ -4,6 +4,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import "@/styles/admin.css";
 import "@/styles/App.css";
+import { isTokenExpired } from "@/utils/auth"; 
+
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
@@ -112,43 +114,52 @@ export default function CandidateSearchPage() {
     return token ? { Authorization: `Bearer ${token}` } : {};};
 
   // Optimized search with better error handling
-  useEffect(() => {
-    if (debounceTimeout.current) {
-      clearTimeout(debounceTimeout.current);
-    }
+useEffect(() => {
+  if (debounceTimeout.current) {
+    clearTimeout(debounceTimeout.current);
+  }
 
-    if (!searchTerm.trim() || searchTerm.trim().length < 2) {
-      setSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
+  if (!searchTerm.trim() || searchTerm.trim().length < 2) {
+    setSuggestions([]);
+    setShowSuggestions(false);
+    return;
+  }
 
-    debounceTimeout.current = setTimeout(async () => {
-      try {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/candidates/search-names/${encodeURIComponent(searchTerm)}`,
-          {
-            headers: {
-              ...getAuthHeaders(),
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-        
-        if (res.ok) {
-          const data = await res.json();
-          setSuggestions(data || []);
-          setShowSuggestions(true);
-        } else {
-          console.error('Search failed:', res.status);
-          setSuggestions([]);
-        }
-      } catch (error) {
+  debounceTimeout.current = setTimeout(async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+
+      if (!token || isTokenExpired(token)) {
+        console.error("Token missing or expired");
         setSuggestions([]);
-        console.error("Search failed:", error);
+        return;
       }
-    }, 100); // Reduced to 100ms for faster response
-  }, [searchTerm]);
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/candidates/search-names/${encodeURIComponent(searchTerm)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // ✅ use correct token
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        setSuggestions(data || []);
+        setShowSuggestions(true);
+      } else {
+        console.error("Search failed:", res.status);
+        setSuggestions([]);
+      }
+    } catch (error) {
+      setSuggestions([]);
+      console.error("Search failed:", error);
+    }
+  }, 300);
+}, [searchTerm]);
+
 
   // Select candidate and get full details
   const selectCandidate = async (suggestion: CandidateSuggestion) => {
