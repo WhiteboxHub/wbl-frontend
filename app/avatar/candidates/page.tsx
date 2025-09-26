@@ -157,7 +157,7 @@ const CandidateNameRenderer = (params: any) => {
   return (
     <Link
       href={`/avatar/candidates/search?candidateId=${candidateId}`} 
-      className="text-blue-600 hover:text-blue-800 hover:underline font-medium cursor-pointer"
+      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
     >
       {candidateName}
     </Link>
@@ -437,12 +437,11 @@ const fetchCandidates = useCallback(
         url += `&filters=${encodeURIComponent(JSON.stringify(filters))}`;
       }
 
-      // 🔑 Get token from localStorage (or cookies/session depending on your auth setup)
       const token = localStorage.getItem("token");
 
       const res = await fetch(url, {
         headers: {
-          Authorization: `Bearer ${token}`,  // pass token here
+          Authorization: `Bearer ${token}`,  
           "Content-Type": "application/json",
         },
       });

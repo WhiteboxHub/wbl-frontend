@@ -1017,7 +1017,7 @@ export default function LeadsPage() {
               {Object.entries({
                 full_name: { label: "Full Name *", type: "text", required: true },
                 email: { label: "Email *", type: "email", required: true },
-                phone: { label: "Phone *", type: "tel", required: true },
+                phone: { label: "Phone *", type: "number", required: true },
                 secondary_email: { label: "Secondary Email", type: "email" },
                 secondary_phone: { label: "Secondary Phone", type: "tel" },
                 workstatus: {
