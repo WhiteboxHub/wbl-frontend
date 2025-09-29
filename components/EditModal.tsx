@@ -37,8 +37,8 @@ const fieldSections: Record<string, string> = {
   instructor1_name: "Professional Information",
   instructor2_name: "Professional Information",
   instructor3_name: "Professional Information",
-  interviewer_emails: "Professional Information",
-  interviewer_contact: "Professional Information",
+  interviewer_emails: "Contact Information",
+  interviewer_contact: "Contact Information",
   id: "Basic Information",
   alias: "Basic Information",
   Fundamentals: "Basic Information",
@@ -49,7 +49,7 @@ const fieldSections: Record<string, string> = {
   status: "Basic Information",
   batchid: "Contact Information",
   batch: "Basic Information",
-  start_date: "Basic Information",
+  start_date: "Professional Information",
   batchname: "Basic Information",
   target_date_of_marketing: "Basic Information",
   linkedin_id: "Contact Information",
@@ -72,7 +72,6 @@ const fieldSections: Record<string, string> = {
   candidateid: "Basic Information",
   uname: "Basic Information",
   fullname: "Basic Information",
-  candidate_id: "Basic Information",
   candidate_email: "Basic Information",
   placement_date: "Basic Information",
   leadid: "Basic Information",
@@ -151,6 +150,8 @@ const fieldSections: Record<string, string> = {
   notes: "Notes",
   course_name: "Professional Information",
   subject_name: "Basic Information",
+  assigned_date: "Professional Information",
+  employee_name: "Basic Information"
 };
 
 const workVisaStatusOptions = [
@@ -361,6 +362,8 @@ const labelOverrides: Record<string, string> = {
   notes: "Notes",
   course_name: "Course Name",
   subject_name: "Subject Name",
+  assigned_date: "Assigned Date",
+  employee_name: "Employee Name"
 };
 
 const dateFields = [
@@ -534,6 +537,10 @@ export function EditModal({
   Object.entries(formData).forEach(([key, value]) => {
     if (excludedFields.includes(key)) return;
     if (key === "id") return;
+    // Exclude "status" field for Preparation and Marketing pages
+    if (key.toLowerCase() === "status" && (title.toLowerCase().includes("preparation") || title.toLowerCase().includes("marketing"))) {
+      return;
+    }
     const section = fieldSections[key] || "Other";
     if (!sectionedFields[section]) sectionedFields[section] = [];
     sectionedFields[section].push({ key, value });
@@ -639,9 +646,8 @@ export function EditModal({
                   <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                     {section}
                   </h3>
-
-                  {/* Always render instructor dropdowns in Professional Information section */}
-                  {section === "Professional Information" && (
+                  {/* Conditionally render instructor dropdowns only for Preparation page */}
+                  {section === "Professional Information" && title.toLowerCase().includes("preparation") && (
                     <>
                       {/* Instructor 1 Dropdown */}
                       <div className="space-y-1">
@@ -737,46 +743,45 @@ export function EditModal({
                       const isTypeField = key.toLowerCase() === "type";
                       const isBatchField = key.toLowerCase() === "batchid";
                       const isVendorField = isVendorModal && key.toLowerCase() === "status";
-
                       if (isInterviewOrMarketing && ["instructor1_name", "instructor2_name", "instructor3_name"].includes(key)) {
                         return null;
                       }
 
-                      if (isTypeField) {
-                        if (isVendorModal) {
-                          return (
-                            <div key={key} className="space-y-1">
-                              <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                                {toLabel(key)}
-                              </Label>
-                              <select
-                                value={String(formData[key] ?? "")}
-                                onChange={(e) => handleChange(key, e.target.value)}
-                                className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                              >
-                                {enumOptions["type"].map((opt) => (
-                                  <option key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          );
-                        } else {
-                          return (
-                            <div key={key} className="space-y-1">
-                              <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                                {toLabel(key)}
-                              </Label>
-                              <Input
-                                value={formData[key] ?? ""}
-                                readOnly
-                                className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100 bg-gray-100 cursor-not-allowed"
-                              />
-                            </div>
-                          );
-                        }
-                      }
+if (isTypeField) {
+  if (isVendorModal) {
+    return (
+      <div key={key} className="space-y-1">
+        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+          {toLabel(key)}
+        </Label>
+        <select
+          value={String(formData[key] ?? "")}
+          onChange={(e) => handleChange(key, e.target.value)}
+          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+        >
+          {enumOptions["type"].map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  } else {
+    return (
+      <div key={key} className="space-y-1">
+        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+          {toLabel(key)}
+        </Label>
+        <Input
+          value={formData[key] ?? ""}
+          onChange={(e) => handleChange(key, e.target.value)}
+          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+        />
+      </div>
+    );
+  }
+}
 
                       if (key.toLowerCase() === "subjectid") {
                         return (
@@ -799,7 +804,6 @@ export function EditModal({
                           </div>
                         );
                       }
-
                       if (key.toLowerCase() === "course_name") {
                         return (
                           <div key={key} className="space-y-1">
@@ -826,7 +830,6 @@ export function EditModal({
                           </div>
                         );
                       }
-
                       if (key.toLowerCase() === "subject_name") {
                         return (
                           <div key={key} className="space-y-1">
@@ -853,7 +856,6 @@ export function EditModal({
                           </div>
                         );
                       }
-
                       if (isBatchField) {
                         return (
                           <div key={key} className="space-y-1">
@@ -881,7 +883,6 @@ export function EditModal({
                           </div>
                         );
                       }
-
                       if (dateFields.includes(key.toLowerCase())) {
                         return (
                           <div key={key} className="space-y-1">
@@ -901,7 +902,6 @@ export function EditModal({
                           </div>
                         );
                       }
-
                       if (isVendorField) {
                         return (
                           <div key={key} className="space-y-1">
@@ -922,7 +922,6 @@ export function EditModal({
                           </div>
                         );
                       }
-
                       if (enumOptions[key.toLowerCase()]) {
                         return (
                           <div key={key} className="space-y-1">
@@ -952,7 +951,6 @@ export function EditModal({
                           </div>
                         );
                       }
-
                       if (typeof value === "string" && value.length > 100) {
                         return (
                           <div key={key} className="space-y-1">
@@ -966,7 +964,6 @@ export function EditModal({
                           </div>
                         );
                       }
-
                       return (
                         <div key={key} className="space-y-1">
                           <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
