@@ -294,12 +294,21 @@ const fetchEmployees = async () => {
       editable: true,
       onCellValueChanged: (params) => handleRowUpdated(params.data),
     },
-    {
-      headerName: "Notes",
-      field: "notes",
-      editable: true,
-      onCellValueChanged: (params) => handleRowUpdated(params.data),
-    },
+        {
+            field: "notes",
+            headerName: "Notes",
+            width: 300,
+            sortable: true,
+            cellRenderer: (params: any) => {
+              if (!params.value) return "";
+              return (
+                <div
+                  className="prose prose-sm max-w-none dark:prose-invert"
+                  dangerouslySetInnerHTML={{ __html: params.value }}
+                />
+              );
+            },
+          },
     {
       headerName: "Aadhar Number",
       field: "aadhaar",

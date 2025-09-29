@@ -878,13 +878,21 @@ export default function LeadsPage() {
             })
             : "-",
       },
-      {
-        field: "notes",
-        headerName: "Notes",
-        width: 300,
-        sortable: true,
-        valueFormatter: ({ value }: ValueFormatterParams) => value || "-",
-      },
+          {
+            field: "notes",
+            headerName: "Notes",
+            width: 300,
+            sortable: true,
+            cellRenderer: (params: any) => {
+              if (!params.value) return "";
+              return (
+                <div
+                  className="prose prose-sm max-w-none dark:prose-invert"
+                  dangerouslySetInnerHTML={{ __html: params.value }}
+                />
+              );
+            },
+          },
       {
         field: "massemail_unsubscribe",
         headerName: "Mass Email Unsubscribe",

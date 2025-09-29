@@ -36,9 +36,10 @@ type Candidate = {
   emergcontactphone?: string | null;
   emergcontactaddrs?: string | null;
   fee_paid?: number | null;
-  notes?: string | null;
+  github_link?: string | null;
   batchid: number;
   candidate_folder?: string | null;
+  notes?: string | null;
 };
 
 type FormData = {
@@ -62,9 +63,10 @@ type FormData = {
   emergcontactphone: string;
   emergcontactaddrs: string;
   fee_paid: number;
-  notes: string;
+  github_link: string;
   batchid: number;
   candidate_folder: string;
+  notes: string;
 };
 
 type Batch = {
@@ -107,9 +109,10 @@ const initialFormData: FormData = {
   emergcontactphone: "",
   emergcontactaddrs: "",
   fee_paid: 0,
-  notes: "",
+  github_link: "",
   batchid: 0,
   candidate_folder: "",
+  notes: ""
 };
 
 
@@ -157,6 +160,8 @@ const CandidateNameRenderer = (params: any) => {
   return (
     <Link
       href={`/avatar/candidates/search?candidateId=${candidateId}`} 
+      target="_blank"
+      rel="noopener noreferrer"
       className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
     >
       {candidateName}
@@ -933,12 +938,61 @@ useEffect(() => {
       valueFormatter: ({ value }: ValueFormatterParams) => value != null ? `$${Number(value).toLocaleString()}` : "",
     },
     {
-      field: "notes",
-      headerName: "Notes",
-      width: 300,
-      sortable: true,
-    },
+            field: "notes",
+            headerName: "Notes",
+            width: 300,
+            sortable: true,
+            cellRenderer: (params: any) => {
+              if (!params.value) return "";
+              return (
+                <div
+                  className="prose prose-sm max-w-none dark:prose-invert"
+                  dangerouslySetInnerHTML={{ __html: params.value }}
+                />
+              );
+            },
+          },
 
+           {
+            field: "linkedin_id",
+            headerName: "LinkedIn Profile",
+            width: 200,
+            sortable: true,
+            cellRenderer: (params: any) => {
+              if (!params.value) return "";
+              return (
+                <a
+                  href={params.value}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 underline hover:text-blue-800"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {params.value}
+                </a>
+              );
+            },
+          },
+          {
+            field: "github_link",
+            headerName: "Git Hub Profile",
+            width: 200,
+            sortable: true,
+            cellRenderer: (params: any) => {
+              if (!params.value) return "";
+              return (
+                <a
+                  href={params.value}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 underline hover:text-blue-800"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {params.value}
+                </a>
+              );
+            },
+          },
           {
             field: "candidate_folder",
             headerName: "Candidate Folder",
