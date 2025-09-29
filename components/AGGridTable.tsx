@@ -351,6 +351,7 @@ import "ag-grid-community/styles/ag-theme-alpine.css";
 import "@/styles/admin.css";
 
 
+
 // Simple modal component
 const ColumnVisibilityModal = ({
   isOpen,
@@ -385,6 +386,8 @@ interface AGGridTableProps {
   height?: string;
   overlayNoRowsTemplate?: string;
   batches?: any[];
+  gridOptions?: any;
+  
 }
 
 interface RowData {
@@ -455,15 +458,15 @@ export function AGGridTable({
     }
   }, [hiddenColumns, title]);
 
-  // Filter out hidden columns
+ 
   const visibleColumnDefs = useMemo(() => {
     return initialColumnDefs.filter(col => {
-      if (!col.field) return true; // Always show columns without fields
+      if (!col.field) return true; 
       return !hiddenColumns.includes(col.field);
     });
   }, [initialColumnDefs, hiddenColumns]);
 
-  // AG-Grid Callbacks
+
   const onGridReady = useCallback((params: GridReadyEvent) => {
     gridApiRef.current = params.api;
   }, []);
@@ -482,10 +485,10 @@ export function AGGridTable({
   }, []);
 
   const onColumnMoved = useCallback((event: ColumnMovedEvent) => {
-    // Handle column reordering if needed
+  
   }, []);
 
-  // Row Action Handlers
+
   const handleView = useCallback(() => {
     if (selectedRowData && selectedRowData.length > 0) {
       setViewData(selectedRowData[0]);
@@ -535,7 +538,7 @@ export function AGGridTable({
     }
   }, [title]);
 
-  // Column visibility handlers
+
   const toggleColumnVisibility = useCallback((field: string, isVisible: boolean) => {
     setHiddenColumns(prev => isVisible
       ? prev.filter(col => col !== field)
@@ -547,7 +550,6 @@ export function AGGridTable({
     setHiddenColumns([]);
   }, []);
 
-  // Pagination formatter
   const paginationNumberFormatter = useCallback((params: any) => {
     return `${params.value.toLocaleString()}`;
   }, []);
@@ -631,10 +633,12 @@ export function AGGridTable({
             onCellValueChanged={onCellValueChanged}
             animateRows={true}
             loading={loading}
+            suppressSetFilterByDefault={true}
             overlayNoRowsTemplate={overlayNoRowsTemplate}
             defaultColDef={{
               resizable: true,
               sortable: true,
+              
               filter: true,
               cellClass: "custom-cell-style",
               editable: true,
@@ -699,7 +703,7 @@ export function AGGridTable({
           </div>
         </div>
       </ColumnVisibilityModal>
-      
+
       {viewData && (
         <ViewModal
           isOpen={true}

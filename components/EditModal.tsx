@@ -151,8 +151,7 @@ const fieldSections: Record<string, string> = {
   subject_name: "Basic Information",
 
   secondary_email:"Contact Information",
-  secondaryphone:"Contact Information"
-
+  secondaryphone:"Contact Information",
   assigned_date:"Basic Information",
   employee_name:"Basic Information",
 

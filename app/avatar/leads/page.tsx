@@ -40,6 +40,8 @@ type FormData = {
   phone: string;
   workstatus: string;
   address: string;
+  secondary_email: string | null;
+  secondary_phone: string | null;
   status: string;
   moved_to_candidate: boolean;
   notes: string;
@@ -60,6 +62,8 @@ const initialFormData: FormData = {
   notes: "",
   massemail_unsubscribe: false,
   massemail_email_sent: false,
+  secondary_email: "",
+  secondary_phone: ""
 };
 
 
@@ -206,7 +210,7 @@ const StatusFilterHeaderComponent = (props: any) => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="border-b pb-2 mb-2">
-              <label className="flex items-center px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded font-medium">
+              <label className="flex items-center px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded text-sm">
                 <input
                   type="checkbox"
                   checked={isAllSelected}
@@ -278,7 +282,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
   };
 
   const handleWorkStatusChange = (workStatus: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    e.stopPropagation(); 
+    e.stopPropagation();
     setSelectedWorkStatuses((prev: string[]) => {
       if (prev.includes(workStatus)) {
         return prev.filter(s => s !== workStatus);
@@ -359,7 +363,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
         createPortal(
           <div
             ref={dropdownRef}
-            className="fixed bg-white border rounded-lg shadow-xl p-3 flex flex-col space-y-2 w-56 pointer-events-auto dark:bg-gray-800 dark:border-gray-600"
+            className="fixed bg-white border rounded-lg shadow-xl p-3 flex flex-col space-y-2 w-56 pointer-events-auto dark:bg-gray-800 dark:border-gray-600 text-sm"
             style={{
               top: dropdownPos.top + 5,
               left: dropdownPos.left,
@@ -375,7 +379,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
                   type="checkbox"
                   checked={isAllSelected}
                   ref={(el) => { if (el) el.indeterminate = isIndeterminate; }}
-                  onChange={handleSelectAll} 
+                  onChange={handleSelectAll}
                   className="mr-3"
                 />
 
@@ -391,7 +395,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
                   type="checkbox"
                   checked={selectedWorkStatuses.includes(workStatus)}
                   onChange={(e) => handleWorkStatusChange(workStatus, e)}
-                  onClick={(e) => e.stopPropagation()} 
+                  onClick={(e) => e.stopPropagation()}
                   className="mr-3"
                 />
 
@@ -468,7 +472,7 @@ export default function LeadsPage() {
           url += `?${params.toString()}`;
         }
 
-        
+
         const token = localStorage.getItem("token");
 
         const res = await fetch(url, {
@@ -607,7 +611,7 @@ export default function LeadsPage() {
           updatedData[field] = false;
         }
       });
-   
+
 
       const payload = {
         ...updatedData,
@@ -656,13 +660,13 @@ export default function LeadsPage() {
           payload.status = "Closed";
           payload.closed_date = new Date().toISOString().split('T')[0];
         }
-        
+
         else if (!payload.moved_to_candidate && payload.status === "Closed") {
           payload.status = "Open";
           payload.closed_date = null;
         }
 
-        
+
         payload.moved_to_candidate = Boolean(payload.moved_to_candidate);
         payload.massemail_unsubscribe = Boolean(payload.massemail_unsubscribe);
         payload.massemail_email_sent = Boolean(payload.massemail_email_sent);
@@ -711,7 +715,7 @@ export default function LeadsPage() {
     [apiEndpoint, searchTerm, searchBy, sortModel, fetchLeads]
   );
 
- 
+
   const handleMoveToCandidate = useCallback(
     async (lead: Lead, Moved: boolean) => {
       setLoadingRowId(lead.id);
@@ -720,8 +724,8 @@ export default function LeadsPage() {
         const url = `${apiEndpoint}/${lead.id}/move-to-candidate`;
 
         const payload: Partial<Lead> = {
-          moved_to_candidate: !Moved, 
-          status: !Moved ? "Closed" : "Open", 
+          moved_to_candidate: !Moved,
+          status: !Moved ? "Closed" : "Open",
           closed_date: !Moved ? new Date().toISOString().split("T")[0] : null,
         };
 
@@ -954,9 +958,9 @@ export default function LeadsPage() {
           </p>
 
           <div key="search-container" className="max-w-md">
-            <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            {/* <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Search Lead
-            </Label>
+            </Label> */}
             <div className="relative mt-1">
               <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
               <Input
@@ -1006,140 +1010,230 @@ export default function LeadsPage() {
       {/* New Lead Form */}
       {newLeadForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="relative w-full max-w-2xl rounded-2xl bg-white dark:bg-gray-800 p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+          <div className="relative w-full max-w-4xl rounded-2xl bg-white dark:bg-gray-800 p-6 shadow-xl max-h-[none] overflow-y-visible">
+
+
             <h2 className="mb-6 text-center text-2xl font-bold text-gray-900 dark:text-gray-100">
               New Lead Form
             </h2>
+
             <form
               onSubmit={handleNewLeadFormSubmit}
-              className="grid grid-cols-1 gap-4 md:grid-cols-2"
+              className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4"
             >
-              {Object.entries({
-                full_name: { label: "Full Name *", type: "text", required: true },
-                email: { label: "Email *", type: "email", required: true },
-                phone: { label: "Phone *", type: "number", required: true },
-                secondary_email: { label: "Secondary Email", type: "email" },
-                secondary_phone: { label: "Secondary Phone", type: "tel" },
-                workstatus: {
-                  label: "Work Status",
-                  type: "select",
-                  options: workStatusOptions,
-                  required: true,
-                },
-                address: { label: "Address", type: "text" },
-                status: {
-                  label: "Status",
-                  type: "select",
-                  options: statusOptions,
-                  required: true,
-                },
-                notes: { label: "Notes (optional)", type: "textarea" },
-                moved_to_candidate: {
-                  label: "Moved to Candidate",
-                  type: "checkbox",
-                },
-                massemail_unsubscribe: {
-                  label: "Mass Email Unsubscribe",
-                  type: "checkbox",
-                },
-                massemail_email_sent: {
-                  label: "Mass Email Sent",
-                  type: "checkbox",
-                },
-              }).map(([name, config]) => (
-                <div
-                  key={name}
-                  className={config.type === "textarea" ? "md:col-span-2" : ""}
-                >
-                  <label
-                    htmlFor={name}
-                    className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {config.label}
-                  </label>
-                  {config.type === "select" ? (
-                    <select
-                      id={name}
-                      name={name}
-                      value={formData[name as keyof FormData] as string}
-                      onChange={handleNewLeadFormChange}
-                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required={config.required}
-                    >
-                      <option value="" disabled>
-                        Select {config.label}
-                      </option>
-                      {config.options?.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  ) : config.type === "textarea" ? (
-                    <textarea
-                      id={name}
-                      name={name}
-                      value={formData[name as keyof FormData] as string}
-                      onChange={handleNewLeadFormChange}
-                      rows={3}
-                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  ) : config.type === "checkbox" ? (
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id={name}
-                        name={name}
-                        checked={formData[name as keyof FormData] as boolean}
-                        onChange={handleNewLeadFormChange}
-                        className="h-4 w-4"
-                      />
-                      <label htmlFor={name} className="text-sm text-gray-700 dark:text-gray-300">
-                        {config.label}
-                      </label>
-                    </div>
-                  ) : (
-                    <input
-                      type={config.type}
-                      id={name}
-                      name={name}
-                      value={formData[name as keyof FormData] as string}
-                      onChange={handleNewLeadFormChange}
-                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required={config.required}
-                    />
-                  )}
-                </div>
-              ))}
-              <div className="md:col-span-2">
-                <label
-                  htmlFor="entry_date"
-                  className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  Entry Date
-                </label>
-                <input
+              {/* Full Name */}
+              <div className="space-y-1">
+                <Input
+                  id="full_name"
+                  name="full_name"
                   type="text"
-                  id="entry_date"
-                  name="entry_date"
-                  value={new Date().toLocaleDateString()}
-                  readOnly
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-2 bg-gray-100 dark:bg-gray-600 focus:outline-none"
+                  value={formData.full_name}
+                  onChange={handleNewLeadFormChange}
+                  required
+                  className="w-full"
+                  placeholder="Full Name *"
                 />
               </div>
-              <div className="md:col-span-2">
-                <button
-                  type="submit"
-                  disabled={formSaveLoading}
-                  className={`w-full rounded-md py-2 transition duration-200 ${formSaveLoading
-                    ? "cursor-not-allowed bg-gray-400"
-                    : "bg-green-600 text-white hover:bg-green-700"
-                    }`}
+
+              {/* Email */}
+              <div className="space-y-1">
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleNewLeadFormChange}
+                  required
+                  className="w-full"
+                  placeholder="Email * (example@domain.com)"
+                />
+              </div>
+
+              {/* Phone with formatting */}
+              <div className="space-y-1">
+                <Input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '');
+                    setFormData(prev => ({ ...prev, phone: value }));
+                  }}
+                  required
+                  className="w-full"
+                  placeholder="Phone * (1234567890)"
+                  maxLength={15}
+                />
+              </div>
+
+              {/* Secondary Email */}
+              <div className="space-y-1">
+                <Input
+                  id="secondary_email"
+                  name="secondary_email"
+                  type="email"
+                  value={formData.secondary_email || ''}
+                  onChange={handleNewLeadFormChange}
+                  className="w-full"
+                  placeholder="Secondary Email (optional)"
+                />
+              </div>
+
+              {/* Secondary Phone */}
+              <div className="space-y-1">
+                <Input
+                  id="secondary_phone"
+                  name="secondary_phone"
+                  type="tel"
+                  value={formData.secondary_phone || ''}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '');
+                    setFormData(prev => ({ ...prev, secondary_phone: value }));
+                  }}
+                  className="w-full"
+                  placeholder="Secondary Phone (optional)"
+                  maxLength={15}
+                />
+              </div>
+
+              {/* Work Status */}
+              <div className="space-y-1">
+                <select
+                  id="workstatus"
+                  name="workstatus"
+                  value={formData.workstatus}
+                  onChange={handleNewLeadFormChange}
+                  required
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  {formSaveLoading ? "Saving..." : "Save"}
-                </button>
+                  <option value="">Work Status *</option>
+                  {workStatusOptions.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              </div>
+                            {/* Status */}
+              <div className="space-y-1">
+                <select
+                  id="status"
+                  name="status"
+                  value={formData.status}
+                  onChange={handleNewLeadFormChange}
+                  required
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Status *</option>
+                  {statusOptions.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Address */}
+              <div className="col-span-full space-y-1">
+                <Input
+                  id="address"
+                  name="address"
+                  type="text"
+                  value={formData.address}
+                  onChange={handleNewLeadFormChange}
+                  className="w-full"
+                  placeholder="Address (optional)"
+                />
+              </div>
+
+              {/* Notes - Full width */}
+              <div className="col-span-full space-y-1">
+                <textarea
+                  id="notes"
+                  name="notes"
+                  value={formData.notes || ''}
+                  onChange={handleNewLeadFormChange}
+                  rows={3}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Notes (optional)"
+                />
+              </div>
+
+              {/* Checkboxes - Full width */}
+              <div className="col-span-full grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="moved_to_candidate"
+                    name="moved_to_candidate"
+                    checked={formData.moved_to_candidate}
+                    onChange={handleNewLeadFormChange}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Moved to Candidate
+                  </span>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="massemail_unsubscribe"
+                    name="massemail_unsubscribe"
+                    checked={formData.massemail_unsubscribe}
+                    onChange={handleNewLeadFormChange}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Mass Email Unsubscribe
+                  </span>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="massemail_email_sent"
+                    name="massemail_email_sent"
+                    checked={formData.massemail_email_sent}
+                    onChange={handleNewLeadFormChange}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Mass Email Sent
+                  </span>
+                </div>
+              </div>
+
+              {/* Entry Date - Full width */}
+              <div className="col-span-full space-y-1">
+                <Input
+                  id="entry_date"
+                  name="entry_date"
+                  type="text"
+                  value={new Date().toLocaleDateString()}
+                  readOnly
+                  className="w-full bg-gray-100 dark:bg-gray-600"
+                  placeholder="Entry Date"
+                />
+              </div>
+
+              {/* Submit Button - Full width */}
+              <div className="col-span-full mt-6">
+                <Button
+                  type="submit"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md transition-colors"
+                  disabled={formSaveLoading}
+                >
+                  {formSaveLoading ? (
+                    <>
+                      <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Lead'
+                  )}
+                </Button>
               </div>
             </form>
+
+            {/* Close Button */}
             <button
               onClick={handleCloseNewLeadForm}
               className="absolute right-3 top-3 text-2xl leading-none text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
@@ -1150,6 +1244,7 @@ export default function LeadsPage() {
           </div>
         </div>
       )}
+
     </div>
   );
 }
