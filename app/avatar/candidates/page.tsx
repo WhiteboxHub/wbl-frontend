@@ -1,6 +1,4 @@
 
-
-
 "use client";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
@@ -155,8 +153,7 @@ const CandidateNameRenderer = (params: any) => {
   }
   return (
     <Link
-
-      href={`/avatar/candidates/search?candidateId=${candidateId}`} 
+      href={`/avatar/candidates/search?candidateId=${candidateId}`}
       className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
     >
       {candidateName}
@@ -620,6 +617,15 @@ export default function CandidatesPage() {
       width: 150,
       sortable: true,
       filter: 'agSetColumnFilter',
+      cellRenderer: (params: any) => {
+        if (!params.value) return "";
+        const formattedPhone = formatPhoneNumber(params.value);
+        return (
+          <a href={`tel:${params.value}`} className="text-blue-600 underline hover:text-purple-800">
+            {formattedPhone}
+          </a>
+        );
+      }
       
     },
     {
@@ -1177,6 +1183,7 @@ const handleRowDeleted = useCallback(async (id: number) => {
                     onChange={handleNewCandidateFormChange}
                     className="w-full h-10 p-2 border rounded-md"
                   >
+                    
                     {workStatusOptions.map((status) => (
                       <option key={status} value={status}>
                         {status}
@@ -1342,7 +1349,7 @@ const handleRowDeleted = useCallback(async (id: number) => {
                       <option value="0">Loading batches...</option>
                     ) : (
                       <>
-                     
+                    
                         {mlBatches.map((batch) => (
                           <option key={batch.batchid} value={batch.batchid}>
                             {batch.batchname}
@@ -1412,3 +1419,5 @@ const handleRowDeleted = useCallback(async (id: number) => {
     </div>
   );
 }
+
+

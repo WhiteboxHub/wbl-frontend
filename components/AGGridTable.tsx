@@ -1,7 +1,4 @@
 
-
-
-
 "use client";
 import { ModuleRegistry, AllCommunityModule } from "ag-grid-community";
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -419,3 +416,4 @@ export function AGGridTable({
 }
 
 export default AGGridTable;
+

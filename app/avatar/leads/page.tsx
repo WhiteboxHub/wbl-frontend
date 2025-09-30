@@ -566,7 +566,7 @@ export default function LeadsPage() {
     return () => clearTimeout(timeoutId);
   }, [searchTerm, searchBy, sortModel, fetchLeads]);
 
-  // Detect search by field
+
   const detectSearchBy = (search: string) => {
     if (/^\d+$/.test(search)) return "id";
     if (/^\S+@\S+\.\S+$/.test(search)) return "email";
@@ -574,7 +574,6 @@ export default function LeadsPage() {
     return "full_name";
   };
 
-  // Handle form changes and submissions
   const handleNewLeadFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     if (type === 'checkbox') {
@@ -967,9 +966,7 @@ export default function LeadsPage() {
           </p>
 
           <div key="search-container" className="max-w-md">
-            {/* <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Search Lead
-            </Label> */}
+      
             <div className="relative mt-1">
               <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
               <Input
@@ -1001,12 +998,12 @@ export default function LeadsPage() {
       </div>
 
 
-      {/* AG Grid Table */}
+    
       <div className="flex w-full justify-center">
         <AGGridTable
           key={`${filteredLeads.length}-${selectedStatuses.join(',')}-${selectedWorkStatuses.join(',')}`}
           rowData={filteredLeads}
-          // ref={gridRef}
+        
           columnDefs={columnDefs}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
@@ -1017,8 +1014,7 @@ export default function LeadsPage() {
         />
       </div>
 
-      {/* New Lead Form */}
-      {/* New Lead Form */}
+  
       {newLeadForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
           <div className="relative w-full max-w-2xl rounded-2xl bg-white dark:bg-gray-800 p-6 shadow-xl max-h-[90vh] overflow-y-auto">
@@ -1171,3 +1167,4 @@ export default function LeadsPage() {
     </div>
   );
 }
+
