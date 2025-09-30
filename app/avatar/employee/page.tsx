@@ -351,9 +351,9 @@ const fetchEmployees = async () => {
         </button>
       </div>
 
-      {/* Search */}
+   
       <div className="max-w-md">
-        <Label htmlFor="search">Search</Label>
+      
         <div className="relative mt-1">
           <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
           <Input

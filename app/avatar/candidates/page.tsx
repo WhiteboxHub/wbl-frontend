@@ -14,6 +14,7 @@ import { createPortal } from "react-dom";
 import axios from "axios";
 import Link from "next/link";
 
+
 type Candidate = {
   id: number;
   full_name?: string | null;
@@ -70,11 +71,11 @@ type FormData = {
 type Batch = {
   batchid: number;
   batchname: string;
-  subject?: string;       
-  courseid?: number;      
-  orientationdate?: string; 
-  startdate?: string;      
-  enddate?: string;        
+  subject?: string;
+  courseid?: number;
+  orientationdate?: string;
+  startdate?: string;
+  enddate?: string;
 };
 
 const statusOptions = ["active", "discontinued", "break", "closed"];
@@ -110,7 +111,6 @@ const initialFormData: FormData = {
   batchid: 0,
   candidate_folder: "",
 };
-
 
 const StatusRenderer = ({ value }: { value?: string }) => {
   const status = value?.toLowerCase() || "";
@@ -155,14 +155,12 @@ const WorkStatusRenderer = ({ value }: { value?: string }) => {
 const CandidateNameRenderer = (params: any) => {
   const candidateId = params.data?.id;
   const candidateName = params.value;
-
   if (!candidateId || !candidateName) {
     return <span className="text-gray-500">{candidateName || "N/A"}</span>;
   }
-
   return (
     <Link
-      href={`/avatar/candidates/search?candidateId=${candidateId}`} 
+      href={`/avatar/candidates/search?candidateId=${candidateId}`}
       className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
     >
       {candidateName}
@@ -191,7 +189,6 @@ const FilterHeaderComponent = ({
 }) => {
   const handleItemChange = (item: any) => {
     const value = getOptionValue(item);
-
     setSelectedItems((prev: any[]) => {
       const isSelected = prev.some((i) => getOptionValue(i) === value);
       return isSelected
@@ -205,7 +202,6 @@ const FilterHeaderComponent = ({
     { top: 0, left: 0 }
   );
   const [filterVisible, setFilterVisible] = useState(false);
-
   const toggleFilter = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (filterButtonRef.current) {
@@ -217,18 +213,12 @@ const FilterHeaderComponent = ({
     }
     setFilterVisible((v) => !v);
   };
-
-
-
-
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
     setSelectedItems(e.target.checked ? [...options] : []);
   };
-
   const isAllSelected = selectedItems.length === options.length && options.length > 0;
   const isIndeterminate = selectedItems.length > 0 && selectedItems.length < options.length;
-
   const colorMap: Record<string, string> = {
     blue: "bg-blue-500",
     green: "bg-green-500",
@@ -236,7 +226,6 @@ const FilterHeaderComponent = ({
     red: "bg-red-500",
     orange: "bg-orange-500",
   };
-
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -248,14 +237,12 @@ const FilterHeaderComponent = ({
         setFilterVisible(false);
       }
     };
-
     const handleScroll = (e: Event) => {
       const target = e.target as HTMLElement;
       if (dropdownRef.current && !dropdownRef.current.contains(target)) {
         setFilterVisible(false);
       }
     };
-
     if (filterVisible) {
       document.addEventListener("mousedown", handleClickOutside);
       window.addEventListener("scroll", handleScroll, {
@@ -268,7 +255,6 @@ const FilterHeaderComponent = ({
       window.removeEventListener("scroll", handleScroll, true);
     };
   }, [filterVisible]);
-
   return (
     <div className="relative flex w-full items-center">
       <span className="mr-2 flex-grow">{label}</span>
@@ -303,7 +289,9 @@ const FilterHeaderComponent = ({
         createPortal(
           <div
             ref={dropdownRef}
-            className="filter-dropdown pointer-events-auto fixed flex w-56 flex-col space-y-2 rounded-lg border bg-white p-3 shadow-xl dark:border-gray-600 dark:bg-gray-800"
+
+            className="fixed bg-white border rounded-lg shadow-xl p-3 flex flex-col space-y-2 w-56 pointer-events-auto dark:bg-gray-800 dark:border-gray-600 filter-dropdown text-sm"
+
             style={{
               top: dropdownPos.top + 5,
               left: dropdownPos.left,
@@ -315,7 +303,9 @@ const FilterHeaderComponent = ({
           >
             <div className="mb-2 border-b pb-2">
               <label
-                className="flex cursor-pointer items-center rounded px-2 py-1 font-medium hover:bg-gray-100 dark:hover:bg-gray-700"
+
+                className="flex items-center px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded font-medium,text-sm"
+
                 onClick={(e) => e.stopPropagation()}
               >
                 <input
@@ -333,9 +323,8 @@ const FilterHeaderComponent = ({
             {options.map((option) => {
               const value = getOptionValue(option);
               const key = getOptionKey(option);
-              const isSelected = selectedItems.some(
-                (i) => getOptionValue(i) === value
-              );
+
+              const isSelected = selectedItems.some(i => getOptionValue(i) === value);
 
               return (
                 <label
@@ -373,15 +362,12 @@ const FilterHeaderComponent = ({
   );
 };
 
-
 export default function CandidatesPage() {
   const gridRef = useRef<any>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const isNewCandidate = searchParams.get("newcandidate") === "true";
-
-
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [filteredCandidates, setFilteredCandidates] = useState<Candidate[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -396,43 +382,35 @@ export default function CandidatesPage() {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [formSaveLoading, setFormSaveLoading] = useState(false);
   const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
-
   const [allBatches, setAllBatches] = useState<Batch[]>([]);
-
   const [mlBatches, setMlBatches] = useState<Batch[]>([]);
   const [batchesLoading, setBatchesLoading] = useState(true);
 
-  useEffect(() => {
-    console.log('📊 Batch State Update:');
-    console.log('   - All batches:', allBatches.length);
-    console.log('   - ML batches for form:', mlBatches.length);
-    if (mlBatches.length > 0) {
-      console.log('   - ML batches details:', mlBatches.map(b => ({
-        id: b.batchid,
-        name: b.batchname,
-        subject: b.subject,
-        courseid: b.courseid
-      })));
-    }
-  }, [allBatches, mlBatches]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>(
     []
   );
   const [selectedBatches, setSelectedBatches] = useState<Batch[]>([]);
+  const apiEndpoint = useMemo(() => `${process.env.NEXT_PUBLIC_API_URL}/candidates`, []);
 
-  // API Endpoints
-  const apiEndpoint = useMemo(
-    () => `${process.env.NEXT_PUBLIC_API_URL}/candidates`,
-    []
-  );
+  const gridOptions = useMemo(() => ({
+    defaultColDef: {
+      filter: 'agSetColumnFilter',
+      sortable: true,
+      resizable: true,
+    },
+    suppressRowClickSelection: true,
+    rowSelection: 'single',
+  }), []);
+
+
   const courseId = "3";
 
-  // Sync form visibility with URL
   useEffect(() => {
     const newCandidateParam = searchParams.get("newcandidate") === "true";
     setNewCandidateForm(newCandidateParam);
   }, [searchParams]);
+
 
   // Fetch candidates
   const fetchCandidates = useCallback(
@@ -751,6 +729,7 @@ const getWorkStatusColor = (status) => {
           return `+1 ${phoneNumberString}`;
         };
 
+
   const formatDate = (dateString: string | Date | null | undefined) => {
     if (!dateString) return "-";
     const date = new Date(dateString);
@@ -772,24 +751,21 @@ useEffect(() => {
   window.addEventListener("keydown", handleEsc);
   return () => window.removeEventListener("keydown", handleEsc);
 }, []);
-
-
-
-
-  // Column Definitions
   const columnDefs: ColDef<any, any>[] = useMemo(() => [
     {
       field: "id",
       headerName: "ID",
       width: 80,
       pinned: "left",
-      sortable: true
+      sortable: true,
+      filter: 'agSetColumnFilter',
     },
     {
       field: "full_name",
       headerName: "Full Name",
       width: 180,
       sortable: true,
+      filter: 'agSetColumnFilter',
       cellRenderer: CandidateNameRenderer,
     },
     {
@@ -798,6 +774,7 @@ useEffect(() => {
       width: 150,
       editable: true,
       sortable: true,
+      filter: 'agSetColumnFilter',
       cellRenderer: (params: any) => {
         if (!params.value) return "";
         const formattedPhone = formatPhoneNumber(params.value);
@@ -814,6 +791,7 @@ useEffect(() => {
       width: 200,
       editable: true,
       sortable: true,
+      filter: 'agSetColumnFilter',
       cellRenderer: (params: any) => {
         if (!params.value) return "";
         return (
@@ -832,6 +810,7 @@ useEffect(() => {
       headerName: "Batch",
       width: 140,
       sortable: true,
+      filter: 'agSetColumnFilter',
       cellRenderer: (params: any) => {
         if (!params.value || !allBatches.length) return params.value || "";
         const batch = allBatches.find(b => b.batchid === params.value);
@@ -846,7 +825,7 @@ useEffect(() => {
           {...props}
           selectedItems={selectedBatches}
           setSelectedItems={setSelectedBatches}
-          options={allBatches}
+          options={mlBatches}
           label="Batch"
           color="purple"
           renderOption={(option: Batch) => option.batchname}
@@ -855,7 +834,6 @@ useEffect(() => {
         />
       ),
     },
-
       {
         field: "status",
         headerName: "Status",
@@ -1030,29 +1008,264 @@ useEffect(() => {
               );
             },
           },
-        ], [allBatches, selectedStatuses, selectedWorkStatuses, selectedBatches]);
+        });
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        const data = await res.json();
+        setCandidates(data.data);
+      } catch (err) {
+        const error =
+          err instanceof Error ? err.message : "Failed to load candidates";
+        setError(error);
+        toast.error(error);
+      } finally {
+        setLoading(false);
+        if (searchInputRef.current) searchInputRef.current.focus();
+      }
+    },
+    [apiEndpoint]
+  );
 
-        // Error handling
-        if (error) {
-          return (
-            <div className="flex h-64 items-center justify-center">
-              <div className="text-red-500">{error}</div>
-              <Button
-                variant="outline"
-                onClick={() => fetchCandidates(searchTerm, searchBy, sortModel, filterModel)}
-                className="ml-4"
-              >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Retry
-              </Button>
-            </div>
-          );
+  useEffect(() => {
+    const fetchBatches = async () => {
+      setBatchesLoading(true);
+      try {
+        const token = localStorage.getItem('accesstoken');
+        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/batch`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        const sortedAllBatches = [...res.data].sort((a: Batch, b: Batch) => b.batchid - a.batchid);
+        setAllBatches(sortedAllBatches);
+
+        const uniqueSubjects = [...new Set(sortedAllBatches.map(batch => batch.subject))];
+        const uniqueCourseIds = [...new Set(sortedAllBatches.map(batch => batch.courseid))];
+        console.log(' Available subjects:', uniqueSubjects);
+        console.log(' Available course IDs:', uniqueCourseIds);
+        console.log(' Total batches:', sortedAllBatches.length);
+
+        let mlBatchesOnly = sortedAllBatches.filter(batch => {
+          const subject = batch.subject?.toLowerCase();
+          return subject === 'ml' ||
+            subject === 'machine learning' ||
+            subject === 'machinelearning' ||
+            subject?.includes('ml');
+        });
+        if (mlBatchesOnly.length === 0) {
+          console.log('No ML batches found by subject, trying courseid = 3');
+          mlBatchesOnly = sortedAllBatches.filter(batch => batch.courseid === 3);
         }
+        if (mlBatchesOnly.length === 0) {
+          console.warn('No ML batches found! Showing all batches in form as fallback');
+          mlBatchesOnly = sortedAllBatches;
+        }
+        console.log(' Filtered ML batches for form:', mlBatchesOnly.length);
+        setMlBatches(mlBatchesOnly);
 
-        return (
-          <div className="space-y-6">
-            {/* Add CSS for scrollable dropdowns */}
-            <style jsx global>{`
+        if (isNewCandidate && mlBatchesOnly.length > 0 && mlBatchesOnly[0]?.batchid) {
+          setFormData(prev => ({ ...prev, batchid: mlBatchesOnly[0].batchid }));
+        }
+      } catch (error) {
+        console.error('Failed to load batches:', error);
+      } finally {
+        setBatchesLoading(false);
+      }
+    };
+    fetchBatches();
+  }, [courseId, isNewCandidate]);
+
+  useEffect(() => {
+    let filtered = [...candidates];
+    if (selectedStatuses.length > 0) {
+      filtered = filtered.filter(candidate =>
+        selectedStatuses.some(status => status.toLowerCase() === (candidate.status || "").toLowerCase())
+      );
+    }
+    if (selectedWorkStatuses.length > 0) {
+      filtered = filtered.filter(candidate =>
+        selectedWorkStatuses.some(ws => ws.toLowerCase() === (candidate.workstatus || "").toLowerCase())
+      );
+    }
+    if (selectedBatches.length > 0) {
+      filtered = filtered.filter(candidate =>
+        selectedBatches.some(batch => batch.batchid === candidate.batchid)
+      );
+    }
+    if (searchTerm.trim() !== "") {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(candidate =>
+        candidate.full_name?.toLowerCase().includes(term) ||
+        candidate.email?.toLowerCase().includes(term) ||
+        candidate.phone?.toLowerCase().includes(term) ||
+        candidate.id.toString().includes(term)
+      );
+    }
+    setFilteredCandidates(filtered);
+  }, [candidates, selectedStatuses, selectedWorkStatuses, selectedBatches, searchTerm]);
+
+  useEffect(() => {
+    fetchCandidates();
+  }, [fetchCandidates]);
+
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      if (searchTerm !== undefined) {
+        const autoSearchBy = detectSearchBy(searchTerm);
+        fetchCandidates(searchTerm, autoSearchBy, sortModel, filterModel);
+      }
+    }, 500);
+    return () => clearTimeout(debounceTimer);
+  }, [searchTerm, searchBy, sortModel, filterModel, fetchCandidates]);
+
+  const detectSearchBy = (search: string) => {
+    if (/^\d+$/.test(search)) return "id";
+    if (/^\S+@\S+\.\S+$/.test(search)) return "email";
+    if (/^[\d\s\+\-()]+$/.test(search)) return "phone";
+    return "full_name";
+  };
+
+  const handleOpenNewCandidateForm = () => {
+    router.push("/avatar/candidates?newcandidate=true", { scroll: false });
+    setNewCandidateForm(true);
+    if (mlBatches.length > 0) {
+      const latestBatch = mlBatches[0];
+      setFormData(prev => ({
+        ...prev,
+        batchid: latestBatch?.batchid
+      }));
+    }
+  };
+
+  const handleCloseNewCandidateForm = () => {
+    router.push("/avatar/candidates", { scroll: false });
+    setNewCandidateForm(false);
+    setFormData(initialFormData);
+  };
+
+  const handleNewCandidateFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    if (type === 'checkbox') {
+      const checked = (e.target as HTMLInputElement).checked;
+      setFormData(prev => ({ ...prev, [name]: checked ? 'Y' : 'N' }));
+    } else if (type === 'number') {
+      setFormData(prev => ({ ...prev, [name]: parseInt(value) || 0 }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleNewCandidateFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.full_name.trim()) {
+      toast.error("Full name is required");
+      return;
+    }
+    setFormSaveLoading(true);
+    try {
+      const payload = {
+        ...formData,
+        enrolled_date: formData.enrolled_date || new Date().toISOString().split('T')[0],
+        status: formData.status || "active",
+        workstatus: formData.workstatus || "Waiting for Status",
+        agreement: formData.agreement || "N",
+        fee_paid: formData.fee_paid || 0
+      };
+      const response = await fetch(apiEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to create candidate");
+      }
+      const newId = await response.json();
+      toast.success(`Candidate created successfully with ID: ${newId}`);
+      setNewCandidateForm(false);
+      setFormData(initialFormData);
+      fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
+    } catch (error) {
+      toast.error("Failed to create candidate: " + (error as Error).message);
+      console.error("Error creating candidate:", error);
+    } finally {
+      setFormSaveLoading(false);
+    }
+  };
+
+const handleRowUpdated = useCallback(async (updatedRow: Candidate) => {
+  setLoadingRowId(updatedRow.id);
+  try {
+    const updatedData = { ...updatedRow };
+    if (!updatedData.status || updatedData.status === '') {
+      updatedData.status = 'active';
+    }
+    const { id, ...payload } = updatedData;
+
+    const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) throw new Error("Failed to update candidate");
+
+    toast.success("Candidate updated successfully");
+
+    // Update only this row in AG Grid
+    if (gridRef.current) {
+      const rowNode = gridRef.current.api.getRowNode(updatedRow.id.toString());
+      if (rowNode) rowNode.setData(updatedData);
+    }
+
+  } catch (error) {
+    toast.error("Failed to update candidate");
+    console.error("Error updating candidate:", error);
+  } finally {
+    setLoadingRowId(null);
+  }
+}, [apiEndpoint]);
+
+const handleRowDeleted = useCallback(async (id: number) => {
+  try {
+    const response = await fetch(`${apiEndpoint}/${id}`, { method: "DELETE" });
+    if (!response.ok) throw new Error("Failed to delete candidate");
+
+    toast.success("Candidate deleted successfully");
+
+    if (gridRef.current) {
+      gridRef.current.api.applyTransaction({ remove: [{ id }] });
+    }
+
+  } catch (error) {
+    toast.error("Failed to delete candidate");
+    console.error("Error deleting candidate:", error);
+  }
+}, [apiEndpoint]);
+
+  const handleFilterChanged = useCallback((filterModelFromGrid: any) => {
+    setFilterModel(filterModelFromGrid);
+    fetchCandidates(searchTerm, searchBy, sortModel, filterModelFromGrid);
+  }, [searchTerm, searchBy, sortModel, fetchCandidates]);
+
+
+  if (error) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="text-red-500">{error}</div>
+        <Button
+          variant="outline"
+          onClick={() => fetchCandidates(searchTerm, searchBy, sortModel, filterModel)}
+          className="ml-4"
+        >
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+     
+      <style jsx global>{`
         .filter-dropdown {
           scrollbar-width: thin;
         }
@@ -1071,35 +1284,35 @@ useEffect(() => {
           background: #a8a8a8;
         }
       `}</style>
-
-            <Toaster position="top-center" />
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  Candidates Management
-                </h1>
-                <p className="text-gray-600 dark:text-gray-400">
-                  All Candidates ({candidates.length})
-                  {selectedStatuses.length > 0 || selectedWorkStatuses.length > 0 || selectedBatches.length > 0 ? (
-                    <span className="ml-2 text-blue-600 dark:text-blue-400">
-                      - Filtered ({filteredCandidates.length} shown)
-                    </span>
-                  ) : (
-                    " - Sorted by latest first"
-                  )}
-                </p>
-              </div>
-              <Button
-                onClick={handleOpenNewCandidateForm}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add New Candidate
-              </Button>
-            </div>
+      <Toaster position="top-center" />
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            Candidates Management
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            All Candidates ({candidates.length})
+            {selectedStatuses.length > 0 || selectedWorkStatuses.length > 0 || selectedBatches.length > 0 ? (
+              <span className="ml-2 text-blue-600 dark:text-blue-400">
+                - Filtered ({filteredCandidates.length} shown)
+              </span>
+            ) : (
+              " - Sorted by latest first"
+            )}
+          </p>
+        </div>
+        <Button
+          onClick={handleOpenNewCandidateForm}
+          className="bg-green-600 hover:bg-green-700 text-white"
+        >
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Add New Candidate
+        </Button>
+      </div>
 
       {/* Search */}
       <div key="search-container" className="max-w-md">
+
         <Label
           htmlFor="search"
           className="text-sm font-medium text-gray-700 dark:text-gray-300"
@@ -1113,6 +1326,7 @@ useEffect(() => {
             id="search"
             type="text"
             ref={searchInputRef}
+
             placeholder="Search by ID, name, email, phone..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -1291,6 +1505,7 @@ useEffect(() => {
               value={formData.agreement}
               onChange={handleNewCandidateFormChange}
               className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
+
             >
               <option value="Y">Yes</option>
               <option value="N">No</option>
@@ -1545,3 +1760,5 @@ useEffect(() => {
     </div>
   );
 }
+
+
