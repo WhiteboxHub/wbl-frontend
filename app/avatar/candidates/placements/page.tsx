@@ -1,5 +1,4 @@
 
-
 "use client";
 import Link from "next/link";
 import "@/styles/admin.css";
@@ -8,7 +7,7 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon } from "lucide-react";
+import { SearchIcon, PlusIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
@@ -31,23 +30,36 @@ export default function CandidatesPlacements() {
     company: "",
     position: "",
     placement_date: "",
-    type: "Company",
-    status: "scheduled",
+    type: "",
+    status: "Active",
     base_salary_offered: "",
     benefits: "",
     fee_paid: "",
     notes: "",
-    priority: "", 
+    priority: "",
   });
+
+  /** --- Marketing Candidates for Dropdown --- */
+  const [marketingCandidates, setMarketingCandidates] = useState<any[]>([]);
 
   /** --- Custom Renderers --- */
   const StatusRenderer = (params: any) => {
     const { value } = params;
-    return (
-      <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
-        {value?.toUpperCase()}
-      </Badge>
-    );
+    let bgColor = "bg-gray-100 dark:bg-gray-900/30";
+    let textColor = "text-gray-800 dark:text-gray-300";
+
+    if (value?.toLowerCase() === "active") {
+      bgColor = "bg-emerald-100 dark:bg-emerald-900/30";
+      textColor = "text-emerald-800 dark:text-emerald-300";
+    } else if (
+      value?.toLowerCase() === "in active" ||
+      value?.toLowerCase() === "inactive"
+    ) {
+      bgColor = "bg-red-100 dark:bg-red-900/30";
+      textColor = "text-red-800 dark:text-red-300";
+    }
+
+    return <Badge className={`${bgColor} ${textColor}`}>{value?.toUpperCase()}</Badge>;
   };
 
   const AmountRenderer = (params: any) =>
@@ -234,20 +246,29 @@ useEffect(() => {
     }
 
     const payload = {
-      candidate_id: Number(newPlacement.candidate_id),
+      candidate_id: newPlacement.candidate_id
+        ? Number(newPlacement.candidate_id)
+        : null,
       company: newPlacement.company,
-      position: newPlacement.position || undefined,
+      position: newPlacement.position || null,
       placement_date: newPlacement.placement_date,
-      type: newPlacement.type || undefined,
-      status: newPlacement.status,
+      type: newPlacement.type || null,
+      status: newPlacement.status === "Active" ? "Active" : "Inactive",
+     
       base_salary_offered: newPlacement.base_salary_offered
         ? Number(newPlacement.base_salary_offered)
-        : undefined,
-      benefits: newPlacement.benefits || undefined,
-      fee_paid: newPlacement.fee_paid ? Number(newPlacement.fee_paid) : undefined,
-      notes: newPlacement.notes || undefined,
-      priority: newPlacement.priority !== "" ? Number(newPlacement.priority) : undefined,
+        : null,
+      fee_paid: newPlacement.fee_paid ? Number(newPlacement.fee_paid) : null,
+      benefits: newPlacement.benefits || null,
+      notes: newPlacement.notes || null,
+      priority:
+        newPlacement.priority !== "" ? Number(newPlacement.priority) : 99,
     };
+
+    if (!payload.candidate_id) {
+      alert("Please select a valid candidate");
+      return;
+    }
 
     try {
       const res = await axios.post(
@@ -255,14 +276,17 @@ useEffect(() => {
         payload
       );
 
-      if (res.status !== 200 && res.status !== 201)
-        throw new Error("Create failed");
+      if (res.status !== 200 && res.status !== 201) throw new Error("Create failed");
+
+      const candidateObj = marketingCandidates.find(
+        (c) => String(c.candidate_id) === String(newPlacement.candidate_id)
+      );
 
       const newRow = {
         ...res.data,
-        candidate: newPlacement.candidate_id,
-        candidate_name: newPlacement.candidate_name || newPlacement.candidate_id,
-        priority: newPlacement.priority !== "" ? Number(newPlacement.priority) : undefined,
+        candidate_id: newPlacement.candidate_id,
+        candidate_name: candidateObj?.full_name || newPlacement.candidate_id,
+        priority: newPlacement.priority !== "" ? Number(newPlacement.priority) : 99,
       };
 
       setAllCandidates((prev) => [...prev, newRow]);
@@ -274,8 +298,8 @@ useEffect(() => {
         company: "",
         position: "",
         placement_date: "",
-        type: "Company",
-        status: "scheduled",
+        type: "",
+        status: "Active",
         base_salary_offered: "",
         benefits: "",
         fee_paid: "",
@@ -304,18 +328,15 @@ useEffect(() => {
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center"
         >
-          + Add Placement
+          <PlusIcon className="mr-2 h-4 w-4" /> Add Placement
         </button>
       </div>
 
       {/* Search */}
       <div className="max-w-md">
-        <Label
-          htmlFor="search"
-          className="text-sm font-medium text-gray-700 dark:text-gray-300"
-        >
+        <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
           Search Candidates
         </Label>
         <div className="relative mt-1">
@@ -329,54 +350,55 @@ useEffect(() => {
             className="pl-10"
           />
         </div>
-        {searchTerm && (
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            {filteredCandidates.length} candidate(s) found
-          </p>
-        )}
       </div>
 
       {/* Modal Form */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-lg">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setShowModal(false)}
+        >
+          <div
+            className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-200">
               Add Placement
             </h2>
             <div className="space-y-3">
-              <Input
-                placeholder="Candidate ID"
+              <select
                 value={newPlacement.candidate_id}
-                onChange={(e) =>
-                  setNewPlacement({ ...newPlacement, candidate_id: e.target.value })
-                }
-              />
+                onChange={(e) => setNewPlacement({ ...newPlacement, candidate_id: e.target.value })}
+                className="w-full p-2 border rounded-md"
+              >
+                <option value="">Select Candidate</option>
+                {marketingCandidates.map((candidate) => (
+                  <option key={candidate.candidate_id} value={candidate.candidate_id}>
+                    {candidate.full_name
+                      ? `${candidate.full_name} (${candidate.candidate_id})`
+                      : candidate.candidate_id}
+                  </option>
+                ))}
+              </select>
+
               <Input
                 placeholder="Company"
                 value={newPlacement.company}
-                onChange={(e) =>
-                  setNewPlacement({ ...newPlacement, company: e.target.value })
-                }
+                onChange={(e) => setNewPlacement({ ...newPlacement, company: e.target.value })}
               />
               <Input
                 placeholder="Position"
                 value={newPlacement.position}
-                onChange={(e) =>
-                  setNewPlacement({ ...newPlacement, position: e.target.value })
-                }
+                onChange={(e) => setNewPlacement({ ...newPlacement, position: e.target.value })}
               />
               <Input
                 type="date"
                 value={newPlacement.placement_date}
-                onChange={(e) =>
-                  setNewPlacement({ ...newPlacement, placement_date: e.target.value })
-                }
+                onChange={(e) => setNewPlacement({ ...newPlacement, placement_date: e.target.value })}
               />
               <select
                 value={newPlacement.type}
-                onChange={(e) =>
-                  setNewPlacement({ ...newPlacement, type: e.target.value })
-                }
+                onChange={(e) => setNewPlacement({ ...newPlacement, type: e.target.value })}
                 className="w-full p-2 border rounded-md"
               >
                 <option>Company</option>
@@ -385,46 +407,24 @@ useEffect(() => {
                 <option>Implementation Partner</option>
               </select>
               <select
+              
                 value={newPlacement.status}
-                onChange={(e) =>
-                  setNewPlacement({ ...newPlacement, status: e.target.value })
-                }
+                onChange={(e) => setNewPlacement({ ...newPlacement, status: e.target.value })}
                 className="w-full p-2 border rounded-md"
               >
-                <option>Active</option>
-                <option>In Active</option>
+                <option value="active">Active</option>
+                <option value="Inactive">Inactive</option>
+                {/* <option value="not responding">Not Responding</option> */}
               </select>
               <Input
                 placeholder="Base Salary"
                 value={newPlacement.base_salary_offered}
-                onChange={(e) =>
-                  setNewPlacement({
-                    ...newPlacement,
-                    base_salary_offered: e.target.value,
-                  })
-                }
+                onChange={(e) => setNewPlacement({ ...newPlacement, base_salary_offered: e.target.value })}
               />
               <Input
                 placeholder="Fee Paid"
                 value={newPlacement.fee_paid}
-                onChange={(e) =>
-                  setNewPlacement({ ...newPlacement, fee_paid: e.target.value })
-                }
-              />
-              <Input
-                placeholder="Notes"
-                value={newPlacement.notes}
-                onChange={(e) =>
-                  setNewPlacement({ ...newPlacement, notes: e.target.value })
-                }
-              />
-              <Input
-                placeholder="Priority"
-                type="number"
-                value={newPlacement.priority}
-                onChange={(e) =>
-                  setNewPlacement({ ...newPlacement, priority: e.target.value })
-                }
+                onChange={(e) => setNewPlacement({ ...newPlacement, fee_paid: e.target.value })}
               />
             </div>
             <div className="mt-6 flex justify-end gap-3">

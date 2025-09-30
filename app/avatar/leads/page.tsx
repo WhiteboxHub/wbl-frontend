@@ -11,6 +11,9 @@ import { toast, Toaster } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AGGridTable } from "@/components/AGGridTable";
 import { createPortal } from "react-dom";
+import { AgGridReact } from "ag-grid-react";
+import type { AgGridReact as AgGridReactType } from "ag-grid-react"; // import type
+import type { GridApi } from "ag-grid-community";
 
 
 type Lead = {
@@ -40,6 +43,8 @@ type FormData = {
   phone: string;
   workstatus: string;
   address: string;
+  secondary_email: string | null;
+  secondary_phone: string | null;
   status: string;
   moved_to_candidate: boolean;
   notes: string;
@@ -60,6 +65,8 @@ const initialFormData: FormData = {
   notes: "",
   massemail_unsubscribe: false,
   massemail_email_sent: false,
+  secondary_email: "",
+  secondary_phone: ""
 };
 
 
@@ -206,7 +213,7 @@ const StatusFilterHeaderComponent = (props: any) => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="border-b pb-2 mb-2">
-              <label className="flex items-center px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded font-medium">
+              <label className="flex items-center px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded text-sm">
                 <input
                   type="checkbox"
                   checked={isAllSelected}
@@ -278,7 +285,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
   };
 
   const handleWorkStatusChange = (workStatus: string, e: React.ChangeEvent<HTMLInputElement>) => {
-    e.stopPropagation(); 
+    e.stopPropagation();
     setSelectedWorkStatuses((prev: string[]) => {
       if (prev.includes(workStatus)) {
         return prev.filter(s => s !== workStatus);
@@ -359,7 +366,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
         createPortal(
           <div
             ref={dropdownRef}
-            className="fixed bg-white border rounded-lg shadow-xl p-3 flex flex-col space-y-2 w-56 pointer-events-auto dark:bg-gray-800 dark:border-gray-600"
+            className="fixed bg-white border rounded-lg shadow-xl p-3 flex flex-col space-y-2 w-56 pointer-events-auto dark:bg-gray-800 dark:border-gray-600 text-sm"
             style={{
               top: dropdownPos.top + 5,
               left: dropdownPos.left,
@@ -375,7 +382,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
                   type="checkbox"
                   checked={isAllSelected}
                   ref={(el) => { if (el) el.indeterminate = isIndeterminate; }}
-                  onChange={handleSelectAll} 
+                  onChange={handleSelectAll}
                   className="mr-3"
                 />
 
@@ -391,7 +398,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
                   type="checkbox"
                   checked={selectedWorkStatuses.includes(workStatus)}
                   onChange={(e) => handleWorkStatusChange(workStatus, e)}
-                  onClick={(e) => e.stopPropagation()} 
+                  onClick={(e) => e.stopPropagation()}
                   className="mr-3"
                 />
 
@@ -439,6 +446,7 @@ export default function LeadsPage() {
   const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
+  const gridRef = useRef<InstanceType<typeof AgGridReact> | null>(null);
 
   const apiEndpoint = useMemo(
     () => `${process.env.NEXT_PUBLIC_API_URL}/leads`,
@@ -468,7 +476,7 @@ export default function LeadsPage() {
           url += `?${params.toString()}`;
         }
 
-        
+
         const token = localStorage.getItem("token");
 
         const res = await fetch(url, {
@@ -505,7 +513,6 @@ export default function LeadsPage() {
     [apiEndpoint]
   );
 
-  // Filter leads locally when status or work status changes
   useEffect(() => {
     let filtered = [...leads];
 
@@ -517,7 +524,6 @@ export default function LeadsPage() {
       );
     }
 
-    // Apply work status filter - if any work status is selected, show only those
     if (selectedWorkStatuses.length > 0) {
       filtered = filtered.filter(lead =>
         selectedWorkStatuses.some(
@@ -560,7 +566,7 @@ export default function LeadsPage() {
     return () => clearTimeout(timeoutId);
   }, [searchTerm, searchBy, sortModel, fetchLeads]);
 
-  // Detect search by field
+
   const detectSearchBy = (search: string) => {
     if (/^\d+$/.test(search)) return "id";
     if (/^\S+@\S+\.\S+$/.test(search)) return "email";
@@ -568,16 +574,31 @@ export default function LeadsPage() {
     return "full_name";
   };
 
-  // Handle form changes and submissions
   const handleNewLeadFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-    if (type === 'checkbox') {
-      const checked = (e.target as HTMLInputElement).checked;
-      setFormData(prev => ({ ...prev, [name]: checked }));
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    }
-  };
+  if (type === 'checkbox') {
+    const checked = (e.target as HTMLInputElement).checked;
+    setFormData(prev => ({ ...prev, [name]: checked }));
+  } 
+  else if (name === 'phone' || name === 'secondary_phone') {
+    // Only allow digits
+    const numericValue = value.replace(/\D/g, '');
+    setFormData(prev => ({ ...prev, [name]: numericValue }));
+  } 
+  else if (name === 'address') {
+    // Allow letters, numbers, comma, and space only
+    const sanitizedValue = value.replace(/[^a-zA-Z0-9, ]/g, '');
+    setFormData(prev => ({ ...prev, [name]: sanitizedValue }));
+  } 
+  else if (name === 'full_name') {
+    // Allow letters and dot only
+    const sanitizedValue = value.replace(/[^a-zA-Z. ]/g, '');
+    setFormData(prev => ({ ...prev, [name]: sanitizedValue }));
+  } 
+  else {
+    setFormData(prev => ({ ...prev, [name]: value }));
+  }
+};
 
   const handleNewLeadFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -607,7 +628,7 @@ export default function LeadsPage() {
           updatedData[field] = false;
         }
       });
-   
+
 
       const payload = {
         ...updatedData,
@@ -646,23 +667,22 @@ export default function LeadsPage() {
     setFormData(initialFormData);
   };
 
+
   const handleRowUpdated = useCallback(
     async (updatedRow: Lead) => {
       setLoadingRowId(updatedRow.id);
+
       try {
         const { id, entry_date, ...payload } = updatedRow;
 
         if (payload.moved_to_candidate && payload.status !== "Closed") {
           payload.status = "Closed";
           payload.closed_date = new Date().toISOString().split('T')[0];
-        }
-        
-        else if (!payload.moved_to_candidate && payload.status === "Closed") {
+        } else if (!payload.moved_to_candidate && payload.status === "Closed") {
           payload.status = "Open";
           payload.closed_date = null;
         }
 
-        
         payload.moved_to_candidate = Boolean(payload.moved_to_candidate);
         payload.massemail_unsubscribe = Boolean(payload.massemail_unsubscribe);
         payload.massemail_email_sent = Boolean(payload.massemail_email_sent);
@@ -678,12 +698,18 @@ export default function LeadsPage() {
           throw new Error(errorData.detail || "Failed to update lead");
         }
 
-        await fetchLeads(searchTerm, searchBy, sortModel);
+        const updatedLead = { ...updatedRow, ...payload };
+
+        if (gridRef.current) {
+          gridRef.current.api.applyTransaction({ update: [updatedLead] });
+        }
+
         toast.success(
           payload.moved_to_candidate
             ? "Lead moved to candidate and marked Closed"
             : "Lead updated successfully"
         );
+
       } catch (error) {
         toast.error("Failed to update lead");
         console.error("Error updating lead:", error);
@@ -691,27 +717,29 @@ export default function LeadsPage() {
         setLoadingRowId(null);
       }
     },
-    [apiEndpoint, searchTerm, searchBy, sortModel, fetchLeads]
+    [apiEndpoint]
   );
 
   const handleRowDeleted = useCallback(
     async (id: number) => {
       try {
-        const response = await fetch(`${apiEndpoint}/${id}`, {
-          method: "DELETE",
-        });
-        if (!response.ok) throw new Error("Failed to delete lead");
-        toast.success("Lead deleted successfully");
-        fetchLeads(searchTerm, searchBy, sortModel);
+        const response = await fetch(`${apiEndpoint}/${id}`, { method: "DELETE" });
+        if (!response.ok) throw new Error("Failed to delete candidate");
+
+        const rowNode = gridRef.current?.api.getRowNode(id.toString());
+        if (rowNode) rowNode.setData(null);
+        gridRef.current?.api.applyTransaction({ remove: [rowNode.data] });
+
+        toast.success("Candidate deleted successfully");
       } catch (error) {
-        toast.error("Failed to delete lead");
-        console.error("Error deleting lead:", error);
+        toast.error("Failed to delete candidate");
+        console.error(error);
       }
     },
-    [apiEndpoint, searchTerm, searchBy, sortModel, fetchLeads]
+    [apiEndpoint]
   );
 
- 
+
   const handleMoveToCandidate = useCallback(
     async (lead: Lead, Moved: boolean) => {
       setLoadingRowId(lead.id);
@@ -720,8 +748,8 @@ export default function LeadsPage() {
         const url = `${apiEndpoint}/${lead.id}/move-to-candidate`;
 
         const payload: Partial<Lead> = {
-          moved_to_candidate: !Moved, 
-          status: !Moved ? "Closed" : "Open", 
+          moved_to_candidate: !Moved,
+          status: !Moved ? "Closed" : "Open",
           closed_date: !Moved ? new Date().toISOString().split("T")[0] : null,
         };
 
@@ -916,6 +944,21 @@ export default function LeadsPage() {
     [selectedStatuses, selectedWorkStatuses]
   );
 
+  // Esc button//
+  useEffect(() => {
+  const handleEsc = (event: KeyboardEvent) => {
+    if (event.key === "Escape") {
+      handleCloseNewLeadForm();
+    }
+  };
+
+  window.addEventListener("keydown", handleEsc);
+  return () => {
+    window.removeEventListener("keydown", handleEsc);
+  };
+}, []); 
+
+
   // Handle errors
   if (error) {
     return (
@@ -954,9 +997,7 @@ export default function LeadsPage() {
           </p>
 
           <div key="search-container" className="max-w-md">
-            <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Search Lead
-            </Label>
+      
             <div className="relative mt-1">
               <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
               <Input
@@ -988,11 +1029,12 @@ export default function LeadsPage() {
       </div>
 
 
-      {/* AG Grid Table */}
+    
       <div className="flex w-full justify-center">
         <AGGridTable
           key={`${filteredLeads.length}-${selectedStatuses.join(',')}-${selectedWorkStatuses.join(',')}`}
           rowData={filteredLeads}
+        
           columnDefs={columnDefs}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
@@ -1002,131 +1044,133 @@ export default function LeadsPage() {
           height="600px"
         />
       </div>
-
       {/* New Lead Form */}
-      {newLeadForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="relative w-full max-w-2xl rounded-2xl bg-white dark:bg-gray-800 p-6 shadow-xl max-h-[90vh] overflow-y-auto">
-            <h2 className="mb-6 text-center text-2xl font-bold text-gray-900 dark:text-gray-100">
-              New Lead Form
-            </h2>
-            <form
-              onSubmit={handleNewLeadFormSubmit}
-              className="grid grid-cols-1 gap-4 md:grid-cols-2"
+{newLeadForm && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+    <div className="relative w-full max-w-2xl min-h-[80vh] rounded-xl bg-white p-4 shadow-md">
+      <h2 className="mb-4 text-center text-xl font-semibold">New Lead Form</h2>
+      <form className="grid grid-cols-1 gap-2 md:grid-cols-2">
+        {Object.entries({
+          full_name: { label: "Full Name", type: "text", required: true },
+          email: { label: "Email", type: "email", required: true },
+          phone: { label: "Phone", type: "tel", required: true },
+          secondary_email: { label: "Secondary Email", type: "email" },
+          secondary_phone: { label: "Secondary Phone", type: "tel" },
+          workstatus: {
+            label: "Work Status",
+            type: "select",
+            options: ["Waiting for Status", "EAD", "Visa", "Permanent Resident", "OPT", "CPT", "H4EAD"],
+            required: true,
+          },
+          address: { label: "Address", type: "text" },
+          status: {
+            label: "Status",
+            type: "select",
+            options: statusOptions,
+            required: true,
+          },
+          notes: { label: "Notes (optional)", type: "textarea" },
+          moved_to_candidate: {
+            label: "Moved to Candidate",
+            type: "checkbox",
+          },
+          massemail_unsubscribe: {
+            label: "Mass Email Unsubscribe",
+            type: "checkbox",
+          },
+          massemail_email_sent: {
+            label: "Mass Email Sent",
+            type: "checkbox",
+          },
+        }).map(([name, config]) => (
+          <div
+            key={name}
+            className={config.type === "textarea" ? "md:col-span-2" : ""}
+          >
+            <label
+              htmlFor={name}
+              className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
-              {Object.entries({
-                full_name: { label: "Full Name *", type: "text", required: true },
-                email: { label: "Email *", type: "email", required: true },
-                phone: { label: "Phone *", type: "tel", required: true },
-                secondary_email: { label: "Secondary Email", type: "email" },
-                secondary_phone: { label: "Secondary Phone", type: "tel" },
-                workstatus: {
-                  label: "Work Status",
-                  type: "select",
-                  options: workStatusOptions,
-                  required: true,
-                },
-                address: { label: "Address", type: "text" },
-                status: {
-                  label: "Status",
-                  type: "select",
-                  options: statusOptions,
-                  required: true,
-                },
-                notes: { label: "Notes (optional)", type: "textarea" },
-                moved_to_candidate: {
-                  label: "Moved to Candidate",
-                  type: "checkbox",
-                },
-                massemail_unsubscribe: {
-                  label: "Mass Email Unsubscribe",
-                  type: "checkbox",
-                },
-                massemail_email_sent: {
-                  label: "Mass Email Sent",
-                  type: "checkbox",
-                },
-              }).map(([name, config]) => (
-                <div
-                  key={name}
-                  className={config.type === "textarea" ? "md:col-span-2" : ""}
-                >
-                  <label
-                    htmlFor={name}
-                    className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {config.label}
-                  </label>
-                  {config.type === "select" ? (
-                    <select
-                      id={name}
-                      name={name}
-                      value={formData[name as keyof FormData] as string}
-                      onChange={handleNewLeadFormChange}
-                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required={config.required}
-                    >
-                      <option value="" disabled>
-                        Select {config.label}
-                      </option>
-                      {config.options?.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  ) : config.type === "textarea" ? (
-                    <textarea
-                      id={name}
-                      name={name}
-                      value={formData[name as keyof FormData] as string}
-                      onChange={handleNewLeadFormChange}
-                      rows={3}
-                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  ) : config.type === "checkbox" ? (
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id={name}
-                        name={name}
-                        checked={formData[name as keyof FormData] as boolean}
-                        onChange={handleNewLeadFormChange}
-                        className="h-4 w-4"
-                      />
-                      <label htmlFor={name} className="text-sm text-gray-700 dark:text-gray-300">
-                        {config.label}
-                      </label>
-                    </div>
-                  ) : (
-                    <input
-                      type={config.type}
-                      id={name}
-                      name={name}
-                      value={formData[name as keyof FormData] as string}
-                      onChange={handleNewLeadFormChange}
-                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required={config.required}
-                    />
-                  )}
-                </div>
-              ))}
-              <div className="md:col-span-2">
-                <label
-                  htmlFor="entry_date"
-                  className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  Entry Date
-                </label>
+              {config.label}
+            </label>
+
+            {config.type === "select" ? (
+              <select
+                id={name}
+                name={name}
+                value={formData[name as keyof FormData] as string || "Waiting for Status"}
+                onChange={handleNewLeadFormChange}
+                className={`w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  (formData[name as keyof FormData] as string) === "Waiting for Status" ||
+                  !(formData[name as keyof FormData] as string)
+                    ? "text-orange-500"
+                    : (formData[name as keyof FormData] as string) === "EAD"
+                    ? "text-blue-500"
+                    : (formData[name as keyof FormData] as string) === "Visa"
+                    ? "text-purple-500"
+                    : (formData[name as keyof FormData] as string) === "Permanent Resident"
+                    ? "text-green-500"
+                    : (formData[name as keyof FormData] as string) === "OPT"
+                    ? "text-yellow-500"
+                    : (formData[name as keyof FormData] as string) === "CPT"
+                    ? "text-orange-500"
+                    : (formData[name as keyof FormData] as string) === "H4EAD"
+                    ? "text-pink-500"
+                    : "text-black"
+                }`}
+                required={config.required}
+              >
+                {config.options?.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            ) : config.type === "textarea" ? (
+              <textarea
+                id={name}
+                name={name}
+                value={formData[name as keyof FormData] as string}
+                onChange={handleNewLeadFormChange}
+                rows={1}
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            ) : config.type === "checkbox" ? (
+              <div className="flex items-center space-x-2">
                 <input
-                  type="text"
+
+                  type="checkbox"
+                  id={name}
+                  name={name}
+                  checked={formData[name as keyof FormData] as boolean}
+                  onChange={handleNewLeadFormChange}
+                  className="h-4 w-4"
+                  type="date"
                   id="entry_date"
                   name="entry_date"
-                  value={new Date().toLocaleDateString()}
-                  readOnly
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-2 bg-gray-100 dark:bg-gray-600 focus:outline-none"
+                  value={formData.entry_date || new Date().toISOString().split("T")[0]}
+                  onChange={handleNewLeadFormChange}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+
                 />
+                <label htmlFor={name} className="text-sm text-gray-700 dark:text-gray-300">
+                  {config.label}
+                </label>
               </div>
+
+            ) : (
+              <input
+                type={config.type}
+                id={name}
+                name={name}
+                value={formData[name as keyof FormData] as string}
+                onChange={handleNewLeadFormChange}
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required={config.required}
+              />
+            )}
+
+
               <div className="md:col-span-2">
                 <button
                   type="submit"
@@ -1148,8 +1192,50 @@ export default function LeadsPage() {
               &times;
             </button>
           </div>
+        ))}
+
+        <div className="md:col-span-2">
+          <label
+            htmlFor="entry_date"
+            className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            Entry Date
+          </label>
+          <input
+            type="text"
+            id="entry_date"
+            name="entry_date"
+            value={new Date().toLocaleDateString()}
+            readOnly
+            className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-2 bg-gray-100 dark:bg-gray-600 focus:outline-none"
+          />
         </div>
-      )}
+
+        <div className="md:col-span-2">
+          <button
+            type="submit"
+            disabled={formSaveLoading}
+            className={`w-full rounded-md py-2 transition duration-200 ${
+              formSaveLoading
+                ? "cursor-not-allowed bg-gray-400"
+                : "bg-green-600 text-white hover:bg-green-700"
+            }`}
+          >
+            {formSaveLoading ? "Saving..." : "Save"}
+          </button>
+        </div>
+      </form>
+      <button
+        onClick={handleCloseNewLeadForm}
+        className="absolute right-3 top-3 text-2xl leading-none text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+        aria-label="Close"
+      >
+        &times;
+      </button>
+    </div>
+  </div>
+)}
     </div>
   );
 }
+
