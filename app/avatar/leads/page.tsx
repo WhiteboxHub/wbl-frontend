@@ -11,6 +11,9 @@ import { toast, Toaster } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AGGridTable } from "@/components/AGGridTable";
 import { createPortal } from "react-dom";
+import { AgGridReact } from "ag-grid-react";
+import type { AgGridReact as AgGridReactType } from "ag-grid-react"; // import type
+import type { GridApi } from "ag-grid-community";
 
 
 type Lead = {
@@ -443,6 +446,7 @@ export default function LeadsPage() {
   const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
+  const gridRef = useRef<InstanceType<typeof AgGridReact> | null>(null);
 
   const apiEndpoint = useMemo(
     () => `${process.env.NEXT_PUBLIC_API_URL}/leads`,
@@ -509,7 +513,6 @@ export default function LeadsPage() {
     [apiEndpoint]
   );
 
-  // Filter leads locally when status or work status changes
   useEffect(() => {
     let filtered = [...leads];
 
@@ -521,7 +524,6 @@ export default function LeadsPage() {
       );
     }
 
-    // Apply work status filter - if any work status is selected, show only those
     if (selectedWorkStatuses.length > 0) {
       filtered = filtered.filter(lead =>
         selectedWorkStatuses.some(
@@ -650,22 +652,21 @@ export default function LeadsPage() {
     setFormData(initialFormData);
   };
 
+
   const handleRowUpdated = useCallback(
     async (updatedRow: Lead) => {
       setLoadingRowId(updatedRow.id);
+
       try {
         const { id, entry_date, ...payload } = updatedRow;
 
         if (payload.moved_to_candidate && payload.status !== "Closed") {
           payload.status = "Closed";
           payload.closed_date = new Date().toISOString().split('T')[0];
-        }
-
-        else if (!payload.moved_to_candidate && payload.status === "Closed") {
+        } else if (!payload.moved_to_candidate && payload.status === "Closed") {
           payload.status = "Open";
           payload.closed_date = null;
         }
-
 
         payload.moved_to_candidate = Boolean(payload.moved_to_candidate);
         payload.massemail_unsubscribe = Boolean(payload.massemail_unsubscribe);
@@ -682,12 +683,18 @@ export default function LeadsPage() {
           throw new Error(errorData.detail || "Failed to update lead");
         }
 
-        await fetchLeads(searchTerm, searchBy, sortModel);
+        const updatedLead = { ...updatedRow, ...payload };
+
+        if (gridRef.current) {
+          gridRef.current.api.applyTransaction({ update: [updatedLead] });
+        }
+
         toast.success(
           payload.moved_to_candidate
             ? "Lead moved to candidate and marked Closed"
             : "Lead updated successfully"
         );
+
       } catch (error) {
         toast.error("Failed to update lead");
         console.error("Error updating lead:", error);
@@ -695,24 +702,26 @@ export default function LeadsPage() {
         setLoadingRowId(null);
       }
     },
-    [apiEndpoint, searchTerm, searchBy, sortModel, fetchLeads]
+    [apiEndpoint]
   );
 
   const handleRowDeleted = useCallback(
     async (id: number) => {
       try {
-        const response = await fetch(`${apiEndpoint}/${id}`, {
-          method: "DELETE",
-        });
-        if (!response.ok) throw new Error("Failed to delete lead");
-        toast.success("Lead deleted successfully");
-        fetchLeads(searchTerm, searchBy, sortModel);
+        const response = await fetch(`${apiEndpoint}/${id}`, { method: "DELETE" });
+        if (!response.ok) throw new Error("Failed to delete candidate");
+
+        const rowNode = gridRef.current?.api.getRowNode(id.toString());
+        if (rowNode) rowNode.setData(null);
+        gridRef.current?.api.applyTransaction({ remove: [rowNode.data] });
+
+        toast.success("Candidate deleted successfully");
       } catch (error) {
-        toast.error("Failed to delete lead");
-        console.error("Error deleting lead:", error);
+        toast.error("Failed to delete candidate");
+        console.error(error);
       }
     },
-    [apiEndpoint, searchTerm, searchBy, sortModel, fetchLeads]
+    [apiEndpoint]
   );
 
 
@@ -997,6 +1006,7 @@ export default function LeadsPage() {
         <AGGridTable
           key={`${filteredLeads.length}-${selectedStatuses.join(',')}-${selectedWorkStatuses.join(',')}`}
           rowData={filteredLeads}
+          // ref={gridRef}
           columnDefs={columnDefs}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
@@ -1008,232 +1018,144 @@ export default function LeadsPage() {
       </div>
 
       {/* New Lead Form */}
+      {/* New Lead Form */}
       {newLeadForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="relative w-full max-w-4xl rounded-2xl bg-white dark:bg-gray-800 p-6 shadow-xl max-h-[none] overflow-y-visible">
-
-
+          <div className="relative w-full max-w-2xl rounded-2xl bg-white dark:bg-gray-800 p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <h2 className="mb-6 text-center text-2xl font-bold text-gray-900 dark:text-gray-100">
               New Lead Form
             </h2>
-
             <form
               onSubmit={handleNewLeadFormSubmit}
-              className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4"
+              className="grid grid-cols-1 gap-4 md:grid-cols-2"
             >
-              {/* Full Name */}
-              <div className="space-y-1">
-                <Input
-                  id="full_name"
-                  name="full_name"
-                  type="text"
-                  value={formData.full_name}
-                  onChange={handleNewLeadFormChange}
-                  required
-                  className="w-full"
-                  placeholder="Full Name *"
-                />
-              </div>
-
-              {/* Email */}
-              <div className="space-y-1">
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleNewLeadFormChange}
-                  required
-                  className="w-full"
-                  placeholder="Email * (example@domain.com)"
-                />
-              </div>
-
-              {/* Phone with formatting */}
-              <div className="space-y-1">
-                <Input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, '');
-                    setFormData(prev => ({ ...prev, phone: value }));
-                  }}
-                  required
-                  className="w-full"
-                  placeholder="Phone * (1234567890)"
-                  maxLength={15}
-                />
-              </div>
-
-              {/* Secondary Email */}
-              <div className="space-y-1">
-                <Input
-                  id="secondary_email"
-                  name="secondary_email"
-                  type="email"
-                  value={formData.secondary_email || ''}
-                  onChange={handleNewLeadFormChange}
-                  className="w-full"
-                  placeholder="Secondary Email (optional)"
-                />
-              </div>
-
-              {/* Secondary Phone */}
-              <div className="space-y-1">
-                <Input
-                  id="secondary_phone"
-                  name="secondary_phone"
-                  type="tel"
-                  value={formData.secondary_phone || ''}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, '');
-                    setFormData(prev => ({ ...prev, secondary_phone: value }));
-                  }}
-                  className="w-full"
-                  placeholder="Secondary Phone (optional)"
-                  maxLength={15}
-                />
-              </div>
-
-              {/* Work Status */}
-              <div className="space-y-1">
-                <select
-                  id="workstatus"
-                  name="workstatus"
-                  value={formData.workstatus}
-                  onChange={handleNewLeadFormChange}
-                  required
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              {Object.entries({
+                full_name: { label: "Full Name", type: "text", required: true },
+                email: { label: "Email", type: "email", required: true },
+                phone: { label: "Phone", type: "tel", required: true },
+                secondary_email: { label: "Secondary Email", type: "email" },
+                secondary_phone: { label: "Secondary Phone", type: "tel" },
+                workstatus: {
+                  label: "Work Status",
+                  type: "select",
+                  options: workStatusOptions,
+                  required: true,
+                },
+                address: { label: "Address", type: "text" },
+                status: {
+                  label: "Status",
+                  type: "select",
+                  options: statusOptions,
+                  required: true,
+                },
+                notes: { label: "Notes (optional)", type: "textarea" },
+                moved_to_candidate: {
+                  label: "Moved to Candidate",
+                  type: "checkbox",
+                },
+                massemail_unsubscribe: {
+                  label: "Mass Email Unsubscribe",
+                  type: "checkbox",
+                },
+                massemail_email_sent: {
+                  label: "Mass Email Sent",
+                  type: "checkbox",
+                },
+              }).map(([name, config]) => (
+                <div
+                  key={name}
+                  className={config.type === "textarea" ? "md:col-span-2" : ""}
                 >
-                  <option value="">Work Status *</option>
-                  {workStatusOptions.map((opt) => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
-              </div>
-                            {/* Status */}
-              <div className="space-y-1">
-                <select
-                  id="status"
-                  name="status"
-                  value={formData.status}
-                  onChange={handleNewLeadFormChange}
-                  required
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  <label
+                    htmlFor={name}
+                    className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    {config.label}
+                  </label>
+                  {config.type === "select" ? (
+                    <select
+                      id={name}
+                      name={name}
+                      value={formData[name as keyof FormData] as string}
+                      onChange={handleNewLeadFormChange}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required={config.required}
+                    >
+                      <option value="" disabled>
+                        Select {config.label}
+                      </option>
+                      {config.options?.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  ) : config.type === "textarea" ? (
+                    <textarea
+                      id={name}
+                      name={name}
+                      value={formData[name as keyof FormData] as string}
+                      onChange={handleNewLeadFormChange}
+                      rows={3}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  ) : config.type === "checkbox" ? (
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={name}
+                        name={name}
+                        checked={formData[name as keyof FormData] as boolean}
+                        onChange={handleNewLeadFormChange}
+                        className="h-4 w-4"
+                      />
+                      <label htmlFor={name} className="text-sm text-gray-700 dark:text-gray-300">
+                        {config.label}
+                      </label>
+                    </div>
+                  ) : (
+                    <input
+                      type={config.type}
+                      id={name}
+                      name={name}
+                      value={formData[name as keyof FormData] as string}
+                      onChange={handleNewLeadFormChange}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required={config.required}
+                    />
+                  )}
+                </div>
+              ))}
+              <div className="md:col-span-2">
+                <label
+                  htmlFor="entry_date"
+                  className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
                 >
-                  <option value="">Status *</option>
-                  {statusOptions.map((opt) => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Address */}
-              <div className="col-span-full space-y-1">
-                <Input
-                  id="address"
-                  name="address"
-                  type="text"
-                  value={formData.address}
-                  onChange={handleNewLeadFormChange}
-                  className="w-full"
-                  placeholder="Address (optional)"
-                />
-              </div>
-
-              {/* Notes - Full width */}
-              <div className="col-span-full space-y-1">
-                <textarea
-                  id="notes"
-                  name="notes"
-                  value={formData.notes || ''}
-                  onChange={handleNewLeadFormChange}
-                  rows={3}
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Notes (optional)"
-                />
-              </div>
-
-              {/* Checkboxes - Full width */}
-              <div className="col-span-full grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="moved_to_candidate"
-                    name="moved_to_candidate"
-                    checked={formData.moved_to_candidate}
-                    onChange={handleNewLeadFormChange}
-                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Moved to Candidate
-                  </span>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="massemail_unsubscribe"
-                    name="massemail_unsubscribe"
-                    checked={formData.massemail_unsubscribe}
-                    onChange={handleNewLeadFormChange}
-                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Mass Email Unsubscribe
-                  </span>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="massemail_email_sent"
-                    name="massemail_email_sent"
-                    checked={formData.massemail_email_sent}
-                    onChange={handleNewLeadFormChange}
-                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Mass Email Sent
-                  </span>
-                </div>
-              </div>
-
-              {/* Entry Date - Full width */}
-              <div className="col-span-full space-y-1">
-                <Input
+                  Entry Date
+                </label>
+                <input
+                  type="date"
                   id="entry_date"
                   name="entry_date"
-                  type="text"
-                  value={new Date().toLocaleDateString()}
-                  readOnly
-                  className="w-full bg-gray-100 dark:bg-gray-600"
-                  placeholder="Entry Date"
+                  value={formData.entry_date || new Date().toISOString().split("T")[0]}
+                  onChange={handleNewLeadFormChange}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
-              {/* Submit Button - Full width */}
-              <div className="col-span-full mt-6">
-                <Button
+              <div className="md:col-span-2">
+                <button
                   type="submit"
-                  className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md transition-colors"
                   disabled={formSaveLoading}
+                  className={`w-full rounded-md py-2 transition duration-200 ${formSaveLoading
+                    ? "cursor-not-allowed bg-gray-400"
+                    : "bg-green-600 text-white hover:bg-green-700"
+                    }`}
                 >
-                  {formSaveLoading ? (
-                    <>
-                      <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                      Saving...
-                    </>
-                  ) : (
-                    'Save Lead'
-                  )}
-                </Button>
+                  {formSaveLoading ? "Saving..." : "Save"}
+                </button>
               </div>
             </form>
-
-            {/* Close Button */}
             <button
               onClick={handleCloseNewLeadForm}
               className="absolute right-3 top-3 text-2xl leading-none text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
@@ -1244,6 +1166,7 @@ export default function LeadsPage() {
           </div>
         </div>
       )}
+
 
     </div>
   );
