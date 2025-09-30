@@ -79,13 +79,13 @@ const fieldSections: Record<string, string> = {
   enddate: "Professional Information",
   candidate_name: "Basic Information",
   candidate_role: "Basic Information",
-  google_voice_number: "Professional Information",
+  google_voice_number: "Basic Information",
   dob: "Basic Information",
   contact: "Basic Information",
   password: "Basic Information",
   secondaryemail: "Contact Information",
   ssn: "Professional Information",
-  priority: "Professional Information",
+  priority: "Basic Information",
   source: "Basic Information",
   subject: "Basic Information",
   title: "Basic Information",
@@ -607,6 +607,7 @@ export function EditModal({
             </svg>
           </button>
         </div>
+
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -651,191 +652,265 @@ export function EditModal({
                   <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                     {section}
                   </h3>
-                  {sectionedFields[section].map(({ key, value }) => {
-                    const isTypeField = key.toLowerCase() === "type";
-                    const isBatchField = key.toLowerCase() === "batchid";
-                    const isVendorField = isVendorModal && key.toLowerCase() === "status";
 
-                  
-                    if (key === "instructor1_name") {
-                      return (
-                        <div key={key} className="space-y-1">
-                          <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                            {toLabel(key)}
-                          </Label>
-                          <select
-                            value={formData.instructor1_id || ""}
-                            onChange={(e) => {
-                              const selected = employees.find(
-                                (emp) => emp.id === Number(e.target.value)
-                              );
-                              handleChange("instructor1_name", selected?.name || "");
-                              handleChange("instructor1_id", selected?.id || null);
-                            }}
-                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                          >
-                            {formData.instructor1_name && (
-                              <option value={formData.instructor1_id || ""}>
-                                {formData.instructor1_name}
-                              </option>
-                            )}
-                            <option value="">Select Instructor</option>
-                            {employees.map((emp) => (
-                              <option key={emp.id} value={emp.id}>
-                                {emp.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      );
-                    }
-                    if (key === "instructor2_name") {
-                      return (
-                        <div key={key} className="space-y-1">
-                          <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                            {toLabel(key)}
-                          </Label>
-                          <select
-                            value={formData.instructor2_id || ""}
-                            onChange={(e) => {
-                              const selected = employees.find(
-                                (emp) => emp.id === Number(e.target.value)
-                              );
-                              handleChange("instructor2_name", selected?.name || "");
-                              handleChange("instructor2_id", selected?.id || null);
-                            }}
-                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                          >
-                            {formData.instructor2_name && (
-                              <option value={formData.instructor2_id || ""}>
-                                {formData.instructor2_name}
-                              </option>
-                            )}
-                            <option value="">Select Instructor</option>
-                            {employees.map((emp) => (
-                              <option key={emp.id} value={emp.id}>
-                                {emp.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      );
-                    }
-                    if (key === "instructor3_name") {
-                      return (
-                        <div key={key} className="space-y-1">
-                          <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                            {toLabel(key)}
-                          </Label>
-                          <select
-                            value={formData.instructor3_id || ""}
-                            onChange={(e) => {
-                              const selected = employees.find(
-                                (emp) => emp.id === Number(e.target.value)
-                              );
-                              handleChange("instructor3_name", selected?.name || "");
-                              handleChange("instructor3_id", selected?.id || null);
-                            }}
-                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                          >
-                            {formData.instructor3_name && (
-                              <option value={formData.instructor3_id || ""}>
-                                {formData.instructor3_name}
-                              </option>
-                            )}
-                            <option value="">Select Instructor</option>
-                            {employees.map((emp) => (
-                              <option key={emp.id} value={emp.id}>
-                                {emp.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      );
-                    }
+                  {/* Conditionally render instructor dropdowns only for Preparation page */}
+                  {section === "Professional Information" && title.toLowerCase().includes("preparation") && (
+                    <>
+                      {/* Instructor 1 Dropdown */}
+                      <div className="space-y-1">
+                        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                          Instructor 1
+                        </Label>
+                        <select
+                          value={formData.instructor1_id || ""}
+                          onChange={(e) => {
+                            const selected = employees.find(
+                              (emp) => emp.id === Number(e.target.value)
+                            );
+                            handleChange("instructor1_name", selected?.name || "");
+                            handleChange("instructor1_id", selected?.id || null);
+                          }}
+                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                        >
+                          <option value="">Select Instructor</option>
+                          {employees.map((emp) => (
+                            <option key={emp.id} value={emp.id}>
+                              {emp.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                    // Subject ID Dropdown
-                    if (key.toLowerCase() === "subjectid") {
-                      return (
-                        <div key={key} className="space-y-1">
-                          <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                            {toLabel(key)}
-                          </Label>
-                          <select
-                            value={formData[key] || "0"}
-                            onChange={(e) => handleChange(key, Number(e.target.value))}
-                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                          >
-                            <option value="0">0</option>
-                            {subjects.map((subject) => (
-                              <option key={subject.id} value={subject.id}>
-                                {subject.id}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      );
-                    }
+                      {/* Instructor 2 Dropdown */}
+                      <div className="space-y-1">
+                        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                          Instructor 2
+                        </Label>
+                        <select
+                          value={formData.instructor2_id || ""}
+                          onChange={(e) => {
+                            const selected = employees.find(
+                              (emp) => emp.id === Number(e.target.value)
+                            );
+                            handleChange("instructor2_name", selected?.name || "");
+                            handleChange("instructor2_id", selected?.id || null);
+                          }}
+                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                        >
+                          <option value="">Select Instructor</option>
+                          {employees.map((emp) => (
+                            <option key={emp.id} value={emp.id}>
+                              {emp.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                    // Course Name Dropdown
-                    if (key.toLowerCase() === "course_name") {
-                      return (
-                        <div key={key} className="space-y-1">
-                          <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                            {toLabel(key)}
-                          </Label>
-                          <select
-                            value={formData["course_name"] || ""}
-                            onChange={(e) => handleChange("course_name", e.target.value)}
-                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                          >
-                            {courses.length === 0 ? (
-                              <option value="">Loading...</option>
-                            ) : (
-                              <>
-                                {courses.map((course) => (
-                                  <option key={course.id} value={course.name}>
-                                    {course.name}
-                                  </option>
-                                ))}
-                              </>
-                            )}
-                          </select>
-                        </div>
-                      );
-                    }
+                      {/* Instructor 3 Dropdown */}
+                      <div className="space-y-1">
+                        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                          Instructor 3
+                        </Label>
+                        <select
+                          value={formData.instructor3_id || ""}
+                          onChange={(e) => {
+                            const selected = employees.find(
+                              (emp) => emp.id === Number(e.target.value)
+                            );
+                            handleChange("instructor3_name", selected?.name || "");
+                            handleChange("instructor3_id", selected?.id || null);
+                          }}
+                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                        >
+                          <option value="">Select Instructor</option>
+                          {employees.map((emp) => (
+                            <option key={emp.id} value={emp.id}>
+                              {emp.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  )}
 
-                    // Subject Name Dropdown
-                    if (key.toLowerCase() === "subject_name") {
-                      return (
-                        <div key={key} className="space-y-1">
-                          <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                            {toLabel(key)}
-                          </Label>
-                          <select
-                            value={formData["subject_name"] || ""}
-                            onChange={(e) => handleChange("subject_name", e.target.value)}
-                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                          >
-                            {subjects.length === 0 ? (
-                              <option value="">Loading...</option>
-                            ) : (
-                              <>
-                                {subjects.map((subject) => (
-                                  <option key={subject.id} value={subject.name}>
-                                    {subject.name}
-                                  </option>
-                                ))}
-                              </>
-                            )}
-                          </select>
-                        </div>
-                      );
-                    }
+                  {/* Render other fields in the section */}
+                  {sectionedFields[section]
+                    .filter(
+                      ({ key }) =>
+                        ![
+                          "instructor1_name",
+                          "instructor2_name",
+                          "instructor3_name",
+                          "instructor1_id",
+                          "instructor2_id",
+                          "instructor3_id",
+                        ].includes(key)
+                    )
+                    .map(({ key, value }) => {
+                      const isTypeField = key.toLowerCase() === "type";
+                      const isBatchField = key.toLowerCase() === "batchid";
+                      const isVendorField = isVendorModal && key.toLowerCase() === "status";
+                      if (isInterviewOrMarketing && ["instructor1_name", "instructor2_name", "instructor3_name"].includes(key)) {
+                        return null;
+                      }
 
-                  
-                    if (isTypeField) {
-                      if (isVendorModal) {
+if (isTypeField) {
+  if (isVendorModal) {
+    return (
+      <div key={key} className="space-y-1">
+        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+          {toLabel(key)}
+        </Label>
+        <select
+          value={String(formData[key] ?? "")}
+          onChange={(e) => handleChange(key, e.target.value)}
+          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+        >
+          {enumOptions["type"].map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  } else {
+    return (
+      <div key={key} className="space-y-1">
+        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+          {toLabel(key)}
+        </Label>
+        <Input
+          value={formData[key] ?? ""}
+          onChange={(e) => handleChange(key, e.target.value)}
+          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+        />
+      </div>
+    );
+  }
+}
+
+                      if (key.toLowerCase() === "subjectid") {
+                        return (
+                          <div key={key} className="space-y-1">
+                            <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                              {toLabel(key)}
+                            </Label>
+                            <select
+                              value={formData[key] || "0"}
+                              onChange={(e) => handleChange(key, Number(e.target.value))}
+                              className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                            >
+                              <option value="0">0</option>
+                              {subjects.map((subject) => (
+                                <option key={subject.id} value={subject.id}>
+                                  {subject.id}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        );
+                      }
+                      if (key.toLowerCase() === "course_name") {
+                        return (
+                          <div key={key} className="space-y-1">
+                            <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                              {toLabel(key)}
+                            </Label>
+                            <select
+                              value={formData["course_name"] || ""}
+                              onChange={(e) => handleChange("course_name", e.target.value)}
+                              className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                            >
+                              {courses.length === 0 ? (
+                                <option value="">Loading...</option>
+                              ) : (
+                                <>
+                                  {courses.map((course) => (
+                                    <option key={course.id} value={course.name}>
+                                      {course.name}
+                                    </option>
+                                  ))}
+                                </>
+                              )}
+                            </select>
+                          </div>
+                        );
+                      }
+                      if (key.toLowerCase() === "subject_name") {
+                        return (
+                          <div key={key} className="space-y-1">
+                            <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                              {toLabel(key)}
+                            </Label>
+                            <select
+                              value={formData["subject_name"] || ""}
+                              onChange={(e) => handleChange("subject_name", e.target.value)}
+                              className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                            >
+                              {subjects.length === 0 ? (
+                                <option value="">Loading...</option>
+                              ) : (
+                                <>
+                                  {subjects.map((subject) => (
+                                    <option key={subject.id} value={subject.name}>
+                                      {subject.name}
+                                    </option>
+                                  ))}
+                                </>
+                              )}
+                            </select>
+                          </div>
+                        );
+                      }
+                      if (isBatchField) {
+                        return (
+                          <div key={key} className="space-y-1">
+                            <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                              {toLabel(key)}
+                            </Label>
+                            <select
+                              value={formData.batchid || ""}
+                              onChange={(e) => {
+                                const selectedBatch = batches.find(batch => batch.batchid === Number(e.target.value));
+                                handleChange("batchid", Number(e.target.value));
+                                if (selectedBatch) {
+                                  handleChange("batchname", selectedBatch.batchname);
+                                }
+                              }}
+                              className="border rounded-md p-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="">Select a batch (optional)</option>
+                              {batches.map(batch => (
+                                <option key={batch.batchid} value={batch.batchid}>
+                                  {batch.batchname}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        );
+                      }
+                      if (dateFields.includes(key.toLowerCase())) {
+                        return (
+                          <div key={key} className="space-y-1">
+                            <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                              {toLabel(key)}
+                            </Label>
+                            <input
+                              type="date"
+                              value={
+                                formData[key] && !isNaN(new Date(formData[key]).getTime())
+                                  ? new Date(formData[key]).toISOString().split("T")[0]
+                                  : ""
+                              }
+                              onChange={(e) => handleChange(key, e.target.value)}
+                              className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                            />
+                          </div>
+                        );
+                      }
+                      if (isVendorField) {
+
                         return (
                           <div key={key} className="space-y-1">
                             <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
@@ -972,6 +1047,7 @@ export function EditModal({
                 </div>
               ))}
           </div>
+
           {/* Notes Section */}
           {sectionedFields["Notes"].length > 0 && (
             <div className="px-6 pb-6">
@@ -991,6 +1067,7 @@ export function EditModal({
               </div>
             </div>
           )}
+
           {/* Footer */}
           <div className="flex justify-end px-6 pb-6">
             <button
