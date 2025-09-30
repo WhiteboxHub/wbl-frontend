@@ -155,7 +155,8 @@ const CandidateNameRenderer = (params: any) => {
   }
   return (
     <Link
-      href={`/avatar/candidates/search?candidateId=${candidateId}`}
+
+      href={`/avatar/candidates/search?candidateId=${candidateId}`} 
       className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
     >
       {candidateName}
@@ -497,7 +498,7 @@ export default function CandidatesPage() {
       headerName: "Status",
       width: 120,
       sortable: true,
-      filter: 'agTextColumnFilter', // <-- text filter for searching
+      filter: 'agTextColumnFilter', 
       cellRenderer: StatusRenderer,
       headerComponent: (props: any) => (
         <FilterHeaderComponent

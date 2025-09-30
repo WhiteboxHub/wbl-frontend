@@ -10,6 +10,7 @@ import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { createPortal } from "react-dom";
+import { toast, Toaster } from "sonner";
 
 // ---------------- Status Renderer ----------------
 const StatusRenderer = (params: any) => (
@@ -80,19 +81,22 @@ const StatusHeaderComponent = (props: any) => {
             className="z-[99999] bg-white border rounded shadow-lg p-3 flex flex-col space-y-2 w-48 pointer-events-auto"
             style={{ top: dropdownPos.top, left: dropdownPos.left, position: "fixed" }}
           >
-            {[{ value: "active", label: "Active" }, { value: "break", label: "Break" }, { value: "inactive", label: "Inactive" }, { value: "discontinued", label: "Discontinued" }].map(
-              ({ value, label }) => (
-                <label key={value} className="flex items-center px-2 py-1 hover:bg-gray-100 cursor-pointer rounded">
-                  <input
-                    type="checkbox"
-                    checked={selectedStatuses.includes(value)}
-                    onChange={() => handleStatusChange(value)}
-                    className="mr-3"
-                  />
-                  {label}
-                </label>
-              )
-            )}
+            {[
+              { value: "active", label: "Active" },
+              { value: "inactive", label: "Inactive" },
+              // { value: "break", label: "Break" },
+              // { value: "discontinued", label: "Discontinued" }
+            ].map(({ value, label }) => (
+              <label key={value} className="flex items-center px-2 py-1 hover:bg-gray-100 cursor-pointer rounded">
+                <input
+                  type="checkbox"
+                  checked={selectedStatuses.includes(value)}
+                  onChange={() => handleStatusChange(value)}
+                  className="mr-3 h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                />
+                {label}
+              </label>
+            ))}
           </div>,
           document.body
         )}
@@ -108,20 +112,15 @@ export default function CandidatesPrepPage() {
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
   const [instructors, setInstructors] = useState<any[]>([]);
-
   const [showAddForm, setShowAddForm] = useState(false);
   const [newCandidate, setNewCandidate] = useState<any>({
     candidate_Name: "",
     batch: "",
     start_date: "",
     status: "",
-    instructor1_id: "",
     instructor1_Name: "",
-    instructor2_id: "",
     instructor2_Name: "",
-    instructor3_id: "",
     instructor3_Name: "",
     rating: "",
     tech_rating: "",
@@ -139,7 +138,6 @@ export default function CandidatesPrepPage() {
       try {
         setLoading(true);
         const token = localStorage.getItem("token");
-
         const [candidatesRes, instructorsRes] = await Promise.all([
           axios.get(`${process.env.NEXT_PUBLIC_API_URL}/candidate_preparations`, {
             headers: { Authorization: `Bearer ${token}` },
@@ -148,11 +146,11 @@ export default function CandidatesPrepPage() {
             headers: { Authorization: `Bearer ${token}` },
           }),
         ]);
-
         setAllCandidates(candidatesRes.data || []);
         setInstructors(instructorsRes.data || []);
       } catch {
         setError("Failed to load data.");
+        toast.error("Failed to load data.");
       } finally {
         setLoading(false);
       }
@@ -160,9 +158,9 @@ export default function CandidatesPrepPage() {
     fetchData();
   }, []);
 
-  // ---------------- Filtering ----------------
+  // ---------------- Filtering and Sorting ----------------
   useEffect(() => {
-    let filtered = allCandidates;
+    let filtered = [...allCandidates];
     if (selectedStatuses.length > 0) {
       filtered = filtered.filter((c) => selectedStatuses.includes(c.status?.toLowerCase()));
     }
@@ -170,6 +168,12 @@ export default function CandidatesPrepPage() {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter((c) => c.candidate?.full_name?.toLowerCase().includes(term));
     }
+    // Sort: active first, then by id (descending)
+    filtered.sort((a, b) => {
+      if (a.status === "active" && b.status !== "active") return -1;
+      if (a.status !== "active" && b.status === "active") return 1;
+      return b.id - a.id;
+    });
     setFilteredCandidates(filtered);
   }, [allCandidates, searchTerm, selectedStatuses]);
 
@@ -211,8 +215,10 @@ export default function CandidatesPrepPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       setFilteredCandidates((prev) => prev.map((row) => (row.id === updatedRow.id ? { ...row, ...payload } : row)));
+      toast.success("Candidate preparation updated successfully!");
     } catch (err) {
       console.error("Failed to update:", err);
+      toast.error("Failed to update candidate preparation.");
     }
   };
 
@@ -223,8 +229,10 @@ export default function CandidatesPrepPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       setFilteredCandidates((prev) => prev.filter((row) => row.id !== id));
+      toast.success("Candidate preparation deleted successfully!");
     } catch (err) {
       console.error("Failed to delete:", err);
+      toast.error("Failed to delete candidate preparation.");
     }
   };
 
@@ -242,11 +250,8 @@ export default function CandidatesPrepPage() {
         batch: "",
         start_date: "",
         status: "",
-        instructor1_id: "",
         instructor1_Name: "",
-        instructor2_id: "",
         instructor2_Name: "",
-        instructor3_id: "",
         instructor3_Name: "",
         rating: "",
         tech_rating: "",
@@ -257,14 +262,17 @@ export default function CandidatesPrepPage() {
         target_date_of_marketing: "",
         notes: "",
       });
+      toast.success("Candidate preparation added successfully!");
     } catch (err) {
       console.error("Failed to add candidate preparation:", err);
+      toast.error("Failed to add candidate preparation.");
     }
   };
 
   // ---------------- Render ----------------
   return (
     <div className="space-y-6 p-4">
+      <Toaster position="top-center" richColors />
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Candidate Preparations</h1>
@@ -277,7 +285,6 @@ export default function CandidatesPrepPage() {
           + Add Preparation
         </button>
       </div>
-
       {/* Search */}
       <div className="max-w-md">
         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -295,7 +302,6 @@ export default function CandidatesPrepPage() {
           />
         </div>
       </div>
-
       {/* Data Table */}
       {loading ? (
         <p className="text-center text-sm text-gray-500 dark:text-gray-400">Loading...</p>
@@ -307,7 +313,7 @@ export default function CandidatesPrepPage() {
             <AGGridTable
               rowData={filteredCandidates}
               columnDefs={columnDefs}
-              title={`Candidate Preparations (${filteredCandidates.length})`}
+              title={`Candidate Preparations (${allCandidates.length})`}
               height="calc(80vh)"
               showSearch={false}
               onRowUpdated={handleRowUpdated}
@@ -316,7 +322,6 @@ export default function CandidatesPrepPage() {
           </div>
         </div>
       )}
-
       {/* Add Candidate Modal */}
       {showAddForm && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
@@ -352,7 +357,6 @@ export default function CandidatesPrepPage() {
                   </div>
                 );
               })}
-
               {/* Instructor Dropdowns */}
               {["1", "2", "3"].map((num) => (
                 <div key={num} className="space-y-1">
@@ -372,15 +376,13 @@ export default function CandidatesPrepPage() {
                     className="w-full p-2 border rounded"
                   >
                     <option value="">Select Instructor</option>
-
                     {/* Ensure current instructor shows even if not in list */}
                     {newCandidate[`instructor${num}_id`] &&
                       !instructors.some((ins) => ins.id === Number(newCandidate[`instructor${num}_id`])) && (
                         <option value={newCandidate[`instructor${num}_id`]}>
                           {newCandidate[`instructor${num}_Name`] || "Current Instructor"}
                         </option>
-                    )}
-
+                      )}
                     {instructors.map((ins) => (
                       <option key={ins.id} value={ins.id}>
                         {ins.name}
@@ -389,7 +391,6 @@ export default function CandidatesPrepPage() {
                   </select>
                 </div>
               ))}
-
               {/* Status Dropdown */}
               <div className="space-y-1">
                 <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Status</Label>
@@ -400,13 +401,12 @@ export default function CandidatesPrepPage() {
                 >
                   <option value="">Select Status</option>
                   <option value="active">Active</option>
-                  <option value="break">Break</option>
+                  {/* <option value="break">Break</option> */}
                   <option value="inactive">Inactive</option>
-                  <option value="discontinued">Discontinued</option>
+                  {/* <option value="discontinued">Discontinued</option> */}
                 </select>
               </div>
             </div>
-
             <div className="flex justify-end mt-6 space-x-3">
               <button onClick={() => setShowAddForm(false)} className="px-4 py-2 bg-gray-300 rounded">
                 Cancel
