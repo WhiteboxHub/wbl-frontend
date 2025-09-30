@@ -1177,7 +1177,6 @@ const handleRowDeleted = useCallback(async (id: number) => {
                     onChange={handleNewCandidateFormChange}
                     className="w-full h-10 p-2 border rounded-md"
                   >
-                    <option value="">Select Work Status</option>
                     {workStatusOptions.map((status) => (
                       <option key={status} value={status}>
                         {status}
@@ -1343,7 +1342,7 @@ const handleRowDeleted = useCallback(async (id: number) => {
                       <option value="0">Loading batches...</option>
                     ) : (
                       <>
-                        <option value="0">Select a batch </option>
+                     
                         {mlBatches.map((batch) => (
                           <option key={batch.batchid} value={batch.batchid}>
                             {batch.batchname}

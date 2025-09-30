@@ -642,7 +642,7 @@ export function EditModal({
             onClose();
           }}
         >
-          {/* All Sections in Grid Layout */}
+        
           <div className={`grid ${gridColsClass} gap-6 p-6`}>
             {visibleSections
               .filter((section) => section !== "Notes")
@@ -656,7 +656,7 @@ export function EditModal({
                     const isBatchField = key.toLowerCase() === "batchid";
                     const isVendorField = isVendorModal && key.toLowerCase() === "status";
 
-                    // Instructor Dropdowns
+                  
                     if (key === "instructor1_name") {
                       return (
                         <div key={key} className="space-y-1">
@@ -833,7 +833,7 @@ export function EditModal({
                       );
                     }
 
-                    // Type Field: Dropdown only for vendor modals, else read-only
+                  
                     if (isTypeField) {
                       if (isVendorModal) {
                         return (

@@ -1030,9 +1030,9 @@ export default function LeadsPage() {
               className="grid grid-cols-1 gap-4 md:grid-cols-2"
             >
               {Object.entries({
-                full_name: { label: "Full Name", type: "text", required: true },
-                email: { label: "Email", type: "email", required: true },
-                phone: { label: "Phone", type: "tel", required: true },
+                full_name: { label: "Full Name *", type: "text", required: true },
+                email: { label: "Email *", type: "email", required: true },
+                phone: { label: "Phone *", type: "tel", required: true },
                 secondary_email: { label: "Secondary Email", type: "email" },
                 secondary_phone: { label: "Secondary Phone", type: "tel" },
                 workstatus: {
