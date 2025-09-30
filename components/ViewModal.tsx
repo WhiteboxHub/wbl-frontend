@@ -142,7 +142,8 @@ const fieldSections: Record<string, string> = {
   subject_name: "Basic Information",
 
   mode_of_interview: "Basic Information",
-  employee_name: "Basic Information"
+  employee_name: "Basic Information",
+  secondaryphone:"Contact Information"
 
 };
 

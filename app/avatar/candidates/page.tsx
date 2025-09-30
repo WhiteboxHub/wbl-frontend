@@ -1,6 +1,4 @@
 
-
-
 "use client";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
@@ -155,8 +153,7 @@ const CandidateNameRenderer = (params: any) => {
   }
   return (
     <Link
-
-      href={`/avatar/candidates/search?candidateId=${candidateId}`} 
+      href={`/avatar/candidates/search?candidateId=${candidateId}`}
       className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
     >
       {candidateName}
@@ -409,7 +406,7 @@ export default function CandidatesPage() {
     });
   };
 
-  // Column Definitions with updated renderers and filters
+
   const columnDefs: ColDef<any, any>[] = useMemo(() => [
     {
       field: "id",
@@ -620,6 +617,15 @@ export default function CandidatesPage() {
       width: 150,
       sortable: true,
       filter: 'agSetColumnFilter',
+      cellRenderer: (params: any) => {
+        if (!params.value) return "";
+        const formattedPhone = formatPhoneNumber(params.value);
+        return (
+          <a href={`tel:${params.value}`} className="text-blue-600 underline hover:text-purple-800">
+            {formattedPhone}
+          </a>
+        );
+      }
       
     },
     {
@@ -945,50 +951,61 @@ export default function CandidatesPage() {
     }
   };
 
-  const handleRowUpdated = useCallback(async (updatedRow: Candidate) => {
-    setLoadingRowId(updatedRow.id);
-    try {
-      const updatedData = { ...updatedRow };
-      if (!updatedData.status || updatedData.status === '') {
-        updatedData.status = 'active';
-      }
-      const { id, ...payload } = updatedData;
-      const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) throw new Error("Failed to update candidate");
-      fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
-      toast.success("Candidate updated successfully");
-    } catch (error) {
-      toast.error("Failed to update candidate");
-      console.error("Error updating candidate:", error);
-    } finally {
-      setLoadingRowId(null);
+const handleRowUpdated = useCallback(async (updatedRow: Candidate) => {
+  setLoadingRowId(updatedRow.id);
+  try {
+    const updatedData = { ...updatedRow };
+    if (!updatedData.status || updatedData.status === '') {
+      updatedData.status = 'active';
     }
-  }, [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchCandidates]);
+    const { id, ...payload } = updatedData;
 
-  const handleRowDeleted = useCallback(async (id: number) => {
-    try {
-      const response = await fetch(`${apiEndpoint}/${id}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) throw new Error("Failed to delete candidate");
-      toast.success("Candidate deleted successfully");
-      fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
-    } catch (error) {
-      toast.error("Failed to delete candidate");
-      console.error("Error deleting candidate:", error);
+    const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) throw new Error("Failed to update candidate");
+
+    toast.success("Candidate updated successfully");
+
+    // Update only this row in AG Grid
+    if (gridRef.current) {
+      const rowNode = gridRef.current.api.getRowNode(updatedRow.id.toString());
+      if (rowNode) rowNode.setData(updatedData);
     }
-  }, [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchCandidates]);
+
+  } catch (error) {
+    toast.error("Failed to update candidate");
+    console.error("Error updating candidate:", error);
+  } finally {
+    setLoadingRowId(null);
+  }
+}, [apiEndpoint]);
+
+const handleRowDeleted = useCallback(async (id: number) => {
+  try {
+    const response = await fetch(`${apiEndpoint}/${id}`, { method: "DELETE" });
+    if (!response.ok) throw new Error("Failed to delete candidate");
+
+    toast.success("Candidate deleted successfully");
+
+    if (gridRef.current) {
+      gridRef.current.api.applyTransaction({ remove: [{ id }] });
+    }
+
+  } catch (error) {
+    toast.error("Failed to delete candidate");
+    console.error("Error deleting candidate:", error);
+  }
+}, [apiEndpoint]);
 
   const handleFilterChanged = useCallback((filterModelFromGrid: any) => {
     setFilterModel(filterModelFromGrid);
     fetchCandidates(searchTerm, searchBy, sortModel, filterModelFromGrid);
   }, [searchTerm, searchBy, sortModel, fetchCandidates]);
 
-  // Error handling
+
   if (error) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -1007,7 +1024,7 @@ export default function CandidatesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Add CSS for scrollable dropdowns */}
+     
       <style jsx global>{`
         .filter-dropdown {
           scrollbar-width: thin;
@@ -1085,6 +1102,7 @@ export default function CandidatesPage() {
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
           showFilters={true}
+          getRowNodeId={data => data.id.toString()}
           showSearch={true}
           batches={allBatches}
        
@@ -1095,7 +1113,6 @@ export default function CandidatesPage() {
         />
       </div>
 
-      {/* New Candidate Form */}
       {newCandidateForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
           <div className="relative w-full max-w-4xl rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl overflow-y-auto max-h-[90vh]">
@@ -1166,7 +1183,7 @@ export default function CandidatesPage() {
                     onChange={handleNewCandidateFormChange}
                     className="w-full h-10 p-2 border rounded-md"
                   >
-                    <option value="">Select Work Status</option>
+                    
                     {workStatusOptions.map((status) => (
                       <option key={status} value={status}>
                         {status}
@@ -1332,7 +1349,7 @@ export default function CandidatesPage() {
                       <option value="0">Loading batches...</option>
                     ) : (
                       <>
-                        <option value="0">Select a batch </option>
+                    
                         {mlBatches.map((batch) => (
                           <option key={batch.batchid} value={batch.batchid}>
                             {batch.batchname}
@@ -1402,3 +1419,5 @@ export default function CandidatesPage() {
     </div>
   );
 }
+
+
