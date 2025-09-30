@@ -150,21 +150,26 @@ const fieldSections: Record<string, string> = {
   notes: "Notes",
   course_name: "Professional Information",
   subject_name: "Basic Information",
-  assigned_date: "Professional Information",
-  employee_name: "Basic Information"
+
+  secondary_email: "Contact Information",
+  secondaryphone: "Contact Information",
+  assigned_date: "Basic Information",
+  employee_name: "Basic Information",
+
 };
 
 const workVisaStatusOptions = [
-  { value: "waiting for status", label: "Waiting for Status" },
-  { value: "citizen", label: "Citizen" },
-  { value: "f1", label: "F1" },
-  { value: "other", label: "Other" },
-  { value: "permanent resident", label: "Permanent Resident" },
-  { value: "h4", label: "H4" },
-  { value: "ead", label: "EAD" },
-  { value: "green card", label: "Green Card" },
-  { value: "h1b", label: "H1B" },
+  { value: "Waiting for Status", label: "Waiting for Status" },
+  { value: "Citizen", label: "Citizen" },
+  { value: "F1", label: "F1" },
+  { value: "Other", label: "Other" },
+  { value: "Permanent Resident", label: "Permanent Resident" },
+  { value: "H4", label: "H4" },
+  { value: "EAD", label: "EAD" },
+  { value: "Green Card", label: "Green Card" },
+  { value: "H1B", label: "H1B" },
 ];
+
 
 const reorderYesNoOptions = (
   key: string,
@@ -261,11 +266,11 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "In Person", label: "In Person" },
     { value: "Prep Call", label: "Prep Call" },
   ],
-  feedback:  [
-  { value: 'Pending', label: 'Pending' },
-  { value: 'Positive', label: 'Positive' },
-  { value: 'Negative', label: 'Negative' },
-],
+  feedback: [
+    { value: 'Pending', label: 'Pending' },
+    { value: 'Positive', label: 'Positive' },
+    { value: 'Negative', label: 'Negative' },
+  ],
 };
 
 const labelOverrides: Record<string, string> = {
@@ -407,14 +412,15 @@ export function EditModal({
       flattened.instructor3_id = data.instructor3.id;
     }
     if (data.visa_status) {
-      flattened.visa_status = String(data.visa_status).toLowerCase();
+      flattened.visa_status = String(data.visa_status);
     }
     if (data.workstatus) {
-      flattened.workstatus = String(data.workstatus).toLowerCase();
+      flattened.workstatus = String(data.workstatus);
     }
     if (data.work_status) {
-      flattened.work_status = String(data.work_status).toLowerCase();
+      flattened.work_status = String(data.work_status);
     }
+
     return flattened;
   };
 
@@ -637,7 +643,7 @@ export function EditModal({
             onClose();
           }}
         >
-          {/* All Sections in Grid Layout */}
+        
           <div className={`grid ${gridColsClass} gap-6 p-6`}>
             {visibleSections
               .filter((section) => section !== "Notes")
@@ -646,6 +652,7 @@ export function EditModal({
                   <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                     {section}
                   </h3>
+
                   {/* Conditionally render instructor dropdowns only for Preparation page */}
                   {section === "Professional Information" && title.toLowerCase().includes("preparation") && (
                     <>
@@ -903,6 +910,7 @@ if (isTypeField) {
                         );
                       }
                       if (isVendorField) {
+
                         return (
                           <div key={key} className="space-y-1">
                             <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
@@ -913,7 +921,7 @@ if (isTypeField) {
                               onChange={(e) => handleChange(key, e.target.value)}
                               className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
                             >
-                              {vendorStatuses.map((opt) => (
+                              {enumOptions["type"].map((opt) => (
                                 <option key={opt.value} value={opt.value}>
                                   {opt.label}
                                 </option>
@@ -921,61 +929,121 @@ if (isTypeField) {
                             </select>
                           </div>
                         );
-                      }
-                      if (enumOptions[key.toLowerCase()]) {
+                      } else {
                         return (
                           <div key={key} className="space-y-1">
                             <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                               {toLabel(key)}
                             </Label>
-                            <select
-                              value={String(formData[key] ?? "")}
-                              onChange={(e) =>
-                                handleChange(
-                                  key,
-                                  e.target.value === "true"
-                                    ? true
-                                    : e.target.value === "false"
-                                      ? false
-                                      : e.target.value
-                                )
-                              }
-                              className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                            >
-                              {reorderYesNoOptions(key, value, enumOptions[key.toLowerCase()]).map((opt) => (
-                                <option key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        );
-                      }
-                      if (typeof value === "string" && value.length > 100) {
-                        return (
-                          <div key={key} className="space-y-1">
-                            <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                              {toLabel(key)}
-                            </Label>
-                            <Textarea
-                              value={formData[key] || ""}
-                              onChange={(e) => handleChange(key, e.target.value)}
+                            <Input
+                              value={formData[key] ?? ""}
+                              readOnly
+                              className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100 bg-gray-100 cursor-not-allowed"
                             />
                           </div>
                         );
                       }
-                      return (
-                        <div key={key} className="space-y-1">
-                          <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                            {toLabel(key)}
-                          </Label>
+                    }
+
+
+                    return (
+                      <div key={key} className="space-y-1">
+                        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                          {toLabel(key)}
+                        </Label>
+                        {key.toLowerCase() === "courseid" ? (
+                          <select
+                            value={formData["courseid"]}
+                            onChange={(e) =>
+                              handleChange("courseid", Number(e.target.value))
+                            }
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          >
+                            {courses.map((course) => (
+                              <option key={course.id} value={course.id}>
+                                {course.id}
+                              </option>
+                            ))}
+                            <option value="0">0</option>
+                            <option value="9">9</option>
+                          </select>
+                        ) : isBatchField ? (
+                          <select
+                            value={formData.batchid || ""}
+                            onChange={(e) => {
+                              const selectedBatch = batches.find(batch => batch.batchid === Number(e.target.value));
+                              handleChange("batchid", Number(e.target.value));
+                              if (selectedBatch) {
+                                handleChange("batchname", selectedBatch.batchname);
+                              }
+                            }}
+                            className="border rounded-md p-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="">Select a batch (optional)</option>
+                            {batches.map(batch => (
+                              <option key={batch.batchid} value={batch.batchid}>
+                                {batch.batchname}
+                              </option>
+                            ))}
+                          </select>
+                        ) : dateFields.includes(key.toLowerCase()) ? (
+                          <input
+                            type="date"
+                            value={
+                              formData[key] && !isNaN(new Date(formData[key]).getTime())
+                                ? new Date(formData[key]).toISOString().split("T")[0]
+                                : ""
+                            }
+                            onChange={(e) => handleChange(key, e.target.value)}
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          />
+                        ) : isVendorField ? (
+                          <select
+                            value={String(formData[key] ?? "")}
+                            onChange={(e) => handleChange(key, e.target.value)}
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          >
+                            {vendorStatuses.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : enumOptions[key.toLowerCase()] ? (
+                          <select
+                            value={String(formData[key] ?? "")}
+                            onChange={(e) =>
+                              handleChange(
+                                key,
+                                e.target.value === "true"
+                                  ? true
+                                  : e.target.value === "false"
+                                    ? false
+                                    : e.target.value
+                              )
+                            }
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          >
+                            {reorderYesNoOptions(key, value, enumOptions[key.toLowerCase()]).map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : typeof value === "string" && value.length > 100 ? (
+                          <Textarea
+                            value={formData[key] || ""}
+                            onChange={(e) => handleChange(key, e.target.value)}
+                          />
+                        ) : (
                           <Input
                             value={formData[key] ?? ""}
                             onChange={(e) => handleChange(key, e.target.value)}
                           />
-                        </div>
-                      );
-                    })}
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               ))}
           </div>
