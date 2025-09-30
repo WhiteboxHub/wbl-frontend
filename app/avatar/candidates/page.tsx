@@ -639,6 +639,20 @@ const getWorkStatusColor = (status) => {
 
         const handleNewCandidateFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
           const { name, value, type } = e.target;
+
+          if (name === "phone"|| name === 'secondaryphone'|| name === 'emergcontactphone') {
+            // Allow only numbers
+            const numericValue = value.replace(/[^0-9]/g, "");
+            setFormData((prev) => ({ ...prev, [name]: numericValue }));
+            return;
+          }
+
+          if (name === "full_name"|| name === 'emergcontactname') {
+            // Allow letters (a-z, A-Z), dot, and spaces
+            const nameValue = value.replace(/[^a-zA-Z. ]/g, "");
+            setFormData((prev) => ({ ...prev, [name]: nameValue }));
+            return;
+          }
           if (type === 'checkbox') {
             const checked = (e.target as HTMLInputElement).checked;
             setFormData(prev => ({ ...prev, [name]: checked ? 'Y' : 'N' }));
@@ -758,6 +772,9 @@ useEffect(() => {
   window.addEventListener("keydown", handleEsc);
   return () => window.removeEventListener("keydown", handleEsc);
 }, []);
+
+
+
 
   // Column Definitions
   const columnDefs: ColDef<any, any>[] = useMemo(() => [
@@ -1125,13 +1142,13 @@ useEffect(() => {
                 overlayNoRowsTemplate={loading ? "" : '<span class="ag-overlay-no-rows-center">No candidates found</span>'}
               />
             </div>
+            
 
 {/* + Add New candidate */}
 {newCandidateForm && (
   <div
     className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4"
     onClick={(e) => {
-      // Close modal if clicking outside the modal content
       if (e.target === e.currentTarget) {
         handleCloseNewCandidateForm();
       }
@@ -1223,13 +1240,13 @@ useEffect(() => {
             value={formData.workstatus}
             onChange={handleNewCandidateFormChange}
             className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-200 font-semibold"
-            style={getWorkStatusColor(formData.workstatus)} // selected value color
+            style={getWorkStatusColor(formData.workstatus)} 
           >
             {workStatusOptions.map((status) => (
               <option
                 key={status}
                 value={status}
-                style={getWorkStatusColor(status)} // color for each option
+                style={getWorkStatusColor(status)} 
               >
                 {status.charAt(0).toUpperCase() + status.slice(1)}
               </option>
@@ -1443,7 +1460,6 @@ useEffect(() => {
                 <option value="0">Loading batches...</option>
               ) : (
                 <>
-                  {/* <option value="0">Select a batch </option> */}
                   {mlBatches.map((batch) => (
                     <option key={batch.batchid} value={batch.batchid}>
                       {batch.batchname}

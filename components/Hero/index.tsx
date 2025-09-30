@@ -304,5 +304,3 @@ const Hero = () => {
 
 export default Hero;
 
-
-// abive code is production so please don't change and remove /////
