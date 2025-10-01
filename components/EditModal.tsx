@@ -343,7 +343,7 @@ const labelOverrides: Record<string, string> = {
   recruiterassesment: "Recruiter Assessment",
   statuschangedate: "Status Change Date",
   aadhaar: "Aadhaar",
-  url: "URL",
+  url: "Job URL",
   feedback: "Feedback",
   entry_date: "Entry Date",
   closed_date: "Closed Date",
