@@ -158,6 +158,18 @@ export default function CandidatesPrepPage() {
     fetchData();
   }, []);
 
+  const getAllValues = (obj: any): string[] => {
+  let values: string[] = [];
+  for (const val of Object.values(obj)) {
+    if (val && typeof val === "object") {
+      values = values.concat(getAllValues(val)); // recurse into nested objects
+    } else if (val !== null && val !== undefined) {
+      values.push(String(val));
+    }
+  }
+  return values;
+};
+
   // ---------------- Filtering and Sorting ----------------
   useEffect(() => {
     let filtered = [...allCandidates];
@@ -166,7 +178,9 @@ export default function CandidatesPrepPage() {
     }
     if (searchTerm.trim() !== "") {
       const term = searchTerm.toLowerCase();
-      filtered = filtered.filter((c) => c.candidate?.full_name?.toLowerCase().includes(term));
+      filtered = filtered.filter((c) =>
+        getAllValues(c).some((val) => val.toLowerCase().includes(term))
+      );
     }
     // Sort: active first, then by id (descending)
     filtered.sort((a, b) => {

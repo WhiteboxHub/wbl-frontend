@@ -793,6 +793,23 @@ export default function CandidatesPage() {
     [apiEndpoint]
   );
 
+  const getWorkStatusColor = (status) => {
+    switch (status.toLowerCase()) {
+      case "waiting for status":
+        return { backgroundColor: "#FFEDD5", color: "#C2410C" }; // orange
+      case "citizen":
+        return { backgroundColor: "#D1FAE5", color: "#065F46" }; // green
+      case "visa":
+        return { backgroundColor: "#DBEAFE", color: "#1D4ED8" }; // blue
+      case "others":
+        return { backgroundColor: "#F3E8FF", color: "#7C3AED" }; // purple
+      case "ead":
+        return { backgroundColor: "#FEF3C7", color: "#92400E" }; // yellow
+      default:
+        return { backgroundColor: "white", color: "black" };
+    }
+  };
+
   useEffect(() => {
     const fetchBatches = async () => {
       setBatchesLoading(true);
@@ -911,6 +928,19 @@ export default function CandidatesPage() {
 
   const handleNewCandidateFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
+    if (name === "phone" || name === 'secondaryphone' || name === 'emergcontactphone') {
+      // Allow only numbers
+      const numericValue = value.replace(/[^0-9]/g, "");
+      setFormData((prev) => ({ ...prev, [name]: numericValue }));
+      return;
+    }
+
+    if (name === "full_name" || name === 'emergcontactname') {
+      // Allow letters (a-z, A-Z), dot, and spaces
+      const nameValue = value.replace(/[^a-zA-Z. ]/g, "");
+      setFormData((prev) => ({ ...prev, [name]: nameValue }));
+      return;
+    }
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
       setFormData(prev => ({ ...prev, [name]: checked ? 'Y' : 'N' }));
@@ -919,6 +949,7 @@ export default function CandidatesPage() {
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
+
   };
 
   const handleNewCandidateFormSubmit = async (e: React.FormEvent) => {
@@ -991,6 +1022,18 @@ export default function CandidatesPage() {
     }
   }, [apiEndpoint]);
 
+
+
+
+  useEffect(() => {
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        handleCloseNewCandidateForm();
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, []);
   const handleRowDeleted = useCallback(async (id: number) => {
     try {
       const response = await fetch(`${apiEndpoint}/${id}`, { method: "DELETE" });
@@ -1001,7 +1044,6 @@ export default function CandidatesPage() {
       if (gridRef.current) {
         gridRef.current.api.applyTransaction({ remove: [{ id }] });
       }
-
     } catch (error) {
       toast.error("Failed to delete candidate");
       console.error("Error deleting candidate:", error);
@@ -1032,7 +1074,6 @@ export default function CandidatesPage() {
 
   return (
     <div className="space-y-6">
-
       <style jsx global>{`
         .filter-dropdown {
           scrollbar-width: thin;
@@ -1052,6 +1093,7 @@ export default function CandidatesPage() {
           background: #a8a8a8;
         }
       `}</style>
+
       <Toaster position="top-center" />
       <div className="flex items-center justify-between">
         <div>
@@ -1080,6 +1122,7 @@ export default function CandidatesPage() {
 
       {/* Search */}
       <div key="search-container" className="max-w-md">
+
         <div className="relative mt-1">
           <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-blue-700 dark:text-blue-400" />
 
@@ -1088,18 +1131,17 @@ export default function CandidatesPage() {
             id="search"
             type="text"
             ref={searchInputRef}
-
             placeholder="Search by ID, name, email, phone..."
             className="pl-10 w-full placeholder-teal-300 dark:placeholder-teal-400"
-        
+
 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-          
+
           />
         </div>
         {searchTerm && (
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             {filteredCandidates.length} candidates found
           </p>
         )}
@@ -1124,298 +1166,309 @@ export default function CandidatesPage() {
           overlayNoRowsTemplate={loading ? "" : '<span class="ag-overlay-no-rows-center">No candidates found</span>'}
         />
       </div>
-
       {newCandidateForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="relative w-full max-w-4xl rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl overflow-y-auto max-h-[90vh]">
-            <h2 className="mb-6 text-center text-2xl font-bold text-gray-900 dark:text-gray-100">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              handleCloseNewCandidateForm();
+            }
+          }}
+        >
+          <div className="w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-xl bg-gradient-to-b from-white to-gray-50 p-6 shadow-2xl dark:from-gray-800 dark:to-gray-700">
+            <h2 className="mb-6 text-center text-3xl font-bold text-indigo-600 dark:text-indigo-400">
               New Candidate Form
             </h2>
+
             <form onSubmit={handleNewCandidateFormSubmit}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                <div className="space-y-1">
-                  <Label htmlFor="full_name" className="block text-sm font-medium">Full Name *</Label>
-                  <Input
-                    id="full_name"
-                    name="full_name"
-                    value={formData.full_name}
-                    onChange={handleNewCandidateFormChange}
-                    required
-                    className="w-full h-10"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="email" className="block text-sm font-medium">Email *</Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={handleNewCandidateFormChange}
-                    required
-                    className="w-full h-10"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="phone" className="block text-sm font-medium">Phone *</Label>
-                  <Input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={handleNewCandidateFormChange}
-                    required
-                    placeholder="+1 (123) 456-7890"
-                    className="w-full h-10"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="status" className="block text-sm font-medium">Status</Label>
-                  <select
-                    id="status"
-                    name="status"
-                    value={formData.status}
-                    onChange={handleNewCandidateFormChange}
-                    className="w-full h-10 p-2 border rounded-md"
-                  >
-                    {statusOptions.map((status) => (
-                      <option key={status} value={status}>
-                        {status.charAt(0).toUpperCase() + status.slice(1)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="workstatus" className="block text-sm font-medium">Work Status</Label>
-                  <select
-                    id="workstatus"
-                    name="workstatus"
-                    value={formData.workstatus}
-                    onChange={handleNewCandidateFormChange}
-                    className="w-full h-10 p-2 border rounded-md"
-                  >
 
-                    {workStatusOptions.map((status) => (
-                      <option key={status} value={status}>
-                        {status}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="education" className="block text-sm font-medium">Education</Label>
-                  <Input
-                    id="education"
-                    name="education"
-                    value={formData.education}
-                    onChange={handleNewCandidateFormChange}
-                    className="w-full h-10"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="workexperience" className="block text-sm font-medium">Work Experience</Label>
-                  <Input
-                    id="workexperience"
-                    name="workexperience"
-                    value={formData.workexperience}
-                    onChange={handleNewCandidateFormChange}
-                    className="w-full h-10"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="agreement" className="block text-sm font-medium">Agreement</Label>
-                  <select
-                    id="agreement"
-                    name="agreement"
-                    value={formData.agreement}
-                    onChange={handleNewCandidateFormChange}
-                    className="w-full h-10 p-2 border rounded-md"
-                  >
-                    <option value="Y">Yes</option>
-                    <option value="N">No</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="ssn" className="block text-sm font-medium">SSN</Label>
-                  <Input
-                    id="ssn"
-                    name="ssn"
-                    type="password"
-                    value={formData.ssn}
-                    onChange={handleNewCandidateFormChange}
-                    className="w-full h-10"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="secondaryemail" className="block text-sm font-medium">Secondary Email</Label>
-                  <Input
-                    id="secondaryemail"
-                    name="secondaryemail"
-                    type="email"
-                    value={formData.secondaryemail}
-                    onChange={handleNewCandidateFormChange}
-                    className="w-full h-10"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="secondaryphone" className="block text-sm font-medium">Secondary Phone</Label>
-                  <Input
-                    id="secondaryphone"
-                    name="secondaryphone"
-                    type="tel"
-                    value={formData.secondaryphone}
-                    onChange={handleNewCandidateFormChange}
-                    placeholder="+1 (123) 456-7890"
-                    className="w-full h-10"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="linkedin_id" className="block text-sm font-medium">LinkedIn ID</Label>
-                  <Input
-                    id="linkedin_id"
-                    name="linkedin_id"
-                    value={formData.linkedin_id}
-                    onChange={handleNewCandidateFormChange}
-                    className="w-full h-10"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="dob" className="block text-sm font-medium">Date of Birth *</Label>
-                  <Input
-                    id="dob"
-                    name="dob"
-                    type="date"
-                    value={formData.dob}
-                    onChange={handleNewCandidateFormChange}
-                    required
-                    className="w-full h-10"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="emergcontactname" className="block text-sm font-medium">Emergency Contact Name</Label>
-                  <Input
-                    id="emergcontactname"
-                    name="emergcontactname"
-                    value={formData.emergcontactname}
-                    onChange={handleNewCandidateFormChange}
-                    className="w-full h-10"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="emergcontactemail" className="block text-sm font-medium">Emergency Contact Email</Label>
-                  <Input
-                    id="emergcontactemail"
-                    name="emergcontactemail"
-                    type="email"
-                    value={formData.emergcontactemail}
-                    onChange={handleNewCandidateFormChange}
-                    className="w-full h-10"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="emergcontactphone" className="block text-sm font-medium">Emergency Contact Phone</Label>
-                  <Input
-                    id="emergcontactphone"
-                    name="emergcontactphone"
-                    type="tel"
-                    value={formData.emergcontactphone}
-                    onChange={handleNewCandidateFormChange}
-                    placeholder="+1 (123) 456-7890"
-                    className="w-full h-10"
-                  />
-                </div>
-                <div className="md:col-span-2 space-y-1">
-                  <Label htmlFor="emergcontactaddrs" className="block text-sm font-medium">Emergency Contact Address</Label>
-                  <Input
-                    id="emergcontactaddrs"
-                    name="emergcontactaddrs"
-                    value={formData.emergcontactaddrs}
-                    onChange={handleNewCandidateFormChange}
-                    className="w-full h-10"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="fee_paid" className="block text-sm font-medium">Fee Paid ($)</Label>
-                  <Input
-                    id="fee_paid"
-                    name="fee_paid"
-                    type="number"
-                    value={formData.fee_paid}
-                    onChange={handleNewCandidateFormChange}
-                    className="w-full h-10"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="batchid" className="block text-sm font-medium">Batch *</Label>
-                  <select
-                    id="batchid"
-                    name="batchid"
-                    value={formData.batchid}
-                    onChange={handleNewCandidateFormChange}
-                    required
-                    className="w-full h-10 p-2 border rounded-md"
-                    disabled={batchesLoading}
-                  >
-                    {batchesLoading ? (
-                      <option value="0">Loading batches...</option>
-                    ) : (
-                      <>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
 
-                        {mlBatches.map((batch) => (
-                          <option key={batch.batchid} value={batch.batchid}>
-                            {batch.batchname}
-                          </option>
-                        ))}
-                      </>
-                    )}
-                  </select>
-                </div>
-                <div className="md:col-span-2 space-y-1">
-                  <Label htmlFor="notes" className="block text-sm font-medium">Notes</Label>
-                  <textarea
-                    id="notes"
-                    name="notes"
-                    value={formData.notes}
-                    onChange={handleNewCandidateFormChange}
-                    className="w-full p-2 border rounded-md min-h-[100px]"
-                  />
-                </div>
-                <div className="md:col-span-2 space-y-1">
-                  <Label htmlFor="candidate_folder" className="block text-sm font-medium">Candidate Folder</Label>
-                  <Input
-                    id="candidate_folder"
-                    name="candidate_folder"
-                    value={formData.candidate_folder}
-                    onChange={handleNewCandidateFormChange}
-                    placeholder="Google Drive/Dropbox link"
-                    className="w-full h-10"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="enrolled_date" className="block text-sm font-medium">Enrolled Date</Label>
-                  <Input
-                    id="enrolled_date"
-                    name="enrolled_date"
-                    type="date"
-                    value={formData.enrolled_date}
-                    onChange={handleNewCandidateFormChange}
-                    className="w-full h-10"
-                  />
-                </div>
-              </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="full_name" className="block text-sm font-medium">Full Name *</Label>
+                    <Input
+                      id="full_name"
+                      name="full_name"
+                      value={formData.full_name}
+                      onChange={handleNewCandidateFormChange}
+                      required
+                      className="w-full h-10"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="email" className="block text-sm font-medium">Email *</Label>
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={handleNewCandidateFormChange}
+                      required
+                      className="w-full h-10"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="phone" className="block text-sm font-medium">Phone *</Label>
+                    <Input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      value={formData.phone}
+                      onChange={handleNewCandidateFormChange}
+                      required
+                      placeholder="+1 (123) 456-7890"
+                      className="w-full h-10"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="status" className="block text-sm font-medium">Status</Label>
+                    <select
+                      id="status"
+                      name="status"
+                      value={formData.status}
+                      onChange={handleNewCandidateFormChange}
+                      className="w-full h-10 p-2 border rounded-md"
+                    >
+                      {statusOptions.map((status) => (
+                        <option key={status} value={status}>
+                          {status.charAt(0).toUpperCase() + status.slice(1)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="workstatus" className="block text-sm font-medium">Work Status</Label>
+                    <select
+                      id="workstatus"
+                      name="workstatus"
+                      value={formData.workstatus}
+                      onChange={handleNewCandidateFormChange}
+                      className="w-full h-10 p-2 border rounded-md"
+                    >
 
-              <div className="mt-6">
-                <button
-                  type="submit"
-                  disabled={formSaveLoading}
-                  className={`w-full rounded-md py-2.5 text-sm font-medium transition duration-200 ${formSaveLoading
-                    ? "cursor-not-allowed bg-gray-400"
-                    : "bg-green-600 text-white hover:bg-green-700"
-                    }`}
-                >
-                  {formSaveLoading ? "Saving..." : "Save"}
-                </button>
+                      {workStatusOptions.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="education" className="block text-sm font-medium">Education</Label>
+                    <Input
+                      id="education"
+                      name="education"
+                      value={formData.education}
+                      onChange={handleNewCandidateFormChange}
+                      className="w-full h-10"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="workexperience" className="block text-sm font-medium">Work Experience</Label>
+                    <Input
+                      id="workexperience"
+                      name="workexperience"
+                      value={formData.workexperience}
+                      onChange={handleNewCandidateFormChange}
+                      className="w-full h-10"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="agreement" className="block text-sm font-medium">Agreement</Label>
+                    <select
+                      id="agreement"
+                      name="agreement"
+                      value={formData.agreement}
+                      onChange={handleNewCandidateFormChange}
+                      className="w-full h-10 p-2 border rounded-md"
+                    >
+                      <option value="Y">Yes</option>
+                      <option value="N">No</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="ssn" className="block text-sm font-medium">SSN</Label>
+                    <Input
+                      id="ssn"
+                      name="ssn"
+                      type="password"
+                      value={formData.ssn}
+                      onChange={handleNewCandidateFormChange}
+                      className="w-full h-10"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="secondaryemail" className="block text-sm font-medium">Secondary Email</Label>
+                    <Input
+                      id="secondaryemail"
+                      name="secondaryemail"
+                      type="email"
+                      value={formData.secondaryemail}
+                      onChange={handleNewCandidateFormChange}
+                      className="w-full h-10"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="secondaryphone" className="block text-sm font-medium">Secondary Phone</Label>
+                    <Input
+                      id="secondaryphone"
+                      name="secondaryphone"
+                      type="tel"
+                      value={formData.secondaryphone}
+                      onChange={handleNewCandidateFormChange}
+                      placeholder="+1 (123) 456-7890"
+                      className="w-full h-10"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="linkedin_id" className="block text-sm font-medium">LinkedIn ID</Label>
+                    <Input
+                      id="linkedin_id"
+                      name="linkedin_id"
+                      value={formData.linkedin_id}
+                      onChange={handleNewCandidateFormChange}
+                      className="w-full h-10"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="dob" className="block text-sm font-medium">Date of Birth *</Label>
+                    <Input
+                      id="dob"
+                      name="dob"
+                      type="date"
+                      value={formData.dob}
+                      onChange={handleNewCandidateFormChange}
+                      required
+                      className="w-full h-10"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="emergcontactname" className="block text-sm font-medium">Emergency Contact Name</Label>
+                    <Input
+                      id="emergcontactname"
+                      name="emergcontactname"
+                      value={formData.emergcontactname}
+                      onChange={handleNewCandidateFormChange}
+                      className="w-full h-10"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="emergcontactemail" className="block text-sm font-medium">Emergency Contact Email</Label>
+                    <Input
+                      id="emergcontactemail"
+                      name="emergcontactemail"
+                      type="email"
+                      value={formData.emergcontactemail}
+                      onChange={handleNewCandidateFormChange}
+                      className="w-full h-10"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="emergcontactphone" className="block text-sm font-medium">Emergency Contact Phone</Label>
+                    <Input
+                      id="emergcontactphone"
+                      name="emergcontactphone"
+                      type="tel"
+                      value={formData.emergcontactphone}
+                      onChange={handleNewCandidateFormChange}
+                      placeholder="+1 (123) 456-7890"
+                      className="w-full h-10"
+                    />
+                  </div>
+                  <div className="md:col-span-2 space-y-1">
+                    <Label htmlFor="emergcontactaddrs" className="block text-sm font-medium">Emergency Contact Address</Label>
+                    <Input
+                      id="emergcontactaddrs"
+                      name="emergcontactaddrs"
+                      value={formData.emergcontactaddrs}
+                      onChange={handleNewCandidateFormChange}
+                      className="w-full h-10"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="fee_paid" className="block text-sm font-medium">Fee Paid ($)</Label>
+                    <Input
+                      id="fee_paid"
+                      name="fee_paid"
+                      type="number"
+                      value={formData.fee_paid}
+                      onChange={handleNewCandidateFormChange}
+                      className="w-full h-10"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="batchid" className="block text-sm font-medium">Batch *</Label>
+                    <select
+                      id="batchid"
+                      name="batchid"
+                      value={formData.batchid}
+                      onChange={handleNewCandidateFormChange}
+                      required
+                      className="w-full h-10 p-2 border rounded-md"
+                      disabled={batchesLoading}
+                    >
+                      {batchesLoading ? (
+                        <option value="0">Loading batches...</option>
+                      ) : (
+                        <>
+
+                          {mlBatches.map((batch) => (
+                            <option key={batch.batchid} value={batch.batchid}>
+                              {batch.batchname}
+                            </option>
+                          ))}
+                        </>
+                      )}
+                    </select>
+                  </div>
+                  <div className="md:col-span-2 space-y-1">
+                    <Label htmlFor="notes" className="block text-sm font-medium">Notes</Label>
+                    <textarea
+                      id="notes"
+                      name="notes"
+                      value={formData.notes}
+                      onChange={handleNewCandidateFormChange}
+                      className="w-full p-2 border rounded-md min-h-[100px]"
+                    />
+                  </div>
+                  <div className="md:col-span-2 space-y-1">
+                    <Label htmlFor="candidate_folder" className="block text-sm font-medium">Candidate Folder</Label>
+                    <Input
+                      id="candidate_folder"
+                      name="candidate_folder"
+                      value={formData.candidate_folder}
+                      onChange={handleNewCandidateFormChange}
+                      placeholder="Google Drive/Dropbox link"
+                      className="w-full h-10"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="enrolled_date" className="block text-sm font-medium">Enrolled Date</Label>
+                    <Input
+                      id="enrolled_date"
+                      name="enrolled_date"
+                      type="date"
+                      value={formData.enrolled_date}
+                      onChange={handleNewCandidateFormChange}
+                      className="w-full h-10"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <button
+                    type="submit"
+                    disabled={formSaveLoading}
+                    className={`w-full rounded-md py-2.5 text-sm font-medium transition duration-200 ${formSaveLoading
+                      ? "cursor-not-allowed bg-gray-400"
+                      : "bg-green-600 text-white hover:bg-green-700"
+                      }`}
+                  >
+                    {formSaveLoading ? "Saving..." : "Save"}
+                  </button>
+                </div>
               </div>
             </form>
             <button
@@ -1431,5 +1484,6 @@ export default function CandidatesPage() {
     </div>
   );
 }
+
 
 

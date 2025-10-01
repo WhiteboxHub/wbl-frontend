@@ -34,9 +34,9 @@ export default function CourseMaterialPage() {
 
 const fetchCourses = async () => {
   try {
-    const token = localStorage.getItem("token"); // ✅ get token
+    const token = localStorage.getItem("token"); 
     const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/courses`, {
-      headers: { Authorization: `Bearer ${token}` }, // ✅ send token
+      headers: { Authorization: `Bearer ${token}` },
     });
 
     const sortedCourses = res.data.sort((a: any, b: any) => b.id - a.id);
@@ -67,7 +67,7 @@ const fetchMaterials = async () => {
     const res = await axios.get(
       `${process.env.NEXT_PUBLIC_API_URL}/course-materials`,
       {
-        headers: { Authorization: `Bearer ${token}` }, // ✅ pass token in headers
+        headers: { Authorization: `Bearer ${token}` }, 
       }
     );
 
@@ -401,6 +401,12 @@ const handleAddMaterial = async () => {
       <AGGridTable
         rowData={filteredMaterials}
         columnDefs={columnDefs}
+          defaultColDef={{
+    editable: true, // make all editable by default
+    flex: 1,
+    resizable: true,
+  }}
+    
         title={`Course Materials (${filteredMaterials.length})`}
         height="calc(70vh)"
         onRowUpdated={handleRowUpdated}

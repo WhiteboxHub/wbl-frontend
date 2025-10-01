@@ -574,12 +574,27 @@ export default function LeadsPage() {
     return "full_name";
   };
 
+  // Handle form changes and submissions
   const handleNewLeadFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
       setFormData(prev => ({ ...prev, [name]: checked }));
-    } else {
+    }
+    else if (name === 'phone' || name === 'secondary_phone') {
+      const numericValue = value.replace(/\D/g, '');
+      setFormData(prev => ({ ...prev, [name]: numericValue }));
+    }
+    else if (name === 'address') {
+      const sanitizedValue = value.replace(/[^a-zA-Z0-9, ]/g, '');
+      setFormData(prev => ({ ...prev, [name]: sanitizedValue }));
+    }
+    else if (name === 'full_name') {
+
+      const sanitizedValue = value.replace(/[^a-zA-Z. ]/g, '');
+      setFormData(prev => ({ ...prev, [name]: sanitizedValue }));
+    }
+    else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
   };
@@ -722,7 +737,19 @@ export default function LeadsPage() {
     },
     [apiEndpoint]
   );
+  // Esc button//
+  useEffect(() => {
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        handleCloseNewLeadForm();
+      }
+    };
 
+    window.addEventListener("keydown", handleEsc);
+    return () => {
+      window.removeEventListener("keydown", handleEsc);
+    };
+  }, []);
 
   const handleMoveToCandidate = useCallback(
     async (lead: Lead, Moved: boolean) => {
@@ -965,28 +992,6 @@ export default function LeadsPage() {
             )}
           </p>
 
-          {/* <div key="search-container" className="max-w-md">
-      
-            <div className="relative mt-1">
-              <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-blue-700 dark:text-blue-400" />
-              <Input
-                key="search-input"
-                id="search"
-                type="text"
-                ref={searchInputRef}
-                placeholder="Search by ID, name, email, phone..."
-                
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 w-96"
-              />
-            </div>
-            {searchTerm && (
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                {leads.length} candidates found
-              </p>
-            )}
-          </div> */}
           <div key="search-container" className="max-w-md">
             <div className="relative mt-1">
               <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-blue-700 dark:text-blue-400" />
@@ -1038,14 +1043,9 @@ export default function LeadsPage() {
 
       {newLeadForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="relative w-full max-w-2xl rounded-2xl bg-white dark:bg-gray-800 p-6 shadow-xl max-h-[90vh] overflow-y-auto">
-            <h2 className="mb-6 text-center text-2xl font-bold text-gray-900 dark:text-gray-100">
-              New Lead Form
-            </h2>
-            <form
-              onSubmit={handleNewLeadFormSubmit}
-              className="grid grid-cols-1 gap-4 md:grid-cols-2"
-            >
+          <div className="relative w-full max-w-2xl min-h-[80vh] rounded-xl bg-white p-4 shadow-md">
+            <h2 className="mb-4 text-center text-xl font-semibold">New Lead Form</h2>
+            <form className="grid grid-cols-1 gap-2 md:grid-cols-2">
               {Object.entries({
                 full_name: { label: "Full Name *", type: "text", required: true },
                 email: { label: "Email *", type: "email", required: true },
@@ -1093,14 +1093,27 @@ export default function LeadsPage() {
                     <select
                       id={name}
                       name={name}
-                      value={formData[name as keyof FormData] as string}
+                      value={formData[name as keyof FormData] as string || "Waiting for Status"}
                       onChange={handleNewLeadFormChange}
-                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={`w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${(formData[name as keyof FormData] as string) === "Waiting for Status" ||
+                          !(formData[name as keyof FormData] as string)
+                          ? "text-orange-500"
+                          : (formData[name as keyof FormData] as string) === "EAD"
+                            ? "text-blue-500"
+                            : (formData[name as keyof FormData] as string) === "Visa"
+                              ? "text-purple-500"
+                              : (formData[name as keyof FormData] as string) === "Permanent Resident"
+                                ? "text-green-500"
+                                : (formData[name as keyof FormData] as string) === "OPT"
+                                  ? "text-yellow-500"
+                                  : (formData[name as keyof FormData] as string) === "CPT"
+                                    ? "text-orange-500"
+                                    : (formData[name as keyof FormData] as string) === "H4EAD"
+                                      ? "text-pink-500"
+                                      : "text-black"
+                        }`}
                       required={config.required}
                     >
-                      <option value="" disabled>
-                        Select {config.label}
-                      </option>
                       {config.options?.map((option) => (
                         <option key={option} value={option}>
                           {option}
