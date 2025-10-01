@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -19,7 +18,6 @@ import { SearchIcon } from "lucide-react";
 import axios from "axios";
 import { toast, Toaster } from "sonner";
 
-
 export default function CoursePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [courses, setCourses] = useState<any[]>([]);
@@ -33,7 +31,6 @@ export default function CoursePage() {
     description: "",
     syllabus: "",
   });
-
 
   const columnDefs: ColDef[] = [
     {
@@ -221,9 +218,12 @@ export default function CoursePage() {
               <Input
                 id="name"
                 value={newCourse.name}
-                onChange={(e) =>
-                  setNewCourse((prev) => ({ ...prev, name: e.target.value }))
-                }
+                onChange={(e) => {
+                  const regex = /^[A-Za-z]*$/;
+                  if (regex.test(e.target.value)) {
+                    setNewCourse((prev) => ({ ...prev, name: e.target.value }));
+                  }
+                }}
               />
             </div>
             <div>
@@ -231,9 +231,12 @@ export default function CoursePage() {
               <Input
                 id="alias"
                 value={newCourse.alias}
-                onChange={(e) =>
-                  setNewCourse((prev) => ({ ...prev, alias: e.target.value }))
-                }
+                onChange={(e) => {
+                  const regex = /^[A-Za-z]*$/;
+                  if (regex.test(e.target.value)) {
+                    setNewCourse((prev) => ({ ...prev, alias: e.target.value }));
+                  }
+                }}
               />
             </div>
             <div>
@@ -242,12 +245,15 @@ export default function CoursePage() {
                 id="description"
                 className="w-full min-h-[120px] p-2 border rounded-md"
                 value={newCourse.description}
-                onChange={(e) =>
-                  setNewCourse((prev) => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
-                }
+                onChange={(e) => {
+                  const regex = /^[^0-9]*$/;
+                  if (regex.test(e.target.value)) {
+                    setNewCourse((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }));
+                  }
+                }}
               />
             </div>
             <div>
@@ -256,9 +262,12 @@ export default function CoursePage() {
                 id="syllabus"
                 className="w-full min-h-[150px] p-2 border rounded-md"
                 value={newCourse.syllabus}
-                onChange={(e) =>
-                  setNewCourse((prev) => ({ ...prev, syllabus: e.target.value }))
-                }
+                onChange={(e) => {
+                  const regex = /^[^0-9]*$/;
+                  if (regex.test(e.target.value)) {
+                    setNewCourse((prev) => ({ ...prev, syllabus: e.target.value }));
+                  }
+                }}
               />
             </div>
           </div>
@@ -273,5 +282,3 @@ export default function CoursePage() {
     </div>
   );
 }
-
-

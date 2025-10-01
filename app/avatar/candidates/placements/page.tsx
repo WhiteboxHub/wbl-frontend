@@ -1,3 +1,4 @@
+
 "use client";
 import Link from "next/link";
 import "@/styles/admin.css";
@@ -6,7 +7,7 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon } from "lucide-react";
+import { SearchIcon, PlusIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
@@ -55,6 +56,7 @@ export default function CandidatesPlacements() {
     placement_date: "",
     type: "",
     status: "",
+
     base_salary_offered: "",
     benefits: "",
     fee_paid: "",
@@ -62,7 +64,6 @@ export default function CandidatesPlacements() {
     priority: "",
   });
 
-  // Close modal on ESC key
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -118,6 +119,7 @@ export default function CandidatesPlacements() {
     </Badge>
   );
 
+
   const AmountRenderer = (params: any) =>
     `$${params.value?.toLocaleString?.() || params.value || 0}`;
 
@@ -129,6 +131,8 @@ export default function CandidatesPlacements() {
     return (
       <Link
         href={`/avatar/candidates/search?candidateId=${candidateId}`}
+        target="_blank" 
+        rel="noopener noreferrer"
         className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
       >
         {candidateName}
@@ -283,9 +287,11 @@ export default function CandidatesPlacements() {
       return;
     }
     const payload = {
-      candidate_id: Number(newPlacement.candidate_id),
+      candidate_id: newPlacement.candidate_id
+        ? Number(newPlacement.candidate_id)
+        : null,
       company: newPlacement.company,
-      position: newPlacement.position || undefined,
+      position: newPlacement.position || null,
       placement_date: newPlacement.placement_date,
       type: newPlacement.type,
       status: newPlacement.status,
@@ -298,11 +304,13 @@ export default function CandidatesPlacements() {
       priority:
         newPlacement.priority !== "" ? Number(newPlacement.priority) : undefined,
     };
+
     try {
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/candidate/placements`,
         payload
       );
+
       if (res.status !== 200 && res.status !== 201) throw new Error("Create failed");
       const newRow = {
         ...res.data,
@@ -310,6 +318,7 @@ export default function CandidatesPlacements() {
         candidate_name: newPlacement.candidate_name,
         priority:
           newPlacement.priority !== "" ? Number(newPlacement.priority) : undefined,
+
       };
       setAllCandidates((prev) => [...prev, newRow]);
       setFilteredCandidates((prev) => [...prev, newRow]);
@@ -322,6 +331,7 @@ export default function CandidatesPlacements() {
         placement_date: "",
         type: "",
         status: "",
+
         base_salary_offered: "",
         benefits: "",
         fee_paid: "",
@@ -350,17 +360,14 @@ export default function CandidatesPlacements() {
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center"
         >
-          + Add Placement
+          <PlusIcon className="mr-2 h-4 w-4" /> Add Placement
         </button>
       </div>
       {/* Search */}
       <div className="max-w-md">
-        <Label
-          htmlFor="search"
-          className="text-sm font-medium text-gray-700 dark:text-gray-300"
-        >
+        <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
           Search Candidates
         </Label>
         <div className="relative mt-1">
@@ -374,11 +381,6 @@ export default function CandidatesPlacements() {
             className="pl-10"
           />
         </div>
-        {searchTerm && (
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            {filteredCandidates.length} candidate(s) found
-          </p>
-        )}
       </div>
       {/* Add Placement Modal */}
       {showModal && (
@@ -387,7 +389,9 @@ export default function CandidatesPlacements() {
           onClick={() => setShowModal(false)}
         >
           <div
+
             className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto flex flex-col"
+
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-200">
@@ -458,12 +462,11 @@ export default function CandidatesPlacements() {
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                 Company
               </h3>
+
               <Input
                 placeholder="Company"
                 value={newPlacement.company}
-                onChange={(e) =>
-                  setNewPlacement({ ...newPlacement, company: e.target.value })
-                }
+                onChange={(e) => setNewPlacement({ ...newPlacement, company: e.target.value })}
               />
               {/* Position */}
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
@@ -472,9 +475,7 @@ export default function CandidatesPlacements() {
               <Input
                 placeholder="Position"
                 value={newPlacement.position}
-                onChange={(e) =>
-                  setNewPlacement({ ...newPlacement, position: e.target.value })
-                }
+                onChange={(e) => setNewPlacement({ ...newPlacement, position: e.target.value })}
               />
               {/* Placement Date */}
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
@@ -483,6 +484,7 @@ export default function CandidatesPlacements() {
               <Input
                 type="date"
                 value={newPlacement.placement_date}
+
                 onChange={(e) =>
                   setNewPlacement({
                     ...newPlacement,
@@ -494,16 +496,12 @@ export default function CandidatesPlacements() {
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                 Base Salary
               </h3>
+
               <Input
                 placeholder="Base Salary"
                 type="number"
                 value={newPlacement.base_salary_offered}
-                onChange={(e) =>
-                  setNewPlacement({
-                    ...newPlacement,
-                    base_salary_offered: e.target.value,
-                  })
-                }
+                onChange={(e) => setNewPlacement({ ...newPlacement, base_salary_offered: e.target.value })}
               />
               {/* Fee Paid */}
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
@@ -527,6 +525,7 @@ export default function CandidatesPlacements() {
                 onChange={(e) =>
                   setNewPlacement({ ...newPlacement, notes: e.target.value })
                 }
+
               />
             </div>
             <div className="mt-4 flex justify-end gap-3">

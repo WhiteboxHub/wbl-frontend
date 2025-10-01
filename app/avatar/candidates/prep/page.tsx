@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable";
@@ -158,17 +159,17 @@ export default function CandidatesPrepPage() {
     fetchData();
   }, []);
 
-  const getAllValues = (obj: any): string[] => {
-  let values: string[] = [];
-  for (const val of Object.values(obj)) {
-    if (val && typeof val === "object") {
-      values = values.concat(getAllValues(val)); // recurse into nested objects
-    } else if (val !== null && val !== undefined) {
-      values.push(String(val));
-    }
-  }
-  return values;
-};
+    const getAllValues = (obj: any): string[] => {
+      let values: string[] = [];
+      for (const val of Object.values(obj)) {
+        if (val && typeof val === "object") {
+          values = values.concat(getAllValues(val)); // recurse into nested objects
+        } else if (val !== null && val !== undefined) {
+          values.push(String(val));
+        }
+      }
+      return values;
+    };
 
   // ---------------- Filtering and Sorting ----------------
   useEffect(() => {
@@ -177,11 +178,13 @@ export default function CandidatesPrepPage() {
       filtered = filtered.filter((c) => selectedStatuses.includes(c.status?.toLowerCase()));
     }
     if (searchTerm.trim() !== "") {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter((c) =>
-        getAllValues(c).some((val) => val.toLowerCase().includes(term))
-      );
-    }
+
+    const term = searchTerm.toLowerCase();
+    filtered = filtered.filter((c) =>
+      getAllValues(c).some((val) => val.toLowerCase().includes(term))
+    );
+  }
+
     // Sort: active first, then by id (descending)
     filtered.sort((a, b) => {
       if (a.status === "active" && b.status !== "active") return -1;
@@ -189,13 +192,35 @@ export default function CandidatesPrepPage() {
       return b.id - a.id;
     });
     setFilteredCandidates(filtered);
-  }, [allCandidates, searchTerm, selectedStatuses]);
+  }, 
+  [allCandidates, searchTerm, selectedStatuses]);
+const CandidateNameRenderer = (params: any) => {
+  const candidateId = params.data?.candidate_id || params.data?.candidate?.id || params.data?.id;
+  const candidateName = params.value;
+  
+  if (!candidateId || !candidateName) {
+    return <span className="text-gray-500">{candidateName || "N/A"}</span>;
+  }
+  
+  return (
+    <Link 
+      href={`/avatar/candidates/search?candidateId=${candidateId}`}
+      target="_blank" 
+      rel="noopener noreferrer"
+      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer" // ← Same styling as Marketing
+    >
+      {candidateName}
+    </Link>
+  );
+};
+
 
   // ---------------- Column Defs ----------------
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => {
     return [
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
-      { field: "candidate.full_name", headerName: "Full Name", minWidth: 150 },
+      { 
+      field: "candidate.full_name", headerName: "Candidate Name", cellRenderer: CandidateNameRenderer, sortable: true, minWidth: 150, editable: false},
       { field: "batch", headerName: "Batch", sortable: true, maxWidth: 150 },
       { field: "start_date", headerName: "Start Date", sortable: true, maxWidth: 130 },
       {
@@ -216,7 +241,20 @@ export default function CandidatesPrepPage() {
       { field: "topics_finished", headerName: "Topics Finished", minWidth: 150 },
       { field: "current_topics", headerName: "Current Topics", minWidth: 150 },
       { field: "target_date_of_marketing", headerName: "Target Marketing Date", minWidth: 160 },
-      { field: "notes", headerName: "Notes", minWidth: 90 },
+      {             field: "notes",
+            headerName: "Notes",
+            width: 300,
+            sortable: true,
+            cellRenderer: (params: any) => {
+              if (!params.value) return "";
+              return (
+                <div
+                  className="prose prose-sm max-w-none dark:prose-invert"
+                  dangerouslySetInnerHTML={{ __html: params.value }}
+                />
+              );
+            },
+          },
     ];
   }, [selectedStatuses]);
 
