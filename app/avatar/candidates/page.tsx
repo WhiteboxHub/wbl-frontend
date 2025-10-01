@@ -1,4 +1,3 @@
-
 "use client";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
@@ -70,11 +69,11 @@ type FormData = {
 type Batch = {
   batchid: number;
   batchname: string;
-  subject?: string;       
-  courseid?: number;      
-  orientationdate?: string; 
-  startdate?: string;      
-  enddate?: string;        
+  subject?: string;
+  courseid?: number;
+  orientationdate?: string;
+  startdate?: string;
+  enddate?: string;
 };
 
 const statusOptions = ["active", "discontinued", "break", "closed"];
@@ -110,7 +109,6 @@ const initialFormData: FormData = {
   batchid: 0,
   candidate_folder: "",
 };
-
 
 const StatusRenderer = ({ value }: { value?: string }) => {
   const status = value?.toLowerCase() || "";
@@ -162,8 +160,8 @@ const CandidateNameRenderer = (params: any) => {
 
   return (
     <Link
-      href={`/avatar/candidates/search?candidateId=${candidateId}`} 
-      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
+      href={`/avatar/candidates/search?candidateId=${candidateId}`}
+      className="text-black-600 cursor-pointer font-medium hover:text-blue-800"
     >
       {candidateName}
     </Link>
@@ -218,16 +216,15 @@ const FilterHeaderComponent = ({
     setFilterVisible((v) => !v);
   };
 
-
-
-
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
     setSelectedItems(e.target.checked ? [...options] : []);
   };
 
-  const isAllSelected = selectedItems.length === options.length && options.length > 0;
-  const isIndeterminate = selectedItems.length > 0 && selectedItems.length < options.length;
+  const isAllSelected =
+    selectedItems.length === options.length && options.length > 0;
+  const isIndeterminate =
+    selectedItems.length > 0 && selectedItems.length < options.length;
 
   const colorMap: Record<string, string> = {
     blue: "bg-blue-500",
@@ -373,14 +370,12 @@ const FilterHeaderComponent = ({
   );
 };
 
-
 export default function CandidatesPage() {
   const gridRef = useRef<any>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const isNewCandidate = searchParams.get("newcandidate") === "true";
-
 
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [filteredCandidates, setFilteredCandidates] = useState<Candidate[]>([]);
@@ -403,16 +398,19 @@ export default function CandidatesPage() {
   const [batchesLoading, setBatchesLoading] = useState(true);
 
   useEffect(() => {
-    console.log('📊 Batch State Update:');
-    console.log('   - All batches:', allBatches.length);
-    console.log('   - ML batches for form:', mlBatches.length);
+    console.log("📊 Batch State Update:");
+    console.log("   - All batches:", allBatches.length);
+    console.log("   - ML batches for form:", mlBatches.length);
     if (mlBatches.length > 0) {
-      console.log('   - ML batches details:', mlBatches.map(b => ({
-        id: b.batchid,
-        name: b.batchname,
-        subject: b.subject,
-        courseid: b.courseid
-      })));
+      console.log(
+        "   - ML batches details:",
+        mlBatches.map((b) => ({
+          id: b.batchid,
+          name: b.batchname,
+          subject: b.subject,
+          courseid: b.courseid,
+        }))
+      );
     }
   }, [allBatches, mlBatches]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
@@ -492,115 +490,143 @@ export default function CandidatesPage() {
     [apiEndpoint]
   );
 
+  useEffect(() => {
+    const fetchBatches = async () => {
+      setBatchesLoading(true);
+      try {
+        const token = localStorage.getItem("accesstoken");
 
-useEffect(() => {
-  const fetchBatches = async () => {
-    setBatchesLoading(true);
-    try {
-      const token = localStorage.getItem('accesstoken');
+        const res = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/batch`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
 
+        const sortedAllBatches = [...res.data].sort(
+          (a: Batch, b: Batch) => b.batchid - a.batchid
+        );
+        setAllBatches(sortedAllBatches);
 
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/batch`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+        const uniqueSubjects = [
+          ...new Set(sortedAllBatches.map((batch) => batch.subject)),
+        ];
+        const uniqueCourseIds = [
+          ...new Set(sortedAllBatches.map((batch) => batch.courseid)),
+        ];
+        console.log("🔍 Available subjects:", uniqueSubjects);
+        console.log("🔍 Available course IDs:", uniqueCourseIds);
+        console.log("🔍 Total batches:", sortedAllBatches.length);
 
-    
-      const sortedAllBatches = [...res.data].sort((a: Batch, b: Batch) => b.batchid - a.batchid);
-      setAllBatches(sortedAllBatches);
+        let mlBatchesOnly = sortedAllBatches.filter((batch) => {
+          const subject = batch.subject?.toLowerCase();
+          return (
+            subject === "ml" ||
+            subject === "machine learning" ||
+            subject === "machinelearning" ||
+            subject?.includes("ml")
+          );
+        });
 
-      
-      const uniqueSubjects = [...new Set(sortedAllBatches.map(batch => batch.subject))];
-      const uniqueCourseIds = [...new Set(sortedAllBatches.map(batch => batch.courseid))];
-      console.log('🔍 Available subjects:', uniqueSubjects);
-      console.log('🔍 Available course IDs:', uniqueCourseIds);
-      console.log('🔍 Total batches:', sortedAllBatches.length);
+        if (mlBatchesOnly.length === 0) {
+          console.log("⚠️ No ML batches found by subject, trying courseid = 3");
+          mlBatchesOnly = sortedAllBatches.filter(
+            (batch) => batch.courseid === 3
+          );
+        }
 
-    
-      let mlBatchesOnly = sortedAllBatches.filter(batch => {
-        const subject = batch.subject?.toLowerCase();
-        return subject === 'ml' || 
-               subject === 'machine learning' || 
-               subject === 'machinelearning' ||
-               subject?.includes('ml');
-      });
+        if (mlBatchesOnly.length === 0) {
+          console.warn(
+            "⚠️ No ML batches found! Showing all batches in form as fallback"
+          );
+          mlBatchesOnly = sortedAllBatches;
+        }
 
-      if (mlBatchesOnly.length === 0) {
-        console.log('⚠️ No ML batches found by subject, trying courseid = 3');
-        mlBatchesOnly = sortedAllBatches.filter(batch => batch.courseid === 3);
+        console.log("🎯 Filtered ML batches for form:", mlBatchesOnly.length);
+        setMlBatches(mlBatchesOnly);
+
+        if (
+          isNewCandidate &&
+          mlBatchesOnly.length > 0 &&
+          mlBatchesOnly[0]?.batchid
+        ) {
+          setFormData((prev) => ({
+            ...prev,
+            batchid: mlBatchesOnly[0].batchid,
+          }));
+        }
+      } catch (error) {
+        console.error("Failed to load batches:", error);
+      } finally {
+        setBatchesLoading(false);
       }
-
-      if (mlBatchesOnly.length === 0) {
-        console.warn('⚠️ No ML batches found! Showing all batches in form as fallback');
-        mlBatchesOnly = sortedAllBatches;
-      }
-
-      console.log('🎯 Filtered ML batches for form:', mlBatchesOnly.length);
-      setMlBatches(mlBatchesOnly); 
-
-      
-      if (isNewCandidate && mlBatchesOnly.length > 0 && mlBatchesOnly[0]?.batchid) {
-        setFormData(prev => ({ ...prev, batchid: mlBatchesOnly[0].batchid }));
-      }
-
-    } catch (error) {
-      console.error('Failed to load batches:', error);
-    } finally {
-      setBatchesLoading(false);
-    }
-  };;
+    };
 
     fetchBatches();
   }, [courseId, isNewCandidate]);
 
-        useEffect(() => {
-          let filtered = [...candidates];
-          if (selectedStatuses.length > 0) {
-            filtered = filtered.filter(candidate =>
-              selectedStatuses.some(status => status.toLowerCase() === (candidate.status || "").toLowerCase())
-            );
-          }
-          if (selectedWorkStatuses.length > 0) {
-            filtered = filtered.filter(candidate =>
-              selectedWorkStatuses.some(ws => ws.toLowerCase() === (candidate.workstatus || "").toLowerCase())
-            );
-          }
-          if (selectedBatches.length > 0) {
-            filtered = filtered.filter(candidate =>
-              selectedBatches.some(batch => batch.batchid === candidate.batchid)
-            );
-          }
-          if (searchTerm.trim() !== "") {
-            const term = searchTerm.toLowerCase();
-            filtered = filtered.filter(candidate =>
-              candidate.full_name?.toLowerCase().includes(term) ||
-              candidate.email?.toLowerCase().includes(term) ||
-              candidate.phone?.toLowerCase().includes(term) ||
-              candidate.id.toString().includes(term)
-            );
-          }
-          setFilteredCandidates(filtered);
-        }, [candidates, selectedStatuses, selectedWorkStatuses, selectedBatches, searchTerm]);
+  useEffect(() => {
+    let filtered = [...candidates];
+    if (selectedStatuses.length > 0) {
+      filtered = filtered.filter((candidate) =>
+        selectedStatuses.some(
+          (status) =>
+            status.toLowerCase() === (candidate.status || "").toLowerCase()
+        )
+      );
+    }
+    if (selectedWorkStatuses.length > 0) {
+      filtered = filtered.filter((candidate) =>
+        selectedWorkStatuses.some(
+          (ws) =>
+            ws.toLowerCase() === (candidate.workstatus || "").toLowerCase()
+        )
+      );
+    }
+    if (selectedBatches.length > 0) {
+      filtered = filtered.filter((candidate) =>
+        selectedBatches.some((batch) => batch.batchid === candidate.batchid)
+      );
+    }
+    if (searchTerm.trim() !== "") {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(
+        (candidate) =>
+          candidate.full_name?.toLowerCase().includes(term) ||
+          candidate.email?.toLowerCase().includes(term) ||
+          candidate.phone?.toLowerCase().includes(term) ||
+          candidate.id.toString().includes(term)
+      );
+    }
+    setFilteredCandidates(filtered);
+  }, [
+    candidates,
+    selectedStatuses,
+    selectedWorkStatuses,
+    selectedBatches,
+    searchTerm,
+  ]);
 
   useEffect(() => {
     fetchCandidates();
   }, [fetchCandidates]);
 
-const getWorkStatusColor = (status) => {
-  switch (status.toLowerCase()) {
-    case "waiting for status":
-      return { backgroundColor: "#FFEDD5", color: "#C2410C" }; // orange
-    case "citizen":
-      return { backgroundColor: "#D1FAE5", color: "#065F46" }; // green
-    case "visa":
-      return { backgroundColor: "#DBEAFE", color: "#1D4ED8" }; // blue
-    case "others":
-      return { backgroundColor: "#F3E8FF", color: "#7C3AED" }; // purple
-    case "ead":
-      return { backgroundColor: "#FEF3C7", color: "#92400E" }; // yellow
-    default:
-      return { backgroundColor: "white", color: "black" };
-  }
-};
+  const getWorkStatusColor = (status) => {
+    switch (status.toLowerCase()) {
+      case "waiting for status":
+        return { backgroundColor: "#FFEDD5", color: "#C2410C" }; // orange
+      case "citizen":
+        return { backgroundColor: "#D1FAE5", color: "#065F46" }; // green
+      case "visa":
+        return { backgroundColor: "#DBEAFE", color: "#1D4ED8" }; // blue
+      case "others":
+        return { backgroundColor: "#F3E8FF", color: "#7C3AED" }; // purple
+      case "ead":
+        return { backgroundColor: "#FEF3C7", color: "#92400E" }; // yellow
+      default:
+        return { backgroundColor: "white", color: "black" };
+    }
+  };
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
       if (searchTerm !== undefined) {
@@ -624,132 +650,150 @@ const getWorkStatusColor = (status) => {
 
     if (mlBatches.length > 0) {
       const latestBatch = mlBatches[0];
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        batchid: latestBatch?.batchid
+        batchid: latestBatch?.batchid,
       }));
     }
   };
 
-        const handleCloseNewCandidateForm = () => {
-          router.push("/avatar/candidates", { scroll: false });
-          setNewCandidateForm(false);
-          setFormData(initialFormData);
-        };
+  const handleCloseNewCandidateForm = () => {
+    router.push("/avatar/candidates", { scroll: false });
+    setNewCandidateForm(false);
+    setFormData(initialFormData);
+  };
 
-        const handleNewCandidateFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-          const { name, value, type } = e.target;
+  const handleNewCandidateFormChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
+    const { name, value, type } = e.target;
 
-          if (name === "phone"|| name === 'secondaryphone'|| name === 'emergcontactphone') {
-            // Allow only numbers
-            const numericValue = value.replace(/[^0-9]/g, "");
-            setFormData((prev) => ({ ...prev, [name]: numericValue }));
-            return;
-          }
+    if (
+      name === "phone" ||
+      name === "secondaryphone" ||
+      name === "emergcontactphone"
+    ) {
+      // Allow only numbers
+      const numericValue = value.replace(/[^0-9]/g, "");
+      setFormData((prev) => ({ ...prev, [name]: numericValue }));
+      return;
+    }
 
-          if (name === "full_name"|| name === 'emergcontactname') {
-            // Allow letters (a-z, A-Z), dot, and spaces
-            const nameValue = value.replace(/[^a-zA-Z. ]/g, "");
-            setFormData((prev) => ({ ...prev, [name]: nameValue }));
-            return;
-          }
-          if (type === 'checkbox') {
-            const checked = (e.target as HTMLInputElement).checked;
-            setFormData(prev => ({ ...prev, [name]: checked ? 'Y' : 'N' }));
-          } else if (type === 'number') {
-            setFormData(prev => ({ ...prev, [name]: parseInt(value) || 0 }));
-          } else {
-            setFormData(prev => ({ ...prev, [name]: value }));
-          }
-        };
+    if (name === "full_name" || name === "emergcontactname") {
+      // Allow letters (a-z, A-Z), dot, and spaces
+      const nameValue = value.replace(/[^a-zA-Z. ]/g, "");
+      setFormData((prev) => ({ ...prev, [name]: nameValue }));
+      return;
+    }
+    if (type === "checkbox") {
+      const checked = (e.target as HTMLInputElement).checked;
+      setFormData((prev) => ({ ...prev, [name]: checked ? "Y" : "N" }));
+    } else if (type === "number") {
+      setFormData((prev) => ({ ...prev, [name]: parseInt(value) || 0 }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
+  };
 
-        const handleNewCandidateFormSubmit = async (e: React.FormEvent) => {
-          e.preventDefault();
-          if (!formData.full_name.trim()) {
-            toast.error("Full name is required");
-            return;
-          }
-          setFormSaveLoading(true);
-          try {
-            const payload = {
-              ...formData,
-              enrolled_date: formData.enrolled_date || new Date().toISOString().split('T')[0],
-              status: formData.status || "active",
-              workstatus: formData.workstatus || "Waiting for Status",
-              agreement: formData.agreement || "N",
-              fee_paid: formData.fee_paid || 0
-            };
-            const response = await fetch(apiEndpoint, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload),
-            });
-            if (!response.ok) {
-              const errorData = await response.json().catch(() => ({}));
-              throw new Error(errorData.message || "Failed to create candidate");
-            }
-            const newId = await response.json();
-            toast.success(`Candidate created successfully with ID: ${newId}`);
-            setNewCandidateForm(false);
-            setFormData(initialFormData);
-            fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
-          } catch (error) {
-            toast.error("Failed to create candidate: " + (error as Error).message);
-            console.error("Error creating candidate:", error);
-          } finally {
-            setFormSaveLoading(false);
-          }
-        };
+  const handleNewCandidateFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.full_name.trim()) {
+      toast.error("Full name is required");
+      return;
+    }
+    setFormSaveLoading(true);
+    try {
+      const payload = {
+        ...formData,
+        enrolled_date:
+          formData.enrolled_date || new Date().toISOString().split("T")[0],
+        status: formData.status || "active",
+        workstatus: formData.workstatus || "Waiting for Status",
+        agreement: formData.agreement || "N",
+        fee_paid: formData.fee_paid || 0,
+      };
+      const response = await fetch(apiEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to create candidate");
+      }
+      const newId = await response.json();
+      toast.success(`Candidate created successfully with ID: ${newId}`);
+      setNewCandidateForm(false);
+      setFormData(initialFormData);
+      fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
+    } catch (error) {
+      toast.error("Failed to create candidate: " + (error as Error).message);
+      console.error("Error creating candidate:", error);
+    } finally {
+      setFormSaveLoading(false);
+    }
+  };
 
-        const handleRowUpdated = useCallback(async (updatedRow: Candidate) => {
-          setLoadingRowId(updatedRow.id);
-          try {
-            const updatedData = { ...updatedRow };
-            if (!updatedData.status || updatedData.status === '') {
-              updatedData.status = 'active';
-            }
-            const { id, ...payload } = updatedData;
-            const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload),
-            });
-            if (!response.ok) throw new Error("Failed to update candidate");
-            fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
-            toast.success("Candidate updated successfully");
-          } catch (error) {
-            toast.error("Failed to update candidate");
-            console.error("Error updating candidate:", error);
-          } finally {
-            setLoadingRowId(null);
-          }
-        }, [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchCandidates]);
+  const handleRowUpdated = useCallback(
+    async (updatedRow: Candidate) => {
+      setLoadingRowId(updatedRow.id);
+      try {
+        const updatedData = { ...updatedRow };
+        if (!updatedData.status || updatedData.status === "") {
+          updatedData.status = "active";
+        }
+        const { id, ...payload } = updatedData;
+        const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) throw new Error("Failed to update candidate");
+        fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
+        toast.success("Candidate updated successfully");
+      } catch (error) {
+        toast.error("Failed to update candidate");
+        console.error("Error updating candidate:", error);
+      } finally {
+        setLoadingRowId(null);
+      }
+    },
+    [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchCandidates]
+  );
 
-        const handleRowDeleted = useCallback(async (id: number) => {
-          try {
-            const response = await fetch(`${apiEndpoint}/${id}`, {
-              method: "DELETE",
-            });
-            if (!response.ok) throw new Error("Failed to delete candidate");
-            toast.success("Candidate deleted successfully");
-            fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
-          } catch (error) {
-            toast.error("Failed to delete candidate");
-            console.error("Error deleting candidate:", error);
-          }
-        }, [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchCandidates]);
+  const handleRowDeleted = useCallback(
+    async (id: number) => {
+      try {
+        const response = await fetch(`${apiEndpoint}/${id}`, {
+          method: "DELETE",
+        });
+        if (!response.ok) throw new Error("Failed to delete candidate");
+        toast.success("Candidate deleted successfully");
+        fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
+      } catch (error) {
+        toast.error("Failed to delete candidate");
+        console.error("Error deleting candidate:", error);
+      }
+    },
+    [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchCandidates]
+  );
 
-        const handleFilterChanged = useCallback((filterModelFromGrid: any) => {
-          setFilterModel(filterModelFromGrid);
-          fetchCandidates(searchTerm, searchBy, sortModel, filterModelFromGrid);
-        }, [searchTerm, searchBy, sortModel, fetchCandidates]);
+  const handleFilterChanged = useCallback(
+    (filterModelFromGrid: any) => {
+      setFilterModel(filterModelFromGrid);
+      fetchCandidates(searchTerm, searchBy, sortModel, filterModelFromGrid);
+    },
+    [searchTerm, searchBy, sortModel, fetchCandidates]
+  );
 
-        const formatPhoneNumber = (phoneNumberString: string) => {
-          const cleaned = ('' + phoneNumberString).replace(/\D/g, '');
-          const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
-          if (match) return `+1 (${match[1]}) ${match[2]}-${match[3]}`;
-          return `+1 ${phoneNumberString}`;
-        };
+  const formatPhoneNumber = (phoneNumberString: string) => {
+    const cleaned = ("" + phoneNumberString).replace(/\D/g, "");
+    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
+    if (match) return `+1 (${match[1]}) ${match[2]}-${match[3]}`;
+    return `+1 ${phoneNumberString}`;
+  };
 
   const formatDate = (dateString: string | Date | null | undefined) => {
     if (!dateString) return "-";
@@ -763,98 +807,99 @@ const getWorkStatusColor = (status) => {
   };
 
   // Add ESC key listener
-useEffect(() => {
-  const handleEsc = (event: KeyboardEvent) => {
-    if (event.key === "Escape") {
-      handleCloseNewCandidateForm();
-    }
-  };
-  window.addEventListener("keydown", handleEsc);
-  return () => window.removeEventListener("keydown", handleEsc);
-}, []);
-
-
-
+  useEffect(() => {
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        handleCloseNewCandidateForm();
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, []);
 
   // Column Definitions
-  const columnDefs: ColDef<any, any>[] = useMemo(() => [
-    {
-      field: "id",
-      headerName: "ID",
-      width: 80,
-      pinned: "left",
-      sortable: true
-    },
-    {
-      field: "full_name",
-      headerName: "Full Name",
-      width: 180,
-      sortable: true,
-      cellRenderer: CandidateNameRenderer,
-    },
-    {
-      field: "phone",
-      headerName: "Phone",
-      width: 150,
-      editable: true,
-      sortable: true,
-      cellRenderer: (params: any) => {
-        if (!params.value) return "";
-        const formattedPhone = formatPhoneNumber(params.value);
-        return (
-          <a href={`tel:${params.value}`} className="text-blue-600 underline hover:text-blue-800">
-            {formattedPhone}
-          </a>
-        );
+  const columnDefs: ColDef<any, any>[] = useMemo(
+    () => [
+      {
+        field: "id",
+        headerName: "ID",
+        width: 80,
+        pinned: "left",
+        sortable: true,
       },
-    },
-    {
-      field: "email",
-      headerName: "Email",
-      width: 200,
-      editable: true,
-      sortable: true,
-      cellRenderer: (params: any) => {
-        if (!params.value) return "";
-        return (
-          <a
-            href={`mailto:${params.value}`}
-            className="text-blue-600 underline hover:text-blue-800"
-            onClick={(event) => event.stopPropagation()}
-          >
-            {params.value}
-          </a>
-        );
+      {
+        field: "full_name",
+        headerName: "Full Name",
+        width: 180,
+        sortable: true,
+        cellRenderer: CandidateNameRenderer,
       },
-    },
-    {
-      field: "batchid",
-      headerName: "Batch",
-      width: 140,
-      sortable: true,
-      cellRenderer: (params: any) => {
-        if (!params.value || !allBatches.length) return params.value || "";
-        const batch = allBatches.find(b => b.batchid === params.value);
-        return batch ? (
-          <span title={`Batch ID: ${params.value}`}>
-            {batch.batchname}
-          </span>
-        ) : params.value;
+      {
+        field: "phone",
+        headerName: "Phone",
+        width: 150,
+        editable: true,
+        sortable: true,
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          const formattedPhone = formatPhoneNumber(params.value);
+          return (
+            <a
+              href={`tel:${params.value}`}
+              className="text-blue-600 underline hover:text-blue-800"
+            >
+              {formattedPhone}
+            </a>
+          );
+        },
       },
-      headerComponent: (props: any) => (
-        <FilterHeaderComponent
-          {...props}
-          selectedItems={selectedBatches}
-          setSelectedItems={setSelectedBatches}
-          options={allBatches}
-          label="Batch"
-          color="purple"
-          renderOption={(option: Batch) => option.batchname}
-          getOptionValue={(option: Batch) => option}
-          getOptionKey={(option: Batch) => option.batchid}
-        />
-      ),
-    },
+      {
+        field: "email",
+        headerName: "Email",
+        width: 200,
+        editable: true,
+        sortable: true,
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          return (
+            <a
+              href={`mailto:${params.value}`}
+              className="text-blue-600 underline hover:text-blue-800"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {params.value}
+            </a>
+          );
+        },
+      },
+      {
+        field: "batchid",
+        headerName: "Batch",
+        width: 140,
+        sortable: true,
+        cellRenderer: (params: any) => {
+          if (!params.value || !allBatches.length) return params.value || "";
+          const batch = allBatches.find((b) => b.batchid === params.value);
+          return batch ? (
+            <span title={`Batch ID: ${params.value}`}>{batch.batchname}</span>
+          ) : (
+            params.value
+          );
+        },
+        headerComponent: (props: any) => (
+          <FilterHeaderComponent
+            {...props}
+            selectedItems={selectedBatches}
+            setSelectedItems={setSelectedBatches}
+            options={allBatches}
+            label="Batch"
+            color="purple"
+            renderOption={(option: Batch) => option.batchname}
+            getOptionValue={(option: Batch) => option}
+            getOptionKey={(option: Batch) => option.batchid}
+          />
+        ),
+      },
 
       {
         field: "status",
@@ -1010,49 +1055,53 @@ useEffect(() => {
         sortable: true,
       },
 
-          {
-            field: "candidate_folder",
-            headerName: "Candidate Folder",
-            width: 200,
-            sortable: true,
-            cellRenderer: (params: any) => {
-              if (!params.value) return "";
-              return (
-                <a
-                  href={params.value}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 underline hover:text-blue-800"
-                  onClick={(event) => event.stopPropagation()}
-                >
-                  {params.value}
-                </a>
-              );
-            },
-          },
-        ], [allBatches, selectedStatuses, selectedWorkStatuses, selectedBatches]);
-
-        // Error handling
-        if (error) {
+      {
+        field: "candidate_folder",
+        headerName: "Candidate Folder",
+        width: 200,
+        sortable: true,
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
           return (
-            <div className="flex h-64 items-center justify-center">
-              <div className="text-red-500">{error}</div>
-              <Button
-                variant="outline"
-                onClick={() => fetchCandidates(searchTerm, searchBy, sortModel, filterModel)}
-                className="ml-4"
-              >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Retry
-              </Button>
-            </div>
+            <a
+              href={params.value}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 underline hover:text-blue-800"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {params.value}
+            </a>
           );
-        }
+        },
+      },
+    ],
+    [allBatches, selectedStatuses, selectedWorkStatuses, selectedBatches]
+  );
 
-        return (
-          <div className="space-y-6">
-            {/* Add CSS for scrollable dropdowns */}
-            <style jsx global>{`
+  // Error handling
+  if (error) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="text-red-500">{error}</div>
+        <Button
+          variant="outline"
+          onClick={() =>
+            fetchCandidates(searchTerm, searchBy, sortModel, filterModel)
+          }
+          className="ml-4"
+        >
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Add CSS for scrollable dropdowns */}
+      <style jsx global>{`
         .filter-dropdown {
           scrollbar-width: thin;
         }
@@ -1072,31 +1121,33 @@ useEffect(() => {
         }
       `}</style>
 
-            <Toaster position="top-center" />
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  Candidates Management
-                </h1>
-                <p className="text-gray-600 dark:text-gray-400">
-                  All Candidates ({candidates.length})
-                  {selectedStatuses.length > 0 || selectedWorkStatuses.length > 0 || selectedBatches.length > 0 ? (
-                    <span className="ml-2 text-blue-600 dark:text-blue-400">
-                      - Filtered ({filteredCandidates.length} shown)
-                    </span>
-                  ) : (
-                    " - Sorted by latest first"
-                  )}
-                </p>
-              </div>
-              <Button
-                onClick={handleOpenNewCandidateForm}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add New Candidate
-              </Button>
-            </div>
+      <Toaster position="top-center" />
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            Candidates Management
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            All Candidates ({candidates.length})
+            {selectedStatuses.length > 0 ||
+            selectedWorkStatuses.length > 0 ||
+            selectedBatches.length > 0 ? (
+              <span className="ml-2 text-blue-600 dark:text-blue-400">
+                - Filtered ({filteredCandidates.length} shown)
+              </span>
+            ) : (
+              " - Sorted by latest first"
+            )}
+          </p>
+        </div>
+        <Button
+          onClick={handleOpenNewCandidateForm}
+          className="bg-green-600 text-white hover:bg-green-700"
+        >
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Add New Candidate
+        </Button>
+      </div>
 
       {/* Search */}
       <div key="search-container" className="max-w-md">
@@ -1126,422 +1177,494 @@ useEffect(() => {
         )}
       </div>
 
-            {/* AG Grid Table */}
-            <div className="flex w-full justify-center">
-              <AGGridTable
-                key={`${filteredCandidates.length}-${selectedStatuses.join(',')}-${selectedWorkStatuses.join(',')}-${selectedBatches.map(b => b.batchid).join(',')}`}
-                rowData={loading ? undefined : filteredCandidates}
-                columnDefs={columnDefs}
-                onRowUpdated={handleRowUpdated}
-                onRowDeleted={handleRowDeleted}
-                showFilters={true}
-                showSearch={false}
-                batches={allBatches}
-                loading={loading}
-                height="600px"
-                overlayNoRowsTemplate={loading ? "" : '<span class="ag-overlay-no-rows-center">No candidates found</span>'}
-              />
-            </div>
-            
+      {/* AG Grid Table */}
+      <div className="flex w-full justify-center">
+        <AGGridTable
+          key={`${filteredCandidates.length}-${selectedStatuses.join(
+            ","
+          )}-${selectedWorkStatuses.join(",")}-${selectedBatches
+            .map((b) => b.batchid)
+            .join(",")}`}
+          rowData={loading ? undefined : filteredCandidates}
+          columnDefs={columnDefs}
+          onRowUpdated={handleRowUpdated}
+          onRowDeleted={handleRowDeleted}
+          showFilters={true}
+          showSearch={false}
+          batches={allBatches}
+          loading={loading}
+          height="600px"
+          overlayNoRowsTemplate={
+            loading
+              ? ""
+              : '<span class="ag-overlay-no-rows-center">No candidates found</span>'
+          }
+        />
+      </div>
 
-{/* + Add New candidate */}
-{newCandidateForm && (
-  <div
-    className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4"
-    onClick={(e) => {
-      if (e.target === e.currentTarget) {
-        handleCloseNewCandidateForm();
-      }
-    }}
-  >
-    <div className="w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-xl bg-gradient-to-b from-white to-gray-50 p-6 shadow-2xl dark:from-gray-800 dark:to-gray-700">
-      <h2 className="mb-6 text-center text-3xl font-bold text-indigo-600 dark:text-indigo-400">
-        New Candidate Form
-      </h2>
+      {/* + Add New candidate */}
+      {newCandidateForm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              handleCloseNewCandidateForm();
+            }
+          }}
+        >
+          <div className="max-h-[90vh] w-full max-w-6xl overflow-y-auto rounded-xl bg-gradient-to-b from-white to-gray-50 p-6 shadow-2xl dark:from-gray-800 dark:to-gray-700">
+            <h2 className="mb-6 text-center text-3xl font-bold text-indigo-600 dark:text-indigo-400">
+              New Candidate Form
+            </h2>
 
-      <form onSubmit={handleNewCandidateFormSubmit}>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
+            <form onSubmit={handleNewCandidateFormSubmit}>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
+                {/* Row 1 */}
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="full_name"
+                    className="block text-sm font-medium text-gray-800 dark:text-gray-200"
+                  >
+                    Full Name *
+                  </Label>
+                  <Input
+                    id="full_name"
+                    name="full_name"
+                    value={formData.full_name}
+                    onChange={handleNewCandidateFormChange}
+                    required
+                    className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
+                  />
+                </div>
 
-          {/* Row 1 */}
-          <div className="space-y-1">
-            <Label htmlFor="full_name" className="block text-sm font-medium text-gray-800 dark:text-gray-200">
-              Full Name *
-            </Label>
-            <Input
-              id="full_name"
-              name="full_name"
-              value={formData.full_name}
-              onChange={handleNewCandidateFormChange}
-              required
-              className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
-            />
-          </div>
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="email"
+                    className="block text-sm font-medium text-gray-800 dark:text-gray-200"
+                  >
+                    Email *
+                  </Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleNewCandidateFormChange}
+                    required
+                    className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
+                  />
+                </div>
 
-          <div className="space-y-1">
-            <Label htmlFor="email" className="block text-sm font-medium text-gray-800 dark:text-gray-200">
-              Email *
-            </Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              value={formData.email}
-              onChange={handleNewCandidateFormChange}
-              required
-              className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
-            />
-          </div>
+                {/* Row 2 */}
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="phone"
+                    className="block text-sm font-medium text-gray-800 dark:text-gray-200"
+                  >
+                    Phone *
+                  </Label>
+                  <Input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    value={formData.phone}
+                    onChange={handleNewCandidateFormChange}
+                    required
+                    placeholder="+1 (123) 456-7890"
+                    className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
+                  />
+                </div>
 
-          {/* Row 2 */}
-          <div className="space-y-1">
-            <Label htmlFor="phone" className="block text-sm font-medium text-gray-800 dark:text-gray-200">
-              Phone *
-            </Label>
-            <Input
-              id="phone"
-              name="phone"
-              type="tel"
-              value={formData.phone}
-              onChange={handleNewCandidateFormChange}
-              required
-              placeholder="+1 (123) 456-7890"
-              className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
-            />
-          </div>
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="status"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Status
+                  </Label>
+                  <select
+                    id="status"
+                    name="status"
+                    value={formData.status}
+                    onChange={handleNewCandidateFormChange}
+                    className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 font-semibold text-green-600 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-200"
+                  >
+                    {statusOptions.map((status) => (
+                      <option
+                        key={status}
+                        value={status}
+                        className="font-semibold text-green-600"
+                      >
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-        
-            <div className="space-y-1">
-              <Label htmlFor="status" className="block text-sm font-medium text-gray-700">
-                Status
-              </Label>
-              <select
-                id="status"
-                name="status"
-                value={formData.status}
-                onChange={handleNewCandidateFormChange}
-                className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-200 text-green-600 font-semibold"
-              >
-                {statusOptions.map((status) => (
-                  <option key={status} value={status} className="text-green-600 font-semibold">
-                    {status.charAt(0).toUpperCase() + status.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </div>
+                {/* Row 3 */}
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="workstatus"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Work Status
+                  </Label>
+                  <select
+                    id="workstatus"
+                    name="workstatus"
+                    value={formData.workstatus}
+                    onChange={handleNewCandidateFormChange}
+                    className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 font-semibold shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-200"
+                    style={getWorkStatusColor(formData.workstatus)}
+                  >
+                    {workStatusOptions.map((status) => (
+                      <option
+                        key={status}
+                        value={status}
+                        style={getWorkStatusColor(status)}
+                      >
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-          {/* Row 3 */}
-          <div className="space-y-1">
-          <Label htmlFor="workstatus" className="block text-sm font-medium text-gray-700">
-            Work Status
-          </Label>
-          <select
-            id="workstatus"
-            name="workstatus"
-            value={formData.workstatus}
-            onChange={handleNewCandidateFormChange}
-            className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-200 font-semibold"
-            style={getWorkStatusColor(formData.workstatus)} 
-          >
-            {workStatusOptions.map((status) => (
-              <option
-                key={status}
-                value={status}
-                style={getWorkStatusColor(status)} 
-              >
-                {status.charAt(0).toUpperCase() + status.slice(1)}
-              </option>
-            ))}
-          </select>
-        </div>
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="education"
+                    className="block text-sm font-medium text-gray-800 dark:text-gray-200"
+                  >
+                    Education
+                  </Label>
+                  <Input
+                    id="education"
+                    name="education"
+                    value={formData.education}
+                    onChange={handleNewCandidateFormChange}
+                    className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
+                  />
+                </div>
 
-          <div className="space-y-1">
-            <Label htmlFor="education" className="block text-sm font-medium text-gray-800 dark:text-gray-200">
-              Education
-            </Label>
-            <Input
-              id="education"
-              name="education"
-              value={formData.education}
-              onChange={handleNewCandidateFormChange}
-              className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
-            />
-          </div>
+                {/* Row 4 */}
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="workexperience"
+                    className="block text-sm font-medium text-gray-800 dark:text-gray-200"
+                  >
+                    Work Experience
+                  </Label>
+                  <Input
+                    id="workexperience"
+                    name="workexperience"
+                    value={formData.workexperience}
+                    onChange={handleNewCandidateFormChange}
+                    className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
+                  />
+                </div>
 
-          {/* Row 4 */}
-          <div className="space-y-1">
-            <Label htmlFor="workexperience" className="block text-sm font-medium text-gray-800 dark:text-gray-200">
-              Work Experience
-            </Label>
-            <Input
-              id="workexperience"
-              name="workexperience"
-              value={formData.workexperience}
-              onChange={handleNewCandidateFormChange}
-              className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
-            />
-          </div>
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="agreement"
+                    className="block text-sm font-medium text-gray-800 dark:text-gray-200"
+                  >
+                    Agreement
+                  </Label>
+                  <select
+                    id="agreement"
+                    name="agreement"
+                    value={formData.agreement}
+                    onChange={handleNewCandidateFormChange}
+                    className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
+                  >
+                    <option value="Y">Yes</option>
+                    <option value="N">No</option>
+                  </select>
+                </div>
 
-          <div className="space-y-1">
-            <Label htmlFor="agreement" className="block text-sm font-medium text-gray-800 dark:text-gray-200">
-              Agreement
-            </Label>
-            <select
-              id="agreement"
-              name="agreement"
-              value={formData.agreement}
-              onChange={handleNewCandidateFormChange}
-              className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
+                {/* Row 5 */}
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="ssn"
+                    className="block text-sm font-medium text-gray-800 dark:text-gray-200"
+                  >
+                    SSN
+                  </Label>
+                  <Input
+                    id="ssn"
+                    name="ssn"
+                    type="password"
+                    value={formData.ssn}
+                    onChange={handleNewCandidateFormChange}
+                    className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="secondaryemail"
+                    className="block text-sm font-medium text-gray-800 dark:text-gray-200"
+                  >
+                    Secondary Email
+                  </Label>
+                  <Input
+                    id="secondaryemail"
+                    name="secondaryemail"
+                    type="email"
+                    value={formData.secondaryemail}
+                    onChange={handleNewCandidateFormChange}
+                    className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
+                  />
+                </div>
+
+                {/* Row 6 */}
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="secondaryphone"
+                    className="block text-sm font-medium text-gray-800 dark:text-gray-200"
+                  >
+                    Secondary Phone
+                  </Label>
+                  <Input
+                    id="secondaryphone"
+                    name="secondaryphone"
+                    type="tel"
+                    value={formData.secondaryphone}
+                    onChange={handleNewCandidateFormChange}
+                    placeholder="+1 (123) 456-7890"
+                    className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="linkedin_id"
+                    className="block text-sm font-medium text-gray-800 dark:text-gray-200"
+                  >
+                    LinkedIn ID
+                  </Label>
+                  <Input
+                    id="linkedin_id"
+                    name="linkedin_id"
+                    value={formData.linkedin_id}
+                    onChange={handleNewCandidateFormChange}
+                    className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
+                  />
+                </div>
+
+                {/* Row 7 */}
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="dob"
+                    className="block text-sm font-medium text-gray-800 dark:text-gray-200"
+                  >
+                    Date of Birth *
+                  </Label>
+                  <Input
+                    id="dob"
+                    name="dob"
+                    type="date"
+                    value={formData.dob}
+                    onChange={handleNewCandidateFormChange}
+                    required
+                    className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="emergcontactname"
+                    className="block text-sm font-medium text-gray-800 dark:text-gray-200"
+                  >
+                    Emergency Contact Name
+                  </Label>
+                  <Input
+                    id="emergcontactname"
+                    name="emergcontactname"
+                    value={formData.emergcontactname}
+                    onChange={handleNewCandidateFormChange}
+                    className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
+                  />
+                </div>
+
+                {/* Row 8 */}
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="emergcontactemail"
+                    className="block text-sm font-medium text-gray-800 dark:text-gray-200"
+                  >
+                    Emergency Contact Email
+                  </Label>
+                  <Input
+                    id="emergcontactemail"
+                    name="emergcontactemail"
+                    type="email"
+                    value={formData.emergcontactemail}
+                    onChange={handleNewCandidateFormChange}
+                    className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="emergcontactphone"
+                    className="block text-sm font-medium text-gray-800 dark:text-gray-200"
+                  >
+                    Emergency Contact Phone
+                  </Label>
+                  <Input
+                    id="emergcontactphone"
+                    name="emergcontactphone"
+                    type="tel"
+                    value={formData.emergcontactphone}
+                    onChange={handleNewCandidateFormChange}
+                    placeholder="+1 (123) 456-7890"
+                    className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
+                  />
+                </div>
+
+                {/* Row 9 - Full width */}
+                <div className="space-y-1 md:col-span-2">
+                  <Label
+                    htmlFor="emergcontactaddrs"
+                    className="block text-sm font-medium text-gray-800 dark:text-gray-200"
+                  >
+                    Emergency Contact Address
+                  </Label>
+                  <Input
+                    id="emergcontactaddrs"
+                    name="emergcontactaddrs"
+                    value={formData.emergcontactaddrs}
+                    onChange={handleNewCandidateFormChange}
+                    className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
+                  />
+                </div>
+
+                {/* Row 10 */}
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="fee_paid"
+                    className="block text-sm font-medium text-gray-800 dark:text-gray-200"
+                  >
+                    Fee Paid ($)
+                  </Label>
+                  <Input
+                    id="fee_paid"
+                    name="fee_paid"
+                    type="number"
+                    value={formData.fee_paid}
+                    onChange={handleNewCandidateFormChange}
+                    className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="batchid"
+                    className="block text-sm font-medium text-gray-800 dark:text-gray-200"
+                  >
+                    Batch *
+                  </Label>
+                  <select
+                    id="batchid"
+                    name="batchid"
+                    value={formData.batchid}
+                    onChange={handleNewCandidateFormChange}
+                    required
+                    className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
+                    disabled={batchesLoading}
+                  >
+                    {batchesLoading ? (
+                      <option value="0">Loading batches...</option>
+                    ) : (
+                      <>
+                        {mlBatches.map((batch) => (
+                          <option key={batch.batchid} value={batch.batchid}>
+                            {batch.batchname}
+                          </option>
+                        ))}
+                      </>
+                    )}
+                  </select>
+                </div>
+
+                {/* Row 11 - Full width */}
+                <div className="space-y-1 md:col-span-2">
+                  <Label
+                    htmlFor="notes"
+                    className="block text-sm font-medium text-gray-800 dark:text-gray-200"
+                  >
+                    Notes
+                  </Label>
+                  <textarea
+                    id="notes"
+                    name="notes"
+                    value={formData.notes}
+                    onChange={handleNewCandidateFormChange}
+                    className="min-h-[100px] w-full resize-none rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
+                  />
+                </div>
+
+                <div className="space-y-1 md:col-span-2">
+                  <Label
+                    htmlFor="candidate_folder"
+                    className="block text-sm font-medium text-gray-800 dark:text-gray-200"
+                  >
+                    Candidate Folder
+                  </Label>
+                  <Input
+                    id="candidate_folder"
+                    name="candidate_folder"
+                    value={formData.candidate_folder}
+                    onChange={handleNewCandidateFormChange}
+                    placeholder="Google Drive/Dropbox link"
+                    className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label
+                    htmlFor="enrolled_date"
+                    className="block text-sm font-medium text-gray-800 dark:text-gray-200"
+                  >
+                    Enrolled Date
+                  </Label>
+                  <Input
+                    id="enrolled_date"
+                    name="enrolled_date"
+                    type="date"
+                    value={formData.enrolled_date}
+                    onChange={handleNewCandidateFormChange}
+                    className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
+                  />
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <div className="mt-6 md:col-span-5">
+                <button
+                  type="submit"
+                  disabled={formSaveLoading}
+                  className={`w-full rounded-lg py-3 text-sm font-semibold text-white shadow-md transition duration-200 ${
+                    formSaveLoading
+                      ? "cursor-not-allowed bg-gray-400"
+                      : "bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-green-400"
+                  }`}
+                >
+                  {formSaveLoading ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </form>
+
+            <button
+              onClick={handleCloseNewCandidateForm}
+              className="absolute right-4 top-4 text-3xl font-bold text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-gray-100"
+              aria-label="Close"
             >
-              <option value="Y">Yes</option>
-              <option value="N">No</option>
-            </select>
+              &times;
+            </button>
           </div>
-
-          {/* Row 5 */}
-          <div className="space-y-1">
-            <Label htmlFor="ssn" className="block text-sm font-medium text-gray-800 dark:text-gray-200">
-              SSN
-            </Label>
-            <Input
-              id="ssn"
-              name="ssn"
-              type="password"
-              value={formData.ssn}
-              onChange={handleNewCandidateFormChange}
-              className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="secondaryemail" className="block text-sm font-medium text-gray-800 dark:text-gray-200">
-              Secondary Email
-            </Label>
-            <Input
-              id="secondaryemail"
-              name="secondaryemail"
-              type="email"
-              value={formData.secondaryemail}
-              onChange={handleNewCandidateFormChange}
-              className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
-            />
-          </div>
-
-          {/* Row 6 */}
-          <div className="space-y-1">
-            <Label htmlFor="secondaryphone" className="block text-sm font-medium text-gray-800 dark:text-gray-200">
-              Secondary Phone
-            </Label>
-            <Input
-              id="secondaryphone"
-              name="secondaryphone"
-              type="tel"
-              value={formData.secondaryphone}
-              onChange={handleNewCandidateFormChange}
-              placeholder="+1 (123) 456-7890"
-              className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="linkedin_id" className="block text-sm font-medium text-gray-800 dark:text-gray-200">
-              LinkedIn ID
-            </Label>
-            <Input
-              id="linkedin_id"
-              name="linkedin_id"
-              value={formData.linkedin_id}
-              onChange={handleNewCandidateFormChange}
-              className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
-            />
-          </div>
-
-          {/* Row 7 */}
-          <div className="space-y-1">
-            <Label htmlFor="dob" className="block text-sm font-medium text-gray-800 dark:text-gray-200">
-              Date of Birth *
-            </Label>
-            <Input
-              id="dob"
-              name="dob"
-              type="date"
-              value={formData.dob}
-              onChange={handleNewCandidateFormChange}
-              required
-              className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="emergcontactname" className="block text-sm font-medium text-gray-800 dark:text-gray-200">
-              Emergency Contact Name
-            </Label>
-            <Input
-              id="emergcontactname"
-              name="emergcontactname"
-              value={formData.emergcontactname}
-              onChange={handleNewCandidateFormChange}
-              className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
-            />
-          </div>
-
-          {/* Row 8 */}
-          <div className="space-y-1">
-            <Label htmlFor="emergcontactemail" className="block text-sm font-medium text-gray-800 dark:text-gray-200">
-              Emergency Contact Email
-            </Label>
-            <Input
-              id="emergcontactemail"
-              name="emergcontactemail"
-              type="email"
-              value={formData.emergcontactemail}
-              onChange={handleNewCandidateFormChange}
-              className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="emergcontactphone" className="block text-sm font-medium text-gray-800 dark:text-gray-200">
-              Emergency Contact Phone
-            </Label>
-            <Input
-              id="emergcontactphone"
-              name="emergcontactphone"
-              type="tel"
-              value={formData.emergcontactphone}
-              onChange={handleNewCandidateFormChange}
-              placeholder="+1 (123) 456-7890"
-              className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
-            />
-          </div>
-
-          {/* Row 9 - Full width */}
-          <div className="space-y-1 md:col-span-2">
-            <Label htmlFor="emergcontactaddrs" className="block text-sm font-medium text-gray-800 dark:text-gray-200">
-              Emergency Contact Address
-            </Label>
-            <Input
-              id="emergcontactaddrs"
-              name="emergcontactaddrs"
-              value={formData.emergcontactaddrs}
-              onChange={handleNewCandidateFormChange}
-              className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
-            />
-          </div>
-
-          {/* Row 10 */}
-          <div className="space-y-1">
-            <Label htmlFor="fee_paid" className="block text-sm font-medium text-gray-800 dark:text-gray-200">
-              Fee Paid ($)
-            </Label>
-            <Input
-              id="fee_paid"
-              name="fee_paid"
-              type="number"
-              value={formData.fee_paid}
-              onChange={handleNewCandidateFormChange}
-              className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="batchid" className="block text-sm font-medium text-gray-800 dark:text-gray-200">
-              Batch *
-            </Label>
-            <select
-              id="batchid"
-              name="batchid"
-              value={formData.batchid}
-              onChange={handleNewCandidateFormChange}
-              required
-              className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
-              disabled={batchesLoading}
-            >
-              {batchesLoading ? (
-                <option value="0">Loading batches...</option>
-              ) : (
-                <>
-                  {mlBatches.map((batch) => (
-                    <option key={batch.batchid} value={batch.batchid}>
-                      {batch.batchname}
-                    </option>
-                  ))}
-                </>
-              )}
-            </select>
-          </div>
-
-          {/* Row 11 - Full width */}
-          <div className="space-y-1 md:col-span-2">
-            <Label htmlFor="notes" className="block text-sm font-medium text-gray-800 dark:text-gray-200">
-              Notes
-            </Label>
-            <textarea
-              id="notes"
-              name="notes"
-              value={formData.notes}
-              onChange={handleNewCandidateFormChange}
-              className="min-h-[100px] w-full resize-none rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
-            />
-          </div>
-
-          <div className="space-y-1 md:col-span-2">
-            <Label htmlFor="candidate_folder" className="block text-sm font-medium text-gray-800 dark:text-gray-200">
-              Candidate Folder
-            </Label>
-            <Input
-              id="candidate_folder"
-              name="candidate_folder"
-              value={formData.candidate_folder}
-              onChange={handleNewCandidateFormChange}
-              placeholder="Google Drive/Dropbox link"
-              className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="enrolled_date" className="block text-sm font-medium text-gray-800 dark:text-gray-200">
-              Enrolled Date
-            </Label>
-            <Input
-              id="enrolled_date"
-              name="enrolled_date"
-              type="date"
-              value={formData.enrolled_date}
-              onChange={handleNewCandidateFormChange}
-              className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-gray-800 shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-300"
-            />
-          </div>
-
         </div>
-
-        {/* Submit Button */}
-        <div className="mt-6 md:col-span-5">
-          <button
-            type="submit"
-            disabled={formSaveLoading}
-            className={`w-full rounded-lg py-3 text-sm font-semibold text-white transition duration-200 shadow-md ${
-              formSaveLoading
-                ? "cursor-not-allowed bg-gray-400"
-                : "bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-green-400"
-            }`}
-          >
-            {formSaveLoading ? "Saving..." : "Save"}
-          </button>
-        </div>
-      </form>
-
-      <button
-        onClick={handleCloseNewCandidateForm}
-        className="absolute right-4 top-4 text-3xl font-bold text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-gray-100"
-        aria-label="Close"
-      >
-        &times;
-      </button>
-    </div>
-  </div>
-)}
-
-
+      )}
     </div>
   );
 }
