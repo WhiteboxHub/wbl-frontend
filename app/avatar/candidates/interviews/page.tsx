@@ -21,7 +21,7 @@ export default function CandidatesInterviews() {
   const [perPage, setPerPage] = useState(50);
   const [total, setTotal] = useState(0);
 
-  // --- Add Interview Modal State ---
+  // Add Interview Modal State
   const [showAddForm, setShowAddForm] = useState(false);
   const [newInterview, setNewInterview] = useState<any>({
     candidate_id: "",
@@ -34,25 +34,22 @@ export default function CandidatesInterviews() {
     interviewer_contact: "",
     notes: "",
     recording_link: "",
+    transcript: "", 
     backup_url: "",
     url: "",
   });
 
-  // Get token helper
   const getAuthHeaders = () => {
     const token = localStorage.getItem("token");
     return { Authorization: `Bearer ${token}` };
   };
 
-  // Fetch interviews
   const fetchInterviews = async (page: number, perPage: number) => {
     try {
       setLoading(true);
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/interviews?page=${page}&per_page=${perPage}`,
-        {
-          headers: getAuthHeaders(),
-        }
+        { headers: getAuthHeaders() }
       );
       if (!res.ok) throw new Error("Failed to load interviews");
       const data = await res.json();
@@ -70,7 +67,6 @@ export default function CandidatesInterviews() {
     fetchInterviews(page, perPage);
   }, [page, perPage]);
 
-  // Search/filter
   const filterData = useCallback(
     (term: string) => {
       if (!term.trim()) return interviews;
@@ -87,7 +83,7 @@ export default function CandidatesInterviews() {
 
   const filteredInterviews = filterData(searchTerm);
 
-  // Status renderer
+  // Badge renderers
   const StatusRenderer = (params: any) => {
     const v = params.value?.toLowerCase() ?? "";
     const classes =
@@ -99,7 +95,6 @@ export default function CandidatesInterviews() {
     return <Badge className={classes}>{params.value}</Badge>;
   };
 
-  // Feedback renderer
   const FeedbackRenderer = (params: any) => {
     const value = params.value?.toLowerCase() ?? "";
     if (!value || value === "no response")
@@ -111,7 +106,6 @@ export default function CandidatesInterviews() {
     return <Badge className="bg-gray-100 text-gray-800">{params.value}</Badge>;
   };
 
-  // Link renderer for recording_link, backup_url, url
   const LinkRenderer = (params: any) => {
     const value = params.value;
     if (!value) return <span className="text-gray-500">Not Available</span>;
@@ -137,16 +131,27 @@ export default function CandidatesInterviews() {
     );
   };
 
-  // Columns
+  // Column definitions with Set Filter for type_of_interview
   const columnDefs = useMemo<ColDef[]>(
     () => [
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
       { field: "candidate.full_name", headerName: "Full Name", sortable: true, minWidth: 140 },
       { field: "company", headerName: "Company", sortable: true, minWidth: 110, editable: true },
       { field: "mode_of_interview", headerName: "Mode", maxWidth: 130, editable: true },
-      { field: "type_of_interview", headerName: "Type", maxWidth: 150, editable: true },
+      {
+        field: "type_of_interview",
+        headerName: "Type",
+        maxWidth: 150,
+        editable: true,
+        filter: "agSetColumnFilter",
+        filterParams: {
+          values: ["Technical", "Phone Call", "Virtual"],
+          comparator: (a: string, b: string) => a.localeCompare(b),
+        },
+      },
       { field: "interview_date", headerName: "Date", maxWidth: 120, editable: true },
       { field: "recording_link", headerName: "Recording", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
+      { field: "transcript", headerName: "Transcript", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
       { field: "backup_url", headerName: "Backup URL", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
       { field: "url", headerName: "URL", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
       { field: "instructor1_name", headerName: "Instructor 1", minWidth: 140 },
@@ -160,36 +165,18 @@ export default function CandidatesInterviews() {
     []
   );
 
-  // Update existing row
   const handleRowUpdated = async (updatedRow: any) => {
     try {
-      const payload = {
-        candidate_id: updatedRow.candidate_id,
-        company: updatedRow.company,
-        mode_of_interview: updatedRow.mode_of_interview,
-        type_of_interview: updatedRow.type_of_interview,
-        interview_date: updatedRow.interview_date,
-        status: updatedRow.status,
-        feedback: updatedRow.feedback,
-        interviewer_emails: updatedRow.interviewer_emails,
-        interviewer_contact: updatedRow.interviewer_contact,
-        notes: updatedRow.notes,
-        recording_link: updatedRow.recording_link,
-        backup_url: updatedRow.backup_url,
-        url: updatedRow.url,
-      };
+      const payload = { ...updatedRow };
       if (updatedRow.id) {
         await axios.put(
           `${process.env.NEXT_PUBLIC_API_URL}/interviews/${updatedRow.id}`,
           payload,
           { headers: getAuthHeaders() }
         );
-
-        // Update the local state directly instead of refetching
         setInterviews((prev) =>
           prev.map((row) => (row.id === updatedRow.id ? { ...row, ...updatedRow } : row))
         );
-
         toast.success('Interview updated successfully!');
       }
     } catch (err) {
@@ -198,14 +185,10 @@ export default function CandidatesInterviews() {
     }
   };
 
-  // Delete row
   const handleRowDeleted = async (row: any) => {
     try {
       if (row.id) {
-        await axios.delete(
-          `${process.env.NEXT_PUBLIC_API_URL}/interviews/${row.id}`,
-          { headers: getAuthHeaders() }
-        );
+        await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/interviews/${row.id}`, { headers: getAuthHeaders() });
       }
       setInterviews((prev) => prev.filter((r) => r !== row));
       toast.success('Interview deleted successfully!');
@@ -214,17 +197,13 @@ export default function CandidatesInterviews() {
     }
   };
 
-  // Add new interview
   const handleAddInterview = async () => {
     if (!newInterview.candidate_id || !newInterview.company) {
       toast.error("Candidate ID and Company are required!");
       return;
     }
     try {
-      const payload = {
-        ...newInterview,
-        candidate_id: Number(newInterview.candidate_id),
-      };
+      const payload = { ...newInterview, candidate_id: Number(newInterview.candidate_id) };
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/interviews`,
         payload,
@@ -244,6 +223,7 @@ export default function CandidatesInterviews() {
         interviewer_contact: "",
         notes: "",
         recording_link: "",
+        transcript: "",
         backup_url: "",
         url: "",
       });
@@ -254,12 +234,9 @@ export default function CandidatesInterviews() {
     }
   };
 
-  const totalPages = Math.ceil(total / perPage);
-
   return (
     <div className="space-y-6">
       <Toaster position="top-center" richColors />
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Interviews</h1>
@@ -269,7 +246,7 @@ export default function CandidatesInterviews() {
           <PlusIcon className="h-4 w-4 mr-2" /> Add Interview
         </Button>
       </div>
-      {/* Search */}
+
       <div className="max-w-md">
         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">Search</Label>
         <div className="relative mt-1">
@@ -284,7 +261,7 @@ export default function CandidatesInterviews() {
           />
         </div>
       </div>
-      {/* Table */}
+
       {loading ? (
         <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-8">Loading...</p>
       ) : error ? (
@@ -304,120 +281,33 @@ export default function CandidatesInterviews() {
           </div>
         </div>
       )}
+
       {/* Add Interview Modal */}
       {showAddForm && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4">Add Interview</h2>
             <div className="space-y-3">
-              <Input
-                placeholder="Candidate ID"
-                value={newInterview.candidate_id}
-                onChange={(e) => setNewInterview({ ...newInterview, candidate_id: e.target.value })}
-              />
-              <Input
-                placeholder="Company"
-                value={newInterview.company}
-                onChange={(e) => setNewInterview({ ...newInterview, company: e.target.value })}
-              />
-              {/* Mode of Interview */}
-              <select
-                value={newInterview.mode_of_interview}
-                onChange={(e) => setNewInterview({ ...newInterview, mode_of_interview: e.target.value })}
-                className="w-full p-2 border rounded"
-              >
+              <Input placeholder="Candidate ID" value={newInterview.candidate_id} onChange={(e) => setNewInterview({ ...newInterview, candidate_id: e.target.value })} />
+              <Input placeholder="Company" value={newInterview.company} onChange={(e) => setNewInterview({ ...newInterview, company: e.target.value })} />
+              <select value={newInterview.mode_of_interview} onChange={(e) => setNewInterview({ ...newInterview, mode_of_interview: e.target.value })} className="w-full p-2 border rounded">
                 <option value="">Mode of Interview</option>
                 <option value="Virtual">Virtual</option>
                 <option value="In Person">In Person</option>
                 <option value="Phone">Phone</option>
                 <option value="Assessment">Assessment</option>
               </select>
-              {/* Type of Interview */}
-              <select
-                value={newInterview.type_of_interview}
-                onChange={(e) => setNewInterview({ ...newInterview, type_of_interview: e.target.value })}
-                className="w-full p-2 border rounded"
-              >
+              <select value={newInterview.type_of_interview} onChange={(e) => setNewInterview({ ...newInterview, type_of_interview: e.target.value })} className="w-full p-2 border rounded">
                 <option value="">Type of Interview</option>
-                <option value="Assessment">Assessment</option>
-                <option value="Recruiter Call">Recruiter Call</option>
                 <option value="Technical">Technical</option>
-                <option value="HR Round">HR Round</option>
-                <option value="In Person">In Person</option>
-                <option value="Prep Call">Prep Call</option>
+                <option value="Phone Call">Phone Call</option>
+                <option value="Virtual">Virtual</option>
               </select>
-              <Input
-                placeholder="Interview Date"
-                type="date"
-                value={newInterview.interview_date}
-                onChange={(e) => setNewInterview({ ...newInterview, interview_date: e.target.value })}
-              />
-              <Input
-                placeholder="Interviewer Emails"
-                value={newInterview.interviewer_emails}
-                onChange={(e) => setNewInterview({ ...newInterview, interviewer_emails: e.target.value })}
-              />
-              <Input
-                placeholder="Interviewer Contact"
-                value={newInterview.interviewer_contact}
-                onChange={(e) => setNewInterview({ ...newInterview, interviewer_contact: e.target.value })}
-              />
-              <Input
-                placeholder="Notes"
-                value={newInterview.notes}
-                onChange={(e) => setNewInterview({ ...newInterview, notes: e.target.value })}
-              />
-              <Input
-                placeholder="Recording Link"
-                value={newInterview.recording_link}
-                onChange={(e) => setNewInterview({ ...newInterview, recording_link: e.target.value })}
-              />
-              <Input
-                placeholder="Backup URL"
-                value={newInterview.backup_url}
-                onChange={(e) => setNewInterview({ ...newInterview, backup_url: e.target.value })}
-              />
-              <Input
-                placeholder="URL"
-                value={newInterview.url}
-                onChange={(e) => setNewInterview({ ...newInterview, url: e.target.value })}
-              />
-              {/* Status Dropdown */}
-              <select
-                value={newInterview.status}
-                onChange={(e) => setNewInterview({ ...newInterview, status: e.target.value })}
-                className="w-full p-2 border rounded"
-              >
-                <option value="">Status</option>
-                <option value="No Update">No Update</option>
-                <option value="Cleared">Cleared</option>
-                <option value="Rejected">Rejected</option>
-              </select>
-              {/* Feedback Dropdown */}
-              <select
-                value={newInterview.feedback}
-                onChange={(e) => setNewInterview({ ...newInterview, feedback: e.target.value })}
-                className="w-full p-2 border rounded"
-              >
-                <option value="">Feedback</option>
-                <option value="Pending">Pending</option>
-                <option value="Positive">Positive</option>
-                <option value="Negative">Negative</option>
-              </select>
+              <Input type="date" placeholder="Interview Date" value={newInterview.interview_date} onChange={(e) => setNewInterview({ ...newInterview, interview_date: e.target.value })} />
             </div>
             <div className="flex justify-end mt-6 space-x-3">
-              <button
-                onClick={() => setShowAddForm(false)}
-                className="px-4 py-2 bg-gray-300 rounded"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddInterview}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                Save
-              </button>
+              <button onClick={() => setShowAddForm(false)} className="px-4 py-2 bg-gray-300 rounded">Cancel</button>
+              <button onClick={handleAddInterview} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save</button>
             </div>
           </div>
         </div>

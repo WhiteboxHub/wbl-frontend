@@ -1,3 +1,4 @@
+
 "use client";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
@@ -10,6 +11,9 @@ import { toast, Toaster } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AGGridTable } from "@/components/AGGridTable";
 import { createPortal } from "react-dom";
+import { AgGridReact } from "ag-grid-react";
+import type { AgGridReact as AgGridReactType } from "ag-grid-react"; // import type
+import type { GridApi } from "ag-grid-community";
 
 type Lead = {
   id: number;
@@ -38,6 +42,8 @@ type FormData = {
   phone: string;
   workstatus: string;
   address: string;
+  secondary_email: string | null;
+  secondary_phone: string | null;
   status: string;
   moved_to_candidate: boolean;
   notes: string;
@@ -57,6 +63,8 @@ const initialFormData: FormData = {
   notes: "",
   massemail_unsubscribe: false,
   massemail_email_sent: false,
+  secondary_email: "",
+  secondary_phone: "",
 };
 
 const statusOptions = ["Open", "Closed", "Future"];
@@ -211,7 +219,7 @@ const StatusFilterHeaderComponent = (props: any) => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-2 border-b pb-2">
-              <label className="flex cursor-pointer items-center rounded px-2 py-1 font-medium hover:bg-gray-100 dark:hover:bg-gray-700">
+              <label className="flex cursor-pointer items-center rounded px-2 py-1 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">
                 <input
                   type="checkbox"
                   checked={isAllSelected}
@@ -372,7 +380,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
         createPortal(
           <div
             ref={dropdownRef}
-            className="pointer-events-auto fixed flex w-56 flex-col space-y-2 rounded-lg border bg-white p-3 shadow-xl dark:border-gray-600 dark:bg-gray-800"
+            className="pointer-events-auto fixed flex w-56 flex-col space-y-2 rounded-lg border bg-white p-3 text-sm shadow-xl dark:border-gray-600 dark:bg-gray-800"
             style={{
               top: dropdownPos.top + 5,
               left: dropdownPos.left,
@@ -456,6 +464,7 @@ export default function LeadsPage() {
   const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>(
     []
   );
+  const gridRef = useRef<InstanceType<typeof AgGridReact> | null>(null);
 
   const apiEndpoint = useMemo(
     () => `${process.env.NEXT_PUBLIC_API_URL}/leads`,
@@ -527,7 +536,6 @@ export default function LeadsPage() {
     [apiEndpoint]
   );
 
-  // Filter leads locally when status or work status changes
   useEffect(() => {
     let filtered = [...leads];
 
@@ -539,7 +547,6 @@ export default function LeadsPage() {
       );
     }
 
-    // Apply work status filter - if any work status is selected, show only those
     if (selectedWorkStatuses.length > 0) {
       filtered = filtered.filter((lead) =>
         selectedWorkStatuses.some(
@@ -580,7 +587,6 @@ export default function LeadsPage() {
     return () => clearTimeout(timeoutId);
   }, [searchTerm, searchBy, sortModel, fetchLeads]);
 
-  // Detect search by field
   const detectSearchBy = (search: string) => {
     if (/^\d+$/.test(search)) return "id";
     if (/^\S+@\S+\.\S+$/.test(search)) return "email";
@@ -599,15 +605,12 @@ export default function LeadsPage() {
       const checked = (e.target as HTMLInputElement).checked;
       setFormData((prev) => ({ ...prev, [name]: checked }));
     } else if (name === "phone" || name === "secondary_phone") {
-      // Only allow digits
       const numericValue = value.replace(/\D/g, "");
       setFormData((prev) => ({ ...prev, [name]: numericValue }));
     } else if (name === "address") {
-      // Allow letters, numbers, comma, and space only
       const sanitizedValue = value.replace(/[^a-zA-Z0-9, ]/g, "");
       setFormData((prev) => ({ ...prev, [name]: sanitizedValue }));
     } else if (name === "full_name") {
-      // Allow letters and dot only
       const sanitizedValue = value.replace(/[^a-zA-Z. ]/g, "");
       setFormData((prev) => ({ ...prev, [name]: sanitizedValue }));
     } else {
@@ -695,6 +698,7 @@ export default function LeadsPage() {
   const handleRowUpdated = useCallback(
     async (updatedRow: Lead) => {
       setLoadingRowId(updatedRow.id);
+
       try {
         const { id, entry_date, ...payload } = updatedRow;
 
@@ -721,7 +725,12 @@ export default function LeadsPage() {
           throw new Error(errorData.detail || "Failed to update lead");
         }
 
-        await fetchLeads(searchTerm, searchBy, sortModel);
+        const updatedLead = { ...updatedRow, ...payload };
+
+        if (gridRef.current) {
+          gridRef.current.api.applyTransaction({ update: [updatedLead] });
+        }
+
         toast.success(
           payload.moved_to_candidate
             ? "Lead moved to candidate and marked Closed"
@@ -734,7 +743,7 @@ export default function LeadsPage() {
         setLoadingRowId(null);
       }
     },
-    [apiEndpoint, searchTerm, searchBy, sortModel, fetchLeads]
+    [apiEndpoint]
   );
 
   const handleRowDeleted = useCallback(
@@ -743,16 +752,33 @@ export default function LeadsPage() {
         const response = await fetch(`${apiEndpoint}/${id}`, {
           method: "DELETE",
         });
-        if (!response.ok) throw new Error("Failed to delete lead");
-        toast.success("Lead deleted successfully");
-        fetchLeads(searchTerm, searchBy, sortModel);
+        if (!response.ok) throw new Error("Failed to delete candidate");
+
+        const rowNode = gridRef.current?.api.getRowNode(id.toString());
+        if (rowNode) rowNode.setData(null);
+        gridRef.current?.api.applyTransaction({ remove: [rowNode.data] });
+
+        toast.success("Candidate deleted successfully");
       } catch (error) {
-        toast.error("Failed to delete lead");
-        console.error("Error deleting lead:", error);
+        toast.error("Failed to delete candidate");
+        console.error(error);
       }
     },
-    [apiEndpoint, searchTerm, searchBy, sortModel, fetchLeads]
+    [apiEndpoint]
   );
+  // Esc button//
+  useEffect(() => {
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        handleCloseNewLeadForm();
+      }
+    };
+
+    window.addEventListener("keydown", handleEsc);
+    return () => {
+      window.removeEventListener("keydown", handleEsc);
+    };
+  }, []);
 
   const handleMoveToCandidate = useCallback(
     async (lead: Lead, Moved: boolean) => {
@@ -975,20 +1001,6 @@ export default function LeadsPage() {
     [selectedStatuses, selectedWorkStatuses]
   );
 
-  // Esc button//
-  useEffect(() => {
-    const handleEsc = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        handleCloseNewLeadForm();
-      }
-    };
-
-    window.addEventListener("keydown", handleEsc);
-    return () => {
-      window.removeEventListener("keydown", handleEsc);
-    };
-  }, []);
-
   // Handle errors
   if (error) {
     return (
@@ -1027,12 +1039,6 @@ export default function LeadsPage() {
           </p>
 
           <div key="search-container" className="max-w-md">
-            <Label
-              htmlFor="search"
-              className="text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Search Lead
-            </Label>
             <div className="relative mt-1">
               <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
               <Input
@@ -1062,7 +1068,6 @@ export default function LeadsPage() {
         </Button>
       </div>
 
-      {/* AG Grid Table */}
       <div className="flex w-full justify-center">
         <AGGridTable
           key={`${filteredLeads.length}-${selectedStatuses.join(
@@ -1079,7 +1084,6 @@ export default function LeadsPage() {
         />
       </div>
 
-      {/* New Lead Form */}
       {newLeadForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
           <div className="relative min-h-[80vh] w-full max-w-2xl rounded-xl bg-white p-4 shadow-md">
@@ -1088,23 +1092,19 @@ export default function LeadsPage() {
             </h2>
             <form className="grid grid-cols-1 gap-2 md:grid-cols-2">
               {Object.entries({
-                full_name: { label: "Full Name", type: "text", required: true },
-                email: { label: "Email", type: "email", required: true },
-                phone: { label: "Phone", type: "tel", required: true },
+                full_name: {
+                  label: "Full Name *",
+                  type: "text",
+                  required: true,
+                },
+                email: { label: "Email *", type: "email", required: true },
+                phone: { label: "Phone *", type: "tel", required: true },
                 secondary_email: { label: "Secondary Email", type: "email" },
                 secondary_phone: { label: "Secondary Phone", type: "tel" },
                 workstatus: {
                   label: "Work Status",
                   type: "select",
-                  options: [
-                    "Waiting for Status",
-                    "EAD",
-                    "Visa",
-                    "Permanent Resident",
-                    "OPT",
-                    "CPT",
-                    "H4EAD",
-                  ],
+                  options: workStatusOptions,
                   required: true,
                 },
                 address: { label: "Address", type: "text" },
@@ -1138,7 +1138,6 @@ export default function LeadsPage() {
                   >
                     {config.label}
                   </label>
-
                   {config.type === "select" ? (
                     <select
                       id={name}
@@ -1187,7 +1186,7 @@ export default function LeadsPage() {
                       name={name}
                       value={formData[name as keyof FormData] as string}
                       onChange={handleNewLeadFormChange}
-                      rows={1}
+                      rows={3}
                       className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
                     />
                   ) : config.type === "checkbox" ? (
@@ -1220,7 +1219,6 @@ export default function LeadsPage() {
                   )}
                 </div>
               ))}
-
               <div className="md:col-span-2">
                 <label
                   htmlFor="entry_date"
@@ -1229,12 +1227,15 @@ export default function LeadsPage() {
                   Entry Date
                 </label>
                 <input
-                  type="text"
+                  type="date"
                   id="entry_date"
                   name="entry_date"
-                  value={new Date().toLocaleDateString()}
-                  readOnly
-                  className="w-full rounded-md border border-gray-300 bg-gray-100 px-4 py-2 focus:outline-none dark:border-gray-600 dark:bg-gray-600"
+                  value={
+                    formData.entry_date ||
+                    new Date().toISOString().split("T")[0]
+                  }
+                  onChange={handleNewLeadFormChange}
+                  className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600"
                 />
               </div>
 
@@ -1252,7 +1253,6 @@ export default function LeadsPage() {
                 </button>
               </div>
             </form>
-
             <button
               onClick={handleCloseNewLeadForm}
               className="absolute right-3 top-3 text-2xl leading-none text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"

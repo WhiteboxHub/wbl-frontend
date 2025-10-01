@@ -25,11 +25,29 @@ interface EditModalProps {
 }
 
 const excludedFields = [
-  "candidate", "instructor1", "instructor2", "instructor3", "id", "sessionid",
-  "vendor_type", "last_mod_datetime", "last_modified", "logincount", "googleId",
-  "subject_id", "lastmoddatetime", "course_id", "new_subject_id", "instructor_1id",
-  "instructor_2id", "instructor_3id", "instructor1_id", "instructor2_id",
-  "instructor3_id", "enddate", "candidate_id"
+  "candidate",
+  "instructor1",
+  "instructor2",
+  "instructor3",
+  "id",
+  "sessionid",
+  "vendor_type",
+  "last_mod_datetime",
+  "last_modified",
+  "logincount",
+  "googleId",
+  "subject_id",
+  "lastmoddatetime",
+  "course_id",
+  "new_subject_id",
+  "instructor_1id",
+  "instructor_2id",
+  "instructor_3id",
+  "instructor1_id",
+  "instructor2_id",
+  "instructor3_id",
+  "enddate",
+  "candidate_id",
 ];
 
 const fieldSections: Record<string, string> = {
@@ -60,6 +78,7 @@ const fieldSections: Record<string, string> = {
   linkedin_connected: "Professional Information",
   intro_email_sent: "Professional Information",
   intro_call: "Professional Information",
+  recording_link: "Professional Information",
   moved_to_vendor: "Professional Information",
   phone_number: "Basic Information",
   secondary_phone: "Contact Information",
@@ -82,10 +101,10 @@ const fieldSections: Record<string, string> = {
   google_voice_number: "Professional Information",
   dob: "Basic Information",
   contact: "Basic Information",
-  password: "Basic Information",
+  password: "Professional Information",
   secondaryemail: "Contact Information",
   ssn: "Professional Information",
-  priority: "Professional Information",
+  priority: "Basic Information",
   source: "Basic Information",
   subject: "Basic Information",
   title: "Basic Information",
@@ -112,7 +131,7 @@ const fieldSections: Record<string, string> = {
   workexperience: "Professional Information",
   faq: "Professional Information",
   callsmade: "Professional Information",
-  fee_paid: "Basic Information",
+  fee_paid: "Professional Information",
   feedue: "Professional Information",
   salary0: "Professional Information",
   salary6: "Professional Information",
@@ -150,8 +169,6 @@ const fieldSections: Record<string, string> = {
   notes: "Notes",
   course_name: "Professional Information",
   subject_name: "Basic Information",
-  assigned_date: "Professional Information",
-  employee_name: "Basic Information"
 };
 
 const workVisaStatusOptions = [
@@ -172,14 +189,24 @@ const reorderYesNoOptions = (
   options: { value: string; label: string }[]
 ) => {
   if (
-    ["linkedin_connected", "intro_email_sent", "intro_call", "moved_to_vendor", "moved_to_candidate"].includes(
-      key.toLowerCase()
-    )
+    [
+      "linkedin_connected",
+      "intro_email_sent",
+      "intro_call",
+      "moved_to_vendor",
+      "moved_to_candidate",
+    ].includes(key.toLowerCase())
   ) {
     const val = String(value).toLowerCase();
     return val === "yes" || val === "true"
-      ? [...options.filter((o) => o.value === "yes" || o.value === "true"), ...options.filter((o) => !(o.value === "yes" || o.value === "true"))]
-      : [...options.filter((o) => o.value === "no" || o.value === "false"), ...options.filter((o) => !(o.value === "no" || o.value === "false"))];
+      ? [
+          ...options.filter((o) => o.value === "yes" || o.value === "true"),
+          ...options.filter((o) => !(o.value === "yes" || o.value === "true")),
+        ]
+      : [
+          ...options.filter((o) => o.value === "no" || o.value === "false"),
+          ...options.filter((o) => !(o.value === "no" || o.value === "false")),
+        ];
   }
   return options;
 };
@@ -261,11 +288,11 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "In Person", label: "In Person" },
     { value: "Prep Call", label: "Prep Call" },
   ],
-  feedback:  [
-  { value: 'Pending', label: 'Pending' },
-  { value: 'Positive', label: 'Positive' },
-  { value: 'Negative', label: 'Negative' },
-],
+  feedback: [
+    { value: "Pending", label: "Pending" },
+    { value: "Positive", label: "Positive" },
+    { value: "Negative", label: "Negative" },
+  ],
 };
 
 const labelOverrides: Record<string, string> = {
@@ -335,7 +362,7 @@ const labelOverrides: Record<string, string> = {
   recruiterassesment: "Recruiter Assessment",
   statuschangedate: "Status Change Date",
   aadhaar: "Aadhaar",
-  url: "URL",
+  url: "Job URL",
   feedback: "Feedback",
   entry_date: "Entry Date",
   closed_date: "Closed Date",
@@ -363,7 +390,7 @@ const labelOverrides: Record<string, string> = {
   course_name: "Course Name",
   subject_name: "Subject Name",
   assigned_date: "Assigned Date",
-  employee_name: "Employee Name"
+  employee_name: "Employee Name",
 };
 
 const dateFields = [
@@ -460,9 +487,15 @@ export function EditModal({
     }
   }, [data]);
 
-  const [courses, setCourses] = React.useState<{ id: number; name: string }[]>([]);
-  const [subjects, setSubjects] = React.useState<{ id: number; name: string }[]>([]);
-  const [employees, setEmployees] = React.useState<{ id: number; name: string }[]>([]);
+  const [courses, setCourses] = React.useState<{ id: number; name: string }[]>(
+    []
+  );
+  const [subjects, setSubjects] = React.useState<
+    { id: number; name: string }[]
+  >([]);
+  const [employees, setEmployees] = React.useState<
+    { id: number; name: string }[]
+  >([]);
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -470,9 +503,12 @@ export function EditModal({
     const fetchCourses = async () => {
       try {
         const token = localStorage.getItem("token");
-        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/courses`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/courses`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
         setCourses(res.data);
       } catch (error) {
         console.error("Failed to fetch courses:", error);
@@ -481,9 +517,12 @@ export function EditModal({
     const fetchSubjects = async () => {
       try {
         const token = localStorage.getItem("token");
-        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/subjects`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/subjects`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
         setSubjects(res.data);
       } catch (error) {
         console.error("Failed to fetch subjects:", error);
@@ -492,9 +531,12 @@ export function EditModal({
     const fetchEmployees = async () => {
       try {
         const token = localStorage.getItem("token");
-        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/employees`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/employees`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
         const activeEmployees = res.data.filter((emp: any) => emp.status === 1);
         setEmployees(activeEmployees);
       } catch (error) {
@@ -538,7 +580,11 @@ export function EditModal({
     if (excludedFields.includes(key)) return;
     if (key === "id") return;
     // Exclude "status" field for Preparation and Marketing pages
-    if (key.toLowerCase() === "status" && (title.toLowerCase().includes("preparation") || title.toLowerCase().includes("marketing"))) {
+    if (
+      key.toLowerCase() === "status" &&
+      (title.toLowerCase().includes("preparation") ||
+        title.toLowerCase().includes("marketing"))
+    ) {
       return;
     }
     const section = fieldSections[key] || "Other";
@@ -551,22 +597,26 @@ export function EditModal({
   );
 
   const columnCount = Math.min(visibleSections.length, 4);
-  const modalWidthClass = {
-    1: "max-w-xl",
-    2: "max-w-3xl",
-    3: "max-w-5xl",
-    4: "max-w-6xl",
-  }[columnCount] || "max-w-6xl";
+  const modalWidthClass =
+    {
+      1: "max-w-xl",
+      2: "max-w-3xl",
+      3: "max-w-5xl",
+      4: "max-w-6xl",
+    }[columnCount] || "max-w-6xl";
 
-  const gridColsClass = {
-    1: "grid-cols-1",
-    2: "md:grid-cols-2",
-    3: "md:grid-cols-3",
-    4: "lg:grid-cols-4 md:grid-cols-2",
-  }[columnCount] || "lg:grid-cols-4 md:grid-cols-2";
+  const gridColsClass =
+    {
+      1: "grid-cols-1",
+      2: "md:grid-cols-2",
+      3: "md:grid-cols-3",
+      4: "lg:grid-cols-4 md:grid-cols-2",
+    }[columnCount] || "lg:grid-cols-4 md:grid-cols-2";
 
   const isVendorModal = title.toLowerCase().includes("vendor");
-  const isInterviewOrMarketing = title.toLowerCase().includes("interview") || title.toLowerCase().includes("marketing");
+  const isInterviewOrMarketing =
+    title.toLowerCase().includes("interview") ||
+    title.toLowerCase().includes("marketing");
 
   if (!data) return null;
 
@@ -576,13 +626,13 @@ export function EditModal({
         className={`${modalWidthClass} max-h-[80vh] overflow-y-auto p-0`}
       >
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-700 dark:bg-gray-900">
           <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
             {title} - Edit Details
           </DialogTitle>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 dark:hover:text-white focus:outline-none"
+            className="text-gray-500 hover:text-gray-700 focus:outline-none dark:hover:text-white"
             aria-label="Close"
           >
             <svg
@@ -601,6 +651,7 @@ export function EditModal({
             </svg>
           </button>
         </div>
+
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -642,86 +693,107 @@ export function EditModal({
               .filter((section) => section !== "Notes")
               .map((section) => (
                 <div key={section} className="space-y-4">
-                  <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
+                  <h3 className="border-b border-gray-200 pb-2 text-lg font-semibold text-gray-900 dark:border-gray-700 dark:text-gray-100">
                     {section}
                   </h3>
-                  {/* Conditionally render instructor dropdowns only for Preparation page */}
-                  {section === "Professional Information" && title.toLowerCase().includes("preparation") && (
-                    <>
-                      {/* Instructor 1 Dropdown */}
-                      <div className="space-y-1">
-                        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                          Instructor 1
-                        </Label>
-                        <select
-                          value={formData.instructor1_id || ""}
-                          onChange={(e) => {
-                            const selected = employees.find(
-                              (emp) => emp.id === Number(e.target.value)
-                            );
-                            handleChange("instructor1_name", selected?.name || "");
-                            handleChange("instructor1_id", selected?.id || null);
-                          }}
-                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                        >
-                          <option value="">Select Instructor</option>
-                          {employees.map((emp) => (
-                            <option key={emp.id} value={emp.id}>
-                              {emp.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      {/* Instructor 2 Dropdown */}
-                      <div className="space-y-1">
-                        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                          Instructor 2
-                        </Label>
-                        <select
-                          value={formData.instructor2_id || ""}
-                          onChange={(e) => {
-                            const selected = employees.find(
-                              (emp) => emp.id === Number(e.target.value)
-                            );
-                            handleChange("instructor2_name", selected?.name || "");
-                            handleChange("instructor2_id", selected?.id || null);
-                          }}
-                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                        >
-                          <option value="">Select Instructor</option>
-                          {employees.map((emp) => (
-                            <option key={emp.id} value={emp.id}>
-                              {emp.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      {/* Instructor 3 Dropdown */}
-                      <div className="space-y-1">
-                        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                          Instructor 3
-                        </Label>
-                        <select
-                          value={formData.instructor3_id || ""}
-                          onChange={(e) => {
-                            const selected = employees.find(
-                              (emp) => emp.id === Number(e.target.value)
-                            );
-                            handleChange("instructor3_name", selected?.name || "");
-                            handleChange("instructor3_id", selected?.id || null);
-                          }}
-                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                        >
-                          <option value="">Select Instructor</option>
-                          {employees.map((emp) => (
-                            <option key={emp.id} value={emp.id}>
-                              {emp.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </>
-                  )}
+                  {section === "Professional Information" &&
+                    title.toLowerCase().includes("preparation") && (
+                      <>
+                        {/* Instructor 1 Dropdown */}
+                        <div className="space-y-1">
+                          <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                            Instructor 1
+                          </Label>
+                          <select
+                            value={formData.instructor1_id || ""}
+                            onChange={(e) => {
+                              const selected = employees.find(
+                                (emp) => emp.id === Number(e.target.value)
+                              );
+                              handleChange(
+                                "instructor1_name",
+                                selected?.name || ""
+                              );
+                              handleChange(
+                                "instructor1_id",
+                                selected?.id || null
+                              );
+                            }}
+                            className="w-full rounded-md border p-2 dark:bg-gray-800 dark:text-gray-100"
+                          >
+                            <option value="">Select Instructor</option>
+                            {employees.map((emp) => (
+                              <option key={emp.id} value={emp.id}>
+                                {emp.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Instructor 2 Dropdown */}
+                        <div className="space-y-1">
+                          <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                            Instructor 2
+                          </Label>
+                          <select
+                            value={formData.instructor2_id || ""}
+                            onChange={(e) => {
+                              const selected = employees.find(
+                                (emp) => emp.id === Number(e.target.value)
+                              );
+                              handleChange(
+                                "instructor2_name",
+                                selected?.name || ""
+                              );
+                              handleChange(
+                                "instructor2_id",
+                                selected?.id || null
+                              );
+                            }}
+                            className="w-full rounded-md border p-2 dark:bg-gray-800 dark:text-gray-100"
+                          >
+                            <option value="">Select Instructor</option>
+                            {employees.map((emp) => (
+                              <option key={emp.id} value={emp.id}>
+                                {emp.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Instructor 3 Dropdown */}
+                        <div className="space-y-1">
+                          <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                            Instructor 3
+                          </Label>
+                          <select
+                            value={formData.instructor3_id || ""}
+                            onChange={(e) => {
+                              const selected = employees.find(
+                                (emp) => emp.id === Number(e.target.value)
+                              );
+                              handleChange(
+                                "instructor3_name",
+                                selected?.name || ""
+                              );
+                              handleChange(
+                                "instructor3_id",
+                                selected?.id || null
+                              );
+                            }}
+                            className="w-full rounded-md border p-2 dark:bg-gray-800 dark:text-gray-100"
+                          >
+                            <option value="">Select Instructor</option>
+                            {employees.map((emp) => (
+                              <option key={emp.id} value={emp.id}>
+                                {emp.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </>
+                    )}
+
                   {/* Render other fields in the section */}
                   {sectionedFields[section]
                     .filter(
@@ -738,10 +810,19 @@ export function EditModal({
                     .map(({ key, value }) => {
                       const isTypeField = key.toLowerCase() === "type";
                       const isBatchField = key.toLowerCase() === "batchid";
-                      const isVendorField = isVendorModal && key.toLowerCase() === "status";
-                      if (isInterviewOrMarketing && ["instructor1_name", "instructor2_name", "instructor3_name"].includes(key)) {
+                      const isVendorField =
+                        isVendorModal && key.toLowerCase() === "status";
+                      if (
+                        isInterviewOrMarketing &&
+                        [
+                          "instructor1_name",
+                          "instructor2_name",
+                          "instructor3_name",
+                        ].includes(key)
+                      ) {
                         return null;
                       }
+
                       if (isTypeField) {
                         if (isVendorModal) {
                           return (
@@ -751,8 +832,10 @@ export function EditModal({
                               </Label>
                               <select
                                 value={String(formData[key] ?? "")}
-                                onChange={(e) => handleChange(key, e.target.value)}
-                                className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                                onChange={(e) =>
+                                  handleChange(key, e.target.value)
+                                }
+                                className="w-full rounded-md border p-2 dark:bg-gray-800 dark:text-gray-100"
                               >
                                 {enumOptions["type"].map((opt) => (
                                   <option key={opt.value} value={opt.value}>
@@ -770,13 +853,16 @@ export function EditModal({
                               </Label>
                               <Input
                                 value={formData[key] ?? ""}
-                                readOnly
-                                className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100 bg-gray-100 cursor-not-allowed"
+                                onChange={(e) =>
+                                  handleChange(key, e.target.value)
+                                }
+                                className="w-full rounded-md border p-2 dark:bg-gray-800 dark:text-gray-100"
                               />
                             </div>
                           );
                         }
                       }
+
                       if (key.toLowerCase() === "subjectid") {
                         return (
                           <div key={key} className="space-y-1">
@@ -785,8 +871,10 @@ export function EditModal({
                             </Label>
                             <select
                               value={formData[key] || "0"}
-                              onChange={(e) => handleChange(key, Number(e.target.value))}
-                              className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                              onChange={(e) =>
+                                handleChange(key, Number(e.target.value))
+                              }
+                              className="w-full rounded-md border p-2 dark:bg-gray-800 dark:text-gray-100"
                             >
                               <option value="0">0</option>
                               {subjects.map((subject) => (
@@ -806,8 +894,10 @@ export function EditModal({
                             </Label>
                             <select
                               value={formData["course_name"] || ""}
-                              onChange={(e) => handleChange("course_name", e.target.value)}
-                              className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                              onChange={(e) =>
+                                handleChange("course_name", e.target.value)
+                              }
+                              className="w-full rounded-md border p-2 dark:bg-gray-800 dark:text-gray-100"
                             >
                               {courses.length === 0 ? (
                                 <option value="">Loading...</option>
@@ -832,15 +922,20 @@ export function EditModal({
                             </Label>
                             <select
                               value={formData["subject_name"] || ""}
-                              onChange={(e) => handleChange("subject_name", e.target.value)}
-                              className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                              onChange={(e) =>
+                                handleChange("subject_name", e.target.value)
+                              }
+                              className="w-full rounded-md border p-2 dark:bg-gray-800 dark:text-gray-100"
                             >
                               {subjects.length === 0 ? (
                                 <option value="">Loading...</option>
                               ) : (
                                 <>
                                   {subjects.map((subject) => (
-                                    <option key={subject.id} value={subject.name}>
+                                    <option
+                                      key={subject.id}
+                                      value={subject.name}
+                                    >
                                       {subject.name}
                                     </option>
                                   ))}
@@ -859,17 +954,28 @@ export function EditModal({
                             <select
                               value={formData.batchid || ""}
                               onChange={(e) => {
-                                const selectedBatch = batches.find(batch => batch.batchid === Number(e.target.value));
+                                const selectedBatch = batches.find(
+                                  (batch) =>
+                                    batch.batchid === Number(e.target.value)
+                                );
                                 handleChange("batchid", Number(e.target.value));
                                 if (selectedBatch) {
-                                  handleChange("batchname", selectedBatch.batchname);
+                                  handleChange(
+                                    "batchname",
+                                    selectedBatch.batchname
+                                  );
                                 }
                               }}
-                              className="border rounded-md p-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="w-full rounded-md border p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
-                              <option value="">Select a batch (optional)</option>
-                              {batches.map(batch => (
-                                <option key={batch.batchid} value={batch.batchid}>
+                              <option value="">
+                                Select a batch (optional)
+                              </option>
+                              {batches.map((batch) => (
+                                <option
+                                  key={batch.batchid}
+                                  value={batch.batchid}
+                                >
                                   {batch.batchname}
                                 </option>
                               ))}
@@ -886,12 +992,17 @@ export function EditModal({
                             <input
                               type="date"
                               value={
-                                formData[key] && !isNaN(new Date(formData[key]).getTime())
-                                  ? new Date(formData[key]).toISOString().split("T")[0]
+                                formData[key] &&
+                                !isNaN(new Date(formData[key]).getTime())
+                                  ? new Date(formData[key])
+                                      .toISOString()
+                                      .split("T")[0]
                                   : ""
                               }
-                              onChange={(e) => handleChange(key, e.target.value)}
-                              className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                              onChange={(e) =>
+                                handleChange(key, e.target.value)
+                              }
+                              className="w-full rounded-md border p-2 dark:bg-gray-800 dark:text-gray-100"
                             />
                           </div>
                         );
@@ -904,8 +1015,10 @@ export function EditModal({
                             </Label>
                             <select
                               value={String(formData[key] ?? "")}
-                              onChange={(e) => handleChange(key, e.target.value)}
-                              className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                              onChange={(e) =>
+                                handleChange(key, e.target.value)
+                              }
+                              className="w-full rounded-md border p-2 dark:bg-gray-800 dark:text-gray-100"
                             >
                               {vendorStatuses.map((opt) => (
                                 <option key={opt.value} value={opt.value}>
@@ -930,13 +1043,17 @@ export function EditModal({
                                   e.target.value === "true"
                                     ? true
                                     : e.target.value === "false"
-                                      ? false
-                                      : e.target.value
+                                    ? false
+                                    : e.target.value
                                 )
                               }
-                              className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                              className="w-full rounded-md border p-2 dark:bg-gray-800 dark:text-gray-100"
                             >
-                              {reorderYesNoOptions(key, value, enumOptions[key.toLowerCase()]).map((opt) => (
+                              {reorderYesNoOptions(
+                                key,
+                                value,
+                                enumOptions[key.toLowerCase()]
+                              ).map((opt) => (
                                 <option key={opt.value} value={opt.value}>
                                   {opt.label}
                                 </option>
@@ -953,7 +1070,9 @@ export function EditModal({
                             </Label>
                             <Textarea
                               value={formData[key] || ""}
-                              onChange={(e) => handleChange(key, e.target.value)}
+                              onChange={(e) =>
+                                handleChange(key, e.target.value)
+                              }
                             />
                           </div>
                         );
@@ -973,10 +1092,11 @@ export function EditModal({
                 </div>
               ))}
           </div>
+
           {/* Notes Section */}
           {sectionedFields["Notes"].length > 0 && (
             <div className="px-6 pb-6">
-              <div className="space-y-6 mt-4">
+              <div className="mt-4 space-y-6">
                 {sectionedFields["Notes"].map(({ key, value }) => (
                   <div key={key} className="space-y-1">
                     <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
@@ -992,11 +1112,12 @@ export function EditModal({
               </div>
             </div>
           )}
+
           {/* Footer */}
           <div className="flex justify-end px-6 pb-6">
             <button
               type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-white shadow hover:bg-blue-700"
             >
               Save Changes
             </button>

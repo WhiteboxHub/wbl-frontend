@@ -1,19 +1,23 @@
-
 "use client";
-// import { ModuleRegistry } from "ag-grid-community";
 import { ModuleRegistry, AllCommunityModule } from "ag-grid-community";
 ModuleRegistry.registerModules([AllCommunityModule]);
-import { useMemo, useCallback, useRef, useState, useEffect } from "react";
-import { AgGridReact } from "ag-grid-react";
 import {
   ColDef,
   GridReadyEvent,
   ColumnMovedEvent,
   CellValueChangedEvent,
-  GridApi
+  GridApi,
 } from "ag-grid-community";
+import { AgGridReact } from "ag-grid-react";
+import { useMemo, useCallback, useRef, useState, useEffect } from "react";
 import { Button } from "@/components/admin_ui/button";
-import { EyeIcon, EditIcon, TrashIcon, DownloadIcon } from "lucide-react";
+import {
+  EyeIcon,
+  EditIcon,
+  TrashIcon,
+  DownloadIcon,
+  SettingsIcon,
+} from "lucide-react";
 import { ViewModal } from "./ViewModal";
 import { EditModal } from "@/components/EditModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -21,8 +25,30 @@ import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 import "@/styles/admin.css";
 
-// Register AG-Grid modules
-ModuleRegistry.registerModules([AllCommunityModule]);
+const ColumnVisibilityModal = ({
+  isOpen,
+  onClose,
+  children,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  children: React.ReactNode;
+}) => {
+  if (!isOpen) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[425px] rounded-lg bg-white p-4 shadow-xl dark:bg-gray-800"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {children}
+      </div>
+    </div>
+  );
+};
 
 interface AGGridTableProps {
   rowData: any[];
@@ -37,7 +63,9 @@ interface AGGridTableProps {
   showFilters?: boolean;
   height?: string;
   overlayNoRowsTemplate?: string;
-  batches?: any[]; // Add batches prop
+  batches?: any[];
+  gridOptions?: any;
+  getRowNodeId?: (data: any) => string;
 }
 
 interface RowData {
@@ -58,22 +86,27 @@ export function AGGridTable({
   onRowClicked,
   onRowUpdated,
   onRowDeleted,
-  overlayNoRowsTemplate, 
+  overlayNoRowsTemplate = "No rows to show",
   title,
   showSearch = true,
   showFilters = true,
   height = "400px",
-  batches // Add batches with default empty array
+  batches = [],
 }: AGGridTableProps) {
+  // Refs and State
   const gridRef = useRef<AgGridReact>(null);
   const gridApiRef = useRef<GridApi | null>(null);
-  const [searchText, setSearchText] = useState("");
-  const [selectedRowData, setSelectedRowData] = useState<RowData[] | null>(null);
+  const [selectedRowData, setSelectedRowData] = useState<RowData[] | null>(
+    null
+  );
   const [viewData, setViewData] = useState<RowData | null>(null);
   const [editData, setEditData] = useState<RowData | null>(null);
-  const [deleteConfirmData, setDeleteConfirmData] = useState<RowData | null>(null);
+  const [deleteConfirmData, setDeleteConfirmData] = useState<RowData | null>(
+    null
+  );
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [columnDefs, setColumnDefs] = useState<ColDef[]>(initialColumnDefs);
+  const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
+  const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
 
   // Detect dark mode
   useEffect(() => {
@@ -89,13 +122,49 @@ export function AGGridTable({
     return () => observer.disconnect();
   }, []);
 
-  const paginationNumberFormatter = useCallback((params: any) => {
-    return `${params.value.toLocaleString()}`;
-  }, []);
+  // Load saved column visibility
+  useEffect(() => {
+    if (title) {
+      const saved = localStorage.getItem(`hiddenColumns-${title}`);
+      if (saved) {
+        try {
+          setHiddenColumns(JSON.parse(saved));
+        } catch (e) {
+          console.error("Failed to parse hidden columns", e);
+        }
+      }
+    }
+  }, [title]);
+
+  // Save column visibility
+  useEffect(() => {
+    if (title) {
+      localStorage.setItem(
+        `hiddenColumns-${title}`,
+        JSON.stringify(hiddenColumns)
+      );
+    }
+  }, [hiddenColumns, title]);
+
+  const visibleColumnDefs = useMemo(() => {
+    return initialColumnDefs.filter((col) => {
+      if (!col.field) return true;
+      return !hiddenColumns.includes(col.field);
+    });
+  }, [initialColumnDefs, hiddenColumns]);
 
   const onGridReady = useCallback((params: GridReadyEvent) => {
     gridApiRef.current = params.api;
   }, []);
+
+  const onRowClickedHandler = useCallback(
+    (event: any) => {
+      if (onRowClicked) {
+        onRowClicked(event.data);
+      }
+    },
+    [onRowClicked]
+  );
 
   const handleRowSelection = useCallback(() => {
     if (gridApiRef.current) {
@@ -104,21 +173,16 @@ export function AGGridTable({
     }
   }, []);
 
-  const onColumnMoved = useCallback((event: ColumnMovedEvent) => {
-    const newColumnDefs = event.api.getColumnDefs();
-    setColumnDefs(newColumnDefs as ColDef[]);
-  }, []);
+  const onColumnMoved = useCallback((event: ColumnMovedEvent) => {}, []);
 
   const handleView = useCallback(() => {
     if (selectedRowData && selectedRowData.length > 0) {
-      setEditData(null);
       setViewData(selectedRowData[0]);
     }
   }, [selectedRowData]);
 
   const handleEdit = useCallback(() => {
     if (selectedRowData && selectedRowData.length > 0) {
-      setViewData(null);
       setEditData(selectedRowData[0]);
     }
   }, [selectedRowData]);
@@ -131,64 +195,44 @@ export function AGGridTable({
 
   const confirmDelete = useCallback(() => {
     if (deleteConfirmData && onRowDeleted) {
-      if (deleteConfirmData.leadid) {
-        onRowDeleted(deleteConfirmData.leadid);
-      } else if (deleteConfirmData.candidateid) {
+      if (deleteConfirmData.leadid) onRowDeleted(deleteConfirmData.leadid);
+      else if (deleteConfirmData.candidateid)
         onRowDeleted(deleteConfirmData.candidateid);
-      } else if (deleteConfirmData.id) {
-        onRowDeleted(deleteConfirmData.id);
-      } else if (deleteConfirmData.batchid) {
+      else if (deleteConfirmData.id) onRowDeleted(deleteConfirmData.id);
+      else if (deleteConfirmData.batchid)
         onRowDeleted(deleteConfirmData.batchid);
-      } else if (deleteConfirmData.sessionid) {
+      else if (deleteConfirmData.sessionid)
         onRowDeleted(deleteConfirmData.sessionid);
-      }
+
       setSelectedRowData(null);
       setDeleteConfirmData(null);
     }
   }, [deleteConfirmData, onRowDeleted]);
 
-  const cancelDelete = useCallback(() => {
-    setDeleteConfirmData(null);
-  }, []);
-
   const handleSave = useCallback(
     (updatedData: RowData) => {
-      if (onRowUpdated) {
-        onRowUpdated(updatedData);
+      if (gridRef.current) {
+        gridRef.current.api.applyTransaction({ update: [updatedData] });
       }
+
+      if (onRowUpdated) onRowUpdated(updatedData);
+
       setEditData(null);
       setSelectedRowData(null);
     },
     [onRowUpdated]
   );
 
-  const closeViewModal = useCallback(() => {
-    setViewData(null);
-  }, []);
-
-  const closeEditModal = useCallback(() => {
-    setEditData(null);
-  }, []);
-
-  const onRowClickedHandler = useCallback(
-    (event: any) => {
-      if (onRowClicked) {
-        onRowClicked(event);
-      }
-    },
-    [onRowClicked]
-  );
-
   const onCellValueChanged = useCallback(
     (event: CellValueChangedEvent) => {
-      console.log("Cell value changed:", event.data);
-      if (onRowUpdated) {
-        onRowUpdated(event.data);
+      if (gridRef.current) {
+        gridRef.current.api.applyTransaction({ update: [event.data] });
       }
+
+      if (onRowUpdated) onRowUpdated(event.data);
     },
     [onRowUpdated]
   );
-
   const handleDownload = useCallback(() => {
     if (gridApiRef.current) {
       gridApiRef.current.exportDataAsCsv({
@@ -197,17 +241,42 @@ export function AGGridTable({
     }
   }, [title]);
 
+  const toggleColumnVisibility = useCallback(
+    (field: string, isVisible: boolean) => {
+      setHiddenColumns((prev) =>
+        isVisible ? prev.filter((col) => col !== field) : [...prev, field]
+      );
+    },
+    []
+  );
+
+  const resetColumns = useCallback(() => {
+    setHiddenColumns([]);
+  }, []);
+
+  const paginationNumberFormatter = useCallback((params: any) => {
+    return `${params.value.toLocaleString()}`;
+  }, []);
+
   return (
-    <div className="mx-auto space-y-4 w-full max-w-7xl">
-      <div className="flex items-center justify-between">
-        <div>
-          {title && (
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              {title}
-            </h3>
-          )}
-        </div>
-        <div className="flex items-center space-x-2">
+    <div className="mx-auto w-full max-w-7xl flex-row-reverse space-y-4">
+      <div className="flex items-center justify-end justify-between">
+        {title && (
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {title}
+          </h3>
+        )}
+        <div className="ml-auto flex items-center  space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsColumnModalOpen(true)}
+            className="h-8 w-8 p-0 "
+            title="Toggle Columns"
+          >
+            <SettingsIcon className="h-4 w-4" />
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
@@ -249,19 +318,18 @@ export function AGGridTable({
           </Button>
         </div>
       </div>
+
       <div className="flex justify-center">
         <div
-          className={`ag-theme-alpine ${isDarkMode ? "ag-grid-dark-mode" : ""
-            } rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm transition-all duration-300 w-full`}
-          style={{
-            height: "calc(100vh - 260px)",
-            minHeight: "400px",
-          }}
+          className={`ag-theme-alpine ${
+            isDarkMode ? "ag-grid-dark-mode" : ""
+          } w-full rounded-lg border border-gray-200 shadow-sm dark:border-gray-700`}
+          style={{ height: "calc(100vh - 260px)", minHeight: "400px" }}
         >
           <AgGridReact
             ref={gridRef}
             rowData={rowData}
-            columnDefs={columnDefs}
+            columnDefs={visibleColumnDefs}
             onGridReady={onGridReady}
             onRowClicked={onRowClickedHandler}
             onSelectionChanged={handleRowSelection}
@@ -269,16 +337,18 @@ export function AGGridTable({
             onCellValueChanged={onCellValueChanged}
             animateRows={true}
             loading={loading}
+            suppressSetFilterByDefault={true}
             overlayNoRowsTemplate={overlayNoRowsTemplate}
-            theme="legacy"
             defaultColDef={{
               resizable: true,
               sortable: true,
+
               filter: true,
               cellClass: "custom-cell-style",
               editable: true,
             }}
             rowSelection="multiple"
+            theme={"legacy"}
             suppressRowClickSelection={false}
             pagination={true}
             paginationPageSize={50}
@@ -288,10 +358,63 @@ export function AGGridTable({
           />
         </div>
       </div>
+
+      <ColumnVisibilityModal
+        isOpen={isColumnModalOpen}
+        onClose={() => setIsColumnModalOpen(false)}
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Column Visibility</h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={resetColumns}
+              className="text-xs"
+            >
+              Reset All
+            </Button>
+          </div>
+          <div className="grid max-h-[400px] grid-cols-2 gap-2 overflow-y-auto pr-2">
+            {initialColumnDefs.map(
+              (col) =>
+                col.field && (
+                  <div key={col.field} className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id={`col-${col.field}`}
+                      checked={!hiddenColumns.includes(col.field)}
+                      onChange={(e) =>
+                        toggleColumnVisibility(col.field, e.target.checked)
+                      }
+                      className="h-4 w-4"
+                    />
+                    <label
+                      htmlFor={`col-${col.field}`}
+                      className="text-sm font-medium"
+                    >
+                      {col.headerName || col.field}
+                    </label>
+                  </div>
+                )
+            )}
+          </div>
+          <div className="flex justify-end pt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsColumnModalOpen(false)}
+            >
+              Close
+            </Button>
+          </div>
+        </div>
+      </ColumnVisibilityModal>
+
       {viewData && (
         <ViewModal
           isOpen={true}
-          onClose={closeViewModal}
+          onClose={() => setViewData(null)}
           data={viewData}
           title={title || "Record"}
         />
@@ -299,24 +422,26 @@ export function AGGridTable({
       {editData && (
         <EditModal
           isOpen={true}
-          onClose={closeEditModal}
+          onClose={() => setEditData(null)}
           onSave={handleSave}
           data={editData}
           title={title || "Record"}
-          batches={batches} // Pass batches to EditModal
+          batches={batches}
         />
       )}
       {deleteConfirmData && (
         <ConfirmDialog
           isOpen={true}
-          onClose={cancelDelete}
+          onClose={() => setDeleteConfirmData(null)}
           onConfirm={confirmDelete}
           title="Delete Record"
-          message={`Are you sure you want to delete this record? This action cannot be undone.${deleteConfirmData.fullName || deleteConfirmData.company
-              ? `\n\nRecord: ${deleteConfirmData.fullName || deleteConfirmData.company
-              }`
+          message={`Are you sure you want to delete this record?${
+            deleteConfirmData.fullName || deleteConfirmData.company
+              ? `\n\nRecord: ${
+                  deleteConfirmData.fullName || deleteConfirmData.company
+                }`
               : ""
-            }`}
+          }`}
           confirmText="Delete"
           cancelText="Cancel"
         />
