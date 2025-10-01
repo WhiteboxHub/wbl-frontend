@@ -37,9 +37,10 @@ type Candidate = {
   emergcontactphone?: string | null;
   emergcontactaddrs?: string | null;
   fee_paid?: number | null;
-  notes?: string | null;
+  github_link?: string | null;
   batchid: number;
   candidate_folder?: string | null;
+  notes?: string | null;
 };
 
 type FormData = {
@@ -63,9 +64,10 @@ type FormData = {
   emergcontactphone: string;
   emergcontactaddrs: string;
   fee_paid: number;
-  notes: string;
+  github_link: string;
   batchid: number;
   candidate_folder: string;
+  notes: string;
 };
 
 type Batch = {
@@ -107,9 +109,10 @@ const initialFormData: FormData = {
   emergcontactphone: "",
   emergcontactaddrs: "",
   fee_paid: 0,
-  notes: "",
+  github_link: "",
   batchid: 0,
   candidate_folder: "",
+  notes: ""
 };
 
 const StatusRenderer = ({ value }: { value?: string }) => {
@@ -160,7 +163,11 @@ const CandidateNameRenderer = (params: any) => {
   }
   return (
     <Link
-      href={`/avatar/candidates/search?candidateId=${candidateId}`}
+
+      href={`/avatar/candidates/search?candidateId=${candidateId}`} 
+      target="_blank"
+      rel="noopener noreferrer"
+
       className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
     >
       {candidateName}
@@ -834,160 +841,210 @@ useEffect(() => {
         />
       ),
     },
-      {
-        field: "status",
-        headerName: "Status",
-        width: 120,
-        sortable: true,
-        cellRenderer: StatusRenderer,
-        headerComponent: (props: any) => (
-          <FilterHeaderComponent
-            {...props}
-            selectedItems={selectedStatuses}
-            setSelectedItems={setSelectedStatuses}
-            options={statusOptions}
-            label="Status"
-            color="blue"
-            renderOption={(option) => <StatusRenderer value={option} />}
-            getOptionValue={(option) => option}
-            getOptionKey={(option) => option}
-          />
-        ),
-      },
-      {
-        field: "workstatus",
-        headerName: "Work Status",
-        width: 150,
-        sortable: true,
-        cellRenderer: WorkStatusRenderer,
-        headerComponent: (props: any) => (
-          <FilterHeaderComponent
-            {...props}
-            selectedItems={selectedWorkStatuses}
-            setSelectedItems={setSelectedWorkStatuses}
-            options={workStatusOptions}
-            label="Work Status"
-            color="green"
-            renderOption={(option) => option}
-            getOptionValue={(option) => option}
-            getOptionKey={(option) => option}
-          />
-        ),
-      },
-      {
-        field: "enrolled_date",
-        headerName: "Enrolled Date",
-        width: 150,
-        sortable: true,
-        valueFormatter: ({ value }: ValueFormatterParams) => formatDate(value),
-      },
-      {
-        field: "education",
-        headerName: "Education",
-        width: 200,
-        sortable: true,
-      },
-      {
-        field: "workexperience",
-        headerName: "Work Experience",
-        width: 200,
-        sortable: true,
-      },
-      {
-        field: "ssn",
-        headerName: "SSN",
-        width: 120,
-        sortable: true,
-      },
-      {
-        field: "agreement",
-        headerName: "Agreement",
-        width: 100,
-        sortable: true,
-      },
-      {
-        field: "secondaryemail",
-        headerName: "Secondary Email",
-        width: 200,
-        sortable: true,
-      },
-      {
-        field: "secondaryphone",
-        headerName: "Secondary Phone",
-        width: 150,
-        sortable: true,
-      },
-      {
-        field: "address",
-        headerName: "Address",
-        width: 300,
-        sortable: true,
-      },
-      {
-        field: "linkedin_id",
-        headerName: "LinkedIn ID",
-        width: 150,
-        sortable: true,
-      },
-      {
-        field: "dob",
-        headerName: "Date of Birth",
-        width: 150,
-        sortable: true,
-        editable: true,
-        valueFormatter: ({ value }: ValueFormatterParams) => formatDate(value),
-        valueParser: (params) => {
-          if (!params.newValue) return null;
 
-          const date = new Date(params.newValue);
-          return date.toISOString();
-        },
-        cellEditor: "agDateCellEditor", // Use AG Grid's built-in date editor
-        cellEditorParams: {
-          // Optional: Configure the date picker format
-          min: "1900-01-01", // Example: Set min date
-          max: new Date().toISOString().split("T")[0], // Example: Set max date to today
-        },
-      },
-      {
-        field: "emergcontactname",
-        headerName: "Emergency Contact Name",
-        width: 200,
-        sortable: true,
-      },
-      {
-        field: "emergcontactemail",
-        headerName: "Emergency Contact Email",
-        width: 200,
-        sortable: true,
-      },
-      {
-        field: "emergcontactphone",
-        headerName: "Emergency Contact Phone",
-        width: 150,
-        sortable: true,
-      },
-      {
-        field: "emergcontactaddrs",
-        headerName: "Emergency Contact Address",
-        width: 300,
-        sortable: true,
-      },
-      {
-        field: "fee_paid",
-        headerName: "Fee Paid",
-        width: 120,
-        sortable: true,
-        valueFormatter: ({ value }: ValueFormatterParams) =>
-          value != null ? `$${Number(value).toLocaleString()}` : "",
-      },
-      {
-        field: "notes",
-        headerName: "Notes",
-        width: 300,
-        sortable: true,
-      },
+    {
+      field: "status",
+      headerName: "Status",
+      width: 120,
+      sortable: true,
+      cellRenderer: StatusRenderer,
+      headerComponent: (props: any) => (
+        <FilterHeaderComponent
+          {...props}
+          selectedItems={selectedStatuses}
+          setSelectedItems={setSelectedStatuses}
+          options={statusOptions}
+          label="Status"
+          color="blue"
+          renderOption={(option) => <StatusRenderer value={option} />}
+          getOptionValue={(option) => option}
+          getOptionKey={(option) => option}
+        />
+      ),
+    },
+    {
+      field: "workstatus",
+      headerName: "Work Status",
+      width: 150,
+      sortable: true,
+      cellRenderer: WorkStatusRenderer,
+      headerComponent: (props: any) => (
+        <FilterHeaderComponent
+          {...props}
+          selectedItems={selectedWorkStatuses}
+          setSelectedItems={setSelectedWorkStatuses}
+          options={workStatusOptions}
+          label="Work Status"
+          color="green"
+          renderOption={(option) => option}
+          getOptionValue={(option) => option}
+          getOptionKey={(option) => option}
+        />
+      ),
+    },
+    {
+      field: "enrolled_date",
+      headerName: "Enrolled Date",
+      width: 150,
+      sortable: true,
+      valueFormatter: ({ value }: ValueFormatterParams) => formatDate(value),
+    },
+    {
+      field: "education",
+      headerName: "Education",
+      width: 200,
+      sortable: true,
+    },
+    {
+      field: "workexperience",
+      headerName: "Work Experience",
+      width: 200,
+      sortable: true,
+    },
+    {
+      field: "ssn",
+      headerName: "SSN",
+      width: 120,
+      sortable: true,
+    },
+    {
+      field: "agreement",
+      headerName: "Agreement",
+      width: 100,
+      sortable: true,
+    },
+    {
+      field: "secondaryemail",
+      headerName: "Secondary Email",
+      width: 200,
+      sortable: true,
+    },
+    {
+      field: "secondaryphone",
+      headerName: "Secondary Phone",
+      width: 150,
+      sortable: true,
+    },
+    {
+      field: "address",
+      headerName: "Address",
+      width: 300,
+      sortable: true,
+    },
+    {
+      field: "linkedin_id",
+      headerName: "LinkedIn ID",
+      width: 150,
+      sortable: true,
+    },
+{
+  field: "dob",
+  headerName: "Date of Birth",
+  width: 150,
+  sortable: true,
+  editable: true,
+  valueFormatter: ({ value }: ValueFormatterParams) => formatDate(value),
+  valueParser: (params) => {
+    if (!params.newValue) return null;
+   
+    const date = new Date(params.newValue);
+    return date.toISOString();
+  },
+  cellEditor: 'agDateCellEditor', // Use AG Grid's built-in date editor
+  cellEditorParams: {
+    // Optional: Configure the date picker format
+    min: '1900-01-01', // Example: Set min date
+    max: new Date().toISOString().split('T')[0] // Example: Set max date to today
+  }
+},
+    {
+      field: "emergcontactname",
+      headerName: "Emergency Contact Name",
+      width: 200,
+      sortable: true,
+    },
+    {
+      field: "emergcontactemail",
+      headerName: "Emergency Contact Email",
+      width: 200,
+      sortable: true,
+    },
+    {
+      field: "emergcontactphone",
+      headerName: "Emergency Contact Phone",
+      width: 150,
+      sortable: true,
+    },
+    {
+      field: "emergcontactaddrs",
+      headerName: "Emergency Contact Address",
+      width: 300,
+      sortable: true,
+    },
+    {
+      field: "fee_paid",
+      headerName: "Fee Paid",
+      width: 120,
+      sortable: true,
+      valueFormatter: ({ value }: ValueFormatterParams) => value != null ? `$${Number(value).toLocaleString()}` : "",
+    },
+    {
+            field: "notes",
+            headerName: "Notes",
+            width: 300,
+            sortable: true,
+            cellRenderer: (params: any) => {
+              if (!params.value) return "";
+              return (
+                <div
+                  className="prose prose-sm max-w-none dark:prose-invert"
+                  dangerouslySetInnerHTML={{ __html: params.value }}
+                />
+              );
+            },
+          },
 
+
+           {
+            field: "linkedin_id",
+            headerName: "LinkedIn Profile",
+            width: 200,
+            sortable: true,
+            cellRenderer: (params: any) => {
+              if (!params.value) return "";
+              return (
+                <a
+                  href={params.value}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 underline hover:text-blue-800"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {params.value}
+                </a>
+              );
+            },
+          },
+          {
+            field: "github_link",
+            headerName: "Git Hub Profile",
+            width: 200,
+            sortable: true,
+            cellRenderer: (params: any) => {
+              if (!params.value) return "";
+              return (
+                <a
+                  href={params.value}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 underline hover:text-blue-800"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {params.value}
+                </a>
+              );
+            },
+          },
           {
             field: "candidate_folder",
             headerName: "Candidate Folder",
