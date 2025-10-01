@@ -965,10 +965,31 @@ export default function LeadsPage() {
             )}
           </p>
 
-          <div key="search-container" className="max-w-md">
+          {/* <div key="search-container" className="max-w-md">
       
             <div className="relative mt-1">
-              <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+              <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-blue-700 dark:text-blue-400" />
+              <Input
+                key="search-input"
+                id="search"
+                type="text"
+                ref={searchInputRef}
+                placeholder="Search by ID, name, email, phone..."
+                
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 w-96"
+              />
+            </div>
+            {searchTerm && (
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                {leads.length} candidates found
+              </p>
+            )}
+          </div> */}
+          <div key="search-container" className="max-w-md">
+            <div className="relative mt-1">
+              <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-blue-700 dark:text-blue-400" />
               <Input
                 key="search-input"
                 id="search"
@@ -977,7 +998,7 @@ export default function LeadsPage() {
                 placeholder="Search by ID, name, email, phone..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 w-96"
+                className="pl-10 w-full placeholder-teal-300 dark:placeholder-teal-400"
               />
             </div>
             {searchTerm && (
@@ -998,12 +1019,12 @@ export default function LeadsPage() {
       </div>
 
 
-    
+
       <div className="flex w-full justify-center">
         <AGGridTable
           key={`${filteredLeads.length}-${selectedStatuses.join(',')}-${selectedWorkStatuses.join(',')}`}
           rowData={filteredLeads}
-        
+
           columnDefs={columnDefs}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
@@ -1014,7 +1035,7 @@ export default function LeadsPage() {
         />
       </div>
 
-  
+
       {newLeadForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
           <div className="relative w-full max-w-2xl rounded-2xl bg-white dark:bg-gray-800 p-6 shadow-xl max-h-[90vh] overflow-y-auto">

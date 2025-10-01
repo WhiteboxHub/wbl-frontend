@@ -10,7 +10,7 @@ import { Button } from "@/components/admin_ui/button";
 import { toast, Toaster } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AGGridTable } from "@/components/AGGridTable";
-import { createPortal } from "react-dom";
+// import { createPortal } from "react-dom";
 import axios from "axios";
 import Link from "next/link";
 
@@ -160,6 +160,9 @@ const CandidateNameRenderer = (params: any) => {
     </Link>
   );
 };
+
+// import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 const FilterHeaderComponent = ({
   selectedItems,
@@ -373,7 +376,7 @@ export default function CandidatesPage() {
 
   const gridOptions = useMemo(() => ({
     defaultColDef: {
-      filter: 'agSetColumnFilter',
+      filter: 'agTextColumnFilter',
       sortable: true,
       resizable: true,
     },
@@ -414,14 +417,14 @@ export default function CandidatesPage() {
       width: 80,
       pinned: "left",
       sortable: true,
-      filter: 'agSetColumnFilter',
+      filter: 'agTextColumnFilter',
     },
     {
       field: "full_name",
       headerName: "Full Name",
       width: 180,
       sortable: true,
-      filter: 'agSetColumnFilter',
+      filter: 'agTextColumnFilter',
       cellRenderer: CandidateNameRenderer,
     },
     {
@@ -430,7 +433,7 @@ export default function CandidatesPage() {
       width: 150,
       editable: true,
       sortable: true,
-      filter: 'agSetColumnFilter',
+      filter: 'agTextColumnFilter',
       cellRenderer: (params: any) => {
         if (!params.value) return "";
         const formattedPhone = formatPhoneNumber(params.value);
@@ -447,7 +450,7 @@ export default function CandidatesPage() {
       width: 200,
       editable: true,
       sortable: true,
-      filter: 'agSetColumnFilter',
+      filter: 'agTextColumnFilter',
       cellRenderer: (params: any) => {
         if (!params.value) return "";
         return (
@@ -466,7 +469,7 @@ export default function CandidatesPage() {
       headerName: "Batch",
       width: 140,
       sortable: true,
-      filter: 'agSetColumnFilter',
+      filter: 'agTextColumnFilter',
       cellRenderer: (params: any) => {
         if (!params.value || !allBatches.length) return params.value || "";
         const batch = allBatches.find(b => b.batchid === params.value);
@@ -475,6 +478,10 @@ export default function CandidatesPage() {
             {batch.batchname}
           </span>
         ) : params.value;
+      },
+      filterParams: {
+        suppressRemoveEntries: true,
+        suppressMiniFilter: false, // Enable the mini-filter (search box)
       },
       headerComponent: (props: any) => (
         <FilterHeaderComponent
@@ -495,7 +502,7 @@ export default function CandidatesPage() {
       headerName: "Status",
       width: 120,
       sortable: true,
-      filter: 'agTextColumnFilter', 
+      filter: 'agTextColumnFilter',
       cellRenderer: StatusRenderer,
       headerComponent: (props: any) => (
         <FilterHeaderComponent
@@ -517,8 +524,9 @@ export default function CandidatesPage() {
       headerName: "Work Status",
       width: 150,
       sortable: true,
-      filter: 'agSetColumnFilter',
+      filter: 'agTextColumnFilter',
       cellRenderer: WorkStatusRenderer,
+
       headerComponent: (props: any) => (
         <FilterHeaderComponent
           {...props}
@@ -538,7 +546,7 @@ export default function CandidatesPage() {
       headerName: "Enrolled Date",
       width: 150,
       sortable: true,
-      filter: 'agSetColumnFilter',
+      filter: 'agTextColumnFilter',
       valueFormatter: ({ value }: ValueFormatterParams) => formatDate(value),
     },
     {
@@ -546,35 +554,35 @@ export default function CandidatesPage() {
       headerName: "Education",
       width: 200,
       sortable: true,
-      filter: 'agSetColumnFilter',
+      filter: 'agTextColumnFilter',
     },
     {
       field: "workexperience",
       headerName: "Work Experience",
       width: 200,
       sortable: true,
-      filter: 'agSetColumnFilter',
+      filter: 'agTextColumnFilter',
     },
     {
       field: "ssn",
       headerName: "SSN",
       width: 120,
       sortable: true,
-      filter: 'agSetColumnFilter',
+      filter: 'agTextColumnFilter',
     },
     {
       field: "agreement",
       headerName: "Agreement",
       width: 100,
       sortable: true,
-      filter: 'agSetColumnFilter',
+      filter: 'agTextColumnFilter',
     },
     {
       field: "secondaryemail",
       headerName: "Secondary Email",
       width: 200,
       sortable: true,
-      filter: 'agSetColumnFilter',
+      filter: "agTextColumnFilter",
       cellRenderer: (params: any) => {
         if (!params.value) return "";
         return (
@@ -593,7 +601,7 @@ export default function CandidatesPage() {
       headerName: "Secondary Phone",
       width: 150,
       sortable: true,
-      filter: 'agSetColumnFilter',
+      filter: "agTextColumnFilter",
       cellRenderer: (params: any) => {
         if (!params.value) return "";
         const formattedPhone = formatPhoneNumber(params.value);
@@ -609,14 +617,14 @@ export default function CandidatesPage() {
       headerName: "Address",
       width: 300,
       sortable: true,
-      filter: 'agSetColumnFilter',
+      filter: "agTextColumnFilter",
     },
     {
       field: "linkedin_id",
       headerName: "LinkedIn ID",
       width: 150,
       sortable: true,
-      filter: 'agSetColumnFilter',
+      filter: "agTextColumnFilter",
       cellRenderer: (params: any) => {
         if (!params.value) return "";
         const formattedPhone = formatPhoneNumber(params.value);
@@ -626,7 +634,7 @@ export default function CandidatesPage() {
           </a>
         );
       }
-      
+
     },
     {
       field: "dob",
@@ -634,7 +642,7 @@ export default function CandidatesPage() {
       width: 150,
       sortable: true,
       editable: true,
-      filter: 'agSetColumnFilter',
+      filter: "agTextColumnFilter",
       valueFormatter: ({ value }: ValueFormatterParams) => formatDate(value),
       valueParser: (params) => {
         if (!params.newValue) return null;
@@ -652,14 +660,14 @@ export default function CandidatesPage() {
       headerName: "Emergency Contact Name",
       width: 200,
       sortable: true,
-      filter: 'agSetColumnFilter',
+      filter: "agTextColumnFilter",
     },
     {
       field: "emergcontactemail",
       headerName: "Emergency Contact Email",
       width: 200,
       sortable: true,
-      filter: 'agSetColumnFilter',
+      filter: "agTextColumnFilter",
       cellRenderer: (params: any) => {
         if (!params.value) return "";
         return (
@@ -678,7 +686,7 @@ export default function CandidatesPage() {
       headerName: "Emergency Contact Phone",
       width: 150,
       sortable: true,
-      filter: 'agSetColumnFilter',
+      filter: "agTextColumnFilter",
       cellRenderer: (params: any) => {
         if (!params.value) return "";
         const formattedPhone = formatPhoneNumber(params.value);
@@ -694,17 +702,17 @@ export default function CandidatesPage() {
       headerName: "Emergency Contact Address",
       width: 300,
       sortable: true,
-      filter: 'agSetColumnFilter',
+      filter: "agTextColumnFilter",
     },
     {
       field: "fee_paid",
       headerName: "Fee Paid",
       width: 120,
       sortable: true,
-      filter: 'agSetColumnFilter',
+      filter: "agTextColumnFilter",
       cellClass: (params) =>
         params.value && params.value > 0
-          ? 'bg-white text-green-500 '
+          ? 'text-green-500 '
           : '',
       valueFormatter: ({ value }: ValueFormatterParams) =>
         value != null ? `$${Number(value).toLocaleString()}` : "",
@@ -716,14 +724,14 @@ export default function CandidatesPage() {
       headerName: "Notes",
       width: 300,
       sortable: true,
-      filter: 'agSetColumnFilter',
+      filter: 'agTextColumnFilter',
     },
     {
       field: "candidate_folder",
       headerName: "Candidate Folder",
       width: 200,
       sortable: true,
-      filter: 'agSetColumnFilter',
+      filter: 'agTextColumnFilter',
       cellRenderer: (params: any) => {
         if (!params.value) return "";
         return (
@@ -951,54 +959,54 @@ export default function CandidatesPage() {
     }
   };
 
-const handleRowUpdated = useCallback(async (updatedRow: Candidate) => {
-  setLoadingRowId(updatedRow.id);
-  try {
-    const updatedData = { ...updatedRow };
-    if (!updatedData.status || updatedData.status === '') {
-      updatedData.status = 'active';
+  const handleRowUpdated = useCallback(async (updatedRow: Candidate) => {
+    setLoadingRowId(updatedRow.id);
+    try {
+      const updatedData = { ...updatedRow };
+      if (!updatedData.status || updatedData.status === '') {
+        updatedData.status = 'active';
+      }
+      const { id, ...payload } = updatedData;
+
+      const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) throw new Error("Failed to update candidate");
+
+      toast.success("Candidate updated successfully");
+
+      // Update only this row in AG Grid
+      if (gridRef.current) {
+        const rowNode = gridRef.current.api.getRowNode(updatedRow.id.toString());
+        if (rowNode) rowNode.setData(updatedData);
+      }
+
+    } catch (error) {
+      toast.error("Failed to update candidate");
+      console.error("Error updating candidate:", error);
+    } finally {
+      setLoadingRowId(null);
     }
-    const { id, ...payload } = updatedData;
+  }, [apiEndpoint]);
 
-    const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!response.ok) throw new Error("Failed to update candidate");
+  const handleRowDeleted = useCallback(async (id: number) => {
+    try {
+      const response = await fetch(`${apiEndpoint}/${id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Failed to delete candidate");
 
-    toast.success("Candidate updated successfully");
+      toast.success("Candidate deleted successfully");
 
-    // Update only this row in AG Grid
-    if (gridRef.current) {
-      const rowNode = gridRef.current.api.getRowNode(updatedRow.id.toString());
-      if (rowNode) rowNode.setData(updatedData);
+      if (gridRef.current) {
+        gridRef.current.api.applyTransaction({ remove: [{ id }] });
+      }
+
+    } catch (error) {
+      toast.error("Failed to delete candidate");
+      console.error("Error deleting candidate:", error);
     }
-
-  } catch (error) {
-    toast.error("Failed to update candidate");
-    console.error("Error updating candidate:", error);
-  } finally {
-    setLoadingRowId(null);
-  }
-}, [apiEndpoint]);
-
-const handleRowDeleted = useCallback(async (id: number) => {
-  try {
-    const response = await fetch(`${apiEndpoint}/${id}`, { method: "DELETE" });
-    if (!response.ok) throw new Error("Failed to delete candidate");
-
-    toast.success("Candidate deleted successfully");
-
-    if (gridRef.current) {
-      gridRef.current.api.applyTransaction({ remove: [{ id }] });
-    }
-
-  } catch (error) {
-    toast.error("Failed to delete candidate");
-    console.error("Error deleting candidate:", error);
-  }
-}, [apiEndpoint]);
+  }, [apiEndpoint]);
 
   const handleFilterChanged = useCallback((filterModelFromGrid: any) => {
     setFilterModel(filterModelFromGrid);
@@ -1024,7 +1032,7 @@ const handleRowDeleted = useCallback(async (id: number) => {
 
   return (
     <div className="space-y-6">
-     
+
       <style jsx global>{`
         .filter-dropdown {
           scrollbar-width: thin;
@@ -1073,7 +1081,8 @@ const handleRowDeleted = useCallback(async (id: number) => {
       {/* Search */}
       <div key="search-container" className="max-w-md">
         <div className="relative mt-1">
-          <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+          <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-blue-700 dark:text-blue-400" />
+
           <Input
             key="search-input"
             id="search"
@@ -1081,9 +1090,12 @@ const handleRowDeleted = useCallback(async (id: number) => {
             ref={searchInputRef}
 
             placeholder="Search by ID, name, email, phone..."
+            className="pl-10 w-full placeholder-teal-300 dark:placeholder-teal-400"
+        
+
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+          
           />
         </div>
         {searchTerm && (
@@ -1105,7 +1117,7 @@ const handleRowDeleted = useCallback(async (id: number) => {
           getRowNodeId={data => data.id.toString()}
           showSearch={true}
           batches={allBatches}
-       
+
           loading={loading}
           height="600px"
           gridOptions={gridOptions}
@@ -1121,7 +1133,7 @@ const handleRowDeleted = useCallback(async (id: number) => {
             </h2>
             <form onSubmit={handleNewCandidateFormSubmit}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-               
+
                 <div className="space-y-1">
                   <Label htmlFor="full_name" className="block text-sm font-medium">Full Name *</Label>
                   <Input
@@ -1183,7 +1195,7 @@ const handleRowDeleted = useCallback(async (id: number) => {
                     onChange={handleNewCandidateFormChange}
                     className="w-full h-10 p-2 border rounded-md"
                   >
-                    
+
                     {workStatusOptions.map((status) => (
                       <option key={status} value={status}>
                         {status}
@@ -1349,7 +1361,7 @@ const handleRowDeleted = useCallback(async (id: number) => {
                       <option value="0">Loading batches...</option>
                     ) : (
                       <>
-                    
+
                         {mlBatches.map((batch) => (
                           <option key={batch.batchid} value={batch.batchid}>
                             {batch.batchname}
