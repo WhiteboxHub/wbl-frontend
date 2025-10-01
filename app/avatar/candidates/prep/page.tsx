@@ -158,6 +158,7 @@ export default function CandidatesPrepPage() {
     };
     fetchData();
   }, []);
+
     const getAllValues = (obj: any): string[] => {
       let values: string[] = [];
       for (const val of Object.values(obj)) {
@@ -169,6 +170,7 @@ export default function CandidatesPrepPage() {
       }
       return values;
     };
+
   // ---------------- Filtering and Sorting ----------------
   useEffect(() => {
     let filtered = [...allCandidates];
@@ -176,11 +178,13 @@ export default function CandidatesPrepPage() {
       filtered = filtered.filter((c) => selectedStatuses.includes(c.status?.toLowerCase()));
     }
     if (searchTerm.trim() !== "") {
+
     const term = searchTerm.toLowerCase();
     filtered = filtered.filter((c) =>
       getAllValues(c).some((val) => val.toLowerCase().includes(term))
     );
   }
+
     // Sort: active first, then by id (descending)
     filtered.sort((a, b) => {
       if (a.status === "active" && b.status !== "active") return -1;

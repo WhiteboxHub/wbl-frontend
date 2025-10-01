@@ -158,6 +158,34 @@ const fetchEmployees = async () => {
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+     // Validation for "Full Name" field
+  if (name === "name") {
+    const regex = /^[A-Za-z. ]*$/; 
+    if (!regex.test(value)) {
+      return; 
+    }
+  }
+  // Validation for "Full Name"
+  if (name === "name") {
+    const regex = /^[A-Za-z. ]*$/; 
+    if (!regex.test(value)) return;
+  }
+
+  // Validation for "Phone"
+  if (name === "phone" || name === "aadhaar") {
+    const regex = /^[0-9]*$/; 
+    if (!regex.test(value)) return;
+  }
+  // Validation for "Address"
+  if (name === "address") {
+    const regex = /^[A-Za-z0-9, ]*$/; 
+    if (!regex.test(value)) return;
+  }
+   // Validation for "State"
+  if (name === "state") {
+    const regex = /^[A-Za-z ]*$/; 
+    if (!regex.test(value)) return;
+  }
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -332,9 +360,9 @@ const fetchEmployees = async () => {
         </button>
       </div>
 
-      {/* Search */}
+   
       <div className="max-w-md">
-        <Label htmlFor="search">Search</Label>
+      
         <div className="relative mt-1">
           <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
           <Input

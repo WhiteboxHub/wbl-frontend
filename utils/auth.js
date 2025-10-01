@@ -105,6 +105,14 @@ export const isTokenExpired = (token) => {
   return decoded.exp * 1000 < Date.now();
 };
 
+function getAuthHeaders() {
+  const token = localStorage.getItem("access_token"); // ✅ match auth.js
+  if (!token) return {};
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+}
+
 export const fetchUserRole = async (token) => {
   try {
     const response = await fetch(
