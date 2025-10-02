@@ -157,7 +157,9 @@ useEffect(() => {
   
   return (
     <Link 
-      href={`/avatar/candidates/search?candidateId=${candidateId}`}  
+      href={`/avatar/candidates/search?candidateId=${candidateId}`}
+      target="_blank" 
+      rel="noopener noreferrer"
       className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
     >
       {candidateName}
@@ -230,7 +232,20 @@ useEffect(() => {
       },
       { field: "rating", headerName: "Rating", maxWidth: 100, editable: true },
       { field: "priority", headerName: "Priority", maxWidth: 100, editable: true },
-      { field: "notes", headerName: "Notes", minWidth: 100, editable: true },
+      {             field: "notes",
+            headerName: "Notes",
+            width: 300,
+            sortable: true,
+            cellRenderer: (params: any) => {
+              if (!params.value) return "";
+              return (
+                <div
+                  className="prose prose-sm max-w-none dark:prose-invert"
+                  dangerouslySetInnerHTML={{ __html: params.value }}
+                />
+              );
+            },
+          },
       {
         field: "candidate_resume",
         headerName: "Resume",

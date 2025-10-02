@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable";
@@ -131,11 +132,31 @@ export default function CandidatesInterviews() {
     );
   };
 
-  // Column definitions with Set Filter for type_of_interview
+const CandidateNameRenderer = (params: any) => {
+  const candidateId = params.data?.candidate_id; // Get candidate ID from row data
+  const candidateName = params.value; // Get candidate name
+  
+  if (!candidateId || !candidateName) {
+    return <span className="text-gray-500">{candidateName || "N/A"}</span>;
+  }
+  
+  return (
+    <Link 
+      href={`/avatar/candidates/search?candidateId=${candidateId}`}
+      target="_blank" 
+      rel="noopener noreferrer"
+      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer" // ← Same clean styling
+    >
+      {candidateName}
+    </Link>
+  );
+};
+  // Columns
+
   const columnDefs = useMemo<ColDef[]>(
     () => [
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
-      { field: "candidate.full_name", headerName: "Full Name", sortable: true, minWidth: 140 },
+      { field: "candidate.full_name", headerName: "Full Name", cellRenderer: CandidateNameRenderer, sortable: true, minWidth: 140, editable: false },
       { field: "company", headerName: "Company", sortable: true, minWidth: 110, editable: true },
       { field: "mode_of_interview", headerName: "Mode", maxWidth: 130, editable: true },
       {
@@ -153,14 +174,27 @@ export default function CandidatesInterviews() {
       { field: "recording_link", headerName: "Recording", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
       { field: "transcript", headerName: "Transcript", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
       { field: "backup_url", headerName: "Backup URL", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
-      { field: "url", headerName: "URL", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
+      { field: "url", headerName: "Job URL", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
       { field: "instructor1_name", headerName: "Instructor 1", minWidth: 140 },
       { field: "instructor2_name", headerName: "Instructor 2", minWidth: 140 },
       { field: "instructor3_name", headerName: "Instructor 3", minWidth: 140 },
       { field: "feedback", headerName: "Feedback", cellRenderer: FeedbackRenderer, maxWidth: 130, editable: true },
       { field: "interviewer_emails", headerName: "Emails", minWidth: 180, editable: true },
       { field: "interviewer_contact", headerName: "Contact", minWidth: 140, editable: true },
-      { field: "notes", headerName: "Notes", minWidth: 120, editable: true },
+      {             field: "notes",
+            headerName: "Notes",
+            width: 300,
+            sortable: true,
+            cellRenderer: (params: any) => {
+              if (!params.value) return "";
+              return (
+                <div
+                  className="prose prose-sm max-w-none dark:prose-invert"
+                  dangerouslySetInnerHTML={{ __html: params.value }}
+                />
+              );
+            },
+          },
     ],
     []
   );
