@@ -12,7 +12,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AGGridTable } from "@/components/AGGridTable";
 import { createPortal } from "react-dom";
 import { AgGridReact } from "ag-grid-react";
-import type { AgGridReact as AgGridReactType } from "ag-grid-react"; // import type
+import type { AgGridReact as AgGridReactType } from "ag-grid-react";
 import type { GridApi } from "ag-grid-community";
 
 type Lead = {
@@ -82,12 +82,8 @@ const StatusRenderer = ({ value }: { value?: string }) => {
   const status = value?.toLowerCase() || "";
   const variantMap: Record<string, string> = {
     open: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-    closed:
-      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-    "in progress":
-      "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-    future:
-      "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+    closed: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    future: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
     default: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
   };
   return (
@@ -97,16 +93,33 @@ const StatusRenderer = ({ value }: { value?: string }) => {
   );
 };
 
+const WorkStatusRenderer = ({ value }: { value?: string }) => {
+  const workstatus = value?.toLowerCase() || "";
+  const variantMap: Record<string, string> = {
+    "waiting for status": "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+    h1b: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+    "h4 ead": "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
+    "permanent resident": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    citizen: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
+    opt: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+    cpt: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+    default: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
+  };
+  return (
+    <Badge className={`${variantMap[workstatus] || variantMap.default} capitalize`}>
+      {value || "N/A"}
+    </Badge>
+  );
+};
+
 const StatusFilterHeaderComponent = (props: any) => {
   const { selectedStatuses, setSelectedStatuses } = props;
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>(
-    {
-      top: 0,
-      left: 0,
-    }
-  );
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
   const [filterVisible, setFilterVisible] = useState(false);
 
   const toggleFilter = (e: React.MouseEvent) => {
@@ -115,7 +128,7 @@ const StatusFilterHeaderComponent = (props: any) => {
       const rect = filterButtonRef.current.getBoundingClientRect();
       setDropdownPos({
         top: rect.bottom + window.scrollY,
-        left: Math.max(0, rect.left + window.scrollX - 100), // Adjust to prevent going off screen
+        left: Math.max(0, rect.left + window.scrollX - 100),
       });
     }
     setFilterVisible((v) => !v);
@@ -161,14 +174,11 @@ const StatusFilterHeaderComponent = (props: any) => {
         setFilterVisible(false);
       }
     };
-
     const handleScroll = () => setFilterVisible(false);
-
     if (filterVisible) {
       document.addEventListener("mousedown", handleClickOutside);
       window.addEventListener("scroll", handleScroll, true);
     }
-
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
       window.removeEventListener("scroll", handleScroll, true);
@@ -203,7 +213,6 @@ const StatusFilterHeaderComponent = (props: any) => {
           />
         </svg>
       </div>
-
       {filterVisible &&
         createPortal(
           <div
@@ -245,7 +254,6 @@ const StatusFilterHeaderComponent = (props: any) => {
                   onClick={(e) => e.stopPropagation()}
                   className="mr-3"
                 />
-
                 <StatusRenderer value={status} />
               </label>
             ))}
@@ -273,12 +281,10 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
   const { selectedWorkStatuses, setSelectedWorkStatuses } = props;
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>(
-    {
-      top: 0,
-      left: 0,
-    }
-  );
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
   const [filterVisible, setFilterVisible] = useState(false);
 
   const toggleFilter = (e: React.MouseEvent) => {
@@ -316,8 +322,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
     }
   };
 
-  const isAllSelected =
-    selectedWorkStatuses.length === workStatusOptions.length;
+  const isAllSelected = selectedWorkStatuses.length === workStatusOptions.length;
   const isIndeterminate =
     selectedWorkStatuses.length > 0 &&
     selectedWorkStatuses.length < workStatusOptions.length;
@@ -333,14 +338,11 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
         setFilterVisible(false);
       }
     };
-
     const handleScroll = () => setFilterVisible(false);
-
     if (filterVisible) {
       document.addEventListener("mousedown", handleClickOutside);
       window.addEventListener("scroll", handleScroll, true);
     }
-
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
       window.removeEventListener("scroll", handleScroll, true);
@@ -375,7 +377,6 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
           />
         </svg>
       </div>
-
       {filterVisible &&
         createPortal(
           <div
@@ -416,8 +417,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
                   onClick={(e) => e.stopPropagation()}
                   className="mr-3"
                 />
-
-                {workStatus}
+                <WorkStatusRenderer value={workStatus} />
               </label>
             ))}
             {selectedWorkStatuses.length > 0 && (
@@ -445,7 +445,6 @@ export default function LeadsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isNewLead = searchParams.get("newlead") === "true";
-
   const [leads, setLeads] = useState<Lead[]>([]);
   const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -461,15 +460,48 @@ export default function LeadsPage() {
   const [formSaveLoading, setFormSaveLoading] = useState(false);
   const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-  const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>(
-    []
-  );
+  const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
   const gridRef = useRef<InstanceType<typeof AgGridReact> | null>(null);
-
   const apiEndpoint = useMemo(
     () => `${process.env.NEXT_PUBLIC_API_URL}/leads`,
     []
   );
+
+  // Helper functions for form dropdown colors
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "open":
+        return { backgroundColor: "#DBEAFE", color: "#1E40AF" };
+      case "closed":
+        return { backgroundColor: "#D1FAE5", color: "#065F46" };
+      case "future":
+        return { backgroundColor: "#EDE9FE", color: "#7C3AED" };
+      default:
+        return { backgroundColor: "#F3F4F6", color: "#374151" };
+    }
+  };
+
+  const getWorkStatusColor = (workstatus: string) => {
+    switch (workstatus.toLowerCase()) {
+      case "waiting for status":
+        return { backgroundColor: "#FFEDD5", color: "#9A3412" };
+      case "h1b":
+        return { backgroundColor: "#DBEAFE", color: "#1E40AF" };
+      case "h4 ead":
+        return { backgroundColor: "#FCE7F3", color: "#BE185D" };
+      case "permanent resident":
+        return { backgroundColor: "#D1FAE5", color: "#065F46" };
+      case "citizen":
+        return { backgroundColor: "#E0E7FF", color: "#4338CA" };
+      case "opt":
+        return { backgroundColor: "#FEF3C7", color: "#92400E" };
+      case "cpt":
+        return { backgroundColor: "#FEF3C7", color: "#B45309" };
+      default:
+        return { backgroundColor: "#F3F4F6", color: "#374151" };
+    }
+  };
+
   const fetchLeads = useCallback(
     async (
       search?: string,
@@ -480,12 +512,10 @@ export default function LeadsPage() {
       try {
         let url = `${apiEndpoint}`;
         const params = new URLSearchParams();
-
         if (search && search.trim()) {
           params.append("search", search.trim());
           params.append("search_by", searchBy);
         }
-
         const sortToApply =
           sort && sort.length > 0
             ? sort
@@ -494,23 +524,18 @@ export default function LeadsPage() {
           .map((s) => `${s.colId}:${s.sort}`)
           .join(",");
         params.append("sort", sortParam);
-
         if (params.toString()) {
           url += `?${params.toString()}`;
         }
-
         const token = localStorage.getItem("token");
-
         const res = await fetch(url, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
         });
-
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         const data = await res.json();
-
         let leadsData = [];
         if (data.data && Array.isArray(data.data)) {
           leadsData = data.data;
@@ -519,7 +544,6 @@ export default function LeadsPage() {
         } else {
           throw new Error("Invalid response format");
         }
-
         setLeads(leadsData);
       } catch (err) {
         const error =
@@ -538,7 +562,6 @@ export default function LeadsPage() {
 
   useEffect(() => {
     let filtered = [...leads];
-
     if (selectedStatuses.length > 0) {
       filtered = filtered.filter((lead) =>
         selectedStatuses.some(
@@ -546,7 +569,6 @@ export default function LeadsPage() {
         )
       );
     }
-
     if (selectedWorkStatuses.length > 0) {
       filtered = filtered.filter((lead) =>
         selectedWorkStatuses.some(
@@ -554,7 +576,6 @@ export default function LeadsPage() {
         )
       );
     }
-
     if (searchTerm.trim() !== "") {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
@@ -565,7 +586,6 @@ export default function LeadsPage() {
           lead.id.toString().includes(term)
       );
     }
-
     setFilteredLeads(filtered);
     setTotalLeads(filtered.length);
   }, [leads, selectedStatuses, selectedWorkStatuses, searchTerm]);
@@ -583,7 +603,6 @@ export default function LeadsPage() {
         fetchLeads("", searchBy, sortModel);
       }
     }, 300);
-
     return () => clearTimeout(timeoutId);
   }, [searchTerm, searchBy, sortModel, fetchLeads]);
 
@@ -594,7 +613,6 @@ export default function LeadsPage() {
     return "full_name";
   };
 
-  // Handle form changes and submissions
   const handleNewLeadFormChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -627,9 +645,8 @@ export default function LeadsPage() {
         updatedData.status = "waiting for status";
       }
       if (!updatedData.workstatus || updatedData.workstatus === "") {
-        updatedData.workstatus = "waiting";
+        updatedData.workstatus = "Waiting for Status";
       }
-
       if (updatedData.moved_to_candidate) {
         updatedData.status = "Closed";
       }
@@ -639,7 +656,6 @@ export default function LeadsPage() {
       if (!updatedData.workstatus || updatedData.workstatus === "") {
         updatedData.workstatus = "Waiting for Status";
       }
-
       const booleanFields = [
         "moved_to_candidate",
         "massemail_email_sent",
@@ -654,7 +670,6 @@ export default function LeadsPage() {
           updatedData[field] = false;
         }
       });
-
       const payload = {
         ...updatedData,
         entry_date: new Date().toISOString(),
@@ -663,15 +678,12 @@ export default function LeadsPage() {
             ? new Date().toISOString().split("T")[0]
             : null,
       };
-
       const response = await fetch(apiEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-
       if (!response.ok) throw new Error("Failed to create lead");
-
       toast.success("Lead created successfully!");
       setNewLeadForm(false);
       setFormData(initialFormData);
@@ -698,10 +710,8 @@ export default function LeadsPage() {
   const handleRowUpdated = useCallback(
     async (updatedRow: Lead) => {
       setLoadingRowId(updatedRow.id);
-
       try {
         const { id, entry_date, ...payload } = updatedRow;
-
         if (payload.moved_to_candidate && payload.status !== "Closed") {
           payload.status = "Closed";
           payload.closed_date = new Date().toISOString().split("T")[0];
@@ -709,28 +719,22 @@ export default function LeadsPage() {
           payload.status = "Open";
           payload.closed_date = null;
         }
-
         payload.moved_to_candidate = Boolean(payload.moved_to_candidate);
         payload.massemail_unsubscribe = Boolean(payload.massemail_unsubscribe);
         payload.massemail_email_sent = Boolean(payload.massemail_email_sent);
-
         const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.detail || "Failed to update lead");
         }
-
         const updatedLead = { ...updatedRow, ...payload };
-
         if (gridRef.current) {
           gridRef.current.api.applyTransaction({ update: [updatedLead] });
         }
-
         toast.success(
           payload.moved_to_candidate
             ? "Lead moved to candidate and marked Closed"
@@ -753,11 +757,9 @@ export default function LeadsPage() {
           method: "DELETE",
         });
         if (!response.ok) throw new Error("Failed to delete candidate");
-
         const rowNode = gridRef.current?.api.getRowNode(id.toString());
         if (rowNode) rowNode.setData(null);
         gridRef.current?.api.applyTransaction({ remove: [rowNode.data] });
-
         toast.success("Candidate deleted successfully");
       } catch (error) {
         toast.error("Failed to delete candidate");
@@ -766,19 +768,6 @@ export default function LeadsPage() {
     },
     [apiEndpoint]
   );
-  // Esc button//
-  useEffect(() => {
-    const handleEsc = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        handleCloseNewLeadForm();
-      }
-    };
-
-    window.addEventListener("keydown", handleEsc);
-    return () => {
-      window.removeEventListener("keydown", handleEsc);
-    };
-  }, []);
 
   const handleMoveToCandidate = useCallback(
     async (lead: Lead, Moved: boolean) => {
@@ -786,29 +775,24 @@ export default function LeadsPage() {
       try {
         const method = Moved ? "DELETE" : "POST";
         const url = `${apiEndpoint}/${lead.id}/move-to-candidate`;
-
         const payload: Partial<Lead> = {
           moved_to_candidate: !Moved,
           status: !Moved ? "Closed" : "Open",
           closed_date: !Moved ? new Date().toISOString().split("T")[0] : null,
         };
-
         const response = await fetch(url, {
           method,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(
             errorData.detail || "Failed to move lead to candidate"
           );
         }
-
         const data = await response.json();
         fetchLeads(searchTerm, searchBy, sortModel);
-
         if (Moved) {
           toast.success(
             `Lead removed from candidate list (Candidate ID: ${data.candidate_id})`
@@ -836,6 +820,18 @@ export default function LeadsPage() {
     }
     return `+1 ${phoneNumberString}`;
   };
+
+  useEffect(() => {
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        handleCloseNewLeadForm();
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => {
+      window.removeEventListener("keydown", handleEsc);
+    };
+  }, []);
 
   const columnDefs: ColDef<any, any>[] = useMemo(
     () => [
@@ -909,6 +905,7 @@ export default function LeadsPage() {
         headerName: "Work Status",
         width: 200,
         sortable: true,
+        cellRenderer: WorkStatusRenderer,
         headerComponent: WorkStatusFilterHeaderComponent,
         headerComponentParams: {
           selectedWorkStatuses,
@@ -1001,7 +998,6 @@ export default function LeadsPage() {
     [selectedStatuses, selectedWorkStatuses]
   );
 
-  // Handle errors
   if (error) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -1018,7 +1014,6 @@ export default function LeadsPage() {
     );
   }
 
-  // Main UI
   return (
     <div className="space-y-6">
       <Toaster position="top-center" />
@@ -1037,7 +1032,6 @@ export default function LeadsPage() {
               " - Sorted by latest first"
             )}
           </p>
-
           <div key="search-container" className="max-w-md">
             <div className="relative mt-1">
               <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
@@ -1067,7 +1061,6 @@ export default function LeadsPage() {
           Add New Lead
         </Button>
       </div>
-
       <div className="flex w-full justify-center">
         <AGGridTable
           key={`${filteredLeads.length}-${selectedStatuses.join(
@@ -1086,7 +1079,7 @@ export default function LeadsPage() {
 
       {newLeadForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="relative min-h-[80vh] w-full max-w-2xl rounded-xl bg-white p-4 shadow-md">
+          <div className="relative min-h-[40vh] w-full max-w-xl rounded-lg bg-white p-4 shadow-md">
             <h2 className="mb-4 text-center text-xl font-semibold">
               New Lead Form
             </h2>
@@ -1147,35 +1140,28 @@ export default function LeadsPage() {
                         "Waiting for Status"
                       }
                       onChange={handleNewLeadFormChange}
-                      className={`w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 ${
-                        (formData[name as keyof FormData] as string) ===
-                          "Waiting for Status" ||
-                        !(formData[name as keyof FormData] as string)
-                          ? "text-orange-500"
-                          : (formData[name as keyof FormData] as string) ===
-                            "EAD"
-                          ? "text-blue-500"
-                          : (formData[name as keyof FormData] as string) ===
-                            "Visa"
-                          ? "text-purple-500"
-                          : (formData[name as keyof FormData] as string) ===
-                            "Permanent Resident"
-                          ? "text-green-500"
-                          : (formData[name as keyof FormData] as string) ===
-                            "OPT"
-                          ? "text-yellow-500"
-                          : (formData[name as keyof FormData] as string) ===
-                            "CPT"
-                          ? "text-orange-500"
-                          : (formData[name as keyof FormData] as string) ===
-                            "H4EAD"
-                          ? "text-pink-500"
-                          : "text-black"
-                      }`}
+                      className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+                      style={
+                        name === "status"
+                          ? getStatusColor(formData.status)
+                          : name === "workstatus"
+                          ? getWorkStatusColor(formData.workstatus)
+                          : {}
+                      }
                       required={config.required}
                     >
                       {config.options?.map((option) => (
-                        <option key={option} value={option}>
+                        <option
+                          key={option}
+                          value={option}
+                          style={
+                            name === "status"
+                              ? getStatusColor(option)
+                              : name === "workstatus"
+                              ? getWorkStatusColor(option)
+                              : {}
+                          }
+                        >
                           {option}
                         </option>
                       ))}
@@ -1187,7 +1173,7 @@ export default function LeadsPage() {
                       value={formData[name as keyof FormData] as string}
                       onChange={handleNewLeadFormChange}
                       rows={3}
-                      className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+                      className="w-full rounded-sm border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
                     />
                   ) : config.type === "checkbox" ? (
                     <div className="flex items-center space-x-2">
@@ -1213,7 +1199,7 @@ export default function LeadsPage() {
                       name={name}
                       value={formData[name as keyof FormData] as string}
                       onChange={handleNewLeadFormChange}
-                      className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+                      className="w-full rounded-sm border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
                       required={config.required}
                     />
                   )}
@@ -1238,11 +1224,11 @@ export default function LeadsPage() {
                   className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600"
                 />
               </div>
-
               <div className="md:col-span-2">
                 <button
                   type="submit"
                   disabled={formSaveLoading}
+                  onClick={handleNewLeadFormSubmit}
                   className={`w-full rounded-md py-2 transition duration-200 ${
                     formSaveLoading
                       ? "cursor-not-allowed bg-gray-400"
