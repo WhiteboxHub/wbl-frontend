@@ -463,7 +463,7 @@ export default function CandidatesPage() {
           url += `&filters=${encodeURIComponent(JSON.stringify(filters))}`;
         }
 
-        // 🔑 Get token from localStorage (or cookies/session depending on your auth setup)
+        //  Get token from localStorage (or cookies/session depending on your auth setup)
         const token = localStorage.getItem("token");
 
         const res = await fetch(url, {
@@ -514,9 +514,9 @@ export default function CandidatesPage() {
         const uniqueCourseIds = [
           ...new Set(sortedAllBatches.map((batch) => batch.courseid)),
         ];
-        console.log("🔍 Available subjects:", uniqueSubjects);
-        console.log("🔍 Available course IDs:", uniqueCourseIds);
-        console.log("🔍 Total batches:", sortedAllBatches.length);
+        console.log(" Available subjects:", uniqueSubjects);
+        console.log(" Available course IDs:", uniqueCourseIds);
+        console.log(" Total batches:", sortedAllBatches.length);
 
         let mlBatchesOnly = sortedAllBatches.filter((batch) => {
           const subject = batch.subject?.toLowerCase();
@@ -529,7 +529,7 @@ export default function CandidatesPage() {
         });
 
         if (mlBatchesOnly.length === 0) {
-          console.log("⚠️ No ML batches found by subject, trying courseid = 3");
+          console.log(" No ML batches found by subject, trying courseid = 3");
           mlBatchesOnly = sortedAllBatches.filter(
             (batch) => batch.courseid === 3
           );
@@ -537,12 +537,12 @@ export default function CandidatesPage() {
 
         if (mlBatchesOnly.length === 0) {
           console.warn(
-            "⚠️ No ML batches found! Showing all batches in form as fallback"
+            " No ML batches found! Showing all batches in form as fallback"
           );
           mlBatchesOnly = sortedAllBatches;
         }
 
-        console.log("🎯 Filtered ML batches for form:", mlBatchesOnly.length);
+        console.log(" Filtered ML batches for form:", mlBatchesOnly.length);
         setMlBatches(mlBatchesOnly);
 
         if (
