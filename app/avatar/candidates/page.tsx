@@ -1136,10 +1136,11 @@ export default function CandidatesPage() {
           background: #a8a8a8;
         }
       `}</style>
-
       <Toaster position="top-center" />
-      <div className="flex items-center justify-between">
-        <div>
+
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        {/* Left side: Title and description */}
+        <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             Candidates Management
           </h1>
@@ -1155,42 +1156,45 @@ export default function CandidatesPage() {
               " - Sorted by latest first"
             )}
           </p>
-        </div>
-        <Button
-          onClick={handleOpenNewCandidateForm}
-          className="bg-green-600 text-white hover:bg-green-700"
-        >
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Add New Candidate
-        </Button>
-      </div>
 
-      {/* Search */}
-      <div key="search-container" className="max-w-md">
-        <Label
-          htmlFor="search"
-          className="text-sm font-medium text-gray-700 dark:text-gray-300"
-        >
-          Search Candidates
-        </Label>
-        <div className="relative mt-1">
-          <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-          <Input
-            key="search-input"
-            id="search"
-            type="text"
-            ref={searchInputRef}
-            placeholder="Search by ID, name, email, phone..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+          {/* Search input */}
+          <div className="mt-2 sm:mt-0 sm:max-w-md">
+            <Label
+              htmlFor="search"
+              className="text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Search Candidates
+            </Label>
+            <div className="relative mt-1">
+              <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+              <Input
+                id="search"
+                type="text"
+                ref={searchInputRef}
+                placeholder="Search by ID, name, email, phone..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 text-sm sm:text-base"
+              />
+            </div>
+            {searchTerm && (
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {filteredCandidates.length} candidates found
+              </p>
+            )}
+          </div>
         </div>
-        {searchTerm && (
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {filteredCandidates.length} candidates found
-          </p>
-        )}
+
+        {/* Right side: Button */}
+        <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
+          <Button
+            onClick={handleOpenNewCandidateForm}
+            className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700"
+          >
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add New Candidate
+          </Button>
+        </div>
       </div>
 
       {/* AG Grid Table */}

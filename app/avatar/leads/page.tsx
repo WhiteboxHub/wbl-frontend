@@ -1,4 +1,3 @@
-
 "use client";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
@@ -82,8 +81,10 @@ const StatusRenderer = ({ value }: { value?: string }) => {
   const status = value?.toLowerCase() || "";
   const variantMap: Record<string, string> = {
     open: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-    closed: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-    future: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+    closed:
+      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    future:
+      "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
     default: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
   };
   return (
@@ -96,17 +97,23 @@ const StatusRenderer = ({ value }: { value?: string }) => {
 const WorkStatusRenderer = ({ value }: { value?: string }) => {
   const workstatus = value?.toLowerCase() || "";
   const variantMap: Record<string, string> = {
-    "waiting for status": "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+    "waiting for status":
+      "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
     h1b: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-    "h4 ead": "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
-    "permanent resident": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-    citizen: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
+    "h4 ead":
+      "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
+    "permanent resident":
+      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    citizen:
+      "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
     opt: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
     cpt: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
     default: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
   };
   return (
-    <Badge className={`${variantMap[workstatus] || variantMap.default} capitalize`}>
+    <Badge
+      className={`${variantMap[workstatus] || variantMap.default} capitalize`}
+    >
       {value || "N/A"}
     </Badge>
   );
@@ -116,10 +123,12 @@ const StatusFilterHeaderComponent = (props: any) => {
   const { selectedStatuses, setSelectedStatuses } = props;
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({
-    top: 0,
-    left: 0,
-  });
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>(
+    {
+      top: 0,
+      left: 0,
+    }
+  );
   const [filterVisible, setFilterVisible] = useState(false);
 
   const toggleFilter = (e: React.MouseEvent) => {
@@ -281,10 +290,12 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
   const { selectedWorkStatuses, setSelectedWorkStatuses } = props;
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({
-    top: 0,
-    left: 0,
-  });
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>(
+    {
+      top: 0,
+      left: 0,
+    }
+  );
   const [filterVisible, setFilterVisible] = useState(false);
 
   const toggleFilter = (e: React.MouseEvent) => {
@@ -322,7 +333,8 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
     }
   };
 
-  const isAllSelected = selectedWorkStatuses.length === workStatusOptions.length;
+  const isAllSelected =
+    selectedWorkStatuses.length === workStatusOptions.length;
   const isIndeterminate =
     selectedWorkStatuses.length > 0 &&
     selectedWorkStatuses.length < workStatusOptions.length;
@@ -460,7 +472,9 @@ export default function LeadsPage() {
   const [formSaveLoading, setFormSaveLoading] = useState(false);
   const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-  const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
+  const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>(
+    []
+  );
   const gridRef = useRef<InstanceType<typeof AgGridReact> | null>(null);
   const apiEndpoint = useMemo(
     () => `${process.env.NEXT_PUBLIC_API_URL}/leads`,
@@ -1017,8 +1031,9 @@ export default function LeadsPage() {
   return (
     <div className="space-y-6">
       <Toaster position="top-center" />
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+        {/* Left side: Title and description */}
+        <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             Leads Management
           </h1>
@@ -1032,18 +1047,19 @@ export default function LeadsPage() {
               " - Sorted by latest first"
             )}
           </p>
-          <div key="search-container" className="max-w-md">
-            <div className="relative mt-1">
+
+          {/* Search input */}
+          <div className="mt-2 sm:mt-0 sm:max-w-md">
+            <div className="relative">
               <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
               <Input
-                key="search-input"
                 id="search"
                 type="text"
                 ref={searchInputRef}
                 placeholder="Search by ID, name, email, phone..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-96 pl-10"
+                className="w-full pl-10 text-sm sm:text-base"
               />
             </div>
             {searchTerm && (
@@ -1053,14 +1069,19 @@ export default function LeadsPage() {
             )}
           </div>
         </div>
-        <Button
-          onClick={handleOpenNewLeadForm}
-          className="bg-green-600 text-white hover:bg-green-700"
-        >
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Add New Lead
-        </Button>
+
+        {/* Right side: Button */}
+        <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
+          <Button
+            onClick={handleOpenNewLeadForm}
+            className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700"
+          >
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add New Lead
+          </Button>
+        </div>
       </div>
+
       <div className="flex w-full justify-center">
         <AGGridTable
           key={`${filteredLeads.length}-${selectedStatuses.join(
