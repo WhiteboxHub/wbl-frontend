@@ -408,14 +408,16 @@ export default function CandidatesPage() {
 
 
   const columnDefs: ColDef<any, any>[] = useMemo(() => [
-    {
-      field: "id",
-      headerName: "ID",
-      width: 80,
-      pinned: "left",
-      sortable: true,
-      filter: 'agSetColumnFilter',
-    },
+{
+  field: "id",
+  headerName: "ID",
+  width: 80,
+  pinned: "left",
+  sortable: true,
+  filter: 'agSetColumnFilter',
+  valueGetter: (params) => params.data?.id || "N/A",
+},
+
     {
       field: "full_name",
       headerName: "Full Name",
@@ -709,8 +711,22 @@ export default function CandidatesPage() {
       valueFormatter: ({ value }: ValueFormatterParams) =>
         value != null ? `$${Number(value).toLocaleString()}` : "",
       cellStyle: { textAlign: 'right' }
-    }
-    ,
+    },
+    
+{
+  field: "move_to_prep",
+  headerName: "Move to Prep",
+  width: 120,
+  sortable: true,
+  filter: 'agSetColumnFilter',
+  cellRenderer: (params: any) => (
+    <span>
+      {params.value ? "Yes" : "No"}
+    </span>
+  )
+},
+
+    
     {
       field: "notes",
       headerName: "Notes",
@@ -873,9 +889,10 @@ export default function CandidatesPage() {
         candidate.full_name?.toLowerCase().includes(term) ||
         candidate.email?.toLowerCase().includes(term) ||
         candidate.phone?.toLowerCase().includes(term) ||
-        candidate.id.toString().includes(term)
+        (candidate.id?.toString() || "").includes(term)
       );
     }
+
     setFilteredCandidates(filtered);
   }, [candidates, selectedStatuses, selectedWorkStatuses, selectedBatches, searchTerm]);
 
@@ -1471,5 +1488,3 @@ export default function CandidatesPage() {
     </div>
   );
 }
-
-
