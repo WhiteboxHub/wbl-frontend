@@ -574,31 +574,30 @@ export default function LeadsPage() {
     return "full_name";
   };
 
+  // Handle form changes and submissions
   const handleNewLeadFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-  if (type === 'checkbox') {
-    const checked = (e.target as HTMLInputElement).checked;
-    setFormData(prev => ({ ...prev, [name]: checked }));
-  } 
-  else if (name === 'phone' || name === 'secondary_phone') {
-    // Only allow digits
-    const numericValue = value.replace(/\D/g, '');
-    setFormData(prev => ({ ...prev, [name]: numericValue }));
-  } 
-  else if (name === 'address') {
-    // Allow letters, numbers, comma, and space only
-    const sanitizedValue = value.replace(/[^a-zA-Z0-9, ]/g, '');
-    setFormData(prev => ({ ...prev, [name]: sanitizedValue }));
-  } 
-  else if (name === 'full_name') {
-    // Allow letters and dot only
-    const sanitizedValue = value.replace(/[^a-zA-Z. ]/g, '');
-    setFormData(prev => ({ ...prev, [name]: sanitizedValue }));
-  } 
-  else {
-    setFormData(prev => ({ ...prev, [name]: value }));
-  }
-};
+    if (type === 'checkbox') {
+      const checked = (e.target as HTMLInputElement).checked;
+      setFormData(prev => ({ ...prev, [name]: checked }));
+    }
+    else if (name === 'phone' || name === 'secondary_phone') {
+      const numericValue = value.replace(/\D/g, '');
+      setFormData(prev => ({ ...prev, [name]: numericValue }));
+    }
+    else if (name === 'address') {
+      const sanitizedValue = value.replace(/[^a-zA-Z0-9, ]/g, '');
+      setFormData(prev => ({ ...prev, [name]: sanitizedValue }));
+    }
+    else if (name === 'full_name') {
+
+      const sanitizedValue = value.replace(/[^a-zA-Z. ]/g, '');
+      setFormData(prev => ({ ...prev, [name]: sanitizedValue }));
+    }
+    else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+  };
 
   const handleNewLeadFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -738,7 +737,19 @@ export default function LeadsPage() {
     },
     [apiEndpoint]
   );
+  // Esc button//
+  useEffect(() => {
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        handleCloseNewLeadForm();
+      }
+    };
 
+    window.addEventListener("keydown", handleEsc);
+    return () => {
+      window.removeEventListener("keydown", handleEsc);
+    };
+  }, []);
 
   const handleMoveToCandidate = useCallback(
     async (lead: Lead, Moved: boolean) => {
@@ -952,21 +963,6 @@ export default function LeadsPage() {
     [selectedStatuses, selectedWorkStatuses]
   );
 
-  // Esc button//
-  useEffect(() => {
-  const handleEsc = (event: KeyboardEvent) => {
-    if (event.key === "Escape") {
-      handleCloseNewLeadForm();
-    }
-  };
-
-  window.addEventListener("keydown", handleEsc);
-  return () => {
-    window.removeEventListener("keydown", handleEsc);
-  };
-}, []); 
-
-
   // Handle errors
   if (error) {
     return (
@@ -1005,7 +1001,7 @@ export default function LeadsPage() {
           </p>
 
           <div key="search-container" className="max-w-md">
-      
+
             <div className="relative mt-1">
               <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
               <Input
@@ -1037,12 +1033,12 @@ export default function LeadsPage() {
       </div>
 
 
-    
+
       <div className="flex w-full justify-center">
         <AGGridTable
           key={`${filteredLeads.length}-${selectedStatuses.join(',')}-${selectedWorkStatuses.join(',')}`}
           rowData={filteredLeads}
-        
+
           columnDefs={columnDefs}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
@@ -1052,132 +1048,139 @@ export default function LeadsPage() {
           height="600px"
         />
       </div>
-      {/* New Lead Form */}
-{newLeadForm && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-    <div className="relative w-full max-w-2xl min-h-[80vh] rounded-xl bg-white p-4 shadow-md">
-      <h2 className="mb-4 text-center text-xl font-semibold">New Lead Form</h2>
-      <form className="grid grid-cols-1 gap-2 md:grid-cols-2">
-        {Object.entries({
-          full_name: { label: "Full Name", type: "text", required: true },
-          email: { label: "Email", type: "email", required: true },
-          phone: { label: "Phone", type: "tel", required: true },
-          secondary_email: { label: "Secondary Email", type: "email" },
-          secondary_phone: { label: "Secondary Phone", type: "tel" },
-          workstatus: {
-            label: "Work Status",
-            type: "select",
-            options: ["Waiting for Status", "EAD", "Visa", "Permanent Resident", "OPT", "CPT", "H4EAD"],
-            required: true,
-          },
-          address: { label: "Address", type: "text" },
-          status: {
-            label: "Status",
-            type: "select",
-            options: statusOptions,
-            required: true,
-          },
-          notes: { label: "Notes (optional)", type: "textarea" },
-          moved_to_candidate: {
-            label: "Moved to Candidate",
-            type: "checkbox",
-          },
-          massemail_unsubscribe: {
-            label: "Mass Email Unsubscribe",
-            type: "checkbox",
-          },
-          massemail_email_sent: {
-            label: "Mass Email Sent",
-            type: "checkbox",
-          },
-        }).map(([name, config]) => (
-          <div
-            key={name}
-            className={config.type === "textarea" ? "md:col-span-2" : ""}
-          >
-            <label
-              htmlFor={name}
-              className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              {config.label}
-            </label>
 
-            {config.type === "select" ? (
-              <select
-                id={name}
-                name={name}
-                value={formData[name as keyof FormData] as string || "Waiting for Status"}
-                onChange={handleNewLeadFormChange}
-                className={`w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  (formData[name as keyof FormData] as string) === "Waiting for Status" ||
-                  !(formData[name as keyof FormData] as string)
-                    ? "text-orange-500"
-                    : (formData[name as keyof FormData] as string) === "EAD"
-                    ? "text-blue-500"
-                    : (formData[name as keyof FormData] as string) === "Visa"
-                    ? "text-purple-500"
-                    : (formData[name as keyof FormData] as string) === "Permanent Resident"
-                    ? "text-green-500"
-                    : (formData[name as keyof FormData] as string) === "OPT"
-                    ? "text-yellow-500"
-                    : (formData[name as keyof FormData] as string) === "CPT"
-                    ? "text-orange-500"
-                    : (formData[name as keyof FormData] as string) === "H4EAD"
-                    ? "text-pink-500"
-                    : "text-black"
-                }`}
-                required={config.required}
-              >
-                {config.options?.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            ) : config.type === "textarea" ? (
-              <textarea
-                id={name}
-                name={name}
-                value={formData[name as keyof FormData] as string}
-                onChange={handleNewLeadFormChange}
-                rows={1}
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            ) : config.type === "checkbox" ? (
-              <div className="flex items-center space-x-2">
+
+      {newLeadForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+          <div className="relative w-full max-w-2xl min-h-[80vh] rounded-xl bg-white p-4 shadow-md">
+            <h2 className="mb-4 text-center text-xl font-semibold">New Lead Form</h2>
+            <form className="grid grid-cols-1 gap-2 md:grid-cols-2">
+              {Object.entries({
+                full_name: { label: "Full Name *", type: "text", required: true },
+                email: { label: "Email *", type: "email", required: true },
+                phone: { label: "Phone *", type: "tel", required: true },
+                secondary_email: { label: "Secondary Email", type: "email" },
+                secondary_phone: { label: "Secondary Phone", type: "tel" },
+                workstatus: {
+                  label: "Work Status",
+                  type: "select",
+                  options: workStatusOptions,
+                  required: true,
+                },
+                address: { label: "Address", type: "text" },
+                status: {
+                  label: "Status",
+                  type: "select",
+                  options: statusOptions,
+                  required: true,
+                },
+                notes: { label: "Notes (optional)", type: "textarea" },
+                moved_to_candidate: {
+                  label: "Moved to Candidate",
+                  type: "checkbox",
+                },
+                massemail_unsubscribe: {
+                  label: "Mass Email Unsubscribe",
+                  type: "checkbox",
+                },
+                massemail_email_sent: {
+                  label: "Mass Email Sent",
+                  type: "checkbox",
+                },
+              }).map(([name, config]) => (
+                <div
+                  key={name}
+                  className={config.type === "textarea" ? "md:col-span-2" : ""}
+                >
+                  <label
+                    htmlFor={name}
+                    className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    {config.label}
+                  </label>
+                  {config.type === "select" ? (
+                    <select
+                      id={name}
+                      name={name}
+                      value={formData[name as keyof FormData] as string || "Waiting for Status"}
+                      onChange={handleNewLeadFormChange}
+                      className={`w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${(formData[name as keyof FormData] as string) === "Waiting for Status" ||
+                          !(formData[name as keyof FormData] as string)
+                          ? "text-orange-500"
+                          : (formData[name as keyof FormData] as string) === "EAD"
+                            ? "text-blue-500"
+                            : (formData[name as keyof FormData] as string) === "Visa"
+                              ? "text-purple-500"
+                              : (formData[name as keyof FormData] as string) === "Permanent Resident"
+                                ? "text-green-500"
+                                : (formData[name as keyof FormData] as string) === "OPT"
+                                  ? "text-yellow-500"
+                                  : (formData[name as keyof FormData] as string) === "CPT"
+                                    ? "text-orange-500"
+                                    : (formData[name as keyof FormData] as string) === "H4EAD"
+                                      ? "text-pink-500"
+                                      : "text-black"
+                        }`}
+                      required={config.required}
+                    >
+                      {config.options?.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  ) : config.type === "textarea" ? (
+                    <textarea
+                      id={name}
+                      name={name}
+                      value={formData[name as keyof FormData] as string}
+                      onChange={handleNewLeadFormChange}
+                      rows={3}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  ) : config.type === "checkbox" ? (
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={name}
+                        name={name}
+                        checked={formData[name as keyof FormData] as boolean}
+                        onChange={handleNewLeadFormChange}
+                        className="h-4 w-4"
+                      />
+                      <label htmlFor={name} className="text-sm text-gray-700 dark:text-gray-300">
+                        {config.label}
+                      </label>
+                    </div>
+                  ) : (
+                    <input
+                      type={config.type}
+                      id={name}
+                      name={name}
+                      value={formData[name as keyof FormData] as string}
+                      onChange={handleNewLeadFormChange}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required={config.required}
+                    />
+                  )}
+                </div>
+              ))}
+              <div className="md:col-span-2">
+                <label
+                  htmlFor="entry_date"
+                  className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  Entry Date
+                </label>
                 <input
-
-                  type="checkbox"
-                  id={name}
-                  name={name}
-                  checked={formData[name as keyof FormData] as boolean}
-                  onChange={handleNewLeadFormChange}
-                  className="h-4 w-4"
                   type="date"
                   id="entry_date"
                   name="entry_date"
                   value={formData.entry_date || new Date().toISOString().split("T")[0]}
                   onChange={handleNewLeadFormChange}
                   className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-
                 />
-                <label htmlFor={name} className="text-sm text-gray-700 dark:text-gray-300">
-                  {config.label}
-                </label>
               </div>
-
-            ) : (
-              <input
-                type={config.type}
-                id={name}
-                name={name}
-                value={formData[name as keyof FormData] as string}
-                onChange={handleNewLeadFormChange}
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 dark:bg-gray-700 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required={config.required}
-              />
-            )}
-
 
               <div className="md:col-span-2">
                 <button
@@ -1200,49 +1203,10 @@ export default function LeadsPage() {
               &times;
             </button>
           </div>
-        ))}
-
-        <div className="md:col-span-2">
-          <label
-            htmlFor="entry_date"
-            className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
-          >
-            Entry Date
-          </label>
-          <input
-            type="text"
-            id="entry_date"
-            name="entry_date"
-            value={new Date().toLocaleDateString()}
-            readOnly
-            className="w-full rounded-md border border-gray-300 dark:border-gray-600 px-4 py-2 bg-gray-100 dark:bg-gray-600 focus:outline-none"
-          />
         </div>
+      )}
 
-        <div className="md:col-span-2">
-          <button
-            type="submit"
-            disabled={formSaveLoading}
-            className={`w-full rounded-md py-2 transition duration-200 ${
-              formSaveLoading
-                ? "cursor-not-allowed bg-gray-400"
-                : "bg-green-600 text-white hover:bg-green-700"
-            }`}
-          >
-            {formSaveLoading ? "Saving..." : "Save"}
-          </button>
-        </div>
-      </form>
-      <button
-        onClick={handleCloseNewLeadForm}
-        className="absolute right-3 top-3 text-2xl leading-none text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-        aria-label="Close"
-      >
-        &times;
-      </button>
-    </div>
-  </div>
-)}
+
     </div>
   );
 }

@@ -1,4 +1,3 @@
-
 "use client";
 import Link from "next/link";
 import "@/styles/admin.css";
@@ -569,4 +568,6 @@ export default function CandidatesPlacements() {
       )}
     </div>
   );
+
 }
+
