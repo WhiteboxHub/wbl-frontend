@@ -37,9 +37,10 @@ type Candidate = {
   emergcontactphone?: string | null;
   emergcontactaddrs?: string | null;
   fee_paid?: number | null;
-  notes?: string | null;
+  github_link?: string | null;
   batchid: number;
   candidate_folder?: string | null;
+  notes?: string | null;
 };
 
 type FormData = {
@@ -63,9 +64,10 @@ type FormData = {
   emergcontactphone: string;
   emergcontactaddrs: string;
   fee_paid: number;
-  notes: string;
+  github_link: string;
   batchid: number;
   candidate_folder: string;
+  notes: string;
 };
 
 type Batch = {
@@ -107,9 +109,10 @@ const initialFormData: FormData = {
   emergcontactphone: "",
   emergcontactaddrs: "",
   fee_paid: 0,
-  notes: "",
+  github_link: "",
   batchid: 0,
   candidate_folder: "",
+  notes: ""
 };
 
 const StatusRenderer = ({ value }: { value?: string }) => {
@@ -153,7 +156,11 @@ const CandidateNameRenderer = (params: any) => {
   }
   return (
     <Link
-      href={`/avatar/candidates/search?candidateId=${candidateId}`}
+
+      href={`/avatar/candidates/search?candidateId=${candidateId}`} 
+      target="_blank"
+      rel="noopener noreferrer"
+
       className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
     >
       {candidateName}
@@ -492,6 +499,7 @@ export default function CandidatesPage() {
         />
       ),
     },
+
     {
       field: "status",
       headerName: "Status",
@@ -783,6 +791,7 @@ export default function CandidatesPage() {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
+
           },
         });
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);

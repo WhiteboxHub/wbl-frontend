@@ -132,6 +132,7 @@ export default function CandidatesMarketingPage() {
   );
 
   const CandidateNameRenderer = (params: any) => {
+
     const candidateId = params.data?.candidate_id;
     const candidateName = params.value;
 
@@ -148,6 +149,7 @@ export default function CandidatesMarketingPage() {
       </Link>
     );
   };
+
 
 
   const columnDefs: ColDef[] = useMemo(
@@ -211,7 +213,20 @@ export default function CandidatesMarketingPage() {
       },
       { field: "rating", headerName: "Rating", maxWidth: 100, editable: true },
       { field: "priority", headerName: "Priority", maxWidth: 100, editable: true },
-      { field: "notes", headerName: "Notes", minWidth: 100, editable: true },
+      {             field: "notes",
+            headerName: "Notes",
+            width: 300,
+            sortable: true,
+            cellRenderer: (params: any) => {
+              if (!params.value) return "";
+              return (
+                <div
+                  className="prose prose-sm max-w-none dark:prose-invert"
+                  dangerouslySetInnerHTML={{ __html: params.value }}
+                />
+              );
+            },
+          },
       {
         field: "candidate_resume",
         headerName: "Resume",

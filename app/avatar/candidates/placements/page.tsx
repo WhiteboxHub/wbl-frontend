@@ -567,4 +567,6 @@ export default function CandidatesPlacements() {
       )}
     </div>
   );
+
 }
+
