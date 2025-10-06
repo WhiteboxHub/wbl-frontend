@@ -112,6 +112,26 @@ const StatusHeaderComponent = (props: any) => {
     </div>
   );
 };
+const CandidateNameRenderer = (params: any) => {
+  const candidateId = params.data?.candidate_id || params.data?.candidate?.id || params.data?.id;
+  const candidateName = params.value;
+
+  if (!candidateId || !candidateName) {
+    return <span className="text-gray-500">{candidateName || "N/A"}</span>;
+  }
+
+  return (
+    <Link
+      href={`/avatar/candidates/search?candidateId=${candidateId}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
+      onClick={e => e.stopPropagation()} // Prevent grid row click interference
+    >
+      {candidateName}
+    </Link>
+  );
+};
 
 // ---------------- Main Page ----------------
 export default function CandidatesPrepPage() {
@@ -210,8 +230,9 @@ const CandidateNameRenderer = (params: any) => {
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => {
     return [
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
-      { 
-      field: "candidate.full_name", headerName: "Candidate Name", cellRenderer: CandidateNameRenderer, sortable: true, minWidth: 150, editable: false},
+
+      { field: "candidate.full_name", headerName: "Full Name", minWidth: 150, cellRenderer: CandidateNameRenderer, sortable: true, editable: false },
+
       { field: "batch", headerName: "Batch", sortable: true, maxWidth: 150 },
       { field: "start_date", headerName: "Start Date", sortable: true, maxWidth: 130 },
       {
@@ -233,6 +254,23 @@ const CandidateNameRenderer = (params: any) => {
       { field: "current_topics", headerName: "Current Topics", minWidth: 150 },
       { field: "target_date_of_marketing", headerName: "Target Marketing Date", minWidth: 160 },
 
+      {
+        field: "notes",
+        headerName: "Notes",
+        minWidth: 100,
+        editable: true,
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          return (
+            <div
+              className="prose prose-sm max-w-none dark:prose-invert"
+              dangerouslySetInnerHTML={{ __html: params.value }}
+            />
+          );
+        },
+      }
+
+
       { field: "move_to_mrkt", headerName: "Move to Marketing", width: 150, sortable: true,filter: 'agSetColumnFilter', cellRenderer: (params: any) => (
           <span>
             {params.value ? "Yes" : "No"}
@@ -240,6 +278,7 @@ const CandidateNameRenderer = (params: any) => {
         )
       },
       { field: "notes", headerName: "Notes", minWidth: 90 },
+
 
     ];
   }, [selectedStatuses]);

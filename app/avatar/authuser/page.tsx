@@ -196,21 +196,23 @@ export default function AuthUsersPage() {
         editable: true,
         cellRenderer: RoleRenderer,
       },
-          {
-            field: "notes",
-            headerName: "Notes",
-            width: 300,
-            sortable: true,
-            cellRenderer: (params: any) => {
-              if (!params.value) return "";
-              return (
-                <div
-                  className="prose prose-sm max-w-none dark:prose-invert"
-                  dangerouslySetInnerHTML={{ __html: params.value }}
-                />
-              );
-            },
-          },
+
+      {
+        field: "notes",
+        headerName: "Notes",
+        minWidth: 100,
+        editable: true,
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          return (
+            <div
+              className="prose prose-sm max-w-none dark:prose-invert"
+              dangerouslySetInnerHTML={{ __html: params.value }}
+            />
+          );
+        },
+      }
+
     ],
     []
   );

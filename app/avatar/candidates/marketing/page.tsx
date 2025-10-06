@@ -10,6 +10,18 @@ import { SearchIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect, useCallback } from "react";
 import axios from "axios";
+
+import dynamic from "next/dynamic";
+const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
+import "react-quill/dist/quill.snow.css";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/admin_ui/dialog";
+import { Button } from "@/components/admin_ui/button";
 import { toast, Toaster } from "sonner";
 
 export default function CandidatesMarketingPage() {
@@ -133,6 +145,26 @@ export default function CandidatesMarketingPage() {
 
   const CandidateNameRenderer = (params: any) => {
 
+  const candidateId = params.data?.candidate_id; // Get candidate ID from row data
+  const candidateName = params.value; // Get candidate name
+  
+  if (!candidateId || !candidateName) {
+    return <span className="text-gray-500">{candidateName || "N/A"}</span>;
+  }
+  
+  return (
+    <Link 
+      href={`/avatar/candidates/search?candidateId=${candidateId}`}  
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
+    >
+      {candidateName}
+    </Link>
+  );
+};
+
+
     const candidateId = params.data?.candidate_id;
     const candidateName = params.value;
 
@@ -213,20 +245,23 @@ export default function CandidatesMarketingPage() {
       },
       { field: "rating", headerName: "Rating", maxWidth: 100, editable: true },
       { field: "priority", headerName: "Priority", maxWidth: 100, editable: true },
-      {             field: "notes",
-            headerName: "Notes",
-            width: 300,
-            sortable: true,
-            cellRenderer: (params: any) => {
-              if (!params.value) return "";
-              return (
-                <div
-                  className="prose prose-sm max-w-none dark:prose-invert"
-                  dangerouslySetInnerHTML={{ __html: params.value }}
-                />
-              );
-            },
-          },
+      
+      {
+        field: "notes",
+        headerName: "Notes",
+        minWidth: 100,
+        editable: true,
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          return (
+            <div
+              className="prose prose-sm max-w-none dark:prose-invert"
+              dangerouslySetInnerHTML={{ __html: params.value }}
+            />
+          );
+        },
+      },
+
       {
         field: "candidate_resume",
         headerName: "Resume",
@@ -243,7 +278,22 @@ export default function CandidatesMarketingPage() {
       console.error("Updated row missing candidate_id", updatedRow);
       toast.error("Failed to update candidate: Missing candidate ID.");
       return;
-    }
+
+    }    // Update local state immediately
+    setAllCandidates((prev) =>
+      prev.map((row) =>
+        row.candidate_id === updatedRow.candidate_id
+          ? { ...row, ...updatedRow }
+          : row
+      )
+    );
+    setFilteredCandidates((prev) =>
+      prev.map((row) =>
+        row.candidate_id === updatedRow.candidate_id
+          ? { ...row, ...updatedRow }
+          : row
+      )
+    );
 
     try {
       const res = await axios.put(

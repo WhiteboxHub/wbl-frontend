@@ -1,4 +1,3 @@
-
 "use client";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
@@ -39,6 +38,7 @@ type Candidate = {
   fee_paid?: number | null;
   github_link?: string | null;
   batchid: number;
+  github_link?: string | null;
   candidate_folder?: string | null;
   notes?: string | null;
 };
@@ -66,6 +66,7 @@ type FormData = {
   fee_paid: number;
   github_link: string;
   batchid: number;
+  github_link: string;
   candidate_folder: string;
   notes: string;
 };
@@ -111,6 +112,7 @@ const initialFormData: FormData = {
   fee_paid: 0,
   github_link: "",
   batchid: 0,
+  github_link: "",
   candidate_folder: "",
   notes: ""
 };
@@ -157,7 +159,7 @@ const CandidateNameRenderer = (params: any) => {
   return (
     <Link
 
-      href={`/avatar/candidates/search?candidateId=${candidateId}`} 
+      href={`/avatar/candidates/search?candidateId=${candidateId}`}
       target="_blank"
       rel="noopener noreferrer"
 
@@ -622,6 +624,23 @@ export default function CandidatesPage() {
       filter: 'agSetColumnFilter',
     },
     {
+      field: "github_link",
+      headerName: "Git hub Link",
+      width: 150,
+      sortable: true,
+      filter: 'agSetColumnFilter',
+      cellRenderer: (params: any) => {
+        if (!params.value) return "";
+        const formattedPhone = formatPhoneNumber(params.value);
+        return (
+          <a href={`tel:${params.value}`} className="text-blue-600 underline hover:text-purple-800">
+            {formattedPhone}
+          </a>
+        );
+      }
+
+    },
+        {
       field: "linkedin_id",
       headerName: "LinkedIn ID",
       width: 150,
@@ -738,9 +757,17 @@ export default function CandidatesPage() {
     {
       field: "notes",
       headerName: "Notes",
-      width: 300,
-      sortable: true,
-      filter: 'agSetColumnFilter',
+      minWidth: 100,
+      editable: true,
+      cellRenderer: (params: any) => {
+        if (!params.value) return "";
+        return (
+          <div
+            className="prose prose-sm max-w-none dark:prose-invert"
+            dangerouslySetInnerHTML={{ __html: params.value }}
+          />
+        );
+      },
     },
     {
       field: "candidate_folder",
@@ -1333,6 +1360,16 @@ export default function CandidatesPage() {
                     value={formData.secondaryphone}
                     onChange={handleNewCandidateFormChange}
                     placeholder="+1 (123) 456-7890"
+                    className="w-full h-10"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="github_link" className="block text-sm font-medium">Git Hub Link</Label>
+                  <Input
+                    id="github_link"
+                    name="github_link"
+                    value={formData.github_link}
+                    onChange={handleNewCandidateFormChange}
                     className="w-full h-10"
                   />
                 </div>

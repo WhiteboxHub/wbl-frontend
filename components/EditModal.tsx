@@ -12,6 +12,10 @@ import { Label } from "@/components/admin_ui/label";
 import { Input } from "@/components/admin_ui/input";
 import { Textarea } from "@/components/admin_ui/textarea";
 import axios from "axios";
+import { GitBranch } from "lucide-react";
+import dynamic from "next/dynamic";
+const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
+import "react-quill/dist/quill.snow.css";
 
 interface Batch {
   batchid: number;
@@ -57,6 +61,7 @@ const fieldSections: Record<string, string> = {
   target_date_of_marketing: "Basic Information",
   move_to_prep: "Basic Information",
   linkedin_id: "Contact Information",
+  github_link: "Contact Information",
   enrolled_date: "Professional Information",
   startdate: "Professional Information",
   type: "Professional Information",
@@ -1033,21 +1038,22 @@ if (isTypeField) {
                       {toLabel(key)}
                     </Label>
                     <ReactQuill
-                      value={decodeHTML(formData[key] || "")}
-                      onChange={(content) => handleChange(key, content)}
-                      className="bg-white dark:bg-gray-800"
+
+                      theme="snow"
+                      value={formData.notes || ""}
+                      onChange={(content) => setFormData(prev => ({ ...prev, notes: content }))}
                     />
+
                     <button
                       type="button"
-                      className="mt-2 text-sm text-blue-600 hover:underline"
                       onClick={() => {
-                        const timestamp = new Date().toLocaleString();
-                        const newEntry = `<p><strong>[${timestamp}]</strong> </p>`;
-                        handleChange(key, (formData[key] || "") + newEntry);
+                        const timestamp = `<p><strong>[${new Date().toLocaleString()}]</strong></p>`;
+                        setFormData(prev => ({...prev,notes: (prev.notes || "") + `<p><strong>[${new Date().toLocaleString()}]</strong></p>`}));
                       }}
                     >
-                      + Add Timestamped Note
-                    </button>
+                      + Add Timestamp
+
+                      </button>
                   </div>
                 ))}
               </div>

@@ -131,6 +131,25 @@ export default function CandidatesInterviews() {
       </div>
     );
   };
+  const CandidateNameRenderer = (params: any) => {
+  const candidateId = params.data?.candidate_id; // Get candidate ID from row data
+  const candidateName = params.value; // Get candidate name
+  
+  if (!candidateId || !candidateName) {
+    return <span className="text-gray-500">{candidateName || "N/A"}</span>;
+  }
+  
+  return (
+    <Link 
+      href={`/avatar/candidates/search?candidateId=${candidateId}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer" // ← Same clean styling
+    >
+      {candidateName}
+    </Link>
+  );
+};
 
 
 const CandidateNameRenderer = (params: any) => {
@@ -183,20 +202,23 @@ const CandidateNameRenderer = (params: any) => {
       { field: "feedback", headerName: "Feedback", cellRenderer: FeedbackRenderer, maxWidth: 130, editable: true },
       { field: "interviewer_emails", headerName: "Emails", minWidth: 180, editable: true },
       { field: "interviewer_contact", headerName: "Contact", minWidth: 140, editable: true },
-      {             field: "notes",
-            headerName: "Notes",
-            width: 300,
-            sortable: true,
-            cellRenderer: (params: any) => {
-              if (!params.value) return "";
-              return (
-                <div
-                  className="prose prose-sm max-w-none dark:prose-invert"
-                  dangerouslySetInnerHTML={{ __html: params.value }}
-                />
-              );
-            },
+
+      {
+          field: "notes",
+          headerName: "Notes",
+          minWidth: 100,
+          editable: true,
+          cellRenderer: (params: any) => {
+            if (!params.value) return "";
+            return (
+              <div
+                className="prose prose-sm max-w-none dark:prose-invert"
+                dangerouslySetInnerHTML={{ __html: params.value }}
+              />
+            );
           },
+        },
+
     ],
     []
   );
