@@ -5,7 +5,8 @@ import "@/styles/App.css";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/admin_ui/button";
+import { SearchIcon, ChevronLeft, ChevronRight, UserPlus } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import dynamic from "next/dynamic";
 import { toast, Toaster } from "sonner";
@@ -59,7 +60,8 @@ export default function VendorContactsGrid() {
   const [contacts, setContacts] = useState<any[]>([]);
   const [filteredContacts, setFilteredContacts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isLoading, setIsLoading] = useState(true); 
+  const [isLoading, setIsLoading] = useState(true);
+  const [movingToVendor, setMovingToVendor] = useState(false); 
 
   const apiEndpoint = useMemo(
     () => `${process.env.NEXT_PUBLIC_API_URL}/vendor_contact_extracts`,
@@ -69,7 +71,6 @@ export default function VendorContactsGrid() {
   const fetchContacts = useCallback(async () => {
     try {
       setLoading(true);
-      // const res = await axios.get(apiEndpoint);
       const token = localStorage.getItem("token");
 
         const res = await axios.get(
@@ -134,6 +135,38 @@ export default function VendorContactsGrid() {
       fetchContacts();
     } catch (err: any) {
       toast.error(err.message || "Failed to delete contact");
+    }
+  };
+
+  const handleMoveAllToVendor = async () => {
+    try {
+      setMovingToVendor(true);
+      const token = localStorage.getItem("token");
+      
+      const response = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/vendor_contact/move_to_vendor`,
+        { contact_ids: null },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const result = response.data;
+      
+      if (result.inserted > 0) {
+        toast.success(`Moved ${result.inserted} contacts to vendor`);
+      }
+      
+      if (result.inserted === 0 && result.count === 0) {
+        toast.info("No contacts to move");
+      }
+      
+      await fetchContacts();
+      
+    } catch (err: any) {
+      toast.error(err.response?.data?.detail || err.message || "Failed to move contacts to vendor");
+    } finally {
+      setMovingToVendor(false);
     }
   };
 
@@ -204,7 +237,7 @@ export default function VendorContactsGrid() {
 
   return (
     <div className="space-y-6">
-      <Toaster position="top-center" />
+      <Toaster position="top-center" richColors />
 
       <div className="flex items-center justify-between">
         <div>
@@ -214,6 +247,17 @@ export default function VendorContactsGrid() {
           <p className="text-gray-600 dark:text-gray-400">
             Browse, search, and manage all vendor contacts.
           </p>
+        </div>
+        
+        <div>
+          <Button
+            onClick={handleMoveAllToVendor}
+            disabled={movingToVendor}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            {movingToVendor ? "Moving..." : "Move All to Vendor"}
+          </Button>
         </div>
       </div>
 
