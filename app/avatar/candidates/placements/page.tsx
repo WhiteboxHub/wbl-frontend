@@ -303,7 +303,6 @@ export default function CandidatesPlacements() {
       priority:
         newPlacement.priority !== "" ? Number(newPlacement.priority) : undefined,
     };
-
     try {
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/candidate/placements`,

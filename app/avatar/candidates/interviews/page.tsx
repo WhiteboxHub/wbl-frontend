@@ -131,7 +131,7 @@ export default function CandidatesInterviews() {
     );
   };
 
-  // Column definitions with Set Filter for type_of_interview
+
   const columnDefs = useMemo<ColDef[]>(
     () => [
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
@@ -153,7 +153,7 @@ export default function CandidatesInterviews() {
       { field: "recording_link", headerName: "Recording", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
       { field: "transcript", headerName: "Transcript", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
       { field: "backup_url", headerName: "Backup URL", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
-      { field: "url", headerName: "URL", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
+      { field: "url", headerName: "Job URL", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
       { field: "instructor1_name", headerName: "Instructor 1", minWidth: 140 },
       { field: "instructor2_name", headerName: "Instructor 2", minWidth: 140 },
       { field: "instructor3_name", headerName: "Instructor 3", minWidth: 140 },
