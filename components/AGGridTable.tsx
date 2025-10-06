@@ -85,6 +85,7 @@ export function AGGridTable({
   const gridApiRef = useRef<GridApi | null>(null);
   const [selectedRowData, setSelectedRowData] = useState<RowData[] | null>(null);
   const [viewData, setViewData] = useState<RowData | null>(null);
+  const [currentViewIndex, setCurrentViewIndex] = useState<number>(0);
   const [editData, setEditData] = useState<RowData | null>(null);
   const [deleteConfirmData, setDeleteConfirmData] = useState<RowData | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -153,12 +154,46 @@ export function AGGridTable({
 
   }, []);
 
+  // Returns the currently displayed (filtered and sorted) rows
+  const getDisplayedRows = useCallback((): RowData[] => {
+    const api = gridApiRef.current;
+    if (!api) return rowData;
+    const result: RowData[] = [];
+    const count = api.getDisplayedRowCount();
+    for (let i = 0; i < count; i++) {
+      const node = api.getDisplayedRowAtIndex(i);
+      if (node && node.data) result.push(node.data);
+    }
+    return result;
+  }, [rowData]);
 
   const handleView = useCallback(() => {
     if (selectedRowData && selectedRowData.length > 0) {
-      setViewData(selectedRowData[0]);
+      setEditData(null);
+      const selectedRow = selectedRowData[0];
+      const displayedRows = getDisplayedRows();
+      // Find the index of the selected row within the CURRENTLY DISPLAYED rows (after filters/sorts)
+      const index = displayedRows.findIndex(row => {
+        // Try to match by various ID fields
+        if (selectedRow.id && row.id) return selectedRow.id === row.id;
+        if (selectedRow.sessionid && row.sessionid) return selectedRow.sessionid === row.sessionid;
+        if (selectedRow.leadid && row.leadid) return selectedRow.leadid === row.leadid;
+        if (selectedRow.candidateid && row.candidateid) return selectedRow.candidateid === row.candidateid;
+        if (selectedRow.batchid && row.batchid) return selectedRow.batchid === row.batchid;
+        // Fallback to comparing all properties
+        return JSON.stringify(selectedRow) === JSON.stringify(row);
+      });
+      setCurrentViewIndex(index >= 0 ? index : 0);
+      setViewData(selectedRow);
     }
-  }, [selectedRowData]);
+  }, [selectedRowData, getDisplayedRows]);
+
+  const handleViewNavigation = useCallback((newIndex: number) => {
+    const displayedRows = getDisplayedRows();
+    if (displayedRows && newIndex >= 0 && newIndex < displayedRows.length) {
+      setCurrentViewIndex(newIndex);
+    }
+  }, [getDisplayedRows]);
 
   const handleEdit = useCallback(() => {
     if (selectedRowData && selectedRowData.length > 0) {
@@ -187,7 +222,7 @@ export function AGGridTable({
 
 
   const handleSave = useCallback((updatedData: RowData) => {
-    
+  
     if (gridRef.current) {
       gridRef.current.api.applyTransaction({ update: [updatedData] });
     }
@@ -199,7 +234,7 @@ export function AGGridTable({
   }, [onRowUpdated]);
 
   const onCellValueChanged = useCallback((event: CellValueChangedEvent) => {
-   
+ 
     if (gridRef.current) {
       gridRef.current.api.applyTransaction({ update: [event.data] });
     }
@@ -384,7 +419,9 @@ export function AGGridTable({
         <ViewModal
           isOpen={true}
           onClose={() => setViewData(null)}
-          data={viewData}
+          data={getDisplayedRows()}
+          currentIndex={currentViewIndex}
+          onNavigate={handleViewNavigation}
           title={title || "Record"}
         />
       )}
