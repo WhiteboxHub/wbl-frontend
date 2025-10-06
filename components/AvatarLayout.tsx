@@ -1,4 +1,3 @@
-// whiteboxLearning-wbl\components\AvatarLayout.tsx
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -8,7 +7,6 @@ import {
   HomeIcon,
   UsersIcon,
   UserCheckIcon,
-  UserCogIcon,
   BuildingIcon,
   GraduationCap,
   ArrowLeftIcon,
@@ -24,13 +22,15 @@ interface AvatarLayoutProps {
 
 export function AvatarLayout({ children }: AvatarLayoutProps) {
   const pathname = usePathname();
-  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+
+  
+  const [expandedItem, setExpandedItem] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Mobile sidebar toggle
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [expandedItem, setExpandedItem] = useState<string | null>(null);
-
+  
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== "undefined") {
       return (
@@ -54,27 +54,10 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
     document.documentElement.classList.toggle("dark", isDark);
   }, []);
 
-  const handleItemClick = (href: string, hasChildren: boolean) => {
-    if (hasChildren) {
-      setExpandedItem(expandedItem === href ? null : href);
-    } else {
-      setSidebarOpen(false);
-      setExpandedItem(null);
-    }
-  };
-
+  
   const sidebarItems = [
-    {
-      title: "Dashboard",
-      href: "/avatar",
-      icon: HomeIcon,
-      exact: true,
-    },
-    {
-      title: "Leads",
-      href: "/avatar/leads",
-      icon: UsersIcon,
-    },
+    { title: "Dashboard", href: "/avatar", icon: HomeIcon, exact: true },
+    { title: "Leads", href: "/avatar/leads", icon: UsersIcon },
     {
       title: "Training",
       href: "/avatar/training/course",
@@ -110,11 +93,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
         { title: "Sessions", href: "/avatar/recordings/session" },
       ],
     },
-    {
-      title: "Authuser",
-      href: "/avatar/authuser",
-      icon: ShieldCheck,
-    },
+    { title: "Authuser", href: "/avatar/authuser", icon: ShieldCheck },
     {
       title: "Employees",
       href: "/avatar/employee",
@@ -122,7 +101,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       children: [
         { title: "Employee", href: "/avatar/employee" },
         { title: "Employee Search", href: "/avatar/employee/employeesearch" },
-       ],
+      ],
     },
     {
       title: "Vendors",
@@ -135,9 +114,22 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
     },
   ];
 
-  const isActive = (href: string, exact = false) => {
-    if (exact) return pathname === href;
-    return pathname.startsWith(href);
+  const handleItemClick = (href: string, hasChildren: boolean) => {
+    if (hasChildren) {
+      setExpandedItem(expandedItem === href ? null : href);
+    } else {
+      setSidebarOpen(false);
+      setExpandedItem(null);
+    }
+  };
+
+  const isActive = (item: typeof sidebarItems[number]) => {
+    if (item.exact) return pathname === item.href;
+    if (pathname === item.href) return true;
+    if (item.children) {
+      return item.children.some((child) => pathname.startsWith(child.href));
+    }
+    return false;
   };
 
   return (
@@ -146,9 +138,8 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       <header className="sticky top-0 z-40 border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
         <div className="px-6 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            {/* Mobile toggle */}
             <div className="md:hidden flex items-center">
-              {!sidebarOpen ? (
+              {!sidebarOpen && (
                 <button
                   onClick={() => setSidebarOpen(true)}
                   className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-700"
@@ -162,7 +153,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                   </svg>
                 </button>
-              ) : null}
+              )}
             </div>
 
             <Button
@@ -194,16 +185,21 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
           <nav className="p-4 space-y-2">
             {sidebarItems.map((item) => {
               const Icon = item.icon;
-              const itemIsActive = isActive(item.href, item.exact);
               const hasChildren = item.children && item.children.length > 0;
-              const isHovered = hoveredItem === item.href;
+              const itemIsActive = isActive(item);
 
               return (
                 <div
                   key={item.href}
                   className="relative"
-                  onMouseEnter={() => hasChildren && setHoveredItem(item.href)}
-                  onMouseLeave={() => hasChildren && setHoveredItem(null)}
+                  onMouseEnter={() => {
+                    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                    if (hasChildren) setExpandedItem(item.href);
+                  }}
+                  onMouseLeave={() => {
+                    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                    hoverTimeoutRef.current = setTimeout(() => setExpandedItem(null), 100);
+                  }}
                 >
                   <Link
                     href={item.href}
@@ -221,14 +217,26 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
                     {hasChildren && <ChevronRight className="ml-auto h-4 w-4 text-gray-400" />}
                   </Link>
 
-                  {hasChildren && isHovered && (
-                    <div className="absolute left-full top-0 ml-2 min-w-48 rounded-lg border border-gray-200 bg-white py-2 shadow-lg dark:border-gray-700 dark:bg-gray-800 z-50">
+                  {/* Desktop submenu with smooth animation */}
+                  {hasChildren && (
+                    <div
+                      className={cn(
+                        "absolute left-full top-0 ml-2 min-w-48 rounded-lg border border-gray-200 bg-white py-2 shadow-lg dark:border-gray-700 dark:bg-gray-800 z-50 transform origin-left transition-all duration-200 ease-in-out",
+                        expandedItem === item.href
+                          ? "opacity-100 translate-x-0 pointer-events-auto"
+                          : "opacity-0 -translate-x-4 pointer-events-none"
+                      )}
+                    >
                       {item.children.map((child) => (
                         <Link
                           key={child.href}
                           href={child.href}
+                          onClick={() => {
+                            if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+                            setExpandedItem(null);
+                          }}
                           className={cn(
-                            "block px-4 py-2 text-sm hover:bg-gradient-to-r hover:from-violet-50 hover:to-fuchsia-50 dark:hover:from-violet-900/20 dark:hover:to-fuchsia-900/20",
+                            "block px-4 py-2 text-sm rounded hover:bg-gradient-to-r hover:from-violet-50 hover:to-fuchsia-50 dark:hover:from-violet-900/20 dark:hover:to-fuchsia-900/20",
                             pathname === child.href
                               ? "border-r-2 border-violet-500 bg-gradient-to-r from-violet-50 to-fuchsia-50 text-violet-700 dark:border-violet-400 dark:from-violet-900/30 dark:to-fuchsia-900/30 dark:text-violet-300"
                               : "text-gray-600 dark:text-gray-300 hover:text-violet-600 dark:hover:text-violet-400"
@@ -252,7 +260,6 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
           )}
         >
-          {/* Cross button */}
           <div className="flex justify-end p-4">
             <button
               onClick={() => setSidebarOpen(false)}
@@ -273,6 +280,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
             {sidebarItems.map((item) => {
               const Icon = item.icon;
               const hasChildren = item.children && item.children.length > 0;
+              const isExpanded = expandedItem === item.href;
 
               return (
                 <div key={item.href} className="relative">
@@ -288,13 +296,13 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
                       <ChevronRight
                         className={cn(
                           "h-4 w-4 text-gray-400 transition-transform duration-200",
-                          expandedItem === item.href ? "rotate-90" : "rotate-0"
+                          isExpanded ? "rotate-90" : "rotate-0"
                         )}
                       />
                     )}
                   </button>
 
-                  {hasChildren && expandedItem === item.href && (
+                  {hasChildren && isExpanded && (
                     <div className="ml-4 mt-1 flex flex-col space-y-1">
                       {item.children!.map((child) => (
                         <Link
