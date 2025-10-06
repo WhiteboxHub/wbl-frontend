@@ -245,7 +245,7 @@ export default function VendorContactsGrid() {
             Vendor Contact Extracts
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Browse, search, and manage all vendor contacts.
+            {/* Browse, search, and manage all vendor contacts. */}
           </p>
         </div>
         
@@ -266,7 +266,7 @@ export default function VendorContactsGrid() {
           htmlFor="search"
           className="text-sm font-medium text-gray-700 dark:text-gray-300"
         >
-          Search Contacts
+          {/* Search Contacts */}
         </Label>
         <div className="relative mt-1">
           <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -299,5 +299,4 @@ export default function VendorContactsGrid() {
     </div>
   );
 }
-
 

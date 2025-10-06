@@ -1,5 +1,8 @@
 "use client";
 import React, { useState } from "react";
+import dynamic from "next/dynamic";
+const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
+import "react-quill/dist/quill.snow.css";
 import {
   Dialog,
   DialogContent,
@@ -52,6 +55,7 @@ const fieldSections: Record<string, string> = {
   start_date: "Professional Information",
   batchname: "Basic Information",
   target_date_of_marketing: "Basic Information",
+  move_to_prep: "Basic Information",
   linkedin_id: "Contact Information",
   enrolled_date: "Professional Information",
   startdate: "Professional Information",
@@ -93,6 +97,7 @@ const fieldSections: Record<string, string> = {
   enrolleddate: "Basic Information",
   orientationdate: "Basic Information",
   promissory: "Basic Information",
+  move_to_mrkt: "Basic Information",
   lastlogin: "Professional Information",
   logincount: "Professional Information",
   course: "Professional Information",
@@ -199,6 +204,14 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "implementation-partner", label: "Implementation Partner" },
     { value: "sourcer", label: "Sourcer" },
     { value: "contact-from-ip", label: "Contact from IP" },
+  ],
+  move_to_prep: [
+    { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
+  ],
+  move_to_mrkt: [
+    { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
   ],
   linkedin_connected: [
     { value: "no", label: "No" },
@@ -333,6 +346,7 @@ const labelOverrides: Record<string, string> = {
   marketing_startdate: "Marketing Start Date",
   recruiterassesment: "Recruiter Assessment",
   statuschangedate: "Status Change Date",
+  move_to_mrkt: "Move to Marketing",
   aadhaar: "Aadhaar",
   url: "Job URL",
   feedback: "Feedback",
@@ -568,6 +582,15 @@ export function EditModal({
   const isInterviewOrMarketing = title.toLowerCase().includes("interview") || title.toLowerCase().includes("marketing");
 
   if (!data) return null;
+
+  // Decodes HTML entities (e.g., &amp;, &lt;, &gt;, &quot;, etc.)
+  function decodeHTML(html: string): string {
+    if (!html) return "";
+    if (typeof window === "undefined") return html;
+    const txt = document.createElement("textarea");
+    txt.innerHTML = html;
+    return txt.value;
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -956,10 +979,31 @@ if (isTypeField) {
                             <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                               {toLabel(key)}
                             </Label>
-                            <Textarea
-                              value={formData[key] || ""}
-                              onChange={(e) => handleChange(key, e.target.value)}
+
+
+                            <ReactQuill
+                              theme="snow"
+                              value={decodeHTML(formData[key] || "")}
+                              onChange={(content) => handleChange(key, content)}
+                              className="bg-white dark:bg-gray-800 dark:text-gray-100"
+
+                            <Input
+                              value={formData[key] ?? ""}
+                              readOnly
+                              className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100 bg-gray-100 cursor-not-allowed"
+
                             />
+                            <button
+                              type="button"
+                              className="mt-2 text-sm text-blue-600 hover:underline"
+                              onClick={() => {
+                                const timestamp = new Date().toLocaleString();
+                                const newEntry = `<p><strong>[${timestamp}]</strong> </p>`;
+                                handleChange(key, (formData[key] || "") + newEntry);
+                              }}
+                            >
+                              + Add Timestamped Note
+                            </button>
                           </div>
                         );
                       }
@@ -988,11 +1032,22 @@ if (isTypeField) {
                     <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                       {toLabel(key)}
                     </Label>
-                    <Textarea
-                      value={formData[key] || ""}
-                      onChange={(e) => handleChange(key, e.target.value)}
-                      className="w-full"
+                    <ReactQuill
+                      value={decodeHTML(formData[key] || "")}
+                      onChange={(content) => handleChange(key, content)}
+                      className="bg-white dark:bg-gray-800"
                     />
+                    <button
+                      type="button"
+                      className="mt-2 text-sm text-blue-600 hover:underline"
+                      onClick={() => {
+                        const timestamp = new Date().toLocaleString();
+                        const newEntry = `<p><strong>[${timestamp}]</strong> </p>`;
+                        handleChange(key, (formData[key] || "") + newEntry);
+                      }}
+                    >
+                      + Add Timestamped Note
+                    </button>
                   </div>
                 ))}
               </div>
