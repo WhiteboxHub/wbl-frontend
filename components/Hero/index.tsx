@@ -1,3 +1,4 @@
+// /WhiteboxHub/whiteboxLearning-wbl/components/Hero/index.tsx
 'use client'
 import Cards from "@/components/Cards";
 import AnimatedCarousel from "@/components/AnimatedCarousel";
@@ -302,3 +303,4 @@ const Hero = () => {
 };
 
 export default Hero;
+

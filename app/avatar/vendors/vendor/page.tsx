@@ -180,7 +180,7 @@ const StatusFilterHeaderComponent = (props: any) => {
         createPortal(
           <div
             ref={dropdownRef}
-            className="fixed bg-white border rounded-lg shadow-xl p-3 flex flex-col space-y-2 w-56 pointer-events-auto dark:bg-gray-800 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-200"
+            className="fixed bg-white border rounded-lg shadow-xl p-3 flex flex-col space-y-2 w-56 pointer-events-auto dark:bg-gray-800 dark:border-gray-600 text-sm"
             style={{
               top: dropdownPos.top + 5,
               left: dropdownPos.left,
@@ -191,7 +191,7 @@ const StatusFilterHeaderComponent = (props: any) => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="border-b pb-2 mb-2">
-              <label className="flex items-center px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded font-medium">
+              <label className="flex items-center px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded font-medium text-sm">
                 <input
                   type="checkbox"
                   checked={isAllSelected}
@@ -310,7 +310,7 @@ const TypeFilterHeaderComponent = (props: any) => {
 
       <div
         ref={filterButtonRef}
-        className="flex items-center gap-1 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-1 rounded"
+        className="flex items-center gap-1 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-1 rounded text-sm"
         onClick={toggleFilter}
       >
         {selectedTypes.length > 0 && (
@@ -338,7 +338,7 @@ const TypeFilterHeaderComponent = (props: any) => {
         createPortal(
           <div
             ref={dropdownRef}
-            className="fixed bg-white border rounded-lg shadow-xl p-3 flex flex-col space-y-2 w-56 pointer-events-auto dark:bg-gray-800 dark:border-gray-600"
+            className="fixed bg-white border rounded-lg shadow-xl p-3 flex flex-col space-y-2 w-56 pointer-events-auto dark:bg-gray-800 dark:border-gray-600 text-sm"
             style={{
               top: dropdownPos.top + 5,
               left: dropdownPos.left,
@@ -553,7 +553,7 @@ export default function VendorPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Vendors</h1>
-        <p>Browse, search, and manage vendors.</p>
+        {/* <p>Browse, search, and manage vendors.</p> */}
       </div>
       <div className="max-w-md">
         {/* <Label htmlFor="search">Search Vendors</Label> */}

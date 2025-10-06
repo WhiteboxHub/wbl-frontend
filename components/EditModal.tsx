@@ -60,6 +60,7 @@ const fieldSections: Record<string, string> = {
   linkedin_connected: "Professional Information",
   intro_email_sent: "Professional Information",
   intro_call: "Professional Information",
+  recording_link: "Professional Information",
   moved_to_vendor: "Professional Information",
   phone_number: "Basic Information",
   secondary_phone: "Contact Information",
@@ -82,10 +83,10 @@ const fieldSections: Record<string, string> = {
   google_voice_number: "Professional Information",
   dob: "Basic Information",
   contact: "Basic Information",
-  password: "Basic Information",
+  password: "Professional Information",
   secondaryemail: "Contact Information",
   ssn: "Professional Information",
-  priority: "Professional Information",
+  priority: "Basic Information",
   source: "Basic Information",
   subject: "Basic Information",
   title: "Basic Information",
@@ -112,7 +113,7 @@ const fieldSections: Record<string, string> = {
   workexperience: "Professional Information",
   faq: "Professional Information",
   callsmade: "Professional Information",
-  fee_paid: "Basic Information",
+  fee_paid: "Professional Information",
   feedue: "Professional Information",
   salary0: "Professional Information",
   salary6: "Professional Information",
@@ -150,8 +151,6 @@ const fieldSections: Record<string, string> = {
   notes: "Notes",
   course_name: "Professional Information",
   subject_name: "Basic Information",
-  assigned_date: "Professional Information",
-  employee_name: "Basic Information"
 };
 
 const workVisaStatusOptions = [
@@ -335,7 +334,7 @@ const labelOverrides: Record<string, string> = {
   recruiterassesment: "Recruiter Assessment",
   statuschangedate: "Status Change Date",
   aadhaar: "Aadhaar",
-  url: "URL",
+  url: "Job URL",
   feedback: "Feedback",
   entry_date: "Entry Date",
   closed_date: "Closed Date",
@@ -601,6 +600,7 @@ export function EditModal({
             </svg>
           </button>
         </div>
+
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -672,6 +672,7 @@ export function EditModal({
                           ))}
                         </select>
                       </div>
+
                       {/* Instructor 2 Dropdown */}
                       <div className="space-y-1">
                         <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
@@ -696,6 +697,7 @@ export function EditModal({
                           ))}
                         </select>
                       </div>
+
                       {/* Instructor 3 Dropdown */}
                       <div className="space-y-1">
                         <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
@@ -722,6 +724,7 @@ export function EditModal({
                       </div>
                     </>
                   )}
+
                   {/* Render other fields in the section */}
                   {sectionedFields[section]
                     .filter(
@@ -742,41 +745,43 @@ export function EditModal({
                       if (isInterviewOrMarketing && ["instructor1_name", "instructor2_name", "instructor3_name"].includes(key)) {
                         return null;
                       }
-                      if (isTypeField) {
-                        if (isVendorModal) {
-                          return (
-                            <div key={key} className="space-y-1">
-                              <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                                {toLabel(key)}
-                              </Label>
-                              <select
-                                value={String(formData[key] ?? "")}
-                                onChange={(e) => handleChange(key, e.target.value)}
-                                className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                              >
-                                {enumOptions["type"].map((opt) => (
-                                  <option key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          );
-                        } else {
-                          return (
-                            <div key={key} className="space-y-1">
-                              <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                                {toLabel(key)}
-                              </Label>
-                              <Input
-                                value={formData[key] ?? ""}
-                                readOnly
-                                className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100 bg-gray-100 cursor-not-allowed"
-                              />
-                            </div>
-                          );
-                        }
-                      }
+
+if (isTypeField) {
+  if (isVendorModal) {
+    return (
+      <div key={key} className="space-y-1">
+        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+          {toLabel(key)}
+        </Label>
+        <select
+          value={String(formData[key] ?? "")}
+          onChange={(e) => handleChange(key, e.target.value)}
+          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+        >
+          {enumOptions["type"].map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  } else {
+    return (
+      <div key={key} className="space-y-1">
+        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+          {toLabel(key)}
+        </Label>
+        <Input
+          value={formData[key] ?? ""}
+          onChange={(e) => handleChange(key, e.target.value)}
+          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+        />
+      </div>
+    );
+  }
+}
+
                       if (key.toLowerCase() === "subjectid") {
                         return (
                           <div key={key} className="space-y-1">
@@ -973,6 +978,7 @@ export function EditModal({
                 </div>
               ))}
           </div>
+
           {/* Notes Section */}
           {sectionedFields["Notes"].length > 0 && (
             <div className="px-6 pb-6">
@@ -992,6 +998,7 @@ export function EditModal({
               </div>
             </div>
           )}
+
           {/* Footer */}
           <div className="flex justify-end px-6 pb-6">
             <button
