@@ -991,7 +991,7 @@ export default function LeadsPage() {
               " - Sorted by latest first"
             )}
           </p>
-
+{/* 
           <div key="search-container" className="max-w-md">
             <div className="relative mt-1">
               <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-blue-700 dark:text-blue-400" />
@@ -1011,7 +1011,7 @@ export default function LeadsPage() {
                 {leads.length} candidates found
               </p>
             )}
-          </div>
+          </div> */}
 
         </div>
         <Button
@@ -1031,6 +1031,7 @@ export default function LeadsPage() {
           rowData={filteredLeads}
 
           columnDefs={columnDefs}
+          searchFields={['name','id', 'email', 'phone', 'address']}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
           loading={loading}

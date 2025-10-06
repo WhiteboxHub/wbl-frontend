@@ -10,6 +10,7 @@ import { Button } from "@/components/admin_ui/button";
 import { toast, Toaster } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AGGridTable } from "@/components/AGGridTable";
+import { GridOptions } from "ag-grid-community";
 // import { createPortal } from "react-dom";
 import axios from "axios";
 import Link from "next/link";
@@ -164,6 +165,9 @@ const CandidateNameRenderer = (params: any) => {
 // import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
+// Add this import at the top with your other imports
+
+// Complete FilterHeaderComponent - Replace your existing one with this:
 const FilterHeaderComponent = ({
   selectedItems,
   setSelectedItems,
@@ -172,7 +176,7 @@ const FilterHeaderComponent = ({
   color = "blue",
   renderOption = (option: any) => option,
   getOptionValue = (option: any) => option,
-  getOptionKey = (option: any) => option
+  getOptionKey = (option: any) => option,
 }: {
   selectedItems: any[];
   setSelectedItems: React.Dispatch<React.SetStateAction<any[]>>;
@@ -183,19 +187,68 @@ const FilterHeaderComponent = ({
   getOptionValue?: (option: any) => any;
   getOptionKey?: (option: any) => any;
 }) => {
+  // NEW: Add search state
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredOptions, setFilteredOptions] = useState(options);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
   const handleItemChange = (item: any) => {
     const value = getOptionValue(item);
     setSelectedItems((prev: any[]) => {
-      const isSelected = prev.some(i => getOptionValue(i) === value);
+      const isSelected = prev.some((i) => getOptionValue(i) === value);
       return isSelected
-        ? prev.filter(i => getOptionValue(i) !== value)
+        ? prev.filter((i) => getOptionValue(i) !== value)
         : [...prev, item];
     });
-  }
+  };
+
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
   const [filterVisible, setFilterVisible] = useState(false);
+
+  // FIXED: Filter options based on search term - NO MORE TYPESCRIPT ERRORS
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      setFilteredOptions(options);
+      return;
+    }
+
+    const searchLower = searchTerm.toLowerCase();
+    const filtered = options.filter(option => {
+      // Safe text extraction for search - handles all data types
+      const searchableTexts = [
+        String(option || ''),                    // Option itself as string
+        String(getOptionValue(option) || ''),    // Option value as string
+        option?.batchname || '',                 // For batch objects
+        option?.name || '',                      // For objects with name
+        option?.label || '',                     // For objects with label
+        option?.text || '',                      // For objects with text
+      ].filter(text => text.length > 0);        // Remove empty strings
+      
+      // Check if any searchable text contains the search term
+      return searchableTexts.some(text => 
+        text.toLowerCase().includes(searchLower)
+      );
+    });
+    
+    setFilteredOptions(filtered);
+  }, [searchTerm, options, getOptionValue]);
+
+  // NEW: Focus search input when dropdown opens
+  useEffect(() => {
+    if (filterVisible && searchInputRef.current) {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 100);
+    } else {
+      setSearchTerm(""); // Clear search when closing
+    }
+  }, [filterVisible]);
+
   const toggleFilter = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (filterButtonRef.current) {
@@ -207,19 +260,23 @@ const FilterHeaderComponent = ({
     }
     setFilterVisible((v) => !v);
   };
+
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
-    setSelectedItems(e.target.checked ? [...options] : []);
+    setSelectedItems(e.target.checked ? [...filteredOptions] : []); // Use filtered options
   };
-  const isAllSelected = selectedItems.length === options.length && options.length > 0;
-  const isIndeterminate = selectedItems.length > 0 && selectedItems.length < options.length;
+
+  const isAllSelected = selectedItems.length === filteredOptions.length && filteredOptions.length > 0;
+  const isIndeterminate = selectedItems.length > 0 && selectedItems.length < filteredOptions.length;
+
   const colorMap: Record<string, string> = {
     blue: "bg-blue-500",
-    green: "bg-green-500",
+    green: "bg-green-500", 
     purple: "bg-purple-500",
     red: "bg-red-500",
     orange: "bg-orange-500",
   };
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -231,21 +288,24 @@ const FilterHeaderComponent = ({
         setFilterVisible(false);
       }
     };
+
     const handleScroll = (e: Event) => {
       const target = e.target as HTMLElement;
       if (dropdownRef.current && !dropdownRef.current.contains(target)) {
         setFilterVisible(false);
       }
     };
+
     if (filterVisible) {
       document.addEventListener("mousedown", handleClickOutside);
       window.addEventListener("scroll", handleScroll, { capture: true, passive: true });
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+        window.removeEventListener("scroll", handleScroll, true);
+      };
     }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      window.removeEventListener("scroll", handleScroll, true);
-    };
   }, [filterVisible]);
+
   return (
     <div className="relative flex items-center w-full">
       <span className="mr-2 flex-grow">{label}</span>
@@ -259,38 +319,61 @@ const FilterHeaderComponent = ({
             {selectedItems.length}
           </span>
         )}
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-4 w-4 text-gray-500 hover:text-gray-700"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z"
-          />
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500 hover:text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z" />
         </svg>
       </div>
+
       {filterVisible &&
         createPortal(
           <div
             ref={dropdownRef}
-            className="fixed bg-white border rounded-lg shadow-xl p-3 flex flex-col space-y-2 w-56 pointer-events-auto dark:bg-gray-800 dark:border-gray-600 filter-dropdown text-sm"
+            className="fixed bg-white border rounded-lg shadow-xl p-3 flex flex-col space-y-2 w-64 pointer-events-auto dark:bg-gray-800 dark:border-gray-600 filter-dropdown text-sm"
             style={{
               top: dropdownPos.top + 5,
               left: dropdownPos.left,
               zIndex: 99999,
-              maxHeight: "300px",
+              maxHeight: "350px",
               overflowY: "auto",
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            {/* NEW: Search Input */}
+            <div className="relative mb-3">
+              <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder={`Search ${label.toLowerCase()}...`}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                onClick={(e) => e.stopPropagation()}
+              />
+              {searchTerm && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSearchTerm("");
+                  }}
+                  className="absolute right-2 top-2.5 text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* NEW: Results count */}
+            {searchTerm && (
+              <div className="text-xs text-gray-500 pb-2">
+                {filteredOptions.length} of {options.length} {label.toLowerCase()}
+              </div>
+            )}
+
+            {/* Select All checkbox - UPDATED to use filteredOptions */}
             <div className="border-b pb-2 mb-2">
               <label
-                className="flex items-center px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded font-medium,text-sm"
+                className="flex items-center px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded font-medium text-sm"
                 onClick={(e) => e.stopPropagation()}
               >
                 <input
@@ -302,29 +385,42 @@ const FilterHeaderComponent = ({
                   onChange={handleSelectAll}
                   className="mr-3"
                 />
-                Select All
+                Select All {searchTerm && `(${filteredOptions.length})`}
               </label>
             </div>
-            {options.map((option) => {
-              const value = getOptionValue(option);
-              const key = getOptionKey(option);
-              const isSelected = selectedItems.some(i => getOptionValue(i) === value);
-              return (
-                <label
-                  key={key}
-                  className="flex items-center px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => handleItemChange(option)}
-                    className="mr-3"
-                  />
-                  {renderOption(option)}
-                </label>
-              );
-            })}
+
+            {/* Options list - UPDATED to use filteredOptions */}
+            <div className="max-h-48 overflow-y-auto">
+              {filteredOptions.length === 0 ? (
+                <div className="px-2 py-3 text-gray-500 text-center">
+                  No {label.toLowerCase()} found
+                </div>
+              ) : (
+                filteredOptions.map((option) => {
+                  const value = getOptionValue(option);
+                  const key = getOptionKey(option);
+                  const isSelected = selectedItems.some((i) => getOptionValue(i) === value);
+
+                  return (
+                    <label
+                      key={key}
+                      className="flex items-center px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleItemChange(option)}
+                        className="mr-3"
+                      />
+                      {renderOption(option)}
+                    </label>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Clear All button */}
             {selectedItems.length > 0 && (
               <div className="border-t pt-2 mt-2">
                 <button
@@ -344,6 +440,7 @@ const FilterHeaderComponent = ({
     </div>
   );
 };
+
 
 export default function CandidatesPage() {
   const gridRef = useRef<any>(null);
@@ -500,23 +597,19 @@ export default function CandidatesPage() {
     {
       field: "status",
       headerName: "Status",
-      width: 120,
-      sortable: true,
-      filter: 'agTextColumnFilter',
-      cellRenderer: StatusRenderer,
       headerComponent: (props: any) => (
         <FilterHeaderComponent
           {...props}
-          selectedItems={selectedStatuses}
+          selectedItems={selectedStatuses}        // ["active", "discontinued"]
           setSelectedItems={setSelectedStatuses}
-          options={statusOptions}
+          options={["active", "discontinued", "break", "closed"]}
           label="Status"
-          color="blue"
+          color="blue"                           // Blue badge color
           renderOption={(option) => <StatusRenderer value={option} />}
           getOptionValue={(option) => option}
           getOptionKey={(option) => option}
         />
-      ),
+      )
     },
 
     {
@@ -1121,7 +1214,7 @@ export default function CandidatesPage() {
       </div>
 
       {/* Search */}
-      <div key="search-container" className="max-w-md">
+      {/* <div key="search-container" className="max-w-md">
 
         <div className="relative mt-1">
           <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-blue-700 dark:text-blue-400" />
@@ -1145,7 +1238,7 @@ export default function CandidatesPage() {
             {filteredCandidates.length} candidates found
           </p>
         )}
-      </div>
+      </div> */}
 
       {/* AG Grid Table */}
       <div className="flex w-full justify-center">
@@ -1154,6 +1247,8 @@ export default function CandidatesPage() {
           rowData={loading ? undefined : filteredCandidates}
           columnDefs={columnDefs}
           onRowUpdated={handleRowUpdated}
+          searchPlaceholder="Search by Id, name,phone,email..."
+          searchFields={['id', 'full_name', 'phone', 'email', 'alias', 'description']}
           onRowDeleted={handleRowDeleted}
           showFilters={true}
           getRowNodeId={data => data.id.toString()}
@@ -1162,7 +1257,7 @@ export default function CandidatesPage() {
 
           loading={loading}
           height="600px"
-          gridOptions={gridOptions}
+          // gridOptions={gridOptions}
           overlayNoRowsTemplate={loading ? "" : '<span class="ag-overlay-no-rows-center">No candidates found</span>'}
         />
       </div>
@@ -1181,294 +1276,289 @@ export default function CandidatesPage() {
             </h2>
 
             <form onSubmit={handleNewCandidateFormSubmit}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
-
-                  <div className="space-y-1">
-                    <Label htmlFor="full_name" className="block text-sm font-medium">Full Name *</Label>
-                    <Input
-                      id="full_name"
-                      name="full_name"
-                      value={formData.full_name}
-                      onChange={handleNewCandidateFormChange}
-                      required
-                      className="w-full h-10"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="email" className="block text-sm font-medium">Email *</Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={handleNewCandidateFormChange}
-                      required
-                      className="w-full h-10"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="phone" className="block text-sm font-medium">Phone *</Label>
-                    <Input
-                      id="phone"
-                      name="phone"
-                      type="tel"
-                      value={formData.phone}
-                      onChange={handleNewCandidateFormChange}
-                      required
-                      placeholder="+1 (123) 456-7890"
-                      className="w-full h-10"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="status" className="block text-sm font-medium">Status</Label>
-                    <select
-                      id="status"
-                      name="status"
-                      value={formData.status}
-                      onChange={handleNewCandidateFormChange}
-                      className="w-full h-10 p-2 border rounded-md"
-                    >
-                      {statusOptions.map((status) => (
-                        <option key={status} value={status}>
-                          {status.charAt(0).toUpperCase() + status.slice(1)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="workstatus" className="block text-sm font-medium">Work Status</Label>
-                    <select
-                      id="workstatus"
-                      name="workstatus"
-                      value={formData.workstatus}
-                      onChange={handleNewCandidateFormChange}
-                      className="w-full h-10 p-2 border rounded-md"
-                    >
-
-                      {workStatusOptions.map((status) => (
-                        <option key={status} value={status}>
-                          {status}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="education" className="block text-sm font-medium">Education</Label>
-                    <Input
-                      id="education"
-                      name="education"
-                      value={formData.education}
-                      onChange={handleNewCandidateFormChange}
-                      className="w-full h-10"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="workexperience" className="block text-sm font-medium">Work Experience</Label>
-                    <Input
-                      id="workexperience"
-                      name="workexperience"
-                      value={formData.workexperience}
-                      onChange={handleNewCandidateFormChange}
-                      className="w-full h-10"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="agreement" className="block text-sm font-medium">Agreement</Label>
-                    <select
-                      id="agreement"
-                      name="agreement"
-                      value={formData.agreement}
-                      onChange={handleNewCandidateFormChange}
-                      className="w-full h-10 p-2 border rounded-md"
-                    >
-                      <option value="Y">Yes</option>
-                      <option value="N">No</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="ssn" className="block text-sm font-medium">SSN</Label>
-                    <Input
-                      id="ssn"
-                      name="ssn"
-                      type="password"
-                      value={formData.ssn}
-                      onChange={handleNewCandidateFormChange}
-                      className="w-full h-10"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="secondaryemail" className="block text-sm font-medium">Secondary Email</Label>
-                    <Input
-                      id="secondaryemail"
-                      name="secondaryemail"
-                      type="email"
-                      value={formData.secondaryemail}
-                      onChange={handleNewCandidateFormChange}
-                      className="w-full h-10"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="secondaryphone" className="block text-sm font-medium">Secondary Phone</Label>
-                    <Input
-                      id="secondaryphone"
-                      name="secondaryphone"
-                      type="tel"
-                      value={formData.secondaryphone}
-                      onChange={handleNewCandidateFormChange}
-                      placeholder="+1 (123) 456-7890"
-                      className="w-full h-10"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="linkedin_id" className="block text-sm font-medium">LinkedIn ID</Label>
-                    <Input
-                      id="linkedin_id"
-                      name="linkedin_id"
-                      value={formData.linkedin_id}
-                      onChange={handleNewCandidateFormChange}
-                      className="w-full h-10"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="dob" className="block text-sm font-medium">Date of Birth *</Label>
-                    <Input
-                      id="dob"
-                      name="dob"
-                      type="date"
-                      value={formData.dob}
-                      onChange={handleNewCandidateFormChange}
-                      required
-                      className="w-full h-10"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="emergcontactname" className="block text-sm font-medium">Emergency Contact Name</Label>
-                    <Input
-                      id="emergcontactname"
-                      name="emergcontactname"
-                      value={formData.emergcontactname}
-                      onChange={handleNewCandidateFormChange}
-                      className="w-full h-10"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="emergcontactemail" className="block text-sm font-medium">Emergency Contact Email</Label>
-                    <Input
-                      id="emergcontactemail"
-                      name="emergcontactemail"
-                      type="email"
-                      value={formData.emergcontactemail}
-                      onChange={handleNewCandidateFormChange}
-                      className="w-full h-10"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="emergcontactphone" className="block text-sm font-medium">Emergency Contact Phone</Label>
-                    <Input
-                      id="emergcontactphone"
-                      name="emergcontactphone"
-                      type="tel"
-                      value={formData.emergcontactphone}
-                      onChange={handleNewCandidateFormChange}
-                      placeholder="+1 (123) 456-7890"
-                      className="w-full h-10"
-                    />
-                  </div>
-                  <div className="md:col-span-2 space-y-1">
-                    <Label htmlFor="emergcontactaddrs" className="block text-sm font-medium">Emergency Contact Address</Label>
-                    <Input
-                      id="emergcontactaddrs"
-                      name="emergcontactaddrs"
-                      value={formData.emergcontactaddrs}
-                      onChange={handleNewCandidateFormChange}
-                      className="w-full h-10"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="fee_paid" className="block text-sm font-medium">Fee Paid ($)</Label>
-                    <Input
-                      id="fee_paid"
-                      name="fee_paid"
-                      type="number"
-                      value={formData.fee_paid}
-                      onChange={handleNewCandidateFormChange}
-                      className="w-full h-10"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="batchid" className="block text-sm font-medium">Batch *</Label>
-                    <select
-                      id="batchid"
-                      name="batchid"
-                      value={formData.batchid}
-                      onChange={handleNewCandidateFormChange}
-                      required
-                      className="w-full h-10 p-2 border rounded-md"
-                      disabled={batchesLoading}
-                    >
-                      {batchesLoading ? (
-                        <option value="0">Loading batches...</option>
-                      ) : (
-                        <>
-
-                          {mlBatches.map((batch) => (
-                            <option key={batch.batchid} value={batch.batchid}>
-                              {batch.batchname}
-                            </option>
-                          ))}
-                        </>
-                      )}
-                    </select>
-                  </div>
-                  <div className="md:col-span-2 space-y-1">
-                    <Label htmlFor="notes" className="block text-sm font-medium">Notes</Label>
-                    <textarea
-                      id="notes"
-                      name="notes"
-                      value={formData.notes}
-                      onChange={handleNewCandidateFormChange}
-                      className="w-full p-2 border rounded-md min-h-[100px]"
-                    />
-                  </div>
-                  <div className="md:col-span-2 space-y-1">
-                    <Label htmlFor="candidate_folder" className="block text-sm font-medium">Candidate Folder</Label>
-                    <Input
-                      id="candidate_folder"
-                      name="candidate_folder"
-                      value={formData.candidate_folder}
-                      onChange={handleNewCandidateFormChange}
-                      placeholder="Google Drive/Dropbox link"
-                      className="w-full h-10"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="enrolled_date" className="block text-sm font-medium">Enrolled Date</Label>
-                    <Input
-                      id="enrolled_date"
-                      name="enrolled_date"
-                      type="date"
-                      value={formData.enrolled_date}
-                      onChange={handleNewCandidateFormChange}
-                      className="w-full h-10"
-                    />
-                  </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
+                <div className="space-y-1">
+                  <Label htmlFor="full_name" className="block text-sm font-medium">Full Name *</Label>
+                  <Input
+                    id="full_name"
+                    name="full_name"
+                    value={formData.full_name}
+                    onChange={handleNewCandidateFormChange}
+                    required
+                    className="w-full h-10"
+                  />
                 </div>
-
-                <div className="mt-6">
-                  <button
-                    type="submit"
-                    disabled={formSaveLoading}
-                    className={`w-full rounded-md py-2.5 text-sm font-medium transition duration-200 ${formSaveLoading
-                      ? "cursor-not-allowed bg-gray-400"
-                      : "bg-green-600 text-white hover:bg-green-700"
-                      }`}
+                <div className="space-y-1">
+                  <Label htmlFor="email" className="block text-sm font-medium">Email *</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleNewCandidateFormChange}
+                    required
+                    className="w-full h-10"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="phone" className="block text-sm font-medium">Phone *</Label>
+                  <Input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    value={formData.phone}
+                    onChange={handleNewCandidateFormChange}
+                    required
+                    placeholder="+1 (123) 456-7890"
+                    className="w-full h-10"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="status" className="block text-sm font-medium">Status</Label>
+                  <select
+                    id="status"
+                    name="status"
+                    value={formData.status}
+                    onChange={handleNewCandidateFormChange}
+                    className="w-full h-10 p-2 border rounded-md"
                   >
-                    {formSaveLoading ? "Saving..." : "Save"}
-                  </button>
+                    {statusOptions.map((status) => (
+                      <option key={status} value={status}>
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+                <div className="space-y-1">
+                  <Label htmlFor="workstatus" className="block text-sm font-medium">Work Status</Label>
+                  <select
+                    id="workstatus"
+                    name="workstatus"
+                    value={formData.workstatus}
+                    onChange={handleNewCandidateFormChange}
+                    className="w-full h-10 p-2 border rounded-md"
+                  >
+
+                    {workStatusOptions.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="education" className="block text-sm font-medium">Education</Label>
+                  <Input
+                    id="education"
+                    name="education"
+                    value={formData.education}
+                    onChange={handleNewCandidateFormChange}
+                    className="w-full h-10"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="workexperience" className="block text-sm font-medium">Work Experience</Label>
+                  <Input
+                    id="workexperience"
+                    name="workexperience"
+                    value={formData.workexperience}
+                    onChange={handleNewCandidateFormChange}
+                    className="w-full h-10"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="agreement" className="block text-sm font-medium">Agreement</Label>
+                  <select
+                    id="agreement"
+                    name="agreement"
+                    value={formData.agreement}
+                    onChange={handleNewCandidateFormChange}
+                    className="w-full h-10 p-2 border rounded-md"
+                  >
+                    <option value="Y">Yes</option>
+                    <option value="N">No</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="ssn" className="block text-sm font-medium">SSN</Label>
+                  <Input
+                    id="ssn"
+                    name="ssn"
+                    type="password"
+                    value={formData.ssn}
+                    onChange={handleNewCandidateFormChange}
+                    className="w-full h-10"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="secondaryemail" className="block text-sm font-medium">Secondary Email</Label>
+                  <Input
+                    id="secondaryemail"
+                    name="secondaryemail"
+                    type="email"
+                    value={formData.secondaryemail}
+                    onChange={handleNewCandidateFormChange}
+                    className="w-full h-10"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="secondaryphone" className="block text-sm font-medium">Secondary Phone</Label>
+                  <Input
+                    id="secondaryphone"
+                    name="secondaryphone"
+                    type="tel"
+                    value={formData.secondaryphone}
+                    onChange={handleNewCandidateFormChange}
+                    placeholder="+1 (123) 456-7890"
+                    className="w-full h-10"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="linkedin_id" className="block text-sm font-medium">LinkedIn ID</Label>
+                  <Input
+                    id="linkedin_id"
+                    name="linkedin_id"
+                    value={formData.linkedin_id}
+                    onChange={handleNewCandidateFormChange}
+                    className="w-full h-10"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="dob" className="block text-sm font-medium">Date of Birth *</Label>
+                  <Input
+                    id="dob"
+                    name="dob"
+                    type="date"
+                    value={formData.dob}
+                    onChange={handleNewCandidateFormChange}
+                    required
+                    className="w-full h-10"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="emergcontactname" className="block text-sm font-medium">Emergency Contact Name</Label>
+                  <Input
+                    id="emergcontactname"
+                    name="emergcontactname"
+                    value={formData.emergcontactname}
+                    onChange={handleNewCandidateFormChange}
+                    className="w-full h-10"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="emergcontactemail" className="block text-sm font-medium">Emergency Contact Email</Label>
+                  <Input
+                    id="emergcontactemail"
+                    name="emergcontactemail"
+                    type="email"
+                    value={formData.emergcontactemail}
+                    onChange={handleNewCandidateFormChange}
+                    className="w-full h-10"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="emergcontactphone" className="block text-sm font-medium">Emergency Contact Phone</Label>
+                  <Input
+                    id="emergcontactphone"
+                    name="emergcontactphone"
+                    type="tel"
+                    value={formData.emergcontactphone}
+                    onChange={handleNewCandidateFormChange}
+                    placeholder="+1 (123) 456-7890"
+                    className="w-full h-10"
+                  />
+                </div>
+                <div className="md:col-span-2 space-y-1">
+                  <Label htmlFor="emergcontactaddrs" className="block text-sm font-medium">Emergency Contact Address</Label>
+                  <Input
+                    id="emergcontactaddrs"
+                    name="emergcontactaddrs"
+                    value={formData.emergcontactaddrs}
+                    onChange={handleNewCandidateFormChange}
+                    className="w-full h-10"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="fee_paid" className="block text-sm font-medium">Fee Paid ($)</Label>
+                  <Input
+                    id="fee_paid"
+                    name="fee_paid"
+                    type="number"
+                    value={formData.fee_paid}
+                    onChange={handleNewCandidateFormChange}
+                    className="w-full h-10"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="batchid" className="block text-sm font-medium">Batch *</Label>
+                  <select
+                    id="batchid"
+                    name="batchid"
+                    value={formData.batchid}
+                    onChange={handleNewCandidateFormChange}
+                    required
+                    className="w-full h-10 p-2 border rounded-md"
+                    disabled={batchesLoading}
+                  >
+                    {batchesLoading ? (
+                      <option value="0">Loading batches...</option>
+                    ) : (
+                      <>
+
+                        {mlBatches.map((batch) => (
+                          <option key={batch.batchid} value={batch.batchid}>
+                            {batch.batchname}
+                          </option>
+                        ))}
+                      </>
+                    )}
+                  </select>
+                </div>
+                <div className="md:col-span-2 space-y-1">
+                  <Label htmlFor="notes" className="block text-sm font-medium">Notes</Label>
+                  <textarea
+                    id="notes"
+                    name="notes"
+                    value={formData.notes}
+                    onChange={handleNewCandidateFormChange}
+                    className="w-full p-2 border rounded-md min-h-[100px]"
+                  />
+                </div>
+                <div className="md:col-span-2 space-y-1">
+                  <Label htmlFor="candidate_folder" className="block text-sm font-medium">Candidate Folder</Label>
+                  <Input
+                    id="candidate_folder"
+                    name="candidate_folder"
+                    value={formData.candidate_folder}
+                    onChange={handleNewCandidateFormChange}
+                    placeholder="Google Drive/Dropbox link"
+                    className="w-full h-10"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="enrolled_date" className="block text-sm font-medium">Enrolled Date</Label>
+                  <Input
+                    id="enrolled_date"
+                    name="enrolled_date"
+                    type="date"
+                    value={formData.enrolled_date}
+                    onChange={handleNewCandidateFormChange}
+                    className="w-full h-10"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <button
+                  type="submit"
+                  disabled={formSaveLoading}
+                  className={`w-full rounded-md py-2.5 text-sm font-medium transition duration-200 ${formSaveLoading
+                    ? "cursor-not-allowed bg-gray-400"
+                    : "bg-green-600 text-white hover:bg-green-700"
+                    }`}
+                >
+                  {formSaveLoading ? "Saving..." : "Save"}
+                </button>
               </div>
             </form>
             <button
@@ -1484,6 +1574,3 @@ export default function CandidatesPage() {
     </div>
   );
 }
-
-
-
