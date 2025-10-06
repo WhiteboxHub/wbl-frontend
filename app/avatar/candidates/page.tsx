@@ -810,8 +810,22 @@ export default function CandidatesPage() {
       valueFormatter: ({ value }: ValueFormatterParams) =>
         value != null ? `$${Number(value).toLocaleString()}` : "",
       cellStyle: { textAlign: 'right' }
-    }
-    ,
+    },
+    
+{
+  field: "move_to_prep",
+  headerName: "Move to Prep",
+  width: 120,
+  sortable: true,
+  filter: 'agSetColumnFilter',
+  cellRenderer: (params: any) => (
+    <span>
+      {params.value ? "Yes" : "No"}
+    </span>
+  )
+},
+
+    
     {
       field: "notes",
       headerName: "Notes",
@@ -974,9 +988,10 @@ export default function CandidatesPage() {
         candidate.full_name?.toLowerCase().includes(term) ||
         candidate.email?.toLowerCase().includes(term) ||
         candidate.phone?.toLowerCase().includes(term) ||
-        candidate.id.toString().includes(term)
+        (candidate.id?.toString() || "").includes(term)
       );
     }
+
     setFilteredCandidates(filtered);
   }, [candidates, selectedStatuses, selectedWorkStatuses, selectedBatches, searchTerm]);
 
