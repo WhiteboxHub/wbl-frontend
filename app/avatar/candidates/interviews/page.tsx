@@ -132,6 +132,7 @@ export default function CandidatesInterviews() {
     );
   };
 
+
 const CandidateNameRenderer = (params: any) => {
   const candidateId = params.data?.candidate_id; // Get candidate ID from row data
   const candidateName = params.value; // Get candidate name
@@ -152,6 +153,7 @@ const CandidateNameRenderer = (params: any) => {
   );
 };
   // Columns
+
 
   const columnDefs = useMemo<ColDef[]>(
     () => [

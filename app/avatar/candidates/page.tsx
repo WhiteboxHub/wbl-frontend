@@ -721,18 +721,18 @@ export default function CandidatesPage() {
       cellStyle: { textAlign: 'right' }
     },
     
-{
-  field: "move_to_prep",
-  headerName: "Move to Prep",
-  width: 120,
-  sortable: true,
-  filter: 'agSetColumnFilter',
-  cellRenderer: (params: any) => (
-    <span>
-      {params.value ? "Yes" : "No"}
-    </span>
-  )
-},
+    {
+      field: "move_to_prep",
+      headerName: "Move to Prep",
+      width: 150,
+      sortable: true,
+      filter: 'agSetColumnFilter',
+      cellRenderer: (params: any) => (
+        <span>
+          {params.value ? "Yes" : "No"}
+        </span>
+      )
+    },
 
     
     {

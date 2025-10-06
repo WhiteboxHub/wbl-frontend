@@ -55,6 +55,7 @@ const fieldSections: Record<string, string> = {
   start_date: "Professional Information",
   batchname: "Basic Information",
   target_date_of_marketing: "Basic Information",
+  move_to_prep: "Basic Information",
   linkedin_id: "Contact Information",
   enrolled_date: "Professional Information",
   startdate: "Professional Information",
@@ -96,6 +97,7 @@ const fieldSections: Record<string, string> = {
   enrolleddate: "Basic Information",
   orientationdate: "Basic Information",
   promissory: "Basic Information",
+  move_to_mrkt: "Basic Information",
   lastlogin: "Professional Information",
   logincount: "Professional Information",
   course: "Professional Information",
@@ -202,6 +204,14 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "implementation-partner", label: "Implementation Partner" },
     { value: "sourcer", label: "Sourcer" },
     { value: "contact-from-ip", label: "Contact from IP" },
+  ],
+  move_to_prep: [
+    { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
+  ],
+  move_to_mrkt: [
+    { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
   ],
   linkedin_connected: [
     { value: "no", label: "No" },
@@ -336,6 +346,7 @@ const labelOverrides: Record<string, string> = {
   marketing_startdate: "Marketing Start Date",
   recruiterassesment: "Recruiter Assessment",
   statuschangedate: "Status Change Date",
+  move_to_mrkt: "Move to Marketing",
   aadhaar: "Aadhaar",
   url: "Job URL",
   feedback: "Feedback",
