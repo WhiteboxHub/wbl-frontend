@@ -10,6 +10,7 @@ import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import axios from "axios";
+import { toast, Toaster } from "sonner";
 
 const BadgeRenderer = (params: any, map: Record<string, string>) => {
   const value = params?.value?.toString() || "None";
@@ -73,30 +74,27 @@ export default function VendorPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(100);
-const fetchVendors = async () => {
-  try {
-    setLoading(true);
 
-    // Example: token stored in localStorage after login
-    const token = localStorage.getItem("token");
+  const fetchVendors = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("token");
 
-    const res = await axios.get(
-      `${process.env.NEXT_PUBLIC_API_URL}/vendors`,
-      {
+      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/vendors`, {
         headers: {
-          Authorization: `Bearer ${token}`, // <-- pass token here
+          Authorization: `Bearer ${token}`,
         },
-      }
-    );
+      });
 
-    setVendors(res.data);
-    setFilteredVendors(res.data);
-  } catch (e: any) {
-    setError(e.response?.data?.message || e.message);
-  } finally {
-    setLoading(false);
-  }
-};
+      setVendors(res.data);
+      setFilteredVendors(res.data);
+    } catch (e: any) {
+      setError(e.response?.data?.message || e.message);
+      toast.error("Failed to load vendors");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!searchTerm.trim()) {
@@ -131,7 +129,7 @@ const fetchVendors = async () => {
           col.cellRenderer = VendorTypeRenderer;
         } else if (k === "type") {
           col.cellRenderer = TypeRenderer;
-          col.cellEditor = "agSelectCellEditor"; 
+          col.cellEditor = "agSelectCellEditor";
           col.cellEditorParams = {
             values: ["client", "implementation_partner", "third_party"],
           };
@@ -158,7 +156,7 @@ const fetchVendors = async () => {
     const { email, phone_number, linkedin_id } = updatedRow;
 
     if (!email && !phone_number && !linkedin_id) {
-      alert("At least one contact info (email, phone, or LinkedIn) is required.");
+      toast.error("At least one contact info is required (Email, Phone, or LinkedIn).");
       return;
     }
 
@@ -167,11 +165,14 @@ const fetchVendors = async () => {
         `${process.env.NEXT_PUBLIC_API_URL}/vendors/${updatedRow.id}`,
         updatedRow
       );
+
       setFilteredVendors((prev) =>
         prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
       );
+
+      toast.success("Vendor updated successfully");
     } catch (error) {
-      console.error("Update failed", error);
+      toast.error("Failed to update vendor");
     }
   };
 
@@ -179,8 +180,10 @@ const fetchVendors = async () => {
     try {
       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/vendors/${id}`);
       setFilteredVendors((prev) => prev.filter((row) => row.id !== id));
+
+      toast.success("Vendor deleted successfully");
     } catch (error) {
-      console.error("Delete failed", error);
+      toast.error("Failed to delete vendor");
     }
   };
 
@@ -189,6 +192,8 @@ const fetchVendors = async () => {
 
   return (
     <div className="space-y-6">
+      <Toaster position="top-center" />
+
       <div>
         <h1 className="text-2xl font-bold">Vendors</h1>
         <p>Browse, search, and manage vendors.</p>
