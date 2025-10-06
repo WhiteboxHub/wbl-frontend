@@ -11,6 +11,9 @@ import { SearchIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect, useCallback } from "react";
 import axios from "axios";
+import dynamic from "next/dynamic";
+const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
+import "react-quill/dist/quill.snow.css";
 import {
   Dialog,
   DialogContent,
@@ -158,6 +161,8 @@ useEffect(() => {
   return (
     <Link 
       href={`/avatar/candidates/search?candidateId=${candidateId}`}  
+      target="_blank"
+      rel="noopener noreferrer"
       className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
     >
       {candidateName}
@@ -230,7 +235,21 @@ useEffect(() => {
       },
       { field: "rating", headerName: "Rating", maxWidth: 100, editable: true },
       { field: "priority", headerName: "Priority", maxWidth: 100, editable: true },
-      { field: "notes", headerName: "Notes", minWidth: 100, editable: true },
+      {
+        field: "notes",
+        headerName: "Notes",
+        minWidth: 100,
+        editable: true,
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          return (
+            <div
+              className="prose prose-sm max-w-none dark:prose-invert"
+              dangerouslySetInnerHTML={{ __html: params.value }}
+            />
+          );
+        },
+      },
       {
         field: "candidate_resume",
         headerName: "Resume",
@@ -245,7 +264,21 @@ useEffect(() => {
     if (!updatedRow || !updatedRow.candidate_id) {
       console.error("Updated row missing candidate_id", updatedRow);
       return;
-    }
+    }    // Update local state immediately
+    setAllCandidates((prev) =>
+      prev.map((row) =>
+        row.candidate_id === updatedRow.candidate_id
+          ? { ...row, ...updatedRow }
+          : row
+      )
+    );
+    setFilteredCandidates((prev) =>
+      prev.map((row) =>
+        row.candidate_id === updatedRow.candidate_id
+          ? { ...row, ...updatedRow }
+          : row
+      )
+    );
     try {
       await axios.put(
         `${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing/${updatedRow.candidate_id}`,

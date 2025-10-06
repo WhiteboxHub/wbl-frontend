@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable";
@@ -130,12 +131,31 @@ export default function CandidatesInterviews() {
       </div>
     );
   };
+  const CandidateNameRenderer = (params: any) => {
+  const candidateId = params.data?.candidate_id; // Get candidate ID from row data
+  const candidateName = params.value; // Get candidate name
+  
+  if (!candidateId || !candidateName) {
+    return <span className="text-gray-500">{candidateName || "N/A"}</span>;
+  }
+  
+  return (
+    <Link 
+      href={`/avatar/candidates/search?candidateId=${candidateId}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer" // ← Same clean styling
+    >
+      {candidateName}
+    </Link>
+  );
+};
 
   // Column definitions with Set Filter for type_of_interview
   const columnDefs = useMemo<ColDef[]>(
     () => [
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
-      { field: "candidate.full_name", headerName: "Full Name", sortable: true, minWidth: 140 },
+      { field: "candidate.full_name", headerName: "Full Name", cellRenderer: CandidateNameRenderer, sortable: true, minWidth: 140, editable: false },
       { field: "company", headerName: "Company", sortable: true, minWidth: 110, editable: true },
       { field: "mode_of_interview", headerName: "Mode", maxWidth: 130, editable: true },
       {
@@ -160,7 +180,21 @@ export default function CandidatesInterviews() {
       { field: "feedback", headerName: "Feedback", cellRenderer: FeedbackRenderer, maxWidth: 130, editable: true },
       { field: "interviewer_emails", headerName: "Emails", minWidth: 180, editable: true },
       { field: "interviewer_contact", headerName: "Contact", minWidth: 140, editable: true },
-      { field: "notes", headerName: "Notes", minWidth: 120, editable: true },
+      {
+          field: "notes",
+          headerName: "Notes",
+          minWidth: 100,
+          editable: true,
+          cellRenderer: (params: any) => {
+            if (!params.value) return "";
+            return (
+              <div
+                className="prose prose-sm max-w-none dark:prose-invert"
+                dangerouslySetInnerHTML={{ __html: params.value }}
+              />
+            );
+          },
+        },
     ],
     []
   );

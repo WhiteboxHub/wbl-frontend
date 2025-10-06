@@ -9,6 +9,10 @@ import { Label } from "@/components/admin_ui/label";
 import { Input } from "@/components/admin_ui/input";
 import { Textarea } from "@/components/admin_ui/textarea";
 import axios from "axios";
+import { GitBranch } from "lucide-react";
+import dynamic from "next/dynamic";
+const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
+import "react-quill/dist/quill.snow.css";
 
 interface Batch {
   batchid: number;
@@ -53,6 +57,7 @@ const fieldSections: Record<string, string> = {
   batchname: "Basic Information",
   target_date_of_marketing: "Basic Information",
   linkedin_id: "Contact Information",
+  github_link: "Contact Information",
   enrolled_date: "Professional Information",
   startdate: "Professional Information",
   type: "Professional Information",
@@ -988,11 +993,22 @@ if (isTypeField) {
                     <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                       {toLabel(key)}
                     </Label>
-                    <Textarea
-                      value={formData[key] || ""}
-                      onChange={(e) => handleChange(key, e.target.value)}
-                      className="w-full"
+                    <ReactQuill
+                      theme="snow"
+                      value={formData.notes || ""}
+                      onChange={(content) => setFormData(prev => ({ ...prev, notes: content }))}
                     />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const timestamp = `<p><strong>[${new Date().toLocaleString()}]</strong></p>`;
+                        setFormData(prev => ({...prev,notes: (prev.notes || "") + `<p><strong>[${new Date().toLocaleString()}]</strong></p>`}));
+                      }}
+                    >
+                      + Add Timestamp
+
+                      </button>
                   </div>
                 ))}
               </div>

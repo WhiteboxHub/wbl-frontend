@@ -186,17 +186,18 @@ export function AGGridTable({
   }, [deleteConfirmData, onRowDeleted]);
 
 
-  const handleSave = useCallback((updatedData: RowData) => {
-    
-    if (gridRef.current) {
-      gridRef.current.api.applyTransaction({ update: [updatedData] });
-    }
+    const handleSave = useCallback((updatedData: RowData) => {
+      
+      if (gridRef.current) {
+        gridRef.current.api.applyTransaction({ update: [updatedData] });
+        gridRef.current.api.refreshCells({ force: true }); 
+      }
 
-    if (onRowUpdated) onRowUpdated(updatedData);
+      if (onRowUpdated) onRowUpdated(updatedData);
 
-    setEditData(null);
-    setSelectedRowData(null);
-  }, [onRowUpdated]);
+      setEditData(null);
+      setSelectedRowData(null);
+    }, [onRowUpdated]);
 
   const onCellValueChanged = useCallback((event: CellValueChangedEvent) => {
    
