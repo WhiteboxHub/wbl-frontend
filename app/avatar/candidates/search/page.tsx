@@ -286,18 +286,20 @@ useEffect(() => {
                 Folder
                 </button>
               );
-            } else if (key === 'email' && value && value.toString().trim() !== '') {
-              // Render email as mailto link/button
-              displayValue = (
-                <a
-                  href={`mailto:${value}`}
-                  className="text-blue-600 hover:underline font-medium"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {value as React.ReactNode}
-                </a>
-              );
+            }else if (value && typeof value === "string") {
+              const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+              if (emailRegex.test(value.trim())) {
+                displayValue = (
+                  <a
+                    href={`mailto:${value}`}
+                    className="text-blue-600 hover:underline font-medium"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {value}
+                  </a>
+                );
+              }
             } else if (key.toLowerCase().includes('phone') && value && value.toString().trim() !== '') {
               // Render phone as tel: link/button
               displayValue = (

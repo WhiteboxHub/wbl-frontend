@@ -196,6 +196,7 @@ export default function AuthUsersPage() {
         editable: true,
         cellRenderer: RoleRenderer,
       },
+
       {
         field: "notes",
         headerName: "Notes",
@@ -211,6 +212,7 @@ export default function AuthUsersPage() {
           );
         },
       }
+
     ],
     []
   );
