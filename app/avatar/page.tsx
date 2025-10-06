@@ -9,7 +9,7 @@ import { EnhancedMetricCard } from "@/components/EnhancedMetricCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin_ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/admin_ui/tabs";
 import {
-  PieChart,Pie,Cell,ResponsiveContainer,BarChart,Bar,XAxis,YAxis,Tooltip,CartesianGrid,
+  PieChart,Pie,Cell,ResponsiveContainer,BarChart,Bar,XAxis,YAxis,Tooltip,CartesianGrid,Legend
 } from "recharts";
 
 function formatDateFromDB(dateStr: string | null | undefined) {
@@ -131,6 +131,9 @@ interface LeadMetrics {
   leads_this_month: number;
   latest_lead: Lead | null;
   leads_this_week: number;
+  open_leads: number;
+  closed_leads: number;
+  future_leads:number;
 }
 
 interface LeadMetricsResponse {
@@ -296,6 +299,9 @@ useEffect(() => {
   const totalLeads = useCounter(leadMetrics?.total_leads || 0);
   const leadsThisMonth = useCounter(leadMetrics?.leads_this_month || 0);
   const leads_this_week =  useCounter(leadMetrics?.leads_this_week || 0);
+  const open_leads =  useCounter(leadMetrics?.open_leads || 0);
+  const closed_leads =  useCounter(leadMetrics?.closed_leads || 0);
+  const future_leads =  useCounter(leadMetrics?.future_leads || 0);
   const currentDate = new Date();
   const currentMonth = currentDate.toLocaleString("default", { month: "long" });
   const currentYear = currentDate.getFullYear();
@@ -683,37 +689,94 @@ useEffect(() => {
         {/*  Lead metrics */}
         <TabsContent value="leads">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-            <EnhancedMetricCard title="Total Leads" value={totalLeads} icon={<Users className="size-4" />} variant="teal" />
-            <EnhancedMetricCard title="Leads In This Month" value={leadsThisMonth} icon={<CalendarDays className="size-4" />} variant="teal" />
-            <EnhancedMetricCard title="Lead In This Week" value={leads_this_week} icon={<Target className="size-4" />} variant="teal" />
-            
-            {leadMetrics?.latest_lead && (
-              <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-teal-200">
-                <CardHeader className="p-3 pb-1">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-medium text-muted-foreground ">Latest Lead</CardTitle>
-                    <UserPlus className="size-4 text-sky-600" />
-                  </div>
-                </CardHeader>
-                <CardContent className="p-3 pt-0">
-                  <div className="flex items-center justify-between p-2 bg-sky-50 rounded-md">
-                    <div>
-                      <div className="font-medium">{leadMetrics.latest_lead.full_name}</div>
-                      <div className="text-sm text-muted-foreground">{leadMetrics.latest_lead.email}</div>
+              <EnhancedMetricCard title="Total Leads" value={totalLeads} icon={<Users className="size-4" />} variant="teal" />
+              <EnhancedMetricCard title="Leads In This Month" value={leadsThisMonth} icon={<CalendarDays className="size-4" />} variant="teal" />
+              <EnhancedMetricCard title="Lead In This Week" value={leads_this_week} icon={<Target className="size-4" />} variant="teal" />
+              {leadMetrics?.latest_lead && (
+                <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-teal-200">
+                  <CardHeader className="p-3 pb-1">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-sm font-medium text-muted-foreground ">Latest Lead</CardTitle>
+                      <UserPlus className="size-4 text-sky-600" />
                     </div>
-                    <div className="text-right">
-                      <div className="text-xs text-muted-foreground">{leadMetrics.latest_lead.phone}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {formatDateFromDB(leadMetrics.latest_lead.entry_date)}
+                  </CardHeader>
+                  <CardContent className="p-3 pt-0">
+                    <div className="flex items-center justify-between p-2 bg-sky-50 rounded-md">
+                      <div>
+                        <div className="font-medium">{leadMetrics.latest_lead.full_name}</div>
+                        <div className="text-sm text-muted-foreground">{leadMetrics.latest_lead.email}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-muted-foreground">{leadMetrics.latest_lead.phone}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatDateFromDB(leadMetrics.latest_lead.entry_date)}
+                        </div>
                       </div>
                     </div>
+                  </CardContent>
+                </Card>
+              )}
+            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-teal-300">
+              <CardHeader className="p-3 pb-1">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-semibold text-muted-foreground border-b border-teal-200">
+                    Leads Status Breakdown
+                  </CardTitle>
+                  <PieChartIcon className="size-4 text-teal-600" />
+                </div>
+              </CardHeader>
+              <CardContent className="p-3 pt-0">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  {/* Chart */}
+                  <div className="h-40 flex-1">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={[
+                            { name: "Open", value: open_leads || 0, color: "#11bfebff" },
+                            { name: "Closed", value: closed_leads || 0, color: "#0bf50bff" },
+                            { name: "Future", value: future_leads || 0, color: "#e7c500ff" },
+                          ]}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={28}
+                          outerRadius={52}
+                          paddingAngle={3}
+                          dataKey="value"
+                          nameKey="name"
+                        >
+                          {[
+                            { name: "Open", value: open_leads || 0, color: "#11bfebff" },
+                            { name: "Closed", value: closed_leads || 0, color: "#0bf50bff" },
+                            { name: "Future", value: future_leads || 0, color: "#e7c500ff" },
+                          ].map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                  {/* Legend */}
+                  <div className="flex flex-col justify-center gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor:  "#11bfebff" }}></span>
+                      <span className="text-sm">Open</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#0bf50bff" }}></span>
+                      <span className="text-sm">Closed</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#e7c500ff" }}></span>
+                      <span className="text-sm">Future</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
-
         {/* 6. Employee metrics */}
         <TabsContent value="employee">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
@@ -779,4 +842,3 @@ function formatUSD(amount: number) {
 
 
 
-// abive code is production so please don't change and remove /////
