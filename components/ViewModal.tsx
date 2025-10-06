@@ -178,6 +178,7 @@ const labelOverrides: Record<string, string> = {
   candidate_email: "Candidate Email",
   uname: "Email",
   fullname: "Full Name",
+  url: "Job URL",
   ssn: "SSN",
   dob: "Date of Birth",
   phone: "Phone",

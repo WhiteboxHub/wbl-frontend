@@ -1,5 +1,8 @@
 "use client";
 import React, { useState } from "react";
+import dynamic from "next/dynamic";
+const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
+import "react-quill/dist/quill.snow.css";
 import {
   Dialog,
   DialogContent,
@@ -569,6 +572,15 @@ export function EditModal({
 
   if (!data) return null;
 
+  // Decodes HTML entities (e.g., &amp;, &lt;, &gt;, &quot;, etc.)
+  function decodeHTML(html: string): string {
+    if (!html) return "";
+    if (typeof window === "undefined") return html;
+    const txt = document.createElement("textarea");
+    txt.innerHTML = html;
+    return txt.value;
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
@@ -956,10 +968,31 @@ if (isTypeField) {
                             <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                               {toLabel(key)}
                             </Label>
-                            <Textarea
-                              value={formData[key] || ""}
-                              onChange={(e) => handleChange(key, e.target.value)}
+
+
+                            <ReactQuill
+                              theme="snow"
+                              value={decodeHTML(formData[key] || "")}
+                              onChange={(content) => handleChange(key, content)}
+                              className="bg-white dark:bg-gray-800 dark:text-gray-100"
+
+                            <Input
+                              value={formData[key] ?? ""}
+                              readOnly
+                              className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100 bg-gray-100 cursor-not-allowed"
+
                             />
+                            <button
+                              type="button"
+                              className="mt-2 text-sm text-blue-600 hover:underline"
+                              onClick={() => {
+                                const timestamp = new Date().toLocaleString();
+                                const newEntry = `<p><strong>[${timestamp}]</strong> </p>`;
+                                handleChange(key, (formData[key] || "") + newEntry);
+                              }}
+                            >
+                              + Add Timestamped Note
+                            </button>
                           </div>
                         );
                       }
@@ -988,11 +1021,22 @@ if (isTypeField) {
                     <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                       {toLabel(key)}
                     </Label>
-                    <Textarea
-                      value={formData[key] || ""}
-                      onChange={(e) => handleChange(key, e.target.value)}
-                      className="w-full"
+                    <ReactQuill
+                      value={decodeHTML(formData[key] || "")}
+                      onChange={(content) => handleChange(key, content)}
+                      className="bg-white dark:bg-gray-800"
                     />
+                    <button
+                      type="button"
+                      className="mt-2 text-sm text-blue-600 hover:underline"
+                      onClick={() => {
+                        const timestamp = new Date().toLocaleString();
+                        const newEntry = `<p><strong>[${timestamp}]</strong> </p>`;
+                        handleChange(key, (formData[key] || "") + newEntry);
+                      }}
+                    >
+                      + Add Timestamped Note
+                    </button>
                   </div>
                 ))}
               </div>

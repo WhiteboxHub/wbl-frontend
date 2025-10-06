@@ -516,7 +516,21 @@ export default function VendorPage() {
       cellEditorParams: { options: ["YES", "NO"] },
     },
     { field: "created_at", headerName: "Created At", width: 180, valueFormatter: DateFormatter, editable: false },
-    { field: "notes", headerName: "Notes", width: 200, editable: true },
+        {
+            field: "notes",
+            headerName: "Notes",
+            width: 300,
+            sortable: true,
+            cellRenderer: (params: any) => {
+              if (!params.value) return "";
+              return (
+                <div
+                  className="prose prose-sm max-w-none dark:prose-invert"
+                  dangerouslySetInnerHTML={{ __html: params.value }}
+                />
+              );
+            },
+          },
     { field: "linkedin_internal_id", headerName: "LinkedIn Internal ID", width: 200, editable: true },
   ], [selectedStatuses, selectedTypes]); 
 
