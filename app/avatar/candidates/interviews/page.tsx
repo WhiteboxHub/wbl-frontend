@@ -107,35 +107,39 @@ export default function CandidatesInterviews() {
     return <Badge className="bg-gray-100 text-gray-800">{params.value}</Badge>;
   };
 
-  const LinkRenderer = (params: any) => {
-    const value = params.value;
-    if (!value) return <span className="text-gray-500">Not Available</span>;
-    const links = value
-      .split(/[,​\s]+/)
-      .map((link: string) => link.trim())
-      .filter((link: string) => link.length > 0);
-    if (links.length === 0) return <span className="text-gray-500">Not Available</span>;
-    return (
-      <div className="flex flex-col space-y-1">
-        {links.map((link: string, idx: number) => (
-          <a
-            key={idx}
-            href={link}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 underline hover:text-blue-800"
-          >
-            {link}
-          </a>
-        ))}
-      </div>
-    );
-  };
+const LinkRenderer = (params: any) => {
+  const value = params.value;
+  if (!value) return <span className="text-gray-500">Not Available</span>;
+
+  const links = value
+    .split(/[,​\s]+/)
+    .map((link: string) => link.trim())
+    .filter((link: string) => link.length > 0);
+
+  if (links.length === 0) return <span className="text-gray-500">Not Available</span>;
+
+  return (
+    <div className="flex flex-col space-y-1">
+      {links.map((link: string, idx: number) => (
+        <a
+          key={idx}
+          href={link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 underline hover:text-blue-800"
+        >
+          Click here
+        </a>
+      ))}
+    </div>
+  );
+};
+
 
 
 const CandidateNameRenderer = (params: any) => {
-  const candidateId = params.data?.candidate_id; // Get candidate ID from row data
-  const candidateName = params.value; // Get candidate name
+  const candidateId = params.data?.candidate_id; 
+  const candidateName = params.value; 
   
   if (!candidateId || !candidateName) {
     return <span className="text-gray-500">{candidateName || "N/A"}</span>;
@@ -146,20 +150,21 @@ const CandidateNameRenderer = (params: any) => {
       href={`/avatar/candidates/search?candidateId=${candidateId}`}
       target="_blank" 
       rel="noopener noreferrer"
-      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer" // ← Same clean styling
+      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer" 
     >
       {candidateName}
     </Link>
   );
 };
-  // Columns
+
 
 
   const columnDefs = useMemo<ColDef[]>(
     () => [
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
       { field: "candidate.full_name", headerName: "Full Name", cellRenderer: CandidateNameRenderer, sortable: true, minWidth: 140, editable: false },
-      { field: "company", headerName: "Company", sortable: true, minWidth: 110, editable: true },
+      { field: "company", headerName: "Company", sortable: true, maxWidth: 130, editable: true },
+      { field: "company_type", headerName: "Company Type", sortable: true, maxWidth: 150, editable: true },
       { field: "mode_of_interview", headerName: "Mode", maxWidth: 130, editable: true },
       {
         field: "type_of_interview",
@@ -221,17 +226,29 @@ const CandidateNameRenderer = (params: any) => {
     }
   };
 
-  const handleRowDeleted = async (row: any) => {
-    try {
-      if (row.id) {
-        await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/interviews/${row.id}`, { headers: getAuthHeaders() });
-      }
-      setInterviews((prev) => prev.filter((r) => r !== row));
-      toast.success('Interview deleted successfully!');
-    } catch (err) {
-      toast.error('Failed to delete interview.');
+const handleRowDeleted = async (interviewId: number) => {
+  try {
+    if (!interviewId) {
+      toast.error("Cannot delete interview: missing ID");
+      console.error("Delete failed, interviewId:", interviewId);
+      return;
     }
-  };
+
+    const res = await axios.delete(
+      `${process.env.NEXT_PUBLIC_API_URL}/interviews/${interviewId}`,
+      { headers: getAuthHeaders() }
+    );
+
+    if (res.status === 200) {
+      setInterviews((prev) => prev.filter((r) => r.id !== interviewId));
+      toast.success("Interview deleted successfully!");
+    }
+  } catch (err) {
+    console.error("Delete error:", err);
+    toast.error("Failed to delete interview.");
+  }
+};
+
 
   const handleAddInterview = async () => {
     if (!newInterview.candidate_id || !newInterview.company) {
