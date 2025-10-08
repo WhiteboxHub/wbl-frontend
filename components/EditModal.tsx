@@ -56,6 +56,7 @@ const fieldSections: Record<string, string> = {
   batchname: "Basic Information",
   target_date_of_marketing: "Basic Information",
   move_to_prep: "Basic Information",
+  move_to_placement: "Basic Information",
   linkedin_id: "Contact Information",
   enrolled_date: "Professional Information",
   startdate: "Professional Information",
@@ -137,6 +138,9 @@ const fieldSections: Record<string, string> = {
   massemail_email_sent: "Contact Information",
   massemail_unsubscribe: "Contact Information",
   moved_to_candidate: "Contact Information",
+  linkedin: "Contact Information",
+  github: "Contact Information",
+  resume: "Contact Information",
   link: "Professional Information",
   videoid: "Professional Information",
   address: "Professional Information",
@@ -199,6 +203,14 @@ const vendorStatuses = [
 
 const enumOptions: Record<string, { value: string; label: string }[]> = {
   type: [
+    { value: "Client", label: "Client" },
+    { value: "third-party-vendor", label: "Third Party Vendor" },
+    { value: "implementation-partner", label: "Implementation Partner" },
+    { value: "sourcer", label: "Sourcer" },
+    { value: "contact-from-ip", label: "Contact from IP" },
+  ],
+  company_type: [
+    { value: "", label: "Select" },
     { value: "client", label: "Client" },
     { value: "third-party-vendor", label: "Third Party Vendor" },
     { value: "implementation-partner", label: "Implementation Partner" },
@@ -213,6 +225,11 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "false", label: "No" },
     { value: "true", label: "Yes" },
   ],
+  move_to_placement: [
+    { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
+  ],
+  
   linkedin_connected: [
     { value: "no", label: "No" },
     { value: "yes", label: "Yes" },
@@ -249,6 +266,31 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "false", label: "No" },
     { value: "true", label: "Yes" },
   ],
+rating: [
+  { value: "", label: "Select Rating" },
+  { value: "Good", label: "Good" },
+  { value: "Very Good", label: "Very Good" },
+  { value: "Average", label: "Average" },
+  { value: "Poor", label: "Poor" },
+  { value: "Need to Improve", label: "Need to Improve" },
+],
+tech_rating: [
+  { value: "", label: "Select Rating" },
+  { value: "Good", label: "Good" },
+  { value: "Very Good", label: "Very Good" },
+  { value: "Average", label: "Average" },
+  { value: "Poor", label: "Poor" },
+  { value: "Need to Improve", label: "Need to Improve" },
+],
+communication: [
+  { value: "", label: "Select" },
+  { value: "Very Good", label: "Very Good" },
+  { value: "Average", label: "Average" },
+  { value: "Good", label: "Good" },
+  { value: "Need to Improve", label: "Need to Improve" },
+  { value: "Poor", label: "Poor" },
+],
+
   status: [
     { value: "active", label: "Active" },
     { value: "inactive", label: "Inactive" },
