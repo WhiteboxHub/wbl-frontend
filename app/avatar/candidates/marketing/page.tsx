@@ -143,6 +143,8 @@ export default function CandidatesMarketingPage() {
     return (
       <Link
         href={`/avatar/candidates/search?candidateId=${candidateId}`}
+        target="_blank" 
+        rel="noopener noreferrer"
         className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
       >
         {candidateName}
@@ -213,6 +215,12 @@ export default function CandidatesMarketingPage() {
       },
       { field: "rating", headerName: "Rating", maxWidth: 100, editable: true },
       { field: "priority", headerName: "Priority", maxWidth: 100, editable: true },
+      { field: "move_to_placement", headerName: "Move to Placement", width: 190, sortable: true,filter: 'agSetColumnFilter', cellRenderer: (params: any) => (
+          <span>
+            {params.value ? "Yes" : "No"}
+          </span>
+        )
+      },
       {             field: "notes",
             headerName: "Notes",
             width: 300,
