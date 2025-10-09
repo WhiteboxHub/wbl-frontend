@@ -282,7 +282,7 @@ const Header = ({
               {isAuthenticated && userRole === "admin" && (
                 <Link
                   href="/avatar"
-                  className="rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-4 py-2 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400"
+                  className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-4 py-2 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400"
                 >
                   Avatar
                 </Link>
@@ -292,13 +292,13 @@ const Header = ({
                 <>
                   <button
                     onClick={display_user_dashboard}
-                    className="rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-4 py-2 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400"
+                    className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-4 py-2 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400"
                   >
                     My Profile
                   </button>
                   <button
                     onClick={handleLogout}
-                    className="rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-4 py-2 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400"
+                    className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-4 py-2 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400"
                   >
                     Logout
                   </button>
