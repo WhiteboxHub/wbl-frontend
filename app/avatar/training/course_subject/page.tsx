@@ -1,6 +1,3 @@
-
-
-
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -9,7 +6,7 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { Button } from "@/components/admin_ui/button";
-import { SearchIcon, PlusIcon} from "lucide-react";
+import { SearchIcon, PlusIcon } from "lucide-react";
 import axios from "axios";
 import {
   Dialog,
@@ -23,9 +20,9 @@ import { toast, Toaster } from "sonner";
 interface CourseSubject {
   subject_id: number;
   course_id: number;
-  course_name: string;   
+  course_name: string;
   subject_name: string;
-  id?: string; 
+  id?: string;
 }
 
 interface NewMapping {
@@ -61,12 +58,17 @@ function getErrorMessage(e: any): string {
 export default function CourseSubjectPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [courseSubjects, setCourseSubjects] = useState<CourseSubject[]>([]);
-  const [filteredCourseSubjects, setFilteredCourseSubjects] = useState<CourseSubject[]>([]);
+  const [filteredCourseSubjects, setFilteredCourseSubjects] = useState<
+    CourseSubject[]
+  >([]);
   const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showModal, setShowModal] = useState(false);
-  const [newMapping, setNewMapping] = useState<NewMapping>({ course_id: "", subject_id: "" });
+  const [newMapping, setNewMapping] = useState<NewMapping>({
+    course_id: "",
+    subject_id: "",
+  });
   const [saving, setSaving] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -104,41 +106,51 @@ export default function CourseSubjectPage() {
       setLoading(false);
     }
   };
-const fetchCourses = async () => {
-  try {
-    const token = localStorage.getItem("token"); // ✅ get token
-    const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/courses`, {
-      headers: { Authorization: `Bearer ${token}` }, // ✅ pass token
-    });
+  const fetchCourses = async () => {
+    try {
+      const token = localStorage.getItem("token"); // ✅ get token
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/courses`,
+        {
+          headers: { Authorization: `Bearer ${token}` }, // ✅ pass token
+        }
+      );
 
-    const sortedCourses = res.data.sort((a: Course, b: Course) => b.id - a.id);
-    setCourses(sortedCourses);
-  } catch (e: any) {
-    console.error("Failed to fetch courses:", e);
-    toast.error("Failed to load courses");
-  }
-};
+      const sortedCourses = res.data.sort(
+        (a: Course, b: Course) => b.id - a.id
+      );
+      setCourses(sortedCourses);
+    } catch (e: any) {
+      console.error("Failed to fetch courses:", e);
+      toast.error("Failed to load courses");
+    }
+  };
 
-const fetchSubjects = async () => {
-  try {
-    const token = localStorage.getItem("token"); // ✅ get token
-    const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/subjects`, {
-      headers: { Authorization: `Bearer ${token}` }, // ✅ pass token
-    });
+  const fetchSubjects = async () => {
+    try {
+      const token = localStorage.getItem("token"); // ✅ get token
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/subjects`,
+        {
+          headers: { Authorization: `Bearer ${token}` }, // ✅ pass token
+        }
+      );
 
-    const sortedSubjects = res.data.sort((a: Subject, b: Subject) => b.id - a.id);
-    setSubjects(sortedSubjects);
-  } catch (e: any) {
-    console.error("Failed to fetch subjects:", e);
-    toast.error("Failed to load subjects");
-  }
-};
+      const sortedSubjects = res.data.sort(
+        (a: Subject, b: Subject) => b.id - a.id
+      );
+      setSubjects(sortedSubjects);
+    } catch (e: any) {
+      console.error("Failed to fetch subjects:", e);
+      toast.error("Failed to load subjects");
+    }
+  };
 
-useEffect(() => {
-  fetchCourseSubjects();
-  fetchCourses();
-  fetchSubjects();
-}, []);
+  useEffect(() => {
+    fetchCourseSubjects();
+    fetchCourses();
+    fetchSubjects();
+  }, []);
 
   useEffect(() => {
     const lower = searchTerm.trim().toLowerCase();
@@ -170,19 +182,28 @@ useEffect(() => {
     setFilteredCourseSubjects(filtered);
   }, [searchTerm, courseSubjects]);
 
-  
   useEffect(() => {
     setColumnDefs([
       { field: "course_id", headerName: "Course ID", hide: true },
       { field: "subject_id", headerName: "Subject ID", hide: true },
-      { field: "course_name", headerName: "Course", width: 300, editable: false },
-      { field: "subject_name", headerName: "Subject", width: 400, editable: false },
+      {
+        field: "course_name",
+        headerName: "Course",
+        width: 300,
+        editable: false,
+      },
+      {
+        field: "subject_name",
+        headerName: "Subject",
+        width: 400,
+        editable: false,
+      },
     ]);
   }, []);
 
   const handleRowDeleted = async (compositeId: string) => {
     try {
-      const [courseId, subjectId] = compositeId.split('-');
+      const [courseId, subjectId] = compositeId.split("-");
       if (!courseId || !subjectId) {
         toast.error("Invalid record ID format");
         return;
@@ -193,7 +214,9 @@ useEffect(() => {
       );
 
       setCourseSubjects((prev) => prev.filter((r) => r.id !== compositeId));
-      setFilteredCourseSubjects((prev) => prev.filter((r) => r.id !== compositeId));
+      setFilteredCourseSubjects((prev) =>
+        prev.filter((r) => r.id !== compositeId)
+      );
 
       toast.success("Course-subject mapping deleted successfully!");
     } catch (e: any) {
@@ -209,9 +232,13 @@ useEffect(() => {
       return;
     }
 
-    const selectedCourse = courses.find(course => course.name === selectedCourseName);
-    const selectedSubject = subjects.find(subject => subject.name === selectedSubjectName);
-    
+    const selectedCourse = courses.find(
+      (course) => course.name === selectedCourseName
+    );
+    const selectedSubject = subjects.find(
+      (subject) => subject.name === selectedSubjectName
+    );
+
     if (!selectedCourse || !selectedSubject) {
       toast.error("Invalid selection. Please try again.");
       return;
@@ -223,7 +250,7 @@ useEffect(() => {
     const exists = courseSubjects.some(
       (item) => item.course_id === courseId && item.subject_id === subjectId
     );
-    
+
     if (exists) {
       toast.error("This course-subject mapping already exists!");
       return;
@@ -231,14 +258,17 @@ useEffect(() => {
 
     try {
       setSaving(true);
-      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/course-subjects`, {
-        course_id: courseId,
-        subject_id: subjectId,
-      });
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/course-subjects`,
+        {
+          course_id: courseId,
+          subject_id: subjectId,
+        }
+      );
 
       const newRecordWithId = {
         ...res.data,
-        id: `${res.data.course_id}-${res.data.subject_id}`
+        id: `${res.data.course_id}-${res.data.subject_id}`,
       };
 
       const updated = [newRecordWithId, ...courseSubjects];
@@ -259,7 +289,7 @@ useEffect(() => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex min-h-[400px] items-center justify-center">
         <div className="text-center">
           <p className="text-gray-600">Loading...</p>
         </div>
@@ -269,8 +299,8 @@ useEffect(() => {
 
   if (error && courseSubjects.length === 0) {
     return (
-      <div className="text-center mt-8 space-y-4">
-        <p className="text-red-600 text-lg">{error}</p>
+      <div className="mt-8 space-y-4 text-center">
+        <p className="text-lg text-red-600">{error}</p>
       </div>
     );
   }
@@ -278,44 +308,41 @@ useEffect(() => {
   return (
     <div className="space-y-6">
       <Toaster richColors position="top-center" />
-      
-      {/* Header Section */}
-      <div className="flex justify-between items-center">
+      {/* Header + Search Section (Responsive) */}
+      <div className="flex flex-col gap-4 sm:flex-col md:flex-row md:items-center md:justify-between">
+        {/* Left: Title and Description */}
         <div>
-          <h1 className="text-2xl font-bold ">
-            Course-Subject Relationships
-          </h1>
+          <h1 className="text-2xl font-bold">Course-Subject Relationships</h1>
           <p>
-            Manage mappings between courses and subjects. Total mappings: {courseSubjects.length}
+            Manage mappings between courses and subjects. Total mappings:{" "}
+            {courseSubjects.length}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => setShowModal(true)} size="sm">
-            <PlusIcon className="h-4 w-4 mr-2" />
+
+        {/* Right: Search + Add Button (Responsive) */}
+        <div className="flex w-full flex-col items-stretch gap-2 sm:flex-row sm:items-center md:w-auto">
+          {/* Search Box */}
+          <div className="relative flex-1">
+            <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Input
+              id="search"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Enter course or subject name or id..."
+              className="w-full pl-10"
+            />
+          </div>
+
+          {/* Add Mapping Button */}
+          <Button
+            className="w-full sm:w-auto"
+            size="sm"
+            onClick={() => setShowModal(true)}
+          >
+            <PlusIcon className="mr-2 h-4 w-4" />
             Add Mapping
           </Button>
         </div>
-       </div>
-
-      <div className="max-w-md">
-        <Label htmlFor="search" className="text-sm font-medium">
-          Search Mappings
-        </Label>
-        <div className="relative mt-1">
-          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            id="search"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Enter course or subject name or id..."
-            className="pl-10"
-          />
-        </div>
-        {searchTerm && (
-          <p className="text-xs text-gray-500 mt-1">
-            Showing {filteredCourseSubjects.length} of {courseSubjects.length} mappings
-          </p>
-        )}
       </div>
 
       <AGGridTable
@@ -341,11 +368,11 @@ useEffect(() => {
                 id="course"
                 value={selectedCourseName}
                 onChange={(e) => setSelectedCourseName(e.target.value)}
-                className="w-full border rounded-md p-2"
+                className="w-full rounded-md border p-2"
               >
-              <option value="" disabled hidden>
-                Select course
-              </option>
+                <option value="" disabled hidden>
+                  Select course
+                </option>
 
                 {courses.map((course) => (
                   <option key={course.id} value={course.name}>
@@ -363,11 +390,11 @@ useEffect(() => {
                 id="subject"
                 value={selectedSubjectName}
                 onChange={(e) => setSelectedSubjectName(e.target.value)}
-                className="w-full border rounded-md p-2"
+                className="w-full rounded-md border p-2"
               >
-              <option value="" disabled hidden>
-                Select subject
-              </option>
+                <option value="" disabled hidden>
+                  Select subject
+                </option>
                 {subjects.map((subject) => (
                   <option key={subject.id} value={subject.name}>
                     {subject.name}
@@ -401,4 +428,3 @@ useEffect(() => {
     </div>
   );
 }
-
