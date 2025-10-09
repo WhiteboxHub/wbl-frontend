@@ -81,18 +81,34 @@ export default function BatchPage() {
   }, [debouncedSearch]);
   
   // Date formatter
-  const dateFormatter = (params: any) => {
+  // const dateFormatter = (params: any) => {
+  //   if (!params.value) return "";
+  //   try {
+  //     return new Date(params.value).toLocaleDateString("en-GB", {
+  //       year: "numeric",
+  //       month: "short",
+  //       day: "2-digit",
+  //     });
+  //   } catch {
+  //     return params.value;
+  //   }
+  // };
+    const dateFormatter = (params: any) => {
     if (!params.value) return "";
-    try {
-      return new Date(params.value).toLocaleDateString("en-GB", {
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
-      });
-    } catch {
-      return params.value;
-    }
+
+    // Handle ISO or raw YYYY-MM-DD safely
+    const dateStr = params.value.split("T")[0]; // take only date part if datetime
+    const [year, month, day] = dateStr.split("-");
+
+    const dateObj = new Date(Number(year), Number(month) - 1, Number(day));
+    // Force formatting as "DD Mon YYYY" without timezone shifts
+    return dateObj.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
   };
+
 
   // Subject badge renderer
   const SubjectRenderer = (props: any) => {

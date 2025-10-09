@@ -29,6 +29,7 @@ const fieldSections: Record<string, string> = {
   instructor3_name: "Professional Information",
   interviewer_emails: "Contact Information",
   interviewer_contact: "Contact Information",
+  cm_course:"Professional Information",
   id: "Basic Information",
   alias: "Basic Information",
   Fundamentals: "Basic Information",
@@ -143,6 +144,8 @@ const fieldSections: Record<string, string> = {
   subject_name: "Basic Information",
   employee_name: "Basic Information",
   secondaryphone: "Contact Information",
+  cm_subject:"Basic Information",
+  material_type:"Basic Information",
   // recording_link: "Professional Information",
   // transcript: "Professional Information",
   // backup_url: "Professional Information",
@@ -214,6 +217,9 @@ const labelOverrides: Record<string, string> = {
   transcript: "Transcript",
   url: "Job URL",
   backup_url: "Backup URL",
+  cm_course: "Course Name",
+  cm_subject: "Subject Name",
+  subject: "Subject"
 };
 
 const dateFields = [

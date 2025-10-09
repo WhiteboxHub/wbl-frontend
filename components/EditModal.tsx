@@ -151,7 +151,33 @@ const fieldSections: Record<string, string> = {
   notes: "Notes",
   course_name: "Professional Information",
   subject_name: "Basic Information",
+  cm_subject: "Basic Information",
+  cm_course: "Professional Information",
+  material_type: "Basic Information",
 };
+
+// Type mapping for course materials ONLY
+const COURSE_MATERIAL_TYPE_MAPPING = {
+  P: "Presentations",
+  C: "Cheatsheets",
+  D: "Diagrams",
+  S: "Softwares",
+  I: "Installations",
+  B: "Books",
+  N: "Newsletters",
+  M: "Materials",
+};
+
+const COURSE_MATERIAL_TYPE_OPTIONS = [
+  { value: "P", label: "Presentations" },
+  { value: "C", label: "Cheatsheets" },
+  { value: "D", label: "Diagrams" },
+  { value: "S", label: "Softwares" },
+  { value: "I", label: "Installations" },
+  { value: "B", label: "Books" },
+  { value: "N", label: "Newsletters" },
+  { value: "M", label: "Materials" },
+];
 
 const workVisaStatusOptions = [
   { value: "waiting for status", label: "Waiting for Status" },
@@ -362,7 +388,10 @@ const labelOverrides: Record<string, string> = {
   course_name: "Course Name",
   subject_name: "Subject Name",
   assigned_date: "Assigned Date",
-  employee_name: "Employee Name"
+  employee_name: "Employee Name",
+  cm_subject: "Subject Name",
+  cm_course: "Course Name", 
+  material_type: "Type Name",
 };
 
 const dateFields = [
@@ -387,6 +416,7 @@ export function EditModal({
   data,
   title,
   onSave,
+  batches,
 }: EditModalProps) {
   const flattenData = (data: Record<string, any>) => {
     const flattened: Record<string, any> = { ...data };
@@ -417,44 +447,16 @@ export function EditModal({
     return flattened;
   };
 
-  const [batches, setBatches] = useState<Batch[]>([]);
-  const courseId = "3";
-
-  const fetchBatches = async (courseId: string) => {
-    try {
-      const token = localStorage.getItem("access_token");
-      if (!token) {
-        console.error("No access token found");
-        setBatches([]);
-        return;
-      }
-      const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/batch?course=${courseId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      setBatches(res.data);
-    } catch (error) {
-      console.error("Failed to fetch batches:", error);
-      setBatches([]);
-    }
-  };
-
-  React.useEffect(() => {
-    if (isOpen) {
-      fetchBatches(courseId);
-    }
-  }, [isOpen, courseId]);
-
   const [formData, setFormData] = React.useState<Record<string, any>>(
     flattenData(data || {})
   );
 
   React.useEffect(() => {
     if (data) {
+      console.log("EditModal received data:", data);
+      console.log("Has cm_subject:", 'cm_subject' in data, data.cm_subject);
+      console.log("Has cm_course:", 'cm_course' in data, data.cm_course);
+      console.log("Has material_type:", 'material_type' in data, data.material_type);
       setFormData(flattenData(data));
     }
   }, [data]);
@@ -472,7 +474,9 @@ export function EditModal({
         const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/courses`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setCourses(res.data);
+        // Sort courses by ID descending (latest first) and set Machine Learning as default
+        const sortedCourses = res.data.sort((a: { id: number }, b: { id: number }) => b.id - a.id);
+        setCourses(sortedCourses);
       } catch (error) {
         console.error("Failed to fetch courses:", error);
       }
@@ -483,7 +487,9 @@ export function EditModal({
         const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/subjects`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setSubjects(res.data);
+        // Sort subjects by ID descending (latest first)
+        const sortedSubjects = res.data.sort((a: { id: number }, b: { id: number }) => b.id - a.id);
+        setSubjects(sortedSubjects);
       } catch (error) {
         console.error("Failed to fetch subjects:", error);
       }
@@ -505,9 +511,52 @@ export function EditModal({
     fetchEmployees();
   }, []);
 
+  // Detection for course materials
+  const isCourseMaterialData = React.useMemo(() => {
+    if (!formData || Object.keys(formData).length === 0) return false;
+    
+    const hasNewFields = ('cm_subject' in formData && 'cm_course' in formData && 'material_type' in formData);
+    
+    const hasSubjectAndCourse = 'subjectid' in formData && 'courseid' in formData;
+    const hasMaterialStructure = 'name' in formData && 'description' in formData && 'link' in formData;
+    const hasCourseMaterialType = 'type' in formData && Object.keys(COURSE_MATERIAL_TYPE_MAPPING).includes(formData.type);
+    
+    return hasNewFields || (hasSubjectAndCourse && (hasMaterialStructure || hasCourseMaterialType));
+  }, [formData]);
+
   const handleChange = (key: string, value: any) => {
     setFormData((prev) => {
       const newData = { ...prev, [key]: value };
+      
+      // For course materials, update the underlying IDs when display names change
+      if (isCourseMaterialData) {
+        if (key === "cm_course" && value) {
+          // Find the course ID for the selected course name
+          const selectedCourse = courses.find(course => course.name === value);
+          if (selectedCourse) {
+            newData["courseid"] = selectedCourse.id;
+          } else if (value === "Fundamentals") {
+            newData["courseid"] = 0;
+          }
+        } else if (key === "cm_subject" && value) {
+          // Find the subject ID for the selected subject name
+          const selectedSubject = subjects.find(subject => subject.name === value);
+          if (selectedSubject) {
+            newData["subjectid"] = selectedSubject.id;
+          } else if (value === "Basic Fundamentals") {
+            newData["subjectid"] = 0;
+          }
+        } else if (key === "material_type" && value) {
+          // Find the type code for the selected type label
+          const typeEntry = Object.entries(COURSE_MATERIAL_TYPE_MAPPING).find(
+            ([code, label]) => label === value
+          );
+          if (typeEntry) {
+            newData["type"] = typeEntry[0];
+          }
+        }
+      }
+      
       if (key === "status" && value === "closed" && !prev.closed_date) {
         newData["closed_date"] = new Date().toISOString().split("T")[0];
       }
@@ -536,6 +585,19 @@ export function EditModal({
   Object.entries(formData).forEach(([key, value]) => {
     if (excludedFields.includes(key)) return;
     if (key === "id") return;
+    
+    if (isCourseMaterialData && formData.cm_subject && formData.cm_course && formData.material_type) {
+      if (['subjectid', 'courseid', 'type', 'course_name', 'subject_name', 'type_name'].includes(key)) {
+        return;
+      }
+    }
+    
+    if (isCourseMaterialData && (!formData.cm_subject || !formData.cm_course)) {
+      if (['subjectid', 'courseid', 'type'].includes(key)) {
+        return;
+      }
+    }
+    
     // Exclude "status" field for Preparation and Marketing pages
     if (key.toLowerCase() === "status" && (title.toLowerCase().includes("preparation") || title.toLowerCase().includes("marketing"))) {
       return;
@@ -566,6 +628,33 @@ export function EditModal({
 
   const isVendorModal = title.toLowerCase().includes("vendor");
   const isInterviewOrMarketing = title.toLowerCase().includes("interview") || title.toLowerCase().includes("marketing");
+  
+  // Detection for candidate and batch modals
+  const isCandidateModal = React.useMemo(() => {
+    const hasBatchIdField = 'batchid' in formData;
+    const hasCandidateFields = 
+      'candidateid' in formData || 
+      'candidate_id' in formData || 
+      'candidate_full_name' in formData ||
+      'candidate_name' in formData ||
+      'candidate_email' in formData ||
+      'full_name' in formData;
+    
+    const isBatchModal = 
+      ('batchid' in formData && 'batchname' in formData) ||
+      title.toLowerCase().includes("batch");
+    
+    return hasBatchIdField && !isBatchModal;
+  }, [formData, title]);
+
+  const isBatchModal = React.useMemo(() => {
+    return title.toLowerCase().includes("batch");
+  }, [title]);
+
+  // Find Machine Learning course for default selection
+  const machineLearningCourse = React.useMemo(() => {
+    return courses.find(course => course.name.toLowerCase().includes("machine learning"));
+  }, [courses]);
 
   if (!data) return null;
 
@@ -605,6 +694,31 @@ export function EditModal({
           onSubmit={(e) => {
             e.preventDefault();
             const reconstructedData = { ...formData };
+            
+            // For course materials, ensure we're sending the correct data structure
+            if (isCourseMaterialData) {
+              // Remove display fields that shouldn't be sent to the API
+              delete reconstructedData.cm_subject;
+              delete reconstructedData.cm_course;
+              delete reconstructedData.material_type;
+              
+              // Ensure we have the correct IDs and type code
+              if (formData.cm_course) {
+                const selectedCourse = courses.find(course => course.name === formData.cm_course);
+                reconstructedData.courseid = selectedCourse ? selectedCourse.id : 0;
+              }
+              if (formData.cm_subject) {
+                const selectedSubject = subjects.find(subject => subject.name === formData.cm_subject);
+                reconstructedData.subjectid = selectedSubject ? selectedSubject.id : 0;
+              }
+              if (formData.material_type) {
+                const typeEntry = Object.entries(COURSE_MATERIAL_TYPE_MAPPING).find(
+                  ([code, label]) => label === formData.material_type
+                );
+                reconstructedData.type = typeEntry ? typeEntry[0] : formData.type;
+              }
+            }
+            
             if (formData.candidate_full_name) {
               reconstructedData.candidate = {
                 ...data.candidate,
@@ -645,6 +759,76 @@ export function EditModal({
                   <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                     {section}
                   </h3>
+                  
+                  {/* COURSE MATERIAL SPECIFIC FIELDS */}
+                  {isCourseMaterialData && (
+                    <>
+                      {/* cm_course dropdown */}
+                      {section === "Professional Information" && (
+                        <div className="space-y-1">
+                          <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                            Course Name
+                          </Label>
+                          <select
+                            value={formData.cm_course || ""}
+                            onChange={(e) => handleChange("cm_course", e.target.value)}
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          >
+                            <option value="">Select Course</option>
+                            {courses.map((course) => (
+                              <option key={course.id} value={course.name}>
+                                {course.name}
+                              </option>
+                            ))}
+                            <option value="Fundamentals">Fundamentals</option>
+                          </select>
+                        </div>
+                      )}
+
+                      {/* cm_subject */}
+                      {section === "Basic Information" && (
+                        <div className="space-y-1">
+                          <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                            Subject Name
+                          </Label>
+                          <select
+                            value={formData.cm_subject || ""}
+                            onChange={(e) => handleChange("cm_subject", e.target.value)}
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          >
+                            <option value="">Select Subject</option>
+                            <option value="Basic Fundamentals">Basic Fundamentals</option>
+                            {subjects.map((subject) => (
+                              <option key={subject.id} value={subject.name}>
+                                {subject.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* material_type dropdown */}
+                      {section === "Basic Information" && (
+                        <div className="space-y-1">
+                          <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                            Type Name
+                          </Label>
+                          <select
+                            value={formData.material_type || ""}
+                            onChange={(e) => handleChange("material_type", e.target.value)}
+                            className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                          >
+                            {COURSE_MATERIAL_TYPE_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.label}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </>
+                  )}
+
                   {/* Conditionally render instructor dropdowns only for Preparation page */}
                   {section === "Professional Information" && title.toLowerCase().includes("preparation") && (
                     <>
@@ -742,47 +926,114 @@ export function EditModal({
                       const isTypeField = key.toLowerCase() === "type";
                       const isBatchField = key.toLowerCase() === "batchid";
                       const isVendorField = isVendorModal && key.toLowerCase() === "status";
+                      
+                      
+                      if (isCourseMaterialData && ['cm_subject', 'cm_course', 'material_type'].includes(key)) {
+                        return null;
+                      }
+
+                      if (isCourseMaterialData && ['course_name', 'subject_name'].includes(key)) {
+                        return null;
+                      }
+
                       if (isInterviewOrMarketing && ["instructor1_name", "instructor2_name", "instructor3_name"].includes(key)) {
                         return null;
                       }
 
-if (isTypeField) {
-  if (isVendorModal) {
-    return (
-      <div key={key} className="space-y-1">
-        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-          {toLabel(key)}
-        </Label>
-        <select
-          value={String(formData[key] ?? "")}
-          onChange={(e) => handleChange(key, e.target.value)}
-          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-        >
-          {enumOptions["type"].map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </div>
-    );
-  } else {
-    return (
-      <div key={key} className="space-y-1">
-        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-          {toLabel(key)}
-        </Label>
-        <Input
-          value={formData[key] ?? ""}
-          onChange={(e) => handleChange(key, e.target.value)}
-          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-        />
-      </div>
-    );
-  }
-}
+                      if (isCourseMaterialData && isTypeField) {
+                        return null;
+                      }
 
-                      if (key.toLowerCase() === "subjectid") {
+                      if (isBatchField) {
+                        console.log("Batch field detected:", { 
+                          isCandidateModal, 
+                          isBatchModal, 
+                          batchesCount: batches?.length,
+                          key,
+                          value: formData.batchid
+                        });
+                        
+                        // dropdown for candidate modals
+                        if (isCandidateModal) {
+                          return (
+                            <div key={key} className="space-y-1">
+                              <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                                Batch
+                              </Label>
+                              <select
+                                value={formData.batchid || ""}
+                                onChange={(e) => {
+                                  const selectedBatch = batches.find(batch => batch.batchid === Number(e.target.value));
+                                  handleChange("batchid", Number(e.target.value));
+                                  if (selectedBatch) {
+                                    handleChange("batchname", selectedBatch.batchname);
+                                  }
+                                }}
+                                className="border rounded-md p-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="">Select a batch (optional)</option>
+                                {batches.map(batch => (
+                                  <option key={batch.batchid} value={batch.batchid}>
+                                    {batch.batchname}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          );
+                        } else {
+                          return (
+                            <div key={key} className="space-y-1">
+                              <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                                Batch ID
+                              </Label>
+                              <Input
+                                type="string"
+                                value={formData[key] ?? ""}
+                                onChange={(e) => handleChange(key, Number(e.target.value))}
+                                className="w-full"
+                              />
+                            </div>
+                          );
+                        }
+                      }
+
+                      // For NON-course materials,regular type field handling
+                      if (!isCourseMaterialData && isTypeField) {
+                        if (isVendorModal) {
+                          return (
+                            <div key={key} className="space-y-1">
+                              <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                                {toLabel(key)}
+                              </Label>
+                              <select
+                                value={String(formData[key] ?? "")}
+                                onChange={(e) => handleChange(key, e.target.value)}
+                                className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                              >
+                                {enumOptions["type"].map((opt) => (
+                                  <option key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          );
+                        } else {
+                          return (
+                            <div key={key} className="space-y-1">
+                              <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                                {toLabel(key)}
+                              </Label>
+                              <Input
+                                value={formData[key] ?? ""}
+                                onChange={(e) => handleChange(key, e.target.value)}
+                                className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                              />
+                            </div>
+                          );
+                        }
+                      }
+                      if (!isCourseMaterialData && key.toLowerCase() === "subjectid") {
                         return (
                           <div key={key} className="space-y-1">
                             <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
@@ -803,6 +1054,8 @@ if (isTypeField) {
                           </div>
                         );
                       }
+
+                      // For course subjects,course_name dropdown
                       if (key.toLowerCase() === "course_name") {
                         return (
                           <div key={key} className="space-y-1">
@@ -829,6 +1082,8 @@ if (isTypeField) {
                           </div>
                         );
                       }
+
+                      // For course subjects,subject_name dropdown
                       if (key.toLowerCase() === "subject_name") {
                         return (
                           <div key={key} className="space-y-1">
@@ -855,33 +1110,7 @@ if (isTypeField) {
                           </div>
                         );
                       }
-                      if (isBatchField) {
-                        return (
-                          <div key={key} className="space-y-1">
-                            <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                              {toLabel(key)}
-                            </Label>
-                            <select
-                              value={formData.batchid || ""}
-                              onChange={(e) => {
-                                const selectedBatch = batches.find(batch => batch.batchid === Number(e.target.value));
-                                handleChange("batchid", Number(e.target.value));
-                                if (selectedBatch) {
-                                  handleChange("batchname", selectedBatch.batchname);
-                                }
-                              }}
-                              className="border rounded-md p-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                              <option value="">Select a batch (optional)</option>
-                              {batches.map(batch => (
-                                <option key={batch.batchid} value={batch.batchid}>
-                                  {batch.batchname}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        );
-                      }
+
                       if (dateFields.includes(key.toLowerCase())) {
                         return (
                           <div key={key} className="space-y-1">
