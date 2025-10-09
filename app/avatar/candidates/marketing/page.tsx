@@ -1,6 +1,5 @@
-
 "use client";
-import Link from "next/link"; 
+import Link from "next/link";
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable";
@@ -11,14 +10,7 @@ import { SearchIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect, useCallback } from "react";
 import axios from "axios";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/admin_ui/dialog";
-import { Button } from "@/components/admin_ui/button";
+import { toast, Toaster } from "sonner";
 
 export default function CandidatesMarketingPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -28,49 +20,29 @@ export default function CandidatesMarketingPage() {
   const [error, setError] = useState("");
   const [page] = useState(1);
   const [limit] = useState(100);
-  const [isAddOpen, setIsAddOpen] = useState(false);
 
-  const [newCandidate, setNewCandidate] = useState({
-    candidate_id: "",
-    full_name: "",
-    start_date: "",
-    status: "",
-    email: "",
-    password: "",
-    google_voice_number: "",
-    rating: "",
-    priority: "",
-    notes: "",
-    instructor1_id: "",
-    instructor2_id: "",
-    instructor3_id: "",
-  });
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
-const token = localStorage.getItem("token");
-
-const fetchCandidates = useCallback(async () => {
-  try {
-    setLoading(true);
-    const res = await axios.get(
-      `${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing?page=${page}&limit=${limit}`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      }
-    );
-    const data = Array.isArray(res.data.data) ? res.data.data : [];
-    setAllCandidates(data);
-    setFilteredCandidates(data);
-  } catch (err: any) {
-    console.error(err);
-    setError(err.response?.data?.message || "Failed to load candidates.");
-  } finally {
-    setLoading(false);
-  }
-}, [page, limit, token]);
-
-useEffect(() => {
-  fetchCandidates();
-}, [fetchCandidates]);
+  // Fetch candidates
+  const fetchCandidates = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing?page=${page}&limit=${limit}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      const data = Array.isArray(res.data.data) ? res.data.data : [];
+      setAllCandidates(data);
+      setFilteredCandidates(data);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.response?.data?.message || "Failed to load candidates.");
+    } finally {
+      setLoading(false);
+    }
+  }, [page, limit, token]);
 
   useEffect(() => {
     fetchCandidates();
@@ -94,7 +66,7 @@ useEffect(() => {
     setFilteredCandidates(filterCandidates(searchTerm));
   }, [searchTerm, filterCandidates]);
 
-  // Status badge
+  // Status badge renderer
   const StatusRenderer = (params: any) => (
     <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
       {params.value?.toUpperCase()}
@@ -132,6 +104,8 @@ useEffect(() => {
               { headers: { "Content-Type": "multipart/form-data" } }
             );
             const updatedResume = res.data.candidate_resume;
+
+
             setFilteredCandidates((prev) =>
               prev.map((row) =>
                 row.candidate_id === params.data.candidate_id
@@ -139,8 +113,18 @@ useEffect(() => {
                   : row
               )
             );
+            setAllCandidates((prev) =>
+              prev.map((row) =>
+                row.candidate_id === params.data.candidate_id
+                  ? { ...row, candidate_resume: updatedResume }
+                  : row
+              )
+            );
+
+            toast.success("Resume uploaded successfully!");
           } catch (err) {
             console.error("Resume upload failed", err);
+            toast.error("Failed to upload resume.");
           }
         }}
       />
@@ -148,24 +132,28 @@ useEffect(() => {
   );
 
   const CandidateNameRenderer = (params: any) => {
-  const candidateId = params.data?.candidate_id; // Get candidate ID from row data
-  const candidateName = params.value; // Get candidate name
-  
-  if (!candidateId || !candidateName) {
-    return <span className="text-gray-500">{candidateName || "N/A"}</span>;
-  }
-  
-  return (
-    <Link 
-      href={`/avatar/candidates/search?candidateId=${candidateId}`}  
-      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
-    >
-      {candidateName}
-    </Link>
-  );
-};
 
-  // Column definitions
+    const candidateId = params.data?.candidate_id;
+    const candidateName = params.value;
+
+    if (!candidateId || !candidateName) {
+      return <span className="text-gray-500">{candidateName || "N/A"}</span>;
+    }
+
+    return (
+      <Link
+        href={`/avatar/candidates/search?candidateId=${candidateId}`}
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
+      >
+        {candidateName}
+      </Link>
+    );
+  };
+
+
+
   const columnDefs: ColDef[] = useMemo(
     () => [
       {
@@ -173,13 +161,9 @@ useEffect(() => {
         headerName: "Full Name",
         sortable: true,
         minWidth: 150,
-
         editable: true,
         cellRenderer: CandidateNameRenderer,
-
-        
         valueGetter: (params) => params.data.candidate?.full_name || "N/A",
-
       },
       {
         field: "start_date",
@@ -218,7 +202,8 @@ useEffect(() => {
         headerName: "Marketing Manager",
         minWidth: 150,
         editable: false,
-        valueGetter: (params) => params.data.marketing_manager_obj?.name || "N/A",
+        valueGetter: (params) =>
+          params.data.marketing_manager_obj?.name || "N/A",
       },
       { field: "email", headerName: "Email", minWidth: 150, editable: true },
       { field: "password", headerName: "Password", minWidth: 150, editable: true },
@@ -230,7 +215,20 @@ useEffect(() => {
       },
       { field: "rating", headerName: "Rating", maxWidth: 100, editable: true },
       { field: "priority", headerName: "Priority", maxWidth: 100, editable: true },
-      { field: "notes", headerName: "Notes", minWidth: 100, editable: true },
+      {             field: "notes",
+            headerName: "Notes",
+            width: 300,
+            sortable: true,
+            cellRenderer: (params: any) => {
+              if (!params.value) return "";
+              return (
+                <div
+                  className="prose prose-sm max-w-none dark:prose-invert"
+                  dangerouslySetInnerHTML={{ __html: params.value }}
+                />
+              );
+            },
+          },
       {
         field: "candidate_resume",
         headerName: "Resume",
@@ -240,78 +238,66 @@ useEffect(() => {
     ],
     []
   );
-  // Handle row updates
+
+
   const handleRowUpdated = async (updatedRow: any) => {
     if (!updatedRow || !updatedRow.candidate_id) {
       console.error("Updated row missing candidate_id", updatedRow);
+      toast.error("Failed to update candidate: Missing candidate ID.");
       return;
     }
+
     try {
-      await axios.put(
+      const res = await axios.put(
         `${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing/${updatedRow.candidate_id}`,
         updatedRow
       );
-      await fetchCandidates();
+      const updatedRecord = res.data;
+
+
+      setFilteredCandidates((prev) =>
+        prev.map((row) =>
+          row.candidate_id === updatedRow.candidate_id ? updatedRecord : row
+        )
+      );
+      setAllCandidates((prev) =>
+        prev.map((row) =>
+          row.candidate_id === updatedRow.candidate_id ? updatedRecord : row
+        )
+      );
+
+      toast.success("Candidate updated successfully!");
     } catch (err) {
       console.error("Failed to update candidate:", err);
+      toast.error("Failed to update candidate.");
     }
   };
 
-  // Handle row deletion
+
   const handleRowDeleted = async (candidate_id: number | string) => {
     try {
       await axios.delete(
         `${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing/${candidate_id}`
       );
-      await fetchCandidates();
+
+      setFilteredCandidates((prev) =>
+        prev.filter((row) => row.candidate_id !== candidate_id)
+      );
+      setAllCandidates((prev) =>
+        prev.filter((row) => row.candidate_id !== candidate_id)
+      );
+
+      toast.success("Candidate deleted successfully!");
     } catch (err) {
       console.error("Failed to delete candidate:", err);
-    }
-  };
-
-  // Handle adding a new candidate
-  const handleAddCandidate = async () => {
-    try {
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing`, {
-        candidate_id: newCandidate.candidate_id,
-        full_name: newCandidate.full_name,
-        start_date: newCandidate.start_date,
-        status: newCandidate.status,
-        email: newCandidate.email,
-        password: newCandidate.password,
-        google_voice_number: newCandidate.google_voice_number,
-        rating: newCandidate.rating,
-        priority: newCandidate.priority,
-        notes: newCandidate.notes,
-        instructor1_id: newCandidate.instructor1_id,
-        instructor2_id: newCandidate.instructor2_id,
-        instructor3_id: newCandidate.instructor3_id,
-      });
-      setIsAddOpen(false);
-      setNewCandidate({
-        candidate_id: "",
-        full_name: "",
-        start_date: "",
-        status: "",
-        email: "",
-        password: "",
-        google_voice_number: "",
-        rating: "",
-        priority: "",
-        notes: "",
-        instructor1_id: "",
-        instructor2_id: "",
-        instructor3_id: "",
-      });
-      fetchCandidates();
-    } catch (err) {
-      console.error("Failed to add candidate:", err);
+      toast.error("Failed to delete candidate.");
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Header Section with Add Button on Right */}
+      <Toaster richColors position="top-center" />
+      {/* Header Section */}
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
@@ -321,122 +307,6 @@ useEffect(() => {
             Candidates currently in marketing phase
           </p>
         </div>
-
-        {/* Add Candidate Button + Modal */}
-        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-          <DialogTrigger asChild>
-            <Button>+ Add Marketing</Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Add New Candidate</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 mt-2 max-h-[70vh] overflow-y-auto pr-2">
-              <Input
-                placeholder="Candidate ID"
-                value={newCandidate.candidate_id}
-                onChange={(e) =>
-                  setNewCandidate({ ...newCandidate, candidate_id: e.target.value })
-                }
-              />
-              <Input
-                placeholder="Start Date"
-                type="date"
-                value={newCandidate.start_date}
-                onChange={(e) =>
-                  setNewCandidate({ ...newCandidate, start_date: e.target.value })
-                }
-              />
-              <Input
-                placeholder="Status"
-                value={newCandidate.status}
-                onChange={(e) =>
-                  setNewCandidate({ ...newCandidate, status: e.target.value })
-                }
-              />
-              <Input
-                placeholder="Email"
-                type="email"
-                value={newCandidate.email}
-                onChange={(e) =>
-                  setNewCandidate({ ...newCandidate, email: e.target.value })
-                }
-              />
-              <Input
-                placeholder="Password"
-                type="password"
-                value={newCandidate.password}
-                onChange={(e) =>
-                  setNewCandidate({ ...newCandidate, password: e.target.value })
-                }
-              />
-              <Input
-                placeholder="Google Voice Number"
-                value={newCandidate.google_voice_number}
-                onChange={(e) =>
-                  setNewCandidate({
-                    ...newCandidate,
-                    google_voice_number: e.target.value,
-                  })
-                }
-              />
-              <Input
-                placeholder="Rating"
-                value={newCandidate.rating}
-                onChange={(e) =>
-                  setNewCandidate({ ...newCandidate, rating: e.target.value })
-                }
-              />
-              <Input
-                placeholder="Priority"
-                value={newCandidate.priority}
-                onChange={(e) =>
-                  setNewCandidate({ ...newCandidate, priority: e.target.value })
-                }
-              />
-              <Input
-                placeholder="Notes"
-                value={newCandidate.notes}
-                onChange={(e) =>
-                  setNewCandidate({ ...newCandidate, notes: e.target.value })
-                }
-              />
-              <Input
-                placeholder="Instructor 1 ID"
-                value={newCandidate.instructor1_id}
-                onChange={(e) =>
-                  setNewCandidate({
-                    ...newCandidate,
-                    instructor1_id: e.target.value,
-                  })
-                }
-              />
-              <Input
-                placeholder="Instructor 2 ID"
-                value={newCandidate.instructor2_id}
-                onChange={(e) =>
-                  setNewCandidate({
-                    ...newCandidate,
-                    instructor2_id: e.target.value,
-                  })
-                }
-              />
-              <Input
-                placeholder="Instructor 3 ID"
-                value={newCandidate.instructor3_id}
-                onChange={(e) =>
-                  setNewCandidate({
-                    ...newCandidate,
-                    instructor3_id: e.target.value,
-                  })
-                }
-              />
-              <Button className="mt-2 w-full" onClick={handleAddCandidate}>
-                Add Candidate
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
 
       {/* Search */}

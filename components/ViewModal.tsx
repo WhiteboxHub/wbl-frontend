@@ -34,6 +34,8 @@ const fieldSections: Record<string, string> = {
   Fundamentals: "Basic Information",
   AIML: "Basic Information",
   full_name: "Basic Information",
+  move_to_prep: "Basic Information",
+  move_to_mrkt: "Basic Information",
   email: "Basic Information",
   phone: "Basic Information",
   status: "Basic Information",
@@ -178,6 +180,7 @@ const labelOverrides: Record<string, string> = {
   candidate_email: "Candidate Email",
   uname: "Email",
   fullname: "Full Name",
+  url: "Job URL",
   ssn: "SSN",
   dob: "Date of Birth",
   phone: "Phone",
@@ -198,6 +201,7 @@ const labelOverrides: Record<string, string> = {
   enddate: "End Date",
   startdate: "Start Date",
   sessiondate: "Session Date",
+  move_to_mrkt: "Move to Marketing",
   lastmoddatetime: "Last Mod DateTime",
   registereddate: "Registered Date",
   massemail_email_sent: "Massemail Email Sent",
@@ -212,7 +216,6 @@ const labelOverrides: Record<string, string> = {
   subject_name: "Subject Name",
   recording_link: "Recording Link",
   transcript: "Transcript",
-  url: "Job URL",
   backup_url: "Backup URL",
 };
 

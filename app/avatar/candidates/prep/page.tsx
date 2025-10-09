@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable";
@@ -13,12 +14,22 @@ import { createPortal } from "react-dom";
 import { toast, Toaster } from "sonner";
 
 // ---------------- Status Renderer ----------------
-const StatusRenderer = (params: any) => (
-  <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-    {params.value?.toUpperCase()}
-  </Badge>
-);
+const StatusRenderer = (params: any) => {
+  const status = params.value?.toLowerCase();
 
+  let badgeClass =
+    "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300";
+
+  if (status === "active") {
+    badgeClass =
+      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+  } else if (status === "inactive") {
+    badgeClass =
+      "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+  }
+
+  return <Badge className={badgeClass}>{status?.toUpperCase()}</Badge>;
+};
 // ---------------- Status Filter Header ----------------
 const StatusHeaderComponent = (props: any) => {
   const { selectedStatuses, setSelectedStatuses } = props;
@@ -84,8 +95,6 @@ const StatusHeaderComponent = (props: any) => {
             {[
               { value: "active", label: "Active" },
               { value: "inactive", label: "Inactive" },
-              // { value: "break", label: "Break" },
-              // { value: "discontinued", label: "Discontinued" }
             ].map(({ value, label }) => (
               <label key={value} className="flex items-center px-2 py-1 hover:bg-gray-100 cursor-pointer rounded">
                 <input
@@ -113,24 +122,6 @@ export default function CandidatesPrepPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [instructors, setInstructors] = useState<any[]>([]);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newCandidate, setNewCandidate] = useState<any>({
-    candidate_Name: "",
-    batch: "",
-    start_date: "",
-    status: "",
-    instructor1_Name: "",
-    instructor2_Name: "",
-    instructor3_Name: "",
-    rating: "",
-    tech_rating: "",
-    communication: "",
-    years_of_experience: "",
-    topics_finished: "",
-    current_topics: "",
-    target_date_of_marketing: "",
-    notes: "",
-  });
 
   // ---------------- Fetch Data ----------------
   useEffect(() => {
@@ -158,17 +149,19 @@ export default function CandidatesPrepPage() {
     fetchData();
   }, []);
 
+
   const getAllValues = (obj: any): string[] => {
-  let values: string[] = [];
-  for (const val of Object.values(obj)) {
-    if (val && typeof val === "object") {
-      values = values.concat(getAllValues(val)); // recurse into nested objects
-    } else if (val !== null && val !== undefined) {
-      values.push(String(val));
+    let values: string[] = [];
+    for (const val of Object.values(obj)) {
+      if (val && typeof val === "object") {
+        values = values.concat(getAllValues(val));
+      } else if (val !== null && val !== undefined) {
+        values.push(String(val));
+      }
     }
-  }
-  return values;
-};
+    return values;
+  };
+
 
   // ---------------- Filtering and Sorting ----------------
   useEffect(() => {
@@ -177,25 +170,48 @@ export default function CandidatesPrepPage() {
       filtered = filtered.filter((c) => selectedStatuses.includes(c.status?.toLowerCase()));
     }
     if (searchTerm.trim() !== "") {
+
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter((c) =>
         getAllValues(c).some((val) => val.toLowerCase().includes(term))
       );
     }
-    // Sort: active first, then by id (descending)
+
     filtered.sort((a, b) => {
       if (a.status === "active" && b.status !== "active") return -1;
       if (a.status !== "active" && b.status === "active") return 1;
       return b.id - a.id;
     });
     setFilteredCandidates(filtered);
-  }, [allCandidates, searchTerm, selectedStatuses]);
+  }, 
+  [allCandidates, searchTerm, selectedStatuses]);
+const CandidateNameRenderer = (params: any) => {
+  const candidateId = params.data?.candidate_id || params.data?.candidate?.id || params.data?.id;
+  const candidateName = params.value;
+  
+  if (!candidateId || !candidateName) {
+    return <span className="text-gray-500">{candidateName || "N/A"}</span>;
+  }
+  
+  return (
+    <Link 
+      href={`/avatar/candidates/search?candidateId=${candidateId}`}
+      target="_blank" 
+      rel="noopener noreferrer"
+      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer" // ← Same styling as Marketing
+    >
+      {candidateName}
+    </Link>
+  );
+};
+
 
   // ---------------- Column Defs ----------------
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => {
     return [
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
-      { field: "candidate.full_name", headerName: "Full Name", minWidth: 150 },
+      { 
+      field: "candidate.full_name", headerName: "Candidate Name", cellRenderer: CandidateNameRenderer, sortable: true, minWidth: 150, editable: false},
       { field: "batch", headerName: "Batch", sortable: true, maxWidth: 150 },
       { field: "start_date", headerName: "Start Date", sortable: true, maxWidth: 130 },
       {
@@ -216,7 +232,15 @@ export default function CandidatesPrepPage() {
       { field: "topics_finished", headerName: "Topics Finished", minWidth: 150 },
       { field: "current_topics", headerName: "Current Topics", minWidth: 150 },
       { field: "target_date_of_marketing", headerName: "Target Marketing Date", minWidth: 160 },
+
+      { field: "move_to_mrkt", headerName: "Move to Marketing", width: 150, sortable: true,filter: 'agSetColumnFilter', cellRenderer: (params: any) => (
+          <span>
+            {params.value ? "Yes" : "No"}
+          </span>
+        )
+      },
       { field: "notes", headerName: "Notes", minWidth: 90 },
+
     ];
   }, [selectedStatuses]);
 
@@ -250,39 +274,6 @@ export default function CandidatesPrepPage() {
     }
   };
 
-  // ---------------- Add Candidate ----------------
-  const handleAddCandidate = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/candidate_preparation`, newCandidate, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setAllCandidates((prev) => [...prev, res.data]);
-      setShowAddForm(false);
-      setNewCandidate({
-        candidate_Name: "",
-        batch: "",
-        start_date: "",
-        status: "",
-        instructor1_Name: "",
-        instructor2_Name: "",
-        instructor3_Name: "",
-        rating: "",
-        tech_rating: "",
-        communication: "",
-        years_of_experience: "",
-        topics_finished: "",
-        current_topics: "",
-        target_date_of_marketing: "",
-        notes: "",
-      });
-      toast.success("Candidate preparation added successfully!");
-    } catch (err) {
-      console.error("Failed to add candidate preparation:", err);
-      toast.error("Failed to add candidate preparation.");
-    }
-  };
-
   // ---------------- Render ----------------
   return (
     <div className="space-y-6 p-4">
@@ -292,12 +283,6 @@ export default function CandidatesPrepPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Candidate Preparations</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">Tracking candidate preparation status</p>
         </div>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        >
-          + Add Preparation
-        </button>
       </div>
       {/* Search */}
       <div className="max-w-md">
@@ -333,102 +318,6 @@ export default function CandidatesPrepPage() {
               onRowUpdated={handleRowUpdated}
               onRowDeleted={handleRowDeleted}
             />
-          </div>
-        </div>
-      )}
-      {/* Add Candidate Modal */}
-      {showAddForm && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">Add Candidate Preparation</h2>
-            <div className="space-y-3">
-              {Object.keys(newCandidate).map((field) => {
-                if (field === "status" || field.includes("instructor")) return null;
-                const label = field.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
-                if (field === "start_date" || field === "target_date_of_marketing") {
-                  return (
-                    <div key={field} className="space-y-1">
-                      <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</Label>
-                      <Input
-                        type="date"
-                        placeholder={label}
-                        value={newCandidate[field]}
-                        onChange={(e) => setNewCandidate({ ...newCandidate, [field]: e.target.value })}
-                        className="w-full p-2 border rounded"
-                      />
-                    </div>
-                  );
-                }
-                return (
-                  <div key={field} className="space-y-1">
-                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</Label>
-                    <Input
-                      placeholder={label}
-                      value={newCandidate[field]}
-                      onChange={(e) => setNewCandidate({ ...newCandidate, [field]: e.target.value })}
-                      className="w-full p-2 border rounded"
-                    />
-                  </div>
-                );
-              })}
-              {/* Instructor Dropdowns */}
-              {["1", "2", "3"].map((num) => (
-                <div key={num} className="space-y-1">
-                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Instructor {num}
-                  </Label>
-                  <select
-                    value={newCandidate[`instructor${num}_id`] || ""}
-                    onChange={(e) => {
-                      const selected = instructors.find((ins) => ins.id === Number(e.target.value));
-                      setNewCandidate({
-                        ...newCandidate,
-                        [`instructor${num}_id`]: selected?.id || "",
-                        [`instructor${num}_Name`]: selected?.name || "",
-                      });
-                    }}
-                    className="w-full p-2 border rounded"
-                  >
-                    <option value="">Select Instructor</option>
-                    {/* Ensure current instructor shows even if not in list */}
-                    {newCandidate[`instructor${num}_id`] &&
-                      !instructors.some((ins) => ins.id === Number(newCandidate[`instructor${num}_id`])) && (
-                        <option value={newCandidate[`instructor${num}_id`]}>
-                          {newCandidate[`instructor${num}_Name`] || "Current Instructor"}
-                        </option>
-                      )}
-                    {instructors.map((ins) => (
-                      <option key={ins.id} value={ins.id}>
-                        {ins.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-              {/* Status Dropdown */}
-              <div className="space-y-1">
-                <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Status</Label>
-                <select
-                  value={newCandidate.status}
-                  onChange={(e) => setNewCandidate({ ...newCandidate, status: e.target.value })}
-                  className="w-full p-2 border rounded"
-                >
-                  <option value="">Select Status</option>
-                  <option value="active">Active</option>
-                  {/* <option value="break">Break</option> */}
-                  <option value="inactive">Inactive</option>
-                  {/* <option value="discontinued">Discontinued</option> */}
-                </select>
-              </div>
-            </div>
-            <div className="flex justify-end mt-6 space-x-3">
-              <button onClick={() => setShowAddForm(false)} className="px-4 py-2 bg-gray-300 rounded">
-                Cancel
-              </button>
-              <button onClick={handleAddCandidate} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                Save
-              </button>
-            </div>
           </div>
         </div>
       )}

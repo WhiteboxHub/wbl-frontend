@@ -9,6 +9,9 @@ import { Label } from "@/components/admin_ui/label";
 import { Input } from "@/components/admin_ui/input";
 import { Textarea } from "@/components/admin_ui/textarea";
 import axios from "axios";
+import dynamic from "next/dynamic";
+const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
+import "react-quill/dist/quill.snow.css";
 
 interface Batch {
   batchid: number;
@@ -70,6 +73,7 @@ const fieldSections: Record<string, string> = {
   start_date: "Professional Information",
   batchname: "Basic Information",
   target_date_of_marketing: "Basic Information",
+  move_to_prep: "Basic Information",
   linkedin_id: "Contact Information",
   enrolled_date: "Professional Information",
   startdate: "Professional Information",
@@ -111,6 +115,7 @@ const fieldSections: Record<string, string> = {
   enrolleddate: "Basic Information",
   orientationdate: "Basic Information",
   promissory: "Basic Information",
+  move_to_mrkt: "Basic Information",
   lastlogin: "Professional Information",
   logincount: "Professional Information",
   course: "Professional Information",
@@ -228,6 +233,14 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "sourcer", label: "Sourcer" },
     { value: "contact-from-ip", label: "Contact from IP" },
   ],
+  move_to_prep: [
+    { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
+  ],
+  move_to_mrkt: [
+    { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
+  ],
   linkedin_connected: [
     { value: "no", label: "No" },
     { value: "yes", label: "Yes" },
@@ -288,10 +301,10 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "In Person", label: "In Person" },
     { value: "Prep Call", label: "Prep Call" },
   ],
-  feedback: [
-    { value: "Pending", label: "Pending" },
-    { value: "Positive", label: "Positive" },
-    { value: "Negative", label: "Negative" },
+  feedback:  [
+    { value: 'Pending', label: 'Pending' },
+    { value: 'Positive', label: 'Positive' },
+    { value: 'Negative', label: 'Negative' },
   ],
 };
 
@@ -361,6 +374,7 @@ const labelOverrides: Record<string, string> = {
   marketing_startdate: "Marketing Start Date",
   recruiterassesment: "Recruiter Assessment",
   statuschangedate: "Status Change Date",
+  move_to_mrkt: "Move to Marketing",
   aadhaar: "Aadhaar",
   url: "Job URL",
   feedback: "Feedback",
@@ -579,12 +593,7 @@ export function EditModal({
   Object.entries(formData).forEach(([key, value]) => {
     if (excludedFields.includes(key)) return;
     if (key === "id") return;
-    // Exclude "status" field for Preparation and Marketing pages
-    if (
-      key.toLowerCase() === "status" &&
-      (title.toLowerCase().includes("preparation") ||
-        title.toLowerCase().includes("marketing"))
-    ) {
+    if (key.toLowerCase() === "status" && (title.toLowerCase().includes("preparation") || title.toLowerCase().includes("marketing"))) {
       return;
     }
     const section = fieldSections[key] || "Other";
@@ -625,8 +634,7 @@ export function EditModal({
       <DialogContent
         className={`${modalWidthClass} max-h-[80vh] overflow-y-auto p-0`}
       >
-        {/* Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-700 dark:bg-gray-900">
+        <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
             {title} - Edit Details
           </DialogTitle>
@@ -651,7 +659,6 @@ export function EditModal({
             </svg>
           </button>
         </div>
-
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -687,7 +694,6 @@ export function EditModal({
             onClose();
           }}
         >
-          {/* All Sections in Grid Layout */}
           <div className={`grid ${gridColsClass} gap-6 p-6`}>
             {visibleSections
               .filter((section) => section !== "Notes")
@@ -696,105 +702,79 @@ export function EditModal({
                   <h3 className="border-b border-gray-200 pb-2 text-lg font-semibold text-gray-900 dark:border-gray-700 dark:text-gray-100">
                     {section}
                   </h3>
-                  {section === "Professional Information" &&
-                    title.toLowerCase().includes("preparation") && (
-                      <>
-                        {/* Instructor 1 Dropdown */}
-                        <div className="space-y-1">
-                          <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                            Instructor 1
-                          </Label>
-                          <select
-                            value={formData.instructor1_id || ""}
-                            onChange={(e) => {
-                              const selected = employees.find(
-                                (emp) => emp.id === Number(e.target.value)
-                              );
-                              handleChange(
-                                "instructor1_name",
-                                selected?.name || ""
-                              );
-                              handleChange(
-                                "instructor1_id",
-                                selected?.id || null
-                              );
-                            }}
-                            className="w-full rounded-md border p-2 dark:bg-gray-800 dark:text-gray-100"
-                          >
-                            <option value="">Select Instructor</option>
-                            {employees.map((emp) => (
-                              <option key={emp.id} value={emp.id}>
-                                {emp.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {/* Instructor 2 Dropdown */}
-                        <div className="space-y-1">
-                          <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                            Instructor 2
-                          </Label>
-                          <select
-                            value={formData.instructor2_id || ""}
-                            onChange={(e) => {
-                              const selected = employees.find(
-                                (emp) => emp.id === Number(e.target.value)
-                              );
-                              handleChange(
-                                "instructor2_name",
-                                selected?.name || ""
-                              );
-                              handleChange(
-                                "instructor2_id",
-                                selected?.id || null
-                              );
-                            }}
-                            className="w-full rounded-md border p-2 dark:bg-gray-800 dark:text-gray-100"
-                          >
-                            <option value="">Select Instructor</option>
-                            {employees.map((emp) => (
-                              <option key={emp.id} value={emp.id}>
-                                {emp.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {/* Instructor 3 Dropdown */}
-                        <div className="space-y-1">
-                          <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                            Instructor 3
-                          </Label>
-                          <select
-                            value={formData.instructor3_id || ""}
-                            onChange={(e) => {
-                              const selected = employees.find(
-                                (emp) => emp.id === Number(e.target.value)
-                              );
-                              handleChange(
-                                "instructor3_name",
-                                selected?.name || ""
-                              );
-                              handleChange(
-                                "instructor3_id",
-                                selected?.id || null
-                              );
-                            }}
-                            className="w-full rounded-md border p-2 dark:bg-gray-800 dark:text-gray-100"
-                          >
-                            <option value="">Select Instructor</option>
-                            {employees.map((emp) => (
-                              <option key={emp.id} value={emp.id}>
-                                {emp.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </>
-                    )}
-
-                  {/* Render other fields in the section */}
+                  {section === "Professional Information" && title.toLowerCase().includes("preparation") && (
+                    <>
+                      <div className="space-y-1">
+                        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                          Instructor 1
+                        </Label>
+                        <select
+                          value={formData.instructor1_id || ""}
+                          onChange={(e) => {
+                            const selected = employees.find(
+                              (emp) => emp.id === Number(e.target.value)
+                            );
+                            handleChange("instructor1_name", selected?.name || "");
+                            handleChange("instructor1_id", selected?.id || null);
+                          }}
+                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                        >
+                          <option value="">Select Instructor</option>
+                          {employees.map((emp) => (
+                            <option key={emp.id} value={emp.id}>
+                              {emp.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                          Instructor 2
+                        </Label>
+                        <select
+                          value={formData.instructor2_id || ""}
+                          onChange={(e) => {
+                            const selected = employees.find(
+                              (emp) => emp.id === Number(e.target.value)
+                            );
+                            handleChange("instructor2_name", selected?.name || "");
+                            handleChange("instructor2_id", selected?.id || null);
+                          }}
+                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                        >
+                          <option value="">Select Instructor</option>
+                          {employees.map((emp) => (
+                            <option key={emp.id} value={emp.id}>
+                              {emp.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                          Instructor 3
+                        </Label>
+                        <select
+                          value={formData.instructor3_id || ""}
+                          onChange={(e) => {
+                            const selected = employees.find(
+                              (emp) => emp.id === Number(e.target.value)
+                            );
+                            handleChange("instructor3_name", selected?.name || "");
+                            handleChange("instructor3_id", selected?.id || null);
+                          }}
+                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                        >
+                          <option value="">Select Instructor</option>
+                          {employees.map((emp) => (
+                            <option key={emp.id} value={emp.id}>
+                              {emp.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  )}
                   {sectionedFields[section]
                     .filter(
                       ({ key }) =>
@@ -822,7 +802,6 @@ export function EditModal({
                       ) {
                         return null;
                       }
-
                       if (isTypeField) {
                         if (isVendorModal) {
                           return (
@@ -832,10 +811,8 @@ export function EditModal({
                               </Label>
                               <select
                                 value={String(formData[key] ?? "")}
-                                onChange={(e) =>
-                                  handleChange(key, e.target.value)
-                                }
-                                className="w-full rounded-md border p-2 dark:bg-gray-800 dark:text-gray-100"
+                                onChange={(e) => handleChange(key, e.target.value)}
+                                className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
                               >
                                 {enumOptions["type"].map((opt) => (
                                   <option key={opt.value} value={opt.value}>
@@ -853,16 +830,13 @@ export function EditModal({
                               </Label>
                               <Input
                                 value={formData[key] ?? ""}
-                                onChange={(e) =>
-                                  handleChange(key, e.target.value)
-                                }
-                                className="w-full rounded-md border p-2 dark:bg-gray-800 dark:text-gray-100"
+                                onChange={(e) => handleChange(key, e.target.value)}
+                                className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
                               />
                             </div>
                           );
                         }
                       }
-
                       if (key.toLowerCase() === "subjectid") {
                         return (
                           <div key={key} className="space-y-1">
@@ -1092,7 +1066,6 @@ export function EditModal({
                 </div>
               ))}
           </div>
-
           {/* Notes Section */}
           {sectionedFields["Notes"].length > 0 && (
             <div className="px-6 pb-6">
@@ -1102,18 +1075,27 @@ export function EditModal({
                     <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                       {toLabel(key)}
                     </Label>
-                    <Textarea
-                      value={formData[key] || ""}
-                      onChange={(e) => handleChange(key, e.target.value)}
-                      className="w-full"
+                    <ReactQuill
+                      theme="snow"
+                      value={formData.notes || ""}
+                      onChange={(content) => setFormData(prev => ({ ...prev, notes: content }))}
                     />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const timestamp = <p><strong>[${new Date().toLocaleString()}]</strong></p>;
+                        setFormData(prev => ({...prev,notes: (prev.notes || "") + <p><strong>[${new Date().toLocaleString()}]</strong></p>}));
+                      }}
+                    >
+                      + Add Timestamp
+
+                      </button>
                   </div>
                 ))}
               </div>
             </div>
           )}
-
-          {/* Footer */}
           <div className="flex justify-end px-6 pb-6">
             <button
               type="submit"

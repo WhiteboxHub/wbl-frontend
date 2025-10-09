@@ -86,11 +86,9 @@ const StatusFilterHeaderComponent = (props: any) => {
   const { selectedStatuses, setSelectedStatuses } = props;
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({
-    top: 0,
-    left: 0,
-  });
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const [filterVisible, setFilterVisible] = useState(false);
+
   const toggleFilter = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (filterButtonRef.current) {
@@ -102,6 +100,7 @@ const StatusFilterHeaderComponent = (props: any) => {
     }
     setFilterVisible((v) => !v);
   };
+
   const handleStatusChange = (status: string, e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
     setSelectedStatuses((prev: string[]) => {
@@ -113,6 +112,7 @@ const StatusFilterHeaderComponent = (props: any) => {
       }
     });
   };
+
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
     if (e.target.checked) {
@@ -121,8 +121,10 @@ const StatusFilterHeaderComponent = (props: any) => {
       setSelectedStatuses([]);
     }
   };
+
   const isAllSelected = selectedStatuses.length === 6;
   const isIndeterminate = selectedStatuses.length > 0 && selectedStatuses.length < 6;
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -144,6 +146,7 @@ const StatusFilterHeaderComponent = (props: any) => {
       window.removeEventListener("scroll", handleScroll, true);
     };
   }, [filterVisible]);
+
   return (
     <div className="relative flex items-center w-full">
       <span className="mr-2 flex-grow">Status</span>
@@ -154,7 +157,7 @@ const StatusFilterHeaderComponent = (props: any) => {
       >
         {selectedStatuses.length > 0 && (
           <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-0.5 min-w-[20px] text-center">
-            {selectedStatuses.length}
+            {selectedStatuses.length} {/* <-- THIS UPDATES DYNAMICALLY */}
           </span>
         )}
         <svg
@@ -172,6 +175,7 @@ const StatusFilterHeaderComponent = (props: any) => {
           />
         </svg>
       </div>
+
       {filterVisible &&
         createPortal(
           <div
@@ -211,8 +215,6 @@ const StatusFilterHeaderComponent = (props: any) => {
                   onClick={(e) => e.stopPropagation()}
                   className="mr-3"
                 />
-
-
                 <StatusRenderer value={status} />
               </label>
             ))}
@@ -236,15 +238,14 @@ const StatusFilterHeaderComponent = (props: any) => {
   );
 };
 
+// ---------- Type Filter Header Component ----------
 const TypeFilterHeaderComponent = (props: any) => {
   const { selectedTypes, setSelectedTypes } = props;
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({
-    top: 0,
-    left: 0,
-  });
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const [filterVisible, setFilterVisible] = useState(false);
+
   const toggleFilter = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (filterButtonRef.current) {
@@ -256,6 +257,7 @@ const TypeFilterHeaderComponent = (props: any) => {
     }
     setFilterVisible((v) => !v);
   };
+
   const handleTypeChange = (type: string, e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
     setSelectedTypes((prev: string[]) => {
@@ -267,6 +269,7 @@ const TypeFilterHeaderComponent = (props: any) => {
       }
     });
   };
+
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
     if (e.target.checked) {
@@ -275,8 +278,10 @@ const TypeFilterHeaderComponent = (props: any) => {
       setSelectedTypes([]);
     }
   };
+
   const isAllSelected = selectedTypes.length === 5;
   const isIndeterminate = selectedTypes.length > 0 && selectedTypes.length < 5;
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -298,9 +303,11 @@ const TypeFilterHeaderComponent = (props: any) => {
       window.removeEventListener("scroll", handleScroll, true);
     };
   }, [filterVisible]);
+
   return (
     <div className="relative flex items-center w-full">
       <span className="mr-2 flex-grow">Type</span>
+
       <div
         ref={filterButtonRef}
         className="flex items-center gap-1 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-1 rounded text-sm"
@@ -326,6 +333,7 @@ const TypeFilterHeaderComponent = (props: any) => {
           />
         </svg>
       </div>
+
       {filterVisible &&
         createPortal(
           <div
@@ -402,11 +410,9 @@ export default function VendorPage() {
     try {
       setLoading(true);
       const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/vendors`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
+        `${process.env.NEXT_PUBLIC_API_URL}/vendors`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       setVendors(res.data);
       setFilteredVendors(res.data);
     } catch (e: any) {
@@ -420,6 +426,7 @@ export default function VendorPage() {
     fetchVendors();
   }, []);
 
+  
   useEffect(() => {
     let filtered = vendors;
     if (selectedStatuses.length > 0) {
@@ -439,6 +446,7 @@ export default function VendorPage() {
     setFilteredVendors(filtered);
   }, [vendors, searchTerm, selectedStatuses, selectedTypes]);
 
+
   const columnDefs: ColDef[] = React.useMemo(() => [
     { field: "id", headerName: "ID", width: 80, pinned: "left", editable: false },
     { field: "full_name", headerName: "Full Name", width: 180, editable: true },
@@ -456,8 +464,8 @@ export default function VendorPage() {
       cellEditorParams: { options: ["client","third-party-vendor","implementation-partner","sourcer","contact-from-ip"] },
       headerComponent: TypeFilterHeaderComponent,
       headerComponentParams: {
-        selectedTypes,
-        setSelectedTypes,
+        selectedTypes,  
+        setSelectedTypes 
       }
     },
     {
@@ -470,8 +478,8 @@ export default function VendorPage() {
       cellEditorParams: { options: ["active","working","not_useful","do_not_contact","inactive","prospect"] },
       headerComponent: StatusFilterHeaderComponent,
       headerComponentParams: {
-        selectedStatuses,
-        setSelectedStatuses,
+        selectedStatuses, 
+        setSelectedStatuses 
       }
     },
     { field: "company_name", headerName: "Company Name", width: 180, editable: true },
@@ -508,9 +516,23 @@ export default function VendorPage() {
       cellEditorParams: { options: ["YES", "NO"] },
     },
     { field: "created_at", headerName: "Created At", width: 180, valueFormatter: DateFormatter, editable: false },
-    { field: "notes", headerName: "Notes", width: 200, editable: true },
+        {
+            field: "notes",
+            headerName: "Notes",
+            width: 300,
+            sortable: true,
+            cellRenderer: (params: any) => {
+              if (!params.value) return "";
+              return (
+                <div
+                  className="prose prose-sm max-w-none dark:prose-invert"
+                  dangerouslySetInnerHTML={{ __html: params.value }}
+                />
+              );
+            },
+          },
     { field: "linkedin_internal_id", headerName: "LinkedIn Internal ID", width: 200, editable: true },
-  ], [selectedStatuses, selectedTypes]);
+  ], [selectedStatuses, selectedTypes]); 
 
   const handleRowUpdated = async (updatedRow: any) => {
     const normalizeYesNo = (val: any) => (!val ? "NO" : val.toString().toUpperCase());
@@ -545,10 +567,10 @@ export default function VendorPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Vendors</h1>
-        <p>Browse, search, and manage vendors.</p>
+        {/* <p>Browse, search, and manage vendors.</p> */}
       </div>
       <div className="max-w-md">
-        <Label htmlFor="search">Search Vendors</Label>
+        {/* <Label htmlFor="search">Search Vendors</Label> */}
         <div className="relative mt-1">
           <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 text-gray-400" />
           <Input
@@ -561,9 +583,9 @@ export default function VendorPage() {
         </div>
         {searchTerm && <p>{filteredVendors.length} found</p>}
       </div>
-      <AGGridTable
-      key={`${filteredVendors.length}-${selectedStatuses.join(',')}-${selectedTypes.join(',')}}`}
 
+      <AGGridTable
+        key={`${filteredVendors.length}-${selectedStatuses.join(',')}-${selectedTypes.join(',')}}`} // <-- force re-render when filters change
         rowData={filteredVendors}
         columnDefs={columnDefs}
         title={`All Vendors (${filteredVendors.length})`}
@@ -575,5 +597,3 @@ export default function VendorPage() {
     </div>
   );
 }
-
-
