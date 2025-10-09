@@ -218,6 +218,7 @@ const labelOverrides: Record<string, string> = {
   emergcontactemail: "Contact Email",
   emergcontactaddrs: "Contact Address",
   course_name: "Course Name",
+  marketing_manager_obj: "Marketing Manager",
   subject_name: "Subject Name",
   recording_link: "Recording Link",
   transcript: "Transcript",

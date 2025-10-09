@@ -372,6 +372,7 @@ const labelOverrides: Record<string, string> = {
   interview_date: "Interview Date",
   interview_mode: "Interview Mode",
   visa_status: "Visa Status",
+  marketing_manager_obj: "Marketing Manager",
   workstatus: "Work Status",
   message: "Message",
   education: "Education",

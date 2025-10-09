@@ -68,7 +68,6 @@ export default function CandidatesInterviews() {
     fetchInterviews(page, perPage);
   }, [page, perPage]);
 
-  // Fetch marketing candidates when modal opens
   useEffect(() => {
     if (!showAddForm) return;
 
@@ -113,7 +112,7 @@ export default function CandidatesInterviews() {
 
   const filteredInterviews = filterData(searchTerm);
 
-  // Badge renderers
+
   const StatusRenderer = (params: any) => {
     const v = params.value?.toLowerCase() ?? "";
     const classes =
@@ -185,14 +184,13 @@ export default function CandidatesInterviews() {
   const columnDefs = useMemo<ColDef[]>(
     () => [
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
-      { field: "candidate.full_name", headerName: "Full Name", cellRenderer: CandidateNameRenderer, sortable: true, minWidth: 140, editable: false },
-      { field: "company", headerName: "Company", sortable: true, maxWidth: 130, editable: true },
-      { field: "company_type", headerName: "Company Type", sortable: true, maxWidth: 150, editable: true },
-      { field: "mode_of_interview", headerName: "Mode", maxWidth: 130, editable: true },
+      { field: "candidate.full_name", headerName: "Full Name", cellRenderer: CandidateNameRenderer, sortable: true, Width: 140, editable: false },
+      { field: "company", headerName: "Company", sortable: true, width: 130, editable: true },
+      { field: "mode_of_interview", headerName: "Mode", width: 130, editable: true },
       {
         field: "type_of_interview",
         headerName: "Type",
-        maxWidth: 150,
+        width: 150,
         editable: true,
         filter: "agSetColumnFilter",
         filterParams: {
@@ -200,17 +198,18 @@ export default function CandidatesInterviews() {
           comparator: (a: string, b: string) => a.localeCompare(b),
         },
       },
-      { field: "interview_date", headerName: "Date", maxWidth: 120, editable: true },
-      { field: "recording_link", headerName: "Recording", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
-      { field: "transcript", headerName: "Transcript", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
-      { field: "backup_url", headerName: "Backup URL", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
-      { field: "url", headerName: "Job URL", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
-      { field: "instructor1_name", headerName: "Instructor 1", minWidth: 140 },
-      { field: "instructor2_name", headerName: "Instructor 2", minWidth: 140 },
-      { field: "instructor3_name", headerName: "Instructor 3", minWidth: 140 },
-      { field: "feedback", headerName: "Feedback", cellRenderer: FeedbackRenderer, maxWidth: 130, editable: true },
-      { field: "interviewer_emails", headerName: "Emails", minWidth: 180, editable: true },
-      { field: "interviewer_contact", headerName: "Contact", minWidth: 140, editable: true },
+      { field: "company_type", headerName: "Company Type", sortable: true, width: 150, editable: true },
+      { field: "interview_date", headerName: "Date", width: 120, editable: true },
+      { field: "recording_link", headerName: "Recording", cellRenderer: LinkRenderer, width: 200, editable: true },
+      { field: "transcript", headerName: "Transcript", cellRenderer: LinkRenderer, width: 200, editable: true },
+      { field: "backup_url", headerName: "Backup URL", cellRenderer: LinkRenderer, width: 200, editable: true },
+      { field: "url", headerName: "Job URL", cellRenderer: LinkRenderer, width: 200, editable: true },
+      { field: "instructor1_name", headerName: "Instructor 1", width: 180 },
+      { field: "instructor2_name", headerName: "Instructor 2", width: 180 },
+      { field: "instructor3_name", headerName: "Instructor 3", width: 180 },
+      { field: "feedback", headerName: "Feedback", cellRenderer: FeedbackRenderer, width: 130, editable: true },
+      { field: "interviewer_emails", headerName: "Emails", width: 200, editable: true },
+      { field: "interviewer_contact", headerName: "Phone", width: 140, editable: true },
       { field: "notes", headerName: "Notes", width: 300, sortable: true, cellRenderer: (params: any) => params.value ? <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: params.value }} /> : "" },
     ],
     []
