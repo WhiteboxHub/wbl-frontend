@@ -1,12 +1,23 @@
-
 "use client";
 import { ModuleRegistry, AllCommunityModule } from "ag-grid-community";
 ModuleRegistry.registerModules([AllCommunityModule]);
-import { ColDef, GridReadyEvent, ColumnMovedEvent, CellValueChangedEvent, GridApi } from "ag-grid-community";
+import {
+  ColDef,
+  GridReadyEvent,
+  ColumnMovedEvent,
+  CellValueChangedEvent,
+  GridApi,
+} from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { useMemo, useCallback, useRef, useState, useEffect } from "react";
 import { Button } from "@/components/admin_ui/button";
-import { EyeIcon, EditIcon, TrashIcon, DownloadIcon, SettingsIcon } from "lucide-react";
+import {
+  EyeIcon,
+  EditIcon,
+  TrashIcon,
+  DownloadIcon,
+  SettingsIcon,
+} from "lucide-react";
 import { ViewModal } from "./ViewModal";
 import { EditModal } from "@/components/EditModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -14,12 +25,10 @@ import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 import "@/styles/admin.css";
 
-
-
 const ColumnVisibilityModal = ({
   isOpen,
   onClose,
-  children
+  children,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -27,8 +36,14 @@ const ColumnVisibilityModal = ({
 }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={onClose}>
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-[425px] p-4" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[425px] rounded-lg bg-white p-4 shadow-xl dark:bg-gray-800"
+        onClick={(e) => e.stopPropagation()}
+      >
         {children}
       </div>
     </div>
@@ -51,8 +66,6 @@ interface AGGridTableProps {
   batches?: any[];
   gridOptions?: any;
   getRowNodeId?: (data: any) => string;
-
-
 }
 
 interface RowData {
@@ -78,16 +91,20 @@ export function AGGridTable({
   showSearch = true,
   showFilters = true,
   height = "400px",
-  batches = []
+  batches = [],
 }: AGGridTableProps) {
   // Refs and State
   const gridRef = useRef<AgGridReact>(null);
   const gridApiRef = useRef<GridApi | null>(null);
-  const [selectedRowData, setSelectedRowData] = useState<RowData[] | null>(null);
+  const [selectedRowData, setSelectedRowData] = useState<RowData[] | null>(
+    null
+  );
   const [viewData, setViewData] = useState<RowData | null>(null);
   const [currentViewIndex, setCurrentViewIndex] = useState<number>(0);
   const [editData, setEditData] = useState<RowData | null>(null);
-  const [deleteConfirmData, setDeleteConfirmData] = useState<RowData | null>(null);
+  const [deleteConfirmData, setDeleteConfirmData] = useState<RowData | null>(
+    null
+  );
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
   const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
@@ -99,7 +116,10 @@ export function AGGridTable({
     };
     checkDarkMode();
     const observer = new MutationObserver(checkDarkMode);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
     return () => observer.disconnect();
   }, []);
 
@@ -120,28 +140,32 @@ export function AGGridTable({
   // Save column visibility
   useEffect(() => {
     if (title) {
-      localStorage.setItem(`hiddenColumns-${title}`, JSON.stringify(hiddenColumns));
+      localStorage.setItem(
+        `hiddenColumns-${title}`,
+        JSON.stringify(hiddenColumns)
+      );
     }
   }, [hiddenColumns, title]);
 
-
   const visibleColumnDefs = useMemo(() => {
-    return initialColumnDefs.filter(col => {
+    return initialColumnDefs.filter((col) => {
       if (!col.field) return true;
       return !hiddenColumns.includes(col.field);
     });
   }, [initialColumnDefs, hiddenColumns]);
 
-
   const onGridReady = useCallback((params: GridReadyEvent) => {
     gridApiRef.current = params.api;
   }, []);
 
-  const onRowClickedHandler = useCallback((event: any) => {
-    if (onRowClicked) {
-      onRowClicked(event.data);
-    }
-  }, [onRowClicked]);
+  const onRowClickedHandler = useCallback(
+    (event: any) => {
+      if (onRowClicked) {
+        onRowClicked(event.data);
+      }
+    },
+    [onRowClicked]
+  );
 
   const handleRowSelection = useCallback(() => {
     if (gridApiRef.current) {
@@ -210,10 +234,13 @@ export function AGGridTable({
   const confirmDelete = useCallback(() => {
     if (deleteConfirmData && onRowDeleted) {
       if (deleteConfirmData.leadid) onRowDeleted(deleteConfirmData.leadid);
-      else if (deleteConfirmData.candidateid) onRowDeleted(deleteConfirmData.candidateid);
+      else if (deleteConfirmData.candidateid)
+        onRowDeleted(deleteConfirmData.candidateid);
       else if (deleteConfirmData.id) onRowDeleted(deleteConfirmData.id);
-      else if (deleteConfirmData.batchid) onRowDeleted(deleteConfirmData.batchid);
-      else if (deleteConfirmData.sessionid) onRowDeleted(deleteConfirmData.sessionid);
+      else if (deleteConfirmData.batchid)
+        onRowDeleted(deleteConfirmData.batchid);
+      else if (deleteConfirmData.sessionid)
+        onRowDeleted(deleteConfirmData.sessionid);
 
       setSelectedRowData(null);
       setDeleteConfirmData(null);
@@ -227,11 +254,13 @@ export function AGGridTable({
       gridRef.current.api.applyTransaction({ update: [updatedData] });
     }
 
-    if (onRowUpdated) onRowUpdated(updatedData);
+      if (onRowUpdated) onRowUpdated(updatedData);
 
-    setEditData(null);
-    setSelectedRowData(null);
-  }, [onRowUpdated]);
+      setEditData(null);
+      setSelectedRowData(null);
+    },
+    [onRowUpdated]
+  );
 
   const onCellValueChanged = useCallback((event: CellValueChangedEvent) => {
  
@@ -239,8 +268,10 @@ export function AGGridTable({
       gridRef.current.api.applyTransaction({ update: [event.data] });
     }
 
-    if (onRowUpdated) onRowUpdated(event.data);
-  }, [onRowUpdated]);
+      if (onRowUpdated) onRowUpdated(event.data);
+    },
+    [onRowUpdated]
+  );
   const handleDownload = useCallback(() => {
     if (gridApiRef.current) {
       gridApiRef.current.exportDataAsCsv({
@@ -249,13 +280,14 @@ export function AGGridTable({
     }
   }, [title]);
 
-
-  const toggleColumnVisibility = useCallback((field: string, isVisible: boolean) => {
-    setHiddenColumns(prev => isVisible
-      ? prev.filter(col => col !== field)
-      : [...prev, field]
-    );
-  }, []);
+  const toggleColumnVisibility = useCallback(
+    (field: string, isVisible: boolean) => {
+      setHiddenColumns((prev) =>
+        isVisible ? prev.filter((col) => col !== field) : [...prev, field]
+      );
+    },
+    []
+  );
 
   const resetColumns = useCallback(() => {
     setHiddenColumns([]);
@@ -266,16 +298,14 @@ export function AGGridTable({
   }, []);
 
   return (
-    <div className="mx-auto space-y-4 w-full max-w-7xl flex-row-reverse">
-
-      <div className="flex items-center justify-between justify-end">
+    <div className="mx-auto w-full max-w-7xl flex-row-reverse space-y-4">
+      <div className="flex items-center justify-end justify-between">
         {title && (
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {title}
           </h3>
         )}
-        <div className="flex items-center space-x-2  ml-auto">
-
+        <div className="ml-auto flex items-center  space-x-2">
           <Button
             variant="outline"
             size="sm"
@@ -330,7 +360,9 @@ export function AGGridTable({
 
       <div className="flex justify-center">
         <div
-          className={`ag-theme-alpine ${isDarkMode ? "ag-grid-dark-mode" : ""} rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm w-full`}
+          className={`ag-theme-alpine ${
+            isDarkMode ? "ag-grid-dark-mode" : ""
+          } w-full rounded-lg border border-gray-200 shadow-sm dark:border-gray-700`}
           style={{ height: "calc(100vh - 260px)", minHeight: "400px" }}
         >
           <AgGridReact
@@ -371,7 +403,7 @@ export function AGGridTable({
         onClose={() => setIsColumnModalOpen(false)}
       >
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
+          <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Column Visibility</h3>
             <Button
               variant="ghost"
@@ -382,26 +414,29 @@ export function AGGridTable({
               Reset All
             </Button>
           </div>
-          <div className="grid grid-cols-2 gap-2 max-h-[400px] overflow-y-auto pr-2">
-            {initialColumnDefs.map((col) => (
-              col.field && (
-                <div key={col.field} className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id={`col-${col.field}`}
-                    checked={!hiddenColumns.includes(col.field)}
-                    onChange={(e) => toggleColumnVisibility(col.field, e.target.checked)}
-                    className="h-4 w-4"
-                  />
-                  <label
-                    htmlFor={`col-${col.field}`}
-                    className="text-sm font-medium"
-                  >
-                    {col.headerName || col.field}
-                  </label>
-                </div>
-              )
-            ))}
+          <div className="grid max-h-[400px] grid-cols-2 gap-2 overflow-y-auto pr-2">
+            {initialColumnDefs.map(
+              (col) =>
+                col.field && (
+                  <div key={col.field} className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id={`col-${col.field}`}
+                      checked={!hiddenColumns.includes(col.field)}
+                      onChange={(e) =>
+                        toggleColumnVisibility(col.field, e.target.checked)
+                      }
+                      className="h-4 w-4"
+                    />
+                    <label
+                      htmlFor={`col-${col.field}`}
+                      className="text-sm font-medium"
+                    >
+                      {col.headerName || col.field}
+                    </label>
+                  </div>
+                )
+            )}
           </div>
           <div className="flex justify-end pt-4">
             <Button
@@ -441,9 +476,13 @@ export function AGGridTable({
           onClose={() => setDeleteConfirmData(null)}
           onConfirm={confirmDelete}
           title="Delete Record"
-          message={`Are you sure you want to delete this record?${deleteConfirmData.fullName || deleteConfirmData.company
-            ? `\n\nRecord: ${deleteConfirmData.fullName || deleteConfirmData.company}`
-            : ""}`}
+          message={`Are you sure you want to delete this record?${
+            deleteConfirmData.fullName || deleteConfirmData.company
+              ? `\n\nRecord: ${
+                  deleteConfirmData.fullName || deleteConfirmData.company
+                }`
+              : ""
+          }`}
           confirmText="Delete"
           cancelText="Cancel"
         />
@@ -453,4 +492,3 @@ export function AGGridTable({
 }
 
 export default AGGridTable;
-
