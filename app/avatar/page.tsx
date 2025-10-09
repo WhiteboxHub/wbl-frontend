@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import {
   Users,Layers3,CalendarDays,GraduationCap,UserPlus,CalendarPlus,PieChart as PieChartIcon,Wallet,Banknote,TrendingUp,Briefcase,Award,CheckCircle2,Clock,Mic,BarChart2,
-  ClipboardList,Percent,XCircle,Target,CakeIcon,PiggyBank,Handshake,Trophy,
+  ClipboardList,XCircle,Target,CakeIcon,PiggyBank,Handshake,Trophy,NotebookIcon,Pen,PencilOff,
+  PenIcon,
 } from "lucide-react";
 import { EnhancedMetricCard } from "@/components/EnhancedMetricCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin_ui/card";
@@ -11,6 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/admin_ui/
 import {
   PieChart,Pie,Cell,ResponsiveContainer,BarChart,Bar,XAxis,YAxis,Tooltip,CartesianGrid,Legend
 } from "recharts";
+import axios from "axios";
+
 
 function formatDateFromDB(dateStr: string | null | undefined) {
   if (!dateStr) return "";
@@ -147,7 +150,12 @@ interface CandidateInterviewPerformance {
   total_interviews: number;
   success_count: number;
 }
-
+interface PreparationMetrics {
+  total_preparation_candidates: number;
+  preparation_candidates: number;
+  active_candidates: number;
+  inactive_candidates: number;
+}
 
 // Hook for animated counters
 function useCounter(target: number, duration = 1000) {
@@ -180,8 +188,11 @@ export default function Index() {
     today: [],
     upcoming: [],
   });
+  const [preparationMetrics, setPreparationMetrics] = useState<PreparationMetrics | null>(null);
+
 const [leadMetrics, setLeadMetrics] = useState<LeadMetrics | null>(null);
-const [activeTab, setActiveTab] = useState("leads");
+const [activeTab, setActiveTab] = useState("batch");
+
 
 useEffect(() => {
   const fetchInterviewPerformance = async () => {
@@ -286,6 +297,27 @@ useEffect(() => {
     fetchData();
   }, []);
 
+
+useEffect(() => {
+  const fetchPreparationMetrics = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+
+      const res = await axios.get(`${API_BASE_URL}/candidate/preparation/metrics`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setPreparationMetrics(res.data);
+    } catch (error) {
+      console.error("Error fetching preparation metrics:", error);
+    }
+  };
+
+  fetchPreparationMetrics();
+}, []);
+
+
   // Animated counters
   const enrolledCandidates = useCounter(metrics?.batch_metrics?.enrolled_candidates_current || 0);
   const totalCandidates = useCounter(metrics?.batch_metrics?.total_candidates || 0);
@@ -302,6 +334,9 @@ useEffect(() => {
   const open_leads =  useCounter(leadMetrics?.open_leads || 0);
   const closed_leads =  useCounter(leadMetrics?.closed_leads || 0);
   const future_leads =  useCounter(leadMetrics?.future_leads || 0);
+  const total_preparation_candidates =  useCounter(preparationMetrics?.total_preparation_candidates || 0);
+  const active_candidates =  useCounter(preparationMetrics?.active_candidates || 0);
+  const inactive_candidates =  useCounter(preparationMetrics?.inactive_candidates || 0);
   const currentDate = new Date();
   const currentMonth = currentDate.toLocaleString("default", { month: "long" });
   const currentYear = currentDate.getFullYear();
@@ -338,9 +373,10 @@ useEffect(() => {
   return (
     <div className="mx-auto max-w-screen-2xl space-y-6 p-4">
       <Tabs defaultValue="batch" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="border-2 border-gray-200 rounded-xl bg-gradient-to-br from-blue-50/50 via-white to-purple-50/50 p-2 shadow-sm">
-          <TabsTrigger value="leads" className="data-[state=active]:bg-sky-100 data-[state=active]:text-teal-800">Leads</TabsTrigger>
+        <TabsList className="border-2 border-gray-200 rounded-xl bg-gradient-to-br from-blue-50/50 via-white to-purple-50/50 p-2 shadow-sm">          
           <TabsTrigger value="batch" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800">Batch</TabsTrigger>
+          <TabsTrigger value="leads" className="data-[state=active]:bg-teal-100 data-[state=active]:text-teal-800">Leads</TabsTrigger>
+          <TabsTrigger value="preparation" className="data-[state=active]:bg-pink-100 data-[state=active]:text-pink-800">Preparation</TabsTrigger>
           <TabsTrigger value="interview" className="data-[state=active]:bg-orange-100 data-[state=active]:text-orange-800">Interview</TabsTrigger>
           <TabsTrigger value="marketing" className="data-[state=active]:bg-pink-100 data-[state=active]:text-pink-800">Marketing</TabsTrigger>
           <TabsTrigger value="placement" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-800">Placement</TabsTrigger> 
@@ -827,6 +863,30 @@ useEffect(() => {
             </Card>
           </div>
         </TabsContent>
+        {/* 7.Preparation */}
+        <TabsContent value="preparation">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+            <EnhancedMetricCard
+              title="Total Preparation Candidates"
+              value={total_preparation_candidates}
+              icon={<NotebookIcon className="size-4" />}
+              variant="pink"
+            />
+            <EnhancedMetricCard
+              title="Active Candidates"
+              value={active_candidates}
+              icon={<PenIcon className="size-4" />}
+              variant="pink"
+            />
+            <EnhancedMetricCard
+              title="Inactive Candidates"
+              value={inactive_candidates}
+              icon={<PencilOff className="size-4" />}
+              variant="pink"
+            />
+          </div>
+        </TabsContent>
+
       </Tabs>
     </div>
   );
