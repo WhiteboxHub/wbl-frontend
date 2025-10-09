@@ -66,12 +66,21 @@ export default function CandidatesMarketingPage() {
     setFilteredCandidates(filterCandidates(searchTerm));
   }, [searchTerm, filterCandidates]);
 
-  // Status badge renderer
-  const StatusRenderer = (params: any) => (
-    <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-      {params.value?.toUpperCase()}
-    </Badge>
-  );
+
+  const StatusRenderer = (params: any) => {
+    const status = params.value?.toLowerCase();
+
+    let colorClass = "bg-gray-100 text-gray-700"; 
+    if (status === "active") colorClass = "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+    else if (status === "inactive") colorClass = "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+    // else if (status === "pending") colorClass = "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
+
+    return (
+      <Badge className={colorClass}>
+        {params.value ? params.value.toUpperCase() : "N/A"}
+      </Badge>
+    );
+  };
 
   // Resume renderer
   const ResumeRenderer = (params: any) => (
@@ -160,7 +169,7 @@ export default function CandidatesMarketingPage() {
         field: "candidate_name",
         headerName: "Full Name",
         sortable: true,
-        minWidth: 150,
+        width: 200,
         editable: true,
         cellRenderer: CandidateNameRenderer,
         valueGetter: (params) => params.data.candidate?.full_name || "N/A",
@@ -169,52 +178,52 @@ export default function CandidatesMarketingPage() {
         field: "start_date",
         headerName: "Start Date",
         sortable: true,
-        maxWidth: 120,
+        width: 120,
         editable: true,
       },
       {
         field: "status",
         headerName: "Status",
         cellRenderer: StatusRenderer,
-        maxWidth: 110,
+        width: 120,
         editable: true,
       },
       {
         field: "instructor1_name",
         headerName: "Instructor 1",
-        minWidth: 150,
+        width: 190,
         editable: false,
       },
       {
         field: "instructor2_name",
         headerName: "Instructor 2",
-        minWidth: 150,
+        width: 190,
         editable: false,
       },
       {
         field: "instructor3_name",
         headerName: "Instructor 3",
-        minWidth: 150,
+        width: 190,
         editable: false,
       },
       {
         field: "marketing_manager_obj",
         headerName: "Marketing Manager",
-        minWidth: 150,
+        width: 150,
         editable: false,
         valueGetter: (params) =>
           params.data.marketing_manager_obj?.name || "N/A",
       },
-      { field: "email", headerName: "Email", minWidth: 150, editable: true },
-      { field: "password", headerName: "Password", minWidth: 150, editable: true },
+      { field: "email", headerName: "Email", width: 200, editable: true },
+      { field: "password", headerName: "Password", width: 150, editable: true },
       {
         field: "google_voice_number",
         headerName: "Google Voice Number",
-        minWidth: 150,
+        width: 150,
         editable: true,
       },
-      { field: "rating", headerName: "Rating", maxWidth: 100, editable: true },
-      { field: "priority", headerName: "Priority", maxWidth: 100, editable: true },
+      { field: "rating", headerName: "Rating", width: 100, editable: true },
+      { field: "priority", headerName: "Priority", width: 100, editable: true },
       { field: "move_to_placement", headerName: "Move to Placement", width: 190, sortable: true,filter: 'agSetColumnFilter', cellRenderer: (params: any) => (
           <span>
             {params.value ? "Yes" : "No"}
@@ -238,7 +247,7 @@ export default function CandidatesMarketingPage() {
       {
         field: "candidate_resume",
         headerName: "Resume",
-        minWidth: 200,
+        width: 200,
         cellRenderer: ResumeRenderer,
       },
     ],
@@ -255,22 +264,26 @@ export default function CandidatesMarketingPage() {
 
     try {
       const res = await axios.put(
-        `${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing/${updatedRow.candidate_id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing/${updatedRow.id}`,
         updatedRow
       );
       const updatedRecord = res.data;
 
 
-      setFilteredCandidates((prev) =>
-        prev.map((row) =>
-          row.candidate_id === updatedRow.candidate_id ? updatedRecord : row
-        )
-      );
-      setAllCandidates((prev) =>
-        prev.map((row) =>
-          row.candidate_id === updatedRow.candidate_id ? updatedRecord : row
-        )
-      );
+    setFilteredCandidates((prev) =>
+      prev.map((row) =>
+        row.candidate_id === updatedRow.candidate_id
+          ? { ...row, ...updatedRecord } 
+          : row
+      )
+    );
+    setAllCandidates((prev) =>
+      prev.map((row) =>
+        row.candidate_id === updatedRow.candidate_id
+          ? { ...row, ...updatedRecord } 
+          : row
+      )
+    );
 
       toast.success("Candidate updated successfully!");
     } catch (err) {

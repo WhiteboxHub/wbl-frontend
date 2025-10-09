@@ -218,6 +218,7 @@ const labelOverrides: Record<string, string> = {
   emergcontactemail: "Contact Email",
   emergcontactaddrs: "Contact Address",
   course_name: "Course Name",
+  marketing_manager_obj: "Marketing Manager",
   subject_name: "Subject Name",
   recording_link: "Recording Link",
   transcript: "Transcript",
@@ -421,68 +422,6 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
           </div>
         )}
 
-        {/* Navigation Footer */}
-        {hasNavigation && (
-          <div className="sticky bottom-0 z-10 bg-white dark:bg-gray-900 px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-            <button
-              onClick={handlePrevious}
-              disabled={isFirstContact}
-              className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                isFirstContact
-                  ? "bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600"
-                  : "bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-              }`}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4 mr-2"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
-              Previous
-            </button>
-
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                {validIndex + 1} of {dataArray.length}
-              </span>
-            </div>
-
-            <button
-              onClick={handleNext}
-              disabled={isLastContact}
-              className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                isLastContact
-                  ? "bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600"
-                  : "bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-              }`}
-            >
-              Next
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4 ml-2"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </button>
-          </div>
-        )}
 
         {/* Navigation Footer */}
         {hasNavigation && (

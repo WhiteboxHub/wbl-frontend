@@ -50,8 +50,22 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function(){
+                function show(){ try{ document.body.style.visibility='visible'; }catch(e){} }
+                if (document.readyState === 'complete') { show(); }
+                else { window.addEventListener('load', show); }
+              })();
+            `,
+          }}
+        />
+        <noscript>
+          <style>{`body{visibility:visible !important}`}</style>
+        </noscript>
       </head>
-      <body className="dark:bg-black">
+      <body className="dark:bg-black" style={{ visibility: "hidden" }}>
         <SessionProvider>
           <AuthProvider>
             <Providers>
