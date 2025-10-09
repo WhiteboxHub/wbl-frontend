@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useEffect, useState } from "react";
 import { ColDef } from "ag-grid-community";
@@ -54,41 +53,37 @@ export default function EmployeesPage() {
     notes: "",
     aadhaar: "",
   };
-const token = localStorage.getItem("token");
-const fetchEmployees = async () => {
-  try {
-    setLoading(true);
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/employees`,
-      {
+  const token = localStorage.getItem("token");
+  const fetchEmployees = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/employees`, {
         headers: {
-          Authorization: `Bearer ${token}`, 
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-      }
-    );
+      });
 
-    if (!res.ok) throw new Error("Failed to fetch employees");
+      if (!res.ok) throw new Error("Failed to fetch employees");
 
-    const rawData = await res.json();
-    const mappedData = rawData.map((emp: any) => ({
-      ...emp,
-      full_name: emp.name,
-    }));
+      const rawData = await res.json();
+      const mappedData = rawData.map((emp: any) => ({
+        ...emp,
+        full_name: emp.name,
+      }));
 
-    setEmployees(mappedData);
-    setFilteredEmployees(mappedData);
-  } catch (e: any) {
-    setError(e.message);
-  } finally {
-    setLoading(false);
-  }
-};
-
+      setEmployees(mappedData);
+      setFilteredEmployees(mappedData);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchEmployees();
-    setIsLoading(true)
+    setIsLoading(true);
   }, []);
 
   useEffect(() => {
@@ -98,7 +93,9 @@ const fetchEmployees = async () => {
       const term = searchTerm.toLowerCase();
       const filtered = employees.filter((emp) =>
         ["name", "email", "phone"].some((field) =>
-          String(emp[field] || "").toLowerCase().includes(term)
+          String(emp[field] || "")
+            .toLowerCase()
+            .includes(term)
         )
       );
       setFilteredEmployees(filtered);
@@ -129,7 +126,9 @@ const fetchEmployees = async () => {
       );
       setFilteredEmployees((prevEmployees) =>
         prevEmployees.map((employee) =>
-          employee.id === updatedRow.id ? { ...employee, ...updatedRow } : employee
+          employee.id === updatedRow.id
+            ? { ...employee, ...updatedRow }
+            : employee
         )
       );
     } catch (error) {
@@ -156,36 +155,40 @@ const fetchEmployees = async () => {
     setShowEmployeeForm(false);
   };
 
-  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleFormChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
+  ) => {
     const { name, value } = e.target;
-     // Validation for "Full Name" field
-  if (name === "name") {
-    const regex = /^[A-Za-z. ]*$/; 
-    if (!regex.test(value)) {
-      return; 
+    // Validation for "Full Name" field
+    if (name === "name") {
+      const regex = /^[A-Za-z. ]*$/;
+      if (!regex.test(value)) {
+        return;
+      }
     }
-  }
-  // Validation for "Full Name"
-  if (name === "name") {
-    const regex = /^[A-Za-z. ]*$/; 
-    if (!regex.test(value)) return;
-  }
+    // Validation for "Full Name"
+    if (name === "name") {
+      const regex = /^[A-Za-z. ]*$/;
+      if (!regex.test(value)) return;
+    }
 
-  // Validation for "Phone"
-  if (name === "phone" || name === "aadhaar") {
-    const regex = /^[0-9]*$/; 
-    if (!regex.test(value)) return;
-  }
-  // Validation for "Address"
-  if (name === "address") {
-    const regex = /^[A-Za-z0-9, ]*$/; 
-    if (!regex.test(value)) return;
-  }
-   // Validation for "State"
-  if (name === "state") {
-    const regex = /^[A-Za-z ]*$/; 
-    if (!regex.test(value)) return;
-  }
+    // Validation for "Phone"
+    if (name === "phone" || name === "aadhaar") {
+      const regex = /^[0-9]*$/;
+      if (!regex.test(value)) return;
+    }
+    // Validation for "Address"
+    if (name === "address") {
+      const regex = /^[A-Za-z0-9, ]*$/;
+      if (!regex.test(value)) return;
+    }
+    // Validation for "State"
+    if (name === "state") {
+      const regex = /^[A-Za-z ]*$/;
+      if (!regex.test(value)) return;
+    }
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -322,21 +325,21 @@ const fetchEmployees = async () => {
       editable: true,
       onCellValueChanged: (params) => handleRowUpdated(params.data),
     },
-        {
-            field: "notes",
-            headerName: "Notes",
-            width: 300,
-            sortable: true,
-            cellRenderer: (params: any) => {
-              if (!params.value) return "";
-              return (
-                <div
-                  className="prose prose-sm max-w-none dark:prose-invert"
-                  dangerouslySetInnerHTML={{ __html: params.value }}
-                />
-              );
-            },
-          },
+    {
+      field: "notes",
+      headerName: "Notes",
+      width: 300,
+      sortable: true,
+      cellRenderer: (params: any) => {
+        if (!params.value) return "";
+        return (
+          <div
+            className="prose prose-sm dark:prose-invert max-w-none"
+            dangerouslySetInnerHTML={{ __html: params.value }}
+          />
+        );
+      },
+    },
     {
       headerName: "Aadhar Number",
       field: "aadhaar",
@@ -347,22 +350,45 @@ const fetchEmployees = async () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold">Employee Management</h1>
-          <p className="text-gray-600">Browse, search, and manage employees.</p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        {/* Left side: Title and description + search */}
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            Employee Management
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Browse, search, and manage employees.
+          </p>
+
+          {/* Search input */}
+          <div className="mt-2 sm:mt-0 sm:max-w-md">
+            <Label
+              htmlFor="search"
+              className="text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              {/* Search Employees */}
+            </Label>
+        
+            {searchTerm && (
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {filteredEmployees.length} result(s) found
+              </p>
+            )}
+          </div>
         </div>
-        <button
-          onClick={handleOpenEmployeeForm}
-          className="flex items-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-        >
-          <Plus className="mr-2 h-4 w-4" /> Add Employee
-        </button>
+
+        {/* Right side: Add Employee Button */}
+        <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
+          <button
+            onClick={handleOpenEmployeeForm}
+            className="flex items-center whitespace-nowrap rounded-lg bg-green-600 px-3 py-2 text-white hover:bg-green-700"
+          >
+            <Plus className="mr-2 h-4 w-4" /> Add Employee
+          </button>
+        </div>
       </div>
 
-   
       <div className="max-w-md">
-      
         <div className="relative mt-1">
           <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
           <Input
@@ -374,15 +400,18 @@ const fetchEmployees = async () => {
           />
         </div>
         {searchTerm && (
-          <p className="text-sm mt-1">{filteredEmployees.length} result(s) found</p>
+          <p className="mt-1 text-sm">
+            {filteredEmployees.length} result(s) found
+          </p>
         )}
       </div>
 
-      
       {showEmployeeForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
           <div className="relative w-full max-w-2xl rounded-xl bg-white p-4 shadow-md">
-            <h2 className="mb-4 text-center text-xl font-semibold">New Employee Form</h2>
+            <h2 className="mb-4 text-center text-xl font-semibold">
+              New Employee Form
+            </h2>
             <form
               onSubmit={handleFormSubmit}
               className="grid grid-cols-1 gap-2 md:grid-cols-2"
@@ -486,7 +515,6 @@ const fetchEmployees = async () => {
         </div>
       )}
 
-      
       {loading ? (
         <p className="text-gray-500">Loading employees...</p>
       ) : error ? (
@@ -510,4 +538,3 @@ const fetchEmployees = async () => {
     </div>
   );
 }
-
