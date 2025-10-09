@@ -1,18 +1,26 @@
 "use client";
-import React, { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import React, {
+  useEffect,
+  useState,
+  useMemo,
+  useRef,
+  useCallback,
+} from "react";
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/admin_ui/button";
+import { SearchIcon, ChevronLeft, ChevronRight, UserPlus } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import dynamic from "next/dynamic";
 import { toast, Toaster } from "sonner";
 import axios from "axios";
 
-
-const AGGridTable = dynamic(() => import("@/components/AGGridTable"), { ssr: false });
+const AGGridTable = dynamic(() => import("@/components/AGGridTable"), {
+  ssr: false,
+});
 
 const MovedToVendorRenderer = ({ value }: { value?: boolean }) => {
   const status = value ? "Yes" : "No";
@@ -34,7 +42,7 @@ const EmailRenderer = ({ value }: { value?: string }) => {
   return (
     <a
       href={`mailto:${value}`}
-      className="text-blue-600 dark:text-blue-400 hover:underline"
+      className="text-blue-600 hover:underline dark:text-blue-400"
     >
       {value}
     </a>
@@ -46,7 +54,7 @@ const PhoneRenderer = ({ value }: { value?: string }) => {
   return (
     <a
       href={`tel:${value}`}
-      className="text-blue-600 dark:text-blue-400 hover:underline"
+      className="text-blue-600 hover:underline dark:text-blue-400"
     >
       {value}
     </a>
@@ -59,7 +67,8 @@ export default function VendorContactsGrid() {
   const [contacts, setContacts] = useState<any[]>([]);
   const [filteredContacts, setFilteredContacts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isLoading, setIsLoading] = useState(true); 
+  const [isLoading, setIsLoading] = useState(true);
+  const [movingToVendor, setMovingToVendor] = useState(false);
 
   const apiEndpoint = useMemo(
     () => `${process.env.NEXT_PUBLIC_API_URL}/vendor_contact_extracts`,
@@ -69,15 +78,14 @@ export default function VendorContactsGrid() {
   const fetchContacts = useCallback(async () => {
     try {
       setLoading(true);
-      // const res = await axios.get(apiEndpoint);
       const token = localStorage.getItem("token");
 
-        const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/vendor_contact_extracts`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/vendor_contact_extracts`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
 
       const data = res.data || [];
       setContacts(data);
@@ -102,7 +110,7 @@ export default function VendorContactsGrid() {
               c.email?.toLowerCase().includes(term) ||
               c.phone?.toLowerCase().includes(term) ||
               c.linkedin_id?.toLowerCase().includes(term) ||
-              c.internal_linkedin_id?.toLowerCase().includes(term) || 
+              c.internal_linkedin_id?.toLowerCase().includes(term) ||
               c.company_name?.toLowerCase().includes(term) ||
               c.location?.toLowerCase().includes(term)
           )
@@ -137,58 +145,116 @@ export default function VendorContactsGrid() {
     }
   };
 
+  const handleMoveAllToVendor = async () => {
+    try {
+      setMovingToVendor(true);
+      const token = localStorage.getItem("token");
+
+      const response = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/vendor_contact/move_to_vendor`,
+        { contact_ids: null },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const result = response.data;
+
+      if (result.inserted > 0) {
+        toast.success(`Moved ${result.inserted} contacts to vendor`);
+      }
+
+      if (result.inserted === 0 && result.count === 0) {
+        toast.info("No contacts to move");
+      }
+
+      await fetchContacts();
+    } catch (err: any) {
+      toast.error(
+        err.response?.data?.detail ||
+          err.message ||
+          "Failed to move contacts to vendor"
+      );
+    } finally {
+      setMovingToVendor(false);
+    }
+  };
+
   useEffect(() => {
     fetchContacts();
-    setIsLoading(true)
+    setIsLoading(true);
   }, [fetchContacts]);
 
-  const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
-    { field: "id", headerName: "ID", width: 100, pinned: "left" },
-    { field: "full_name", headerName: "Full Name", width: 180, editable: true },
-    {
-      field: "phone",
-      headerName: "Phone",
-      width: 150,
-      editable: true,
-      cellRenderer: PhoneRenderer,
-    },
-    {
-      field: "email",
-      headerName: "Email",
-      width: 200,
-      editable: true,
-      cellRenderer: EmailRenderer,
-    },
-    {
-      field: "extraction_date",
-      headerName: "Extraction Date",
-      width: 150,
-      valueFormatter: DateFormatter,
-      editable: true,
-    },
-    {
-      field: "moved_to_vendor",
-      headerName: "Moved To Vendor",
-      width: 150,
-      cellRenderer: MovedToVendorRenderer,
-    },
-    { field: "linkedin_id", headerName: "LinkedIn ID", width: 180, editable: true },
-    { field: "company_name", headerName: "Company Name", width: 200, editable: true },
-    { field: "source_email", headerName: "Source Email", width: 200, editable: true },
-    { field: "location", headerName: "Location", width: 150, editable: true },
-    {
-      field: "created_at",
-      headerName: "Created At",
-      width: 180,
-      valueFormatter: DateFormatter,
-    },
-    {
-      field: "internal_linkedin_id",
-      headerName: "Internal LinkedIn ID",
-      width: 200,
-      editable: true,
-    },
-  ], []);
+  const columnDefs: ColDef[] = useMemo<ColDef[]>(
+    () => [
+      { field: "id", headerName: "ID", width: 100, pinned: "left" },
+      {
+        field: "full_name",
+        headerName: "Full Name",
+        width: 180,
+        editable: true,
+      },
+      {
+        field: "phone",
+        headerName: "Phone",
+        width: 150,
+        editable: true,
+        cellRenderer: PhoneRenderer,
+      },
+      {
+        field: "email",
+        headerName: "Email",
+        width: 200,
+        editable: true,
+        cellRenderer: EmailRenderer,
+      },
+      {
+        field: "extraction_date",
+        headerName: "Extraction Date",
+        width: 150,
+        valueFormatter: DateFormatter,
+        editable: true,
+      },
+      {
+        field: "moved_to_vendor",
+        headerName: "Moved To Vendor",
+        width: 150,
+        cellRenderer: MovedToVendorRenderer,
+      },
+      {
+        field: "linkedin_id",
+        headerName: "LinkedIn ID",
+        width: 180,
+        editable: true,
+      },
+      {
+        field: "company_name",
+        headerName: "Company Name",
+        width: 200,
+        editable: true,
+      },
+      {
+        field: "source_email",
+        headerName: "Source Email",
+        width: 200,
+        editable: true,
+      },
+      { field: "location", headerName: "Location", width: 150, editable: true },
+      {
+        field: "created_at",
+        headerName: "Created At",
+        width: 180,
+        valueFormatter: DateFormatter,
+      },
+      {
+        field: "internal_linkedin_id",
+        headerName: "Internal LinkedIn ID",
+        width: 200,
+        editable: true,
+      },
+    ],
+    []
+  );
 
   const defaultColDef = useMemo(
     () => ({
@@ -201,43 +267,62 @@ export default function VendorContactsGrid() {
     []
   );
 
-
   return (
     <div className="space-y-6">
-      <Toaster position="top-center" />
+      <Toaster position="top-center" richColors />
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Vendor Contact Extracts
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Browse, search, and manage all vendor contacts.
-          </p>
+      {/* Header Section */}
+      <div className="space-y-4 md:space-y-0">
+        {/* Title */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              Vendor Contact Extracts
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              Browse, search, and manage all vendor contacts.
+            </p>
+          </div>
+        </div>
+
+        {/* Search + Button — responsive layout */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          {/* Search box */}
+          <div className="w-full sm:max-w-md">
+            <Label
+              htmlFor="search"
+              className="text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Search Contacts
+            </Label>
+            <div className="relative mt-1">
+              <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
+              <Input
+                id="search"
+                type="text"
+                placeholder="Search by name, email, company..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+
+          {/* Button */}
+          <div className="sm:w-auto">
+            <Button
+              onClick={handleMoveAllToVendor}
+              disabled={movingToVendor}
+              className="w-full bg-blue-600 text-white hover:bg-blue-700 sm:w-auto"
+            >
+              <UserPlus className="mr-2 h-4 w-4" />
+              {movingToVendor ? "Moving..." : "Move All to Vendor"}
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div className="max-w-md">
-        <Label
-          htmlFor="search"
-          className="text-sm font-medium text-gray-700 dark:text-gray-300"
-        >
-          Search Contacts
-        </Label>
-        <div className="relative mt-1">
-          <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            id="search"
-            type="text"
-            placeholder="Search by name, email, company..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-      </div>
-
-      <div className="flex justify-center w-full">
+      <div className="flex w-full justify-center">
         <div className="w-full max-w-7xl">
           <AGGridTable
             rowData={filteredContacts}
@@ -255,5 +340,3 @@ export default function VendorContactsGrid() {
     </div>
   );
 }
-
-

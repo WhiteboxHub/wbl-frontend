@@ -1108,6 +1108,7 @@ export default function CourseMaterialPage() {
     typeName: "Presentations",
     link: "",
     sortorder: "9999",
+    sortorder: "9999",
   });
 
   const fetchCourses = async () => {
@@ -1197,6 +1198,8 @@ export default function CourseMaterialPage() {
 
   // Search filter
   useEffect(() => {
+    const lower = searchTerm.trim().toLowerCase();
+    if (!lower) return setFilteredMaterials(materials);
     const lower = searchTerm.trim().toLowerCase();
     if (!lower) return setFilteredMaterials(materials);
 
@@ -1377,8 +1380,8 @@ export default function CourseMaterialPage() {
     }
   };
 
-  if (loading) return <p className="text-center mt-8">Loading...</p>;
-  if (error) return <p className="text-center mt-8 text-red-600">{error}</p>;
+  if (loading) return <p className="mt-8 text-center">Loading...</p>;
+  if (error) return <p className="mt-8 text-center text-red-600">{error}</p>;
 
   return (
     <div className="space-y-6">

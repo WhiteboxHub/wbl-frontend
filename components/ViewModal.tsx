@@ -10,7 +10,9 @@ import { Badge } from "@/components/admin_ui/badge";
 interface ViewModalProps {
   isOpen: boolean;
   onClose: () => void;
-  data: Record<string, any>;
+  data: Record<string, any>[] | Record<string, any>;
+  currentIndex?: number;
+  onNavigate?: (index: number) => void;
   title: string;
 }
 
@@ -35,6 +37,8 @@ const fieldSections: Record<string, string> = {
   Fundamentals: "Basic Information",
   AIML: "Basic Information",
   full_name: "Basic Information",
+  move_to_prep: "Basic Information",
+  move_to_mrkt: "Basic Information",
   email: "Basic Information",
   phone: "Basic Information",
   status: "Basic Information",
@@ -88,7 +92,10 @@ const fieldSections: Record<string, string> = {
   logincount: "Professional Information",
   course: "Professional Information",
   registereddate: "Professional Information",
-  company: "Basic Information",
+  company: "Professional Information",
+  linkedin: "Contact Information",
+  github: "Contact Information",
+  resume: "Contact Information",
   client_id: "Professional Information",
   client_name: "Professional Information",
   interview_time: "Professional Information",
@@ -181,6 +188,7 @@ const labelOverrides: Record<string, string> = {
   candidate_email: "Candidate Email",
   uname: "Email",
   fullname: "Full Name",
+  url: "Job URL",
   ssn: "SSN",
   dob: "Date of Birth",
   phone: "Phone",
@@ -201,6 +209,7 @@ const labelOverrides: Record<string, string> = {
   enddate: "End Date",
   startdate: "Start Date",
   sessiondate: "Session Date",
+  move_to_mrkt: "Move to Marketing",
   lastmoddatetime: "Last Mod DateTime",
   registereddate: "Registered Date",
   massemail_email_sent: "Massemail Email Sent",
@@ -212,10 +221,10 @@ const labelOverrides: Record<string, string> = {
   emergcontactemail: "Contact Email",
   emergcontactaddrs: "Contact Address",
   course_name: "Course Name",
+  marketing_manager_obj: "Marketing Manager",
   subject_name: "Subject Name",
   recording_link: "Recording Link",
   transcript: "Transcript",
-  url: "Job URL",
   backup_url: "Backup URL",
   cm_course: "Course Name",
   cm_subject: "Subject Name",
@@ -238,8 +247,33 @@ const dateFields = [
   "target_date_of_marketing",
 ];
 
-export function ViewModal({ isOpen, onClose, data, title }: ViewModalProps) {
+export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate, title }: ViewModalProps) {
   if (!data) return null;
+
+  // Handle both single object and array of objects
+  const dataArray = Array.isArray(data) ? data : [data];
+  const hasNavigation = Array.isArray(data) && data.length > 1 && onNavigate;
+
+  // Validate currentIndex
+  const validIndex = Math.max(0, Math.min(currentIndex, dataArray.length - 1));
+  const currentData = dataArray[validIndex];
+
+  if (!currentData) return null;
+
+  const isFirstContact = validIndex === 0;
+  const isLastContact = validIndex === dataArray.length - 1;
+
+  const handlePrevious = () => {
+    if (!isFirstContact && onNavigate) {
+      onNavigate(validIndex - 1);
+    }
+  };
+
+  const handleNext = () => {
+    if (!isLastContact && onNavigate) {
+      onNavigate(validIndex + 1);
+    }
+  };
 
   const getStatusColor = (status: string | number | boolean | null | undefined): string => {
     let normalized: string;
@@ -282,7 +316,7 @@ export function ViewModal({ isOpen, onClose, data, title }: ViewModalProps) {
     if (["feepaid", "feedue", "salary0", "salary6", "salary12"].includes(lowerKey)) return <p>${Number(value).toLocaleString()}</p>;
     if (lowerKey.includes("rating")) return <p>{value} ⭐</p>;
     if (["notes", "task"].includes(lowerKey)) return <div dangerouslySetInnerHTML={{ __html: value }} />;
-    if (["recording_link", "transcript", "url","candidate_resume","backup_url"].includes(lowerKey)) {
+    if (["recording_link", "transcript", "url","candidate_resume","backup_url","linkedin","github","resume"].includes(lowerKey)) {
       return (
         <a
           href={value}
@@ -328,8 +362,7 @@ export function ViewModal({ isOpen, onClose, data, title }: ViewModalProps) {
     return flattened;
   };
 
-  const flattenedData = flattenData(data);
-
+  const flattenedData = flattenData(currentData);
   const sectionedFields: Record<string, { key: string; value: any }[]> = {
     "Basic Information": [],
     "Professional Information": [],
@@ -392,6 +425,70 @@ export function ViewModal({ isOpen, onClose, data, title }: ViewModalProps) {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+
+        {/* Navigation Footer */}
+        {hasNavigation && (
+          <div className="sticky bottom-0 z-10 bg-white dark:bg-gray-900 px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <button
+              onClick={handlePrevious}
+              disabled={isFirstContact}
+              className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                isFirstContact
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600"
+                  : "bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+              }`}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4 mr-2"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+              Previous
+            </button>
+
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                {validIndex + 1} of {dataArray.length}
+              </span>
+            </div>
+
+            <button
+              onClick={handleNext}
+              disabled={isLastContact}
+              className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                isLastContact
+                  ? "bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600"
+                  : "bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+              }`}
+            >
+              Next
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-4 w-4 ml-2"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </button>
           </div>
         )}
       </DialogContent>

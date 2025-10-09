@@ -219,11 +219,11 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                         </div>
                         <p className="text-blue-500 font-semibold">{interview.company}</p>
 
-                        {interview.url && (
+                        {/* {interview.url && (
                           <a href={interview.url} target="_blank" rel="noopener noreferrer" className="mt-1 block text-sm text-indigo-400 underline hover:text-indigo-600">
                             Open Interview URL
                           </a>
-                        )}
+                        )} */}
                       </div>
                     ))}
                   </div>
