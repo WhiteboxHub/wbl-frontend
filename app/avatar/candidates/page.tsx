@@ -734,13 +734,19 @@ export default function CandidatesPage() {
       )
     },
 
-    
-    {
-      field: "notes",
+  { field: "notes",
       headerName: "Notes",
-      width: 300,
-      sortable: true,
-      filter: 'agSetColumnFilter',
+      minWidth: 100,
+      editable: true,
+      cellRenderer: (params: any) => {
+        if (!params.value) return "";
+        return (
+          <div
+            className="prose prose-sm max-w-none dark:prose-invert"
+            dangerouslySetInnerHTML={{ __html: params.value }}
+          />
+        );
+      },
     },
     {
       field: "candidate_folder",
