@@ -66,12 +66,21 @@ export default function CandidatesMarketingPage() {
     setFilteredCandidates(filterCandidates(searchTerm));
   }, [searchTerm, filterCandidates]);
 
-  // Status badge renderer
-  const StatusRenderer = (params: any) => (
-    <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-      {params.value?.toUpperCase()}
-    </Badge>
-  );
+
+  const StatusRenderer = (params: any) => {
+    const status = params.value?.toLowerCase();
+
+    let colorClass = "bg-gray-100 text-gray-700"; 
+    if (status === "active") colorClass = "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+    else if (status === "inactive") colorClass = "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+    // else if (status === "pending") colorClass = "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
+
+    return (
+      <Badge className={colorClass}>
+        {params.value ? params.value.toUpperCase() : "N/A"}
+      </Badge>
+    );
+  };
 
   // Resume renderer
   const ResumeRenderer = (params: any) => (
@@ -176,7 +185,7 @@ export default function CandidatesMarketingPage() {
         field: "status",
         headerName: "Status",
         cellRenderer: StatusRenderer,
-        maxWidth: 110,
+        maxWidth: 120,
         editable: true,
       },
       {
@@ -255,22 +264,26 @@ export default function CandidatesMarketingPage() {
 
     try {
       const res = await axios.put(
-        `${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing/${updatedRow.candidate_id}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing/${updatedRow.id}`,
         updatedRow
       );
       const updatedRecord = res.data;
 
 
-      setFilteredCandidates((prev) =>
-        prev.map((row) =>
-          row.candidate_id === updatedRow.candidate_id ? updatedRecord : row
-        )
-      );
-      setAllCandidates((prev) =>
-        prev.map((row) =>
-          row.candidate_id === updatedRow.candidate_id ? updatedRecord : row
-        )
-      );
+    setFilteredCandidates((prev) =>
+      prev.map((row) =>
+        row.candidate_id === updatedRow.candidate_id
+          ? { ...row, ...updatedRecord } 
+          : row
+      )
+    );
+    setAllCandidates((prev) =>
+      prev.map((row) =>
+        row.candidate_id === updatedRow.candidate_id
+          ? { ...row, ...updatedRecord } 
+          : row
+      )
+    );
 
       toast.success("Candidate updated successfully!");
     } catch (err) {
