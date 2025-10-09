@@ -9,6 +9,9 @@ import { Label } from "@/components/admin_ui/label";
 import { Input } from "@/components/admin_ui/input";
 import { Textarea } from "@/components/admin_ui/textarea";
 import axios from "axios";
+import dynamic from "next/dynamic";
+const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
+import "react-quill/dist/quill.snow.css";
 
 interface Batch {
   batchid: number;
@@ -52,6 +55,8 @@ const fieldSections: Record<string, string> = {
   start_date: "Professional Information",
   batchname: "Basic Information",
   target_date_of_marketing: "Basic Information",
+  move_to_prep: "Basic Information",
+  move_to_placement: "Basic Information",
   linkedin_id: "Contact Information",
   enrolled_date: "Professional Information",
   startdate: "Professional Information",
@@ -60,6 +65,7 @@ const fieldSections: Record<string, string> = {
   linkedin_connected: "Professional Information",
   intro_email_sent: "Professional Information",
   intro_call: "Professional Information",
+  recording_link: "Professional Information",
   moved_to_vendor: "Professional Information",
   phone_number: "Basic Information",
   secondary_phone: "Contact Information",
@@ -82,16 +88,17 @@ const fieldSections: Record<string, string> = {
   google_voice_number: "Professional Information",
   dob: "Basic Information",
   contact: "Basic Information",
-  password: "Basic Information",
+  password: "Professional Information",
   secondaryemail: "Contact Information",
   ssn: "Professional Information",
-  priority: "Professional Information",
+  priority: "Basic Information",
   source: "Basic Information",
   subject: "Basic Information",
   title: "Basic Information",
   enrolleddate: "Basic Information",
   orientationdate: "Basic Information",
   promissory: "Basic Information",
+  move_to_mrkt: "Basic Information",
   lastlogin: "Professional Information",
   logincount: "Professional Information",
   course: "Professional Information",
@@ -112,7 +119,7 @@ const fieldSections: Record<string, string> = {
   workexperience: "Professional Information",
   faq: "Professional Information",
   callsmade: "Professional Information",
-  fee_paid: "Basic Information",
+  fee_paid: "Professional Information",
   feedue: "Professional Information",
   salary0: "Professional Information",
   salary6: "Professional Information",
@@ -131,6 +138,9 @@ const fieldSections: Record<string, string> = {
   massemail_email_sent: "Contact Information",
   massemail_unsubscribe: "Contact Information",
   moved_to_candidate: "Contact Information",
+  linkedin: "Contact Information",
+  github: "Contact Information",
+  resume: "Contact Information",
   link: "Professional Information",
   videoid: "Professional Information",
   address: "Professional Information",
@@ -150,8 +160,6 @@ const fieldSections: Record<string, string> = {
   notes: "Notes",
   course_name: "Professional Information",
   subject_name: "Basic Information",
-  assigned_date: "Professional Information",
-  employee_name: "Basic Information"
 };
 
 const workVisaStatusOptions = [
@@ -195,12 +203,33 @@ const vendorStatuses = [
 
 const enumOptions: Record<string, { value: string; label: string }[]> = {
   type: [
+    { value: "Client", label: "Client" },
+    { value: "third-party-vendor", label: "Third Party Vendor" },
+    { value: "implementation-partner", label: "Implementation Partner" },
+    { value: "sourcer", label: "Sourcer" },
+    { value: "contact-from-ip", label: "Contact from IP" },
+  ],
+  company_type: [
+    { value: "", label: "Select" },
     { value: "client", label: "Client" },
     { value: "third-party-vendor", label: "Third Party Vendor" },
     { value: "implementation-partner", label: "Implementation Partner" },
     { value: "sourcer", label: "Sourcer" },
     { value: "contact-from-ip", label: "Contact from IP" },
   ],
+  move_to_prep: [
+    { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
+  ],
+  move_to_mrkt: [
+    { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
+  ],
+  move_to_placement: [
+    { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
+  ],
+  
   linkedin_connected: [
     { value: "no", label: "No" },
     { value: "yes", label: "Yes" },
@@ -237,6 +266,31 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "false", label: "No" },
     { value: "true", label: "Yes" },
   ],
+rating: [
+  { value: "", label: "Select Rating" },
+  { value: "Good", label: "Good" },
+  { value: "Very Good", label: "Very Good" },
+  { value: "Average", label: "Average" },
+  { value: "Poor", label: "Poor" },
+  { value: "Need to Improve", label: "Need to Improve" },
+],
+tech_rating: [
+  { value: "", label: "Select Rating" },
+  { value: "Good", label: "Good" },
+  { value: "Very Good", label: "Very Good" },
+  { value: "Average", label: "Average" },
+  { value: "Poor", label: "Poor" },
+  { value: "Need to Improve", label: "Need to Improve" },
+],
+communication: [
+  { value: "", label: "Select" },
+  { value: "Very Good", label: "Very Good" },
+  { value: "Average", label: "Average" },
+  { value: "Good", label: "Good" },
+  { value: "Need to Improve", label: "Need to Improve" },
+  { value: "Poor", label: "Poor" },
+],
+
   status: [
     { value: "active", label: "Active" },
     { value: "inactive", label: "Inactive" },
@@ -262,10 +316,10 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "Prep Call", label: "Prep Call" },
   ],
   feedback:  [
-  { value: 'Pending', label: 'Pending' },
-  { value: 'Positive', label: 'Positive' },
-  { value: 'Negative', label: 'Negative' },
-],
+    { value: 'Pending', label: 'Pending' },
+    { value: 'Positive', label: 'Positive' },
+    { value: 'Negative', label: 'Negative' },
+  ],
 };
 
 const labelOverrides: Record<string, string> = {
@@ -334,8 +388,9 @@ const labelOverrides: Record<string, string> = {
   marketing_startdate: "Marketing Start Date",
   recruiterassesment: "Recruiter Assessment",
   statuschangedate: "Status Change Date",
+  move_to_mrkt: "Move to Marketing",
   aadhaar: "Aadhaar",
-  url: "URL",
+  url: "Job URL",
   feedback: "Feedback",
   entry_date: "Entry Date",
   closed_date: "Closed Date",
@@ -537,7 +592,6 @@ export function EditModal({
   Object.entries(formData).forEach(([key, value]) => {
     if (excludedFields.includes(key)) return;
     if (key === "id") return;
-    // Exclude "status" field for Preparation and Marketing pages
     if (key.toLowerCase() === "status" && (title.toLowerCase().includes("preparation") || title.toLowerCase().includes("marketing"))) {
       return;
     }
@@ -575,7 +629,6 @@ export function EditModal({
       <DialogContent
         className={`${modalWidthClass} max-h-[80vh] overflow-y-auto p-0`}
       >
-        {/* Header */}
         <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
             {title} - Edit Details
@@ -636,7 +689,6 @@ export function EditModal({
             onClose();
           }}
         >
-          {/* All Sections in Grid Layout */}
           <div className={`grid ${gridColsClass} gap-6 p-6`}>
             {visibleSections
               .filter((section) => section !== "Notes")
@@ -645,10 +697,8 @@ export function EditModal({
                   <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                     {section}
                   </h3>
-                  {/* Conditionally render instructor dropdowns only for Preparation page */}
                   {section === "Professional Information" && title.toLowerCase().includes("preparation") && (
                     <>
-                      {/* Instructor 1 Dropdown */}
                       <div className="space-y-1">
                         <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                           Instructor 1
@@ -672,7 +722,6 @@ export function EditModal({
                           ))}
                         </select>
                       </div>
-                      {/* Instructor 2 Dropdown */}
                       <div className="space-y-1">
                         <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                           Instructor 2
@@ -696,7 +745,6 @@ export function EditModal({
                           ))}
                         </select>
                       </div>
-                      {/* Instructor 3 Dropdown */}
                       <div className="space-y-1">
                         <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                           Instructor 3
@@ -722,7 +770,6 @@ export function EditModal({
                       </div>
                     </>
                   )}
-                  {/* Render other fields in the section */}
                   {sectionedFields[section]
                     .filter(
                       ({ key }) =>
@@ -770,8 +817,8 @@ export function EditModal({
                               </Label>
                               <Input
                                 value={formData[key] ?? ""}
-                                readOnly
-                                className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100 bg-gray-100 cursor-not-allowed"
+                                onChange={(e) => handleChange(key, e.target.value)}
+                                className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
                               />
                             </div>
                           );
@@ -982,17 +1029,27 @@ export function EditModal({
                     <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                       {toLabel(key)}
                     </Label>
-                    <Textarea
-                      value={formData[key] || ""}
-                      onChange={(e) => handleChange(key, e.target.value)}
-                      className="w-full"
+                    <ReactQuill
+                      theme="snow"
+                      value={formData.notes || ""}
+                      onChange={(content) => setFormData(prev => ({ ...prev, notes: content }))}
                     />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const timestamp = <p><strong>[${new Date().toLocaleString()}]</strong></p>;
+                        setFormData(prev => ({...prev,notes: (prev.notes || "") + <p><strong>[${new Date().toLocaleString()}]</strong></p>}));
+                      }}
+                    >
+                      + Add Timestamp
+
+                      </button>
                   </div>
                 ))}
               </div>
             </div>
           )}
-          {/* Footer */}
           <div className="flex justify-end px-6 pb-6">
             <button
               type="submit"

@@ -14,6 +14,7 @@ import { createPortal } from "react-dom";
 import axios from "axios";
 import Link from "next/link";
 
+
 type Candidate = {
   id: number;
   full_name?: string | null;
@@ -36,9 +37,10 @@ type Candidate = {
   emergcontactphone?: string | null;
   emergcontactaddrs?: string | null;
   fee_paid?: number | null;
-  notes?: string | null;
+  github_link?: string | null;
   batchid: number;
   candidate_folder?: string | null;
+  notes?: string | null;
 };
 
 type FormData = {
@@ -62,21 +64,21 @@ type FormData = {
   emergcontactphone: string;
   emergcontactaddrs: string;
   fee_paid: number;
-  notes: string;
+  github_link: string;
   batchid: number;
   candidate_folder: string;
+  notes: string;
 };
 
 type Batch = {
   batchid: number;
   batchname: string;
-  subject?: string;       
-  courseid?: number;      
-  orientationdate?: string; 
-  startdate?: string;      
-  enddate?: string;        
+  subject?: string;
+  courseid?: number;
+  orientationdate?: string;
+  startdate?: string;
+  enddate?: string;
 };
-
 
 const statusOptions = ["active", "discontinued", "break", "closed"];
 const workStatusOptions = [
@@ -107,11 +109,11 @@ const initialFormData: FormData = {
   emergcontactphone: "",
   emergcontactaddrs: "",
   fee_paid: 0,
-  notes: "",
+  github_link: "",
   batchid: 0,
   candidate_folder: "",
+  notes: ""
 };
-
 
 const StatusRenderer = ({ value }: { value?: string }) => {
   const status = value?.toLowerCase() || "";
@@ -147,16 +149,18 @@ const WorkStatusRenderer = ({ value }: { value?: string }) => {
 };
 
 const CandidateNameRenderer = (params: any) => {
-  const candidateId = params.data?.id; 
+  const candidateId = params.data?.id;
   const candidateName = params.value;
-
   if (!candidateId || !candidateName) {
     return <span className="text-gray-500">{candidateName || "N/A"}</span>;
   }
-
   return (
     <Link
+
       href={`/avatar/candidates/search?candidateId=${candidateId}`} 
+      target="_blank"
+      rel="noopener noreferrer"
+
       className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
     >
       {candidateName}
@@ -185,7 +189,6 @@ const FilterHeaderComponent = ({
 }) => {
   const handleItemChange = (item: any) => {
     const value = getOptionValue(item);
-
     setSelectedItems((prev: any[]) => {
       const isSelected = prev.some(i => getOptionValue(i) === value);
       return isSelected
@@ -197,7 +200,6 @@ const FilterHeaderComponent = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const [filterVisible, setFilterVisible] = useState(false);
-
   const toggleFilter = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (filterButtonRef.current) {
@@ -209,18 +211,12 @@ const FilterHeaderComponent = ({
     }
     setFilterVisible((v) => !v);
   };
-
-
-
-
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
     setSelectedItems(e.target.checked ? [...options] : []);
   };
-
   const isAllSelected = selectedItems.length === options.length && options.length > 0;
   const isIndeterminate = selectedItems.length > 0 && selectedItems.length < options.length;
-
   const colorMap: Record<string, string> = {
     blue: "bg-blue-500",
     green: "bg-green-500",
@@ -228,7 +224,6 @@ const FilterHeaderComponent = ({
     red: "bg-red-500",
     orange: "bg-orange-500",
   };
-
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -240,14 +235,12 @@ const FilterHeaderComponent = ({
         setFilterVisible(false);
       }
     };
-
     const handleScroll = (e: Event) => {
       const target = e.target as HTMLElement;
       if (dropdownRef.current && !dropdownRef.current.contains(target)) {
         setFilterVisible(false);
       }
     };
-
     if (filterVisible) {
       document.addEventListener("mousedown", handleClickOutside);
       window.addEventListener("scroll", handleScroll, { capture: true, passive: true });
@@ -257,7 +250,6 @@ const FilterHeaderComponent = ({
       window.removeEventListener("scroll", handleScroll, true);
     };
   }, [filterVisible]);
-
   return (
     <div className="relative flex items-center w-full">
       <span className="mr-2 flex-grow">{label}</span>
@@ -290,7 +282,7 @@ const FilterHeaderComponent = ({
         createPortal(
           <div
             ref={dropdownRef}
-            className="fixed bg-white border rounded-lg shadow-xl p-3 flex flex-col space-y-2 w-56 pointer-events-auto dark:bg-gray-800 dark:border-gray-600 filter-dropdown"
+            className="fixed bg-white border rounded-lg shadow-xl p-3 flex flex-col space-y-2 w-56 pointer-events-auto dark:bg-gray-800 dark:border-gray-600 filter-dropdown text-sm"
             style={{
               top: dropdownPos.top + 5,
               left: dropdownPos.left,
@@ -302,7 +294,7 @@ const FilterHeaderComponent = ({
           >
             <div className="border-b pb-2 mb-2">
               <label
-                className="flex items-center px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded font-medium"
+                className="flex items-center px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded font-medium,text-sm"
                 onClick={(e) => e.stopPropagation()}
               >
                 <input
@@ -321,7 +313,6 @@ const FilterHeaderComponent = ({
               const value = getOptionValue(option);
               const key = getOptionKey(option);
               const isSelected = selectedItems.some(i => getOptionValue(i) === value);
-
               return (
                 <label
                   key={key}
@@ -358,15 +349,12 @@ const FilterHeaderComponent = ({
   );
 };
 
-
 export default function CandidatesPage() {
   const gridRef = useRef<any>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const isNewCandidate = searchParams.get("newcandidate") === "true";
-
-
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [filteredCandidates, setFilteredCandidates] = useState<Candidate[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -379,181 +367,549 @@ export default function CandidatesPage() {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [formSaveLoading, setFormSaveLoading] = useState(false);
   const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
-
   const [allBatches, setAllBatches] = useState<Batch[]>([]);
-
   const [mlBatches, setMlBatches] = useState<Batch[]>([]);
   const [batchesLoading, setBatchesLoading] = useState(true);
 
-  useEffect(() => {
-    console.log('📊 Batch State Update:');
-    console.log('   - All batches:', allBatches.length);
-    console.log('   - ML batches for form:', mlBatches.length);
-    if (mlBatches.length > 0) {
-      console.log('   - ML batches details:', mlBatches.map(b => ({
-        id: b.batchid,
-        name: b.batchname,
-        subject: b.subject,
-        courseid: b.courseid
-      })));
-    }
-  }, [allBatches, mlBatches]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
   const [selectedBatches, setSelectedBatches] = useState<Batch[]>([]);
 
-  // API Endpoints
+
   const apiEndpoint = useMemo(() => `${process.env.NEXT_PUBLIC_API_URL}/candidates`, []);
+
+  const gridOptions = useMemo(() => ({
+    defaultColDef: {
+      filter: 'agSetColumnFilter',
+      sortable: true,
+      resizable: true,
+    },
+    suppressRowClickSelection: true,
+    rowSelection: 'single',
+  }), []);
+
   const courseId = "3";
 
-  // Sync form visibility with URL
   useEffect(() => {
     const newCandidateParam = searchParams.get("newcandidate") === "true";
     setNewCandidateForm(newCandidateParam);
   }, [searchParams]);
 
-  // Fetch candidates
-const fetchCandidates = useCallback(
-  async (
-    search?: string,
-    searchBy: string = "all",
-    sort: any[] = [{ colId: "enrolled_date", sort: "desc" }],
-    filters: any = {}
-  ) => {
-    setLoading(true);
-    try {
-      let url = `${apiEndpoint}?limit=0`;
+  const formatPhoneNumber = (phoneNumberString: string) => {
+    const cleaned = ('' + phoneNumberString).replace(/\D/g, '');
+    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
+    if (match) return `+1 (${match[1]}) ${match[2]}-${match[3]}`;
+    return `+1 ${phoneNumberString}`;
+  };
 
-      if (search && search.trim()) {
-        url += `&search=${encodeURIComponent(search.trim())}&search_by=${searchBy}`;
+  const formatDate = (dateString: string | Date | null | undefined) => {
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      timeZone: "UTC"
+    });
+  };
+
+
+  const columnDefs: ColDef<any, any>[] = useMemo(() => [
+{
+  field: "id",
+  headerName: "ID",
+  width: 80,
+  pinned: "left",
+  sortable: true,
+  filter: 'agSetColumnFilter',
+  valueGetter: (params) => params.data?.id || "N/A",
+},
+
+    {
+      field: "full_name",
+      headerName: "Full Name",
+      width: 180,
+      sortable: true,
+      filter: 'agSetColumnFilter',
+      cellRenderer: CandidateNameRenderer,
+    },
+    {
+      field: "phone",
+      headerName: "Phone",
+      width: 150,
+      editable: true,
+      sortable: true,
+      filter: 'agSetColumnFilter',
+      cellRenderer: (params: any) => {
+        if (!params.value) return "";
+        const formattedPhone = formatPhoneNumber(params.value);
+        return (
+          <a href={`tel:${params.value}`} className="text-blue-600 underline hover:text-blue-800">
+            {formattedPhone}
+          </a>
+        );
+      },
+    },
+    {
+      field: "email",
+      headerName: "Email",
+      width: 200,
+      editable: true,
+      sortable: true,
+      filter: 'agSetColumnFilter',
+      cellRenderer: (params: any) => {
+        if (!params.value) return "";
+        return (
+          <a
+            href={`mailto:${params.value}`}
+            className="text-blue-600 underline hover:text-blue-800"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {params.value}
+          </a>
+        );
+      },
+    },
+    {
+      field: "batchid",
+      headerName: "Batch",
+      width: 140,
+      sortable: true,
+      filter: 'agSetColumnFilter',
+      cellRenderer: (params: any) => {
+        if (!params.value || !allBatches.length) return params.value || "";
+        const batch = allBatches.find(b => b.batchid === params.value);
+        return batch ? (
+          <span title={`Batch ID: ${params.value}`}>
+            {batch.batchname}
+          </span>
+        ) : params.value;
+      },
+      headerComponent: (props: any) => (
+        <FilterHeaderComponent
+          {...props}
+          selectedItems={selectedBatches}
+          setSelectedItems={setSelectedBatches}
+          options={mlBatches}
+          label="Batch"
+          color="purple"
+          renderOption={(option: Batch) => option.batchname}
+          getOptionValue={(option: Batch) => option}
+          getOptionKey={(option: Batch) => option.batchid}
+        />
+      ),
+    },
+
+    {
+      field: "status",
+      headerName: "Status",
+      width: 120,
+      sortable: true,
+      filter: 'agTextColumnFilter',
+      cellRenderer: StatusRenderer,
+      headerComponent: (props: any) => (
+        <FilterHeaderComponent
+          {...props}
+          selectedItems={selectedStatuses}
+          setSelectedItems={setSelectedStatuses}
+          options={statusOptions}
+          label="Status"
+          color="blue"
+          renderOption={(option) => <StatusRenderer value={option} />}
+          getOptionValue={(option) => option}
+          getOptionKey={(option) => option}
+        />
+      ),
+    },
+
+    {
+      field: "workstatus",
+      headerName: "Work Status",
+      width: 150,
+      sortable: true,
+      filter: 'agSetColumnFilter',
+      cellRenderer: WorkStatusRenderer,
+      headerComponent: (props: any) => (
+        <FilterHeaderComponent
+          {...props}
+          selectedItems={selectedWorkStatuses}
+          setSelectedItems={setSelectedWorkStatuses}
+          options={workStatusOptions}
+          label="Work Status"
+          color="green"
+          renderOption={(option) => option}
+          getOptionValue={(option) => option}
+          getOptionKey={(option) => option}
+        />
+      ),
+    },
+    {
+      field: "enrolled_date",
+      headerName: "Enrolled Date",
+      width: 150,
+      sortable: true,
+      filter: 'agSetColumnFilter',
+      valueFormatter: ({ value }: ValueFormatterParams) => formatDate(value),
+    },
+    {
+      field: "education",
+      headerName: "Education",
+      width: 200,
+      sortable: true,
+      filter: 'agSetColumnFilter',
+    },
+    {
+      field: "workexperience",
+      headerName: "Work Experience",
+      width: 200,
+      sortable: true,
+      filter: 'agSetColumnFilter',
+    },
+    {
+      field: "ssn",
+      headerName: "SSN",
+      width: 120,
+      sortable: true,
+      filter: 'agSetColumnFilter',
+    },
+    {
+      field: "agreement",
+      headerName: "Agreement",
+      width: 100,
+      sortable: true,
+      filter: 'agSetColumnFilter',
+    },
+    {
+      field: "secondaryemail",
+      headerName: "Secondary Email",
+      width: 200,
+      sortable: true,
+      filter: 'agSetColumnFilter',
+      cellRenderer: (params: any) => {
+        if (!params.value) return "";
+        return (
+          <a
+            href={`mailto:${params.value}`}
+            className="text-blue-600 underline hover:text-purple-800"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {params.value}
+          </a>
+        );
+      },
+    },
+    {
+      field: "secondaryphone",
+      headerName: "Secondary Phone",
+      width: 150,
+      sortable: true,
+      filter: 'agSetColumnFilter',
+      cellRenderer: (params: any) => {
+        if (!params.value) return "";
+        const formattedPhone = formatPhoneNumber(params.value);
+        return (
+          <a href={`tel:${params.value}`} className="text-blue-600 underline hover:text-purple-800">
+            {formattedPhone}
+          </a>
+        );
+      },
+    },
+    {
+      field: "address",
+      headerName: "Address",
+      width: 300,
+      sortable: true,
+      filter: 'agSetColumnFilter',
+    },
+    {
+      field: "linkedin_id",
+      headerName: "LinkedIn ID",
+      width: 150,
+      sortable: true,
+      filter: 'agSetColumnFilter',
+      cellRenderer: (params: any) => {
+        if (!params.value) return "";
+        const formattedPhone = formatPhoneNumber(params.value);
+        return (
+          <a href={`tel:${params.value}`} className="text-blue-600 underline hover:text-purple-800">
+            {formattedPhone}
+          </a>
+        );
       }
 
-      const sortToApply =
-        sort && sort.length > 0 ? sort : [{ colId: "enrolled_date", sort: "desc" }];
-      const sortParam = sortToApply.map((s) => `${s.colId}:${s.sort}`).join(",");
-      url += `&sort=${encodeURIComponent(sortParam)}`;
-
-      if (Object.keys(filters).length > 0) {
-        url += `&filters=${encodeURIComponent(JSON.stringify(filters))}`;
+    },
+    {
+      field: "dob",
+      headerName: "Date of Birth",
+      width: 150,
+      sortable: true,
+      editable: true,
+      filter: 'agSetColumnFilter',
+      valueFormatter: ({ value }: ValueFormatterParams) => formatDate(value),
+      valueParser: (params) => {
+        if (!params.newValue) return null;
+        const date = new Date(params.newValue);
+        return date.toISOString();
+      },
+      cellEditor: 'agDateCellEditor',
+      cellEditorParams: {
+        min: '1900-01-01',
+        max: new Date().toISOString().split('T')[0]
       }
-
-      // 🔑 Get token from localStorage (or cookies/session depending on your auth setup)
-      const token = localStorage.getItem("token");
-
-      const res = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,  // pass token here
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-
-      const data = await res.json();
-      setCandidates(data.data);
-    } catch (err) {
-      const error =
-        err instanceof Error ? err.message : "Failed to load candidates";
-      setError(error);
-      toast.error(error);
-    } finally {
-      setLoading(false);
-      if (searchInputRef.current) searchInputRef.current.focus();
-    }
-  },
-  [apiEndpoint]
-);
-
-
-
-useEffect(() => {
-  const fetchBatches = async () => {
-    setBatchesLoading(true);
-    try {
-      const token = localStorage.getItem('accesstoken');
-
-
-      const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/batch`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
+    },
+    {
+      field: "emergcontactname",
+      headerName: "Emergency Contact Name",
+      width: 200,
+      sortable: true,
+      filter: 'agSetColumnFilter',
+    },
+    {
+      field: "emergcontactemail",
+      headerName: "Emergency Contact Email",
+      width: 200,
+      sortable: true,
+      filter: 'agSetColumnFilter',
+      cellRenderer: (params: any) => {
+        if (!params.value) return "";
+        return (
+          <a
+            href={`mailto:${params.value}`}
+            className="text-blue-600 underline hover:text-purple-800"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {params.value}
+          </a>
+        );
+      },
+    },
+    {
+      field: "emergcontactphone",
+      headerName: "Emergency Contact Phone",
+      width: 150,
+      sortable: true,
+      filter: 'agSetColumnFilter',
+      cellRenderer: (params: any) => {
+        if (!params.value) return "";
+        const formattedPhone = formatPhoneNumber(params.value);
+        return (
+          <a href={`tel:${params.value}`} className="text-blue-600 underline hover:text-purple-800">
+            {formattedPhone}
+          </a>
+        );
+      },
+    },
+    {
+      field: "emergcontactaddrs",
+      headerName: "Emergency Contact Address",
+      width: 300,
+      sortable: true,
+      filter: 'agSetColumnFilter',
+    },
+    {
+      field: "fee_paid",
+      headerName: "Fee Paid",
+      width: 120,
+      sortable: true,
+      filter: 'agSetColumnFilter',
+      cellClass: (params) =>
+        params.value && params.value > 0
+          ? 'text-green-500 '
+          : '',
+      valueFormatter: ({ value }: ValueFormatterParams) =>
+        value != null ? `$${Number(value).toLocaleString()}` : "",
+      cellStyle: { textAlign: 'right' }
+    },
     
-      const sortedAllBatches = [...res.data].sort((a: Batch, b: Batch) => b.batchid - a.batchid);
-      setAllBatches(sortedAllBatches);
+    {
+      field: "move_to_prep",
+      headerName: "Move to Prep",
+      width: 150,
+      sortable: true,
+      filter: 'agSetColumnFilter',
+      cellRenderer: (params: any) => (
+        <span>
+          {params.value ? "Yes" : "No"}
+        </span>
+      )
+    },
 
-      
-      const uniqueSubjects = [...new Set(sortedAllBatches.map(batch => batch.subject))];
-      const uniqueCourseIds = [...new Set(sortedAllBatches.map(batch => batch.courseid))];
-      console.log('🔍 Available subjects:', uniqueSubjects);
-      console.log('🔍 Available course IDs:', uniqueCourseIds);
-      console.log('🔍 Total batches:', sortedAllBatches.length);
+  { field: "notes",
+      headerName: "Notes",
+      minWidth: 100,
+      editable: true,
+      cellRenderer: (params: any) => {
+        if (!params.value) return "";
+        return (
+          <div
+            className="prose prose-sm max-w-none dark:prose-invert"
+            dangerouslySetInnerHTML={{ __html: params.value }}
+          />
+        );
+      },
+    },
+    {
+      field: "candidate_folder",
+      headerName: "Candidate Folder",
+      width: 200,
+      sortable: true,
+      filter: 'agSetColumnFilter',
+      cellRenderer: (params: any) => {
+        if (!params.value) return "";
+        return (
+          <a
+            href={params.value}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 underline hover:text-blue-800"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {params.value}
+          </a>
+        );
+      },
+    },
+  ], [allBatches, selectedStatuses, selectedWorkStatuses, selectedBatches]);
 
-    
-      let mlBatchesOnly = sortedAllBatches.filter(batch => {
-        const subject = batch.subject?.toLowerCase();
-        return subject === 'ml' || 
-               subject === 'machine learning' || 
-               subject === 'machinelearning' ||
-               subject?.includes('ml');
-      });
 
-      if (mlBatchesOnly.length === 0) {
-        console.log('⚠️ No ML batches found by subject, trying courseid = 3');
-        mlBatchesOnly = sortedAllBatches.filter(batch => batch.courseid === 3);
+  const fetchCandidates = useCallback(
+    async (
+      search?: string,
+      searchBy: string = "all",
+      sort: any[] = [{ colId: "enrolled_date", sort: "desc" }],
+      filters: any = {}
+    ) => {
+      setLoading(true);
+      try {
+        let url = `${apiEndpoint}?limit=0`;
+        if (search && search.trim()) {
+          url += `&search=${encodeURIComponent(search.trim())}&search_by=${searchBy}`;
+        }
+        const sortToApply =
+          sort && sort.length > 0 ? sort : [{ colId: "enrolled_date", sort: "desc" }];
+        const sortParam = sortToApply.map((s) => `${s.colId}:${s.sort}`).join(",");
+        url += `&sort=${encodeURIComponent(sortParam)}`;
+        if (Object.keys(filters).length > 0) {
+          url += `&filters=${encodeURIComponent(JSON.stringify(filters))}`;
+        }
+        const token = localStorage.getItem("token");
+        const res = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+
+          },
+        });
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        const data = await res.json();
+        setCandidates(data.data);
+      } catch (err) {
+        const error =
+          err instanceof Error ? err.message : "Failed to load candidates";
+        setError(error);
+        toast.error(error);
+      } finally {
+        setLoading(false);
+        if (searchInputRef.current) searchInputRef.current.focus();
       }
+    },
+    [apiEndpoint]
+  );
 
-      if (mlBatchesOnly.length === 0) {
-        console.warn('⚠️ No ML batches found! Showing all batches in form as fallback');
-        mlBatchesOnly = sortedAllBatches;
-      }
-
-      console.log('🎯 Filtered ML batches for form:', mlBatchesOnly.length);
-      setMlBatches(mlBatchesOnly); 
-
-      
-      if (isNewCandidate && mlBatchesOnly.length > 0 && mlBatchesOnly[0]?.batchid) {
-        setFormData(prev => ({ ...prev, batchid: mlBatchesOnly[0].batchid }));
-      }
-
-    } catch (error) {
-      console.error('Failed to load batches:', error);
-    } finally {
-      setBatchesLoading(false);
+  const getWorkStatusColor = (status) => {
+    switch (status.toLowerCase()) {
+      case "waiting for status":
+        return { backgroundColor: "#FFEDD5", color: "#C2410C" }; // orange
+      case "citizen":
+        return { backgroundColor: "#D1FAE5", color: "#065F46" }; // green
+      case "visa":
+        return { backgroundColor: "#DBEAFE", color: "#1D4ED8" }; // blue
+      case "others":
+        return { backgroundColor: "#F3E8FF", color: "#7C3AED" }; // purple
+      case "ead":
+        return { backgroundColor: "#FEF3C7", color: "#92400E" }; // yellow
+      default:
+        return { backgroundColor: "white", color: "black" };
     }
-  };;
+  };
 
-  fetchBatches();
-}, [courseId, isNewCandidate]);
+  useEffect(() => {
+    const fetchBatches = async () => {
+      setBatchesLoading(true);
+      try {
+        const token = localStorage.getItem('accesstoken');
+        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/batch`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
 
+        const sortedAllBatches = [...res.data].sort((a: Batch, b: Batch) => b.batchid - a.batchid);
+        setAllBatches(sortedAllBatches);
 
-        useEffect(() => {
-          let filtered = [...candidates];
-          if (selectedStatuses.length > 0) {
-            filtered = filtered.filter(candidate =>
-              selectedStatuses.some(status => status.toLowerCase() === (candidate.status || "").toLowerCase())
-            );
-          }
-          if (selectedWorkStatuses.length > 0) {
-            filtered = filtered.filter(candidate =>
-              selectedWorkStatuses.some(ws => ws.toLowerCase() === (candidate.workstatus || "").toLowerCase())
-            );
-          }
-          if (selectedBatches.length > 0) {
-            filtered = filtered.filter(candidate =>
-              selectedBatches.some(batch => batch.batchid === candidate.batchid)
-            );
-          }
-          if (searchTerm.trim() !== "") {
-            const term = searchTerm.toLowerCase();
-            filtered = filtered.filter(candidate =>
-              candidate.full_name?.toLowerCase().includes(term) ||
-              candidate.email?.toLowerCase().includes(term) ||
-              candidate.phone?.toLowerCase().includes(term) ||
-              candidate.id.toString().includes(term)
-            );
-          }
-          setFilteredCandidates(filtered);
-        }, [candidates, selectedStatuses, selectedWorkStatuses, selectedBatches, searchTerm]);
+        const uniqueSubjects = [...new Set(sortedAllBatches.map(batch => batch.subject))];
+        const uniqueCourseIds = [...new Set(sortedAllBatches.map(batch => batch.courseid))];
+        console.log(' Available subjects:', uniqueSubjects);
+        console.log(' Available course IDs:', uniqueCourseIds);
+        console.log(' Total batches:', sortedAllBatches.length);
+
+        let mlBatchesOnly = sortedAllBatches.filter(batch => {
+          const subject = batch.subject?.toLowerCase();
+          return subject === 'ml' ||
+            subject === 'machine learning' ||
+            subject === 'machinelearning' ||
+            subject?.includes('ml');
+        });
+        if (mlBatchesOnly.length === 0) {
+          console.log('No ML batches found by subject, trying courseid = 3');
+          mlBatchesOnly = sortedAllBatches.filter(batch => batch.courseid === 3);
+        }
+        if (mlBatchesOnly.length === 0) {
+          console.warn('No ML batches found! Showing all batches in form as fallback');
+          mlBatchesOnly = sortedAllBatches;
+        }
+        console.log(' Filtered ML batches for form:', mlBatchesOnly.length);
+        setMlBatches(mlBatchesOnly);
+
+        if (isNewCandidate && mlBatchesOnly.length > 0 && mlBatchesOnly[0]?.batchid) {
+          setFormData(prev => ({ ...prev, batchid: mlBatchesOnly[0].batchid }));
+        }
+      } catch (error) {
+        console.error('Failed to load batches:', error);
+      } finally {
+        setBatchesLoading(false);
+      }
+    };
+    fetchBatches();
+  }, [courseId, isNewCandidate]);
+
+  useEffect(() => {
+    let filtered = [...candidates];
+    if (selectedStatuses.length > 0) {
+      filtered = filtered.filter(candidate =>
+        selectedStatuses.some(status => status.toLowerCase() === (candidate.status || "").toLowerCase())
+      );
+    }
+    if (selectedWorkStatuses.length > 0) {
+      filtered = filtered.filter(candidate =>
+        selectedWorkStatuses.some(ws => ws.toLowerCase() === (candidate.workstatus || "").toLowerCase())
+      );
+    }
+    if (selectedBatches.length > 0) {
+      filtered = filtered.filter(candidate =>
+        selectedBatches.some(batch => batch.batchid === candidate.batchid)
+      );
+    }
+    if (searchTerm.trim() !== "") {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(candidate =>
+        candidate.full_name?.toLowerCase().includes(term) ||
+        candidate.email?.toLowerCase().includes(term) ||
+        candidate.phone?.toLowerCase().includes(term) ||
+        (candidate.id?.toString() || "").includes(term)
+      );
+    }
+
+    setFilteredCandidates(filtered);
+  }, [candidates, selectedStatuses, selectedWorkStatuses, selectedBatches, searchTerm]);
 
   useEffect(() => {
     fetchCandidates();
@@ -579,7 +935,6 @@ useEffect(() => {
   const handleOpenNewCandidateForm = () => {
     router.push("/avatar/candidates?newcandidate=true", { scroll: false });
     setNewCandidateForm(true);
-
     if (mlBatches.length > 0) {
       const latestBatch = mlBatches[0];
       setFormData(prev => ({
@@ -589,399 +944,160 @@ useEffect(() => {
     }
   };
 
-        const handleCloseNewCandidateForm = () => {
-          router.push("/avatar/candidates", { scroll: false });
-          setNewCandidateForm(false);
-          setFormData(initialFormData);
-        };
-
-        const handleNewCandidateFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-          const { name, value, type } = e.target;
-          if (type === 'checkbox') {
-            const checked = (e.target as HTMLInputElement).checked;
-            setFormData(prev => ({ ...prev, [name]: checked ? 'Y' : 'N' }));
-          } else if (type === 'number') {
-            setFormData(prev => ({ ...prev, [name]: parseInt(value) || 0 }));
-          } else {
-            setFormData(prev => ({ ...prev, [name]: value }));
-          }
-        };
-
-        const handleNewCandidateFormSubmit = async (e: React.FormEvent) => {
-          e.preventDefault();
-          if (!formData.full_name.trim()) {
-            toast.error("Full name is required");
-            return;
-          }
-          setFormSaveLoading(true);
-          try {
-            const payload = {
-              ...formData,
-              enrolled_date: formData.enrolled_date || new Date().toISOString().split('T')[0],
-              status: formData.status || "active",
-              workstatus: formData.workstatus || "Waiting for Status",
-              agreement: formData.agreement || "N",
-              fee_paid: formData.fee_paid || 0
-            };
-            const response = await fetch(apiEndpoint, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload),
-            });
-            if (!response.ok) {
-              const errorData = await response.json().catch(() => ({}));
-              throw new Error(errorData.message || "Failed to create candidate");
-            }
-            const newId = await response.json();
-            toast.success(`Candidate created successfully with ID: ${newId}`);
-            setNewCandidateForm(false);
-            setFormData(initialFormData);
-            fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
-          } catch (error) {
-            toast.error("Failed to create candidate: " + (error as Error).message);
-            console.error("Error creating candidate:", error);
-          } finally {
-            setFormSaveLoading(false);
-          }
-        };
-
-        const handleRowUpdated = useCallback(async (updatedRow: Candidate) => {
-          setLoadingRowId(updatedRow.id);
-          try {
-            const updatedData = { ...updatedRow };
-            if (!updatedData.status || updatedData.status === '') {
-              updatedData.status = 'active';
-            }
-            const { id, ...payload } = updatedData;
-            const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload),
-            });
-            if (!response.ok) throw new Error("Failed to update candidate");
-            fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
-            toast.success("Candidate updated successfully");
-          } catch (error) {
-            toast.error("Failed to update candidate");
-            console.error("Error updating candidate:", error);
-          } finally {
-            setLoadingRowId(null);
-          }
-        }, [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchCandidates]);
-
-        const handleRowDeleted = useCallback(async (id: number) => {
-          try {
-            const response = await fetch(`${apiEndpoint}/${id}`, {
-              method: "DELETE",
-            });
-            if (!response.ok) throw new Error("Failed to delete candidate");
-            toast.success("Candidate deleted successfully");
-            fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
-          } catch (error) {
-            toast.error("Failed to delete candidate");
-            console.error("Error deleting candidate:", error);
-          }
-        }, [apiEndpoint, searchTerm, searchBy, sortModel, filterModel, fetchCandidates]);
-
-        const handleFilterChanged = useCallback((filterModelFromGrid: any) => {
-          setFilterModel(filterModelFromGrid);
-          fetchCandidates(searchTerm, searchBy, sortModel, filterModelFromGrid);
-        }, [searchTerm, searchBy, sortModel, fetchCandidates]);
-
-        const formatPhoneNumber = (phoneNumberString: string) => {
-          const cleaned = ('' + phoneNumberString).replace(/\D/g, '');
-          const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
-          if (match) return `+1 (${match[1]}) ${match[2]}-${match[3]}`;
-          return `+1 ${phoneNumberString}`;
-        };
-
-  const formatDate = (dateString: string | Date | null | undefined) => {
-    if (!dateString) return "-";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      timeZone:"UTC"
-    });
+  const handleCloseNewCandidateForm = () => {
+    router.push("/avatar/candidates", { scroll: false });
+    setNewCandidateForm(false);
+    setFormData(initialFormData);
   };
 
-  // Column Definitions
-  const columnDefs: ColDef<any, any>[] = useMemo(() => [
-    {
-      field: "id",
-      headerName: "ID",
-      width: 80,
-      pinned: "left",
-      sortable: true
-    },
-    {
-      field: "full_name",
-      headerName: "Full Name",
-      width: 180,
-      sortable: true,
-      cellRenderer: CandidateNameRenderer,
-    },
-    {
-      field: "phone",
-      headerName: "Phone",
-      width: 150,
-      editable: true,
-      sortable: true,
-      cellRenderer: (params: any) => {
-        if (!params.value) return "";
-        const formattedPhone = formatPhoneNumber(params.value);
-        return (
-          <a href={`tel:${params.value}`} className="text-blue-600 underline hover:text-blue-800">
-            {formattedPhone}
-          </a>
-        );
-      },
-    },
-    {
-      field: "email",
-      headerName: "Email",
-      width: 200,
-      editable: true,
-      sortable: true,
-      cellRenderer: (params: any) => {
-        if (!params.value) return "";
-        return (
-          <a
-            href={`mailto:${params.value}`}
-            className="text-blue-600 underline hover:text-blue-800"
-            onClick={(event) => event.stopPropagation()}
-          >
-            {params.value}
-          </a>
-        );
-      },
-    },
-    {
-      field: "batchid",
-      headerName: "Batch",
-      width: 140,
-      sortable: true,
-      cellRenderer: (params: any) => {
-        if (!params.value || !allBatches.length) return params.value || "";
-        const batch = allBatches.find(b => b.batchid === params.value);
-        return batch ? (
-          <span title={`Batch ID: ${params.value}`}>
-            {batch.batchname}
-          </span>
-        ) : params.value;
-      },
-      headerComponent: (props: any) => (
-        <FilterHeaderComponent
-          {...props}
-          selectedItems={selectedBatches}
-          setSelectedItems={setSelectedBatches}
-          options={allBatches}
-          label="Batch"
-          color="purple"
-          renderOption={(option: Batch) => option.batchname}
-          getOptionValue={(option: Batch) => option}
-          getOptionKey={(option: Batch) => option.batchid}
-        />
-      ),
-    },
+  const handleNewCandidateFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    if (name === "phone" || name === 'secondaryphone' || name === 'emergcontactphone') {
+      // Allow only numbers
+      const numericValue = value.replace(/[^0-9]/g, "");
+      setFormData((prev) => ({ ...prev, [name]: numericValue }));
+      return;
+    }
 
-    {
-      field: "status",
-      headerName: "Status",
-      width: 120,
-      sortable: true,
-      cellRenderer: StatusRenderer,
-      headerComponent: (props: any) => (
-        <FilterHeaderComponent
-          {...props}
-          selectedItems={selectedStatuses}
-          setSelectedItems={setSelectedStatuses}
-          options={statusOptions}
-          label="Status"
-          color="blue"
-          renderOption={(option) => <StatusRenderer value={option} />}
-          getOptionValue={(option) => option}
-          getOptionKey={(option) => option}
-        />
-      ),
-    },
-    {
-      field: "workstatus",
-      headerName: "Work Status",
-      width: 150,
-      sortable: true,
-      cellRenderer: WorkStatusRenderer,
-      headerComponent: (props: any) => (
-        <FilterHeaderComponent
-          {...props}
-          selectedItems={selectedWorkStatuses}
-          setSelectedItems={setSelectedWorkStatuses}
-          options={workStatusOptions}
-          label="Work Status"
-          color="green"
-          renderOption={(option) => option}
-          getOptionValue={(option) => option}
-          getOptionKey={(option) => option}
-        />
-      ),
-    },
-    {
-      field: "enrolled_date",
-      headerName: "Enrolled Date",
-      width: 150,
-      sortable: true,
-      valueFormatter: ({ value }: ValueFormatterParams) => formatDate(value),
-    },
-    {
-      field: "education",
-      headerName: "Education",
-      width: 200,
-      sortable: true,
-    },
-    {
-      field: "workexperience",
-      headerName: "Work Experience",
-      width: 200,
-      sortable: true,
-    },
-    {
-      field: "ssn",
-      headerName: "SSN",
-      width: 120,
-      sortable: true,
-    },
-    {
-      field: "agreement",
-      headerName: "Agreement",
-      width: 100,
-      sortable: true,
-    },
-    {
-      field: "secondaryemail",
-      headerName: "Secondary Email",
-      width: 200,
-      sortable: true,
-    },
-    {
-      field: "secondaryphone",
-      headerName: "Secondary Phone",
-      width: 150,
-      sortable: true,
-    },
-    {
-      field: "address",
-      headerName: "Address",
-      width: 300,
-      sortable: true,
-    },
-    {
-      field: "linkedin_id",
-      headerName: "LinkedIn ID",
-      width: 150,
-      sortable: true,
-    },
-{
-  field: "dob",
-  headerName: "Date of Birth",
-  width: 150,
-  sortable: true,
-  editable: true,
-  valueFormatter: ({ value }: ValueFormatterParams) => formatDate(value),
-  valueParser: (params) => {
-    if (!params.newValue) return null;
-   
-    const date = new Date(params.newValue);
-    return date.toISOString();
-  },
-  cellEditor: 'agDateCellEditor', // Use AG Grid's built-in date editor
-  cellEditorParams: {
-    // Optional: Configure the date picker format
-    min: '1900-01-01', // Example: Set min date
-    max: new Date().toISOString().split('T')[0] // Example: Set max date to today
+    if (name === "full_name" || name === 'emergcontactname') {
+      // Allow letters (a-z, A-Z), dot, and spaces
+      const nameValue = value.replace(/[^a-zA-Z. ]/g, "");
+      setFormData((prev) => ({ ...prev, [name]: nameValue }));
+      return;
+    }
+    if (type === 'checkbox') {
+      const checked = (e.target as HTMLInputElement).checked;
+      setFormData(prev => ({ ...prev, [name]: checked ? 'Y' : 'N' }));
+    } else if (type === 'number') {
+      setFormData(prev => ({ ...prev, [name]: parseInt(value) || 0 }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+
+  };
+
+  const handleNewCandidateFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.full_name.trim()) {
+      toast.error("Full name is required");
+      return;
+    }
+    setFormSaveLoading(true);
+    try {
+      const payload = {
+        ...formData,
+        enrolled_date: formData.enrolled_date || new Date().toISOString().split('T')[0],
+        status: formData.status || "active",
+        workstatus: formData.workstatus || "Waiting for Status",
+        agreement: formData.agreement || "N",
+        fee_paid: formData.fee_paid || 0
+      };
+      const response = await fetch(apiEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to create candidate");
+      }
+      const newId = await response.json();
+      toast.success(`Candidate created successfully with ID: ${newId}`);
+      setNewCandidateForm(false);
+      setFormData(initialFormData);
+      fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
+    } catch (error) {
+      toast.error("Failed to create candidate: " + (error as Error).message);
+      console.error("Error creating candidate:", error);
+    } finally {
+      setFormSaveLoading(false);
+    }
+  };
+
+  const handleRowUpdated = useCallback(async (updatedRow: Candidate) => {
+    setLoadingRowId(updatedRow.id);
+    try {
+      const updatedData = { ...updatedRow };
+      if (!updatedData.status || updatedData.status === '') {
+        updatedData.status = 'active';
+      }
+      const { id, ...payload } = updatedData;
+
+      const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) throw new Error("Failed to update candidate");
+
+      toast.success("Candidate updated successfully");
+
+      // Update only this row in AG Grid
+      if (gridRef.current) {
+        const rowNode = gridRef.current.api.getRowNode(updatedRow.id.toString());
+        if (rowNode) rowNode.setData(updatedData);
+      }
+
+    } catch (error) {
+      toast.error("Failed to update candidate");
+      console.error("Error updating candidate:", error);
+    } finally {
+      setLoadingRowId(null);
+    }
+  }, [apiEndpoint]);
+  // Add ESC key listener
+  useEffect(() => {
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        handleCloseNewCandidateForm();
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, []);
+  const handleRowDeleted = useCallback(async (id: number) => {
+    try {
+      const response = await fetch(`${apiEndpoint}/${id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Failed to delete candidate");
+
+      toast.success("Candidate deleted successfully");
+
+      if (gridRef.current) {
+        gridRef.current.api.applyTransaction({ remove: [{ id }] });
+      }
+
+    } catch (error) {
+      toast.error("Failed to delete candidate");
+      console.error("Error deleting candidate:", error);
+    }
+  }, [apiEndpoint]);
+
+  const handleFilterChanged = useCallback((filterModelFromGrid: any) => {
+    setFilterModel(filterModelFromGrid);
+    fetchCandidates(searchTerm, searchBy, sortModel, filterModelFromGrid);
+  }, [searchTerm, searchBy, sortModel, fetchCandidates]);
+
+
+  if (error) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="text-red-500">{error}</div>
+        <Button
+          variant="outline"
+          onClick={() => fetchCandidates(searchTerm, searchBy, sortModel, filterModel)}
+          className="ml-4"
+        >
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Retry
+        </Button>
+      </div>
+    );
   }
-},
-    {
-      field: "emergcontactname",
-      headerName: "Emergency Contact Name",
-      width: 200,
-      sortable: true,
-    },
-    {
-      field: "emergcontactemail",
-      headerName: "Emergency Contact Email",
-      width: 200,
-      sortable: true,
-    },
-    {
-      field: "emergcontactphone",
-      headerName: "Emergency Contact Phone",
-      width: 150,
-      sortable: true,
-    },
-    {
-      field: "emergcontactaddrs",
-      headerName: "Emergency Contact Address",
-      width: 300,
-      sortable: true,
-    },
-    {
-      field: "fee_paid",
-      headerName: "Fee Paid",
-      width: 120,
-      sortable: true,
-      valueFormatter: ({ value }: ValueFormatterParams) => value != null ? `$${Number(value).toLocaleString()}` : "",
-    },
-    {
-      field: "notes",
-      headerName: "Notes",
-      width: 300,
-      sortable: true,
-    },
 
-          {
-            field: "candidate_folder",
-            headerName: "Candidate Folder",
-            width: 200,
-            sortable: true,
-            cellRenderer: (params: any) => {
-              if (!params.value) return "";
-              return (
-                <a
-                  href={params.value}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 underline hover:text-blue-800"
-                  onClick={(event) => event.stopPropagation()}
-                >
-                  {params.value}
-                </a>
-              );
-            },
-          },
-        ], [allBatches, selectedStatuses, selectedWorkStatuses, selectedBatches]);
-
-        // Error handling
-        if (error) {
-          return (
-            <div className="flex h-64 items-center justify-center">
-              <div className="text-red-500">{error}</div>
-              <Button
-                variant="outline"
-                onClick={() => fetchCandidates(searchTerm, searchBy, sortModel, filterModel)}
-                className="ml-4"
-              >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Retry
-              </Button>
-            </div>
-          );
-        }
-
-        return (
-          <div className="space-y-6">
-            {/* Add CSS for scrollable dropdowns */}
-            <style jsx global>{`
+  return (
+    <div className="space-y-6">
+   
+      <style jsx global>{`
         .filter-dropdown {
           scrollbar-width: thin;
         }
@@ -1001,37 +1117,40 @@ useEffect(() => {
         }
       `}</style>
 
-            <Toaster position="top-center" />
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  Candidates Management
-                </h1>
-                <p className="text-gray-600 dark:text-gray-400">
-                  All Candidates ({candidates.length})
-                  {selectedStatuses.length > 0 || selectedWorkStatuses.length > 0 || selectedBatches.length > 0 ? (
-                    <span className="ml-2 text-blue-600 dark:text-blue-400">
-                      - Filtered ({filteredCandidates.length} shown)
-                    </span>
-                  ) : (
-                    " - Sorted by latest first"
-                  )}
-                </p>
-              </div>
-              <Button
-                onClick={handleOpenNewCandidateForm}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add New Candidate
-              </Button>
-            </div>
+      <Toaster position="top-center" />
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            Candidates Management
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            All Candidates ({candidates.length})
+            {selectedStatuses.length > 0 || selectedWorkStatuses.length > 0 || selectedBatches.length > 0 ? (
+              <span className="ml-2 text-blue-600 dark:text-blue-400">
+                - Filtered ({filteredCandidates.length} shown)
+              </span>
+            ) : (
+              " - Sorted by latest first"
+            )}
+          </p>
+        </div>
+        <Button
+          onClick={handleOpenNewCandidateForm}
+          className="bg-green-600 hover:bg-green-700 text-white"
+        >
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Add New Candidate
+        </Button>
+      </div>
 
       {/* Search */}
       <div key="search-container" className="max-w-md">
-        <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        {/* <Label
+          htmlFor="search"
+          className="text-sm font-medium text-gray-700 dark:text-gray-300"
+        >
           Search Candidates
-        </Label>
+        </Label> */}
         <div className="relative mt-1">
           <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
           <Input
@@ -1046,39 +1165,47 @@ useEffect(() => {
           />
         </div>
         {searchTerm && (
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             {filteredCandidates.length} candidates found
           </p>
         )}
       </div>
 
-            {/* AG Grid Table */}
-            <div className="flex w-full justify-center">
-              <AGGridTable
-                key={`${filteredCandidates.length}-${selectedStatuses.join(',')}-${selectedWorkStatuses.join(',')}-${selectedBatches.map(b => b.batchid).join(',')}`}
-                rowData={loading ? undefined : filteredCandidates}
-                columnDefs={columnDefs}
-                onRowUpdated={handleRowUpdated}
-                onRowDeleted={handleRowDeleted}
-                showFilters={true}
-                showSearch={false}
-                batches={allBatches}
-                loading={loading}
-                height="600px"
-                overlayNoRowsTemplate={loading ? "" : '<span class="ag-overlay-no-rows-center">No candidates found</span>'}
-              />
-            </div>
+      {/* AG Grid Table */}
+      <div className="flex w-full justify-center">
+        <AGGridTable
+          key={`${filteredCandidates.length}-${selectedStatuses.join(',')}-${selectedWorkStatuses.join(',')}-${selectedBatches.map(b => b.batchid).join(',')}`}
+          rowData={loading ? undefined : filteredCandidates}
+          columnDefs={columnDefs}
+          onRowUpdated={handleRowUpdated}
+          onRowDeleted={handleRowDeleted}
+          showFilters={true}
+          getRowNodeId={data => data.id.toString()}
+          showSearch={true}
+          batches={allBatches}
 
-      {/* New Candidate Form */}
+          loading={loading}
+          height="600px"
+          gridOptions={gridOptions}
+          overlayNoRowsTemplate={loading ? "" : '<span class="ag-overlay-no-rows-center">No candidates found</span>'}
+        />
+      </div>
       {newCandidateForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="relative w-full max-w-4xl rounded-lg bg-white dark:bg-gray-800 p-6 shadow-xl overflow-y-auto max-h-[90vh]">
-            <h2 className="mb-6 text-center text-2xl font-bold text-gray-900 dark:text-gray-100">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              handleCloseNewCandidateForm();
+            }
+          }}
+        >
+          <div className="w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-xl bg-gradient-to-b from-white to-gray-50 p-6 shadow-2xl dark:from-gray-800 dark:to-gray-700">
+            <h2 className="mb-6 text-center text-3xl font-bold text-indigo-600 dark:text-indigo-400">
               New Candidate Form
             </h2>
+
             <form onSubmit={handleNewCandidateFormSubmit}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Row 1 */}
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
                 <div className="space-y-1">
                   <Label htmlFor="full_name" className="block text-sm font-medium">Full Name *</Label>
                   <Input
@@ -1102,7 +1229,6 @@ useEffect(() => {
                     className="w-full h-10"
                   />
                 </div>
-                {/* Row 2 */}
                 <div className="space-y-1">
                   <Label htmlFor="phone" className="block text-sm font-medium">Phone *</Label>
                   <Input
@@ -1132,7 +1258,6 @@ useEffect(() => {
                     ))}
                   </select>
                 </div>
-                {/* Row 3 */}
                 <div className="space-y-1">
                   <Label htmlFor="workstatus" className="block text-sm font-medium">Work Status</Label>
                   <select
@@ -1142,7 +1267,7 @@ useEffect(() => {
                     onChange={handleNewCandidateFormChange}
                     className="w-full h-10 p-2 border rounded-md"
                   >
-                    <option value="">Select Work Status</option>
+
                     {workStatusOptions.map((status) => (
                       <option key={status} value={status}>
                         {status}
@@ -1160,7 +1285,6 @@ useEffect(() => {
                     className="w-full h-10"
                   />
                 </div>
-                {/* Row 4 */}
                 <div className="space-y-1">
                   <Label htmlFor="workexperience" className="block text-sm font-medium">Work Experience</Label>
                   <Input
@@ -1184,7 +1308,6 @@ useEffect(() => {
                     <option value="N">No</option>
                   </select>
                 </div>
-                {/* Row 5 */}
                 <div className="space-y-1">
                   <Label htmlFor="ssn" className="block text-sm font-medium">SSN</Label>
                   <Input
@@ -1207,7 +1330,6 @@ useEffect(() => {
                     className="w-full h-10"
                   />
                 </div>
-                {/* Row 6 */}
                 <div className="space-y-1">
                   <Label htmlFor="secondaryphone" className="block text-sm font-medium">Secondary Phone</Label>
                   <Input
@@ -1230,7 +1352,6 @@ useEffect(() => {
                     className="w-full h-10"
                   />
                 </div>
-                {/* Row 7 */}
                 <div className="space-y-1">
                   <Label htmlFor="dob" className="block text-sm font-medium">Date of Birth *</Label>
                   <Input
@@ -1253,7 +1374,6 @@ useEffect(() => {
                     className="w-full h-10"
                   />
                 </div>
-                {/* Row 8 */}
                 <div className="space-y-1">
                   <Label htmlFor="emergcontactemail" className="block text-sm font-medium">Emergency Contact Email</Label>
                   <Input
@@ -1277,7 +1397,6 @@ useEffect(() => {
                     className="w-full h-10"
                   />
                 </div>
-                {/* Row 9 - Full width fields */}
                 <div className="md:col-span-2 space-y-1">
                   <Label htmlFor="emergcontactaddrs" className="block text-sm font-medium">Emergency Contact Address</Label>
                   <Input
@@ -1288,7 +1407,6 @@ useEffect(() => {
                     className="w-full h-10"
                   />
                 </div>
-                {/* Row 10 */}
                 <div className="space-y-1">
                   <Label htmlFor="fee_paid" className="block text-sm font-medium">Fee Paid ($)</Label>
                   <Input
@@ -1315,7 +1433,7 @@ useEffect(() => {
                       <option value="0">Loading batches...</option>
                     ) : (
                       <>
-                        <option value="0">Select a batch </option>
+
                         {mlBatches.map((batch) => (
                           <option key={batch.batchid} value={batch.batchid}>
                             {batch.batchname}
@@ -1325,7 +1443,6 @@ useEffect(() => {
                     )}
                   </select>
                 </div>
-              
                 <div className="md:col-span-2 space-y-1">
                   <Label htmlFor="notes" className="block text-sm font-medium">Notes</Label>
                   <textarea
@@ -1359,7 +1476,7 @@ useEffect(() => {
                   />
                 </div>
               </div>
-             
+
               <div className="mt-6">
                 <button
                   type="submit"
