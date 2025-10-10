@@ -8,23 +8,120 @@ import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import axios from "axios";
+import { createPortal } from "react-dom";
 import { toast, Toaster } from "sonner";
 
+// ---------------- Status Renderer ----------------
+const StatusRenderer = (params: any) => {
+  const status = params.value?.toLowerCase();
+  let badgeClass = "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300";
+  if (status === "active") {
+    badgeClass = "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+  } else if (status === "inactive") {
+    badgeClass = "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+  }
+  return <Badge className={badgeClass}>{status?.toUpperCase()}</Badge>;
+};
+
+// ---------------- Status Filter Header ----------------
+const StatusHeaderComponent = (props: any) => {
+  const { selectedStatuses, setSelectedStatuses } = props;
+  const filterButtonRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [filterVisible, setFilterVisible] = useState(false);
+
+  const toggleFilter = () => {
+    if (filterButtonRef.current) {
+      const rect = filterButtonRef.current.getBoundingClientRect();
+      setDropdownPos({ top: rect.bottom, left: rect.left });
+    }
+    setFilterVisible((v) => !v);
+  };
+
+  const handleStatusChange = (status: string) => {
+    setSelectedStatuses((prev: string[]) =>
+      prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
+    );
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        filterButtonRef.current &&
+        !filterButtonRef.current.contains(event.target as Node) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setFilterVisible(false);
+      }
+    };
+    const handleScroll = () => setFilterVisible(false);
+    document.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("scroll", handleScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleScroll, true);
+    };
+  }, []);
+
+  return (
+    <div className="relative flex items-center w-full" ref={filterButtonRef}>
+      <span className="mr-12">Status</span>
+      <svg
+        onClick={toggleFilter}
+        xmlns="http://www.w3.org/2000/svg"
+        className="h-4 w-4 cursor-pointer text-gray-500 hover:text-gray-700"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z" />
+      </svg>
+      {filterVisible &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            className="z-[99999] bg-white border rounded shadow-lg p-3 flex flex-col space-y-2 w-48 pointer-events-auto"
+            style={{ top: dropdownPos.top, left: dropdownPos.left, position: "fixed" }}
+          >
+            {[
+              { value: "active", label: "Active" },
+              { value: "inactive", label: "Inactive" },
+            ].map(({ value, label }) => (
+              <label key={value} className="flex items-center px-2 py-1 hover:bg-gray-100 cursor-pointer rounded">
+                <input
+                  type="checkbox"
+                  checked={selectedStatuses.includes(value)}
+                  onChange={() => handleStatusChange(value)}
+                  className="mr-3 h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
+                />
+                {label}
+              </label>
+            ))}
+          </div>,
+          document.body
+        )}
+    </div>
+  );
+};
+
+// ---------------- Main Page ----------------
 export default function CandidatesMarketingPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredCandidates, setFilteredCandidates] = useState<any[]>([]);
   const [allCandidates, setAllCandidates] = useState<any[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["active"]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [page] = useState(1);
   const [limit] = useState(100);
-
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
-  // Fetch candidates
-  const fetchCandidates = useCallback(async () => {
+  // ---------------- Fetch Data ----------------
+  const fetchCandidates = async () => {
     try {
       setLoading(true);
       const res = await axios.get(
@@ -35,54 +132,39 @@ export default function CandidatesMarketingPage() {
       );
       const data = Array.isArray(res.data.data) ? res.data.data : [];
       setAllCandidates(data);
-      setFilteredCandidates(data);
     } catch (err: any) {
       console.error(err);
       setError(err.response?.data?.message || "Failed to load candidates.");
+      toast.error("Failed to load candidates.");
     } finally {
       setLoading(false);
     }
-  }, [page, limit, token]);
+  };
 
   useEffect(() => {
     fetchCandidates();
-  }, [fetchCandidates]);
+  }, []);
 
-  // Filter candidates
-  const filterCandidates = useCallback(
-    (term: string) => {
-      if (!term.trim()) return allCandidates;
-      const searchLower = term.toLowerCase();
-      return allCandidates.filter((candidate) =>
-        Object.values(candidate).some((val) =>
-          val?.toString().toLowerCase().includes(searchLower)
+  // ---------------- Filtering ----------------
+  useEffect(() => {
+    let filtered = [...allCandidates];
+    if (selectedStatuses.length > 0) {
+      filtered = filtered.filter((c) =>
+        selectedStatuses.includes(c.status?.toLowerCase())
+      );
+    }
+    if (searchTerm.trim() !== "") {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter((c) =>
+        Object.values(c).some((val) =>
+          val?.toString().toLowerCase().includes(term)
         )
       );
-    },
-    [allCandidates]
-  );
+    }
+    setFilteredCandidates(filtered);
+  }, [allCandidates, searchTerm, selectedStatuses]);
 
-  useEffect(() => {
-    setFilteredCandidates(filterCandidates(searchTerm));
-  }, [searchTerm, filterCandidates]);
-
-
-  const StatusRenderer = (params: any) => {
-    const status = params.value?.toLowerCase();
-
-    let colorClass = "bg-gray-100 text-gray-700"; 
-    if (status === "active") colorClass = "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
-    else if (status === "inactive") colorClass = "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
-    // else if (status === "pending") colorClass = "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
-
-    return (
-      <Badge className={colorClass}>
-        {params.value ? params.value.toUpperCase() : "N/A"}
-      </Badge>
-    );
-  };
-
-  // Resume renderer
+  // ---------------- Resume Renderer ----------------
   const ResumeRenderer = (params: any) => (
     <div className="flex items-center space-x-2">
       {params.value ? (
@@ -113,8 +195,6 @@ export default function CandidatesMarketingPage() {
               { headers: { "Content-Type": "multipart/form-data" } }
             );
             const updatedResume = res.data.candidate_resume;
-
-
             setFilteredCandidates((prev) =>
               prev.map((row) =>
                 row.candidate_id === params.data.candidate_id
@@ -129,7 +209,6 @@ export default function CandidatesMarketingPage() {
                   : row
               )
             );
-
             toast.success("Resume uploaded successfully!");
           } catch (err) {
             console.error("Resume upload failed", err);
@@ -140,19 +219,17 @@ export default function CandidatesMarketingPage() {
     </div>
   );
 
+  // ---------------- Candidate Name Renderer ----------------
   const CandidateNameRenderer = (params: any) => {
-
     const candidateId = params.data?.candidate_id;
     const candidateName = params.value;
-
     if (!candidateId || !candidateName) {
       return <span className="text-gray-500">{candidateName || "N/A"}</span>;
     }
-
     return (
       <Link
         href={`/avatar/candidates/search?candidateId=${candidateId}`}
-        target="_blank" 
+        target="_blank"
         rel="noopener noreferrer"
         className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
       >
@@ -161,8 +238,7 @@ export default function CandidatesMarketingPage() {
     );
   };
 
-
-
+  // ---------------- Column Defs ----------------
   const columnDefs: ColDef[] = useMemo(
     () => [
       {
@@ -185,8 +261,9 @@ export default function CandidatesMarketingPage() {
         field: "status",
         headerName: "Status",
         cellRenderer: StatusRenderer,
-        width: 120,
-        editable: true,
+        width: 140,
+        headerComponent: StatusHeaderComponent,
+        headerComponentParams: { selectedStatuses, setSelectedStatuses },
       },
       {
         field: "instructor1_name",
@@ -224,26 +301,31 @@ export default function CandidatesMarketingPage() {
       },
       { field: "rating", headerName: "Rating", width: 100, editable: true },
       { field: "priority", headerName: "Priority", width: 100, editable: true },
-      { field: "move_to_placement", headerName: "Move to Placement", width: 190, sortable: true,filter: 'agSetColumnFilter', cellRenderer: (params: any) => (
-          <span>
-            {params.value ? "Yes" : "No"}
-          </span>
-        )
+      {
+        field: "move_to_placement",
+        headerName: "Move to Placement",
+        width: 190,
+        sortable: true,
+        filter: "agSetColumnFilter",
+        cellRenderer: (params: any) => (
+          <span>{params.value ? "Yes" : "No"}</span>
+        ),
       },
-      {             field: "notes",
-            headerName: "Notes",
-            width: 300,
-            sortable: true,
-            cellRenderer: (params: any) => {
-              if (!params.value) return "";
-              return (
-                <div
-                  className="prose prose-sm max-w-none dark:prose-invert"
-                  dangerouslySetInnerHTML={{ __html: params.value }}
-                />
-              );
-            },
-          },
+      {
+        field: "notes",
+        headerName: "Notes",
+        width: 300,
+        sortable: true,
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          return (
+            <div
+              className="prose prose-sm max-w-none dark:prose-invert"
+              dangerouslySetInnerHTML={{ __html: params.value }}
+            />
+          );
+        },
+      },
       {
         field: "candidate_resume",
         headerName: "Resume",
@@ -251,40 +333,36 @@ export default function CandidatesMarketingPage() {
         cellRenderer: ResumeRenderer,
       },
     ],
-    []
+    [selectedStatuses]
   );
 
-
+  // ---------------- CRUD Handlers ----------------
   const handleRowUpdated = async (updatedRow: any) => {
     if (!updatedRow || !updatedRow.candidate_id) {
       console.error("Updated row missing candidate_id", updatedRow);
       toast.error("Failed to update candidate: Missing candidate ID.");
       return;
     }
-
     try {
       const res = await axios.put(
         `${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing/${updatedRow.id}`,
         updatedRow
       );
       const updatedRecord = res.data;
-
-
-    setFilteredCandidates((prev) =>
-      prev.map((row) =>
-        row.candidate_id === updatedRow.candidate_id
-          ? { ...row, ...updatedRecord } 
-          : row
-      )
-    );
-    setAllCandidates((prev) =>
-      prev.map((row) =>
-        row.candidate_id === updatedRow.candidate_id
-          ? { ...row, ...updatedRecord } 
-          : row
-      )
-    );
-
+      setFilteredCandidates((prev) =>
+        prev.map((row) =>
+          row.candidate_id === updatedRow.candidate_id
+            ? { ...row, ...updatedRecord }
+            : row
+        )
+      );
+      setAllCandidates((prev) =>
+        prev.map((row) =>
+          row.candidate_id === updatedRow.candidate_id
+            ? { ...row, ...updatedRecord }
+            : row
+        )
+      );
       toast.success("Candidate updated successfully!");
     } catch (err) {
       console.error("Failed to update candidate:", err);
@@ -292,20 +370,17 @@ export default function CandidatesMarketingPage() {
     }
   };
 
-
   const handleRowDeleted = async (candidate_id: number | string) => {
     try {
       await axios.delete(
         `${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing/${candidate_id}`
       );
-
       setFilteredCandidates((prev) =>
         prev.filter((row) => row.candidate_id !== candidate_id)
       );
       setAllCandidates((prev) =>
         prev.filter((row) => row.candidate_id !== candidate_id)
       );
-
       toast.success("Candidate deleted successfully!");
     } catch (err) {
       console.error("Failed to delete candidate:", err);
@@ -313,6 +388,7 @@ export default function CandidatesMarketingPage() {
     }
   };
 
+  // ---------------- Render ----------------
   return (
     <div className="space-y-6">
       <Toaster richColors position="top-center" />
@@ -327,7 +403,6 @@ export default function CandidatesMarketingPage() {
           </p>
         </div>
       </div>
-
       {/* Search */}
       <div className="max-w-md">
         <Label
@@ -353,7 +428,6 @@ export default function CandidatesMarketingPage() {
           </p>
         )}
       </div>
-
       {/* Data Table */}
       {loading ? (
         <p className="text-center text-sm text-gray-500 dark:text-gray-400">
@@ -367,7 +441,7 @@ export default function CandidatesMarketingPage() {
             <AGGridTable
               rowData={filteredCandidates}
               columnDefs={columnDefs}
-              title={`Marketing Phase (${filteredCandidates.length})`}
+              title={`Marketing Phase (${allCandidates.length})`}
               height="calc(70vh)"
               showSearch={false}
               onRowDeleted={handleRowDeleted}
