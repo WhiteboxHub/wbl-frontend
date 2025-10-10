@@ -63,6 +63,7 @@ const Header = ({
     >
       <div className="container mt-5">
         <div className="relative -mx-4 flex items-center justify-between">
+          {/* Logo */}
           <div className="max-w-full px-4 xl:mr-12">
             <Link
               href="/"
@@ -88,34 +89,35 @@ const Header = ({
           </div>
 
           <div className="flex w-full items-center justify-between px-4">
-            {/* Mobile Navbar */}
-            <div className="">
+            {/* Mobile Navbar Toggle */}
+            <div>
               <button
                 onClick={navbarToggleHandler}
                 id="navbarToggler"
                 aria-label="Mobile Menu"
-                className="absolute right-4 top-1/2 block translate-y-[-50%] rounded-lg px-0 py-1 focus:outline-none lg:hidden"
+                className="absolute right-3 top-1/2 block -translate-y-1/2 rounded-lg px-2 py-1 focus:outline-none lg:hidden"
               >
                 <span
-                  className={`relative my-1.5 block h-0.5 w-[30px] bg-black transition-all duration-300 dark:bg-white ${
+                  className={`relative my-1.5 block h-0.5 w-[26px] bg-black transition-all duration-300 dark:bg-white ${
                     navbarOpen ? "top-[7px] rotate-45" : ""
                   }`}
                 />
                 <span
-                  className={`relative my-1.5 block h-0.5 w-[30px] bg-black transition-all duration-300 dark:bg-white ${
+                  className={`relative my-1.5 block h-0.5 w-[26px] bg-black transition-all duration-300 dark:bg-white ${
                     navbarOpen ? "opacity-0" : ""
                   }`}
                 />
                 <span
-                  className={`relative my-1.5 block h-0.5 w-[30px] bg-black transition-all duration-300 dark:bg-white ${
+                  className={`relative my-1.5 block h-0.5 w-[26px] bg-black transition-all duration-300 dark:bg-white ${
                     navbarOpen ? "top-[-8px] -rotate-45" : ""
                   }`}
                 />
               </button>
 
+              {/* Navbar Menu */}
               <nav
                 id="navbarCollapse"
-                className={`navbar -[.5px] -body-color/50 dark:-body-color/20 lg:-none absolute right-0 z-30 w-[250px] rounded bg-white px-6 py-4 duration-300 dark:bg-dark lg:visible lg:static lg:w-auto lg:!bg-transparent lg:p-0 lg:opacity-100 ${
+                className={`navbar absolute right-0 z-30 w-[250px] rounded bg-white px-6 py-4 duration-300 dark:bg-dark lg:visible lg:static lg:w-auto lg:bg-transparent lg:p-0 lg:opacity-100 ${
                   navbarOpen
                     ? "visible top-full opacity-100"
                     : "invisible top-[120%] opacity-0"
@@ -127,7 +129,7 @@ const Header = ({
                       {menuItem.path ? (
                         <Link
                           href={menuItem.path}
-                          className="relative flex px-3 py-2 text-sm font-semibold text-dark duration-1000 before:absolute before:bottom-0 before:left-1/2 before:h-1 before:w-0 before:-translate-x-1/2 before:transform before:bg-primary before:transition-all before:duration-300 before:ease-out hover:before:w-full dark:text-white dark:hover:bg-black/70 sm:text-base sm:hover:bg-transparent sm:dark:hover:bg-transparent lg:mr-0 lg:inline-flex lg:px-0 lg:py-6"
+                          className="relative flex px-3 py-2 text-sm font-semibold text-dark duration-1000 before:absolute before:bottom-0 before:left-1/2 before:h-1 before:w-0 before:-translate-x-1/2 before:bg-primary before:transition-all before:duration-300 before:ease-out hover:before:w-full dark:text-white sm:text-base"
                           onClick={closeNavbar}
                         >
                           {menuItem.title}
@@ -136,7 +138,7 @@ const Header = ({
                         <>
                           <div
                             onClick={() => handleSubmenu(index)}
-                            className="group- flex cursor-pointer items-center justify-between px-3 py-2 text-sm font-semibold text-dark duration-500 hover:bg-gray-200 dark:text-white dark:hover:bg-black/70 sm:text-base sm:hover:bg-transparent sm:dark:hover:bg-transparent lg:mr-0 lg:inline-flex lg:px-0 lg:py-6"
+                            className="group- flex cursor-pointer items-center justify-between px-3 py-2 text-sm font-semibold text-dark duration-500 hover:bg-gray-200 dark:text-white sm:text-base"
                           >
                             {menuItem.title}
                             <span className="pl-3">
@@ -149,7 +151,7 @@ const Header = ({
                             </span>
                           </div>
                           <div
-                            className={`submenu relative left-0 top-full rounded-md bg-white transition-[top] duration-300 group-hover:opacity-100 dark:bg-dark lg:invisible lg:absolute lg:top-[110%] lg:block lg:w-[250px] lg:p-4 lg:opacity-0 lg:shadow-lg lg:group-hover:visible lg:group-hover:top-full ${
+                            className={`submenu relative left-0 top-full rounded-md bg-white transition-all duration-300 dark:bg-dark lg:invisible lg:absolute lg:top-[110%] lg:block lg:w-[250px] lg:p-4 lg:opacity-0 lg:shadow-lg lg:group-hover:visible lg:group-hover:top-full ${
                               openIndex === index ? "block" : "hidden"
                             }`}
                           >
@@ -157,7 +159,7 @@ const Header = ({
                               <Link
                                 href={submenuItem.path}
                                 key={submenuItem.id}
-                                className={`block rounded py-2.5 text-center text-sm font-semibold text-dark duration-500 hover:bg-gray-200 hover:font-semibold dark:text-white dark:hover:bg-black/70 sm:text-base lg:px-5 ${
+                                className={`block rounded py-2.5 text-center text-sm font-semibold text-dark duration-500 hover:bg-gray-200 dark:text-white sm:text-base lg:px-5 ${
                                   submenuItem.title === "Resume"
                                     ? "hidden lg:block"
                                     : ""
@@ -173,6 +175,7 @@ const Header = ({
                     </li>
                   ))}
 
+                  {/* Auth Buttons (Mobile) */}
                   {isAuthenticated && (
                     <li className="lg:hidden">
                       <button
@@ -180,7 +183,7 @@ const Header = ({
                           closeNavbar();
                           display_user_dashboard();
                         }}
-                        className="my-3 block w-full rounded-3xl bg-gradient-to-tl from-indigo-900 to-purple-400 px-3 py-2 text-center text-sm font-bold text-white hover:bg-gradient-to-br sm:text-base"
+                        className="my-3 block w-full rounded-3xl bg-gradient-to-tl from-indigo-900 to-purple-400 px-3 py-2 text-center text-sm font-bold text-white sm:text-base"
                       >
                         My Profile
                       </button>
@@ -190,7 +193,7 @@ const Header = ({
                   {isAuthenticated ? (
                     <li className="lg:hidden">
                       <button
-                        className="my-3 block w-full rounded-3xl bg-gradient-to-tl from-indigo-900 to-purple-400 px-3 py-2 text-center text-sm font-bold text-white hover:bg-gradient-to-br sm:text-base"
+                        className="my-3 block w-full rounded-3xl bg-gradient-to-tl from-indigo-900 to-purple-400 px-3 py-2 text-center text-sm font-bold text-white sm:text-base"
                         onClick={() => {
                           closeNavbar();
                           handleLogout();
@@ -204,7 +207,7 @@ const Header = ({
                       <li className="lg:hidden">
                         <Link
                           href="/login"
-                          className="my-3 block rounded-3xl bg-gradient-to-tl from-indigo-900 to-purple-400 px-3 py-2 text-center text-sm font-bold text-white hover:bg-gradient-to-br sm:text-base"
+                          className="my-3 block w-full rounded-3xl bg-gradient-to-tl from-indigo-900 to-purple-400 px-3 py-2 text-center text-sm font-bold text-white sm:text-base"
                           onClick={closeNavbar}
                         >
                           Login
@@ -213,7 +216,7 @@ const Header = ({
                       <li className="lg:hidden">
                         <Link
                           href="/signup"
-                          className="block rounded-3xl bg-gradient-to-tl from-indigo-900 to-purple-400 px-3 py-2 text-center text-sm font-bold text-white hover:bg-gradient-to-br sm:text-base"
+                          className="block w-full rounded-3xl bg-gradient-to-tl from-indigo-900 to-purple-400 px-3 py-2 text-center text-sm font-bold text-white sm:text-base"
                           onClick={closeNavbar}
                         >
                           Register
@@ -224,30 +227,29 @@ const Header = ({
                 </ul>
               </nav>
             </div>
-            {/* Desktop section */}
-            <div className="hidden items-center justify-end pr-16 lg:flex lg:pr-0">
+
+            {/* Desktop Section */}
+            <div className="hidden items-center justify-end pr-12 lg:flex lg:pr-0">
               {isAuthenticated ? (
                 <div className="flex items-center gap-4">
                   {userRole === "admin" && (
                     <Link
                       href="/avatar"
-                      className="rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
+                      className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl"
                     >
                       Avatar
                     </Link>
                   )}
 
-                  {
-                    <button
-                      onClick={display_user_dashboard}
-                      className="rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
-                    >
-                      My Profile
-                    </button>
-                  }
+                  <button
+                    onClick={display_user_dashboard}
+                    className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl"
+                  >
+                    My Profile
+                  </button>
                   <button
                     onClick={handleLogout}
-                    className="rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
+                    className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl"
                   >
                     Logout
                   </button>
@@ -256,33 +258,29 @@ const Header = ({
                 <>
                   <Link
                     href="/login"
-                    className="hover:shadow-signUp mr-3 rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-8 py-3 text-base font-bold text-white duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400"
+                    className="mr-3 rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-8 py-3 text-base font-bold text-white hover:bg-gradient-to-tl"
                   >
                     Login
                   </Link>
                   <Link
                     href="/signup"
-                    className="hover:shadow-signUp rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-8 py-3 text-base font-bold text-white duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400"
+                    className="rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-8 py-3 text-base font-bold text-white hover:bg-gradient-to-tl"
                   >
                     Register
                   </Link>
                 </>
               )}
-              <div className="items-center justify-end pr-12 lg:flex lg:pr-0">
+              <div className="pl-4">
                 <ThemeToggler />
               </div>
             </div>
 
-            {/* Mobile section */}
-            <div className="flex items-center gap-1 pr-12 lg:hidden">
-              <button
-                onClick={() => alert("Notifications clicked")}
-                className="p-2 text-gray-800 focus:outline-none dark:text-white"
-              ></button>
+            {/* Mobile Right Section */}
+            <div className="flex items-center gap-2 pr-10 lg:hidden">
               {isAuthenticated && userRole === "admin" && (
                 <Link
                   href="/avatar"
-                  className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-4 py-2 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400"
+                  className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-3 py-2 text-sm font-bold text-white"
                 >
                   Avatar
                 </Link>
@@ -292,19 +290,21 @@ const Header = ({
                 <>
                   <button
                     onClick={display_user_dashboard}
-                    className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-4 py-2 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400"
+                    className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-3 py-2 text-sm font-bold text-white"
                   >
                     My Profile
                   </button>
                   <button
                     onClick={handleLogout}
-                    className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-4 py-2 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400"
+                    className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-3 py-2 text-sm font-bold text-white"
                   >
                     Logout
                   </button>
                 </>
               )}
-              <ThemeToggler />
+              <div className="ml-2">
+                <ThemeToggler />
+              </div>
             </div>
           </div>
         </div>
