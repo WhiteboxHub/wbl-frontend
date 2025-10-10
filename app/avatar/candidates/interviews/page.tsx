@@ -9,9 +9,117 @@ import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon, PlusIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import axios from "axios";
 import { toast, Toaster } from "sonner";
+import { createPortal } from "react-dom";
+
+// Generic Filter Component
+interface FilterOption {
+  value: string;
+  label: string;
+}
+
+interface FilterHeaderProps {
+  columnName: string;
+  options: FilterOption[];
+  selectedValues: string[];
+  setSelectedValues: (values: string[]) => void;
+}
+
+const FilterHeaderComponent = ({
+  columnName,
+  options,
+  selectedValues,
+  setSelectedValues,
+}: FilterHeaderProps) => {
+  const filterButtonRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [filterVisible, setFilterVisible] = useState(false);
+
+  const toggleFilter = () => {
+    if (filterButtonRef.current) {
+      const rect = filterButtonRef.current.getBoundingClientRect();
+      setDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left });
+    }
+    setFilterVisible((v) => !v);
+  };
+
+  const handleValueChange = (value: string) => {
+    if (selectedValues.includes(value)) {
+      setSelectedValues(selectedValues.filter((v) => v !== value));
+    } else {
+      setSelectedValues([...selectedValues, value]);
+    }
+    setFilterVisible(false);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        filterButtonRef.current &&
+        !filterButtonRef.current.contains(event.target as Node) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setFilterVisible(false);
+      }
+    };
+    const handleScroll = () => setFilterVisible(false);
+    document.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("scroll", handleScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleScroll, true);
+    };
+  }, []);
+
+  return (
+    <div className="relative flex items-center w-full" ref={filterButtonRef}>
+      <span className="mr-2">{columnName}</span>
+      <svg
+        onClick={toggleFilter}
+        xmlns="http://www.w3.org/2000/svg"
+        className="h-4 w-4 cursor-pointer text-gray-500 hover:text-gray-700"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z" />
+      </svg>
+      {filterVisible &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            className="z-[99999] bg-white border border-gray-200 rounded-md shadow-lg w-48 max-h-60 overflow-y-auto"
+            style={{
+              top: `${dropdownPos.top}px`,
+              left: `${dropdownPos.left}px`,
+              position: "absolute",
+            }}
+          >
+            <div className="py-1">
+              {options.map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => handleValueChange(value)}
+                  className={`block w-full text-left px-4 py-2 text-sm ${
+                    selectedValues.includes(value)
+                      ? "bg-blue-50 text-blue-700"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>,
+          document.body
+        )}
+    </div>
+  );
+};
 
 export default function CandidatesInterviews() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -21,7 +129,6 @@ export default function CandidatesInterviews() {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(50);
   const [total, setTotal] = useState(0);
-
   const [showAddForm, setShowAddForm] = useState(false);
   const [newInterview, setNewInterview] = useState<any>({
     candidate_id: "",
@@ -35,16 +142,39 @@ export default function CandidatesInterviews() {
     type_of_interview: "",
     notes: "",
   });
-
-  // Candidate Marketing state
   const [candidates, setCandidates] = useState<any[]>([]);
+  const [selectedModes, setSelectedModes] = useState<string[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+
+  const modeOfInterviewOptions = [
+    { value: "phone", label: "Phone" },
+    { value: "virtual", label: "Virtual" },
+    { value: "assessment", label: "Assessment" },
+    { value: "in person", label: "In Person" },
+  ];
+
+  const companyTypeOptions = [
+    { value: "client", label: "Client" },
+    { value: "third-party-vendor", label: "Third Party Vendor" },
+    { value: "implementation-partner", label: "Implementation Partner" },
+    { value: "sourcer", label: "Sourcer" },
+    { value: "contact-from-ip", label: "Contact from IP" },
+  ];
+
+  const typeOfInterviewOptions = [
+    { value: "technical", label: "Technical" },
+    { value: "hr round", label: "HR Round" },
+    { value: "phone", label: "Phone" },
+    { value: "in person", label: "In Person" },
+    { value: "assessment", label: "Assessment" },
+    { value: "prep call", label: "Prep Call" },
+  ];
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem("token");
     return { Authorization: `Bearer ${token}` };
   };
 
-  // Fetch interviews
   const fetchInterviews = async (page: number, perPage: number) => {
     try {
       setLoading(true);
@@ -70,48 +200,49 @@ export default function CandidatesInterviews() {
 
   useEffect(() => {
     if (!showAddForm) return;
-
     const fetchMarketingCandidates = async () => {
       try {
         const res = await axios.get(
           `${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing?page=1&limit=200`,
           { headers: getAuthHeaders() }
         );
-
-        console.log("Marketing API Response:", res.data);
-
-        // Only active candidates
         const activeCandidates = res.data?.data?.filter(
           (m: any) => m.status === "active" && m.candidate
         );
-
         setCandidates(activeCandidates);
       } catch (err: any) {
         console.error("Failed to fetch marketing candidates:", err.response?.data || err.message);
         toast.error("Failed to load candidates from marketing.");
       }
     };
-
     fetchMarketingCandidates();
   }, [showAddForm]);
 
-  // Filter data for search
-  const filterData = useCallback(
-    (term: string) => {
-      if (!term.trim()) return interviews;
-      const lower = term.toLowerCase();
-      return interviews.filter((item) => {
-        if (item.candidate?.full_name?.toLowerCase().includes(lower)) return true;
-        return Object.values(item).some((val) =>
+  const filterData = useCallback(() => {
+    let filtered = [...interviews];
+    if (selectedModes.length > 0) {
+      filtered = filtered.filter((i) =>
+        selectedModes.includes(i.mode_of_interview?.toLowerCase())
+      );
+    }
+    if (selectedTypes.length > 0) {
+      filtered = filtered.filter((i) =>
+        selectedTypes.includes(i.type_of_interview?.toLowerCase())
+      );
+    }
+    if (searchTerm.trim() !== "") {
+      const lower = searchTerm.toLowerCase();
+      filtered = filtered.filter((i) => {
+        if (i.candidate?.full_name?.toLowerCase().includes(lower)) return true;
+        return Object.values(i).some((val) =>
           val?.toString().toLowerCase().includes(lower)
         );
       });
-    },
-    [interviews]
-  );
+    }
+    return filtered;
+  }, [interviews, searchTerm, selectedModes, selectedTypes]);
 
-  const filteredInterviews = filterData(searchTerm);
-
+  const filteredInterviews = filterData();
 
   const StatusRenderer = (params: any) => {
     const v = params.value?.toLowerCase() ?? "";
@@ -138,14 +269,11 @@ export default function CandidatesInterviews() {
   const LinkRenderer = (params: any) => {
     const value = params.value;
     if (!value) return <span className="text-gray-500">Not Available</span>;
-
     const links = value
       .split(/[,​\s]+/)
       .map((link: string) => link.trim())
       .filter((link: string) => link.length > 0);
-
     if (links.length === 0) return <span className="text-gray-500">Not Available</span>;
-
     return (
       <div className="flex flex-col space-y-1">
         {links.map((link: string, idx: number) => (
@@ -184,35 +312,61 @@ export default function CandidatesInterviews() {
   const columnDefs = useMemo<ColDef[]>(
     () => [
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
-      { field: "candidate.full_name", headerName: "Full Name", cellRenderer: CandidateNameRenderer, sortable: true, Width: 140, editable: false },
+      { field: "candidate.full_name", headerName: "Full Name", cellRenderer: CandidateNameRenderer, sortable: true, width: 140, editable: false },
       { field: "company", headerName: "Company", sortable: true, width: 130, editable: true },
-      { field: "mode_of_interview", headerName: "Mode", width: 130, editable: true },
+      {
+        field: "mode_of_interview",
+        headerName: "Mode",
+        width: 120,
+        editable: true,
+        headerComponent: FilterHeaderComponent,
+        headerComponentParams: {
+          columnName: "Mode",
+          options: modeOfInterviewOptions,
+          selectedValues: selectedModes,
+          setSelectedValues: setSelectedModes,
+        },
+      },
       {
         field: "type_of_interview",
         headerName: "Type",
-        width: 150,
+        width: 120,
         editable: true,
-        filter: "agSetColumnFilter",
-        filterParams: {
-          values: ["Technical", "Phone Call", "Virtual", "Assessment", "Recruiter Call", "HR Round", "In Person", "Prep Call"],
-          comparator: (a: string, b: string) => a.localeCompare(b),
+        headerComponent: FilterHeaderComponent,
+        headerComponentParams: {
+          columnName: "Type",
+          options: typeOfInterviewOptions,
+          selectedValues: selectedTypes,
+          setSelectedValues: setSelectedTypes,
         },
       },
-      { field: "company_type", headerName: "Company Type", sortable: true, width: 150, editable: true },
+      {
+        field: "company_type",
+        headerName: "Company Type",
+        width: 170,
+        editable: true,
+        headerComponent: FilterHeaderComponent,
+        headerComponentParams: {
+          columnName: "Company Type",
+          options: companyTypeOptions,
+          selectedValues: selectedTypes,
+          setSelectedValues: setSelectedTypes,
+        },
+      },
       { field: "interview_date", headerName: "Date", width: 120, editable: true },
-      { field: "recording_link", headerName: "Recording", cellRenderer: LinkRenderer, width: 200, editable: true },
-      { field: "transcript", headerName: "Transcript", cellRenderer: LinkRenderer, width: 200, editable: true },
-      { field: "backup_url", headerName: "Backup URL", cellRenderer: LinkRenderer, width: 200, editable: true },
-      { field: "url", headerName: "Job URL", cellRenderer: LinkRenderer, width: 200, editable: true },
-      { field: "instructor1_name", headerName: "Instructor 1", width: 180 },
-      { field: "instructor2_name", headerName: "Instructor 2", width: 180 },
-      { field: "instructor3_name", headerName: "Instructor 3", width: 180 },
-      { field: "feedback", headerName: "Feedback", cellRenderer: FeedbackRenderer, width: 130, editable: true },
-      { field: "interviewer_emails", headerName: "Emails", width: 200, editable: true },
-      { field: "interviewer_contact", headerName: "Phone", width: 140, editable: true },
-      { field: "notes", headerName: "Notes", width: 300, sortable: true, cellRenderer: (params: any) => params.value ? <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: params.value }} /> : "" },
+      { field: "recording_link", headerName: "Recording", cellRenderer: LinkRenderer, width: 120, editable: true },
+      { field: "transcript", headerName: "Transcript", cellRenderer: LinkRenderer, width: 120, editable: true },
+      { field: "backup_url", headerName: "Backup URL", cellRenderer: LinkRenderer, width: 120, editable: true },
+      { field: "url", headerName: "Job URL", cellRenderer: LinkRenderer, width: 120, editable: true },
+      { field: "instructor1_name", headerName: "Instructor 1", width: 120 },
+      { field: "instructor2_name", headerName: "Instructor 2", width: 120 },
+      { field: "instructor3_name", headerName: "Instructor 3", width: 120 },
+      { field: "feedback", headerName: "Feedback", cellRenderer: FeedbackRenderer, width: 120, editable: true },
+      { field: "interviewer_emails", headerName: "Emails", width: 150, editable: true },
+      { field: "interviewer_contact", headerName: "Phone", width: 120, editable: true },
+      { field: "notes", headerName: "Notes", width: 200, sortable: true, cellRenderer: (params: any) => params.value ? <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: params.value }} /> : "" },
     ],
-    []
+    [selectedModes, selectedTypes]
   );
 
   const handleRowUpdated = async (updatedRow: any) => {
@@ -300,7 +454,6 @@ export default function CandidatesInterviews() {
           <PlusIcon className="h-4 w-4 mr-2" /> Add Interview
         </Button>
       </div>
-
       <div className="max-w-md">
         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">Search</Label>
         <div className="relative mt-1">
@@ -315,7 +468,6 @@ export default function CandidatesInterviews() {
           />
         </div>
       </div>
-
       {loading ? (
         <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-8">Loading...</p>
       ) : error ? (
@@ -335,7 +487,6 @@ export default function CandidatesInterviews() {
           </div>
         </div>
       )}
-
       {/* Add Interview Modal */}
       {showAddForm && (
         <div
@@ -378,7 +529,6 @@ export default function CandidatesInterviews() {
                   ))}
                 </select>
               </div>
-
               {/* Company */}
               <div>
                 <Label htmlFor="company">Company</Label>
@@ -391,7 +541,6 @@ export default function CandidatesInterviews() {
                   }
                 />
               </div>
-
               {/* Company Type */}
               <div>
                 <Label htmlFor="company_type">Company Type</Label>
@@ -409,7 +558,6 @@ export default function CandidatesInterviews() {
                   <option value="contact-from-ip">Contact from IP</option>
                 </select>
               </div>
-
               {/* Interview Date */}
               <div>
                 <Label htmlFor="interview_date">Interview Date</Label>
@@ -420,7 +568,6 @@ export default function CandidatesInterviews() {
                   onChange={(e) => setNewInterview({ ...newInterview, interview_date: e.target.value })}
                 />
               </div>
-
               {/* Mode of Interview */}
               <div>
                 <Label htmlFor="mode_of_interview">Mode of Interview</Label>
@@ -437,7 +584,6 @@ export default function CandidatesInterviews() {
                   <option value="Assessment">Assessment</option>
                 </select>
               </div>
-
               {/* Type of Interview */}
               <div>
                 <Label htmlFor="type_of_interview">Type of Interview</Label>
@@ -448,15 +594,14 @@ export default function CandidatesInterviews() {
                   className="w-full p-2 border rounded"
                 >
                   <option value="">Select Type</option>
-                  <option value="Assessment">Assessment</option>
-                  <option value="Recruiter Call">Recruiter Call</option>
                   <option value="Technical">Technical</option>
                   <option value="HR Round">HR Round</option>
+                  <option value="Phone">Phone</option>
                   <option value="In Person">In Person</option>
+                  <option value="Assessment">Assessment</option>
                   <option value="Prep Call">Prep Call</option>
                 </select>
               </div>
-
               {/* Interviewer Emails */}
               <div>
                 <Label htmlFor="interviewer_emails">Interviewer Emails</Label>
@@ -467,7 +612,6 @@ export default function CandidatesInterviews() {
                   onChange={(e) => setNewInterview({ ...newInterview, interviewer_emails: e.target.value })}
                 />
               </div>
-
               {/* Interviewer Contact */}
               <div>
                 <Label htmlFor="interviewer_contact">Interviewer Contact</Label>
@@ -478,7 +622,6 @@ export default function CandidatesInterviews() {
                   onChange={(e) => setNewInterview({ ...newInterview, interviewer_contact: e.target.value })}
                 />
               </div>
-
               {/* Notes */}
               <div>
                 <Label htmlFor="notes">Notes</Label>
@@ -490,9 +633,7 @@ export default function CandidatesInterviews() {
                   onChange={(e) => setNewInterview({ ...newInterview, notes: e.target.value })}
                 />
               </div>
-
             </div>
-
             <div className="flex justify-end mt-6 space-x-3">
               <button onClick={() => setShowAddForm(false)} className="px-4 py-2 bg-gray-300 rounded">Cancel</button>
               <button onClick={handleAddInterview} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save</button>
