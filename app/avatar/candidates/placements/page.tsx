@@ -44,11 +44,10 @@ export default function CandidatesPlacements() {
   const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const [showModal, setShowModal] = useState(false);
-
   const [marketingCandidates, setMarketingCandidates] = useState<Candidate[]>([]);
   const [marketingCandidatesLoading, setMarketingCandidatesLoading] = useState(false);
+  const [marketingCandidatesError, setMarketingCandidatesError] = useState<string | null>(null);
   const [newPlacement, setNewPlacement] = useState<Omit<Placement, "id">>({
     candidate_id: "",
     candidate_name: "",
@@ -64,7 +63,6 @@ export default function CandidatesPlacements() {
     priority: "",
   });
 
-
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === "Escape") setShowModal(false);
@@ -72,7 +70,6 @@ export default function CandidatesPlacements() {
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
   }, []);
-
 
   // Fetch marketing candidates
   useEffect(() => {
@@ -114,14 +111,13 @@ export default function CandidatesPlacements() {
 
   // AG Grid custom renderers
   const StatusRenderer = (params: any) => (
-    <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
-      {params.value?.toUpperCase()}
+    <Badge className={params.value === "Active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"}>
+      {params.value}
     </Badge>
   );
 
   const AmountRenderer = (params: any) =>
     `$${params.value?.toLocaleString?.() || params.value || 0}`;
-
 
   const CandidateNameRenderer = (params: any) => {
     const candidateId = params.data?.candidate_id;
@@ -139,60 +135,20 @@ export default function CandidatesPlacements() {
     );
   };
 
-
-  const StatusRenderer = (params: any) => (
-    <Badge className={params.value === "Active" ? "bg-green-100 text-green-800" 
-    : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"}>
-      {params.value}
-    </Badge>
-  );
-
-
-  const AmountRenderer = (params: any) =>
-    `$${params.value?.toLocaleString?.() || params.value || 0}`;
-
-
-  useEffect(() => {
-    const fetchMarketingCandidates = async () => {
-      setMarketingCandidatesLoading(true);
-      try {
-        const token = localStorage.getItem("token");
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing?page=1&limit=1000`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const result = await res.json();
-        const candidates = (Array.isArray(result.data) ? result.data : []).map((c: any) => ({
-          id: c.candidate?.id ?? c.id,
-          name: c.candidate?.full_name ?? "Unnamed Candidate",
-        }));
-        setMarketingCandidates(candidates);
-      } catch (err) {
-        console.error("Failed to fetch marketing candidates", err);
-      } finally {
-        setMarketingCandidatesLoading(false);
-      }
-    };
-    fetchMarketingCandidates();
-  }, []);
-
   // Fetch placements
   useEffect(() => {
     const fetchPlacements = async () => {
       try {
         setLoading(true);
         const token = localStorage.getItem("token");
-
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/candidate/placements?page=1&limit=1000`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-
         if (!res.ok) throw new Error("Failed to fetch placements");
         const data = (await res.json()).data || [];
         setAllPlacements(data);
         setFilteredPlacements(data);
-
         if (data.length > 0) {
-
           const cols: ColDef[] = [
             { field: "id", headerName: "ID", width: 80, pinned: "left" },
             { field: "candidate_name", headerName: "Candidate Name", minWidth: 160, cellRenderer: CandidateNameRenderer },
@@ -206,10 +162,8 @@ export default function CandidatesPlacements() {
             { field: "benefits", headerName: "Benefits", minWidth: 150, editable: true },
             { field: "notes", headerName: "Notes", minWidth: 150, editable: true },
             { field: "priority", headerName: "Priority", minWidth: 90, editable: true },
-            // { field: "last_mod_datetime", headerName: "Last Modified", minWidth: 160 }
           ];
           setColumnDefs(cols);
-
         }
       } catch (err: any) {
         console.error(err);
@@ -221,7 +175,6 @@ export default function CandidatesPlacements() {
     fetchPlacements();
   }, []);
 
-
   useEffect(() => {
     const lower = searchTerm.toLowerCase();
     setFilteredPlacements(
@@ -229,15 +182,12 @@ export default function CandidatesPlacements() {
     );
   }, [searchTerm, allPlacements]);
 
- 
   const handleRowUpdated = async (updatedRow: Placement) => {
     try {
-
       const { id, ...payload } = updatedRow;
       await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/candidate/placements/${id}`, payload);
       setAllPlacements(prev => prev.map(p => p.id === id ? updatedRow : p));
       setFilteredPlacements(prev => prev.map(p => p.id === id ? updatedRow : p));
-
       toast.success("Placement updated successfully!");
     } catch (err) {
       console.error(err);
@@ -245,7 +195,6 @@ export default function CandidatesPlacements() {
     }
   };
 
-  
   const handleRowDeleted = async (id: number) => {
     try {
       await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/candidate/placements/${id}`);
@@ -258,13 +207,11 @@ export default function CandidatesPlacements() {
     }
   };
 
-
   const handleCreatePlacement = async () => {
     if (!newPlacement.candidate_id || !newPlacement.type || !newPlacement.status || !newPlacement.company || !newPlacement.placement_date) {
       toast.error("Please fill all required fields");
       return;
     }
-
     try {
       const payload = {
         ...newPlacement,
@@ -272,7 +219,6 @@ export default function CandidatesPlacements() {
         base_salary_offered: newPlacement.base_salary_offered ? Number(newPlacement.base_salary_offered) : undefined,
         fee_paid: newPlacement.fee_paid ? Number(newPlacement.fee_paid) : undefined,
         priority: newPlacement.priority ? Number(newPlacement.priority) : 99,
-
       };
       const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/candidate/placements`, payload);
       const newRow = { ...res.data, candidate_name: newPlacement.candidate_name };
@@ -296,16 +242,13 @@ export default function CandidatesPlacements() {
       toast.success("Placement created successfully!");
     } catch (err) {
       console.error(err);
-
       toast.error("Failed to create placement");
-
     }
   };
 
   return (
     <div className="space-y-6">
       <Toaster richColors position="top-center" />
-
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -319,7 +262,6 @@ export default function CandidatesPlacements() {
           <PlusIcon className="mr-2 h-4 w-4" /> Add Placement
         </button>
       </div>
-
       {/* Search */}
       <div className="max-w-md">
         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">Search Candidates</Label>
@@ -333,10 +275,8 @@ export default function CandidatesPlacements() {
             onChange={e => setSearchTerm(e.target.value)}
             className="pl-10"
           />
-
         </div>
       </div>
-
       {/* Modal */}
       {showModal && (
         <div
@@ -344,14 +284,12 @@ export default function CandidatesPlacements() {
           onClick={() => setShowModal(false)}
         >
           <div
-
             className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto"
             onClick={e => e.stopPropagation()}
           >
             <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-200">Add Placement</h2>
             <div className="space-y-3">
               <Label>Candidate</Label>
-
               <select
                 value={newPlacement.candidate_id}
                 onChange={e => {
@@ -359,12 +297,10 @@ export default function CandidatesPlacements() {
                   setNewPlacement({ ...newPlacement, candidate_id: selected?.id || "", candidate_name: selected?.name || "" });
                 }}
                 className="w-full p-2 border rounded-md"
-
               >
                 <option value="">Select Candidate</option>
                 {marketingCandidates.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
-
               <Label>Type</Label>
               <select
                 value={newPlacement.type}
@@ -374,92 +310,62 @@ export default function CandidatesPlacements() {
                 <option value="">Select Type</option>
                 {typeOptions.map(opt => <option key={opt}>{opt}</option>)}
               </select>
-
-
               <Label>Status</Label>
               <select
                 value={newPlacement.status}
                 onChange={e => setNewPlacement({ ...newPlacement, status: e.target.value })}
                 className="w-full p-2 border rounded-md"
-
               >
                 <option value="">Select Status</option>
                 {statusOptions.map(opt => <option key={opt}>{opt}</option>)}
               </select>
-
               {/* Company */}
               <h3 className="mb-1 text-sm font-semibold text-gray-700 dark:text-gray-300">
                 Company
               </h3>
-
-
               <Label>Company</Label>
               <Input
                 placeholder="Company"
                 value={newPlacement.company}
-
                 onChange={e => setNewPlacement({ ...newPlacement, company: e.target.value })}
               />
-
               <Label>Position</Label>
               <Input
                 placeholder="Position"
                 value={newPlacement.position}
                 onChange={e => setNewPlacement({ ...newPlacement, position: e.target.value })}
               />
-
               <Label>Placement Date</Label>
               <Input
                 type="date"
                 value={newPlacement.placement_date}
                 onChange={e => setNewPlacement({ ...newPlacement, placement_date: e.target.value })}
               />
-
-
               <Label>Base Salary Offered</Label>
               <Input
                 type="number"
                 value={newPlacement.base_salary_offered}
-
                 onChange={e => setNewPlacement({ ...newPlacement, base_salary_offered: e.target.value })}
               />
-
               <Label>Fee Paid</Label>
-
               <Input
                 type="number"
                 value={newPlacement.fee_paid}
                 onChange={e => setNewPlacement({ ...newPlacement, fee_paid: e.target.value })}
               />
-
-
               <Label>Notes</Label>
-
               <Input
                 value={newPlacement.notes}
-
                 onChange={e => setNewPlacement({ ...newPlacement, notes: e.target.value })}
-
               />
-
-              {/* <Label>Priority</Label>
-              <Input
-                type="number"
-                value={newPlacement.priority}
-                onChange={e => setNewPlacement({ ...newPlacement, priority: e.target.value })}
-              /> */}
             </div>
-
             <div className="mt-4 flex justify-end gap-3">
-
               <button onClick={() => setShowModal(false)} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200">Cancel</button>
               <button onClick={handleCreatePlacement} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Save</button>
-
             </div>
           </div>
         </div>
       )}
-
       {/* AG Grid Table */}
       {loading ? (
         <p className="text-center text-sm text-gray-500 dark:text-gray-400">Loading...</p>

@@ -212,20 +212,25 @@
     };
 
     const LinkCellRenderer = (params: any) => {
-    const url = params.value;
-    if (!url) return <span className="text-gray-500">N/A</span>;
+      let url = params.value;
 
-    return (
-      <a 
-        href={url} 
-        target="_blank" 
-        rel="noopener noreferrer" 
-        className="text-blue-600 hover:underline"
-      >
-        Click Here
-      </a>
-    );
-  };
+      if (!url) return <span className="text-gray-500">N/A</span>;
+
+      if (!/^https?:\/\//i.test(url)) {
+        url = `https://${url}`;
+      }
+
+      return (
+        <a 
+          href={url} 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          className="text-blue-600 hover:underline"
+        >
+          Click Here
+        </a>
+      );
+    };
 
     // ---------------- Column Defs ----------------
     const columnDefs: ColDef[] = useMemo<ColDef[]>(() => {
