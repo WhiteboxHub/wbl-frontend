@@ -47,7 +47,13 @@ export default function CandidatesPlacements() {
 
   // AG Grid custom renderers
   const StatusRenderer = (params: any) => (
-    <Badge className={params.value === "Active" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"}>
+    <Badge
+      className={
+        params.value === "Active"
+          ? "bg-green-100 text-green-800"
+          : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+      }
+    >
       {params.value}
     </Badge>
   );
@@ -58,7 +64,8 @@ export default function CandidatesPlacements() {
   const CandidateNameRenderer = (params: any) => {
     const candidateId = params.data?.candidate_id;
     const candidateName = params.value;
-    if (!candidateId || !candidateName) return <span className="text-gray-500">{candidateName || "N/A"}</span>;
+    if (!candidateId || !candidateName)
+      return <span className="text-gray-500">{candidateName || "N/A"}</span>;
     return (
       <Link
         href={`/avatar/candidates/search?candidateId=${candidateId}`}
@@ -77,9 +84,12 @@ export default function CandidatesPlacements() {
       try {
         setLoading(true);
         const token = localStorage.getItem("token");
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/candidate/placements?page=1&limit=1000`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/candidate/placements?page=1&limit=1000`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
         if (!res.ok) throw new Error("Failed to fetch placements");
         const data = (await res.json()).data || [];
         setAllPlacements(data);
@@ -87,17 +97,79 @@ export default function CandidatesPlacements() {
         if (data.length > 0) {
           const cols: ColDef[] = [
             { field: "id", headerName: "ID", width: 80, pinned: "left" },
-            { field: "candidate_name", headerName: "Candidate Name", minWidth: 160, cellRenderer: CandidateNameRenderer },
-            { field: "company", headerName: "Company", minWidth: 150, editable: true },
-            { field: "position", headerName: "Position", minWidth: 150, editable: true },
-            { field: "placement_date", headerName: "Placement Date", minWidth: 130, editable: true },
-            { field: "type", headerName: "Type", minWidth: 140, editable: true, cellEditor: "agSelectCellEditor", cellEditorParams: { values: typeOptions } },
-            { field: "status", headerName: "Status", minWidth: 120, editable: true, cellRenderer: StatusRenderer, cellEditor: "agSelectCellEditor", cellEditorParams: { values: statusOptions } },
-            { field: "base_salary_offered", headerName: "Base Salary Offered", minWidth: 140, editable: true, cellRenderer: AmountRenderer },
-            { field: "fee_paid", headerName: "Fee Paid", minWidth: 120, editable: true, cellRenderer: AmountRenderer },
-            { field: "benefits", headerName: "Benefits", minWidth: 150, editable: true },
-            { field: "notes", headerName: "Notes", minWidth: 150, editable: true },
-            { field: "priority", headerName: "Priority", minWidth: 90, editable: true },
+            {
+              field: "candidate_name",
+              headerName: "Candidate Name",
+              minWidth: 160,
+              cellRenderer: CandidateNameRenderer,
+            },
+            {
+              field: "company",
+              headerName: "Company",
+              minWidth: 150,
+              editable: true,
+            },
+            {
+              field: "position",
+              headerName: "Position",
+              minWidth: 150,
+              editable: true,
+            },
+            {
+              field: "placement_date",
+              headerName: "Placement Date",
+              minWidth: 130,
+              editable: true,
+            },
+            {
+              field: "type",
+              headerName: "Type",
+              minWidth: 140,
+              editable: true,
+              cellEditor: "agSelectCellEditor",
+              cellEditorParams: { values: typeOptions },
+            },
+            {
+              field: "status",
+              headerName: "Status",
+              minWidth: 120,
+              editable: true,
+              cellRenderer: StatusRenderer,
+              cellEditor: "agSelectCellEditor",
+              cellEditorParams: { values: statusOptions },
+            },
+            {
+              field: "base_salary_offered",
+              headerName: "Base Salary Offered",
+              minWidth: 140,
+              editable: true,
+              cellRenderer: AmountRenderer,
+            },
+            {
+              field: "fee_paid",
+              headerName: "Fee Paid",
+              minWidth: 120,
+              editable: true,
+              cellRenderer: AmountRenderer,
+            },
+            {
+              field: "benefits",
+              headerName: "Benefits",
+              minWidth: 150,
+              editable: true,
+            },
+            {
+              field: "notes",
+              headerName: "Notes",
+              minWidth: 150,
+              editable: true,
+            },
+            {
+              field: "priority",
+              headerName: "Priority",
+              minWidth: 90,
+              editable: true,
+            },
           ];
           setColumnDefs(cols);
         }
@@ -114,16 +186,25 @@ export default function CandidatesPlacements() {
   useEffect(() => {
     const lower = searchTerm.toLowerCase();
     setFilteredPlacements(
-      allPlacements.filter(p => Object.values(p).some(v => String(v).toLowerCase().includes(lower)))
+      allPlacements.filter((p) =>
+        Object.values(p).some((v) => String(v).toLowerCase().includes(lower))
+      )
     );
   }, [searchTerm, allPlacements]);
 
   const handleRowUpdated = async (updatedRow: Placement) => {
     try {
       const { id, ...payload } = updatedRow;
-      await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/candidate/placements/${id}`, payload);
-      setAllPlacements(prev => prev.map(p => p.id === id ? updatedRow : p));
-      setFilteredPlacements(prev => prev.map(p => p.id === id ? updatedRow : p));
+      await axios.put(
+        `${process.env.NEXT_PUBLIC_API_URL}/candidate/placements/${id}`,
+        payload
+      );
+      setAllPlacements((prev) =>
+        prev.map((p) => (p.id === id ? updatedRow : p))
+      );
+      setFilteredPlacements((prev) =>
+        prev.map((p) => (p.id === id ? updatedRow : p))
+      );
       toast.success("Placement updated successfully!");
     } catch (err) {
       console.error(err);
@@ -133,9 +214,11 @@ export default function CandidatesPlacements() {
 
   const handleRowDeleted = async (id: number) => {
     try {
-      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/candidate/placements/${id}`);
-      setAllPlacements(prev => prev.filter(p => p.id !== id));
-      setFilteredPlacements(prev => prev.filter(p => p.id !== id));
+      await axios.delete(
+        `${process.env.NEXT_PUBLIC_API_URL}/candidate/placements/${id}`
+      );
+      setAllPlacements((prev) => prev.filter((p) => p.id !== id));
+      setFilteredPlacements((prev) => prev.filter((p) => p.id !== id));
       toast.success("Placement deleted successfully!");
     } catch (err) {
       console.error(err);
@@ -146,12 +229,20 @@ export default function CandidatesPlacements() {
   return (
     <div className="space-y-6">
       <Toaster richColors position="top-center" />
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Placements</h1>
-          <p className="text-gray-600 dark:text-gray-400">Successfully placed candidates</p>
+      {/* Header Section */}
+      <div className="space-y-4 md:space-y-0">
+        {/* Page title */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              Placements
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              Successfully placed candidates
+            </p>
+          </div>
         </div>
+
       </div>
       {/* Search */}
       <div className="max-w-md">
@@ -168,9 +259,12 @@ export default function CandidatesPlacements() {
           />
         </div>
       </div>
+
       {/* AG Grid Table */}
       {loading ? (
-        <p className="text-center text-sm text-gray-500 dark:text-gray-400">Loading...</p>
+        <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+          Loading...
+        </p>
       ) : error ? (
         <p className="text-center text-red-500">{error}</p>
       ) : (
