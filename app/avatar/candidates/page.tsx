@@ -228,13 +228,13 @@ const FilterHeaderComponent = ({
         option?.label || '',                     // For objects with label
         option?.text || '',                      // For objects with text
       ].filter(text => text.length > 0);        // Remove empty strings
-      
+
       // Check if any searchable text contains the search term
-      return searchableTexts.some(text => 
+      return searchableTexts.some(text =>
         text.toLowerCase().includes(searchLower)
       );
     });
-    
+
     setFilteredOptions(filtered);
   }, [searchTerm, options, getOptionValue]);
 
@@ -271,7 +271,7 @@ const FilterHeaderComponent = ({
 
   const colorMap: Record<string, string> = {
     blue: "bg-blue-500",
-    green: "bg-green-500", 
+    green: "bg-green-500",
     purple: "bg-purple-500",
     red: "bg-red-500",
     orange: "bg-orange-500",
@@ -811,21 +811,21 @@ export default function CandidatesPage() {
         value != null ? `$${Number(value).toLocaleString()}` : "",
       cellStyle: { textAlign: 'right' }
     },
-    
-{
-  field: "move_to_prep",
-  headerName: "Move to Prep",
-  width: 120,
-  sortable: true,
-  filter: 'agSetColumnFilter',
-  cellRenderer: (params: any) => (
-    <span>
-      {params.value ? "Yes" : "No"}
-    </span>
-  )
-},
 
-    
+    {
+      field: "move_to_prep",
+      headerName: "Move to Prep",
+      width: 120,
+      sortable: true,
+      filter: "agTextColumnFilter",
+      cellRenderer: (params: any) => (
+        <span>
+          {params.value ? "Yes" : "No"}
+        </span>
+      )
+    },
+
+
     {
       field: "notes",
       headerName: "Notes",
@@ -1098,38 +1098,78 @@ export default function CandidatesPage() {
     }
   };
 
-  const handleRowUpdated = useCallback(async (updatedRow: Candidate) => {
-    setLoadingRowId(updatedRow.id);
-    try {
-      const updatedData = { ...updatedRow };
-      if (!updatedData.status || updatedData.status === '') {
-        updatedData.status = 'active';
+  // const handleRowUpdated = useCallback(async (updatedRow: Candidate) => {
+  //   setLoadingRowId(updatedRow.id);
+  //   try {
+  //     const updatedData = { ...updatedRow };
+  //     if (!updatedData.status || updatedData.status === '') {
+  //       updatedData.status = 'active';
+  //     }
+  //     const { id, ...payload } = updatedData;
+
+  //     const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
+  //       method: "PUT",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify(payload),
+  //     });
+  //     if (!response.ok) throw new Error("Failed to update candidate");
+
+  //     toast.success("Candidate updated successfully");
+
+  //     // Update only this row in AG Grid
+  //     if (gridRef.current) {
+  //       const rowNode = gridRef.current.api.getRowNode(id.toString());
+  //       if (rowNode) {
+  //         rowNode.setData({ ...updatedRow, ...payload });
+  //       }
+  //     }
+
+
+  //   } catch (error) {
+  //     toast.error("Failed to update candidate");
+  //     console.error("Error updating candidate:", error);
+  //   } finally {
+  //     setLoadingRowId(null);
+  //   }
+  // }, [apiEndpoint]);
+
+  const handleRowUpdated = useCallback(
+    async (updatedRow: Candidate) => {
+      setLoadingRowId(updatedRow.id);
+      try {
+        const { id, ...payload } = updatedRow;
+        const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) throw new Error("Failed to update candidate");
+
+        // Update React state
+        setCandidates((prevCandidates) =>
+          prevCandidates.map((candidate) =>
+            candidate.id === updatedRow.id ? { ...candidate, ...payload } : candidate
+          )
+        );
+
+        // Update AG Grid
+        if (gridRef.current) {
+          const rowNode = gridRef.current.api.getRowNode(id.toString());
+          if (rowNode) {
+            rowNode.setData({ ...updatedRow, ...payload });
+          }
+        }
+
+        toast.success("Candidate updated successfully");
+      } catch (error) {
+        toast.error("Failed to update candidate");
+        console.error("Error updating candidate:", error);
+      } finally {
+        setLoadingRowId(null);
       }
-      const { id, ...payload } = updatedData;
-
-      const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) throw new Error("Failed to update candidate");
-
-      toast.success("Candidate updated successfully");
-
-      // Update only this row in AG Grid
-      if (gridRef.current) {
-        const rowNode = gridRef.current.api.getRowNode(updatedRow.id.toString());
-        if (rowNode) rowNode.setData(updatedData);
-      }
-
-    } catch (error) {
-      toast.error("Failed to update candidate");
-      console.error("Error updating candidate:", error);
-    } finally {
-      setLoadingRowId(null);
-    }
-  }, [apiEndpoint]);
-
+    },
+    [apiEndpoint]
+  );
 
 
 
@@ -1142,21 +1182,31 @@ export default function CandidatesPage() {
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
   }, []);
-  const handleRowDeleted = useCallback(async (id: number) => {
-    try {
-      const response = await fetch(`${apiEndpoint}/${id}`, { method: "DELETE" });
-      if (!response.ok) throw new Error("Failed to delete candidate");
 
-      toast.success("Candidate deleted successfully");
 
-      if (gridRef.current) {
-        gridRef.current.api.applyTransaction({ remove: [{ id }] });
+  const handleRowDeleted = useCallback(
+    async (id: number) => {
+      try {
+        const response = await fetch(`${apiEndpoint}/${id}`, { method: "DELETE" });
+        if (!response.ok) throw new Error("Failed to delete candidate");
+
+        // Update React state: Remove the deleted candidate
+        setCandidates((prevCandidates) => prevCandidates.filter((candidate) => candidate.id !== id));
+
+        // Update AG Grid: Remove the row
+        if (gridRef.current) {
+          gridRef.current.api.applyTransaction({ remove: [{ id }] });
+        }
+
+        toast.success("Candidate deleted successfully");
+      } catch (error) {
+        toast.error("Failed to delete candidate");
+        console.error("Error deleting candidate:", error);
       }
-    } catch (error) {
-      toast.error("Failed to delete candidate");
-      console.error("Error deleting candidate:", error);
-    }
-  }, [apiEndpoint]);
+    },
+    [apiEndpoint]
+  );
+
 
   const handleFilterChanged = useCallback((filterModelFromGrid: any) => {
     setFilterModel(filterModelFromGrid);
@@ -1229,7 +1279,7 @@ export default function CandidatesPage() {
       </div>
 
       {/* Search */}
-      {/* <div key="search-container" className="max-w-md">
+      <div key="search-container" className="max-w-md">
 
         <div className="relative mt-1">
           <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-blue-700 dark:text-blue-400" />
@@ -1253,7 +1303,7 @@ export default function CandidatesPage() {
             {filteredCandidates.length} candidates found
           </p>
         )}
-      </div> */}
+      </div>
 
       {/* AG Grid Table */}
       <div className="flex w-full justify-center">

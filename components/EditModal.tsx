@@ -1031,7 +1031,7 @@
 
 
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -1469,12 +1469,60 @@ export function EditModal({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Simple client-side cache helpers (localStorage) with TTL for dropdowns
+  const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+  const getCache = (key: string) => {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || !parsed.ts) return null;
+      if (Date.now() - parsed.ts > (parsed.ttl || CACHE_TTL)) {
+        localStorage.removeItem(key);
+        return null;
+      }
+      return parsed.data;
+    } catch (e) {
+      return null;
+    }
+  };
+  const setCache = (key: string, data: any, ttl = CACHE_TTL) => {
+    try {
+      localStorage.setItem(key, JSON.stringify({ ts: Date.now(), ttl, data }));
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  // In-flight guards to avoid duplicate concurrent fetches
+  const batchesFetchingRef = useRef(false);
+  const coursesFetchingRef = useRef(false);
+  const subjectsFetchingRef = useRef(false);
+  const employeesFetchingRef = useRef(false);
+
   // Fixed: Moved fetchBatches function inside useEffect
   useEffect(() => {
     if (isOpen) {
       const fetchBatches = async () => {
+        if (batchesFetchingRef.current) return;
+        batchesFetchingRef.current = true;
         setBatchesLoading(true);
         try {
+          const cached = getCache('batches');
+          if (cached) {
+            setAllBatches(cached);
+            // compute mlBatches from cached
+            const sortedAllBatches = [...cached].sort((a: Batch, b: Batch) => b.batchid - a.batchid);
+            let mlBatchesOnly = sortedAllBatches.filter(batch => {
+              const subject = batch.subject?.toLowerCase();
+              return subject === 'ml' || subject === 'machine learning' || subject === 'machinelearning' || subject?.includes('ml');
+            });
+            if (mlBatchesOnly.length === 0) mlBatchesOnly = sortedAllBatches.filter(batch => batch.courseid === 3);
+            if (mlBatchesOnly.length === 0) mlBatchesOnly = sortedAllBatches;
+            setMlBatches(mlBatchesOnly);
+            return;
+          }
+
           const token = localStorage.getItem('accesstoken');
           const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/batch`, {
             headers: { Authorization: `Bearer ${token}` }
@@ -1482,12 +1530,7 @@ export function EditModal({
 
           const sortedAllBatches = [...res.data].sort((a: Batch, b: Batch) => b.batchid - a.batchid);
           setAllBatches(sortedAllBatches);
-
-          const uniqueSubjects = [...new Set(sortedAllBatches.map(batch => batch.subject))];
-          const uniqueCourseIds = [...new Set(sortedAllBatches.map(batch => batch.courseid))];
-          console.log(' Available subjects:', uniqueSubjects);
-          console.log(' Available course IDs:', uniqueCourseIds);
-          console.log(' Total batches:', sortedAllBatches.length);
+          setCache('batches', sortedAllBatches);
 
           let mlBatchesOnly = sortedAllBatches.filter(batch => {
             const subject = batch.subject?.toLowerCase();
@@ -1497,19 +1540,17 @@ export function EditModal({
               subject?.includes('ml');
           });
           if (mlBatchesOnly.length === 0) {
-            console.log('No ML batches found by subject, trying courseid = 3');
             mlBatchesOnly = sortedAllBatches.filter(batch => batch.courseid === 3);
           }
           if (mlBatchesOnly.length === 0) {
-            console.warn('No ML batches found! Showing all batches in form as fallback');
             mlBatchesOnly = sortedAllBatches;
           }
-          console.log(' Filtered ML batches for form:', mlBatchesOnly.length);
           setMlBatches(mlBatchesOnly);
         } catch (error) {
           console.error('Failed to load batches:', error);
         } finally {
           setBatchesLoading(false);
+          batchesFetchingRef.current = false;
         }
       };
 
@@ -1524,40 +1565,74 @@ export function EditModal({
   }, [data]);
 
   useEffect(() => {
+    // Only fetch once (cache) and avoid duplicate concurrent requests with refs
     const fetchCourses = async () => {
+      if (coursesFetchingRef.current) return;
+      coursesFetchingRef.current = true;
       try {
+        const cached = getCache('courses');
+        if (cached) {
+          setCourses(cached);
+          return;
+        }
         const token = localStorage.getItem("token");
         const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/courses`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setCourses(res.data);
+        setCourses(res.data || []);
+        setCache('courses', res.data || []);
       } catch (error) {
         console.error("Failed to fetch courses:", error);
+      } finally {
+        coursesFetchingRef.current = false;
       }
     };
+
     const fetchSubjects = async () => {
+      if (subjectsFetchingRef.current) return;
+      subjectsFetchingRef.current = true;
       try {
+        const cached = getCache('subjects');
+        if (cached) {
+          setSubjects(cached);
+          return;
+        }
         const token = localStorage.getItem("token");
         const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/subjects`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setSubjects(res.data);
+        setSubjects(res.data || []);
+        setCache('subjects', res.data || []);
       } catch (error) {
         console.error("Failed to fetch subjects:", error);
+      } finally {
+        subjectsFetchingRef.current = false;
       }
     };
+
     const fetchEmployees = async () => {
+      if (employeesFetchingRef.current) return;
+      employeesFetchingRef.current = true;
       try {
+        const cached = getCache('employees');
+        if (cached) {
+          setEmployees(cached);
+          return;
+        }
         const token = localStorage.getItem("token");
         const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/employees`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const activeEmployees = res.data.filter((emp: any) => emp.status === 1);
+        const activeEmployees = (res.data || []).filter((emp: any) => emp.status === 1);
         setEmployees(activeEmployees);
+        setCache('employees', activeEmployees);
       } catch (error) {
         console.error("Failed to fetch employees:", error);
+      } finally {
+        employeesFetchingRef.current = false;
       }
     };
+
     fetchCourses();
     fetchSubjects();
     fetchEmployees();
