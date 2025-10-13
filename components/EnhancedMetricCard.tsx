@@ -6,7 +6,7 @@ interface EnhancedMetricCardProps {
   title: string;
   value: string | number;
   icon?: ReactNode;
-  variant?: "default" | "purple" | "blue" | "green" | "orange" | "red" | "teal"  ;
+  variant?: "default" | "purple" | "blue" | "green" | "orange" | "red" | "teal" | "pink" ;
   trend?: {
     value: number;
     isPositive: boolean;
@@ -46,17 +46,23 @@ const variantStyles = {
     border: "border-orange-200"
   },
   red: {
-    bg: "bg-white",
-    iconBg: "bg-red-100",
-    iconColor: "text-red-600",
-    border: "border-red-200"
+     bg: "bg-gradient-to-br from-rose-50 via-rose-100 to-rose-200",
+     iconBg: "bg-rose-200 shadow-md shadow-rose-400/40",
+     iconColor: "text-rose-700",
+     border: "border-rose-300"
   },
   teal: {
     bg: "bg-white",
     iconBg: "bg-teal-100",
     iconColor: "text-teal-600",
     border: "border-teal-200"
-  }
+  },
+  pink: {
+    bg: "bg-white",
+    iconBg: "bg-pink-100",
+    iconColor: "text-pink-600",
+    border: "border-pink-200"
+  },
 };
 
 export function EnhancedMetricCard({ 

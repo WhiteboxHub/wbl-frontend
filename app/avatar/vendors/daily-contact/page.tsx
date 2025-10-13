@@ -146,35 +146,53 @@ export default function VendorContactsGrid() {
   };
 
   const handleMoveAllToVendor = async () => {
+    setMovingToVendor(true);
     try {
-      setMovingToVendor(true);
-      const token = localStorage.getItem("token");
-
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/vendor_contact/move_to_vendor`,
-        { contact_ids: null },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      const result = response.data;
-
-      if (result.inserted > 0) {
-        toast.success(`Moved ${result.inserted} contacts to vendor`);
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : undefined;
+      const toMove = contacts.filter((c) => !c.moved_to_vendor);
+      if (!toMove.length) {
+        toast.info("No contacts to move");
+        return;
       }
 
-      if (result.inserted === 0 && result.count === 0) {
+      let inserted = 0, skipped = 0, failed = 0;
+      for (const c of toMove) {
+        const payload: any = {
+          full_name: c.full_name || c.company_name || c.email || "Unknown",
+          email: c.email || undefined,
+          phone_number: c.phone || undefined,
+        };
+        try {
+          await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/vendors`, payload, config);
+          inserted++;
+          await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/vendor_contact/${c.id}`, { moved_to_vendor: true }, config);
+        } catch (e: any) {
+          const d = e?.response?.data?.detail || "";
+          if (typeof d === "string" && d.toLowerCase().includes("email already exists")) {
+            skipped++;
+            try {
+              await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/vendor_contact/${c.id}`, { moved_to_vendor: true }, config);
+            } catch {}
+          } else {
+            failed++;
+          }
+        }
+      }
+
+      if (inserted) {
+        toast.success(`Moved ${inserted} contacts${skipped ? `, ${skipped} skipped` : ""}${failed ? `, ${failed} failed` : ""}`);
+      } else if (skipped && !failed) {
+        toast.info(`${skipped} contacts already existed; marked as moved`);
+      } else if (failed) {
+        toast.error("Failed to move contacts");
+      } else {
         toast.info("No contacts to move");
       }
 
       await fetchContacts();
     } catch (err: any) {
-      toast.error(
-        err.response?.data?.detail ||
-          err.message ||
-          "Failed to move contacts to vendor"
-      );
+      toast.error(err?.response?.data?.detail || err?.message || "Failed to move contacts to vendor");
     } finally {
       setMovingToVendor(false);
     }
