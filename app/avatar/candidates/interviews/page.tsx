@@ -121,6 +121,137 @@ const FilterHeaderComponent = ({
   );
 };
 
+// Mode Renderer
+const ModeRenderer = (params: any) => {
+  const value = params.value?.toLowerCase();
+  let badgeClass = "bg-gray-100 text-gray-800";
+  if (value === "virtual") {
+    badgeClass = "bg-blue-100 text-blue-800";
+  } else if (value === "in person") {
+    badgeClass = "bg-green-100 text-green-800";
+  } else if (value === "phone") {
+    badgeClass = "bg-yellow-100 text-yellow-800";
+  } else if (value === "assessment") {
+    badgeClass = "bg-purple-100 text-purple-800";
+  }
+  return <Badge className={badgeClass}>{params.value}</Badge>;
+};
+
+// Type Renderer
+const TypeRenderer = (params: any) => {
+  const value = params.value?.toLowerCase();
+  let badgeClass = "bg-gray-100 text-gray-800";
+  if (value === "technical") {
+    badgeClass = "bg-indigo-100 text-indigo-800";
+  } else if (value === "hr round") {
+    badgeClass = "bg-pink-100 text-pink-800";
+  } else if (value === "phone") {
+    badgeClass = "bg-yellow-100 text-yellow-800";
+  } else if (value === "in person") {
+    badgeClass = "bg-green-100 text-green-800";
+  } else if (value === "assessment") {
+    badgeClass = "bg-purple-100 text-purple-800";
+  } else if (value === "recruiter call") {
+    badgeClass = "bg-cyan-100 text-cyan-800";
+  } else if (value === "prep call") {
+    badgeClass = "bg-teal-100 text-teal-800";
+  }
+  return <Badge className={badgeClass}>{params.value}</Badge>;
+};
+
+// Company Type Renderer
+const CompanyTypeRenderer = (params: any) => {
+  const value = params.value?.toLowerCase();
+  let badgeClass = "bg-gray-100 text-gray-800";
+  if (value === "client") {
+    badgeClass = "bg-blue-100 text-blue-800";
+  } else if (value === "third-party-vendor") {
+    badgeClass = "bg-orange-100 text-orange-800";
+  } else if (value === "implementation-partner") {
+    badgeClass = "bg-green-100 text-green-800";
+  } else if (value === "sourcer") {
+    badgeClass = "bg-red-100 text-red-800";
+  } else if (value === "contact-from-ip") {
+    badgeClass = "bg-purple-100 text-purple-800";
+  }
+  return <Badge className={badgeClass}>{params.value}</Badge>;
+};
+
+// Status Renderer
+const StatusRenderer = (params: any) => {
+  const v = params.value?.toLowerCase() ?? "";
+  const classes =
+    v === "cleared"
+      ? "bg-green-100 text-green-800"
+      : v === "rejected"
+      ? "bg-red-100 text-red-800"
+      : "bg-gray-100 text-gray-800";
+  return <Badge className={classes}>{params.value}</Badge>;
+};
+
+// Feedback Renderer
+const FeedbackRenderer = (params: any) => {
+  const value = params.value?.toLowerCase() ?? "";
+  if (!value || value === "no response")
+    return <Badge className="bg-gray-100 text-gray-800">Pending</Badge>;
+  if (value === "positive")
+    return <Badge className="bg-green-300 text-green-800">Positive</Badge>;
+  if (value === "failure" || value === "negative")
+    return <Badge className="bg-red-100 text-red-800">Failure</Badge>;
+  return <Badge className="bg-gray-100 text-gray-800">{params.value}</Badge>;
+};
+
+// Link Renderer
+const LinkRenderer = (params: any) => {
+  const value = params.value;
+  if (!value) return <span className="text-gray-500">Not Available</span>;
+  const links = value
+    .split(/[,​\s]+/)
+    .map((link: string) => link.trim())
+    .filter((link: string) => link.length > 0);
+  if (links.length === 0) return <span className="text-gray-500">Not Available</span>;
+  const formatLink = (link: string) => {
+    if (!/^https?:\/\//i.test(link)) {
+      return `https://${link}`;
+    }
+    return link;
+  };
+  return (
+    <div className="flex flex-col space-y-1">
+      {links.map((link: string, idx: number) => (
+        <a
+          key={idx}
+          href={formatLink(link)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 underline hover:text-blue-800"
+        >
+          Click here
+        </a>
+      ))}
+    </div>
+  );
+};
+
+// Candidate Name Renderer
+const CandidateNameRenderer = (params: any) => {
+  const candidateId = params.data?.candidate_id;
+  const candidateName = params.value;
+  if (!candidateId || !candidateName) {
+    return <span className="text-gray-500">{candidateName || "N/A"}</span>;
+  }
+  return (
+    <Link
+      href={`/avatar/candidates/search?candidateId=${candidateId}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
+    >
+      {candidateName}
+    </Link>
+  );
+};
+
 export default function CandidatesInterviews() {
   const [searchTerm, setSearchTerm] = useState("");
   const [interviews, setInterviews] = useState<any[]>([]);
@@ -164,7 +295,7 @@ export default function CandidatesInterviews() {
   const typeOfInterviewOptions = [
     { value: "technical", label: "Technical" },
     { value: "hr round", label: "HR Round" },
-    { value: "phone", label: "Phone" },
+    { value: "recruiter call ", label: "Recruiter Call" },
     { value: "in person", label: "In Person" },
     { value: "assessment", label: "Assessment" },
     { value: "prep call", label: "Prep Call" },
@@ -244,71 +375,6 @@ export default function CandidatesInterviews() {
 
   const filteredInterviews = filterData();
 
-  const StatusRenderer = (params: any) => {
-    const v = params.value?.toLowerCase() ?? "";
-    const classes =
-      v === "cleared"
-        ? "bg-green-100 text-green-800"
-        : v === "rejected"
-        ? "bg-red-100 text-red-800"
-        : "bg-gray-100 text-gray-800";
-    return <Badge className={classes}>{params.value}</Badge>;
-  };
-
-  const FeedbackRenderer = (params: any) => {
-    const value = params.value?.toLowerCase() ?? "";
-    if (!value || value === "no response")
-      return <Badge className="bg-gray-100 text-gray-800">Pending</Badge>;
-    if (value === "positive")
-      return <Badge className="bg-green-300 text-green-800">Positive</Badge>;
-    if (value === "failure" || value === "negative")
-      return <Badge className="bg-red-100 text-red-800">Failure</Badge>;
-    return <Badge className="bg-gray-100 text-gray-800">{params.value}</Badge>;
-  };
-
-  const LinkRenderer = (params: any) => {
-    const value = params.value;
-    if (!value) return <span className="text-gray-500">Not Available</span>;
-    const links = value
-      .split(/[,​\s]+/)
-      .map((link: string) => link.trim())
-      .filter((link: string) => link.length > 0);
-    if (links.length === 0) return <span className="text-gray-500">Not Available</span>;
-    return (
-      <div className="flex flex-col space-y-1">
-        {links.map((link: string, idx: number) => (
-          <a
-            key={idx}
-            href={link}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 underline hover:text-blue-800"
-          >
-            Click here
-          </a>
-        ))}
-      </div>
-    );
-  };
-
-  const CandidateNameRenderer = (params: any) => {
-    const candidateId = params.data?.candidate_id;
-    const candidateName = params.value;
-    if (!candidateId || !candidateName) {
-      return <span className="text-gray-500">{candidateName || "N/A"}</span>;
-    }
-    return (
-      <Link
-        href={`/avatar/candidates/search?candidateId=${candidateId}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
-      >
-        {candidateName}
-      </Link>
-    );
-  };
-
   const columnDefs = useMemo<ColDef[]>(
     () => [
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
@@ -326,11 +392,12 @@ export default function CandidatesInterviews() {
           selectedValues: selectedModes,
           setSelectedValues: setSelectedModes,
         },
+        cellRenderer: ModeRenderer,
       },
       {
         field: "type_of_interview",
         headerName: "Type",
-        width: 120,
+        width: 140,
         editable: true,
         headerComponent: FilterHeaderComponent,
         headerComponentParams: {
@@ -339,6 +406,7 @@ export default function CandidatesInterviews() {
           selectedValues: selectedTypes,
           setSelectedValues: setSelectedTypes,
         },
+        cellRenderer: TypeRenderer,
       },
       {
         field: "company_type",
@@ -352,18 +420,37 @@ export default function CandidatesInterviews() {
           selectedValues: selectedTypes,
           setSelectedValues: setSelectedTypes,
         },
+        cellRenderer: CompanyTypeRenderer,
       },
       { field: "interview_date", headerName: "Date", width: 120, editable: true },
       { field: "recording_link", headerName: "Recording", cellRenderer: LinkRenderer, width: 120, editable: true },
       { field: "transcript", headerName: "Transcript", cellRenderer: LinkRenderer, width: 120, editable: true },
       { field: "backup_url", headerName: "Backup URL", cellRenderer: LinkRenderer, width: 120, editable: true },
       { field: "url", headerName: "Job URL", cellRenderer: LinkRenderer, width: 120, editable: true },
-      { field: "instructor1_name", headerName: "Instructor 1", width: 120 },
-      { field: "instructor2_name", headerName: "Instructor 2", width: 120 },
-      { field: "instructor3_name", headerName: "Instructor 3", width: 120 },
+      { field: "instructor1_name", headerName: "Instructor 1", width: 150 },
+      { field: "instructor2_name", headerName: "Instructor 2", width: 150 },
+      { field: "instructor3_name", headerName: "Instructor 3", width: 150 },
       { field: "feedback", headerName: "Feedback", cellRenderer: FeedbackRenderer, width: 120, editable: true },
-      { field: "interviewer_emails", headerName: "Emails", width: 150, editable: true },
+      {
+        field: "interviewer_emails",
+        headerName: "Email",
+        width: 250,
+        editable: true,
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          return (
+            <a
+              href={`mailto:${params.value}`}
+              className="text-blue-600 underline hover:text-blue-800"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {params.value}
+            </a>
+          );
+        },
+      },
       { field: "interviewer_contact", headerName: "Phone", width: 120, editable: true },
+      { field: "interviewer_linkedin", headerName: "Linkedin", cellRenderer: LinkRenderer, width: 120, editable: true },
       { field: "notes", headerName: "Notes", width: 200, sortable: true, cellRenderer: (params: any) => params.value ? <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: params.value }} /> : "" },
     ],
     [selectedModes, selectedTypes]
@@ -430,6 +517,7 @@ export default function CandidatesInterviews() {
         company_type: "",
         interviewer_emails: "",
         interviewer_contact: "",
+        interviewer_linkedin: "",
         interview_date: "",
         mode_of_interview: "",
         type_of_interview: "",
@@ -600,6 +688,7 @@ export default function CandidatesInterviews() {
                   <option value="In Person">In Person</option>
                   <option value="Assessment">Assessment</option>
                   <option value="Prep Call">Prep Call</option>
+                  <option value="Prep Call">AI Interview</option>
                 </select>
               </div>
               {/* Interviewer Emails */}
@@ -620,6 +709,16 @@ export default function CandidatesInterviews() {
                   placeholder="Enter contact"
                   value={newInterview.interviewer_contact}
                   onChange={(e) => setNewInterview({ ...newInterview, interviewer_contact: e.target.value })}
+                />
+              </div>
+              {/* Interviewer Linkedin */}
+              <div>
+                <Label htmlFor="interviewer_linkedin">Interviewer Linkedin</Label>
+                <Input
+                  id="interviewer_linkedin"
+                  placeholder="Enter Linkedin"
+                  value={newInterview.interviewer_linkedin}
+                  onChange={(e) => setNewInterview({ ...newInterview, interviewer_linkedin: e.target.value })}
                 />
               </div>
               {/* Notes */}
