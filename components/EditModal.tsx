@@ -161,8 +161,7 @@ const fieldSections: Record<string, string> = {
   notes: "Notes",
   course_name: "Professional Information",
   subject_name: "Basic Information",
-  // Add course material specific fields - Course Name moved to Professional Information
-  cm_course: "Professional Information", // CHANGED: Moved to Professional Information
+  cm_course: "Professional Information", 
   cm_subject: "Basic Information",
   material_type: "Basic Information",
 };
@@ -493,14 +492,11 @@ export function EditModal({
       flattened.work_status = String(data.work_status).toLowerCase();
     }
     
-    // CRITICAL FIX: For course materials, ensure material_type is set from type field
-    // This ensures the dropdown shows the selected material type
     if (data.type) {
       flattened.material_type = data.type;
     }
     
-    // CRITICAL FIX: Map course and subject names for course materials
-    // Use the enriched fields if available, otherwise use the raw IDs
+   
     if (data.cm_course) {
       flattened.cm_course = data.cm_course;
     } else if (data.course_name) {
@@ -568,11 +564,10 @@ export function EditModal({
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  // Check if this is a course material modal
   const isCourseMaterialModal = title.toLowerCase().includes("coursematerial") || 
                                title.toLowerCase().includes("course material");
 
-  // Check if this is a course subject modal
+
   const isCourseSubjectModal = title.toLowerCase().includes("coursesubject") || 
                                title.toLowerCase().includes("course-subject");
                         
@@ -584,11 +579,8 @@ export function EditModal({
         const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/courses`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        // Sort courses by ID in descending order to show latest first
         const sortedCourses = res.data.sort((a: any, b: any) => b.id - a.id);
         
-        // CRITICAL FIX: Add Fundamentals course (id 0) for course materials
-        // But only if it's a course material modal
         let coursesWithOrphans = [...sortedCourses];
         if (isCourseMaterialModal && !coursesWithOrphans.some(course => course.id === 0)) {
           coursesWithOrphans.unshift({ id: 0, name: "Fundamentals" });
@@ -606,11 +598,8 @@ export function EditModal({
         const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/subjects`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        // Sort subjects by ID in descending order to show latest first
         const sortedSubjects = res.data.sort((a: any, b: any) => b.id - a.id);
-        
-        // CRITICAL FIX: Add Basic Fundamentals subject (id 0) for course materials
-        // But only if it's a course material modal
+    
         let subjectsWithOrphans = [...sortedSubjects];
         if (isCourseMaterialModal && !subjectsWithOrphans.some(subject => subject.id === 0)) {
           subjectsWithOrphans.unshift({ id: 0, name: "Basic Fundamentals" });
@@ -638,8 +627,7 @@ export function EditModal({
     fetchCourses();
     fetchSubjects();
     fetchEmployees();
-  }, [isCourseMaterialModal]); // Add dependency to re-fetch when modal type changes
-
+  }, [isCourseMaterialModal]); 
   const handleChange = (key: string, value: any) => {
     setFormData((prev) => {
       const newData = { ...prev, [key]: value };
@@ -669,17 +657,14 @@ export function EditModal({
   };
 
   Object.entries(formData).forEach(([key, value]) => {
-    // For course material modal: exclude subjectid, courseid, and course_name, subject_name
     if (isCourseMaterialModal && ["subjectid", "courseid", "course_name", "subject_name"].includes(key.toLowerCase())) {
       return;
     }
     
-    // For course subject modal: exclude cm_course, cm_subject, material_type
     if (isCourseSubjectModal && ["cm_course", "cm_subject", "material_type"].includes(key.toLowerCase())) {
       return;
     }
     
-    // For all modals: exclude the raw type field for course materials (we're using material_type instead)
     if (isCourseMaterialModal && key.toLowerCase() === "type") {
       return;
     }
@@ -753,9 +738,7 @@ export function EditModal({
             e.preventDefault();
             const reconstructedData = { ...formData };
             
-            // Handle course material specific fields
             if (isCourseMaterialModal) {
-              // Map cm_course selection back to courseid
               if (formData.cm_course) {
                 const selectedCourse = courses.find(course => course.name === formData.cm_course);
                 if (selectedCourse) {
@@ -763,7 +746,6 @@ export function EditModal({
                 }
               }
               
-              // Map cm_subject selection back to subjectid
               if (formData.cm_subject) {
                 const selectedSubject = subjects.find(subject => subject.name === formData.cm_subject);
                 if (selectedSubject) {
@@ -771,7 +753,6 @@ export function EditModal({
                 }
               }
               
-              // Map material_type back to type field for API
               if (formData.material_type) {
                 reconstructedData.type = formData.material_type;
               }
@@ -822,7 +803,7 @@ export function EditModal({
                   {/* Course Material Specific Dropdowns */}
                   {isCourseMaterialModal && section === "Professional Information" && (
                     <>
-                      {/* Course Dropdown - Include orphan ID 0 (Fundamentals) for course materials */}
+                      {/* Course Dropdown course materials */}
                       <div className="space-y-1">
                         <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                           Course Name
@@ -836,7 +817,7 @@ export function EditModal({
                             <option value="">Loading...</option>
                           ) : (
                             <>
-                              {/* Show all courses including orphan ID 0 (Fundamentals) */}
+                              {/* Show all courses */}
                               {courses.map((course) => (
                                 <option key={course.id} value={course.name}>
                                   {course.name}
@@ -851,7 +832,7 @@ export function EditModal({
 
                   {isCourseMaterialModal && section === "Basic Information" && (
                     <>
-                      {/* Subject Dropdown - Include orphan ID 0 (Basic Fundamentals) for course materials */}
+                      {/* Subject Dropdown for course materials */}
                       <div className="space-y-1">
                         <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                           Subject Name
@@ -865,7 +846,7 @@ export function EditModal({
                             <option value="">Loading...</option>
                           ) : (
                             <>
-                              {/* Show all subjects including orphan ID 0 (Basic Fundamentals) */}
+                              {/* Show all subjects*/}
                               {subjects.map((subject) => (
                                 <option key={subject.id} value={subject.name}>
                                   {subject.name}
@@ -876,7 +857,7 @@ export function EditModal({
                         </select>
                       </div>
 
-                      {/* Material Type Dropdown - CRITICAL FIX: Show current selection */}
+                      {/* Material Type Dropdown */}
                       <div className="space-y-1">
                         <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                           Material Type
@@ -885,7 +866,6 @@ export function EditModal({
                           value={formData["material_type"] || ""}
                           onChange={(e) => {
                             handleChange("material_type", e.target.value);
-                            // Also update the underlying type field for API
                             handleChange("type", e.target.value);
                           }}
                           className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
@@ -984,7 +964,6 @@ export function EditModal({
                           "instructor1_id",
                           "instructor2_id",
                           "instructor3_id",
-                          // For course material modal, filter out the fields we're handling with dropdowns
                           ...(isCourseMaterialModal ? ["cm_course", "cm_subject", "material_type"] : [])
                         ].includes(key)
                     )
