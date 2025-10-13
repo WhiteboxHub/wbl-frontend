@@ -274,36 +274,49 @@ const Header = ({
                 <ThemeToggler />
               </div>
             </div>
-
-            {/* Mobile Right Section */}
-            <div className="flex items-center gap-2 pr-10 lg:hidden">
-              {isAuthenticated && userRole === "admin" && (
-                <Link
-                  href="/avatar"
-                  className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-3 py-2 text-sm font-bold text-white"
-                >
-                  Avatar
-                </Link>
-              )}
-
-              {isAuthenticated && (
-                <>
-                  <button
-                    onClick={display_user_dashboard}
-                    className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-3 py-2 text-sm font-bold text-white"
+            {/* Mobile Right Section - Clean and Non-Overlapping */}
+            <div className="flex w-full items-center justify-end gap-2 pr-3 lg:hidden">
+              <div className="no-scrollbar flex items-center gap-2 overflow-x-auto">
+                {/* Avatar Button (Admin only) */}
+                {isAuthenticated && userRole === "admin" && (
+                  <Link
+                    href="/avatar"
+                    className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-3 py-2 text-xs font-bold text-white sm:text-sm"
                   >
-                    My Profile
-                  </button>
-                  <button
-                    onClick={handleLogout}
-                    className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-3 py-2 text-sm font-bold text-white"
-                  >
-                    Logout
-                  </button>
-                </>
-              )}
-              <div className="ml-2">
-                <ThemeToggler />
+                    Avatar
+                  </Link>
+                )}
+
+                {/* My Profile & Logout Buttons */}
+                {isAuthenticated && (
+                  <>
+                    <button
+                      onClick={display_user_dashboard}
+                      className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-3 py-2 text-xs font-bold text-white sm:text-sm"
+                    >
+                      My Profile
+                    </button>
+                    <button
+                      onClick={handleLogout}
+                      className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-3 py-2 text-xs font-bold text-white sm:text-sm"
+                    >
+                      Logout
+                    </button>
+                  </>
+                )}
+
+                {/* Theme Toggler */}
+                <div className="ml-1">
+                  <ThemeToggler />
+                </div>
+
+                {/* Hamburger Menu Button */}
+                <button
+                  onClick={navbarToggleHandler}
+                  id="navbarToggler"
+                  aria-label="Mobile Menu"
+                  className="ml-1 flex flex-col items-center justify-center rounded-md border border-gray-300 p-2 focus:outline-none"
+                ></button>
               </div>
             </div>
           </div>
