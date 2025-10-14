@@ -28,7 +28,7 @@ interface CandidateData {
   placement_records: any[];
   login_access: any;
   miscellaneous: any;
-  session_records?: any[]; // Added to fix the error
+  session_records?: any[]; 
 }
 
 const StatusRenderer = ({ status }: {status: string }) => {
@@ -294,7 +294,6 @@ useEffect(() => {
               const finalUrl = url.startsWith('http') ? url : `https://${url}`;
               displayValue = renderOpenLinkButton(finalUrl, "Open GitHub");
             } else if (key.toLowerCase().includes('notes') && typeof value === 'string') {
-              // Use DOMParser to robustly strip HTML and preserve newlines
               const parseHtmlToText = (htmlString: string) => {
                 const doc = new DOMParser().parseFromString(htmlString, 'text/html');
                 return doc.body.innerText || '';
@@ -321,7 +320,6 @@ useEffect(() => {
                 </a>
               );
             }
-            // --- Email clickable logic ---
             else if (value && typeof value === "string") {
               const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
               if (emailRegex.test(value.trim())) {
@@ -342,11 +340,9 @@ useEffect(() => {
             } else if (key === 'status') {
               displayValue = <StatusRenderer status={value as string} />;
             }
-            // --- Enhanced logic for agreement, arrays, and url-like strings ---
             else if (key === "agreement") {
               displayValue = value === "Y" ? " Yes" : " No";
             }
-            // If value is an array, check if items are potential URLs and render buttons
             else if (Array.isArray(value) && value.length > 0 && value.every(v => isPotentialUrl(v))) {
               displayValue = (
                 <div className="flex flex-wrap gap-1">
@@ -356,7 +352,6 @@ useEffect(() => {
                 </div>
               );
             }
-            // If value is a url-like string, render open link button
             else if (typeof value === "string" && isPotentialUrl(value)) {
               displayValue = renderOpenLinkButton(value, "Open Link");
             }
@@ -475,7 +470,6 @@ useEffect(() => {
       </button>
     );
   }
-  // --- Insert: render array of urls or url-like strings as open link buttons ---
   else if (Array.isArray(value) && value.length > 0 && value.every(v => isPotentialUrl(v))) {
     value = (
       <div className="flex flex-wrap gap-1">
@@ -508,7 +502,6 @@ useEffect(() => {
     );
   };
 
-  // Add renderSessionsTable function to render session records
   const renderSessionsTable = (title: string, icon: React.ReactNode, records: any[]) => {
     if (!records || records.length === 0) {
       return (
@@ -566,7 +559,6 @@ useEffect(() => {
                     if (column.toLowerCase().includes('date')) {
                       value = DateFormatter(value);
                     }
-                    // Insert: handle arrays and url-like strings
                     else if (Array.isArray(value) && value.length > 0 && value.every(v => isPotentialUrl(v))) {
                       value = (
                         <div className="flex flex-wrap gap-1">
