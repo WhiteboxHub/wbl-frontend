@@ -218,6 +218,7 @@ const labelOverrides: Record<string, string> = {
   emergcontactemail: "Contact Email",
   emergcontactaddrs: "Contact Address",
   course_name: "Course Name",
+  marketing_manager_obj: "Marketing Manager",
   subject_name: "Subject Name",
   recording_link: "Recording Link",
   transcript: "Transcript",
@@ -421,7 +422,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
             </div>
           </div>
         )}
-
+        
         {/* Navigation Footer */}
         {hasNavigation && (
           <div className="sticky bottom-0 z-10 bg-white dark:bg-gray-900 px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
