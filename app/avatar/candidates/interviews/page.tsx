@@ -111,6 +111,7 @@ const LinkRenderer = (params: any) => {
   const value = params.value;
   if (!value) return <span className="text-gray-500">Not Available</span>;
 
+  // Split links by comma or whitespace
   const links = value
     .split(/[,​\s]+/)
     .map((link: string) => link.trim())
@@ -119,18 +120,21 @@ const LinkRenderer = (params: any) => {
   if (links.length === 0) return <span className="text-gray-500">Not Available</span>;
 
   return (
-    <div className="flex flex-col space-y-1">
-      {links.map((link: string, idx: number) => (
-        <a
-          key={idx}
-          href={link}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-600 underline hover:text-blue-800"
-        >
-          Click here
-        </a>
-      ))}
+    <div className="flex flex-wrap gap-2">
+      {links.map((link: string, idx: number) => {
+        const formatted = link.startsWith("http") ? link : `https://${link}`;
+        return (
+          <a
+            key={idx}
+            href={formatted}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 underline hover:text-blue-800"
+          >
+            Click here{idx < links.length - 1 ? "," : ""}
+          </a>
+        );
+      })}
     </div>
   );
 };
@@ -150,7 +154,7 @@ const CandidateNameRenderer = (params: any) => {
       href={`/avatar/candidates/search?candidateId=${candidateId}`}
       target="_blank" 
       rel="noopener noreferrer"
-      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer" 
+      className="text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer" 
     >
       {candidateName}
     </Link>

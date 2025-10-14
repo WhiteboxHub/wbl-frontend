@@ -667,20 +667,22 @@ export default function LeadsPage() {
   };
 
 
-  const handleRowUpdated = useCallback(
+const handleRowUpdated = useCallback(
     async (updatedRow: Lead) => {
       setLoadingRowId(updatedRow.id);
-
       try {
         const { id, entry_date, ...payload } = updatedRow;
 
         if (payload.moved_to_candidate && payload.status !== "Closed") {
           payload.status = "Closed";
           payload.closed_date = new Date().toISOString().split('T')[0];
-        } else if (!payload.moved_to_candidate && payload.status === "Closed") {
+        }
+
+        else if (!payload.moved_to_candidate && payload.status === "Closed") {
           payload.status = "Open";
           payload.closed_date = null;
         }
+
 
         payload.moved_to_candidate = Boolean(payload.moved_to_candidate);
         payload.massemail_unsubscribe = Boolean(payload.massemail_unsubscribe);
@@ -696,12 +698,11 @@ export default function LeadsPage() {
           const errorData = await response.json();
           throw new Error(errorData.detail || "Failed to update lead");
         }
-
-        const updatedLead = { ...updatedRow, ...payload };
-
-        if (gridRef.current) {
-          gridRef.current.api.applyTransaction({ update: [updatedLead] });
-        }
+        setLeads(prevLeads =>
+          prevLeads.map(lead =>
+            lead.id === updatedRow.id ? { ...lead, ...payload } : lead
+          )
+        );
 
         toast.success(
           payload.moved_to_candidate
@@ -716,26 +717,25 @@ export default function LeadsPage() {
         setLoadingRowId(null);
       }
     },
-    [apiEndpoint]
+    [apiEndpoint, searchTerm, searchBy, sortModel]
   );
 
   const handleRowDeleted = useCallback(
     async (id: number) => {
       try {
-        const response = await fetch(`${apiEndpoint}/${id}`, { method: "DELETE" });
-        if (!response.ok) throw new Error("Failed to delete candidate");
+        const response = await fetch(`${apiEndpoint}/${id}`, {
+          method: "DELETE",
+        });
+        if (!response.ok) throw new Error("Failed to delete lead");
+        setLeads(prevLeads => prevLeads.filter(lead => lead.id !== id));
 
-        const rowNode = gridRef.current?.api.getRowNode(id.toString());
-        if (rowNode) rowNode.setData(null);
-        gridRef.current?.api.applyTransaction({ remove: [rowNode.data] });
-
-        toast.success("Candidate deleted successfully");
+        toast.success("Lead deleted successfully");
       } catch (error) {
-        toast.error("Failed to delete candidate");
-        console.error(error);
+        toast.error("Failed to delete lead");
+        console.error("Error deleting lead:", error);
       }
     },
-    [apiEndpoint]
+    [apiEndpoint, searchTerm, searchBy, sortModel, fetchLeads]
   );
   // Esc button//
   useEffect(() => {

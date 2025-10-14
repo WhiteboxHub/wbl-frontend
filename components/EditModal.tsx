@@ -1038,8 +1038,8 @@ export function EditModal({
                     <button
                       type="button"
                       onClick={() => {
-                        const timestamp = <p><strong>[${new Date().toLocaleString()}]</strong></p>;
-                        setFormData(prev => ({...prev,notes: (prev.notes || "") + <p><strong>[${new Date().toLocaleString()}]</strong></p>}));
+                        const timestamp = `<p><strong>[${new Date().toLocaleString()}]</strong></p>`;
+                        setFormData(prev => ({...prev,notes: (prev.notes || "") + `<p><strong>[${new Date().toLocaleString()}]</strong></p>`}));
                       }}
                     >
                       + Add Timestamp

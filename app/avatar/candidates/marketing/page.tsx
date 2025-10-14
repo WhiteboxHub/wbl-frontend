@@ -145,7 +145,7 @@ export default function CandidatesMarketingPage() {
         href={`/avatar/candidates/search?candidateId=${candidateId}`}
         target="_blank" 
         rel="noopener noreferrer"
-        className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
+        className="text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer"
       >
         {candidateName}
       </Link>

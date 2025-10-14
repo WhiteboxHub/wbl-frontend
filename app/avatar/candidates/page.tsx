@@ -161,7 +161,7 @@ const CandidateNameRenderer = (params: any) => {
       target="_blank"
       rel="noopener noreferrer"
 
-      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
+      className="text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer"
     >
       {candidateName}
     </Link>
@@ -628,16 +628,46 @@ export default function CandidatesPage() {
       sortable: true,
       filter: 'agSetColumnFilter',
       cellRenderer: (params: any) => {
-        if (!params.value) return "";
-        const formattedPhone = formatPhoneNumber(params.value);
-        return (
-          <a href={`tel:${params.value}`} className="text-blue-600 underline hover:text-purple-800">
-            {formattedPhone}
-          </a>
-        );
-      }
+    if (!params.value) return "";
+    const link = params.value.startsWith("http")
+      ? params.value
+      : `https://${params.value}`;
+    return (
+      <a
+        href={link}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-600 underline hover:text-purple-800"
+      >
+        {link}
+      </a>
+    );
+  },
 
     },
+    {
+  field: "github_link",
+  headerName: "GitHub Link",
+  width: 180,
+  sortable: true,
+  filter: 'agSetColumnFilter',
+  cellRenderer: (params: any) => {
+    if (!params.value) return "";
+    const link = params.value.startsWith("http")
+      ? params.value
+      : `https://${params.value}`;
+    return (
+      <a
+        href={link}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-600 underline hover:text-purple-800"
+      >
+        {link}
+      </a>
+    );
+  },
+} ,
     {
       field: "dob",
       headerName: "Date of Birth",
@@ -1014,37 +1044,43 @@ export default function CandidatesPage() {
     }
   };
 
-  const handleRowUpdated = useCallback(async (updatedRow: Candidate) => {
-    setLoadingRowId(updatedRow.id);
-    try {
-      const updatedData = { ...updatedRow };
-      if (!updatedData.status || updatedData.status === '') {
-        updatedData.status = 'active';
+const handleRowUpdated = useCallback(
+    async (updatedRow: Candidate) => {
+      setLoadingRowId(updatedRow.id);
+      try {
+        const { id, ...payload } = updatedRow;
+        const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) throw new Error("Failed to update candidate");
+
+      
+        setCandidates((prevCandidates) =>
+          prevCandidates.map((candidate) =>
+            candidate.id === updatedRow.id ? { ...candidate, ...payload } : candidate
+          )
+        );
+
+    
+        if (gridRef.current) {
+          const rowNode = gridRef.current.api.getRowNode(id.toString());
+          if (rowNode) {
+            rowNode.setData({ ...updatedRow, ...payload });
+          }
+        }
+
+        toast.success("Candidate updated successfully");
+      } catch (error) {
+        toast.error("Failed to update candidate");
+        console.error("Error updating candidate:", error);
+      } finally {
+        setLoadingRowId(null);
       }
-      const { id, ...payload } = updatedData;
-
-      const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) throw new Error("Failed to update candidate");
-
-      toast.success("Candidate updated successfully");
-
-      // Update only this row in AG Grid
-      if (gridRef.current) {
-        const rowNode = gridRef.current.api.getRowNode(updatedRow.id.toString());
-        if (rowNode) rowNode.setData(updatedData);
-      }
-
-    } catch (error) {
-      toast.error("Failed to update candidate");
-      console.error("Error updating candidate:", error);
-    } finally {
-      setLoadingRowId(null);
-    }
-  }, [apiEndpoint]);
+    },
+    [apiEndpoint]
+  );
   // Add ESC key listener
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
@@ -1055,22 +1091,27 @@ export default function CandidatesPage() {
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
   }, []);
-  const handleRowDeleted = useCallback(async (id: number) => {
-    try {
-      const response = await fetch(`${apiEndpoint}/${id}`, { method: "DELETE" });
-      if (!response.ok) throw new Error("Failed to delete candidate");
+const handleRowDeleted = useCallback(
+    async (id: number) => {
+      try {
+        const response = await fetch(`${apiEndpoint}/${id}`, { method: "DELETE" });
+        if (!response.ok) throw new Error("Failed to delete candidate");
 
-      toast.success("Candidate deleted successfully");
+        setCandidates((prevCandidates) => prevCandidates.filter((candidate) => candidate.id !== id));
 
-      if (gridRef.current) {
-        gridRef.current.api.applyTransaction({ remove: [{ id }] });
+        
+        if (gridRef.current) {
+          gridRef.current.api.applyTransaction({ remove: [{ id }] });
+        }
+
+        toast.success("Candidate deleted successfully");
+      } catch (error) {
+        toast.error("Failed to delete candidate");
+        console.error("Error deleting candidate:", error);
       }
-
-    } catch (error) {
-      toast.error("Failed to delete candidate");
-      console.error("Error deleting candidate:", error);
-    }
-  }, [apiEndpoint]);
+    },
+    [apiEndpoint]
+  );
 
   const handleFilterChanged = useCallback((filterModelFromGrid: any) => {
     setFilterModel(filterModelFromGrid);
@@ -1348,6 +1389,16 @@ export default function CandidatesPage() {
                     id="linkedin_id"
                     name="linkedin_id"
                     value={formData.linkedin_id}
+                    onChange={handleNewCandidateFormChange}
+                    className="w-full h-10"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="github_link" className="block text-sm font-medium">GITHUB LINK</Label>
+                  <Input
+                    id="github_link"
+                    name="github_link"
+                    value={formData.github_link}
                     onChange={handleNewCandidateFormChange}
                     className="w-full h-10"
                   />
