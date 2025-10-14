@@ -286,20 +286,32 @@ export default function VendorContactsGrid() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2">
       <Toaster position="top-center" richColors />
 
       {/* Header Section */}
-      <div className="space-y-4 md:space-y-0">
+      <div className="space-y-4">
         {/* Title */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
               Vendor Contact Extracts
             </h1>
-            <p className="text-gray-600 dark:text-gray-400">
+            {/* <p className="text-gray-600 dark:text-gray-400">
               Browse, search, and manage all vendor contacts.
-            </p>
+            </p> */}
+          </div>
+          
+          {/* Button */}
+          <div className="sm:w-auto">
+            <Button
+              onClick={handleMoveAllToVendor}
+              disabled={movingToVendor}
+              className="w-full bg-blue-600 text-white hover:bg-blue-700 sm:w-auto"
+            >
+              <UserPlus className="mr-2 h-4 w-4" />
+              {movingToVendor ? "Moving..." : "Move All to Vendor"}
+            </Button>
           </div>
         </div>
 
@@ -307,12 +319,12 @@ export default function VendorContactsGrid() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           {/* Search box */}
           <div className="w-full sm:max-w-md">
-            <Label
+            {/* <Label
               htmlFor="search"
               className="text-sm font-medium text-gray-700 dark:text-gray-300"
             >
               Search Contacts
-            </Label>
+            </Label> */}
             <div className="relative mt-1">
               <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
               <Input
@@ -324,18 +336,6 @@ export default function VendorContactsGrid() {
                 className="pl-10"
               />
             </div>
-          </div>
-
-          {/* Button */}
-          <div className="sm:w-auto">
-            <Button
-              onClick={handleMoveAllToVendor}
-              disabled={movingToVendor}
-              className="w-full bg-blue-600 text-white hover:bg-blue-700 sm:w-auto"
-            >
-              <UserPlus className="mr-2 h-4 w-4" />
-              {movingToVendor ? "Moving..." : "Move All to Vendor"}
-            </Button>
           </div>
         </div>
       </div>

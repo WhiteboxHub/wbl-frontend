@@ -3,13 +3,32 @@ import React from "react";
 const data = [
   {
     id: 1,
-    name: "Top Interview Questions",
-    link:
-      "https://drive.google.com/file/d/1MmIUaKiECdLpi4ZeSPWzO-rICTwJBaUI/view?usp=sharing",
+    name: "500 Must Do Interview Questions",
+    link: "https://drive.google.com/file/d/1MmIUaKiECdLpi4ZeSPWzO-rICTwJBaUI/view?usp=sharing",
+  },
+  {
+    id: 2,
+    name: "RAG Project",
+    link: "#",
+  },
+  {
+    id: 3,
+    name: "Agentic AI Project",
+    link: "#",
+  },
+  {
+    id: 4,
+    name: "MLOps Project",
+    link: "#",
+  },
+  {
+    id: 5,
+    name: "Design Problems",
+    link: "#",
   },
 ];
 
-const QuestionsTable = () => {
+const Assignments = () => {
   return (
     <div className="overflow-x-auto sm:w-4/5">
       <table className="w-full table-auto border-collapse border border-gray-500 shadow-2xl shadow-gray-800">
@@ -19,7 +38,7 @@ const QuestionsTable = () => {
               Serial No.
             </th>
             <th className="mb-1 w-3/4 border border-gray-500 bg-primary px-4 py-2 text-xl text-blue-300 sm:w-5/6 md:w-5/6 lg:w-3/4">
-              Subject Name
+              Assignment
             </th>
           </tr>
         </thead>
@@ -49,4 +68,4 @@ const QuestionsTable = () => {
   );
 };
 
-export default QuestionsTable;
+export default Assignments;

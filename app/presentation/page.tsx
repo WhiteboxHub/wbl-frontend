@@ -5,7 +5,7 @@ import { isAuthenticated } from "@/utils/auth";
 import Layout from "@/components/Common/Layout";
 import ResourcesTable from "@/components/Common/resourcesTable";
 import CourseNavigation from "@/components/Common/CourseNavigation";
-import Questions from "@/components/Common/Questions";
+import Assignments from "@/components/Common/Assignments";
 
 type ComponentType =
   | "Presentations"
@@ -15,7 +15,7 @@ type ComponentType =
   | "Newsletters"
   | "Books"
   | "Softwares"
-  | "Questions";
+  | "Assignments";
 
 export default function Presentation() {
   const router = useRouter();
@@ -32,7 +32,7 @@ export default function Presentation() {
     { type: "Installations", label: "Installations" },
     { type: "Books", label: "Books" },
     { type: "Newsletters", label: "Newsletters" },
-    { type: "Questions", label: "Questions" }
+    { type: "Assignments", label: "Assignments" }
   ];
 
   const handleButtonClick = (component: ComponentType) => {
@@ -104,8 +104,8 @@ export default function Presentation() {
             </div>
           </div>
           <div className="mt-10 flex justify-center sm:-mt-10 sm:w-4/5">
-            {activeComponent === "Questions" ? (
-              <Questions />
+            {activeComponent === "Assignments" ? (
+              <Assignments />
             ) : (
               <ResourcesTable course={course} type={activeComponent} />
             )}

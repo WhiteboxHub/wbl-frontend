@@ -6,9 +6,9 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon, PlusIcon } from "lucide-react";
+import { SearchIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 import { toast, Toaster } from "sonner";
 
@@ -44,75 +44,6 @@ export default function CandidatesPlacements() {
   const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
-  const [marketingCandidates, setMarketingCandidates] = useState<Candidate[]>(
-    []
-  );
-  const [marketingCandidatesLoading, setMarketingCandidatesLoading] =
-    useState(false);
-  const [marketingCandidatesError, setMarketingCandidatesError] = useState<
-    string | null
-  >(null);
-  const [newPlacement, setNewPlacement] = useState<Omit<Placement, "id">>({
-    candidate_id: "",
-    candidate_name: "",
-    company: "",
-    position: "",
-    placement_date: "",
-    type: "",
-    status: "",
-    base_salary_offered: "",
-    benefits: "",
-    fee_paid: "",
-    notes: "",
-    priority: "",
-  });
-
-  useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setShowModal(false);
-    };
-    window.addEventListener("keydown", handleEsc);
-    return () => window.removeEventListener("keydown", handleEsc);
-  }, []);
-
-  // Fetch marketing candidates
-  useEffect(() => {
-    const fetchMarketingCandidates = async () => {
-      setMarketingCandidatesLoading(true);
-      setMarketingCandidatesError(null);
-      try {
-        const token = localStorage.getItem("token");
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing?page=1&limit=1000`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-        if (!res.ok) throw new Error("Failed to fetch marketing candidates");
-        const result = await res.json();
-        const dataArray = Array.isArray(result)
-          ? result
-          : Array.isArray(result.data)
-          ? result.data
-          : [];
-        const formatted = dataArray.map((c: any) => ({
-          id: c.candidate?.id ?? c.id,
-          name: c.candidate?.full_name ?? "Unnamed Candidate",
-        }));
-        setMarketingCandidates(formatted);
-      } catch (err: any) {
-        console.error("Error fetching marketing candidates:", err);
-        setMarketingCandidatesError(err.message || "Failed to load candidates");
-      } finally {
-        setMarketingCandidatesLoading(false);
-      }
-    };
-    fetchMarketingCandidates();
-  }, []);
 
   // AG Grid custom renderers
   const StatusRenderer = (params: any) => (
@@ -295,61 +226,6 @@ export default function CandidatesPlacements() {
     }
   };
 
-  const handleCreatePlacement = async () => {
-    if (
-      !newPlacement.candidate_id ||
-      !newPlacement.type ||
-      !newPlacement.status ||
-      !newPlacement.company ||
-      !newPlacement.placement_date
-    ) {
-      toast.error("Please fill all required fields");
-      return;
-    }
-    try {
-      const payload = {
-        ...newPlacement,
-        candidate_id: Number(newPlacement.candidate_id),
-        base_salary_offered: newPlacement.base_salary_offered
-          ? Number(newPlacement.base_salary_offered)
-          : undefined,
-        fee_paid: newPlacement.fee_paid
-          ? Number(newPlacement.fee_paid)
-          : undefined,
-        priority: newPlacement.priority ? Number(newPlacement.priority) : 99,
-      };
-      const res = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/candidate/placements`,
-        payload
-      );
-      const newRow = {
-        ...res.data,
-        candidate_name: newPlacement.candidate_name,
-      };
-      setAllPlacements((prev) => [...prev, newRow]);
-      setFilteredPlacements((prev) => [...prev, newRow]);
-      setShowModal(false);
-      setNewPlacement({
-        candidate_id: "",
-        candidate_name: "",
-        company: "",
-        position: "",
-        placement_date: "",
-        type: "",
-        status: "",
-        base_salary_offered: "",
-        benefits: "",
-        fee_paid: "",
-        notes: "",
-        priority: "",
-      });
-      toast.success("Placement created successfully!");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to create placement");
-    }
-  };
-
   return (
     <div className="space-y-6">
       <Toaster richColors position="top-center" />
@@ -367,179 +243,23 @@ export default function CandidatesPlacements() {
           </div>
         </div>
 
-        {/* Search + Button - Responsive */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          {/* Search Box */}
-          <div className="w-full sm:max-w-md">
-            <Label
-              htmlFor="search"
-              className="text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Search Candidates
-            </Label>
-            <div className="relative mt-1">
-              <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
-              <Input
-                id="search"
-                type="text"
-                placeholder="Search by name, company, or status..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </div>
-
-          {/* Add Placement Button */}
-          <div className="flex justify-start sm:justify-end">
-            <button
-              onClick={() => setShowModal(true)}
-              className="flex items-center justify-center rounded-md bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700 sm:text-base"
-            >
-              <PlusIcon className="mr-1 h-4 w-4 sm:mr-2" />
-              Add Placement
-            </button>
-          </div>
+      </div>
+      {/* Search */}
+      <div className="max-w-md">
+        <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">Search Candidates</Label>
+        <div className="relative mt-1">
+          <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            id="search"
+            type="text"
+            placeholder="Search..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
         </div>
       </div>
 
-      {/* Modal */}
-      {showModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-          onClick={() => setShowModal(false)}
-        >
-          <div
-            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-6 dark:bg-gray-900"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="mb-4 text-lg font-semibold text-gray-800 dark:text-gray-200">
-              Add Placement
-            </h2>
-            <div className="space-y-3">
-              <Label>Candidate</Label>
-              <select
-                value={newPlacement.candidate_id}
-                onChange={(e) => {
-                  const selected = marketingCandidates.find(
-                    (c) => c.id === Number(e.target.value)
-                  );
-                  setNewPlacement({
-                    ...newPlacement,
-                    candidate_id: selected?.id || "",
-                    candidate_name: selected?.name || "",
-                  });
-                }}
-                className="w-full rounded-md border p-2"
-              >
-                <option value="">Select Candidate</option>
-                {marketingCandidates.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              <Label>Type</Label>
-              <select
-                value={newPlacement.type}
-                onChange={(e) =>
-                  setNewPlacement({ ...newPlacement, type: e.target.value })
-                }
-                className="w-full rounded-md border p-2"
-              >
-                <option value="">Select Type</option>
-                {typeOptions.map((opt) => (
-                  <option key={opt}>{opt}</option>
-                ))}
-              </select>
-              <Label>Status</Label>
-              <select
-                value={newPlacement.status}
-                onChange={(e) =>
-                  setNewPlacement({ ...newPlacement, status: e.target.value })
-                }
-                className="w-full rounded-md border p-2"
-              >
-                <option value="">Select Status</option>
-                {statusOptions.map((opt) => (
-                  <option key={opt}>{opt}</option>
-                ))}
-              </select>
-              {/* Company */}
-              <h3 className="mb-1 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                Company
-              </h3>
-              <Label>Company</Label>
-              <Input
-                placeholder="Company"
-                value={newPlacement.company}
-                onChange={(e) =>
-                  setNewPlacement({ ...newPlacement, company: e.target.value })
-                }
-              />
-              <Label>Position</Label>
-              <Input
-                placeholder="Position"
-                value={newPlacement.position}
-                onChange={(e) =>
-                  setNewPlacement({ ...newPlacement, position: e.target.value })
-                }
-              />
-              <Label>Placement Date</Label>
-              <Input
-                type="date"
-                value={newPlacement.placement_date}
-                onChange={(e) =>
-                  setNewPlacement({
-                    ...newPlacement,
-                    placement_date: e.target.value,
-                  })
-                }
-              />
-              <Label>Base Salary Offered</Label>
-              <Input
-                type="number"
-                value={newPlacement.base_salary_offered}
-                onChange={(e) =>
-                  setNewPlacement({
-                    ...newPlacement,
-                    base_salary_offered: e.target.value,
-                  })
-                }
-              />
-              <Label>Fee Paid</Label>
-              <Input
-                type="number"
-                value={newPlacement.fee_paid}
-                onChange={(e) =>
-                  setNewPlacement({ ...newPlacement, fee_paid: e.target.value })
-                }
-              />
-              <Label>Notes</Label>
-              <Input
-                value={newPlacement.notes}
-                onChange={(e) =>
-                  setNewPlacement({ ...newPlacement, notes: e.target.value })
-                }
-              />
-            </div>
-            <div className="mt-4 flex justify-end gap-3">
-              <button
-                onClick={() => setShowModal(false)}
-                className="rounded-md bg-gray-200 px-4 py-2 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreatePlacement}
-                className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {/* AG Grid Table */}
       {loading ? (
         <p className="text-center text-sm text-gray-500 dark:text-gray-400">
