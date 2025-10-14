@@ -42,6 +42,7 @@ const fieldSections: Record<string, string> = {
   instructor3_name: "Professional Information",
   interviewer_emails: "Contact Information",
   interviewer_contact: "Contact Information",
+  interviewer_linkedin: "Contact Information",
   id: "Basic Information",
   alias: "Basic Information",
   Fundamentals: "Basic Information",
