@@ -8,15 +8,14 @@ import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { toast, Toaster } from "sonner";
-import axios from "axios";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogTrigger,
 } from "@/components/admin_ui/dialog";
+import { apiFetch } from "@/lib/api.js";
 
 export default function CourseContentPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -32,29 +31,19 @@ export default function CourseContentPage() {
     QE: "",
   });
 
-  const token = localStorage.getItem("token"); // get token once
-
   const fetchContents = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/course-contents`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`, // pass token in headers
-          },
-        }
-      );
-
-      const sortedContents = res.data.sort((a: any, b: any) => b.id - a.id);
-
+      setError("");
+      const res = await apiFetch("/course-contents");
+      const arr = Array.isArray(res) ? res : res?.data ?? [];
+      const sortedContents = (arr || []).slice().sort((a: any, b: any) => b.id - a.id);
       setContents(sortedContents);
       setFilteredContents(sortedContents);
-      toast.success("Course Content fetched successfully", {
-        position: "top-center",
-      });
+      toast.success("Course Content fetched successfully", { position: "top-center" });
     } catch (e: any) {
-      setError(e.response?.data?.message || e.message);
+      const msg = e?.body || e?.message || "Failed to fetch Course Content";
+      setError(typeof msg === "string" ? msg : JSON.stringify(msg));
       toast.error("Failed to fetch Course Content", { position: "top-center" });
     } finally {
       setLoading(false);
@@ -106,61 +95,43 @@ export default function CourseContentPage() {
   // Add
   const handleAddContent = async () => {
     try {
-      const res = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/course-contents`,
-        newContent
-      );
-
-      const updated = [...contents, res.data].sort((a, b) => b.id - a.id);
-
+      const res = await apiFetch("/course-contents", { method: "POST", body: newContent });
+      const created = res && !Array.isArray(res) ? (res.data ?? res) : res;
+      const updated = [...contents, created].slice().sort((a, b) => b.id - a.id);
       setContents(updated);
       setFilteredContents(updated);
-      toast.success("Course Content added successfully", {
-        position: "top-center",
-      });
+      toast.success("Course Content added successfully", { position: "top-center" });
       setIsModalOpen(false);
       setNewContent({ Fundamentals: "", AIML: "", UI: "", QE: "" });
     } catch (e: any) {
-      toast.error(e.response?.data?.message || "Failed to add Course Content", {
-        position: "top-center",
-      });
+      const msg = e?.body || e?.message || "Failed to add Course Content";
+      toast.error(typeof msg === "string" ? msg : JSON.stringify(msg), { position: "top-center" });
     }
   };
 
   // update
   const handleRowUpdated = async (updatedRow: any) => {
     try {
-      await axios.put(
-        `${process.env.NEXT_PUBLIC_API_URL}/course-contents/${updatedRow.id}`,
-        updatedRow
-      );
-      setFilteredContents((prev) =>
-        prev.map((r) => (r.id === updatedRow.id ? updatedRow : r))
-      );
-      toast.success("Course Content updated successfully", {
-        position: "top-center",
-      });
-    } catch (e) {
-      toast.error(
-        e.response?.data?.message || "Failed to update Course Content",
-        { position: "top-center" }
-      );
+      await apiFetch(`/course-contents/${updatedRow.id}`, { method: "PUT", body: updatedRow });
+      setContents((prev) => prev.map((r) => (r.id === updatedRow.id ? updatedRow : r)));
+      setFilteredContents((prev) => prev.map((r) => (r.id === updatedRow.id ? updatedRow : r)));
+      toast.success("Course Content updated successfully", { position: "top-center" });
+    } catch (e: any) {
+      const msg = e?.body || e?.message || "Failed to update Course Content";
+      toast.error(typeof msg === "string" ? msg : JSON.stringify(msg), { position: "top-center" });
     }
   };
 
   // delete
   const handleRowDeleted = async (id: number) => {
     try {
-      await axios.delete(
-        `${process.env.NEXT_PUBLIC_API_URL}/course-contents/${id}`
-      );
+      await apiFetch(`/course-contents/${id}`, { method: "DELETE" });
+      setContents((prev) => prev.filter((row) => row.id !== id));
       setFilteredContents((prev) => prev.filter((row) => row.id !== id));
       toast.success(`Course Content ${id} deleted`, { position: "top-center" });
-    } catch (e) {
-      toast.error(
-        e.response?.data?.message || "Failed to delete Course Content",
-        { position: "top-center" }
-      );
+    } catch (e: any) {
+      const msg = e?.body || e?.message || "Failed to delete Course Content";
+      toast.error(typeof msg === "string" ? msg : JSON.stringify(msg), { position: "top-center" });
     }
   };
 
@@ -193,10 +164,7 @@ export default function CourseContentPage() {
           </div>
 
           {/* Add Button */}
-          <Button
-            className="w-full sm:w-auto"
-            onClick={() => setIsModalOpen(true)}
-          >
+          <Button className="w-full sm:w-auto" onClick={() => setIsModalOpen(true)}>
             + Add CourseContent
           </Button>
         </div>
@@ -215,12 +183,7 @@ export default function CourseContentPage() {
                 id="Fundamentals"
                 value={newContent.Fundamentals}
                 maxLength={255}
-                onChange={(e) =>
-                  setNewContent((prev) => ({
-                    ...prev,
-                    Fundamentals: e.target.value,
-                  }))
-                }
+                onChange={(e) => setNewContent((prev) => ({ ...prev, Fundamentals: e.target.value }))}
               />
             </div>
             <div>
@@ -230,32 +193,16 @@ export default function CourseContentPage() {
                 value={newContent.AIML}
                 required
                 maxLength={255}
-                onChange={(e) =>
-                  setNewContent((prev) => ({ ...prev, AIML: e.target.value }))
-                }
+                onChange={(e) => setNewContent((prev) => ({ ...prev, AIML: e.target.value }))}
               />
             </div>
             <div>
               <Label htmlFor="UI">UI</Label>
-              <Input
-                id="UI"
-                value={newContent.UI}
-                maxLength={255}
-                onChange={(e) =>
-                  setNewContent((prev) => ({ ...prev, UI: e.target.value }))
-                }
-              />
+              <Input id="UI" value={newContent.UI} maxLength={255} onChange={(e) => setNewContent((prev) => ({ ...prev, UI: e.target.value }))} />
             </div>
             <div>
               <Label htmlFor="QE">QE</Label>
-              <Input
-                id="QE"
-                value={newContent.QE}
-                maxLength={255}
-                onChange={(e) =>
-                  setNewContent((prev) => ({ ...prev, QE: e.target.value }))
-                }
-              />
+              <Input id="QE" value={newContent.QE} maxLength={255} onChange={(e) => setNewContent((prev) => ({ ...prev, QE: e.target.value }))} />
             </div>
           </div>
           <DialogFooter>

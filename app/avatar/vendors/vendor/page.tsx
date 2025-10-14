@@ -8,8 +8,8 @@ import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
-import axios from "axios";
 import { createPortal } from "react-dom";
+import { apiFetch } from "@/lib/api.js"; // <-- centralized helper
 
 const AGGridTable = dynamic(() => import("@/components/AGGridTable"), { ssr: false });
 
@@ -157,7 +157,7 @@ const StatusFilterHeaderComponent = (props: any) => {
       >
         {selectedStatuses.length > 0 && (
           <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-0.5 min-w-[20px] text-center">
-            {selectedStatuses.length} {/* <-- THIS UPDATES DYNAMICALLY */}
+            {selectedStatuses.length}
           </span>
         )}
         <svg
@@ -404,19 +404,16 @@ export default function VendorPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
-  const token = localStorage.getItem("token");
 
   const fetchVendors = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/vendors`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setVendors(res.data);
-      setFilteredVendors(res.data);
+      const data = await apiFetch("/vendors");
+      const arr = Array.isArray(data) ? data : data?.data || [];
+      setVendors(arr);
+      setFilteredVendors(arr);
     } catch (e: any) {
-      setError(e.response?.data?.message || e.message);
+      setError(e?.message || e?.body || "Failed to load vendors");
     } finally {
       setLoading(false);
     }
@@ -426,7 +423,6 @@ export default function VendorPage() {
     fetchVendors();
   }, []);
 
-  
   useEffect(() => {
     let filtered = vendors;
     if (selectedStatuses.length > 0) {
@@ -446,7 +442,6 @@ export default function VendorPage() {
     setFilteredVendors(filtered);
   }, [vendors, searchTerm, selectedStatuses, selectedTypes]);
 
-
   const columnDefs: ColDef[] = React.useMemo(() => [
     { field: "id", headerName: "ID", width: 80, pinned: "left", editable: false },
     { field: "full_name", headerName: "Full Name", width: 180, editable: true },
@@ -464,8 +459,8 @@ export default function VendorPage() {
       cellEditorParams: { options: ["client","third-party-vendor","implementation-partner","sourcer","contact-from-ip"] },
       headerComponent: TypeFilterHeaderComponent,
       headerComponentParams: {
-        selectedTypes,  
-        setSelectedTypes 
+        selectedTypes,
+        setSelectedTypes
       }
     },
     {
@@ -478,8 +473,8 @@ export default function VendorPage() {
       cellEditorParams: { options: ["active","working","not_useful","do_not_contact","inactive","prospect"] },
       headerComponent: StatusFilterHeaderComponent,
       headerComponentParams: {
-        selectedStatuses, 
-        setSelectedStatuses 
+        selectedStatuses,
+        setSelectedStatuses
       }
     },
     { field: "company_name", headerName: "Company Name", width: 180, editable: true },
@@ -516,23 +511,23 @@ export default function VendorPage() {
       cellEditorParams: { options: ["YES", "NO"] },
     },
     { field: "created_at", headerName: "Created At", width: 180, valueFormatter: DateFormatter, editable: false },
-        {
-            field: "notes",
-            headerName: "Notes",
-            width: 300,
-            sortable: true,
-            cellRenderer: (params: any) => {
-              if (!params.value) return "";
-              return (
-                <div
-                  className="prose prose-sm max-w-none dark:prose-invert"
-                  dangerouslySetInnerHTML={{ __html: params.value }}
-                />
-              );
-            },
-          },
+    {
+      field: "notes",
+      headerName: "Notes",
+      width: 300,
+      sortable: true,
+      cellRenderer: (params: any) => {
+        if (!params.value) return "";
+        return (
+          <div
+            className="prose prose-sm max-w-none dark:prose-invert"
+            dangerouslySetInnerHTML={{ __html: params.value }}
+          />
+        );
+      },
+    },
     { field: "linkedin_internal_id", headerName: "LinkedIn Internal ID", width: 200, editable: true },
-  ], [selectedStatuses, selectedTypes]); 
+  ], [selectedStatuses, selectedTypes]);
 
   const handleRowUpdated = async (updatedRow: any) => {
     const normalizeYesNo = (val: any) => (!val ? "NO" : val.toString().toUpperCase());
@@ -544,18 +539,18 @@ export default function VendorPage() {
       intro_call: normalizeYesNo(updatedRow.intro_call),
     };
     try {
-      await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/vendors/${updatedRow.id}`, payload);
+      await apiFetch(`/vendors/${updatedRow.id}`, { method: "PUT", body: payload });
       setFilteredVendors((prev) => prev.map((row) => (row.id === updatedRow.id ? payload : row)));
-    } catch (error) {
+    } catch (error: any) {
       console.error("Update failed", error);
     }
   };
 
   const handleRowDeleted = async (id: number | string) => {
     try {
-      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/vendors/${id}`);
+      await apiFetch(`/vendors/${id}`, { method: "DELETE" });
       setFilteredVendors((prev) => prev.filter((row) => row.id !== id));
-    } catch (error) {
+    } catch (error: any) {
       console.error("Delete failed", error);
     }
   };
@@ -567,10 +562,8 @@ export default function VendorPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Vendors</h1>
-        {/* <p>Browse, search, and manage vendors.</p> */}
       </div>
       <div className="max-w-md">
-        {/* <Label htmlFor="search">Search Vendors</Label> */}
         <div className="relative mt-1">
           <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 text-gray-400" />
           <Input
@@ -585,7 +578,7 @@ export default function VendorPage() {
       </div>
 
       <AGGridTable
-        key={`${filteredVendors.length}-${selectedStatuses.join(',')}-${selectedTypes.join(',')}}`} // <-- force re-render when filters change
+        key={`${filteredVendors.length}-${selectedStatuses.join(",")}-${selectedTypes.join(",")}`} // fixed key
         rowData={filteredVendors}
         columnDefs={columnDefs}
         title={`All Vendors (${filteredVendors.length})`}
@@ -597,4 +590,3 @@ export default function VendorPage() {
     </div>
   );
 }
-

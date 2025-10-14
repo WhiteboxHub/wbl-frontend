@@ -6,7 +6,6 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
-import axios from "axios";
 import { Button } from "@/components/admin_ui/button";
 import { toast, Toaster } from "sonner";
 import {
@@ -15,8 +14,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogTrigger,
 } from "@/components/admin_ui/dialog";
+import { apiFetch } from "@/lib/api.js";
 
 export default function CourseMaterialPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -39,32 +38,21 @@ export default function CourseMaterialPage() {
 
   const fetchCourses = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/courses`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      const sortedCourses = res.data.sort((a: any, b: any) => b.id - a.id);
+      const res = await apiFetch("/courses");
+      const arr = Array.isArray(res) ? res : res?.data ?? [];
+      const sortedCourses = (arr || []).slice().sort((a: any, b: any) => b.id - a.id);
       setCourses(sortedCourses);
     } catch (e: any) {
+      // don't block page — log and show toast optionally
       console.error("Failed to fetch courses", e);
     }
   };
 
   const fetchSubjects = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/subjects`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      const sortedSubjects = res.data.sort((a: any, b: any) => b.id - a.id);
+      const res = await apiFetch("/subjects");
+      const arr = Array.isArray(res) ? res : res?.data ?? [];
+      const sortedSubjects = (arr || []).slice().sort((a: any, b: any) => b.id - a.id);
       setSubjects(sortedSubjects);
     } catch (e: any) {
       console.error("Failed to fetch subjects", e);
@@ -74,51 +62,39 @@ export default function CourseMaterialPage() {
   const fetchMaterials = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/course-materials`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      const sortedMaterials = res.data.sort((a: any, b: any) => b.id - a.id);
-
+      setError("");
+      const res = await apiFetch("/course-materials");
+      const arr = Array.isArray(res) ? res : res?.data ?? [];
+      const sortedMaterials = (arr || []).slice().sort((a: any, b: any) => b.id - a.id);
       setMaterials(sortedMaterials);
       setFilteredMaterials(sortedMaterials);
-
-      toast.success("Course Materials fetched successfully", {
-        position: "top-center",
-      });
+      toast.success("Course Materials fetched successfully", { position: "top-center" });
     } catch (e: any) {
-      setError(e.response?.data?.message || e.message);
-      toast.error("Failed to fetch Course Materials", {
-        position: "top-center",
-      });
+      const msg = e?.body || e?.message || "Failed to fetch Course Materials";
+      setError(typeof msg === "string" ? msg : JSON.stringify(msg));
+      toast.error("Failed to fetch Course Materials", { position: "top-center" });
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    // fetch in parallel
     fetchMaterials();
     fetchCourses();
     fetchSubjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const getOrphanCourseIds = () => {
-    const courseIdsFromMaterials = [
-      ...new Set(materials.map((m) => m.courseid)),
-    ];
+    const courseIdsFromMaterials = [...new Set(materials.map((m) => m.courseid))];
     return courseIdsFromMaterials
       .filter((id) => !courses.some((course) => course.id === id))
       .sort((a, b) => b - a);
   };
 
   const getOrphanSubjectIds = () => {
-    const subjectIdsFromMaterials = [
-      ...new Set(materials.map((m) => m.subjectid)),
-    ];
+    const subjectIdsFromMaterials = [...new Set(materials.map((m) => m.subjectid))];
     return subjectIdsFromMaterials
       .filter((id) => !subjects.some((subject) => subject.id === id))
       .sort((a, b) => b - a);
@@ -127,7 +103,10 @@ export default function CourseMaterialPage() {
   // search filter
   useEffect(() => {
     const lower = searchTerm.trim().toLowerCase();
-    if (!lower) return setFilteredMaterials(materials);
+    if (!lower) {
+      setFilteredMaterials(materials);
+      return;
+    }
 
     const filtered = materials.filter((row) => {
       const idStr = row.id?.toString().toLowerCase() || "";
@@ -215,17 +194,12 @@ export default function CourseMaterialPage() {
     };
 
     try {
-      const res = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/course-materials`,
-        payload
-      );
-
-      const updated = [...materials, res.data].sort((a, b) => b.id - a.id);
+      const res = await apiFetch("/course-materials", { method: "POST", body: payload });
+      const created = res && !Array.isArray(res) ? (res.data ?? res) : res;
+      const updated = [...materials, created].slice().sort((a, b) => b.id - a.id);
       setMaterials(updated);
       setFilteredMaterials(updated);
-      toast.success("Course Material added successfully", {
-        position: "top-center",
-      });
+      toast.success("Course Material added successfully", { position: "top-center" });
       setIsModalOpen(false);
       setNewMaterial({
         subjectid: "0",
@@ -237,49 +211,34 @@ export default function CourseMaterialPage() {
         sortorder: "9999",
       });
     } catch (e: any) {
-      toast.error(
-        e.response?.data?.message || "Failed to add Course Material",
-        { position: "top-center" }
-      );
+      const msg = e?.body || e?.message || "Failed to add Course Material";
+      toast.error(typeof msg === "string" ? msg : JSON.stringify(msg), { position: "top-center" });
     }
   };
 
   // update
   const handleRowUpdated = async (updatedRow: any) => {
     try {
-      await axios.put(
-        `${process.env.NEXT_PUBLIC_API_URL}/course-materials/${updatedRow.id}`,
-        updatedRow
-      );
-      setFilteredMaterials((prev) =>
-        prev.map((r) => (r.id === updatedRow.id ? updatedRow : r))
-      );
-      toast.success("Course Material updated successfully", {
-        position: "top-center",
-      });
-    } catch (e) {
-      toast.error(
-        e.response?.data?.message || "Failed to update Course Material",
-        { position: "top-center" }
-      );
+      await apiFetch(`/course-materials/${updatedRow.id}`, { method: "PUT", body: updatedRow });
+      setMaterials((prev) => prev.map((r) => (r.id === updatedRow.id ? updatedRow : r)));
+      setFilteredMaterials((prev) => prev.map((r) => (r.id === updatedRow.id ? updatedRow : r)));
+      toast.success("Course Material updated successfully", { position: "top-center" });
+    } catch (e: any) {
+      const msg = e?.body || e?.message || "Failed to update Course Material";
+      toast.error(typeof msg === "string" ? msg : JSON.stringify(msg), { position: "top-center" });
     }
   };
 
   // delete
   const handleRowDeleted = async (id: number) => {
     try {
-      await axios.delete(
-        `${process.env.NEXT_PUBLIC_API_URL}/course-materials/${id}`
-      );
+      await apiFetch(`/course-materials/${id}`, { method: "DELETE" });
+      setMaterials((prev) => prev.filter((r) => r.id !== id));
       setFilteredMaterials((prev) => prev.filter((r) => r.id !== id));
-      toast.success(`Course Material ${id} deleted`, {
-        position: "top-center",
-      });
-    } catch (e) {
-      toast.error(
-        e.response?.data?.message || "Failed to delete Course Material",
-        { position: "top-center" }
-      );
+      toast.success(`Course Material ${id} deleted`, { position: "top-center" });
+    } catch (e: any) {
+      const msg = e?.body || e?.message || "Failed to delete Course Material";
+      toast.error(typeof msg === "string" ? msg : JSON.stringify(msg), { position: "top-center" });
     }
   };
 
@@ -288,51 +247,28 @@ export default function CourseMaterialPage() {
 
   return (
     <div className="space-y-6">
+      <Toaster position="top-center" />
       {/* Header + Search + Add Button (Responsive Layout) */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         {/* Left Section */}
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Course Materials
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Manage course materials for courses and subjects.
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Course Materials</h1>
+          <p className="text-gray-600 dark:text-gray-400">Manage course materials for courses and subjects.</p>
 
           {/* Search Input */}
           <div className="mt-2 sm:mt-0 sm:max-w-md">
-            <Label
-              htmlFor="search"
-              className="text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Search
-            </Label>
+            <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">Search</Label>
             <div className="relative mt-1">
               <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <Input
-                id="search"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search by ID, name, type..."
-                className="w-full pl-10 text-sm sm:text-base"
-              />
+              <Input id="search" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search by ID, name, type..." className="w-full pl-10 text-sm sm:text-base" />
             </div>
-            {searchTerm && (
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {filteredMaterials.length} results found
-              </p>
-            )}
+            {searchTerm && <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{filteredMaterials.length} results found</p>}
           </div>
         </div>
 
         {/* Right Section */}
         <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
-          <Button
-            onClick={() => setIsModalOpen(true)}
-            className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700"
-          >
-            + Add Course Material
-          </Button>
+          <Button onClick={() => setIsModalOpen(true)} className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700">+ Add Course Material</Button>
         </div>
       </div>
 
@@ -366,27 +302,9 @@ export default function CourseMaterialPage() {
               {courses.length === 0 ? (
                 <p className="text-gray-500">Loading courses...</p>
               ) : (
-                <select
-                  id="courseid"
-                  value={newMaterial.courseid}
-                  onChange={(e) =>
-                    setNewMaterial((prev) => ({
-                      ...prev,
-                      courseid: e.target.value,
-                    }))
-                  }
-                  className="max-h-48 w-full overflow-y-auto rounded border border-gray-300 px-2 py-1"
-                >
-                  {courses.map((course) => (
-                    <option key={course.id} value={course.id}>
-                      {course.id}
-                    </option>
-                  ))}
-                  {getOrphanCourseIds().map((id) => (
-                    <option key={`orphan-${id}`} value={id}>
-                      {id}
-                    </option>
-                  ))}
+                <select id="courseid" value={newMaterial.courseid} onChange={(e) => setNewMaterial((prev) => ({ ...prev, courseid: e.target.value }))} className="max-h-48 w-full overflow-y-auto rounded border border-gray-300 px-2 py-1">
+                  {courses.map((course) => <option key={course.id} value={course.id}>{course.id}</option>)}
+                  {getOrphanCourseIds().map((id) => <option key={`orphan-${id}`} value={id}>{id}</option>)}
                 </select>
               )}
             </div>
@@ -397,106 +315,51 @@ export default function CourseMaterialPage() {
               {subjects.length === 0 ? (
                 <p className="text-gray-500">Loading subjects...</p>
               ) : (
-                <select
-                  id="subjectid"
-                  value={newMaterial.subjectid}
-                  onChange={(e) =>
-                    setNewMaterial((prev) => ({
-                      ...prev,
-                      subjectid: e.target.value,
-                    }))
-                  }
-                  className="max-h-48 w-full overflow-y-auto rounded border border-gray-300 px-2 py-1"
-                >
-                  {subjects.map((subject) => (
-                    <option key={subject.id} value={subject.id}>
-                      {subject.id}
-                    </option>
-                  ))}
-                  {getOrphanSubjectIds().map((id) => (
-                    <option key={`orphan-${id}`} value={id}>
-                      {id}
-                    </option>
-                  ))}
+                <select id="subjectid" value={newMaterial.subjectid} onChange={(e) => setNewMaterial((prev) => ({ ...prev, subjectid: e.target.value }))} className="max-h-48 w-full overflow-y-auto rounded border border-gray-300 px-2 py-1">
+                  {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.id}</option>)}
+                  {getOrphanSubjectIds().map((id) => <option key={`orphan-${id}`} value={id}>{id}</option>)}
                 </select>
               )}
             </div>
+
             <div className=" space-y-2">
               <Label htmlFor="name">Name*</Label>
-              <Input
-                id="name"
-                value={newMaterial.name}
-                maxLength={250}
-                required
-                onChange={(e) =>
-                  setNewMaterial((prev) => ({ ...prev, name: e.target.value }))
-                }
-              />
+              <Input id="name" value={newMaterial.name} maxLength={250} required onChange={(e) => setNewMaterial((prev) => ({ ...prev, name: e.target.value }))} />
             </div>
+
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="description">Description</Label>
-              <Input
-                id="description"
-                value={newMaterial.description}
-                maxLength={500}
-                onChange={(e) =>
-                  setNewMaterial((prev) => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
-                }
-              />
+              <Input id="description" value={newMaterial.description} maxLength={500} onChange={(e) => setNewMaterial((prev) => ({ ...prev, description: e.target.value }))} />
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="type">Type</Label>
-              <Input
-                id="type"
-                value={newMaterial.type}
-                onChange={(e) =>
-                  setNewMaterial((prev) => ({ ...prev, type: e.target.value }))
-                }
-              />
+              <Input id="type" value={newMaterial.type} onChange={(e) => setNewMaterial((prev) => ({ ...prev, type: e.target.value }))} />
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="sortorder">Sort Order</Label>
-              <Input
-                id="sortorder"
-                type="number"
-                value={newMaterial.sortorder}
-                onChange={(e) =>
-                  setNewMaterial((prev) => ({
-                    ...prev,
-                    sortorder: e.target.value,
-                  }))
-                }
-              />
+              <Input id="sortorder" type="number" value={newMaterial.sortorder} onChange={(e) => setNewMaterial((prev) => ({ ...prev, sortorder: e.target.value }))} />
             </div>
+
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="link">Link</Label>
-              <Input
-                id="link"
-                value={newMaterial.link}
-                maxLength={500}
-                onChange={(e) =>
-                  setNewMaterial((prev) => ({ ...prev, link: e.target.value }))
-                }
-              />
+              <Input id="link" value={newMaterial.link} maxLength={500} onChange={(e) => setNewMaterial((prev) => ({ ...prev, link: e.target.value }))} />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsModalOpen(false)}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
             <Button onClick={handleAddMaterial}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
       <AGGridTable
         rowData={filteredMaterials}
         columnDefs={columnDefs}
         defaultColDef={{
-          editable: true, // make all editable by default
+          editable: true,
           flex: 1,
           resizable: true,
         }}

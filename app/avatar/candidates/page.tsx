@@ -1,4 +1,5 @@
 "use client";
+
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { Badge } from "@/components/admin_ui/badge";
@@ -9,1178 +10,337 @@ import { Button } from "@/components/admin_ui/button";
 import { toast, Toaster } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AGGridTable } from "@/components/AGGridTable";
-import { createPortal } from "react-dom";
 import axios from "axios";
 import Link from "next/link";
+import { createPortal } from "react-dom";
 
+/* -------------------------------------- */
+/* 🔹 Token helper utilities              */
+/* -------------------------------------- */
+const TOKEN_KEYS = ["access_token", "token", "accesstoken"];
+
+const getToken = () => {
+  if (typeof window === "undefined") return null;
+  for (const k of TOKEN_KEYS) {
+    const val = localStorage.getItem(k);
+    if (val) return val;
+  }
+  return null;
+};
+
+const getAuthHeaders = () => {
+  const token = getToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+const getBaseUrl = () =>
+  (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+
+/* -------------------------------------- */
+/* 🔹 Candidate type definitions          */
+/* -------------------------------------- */
 type Candidate = {
   id: number;
-  full_name?: string | null;
-  enrolled_date?: string | Date | null;
-  email?: string | null;
-  phone?: string | null;
-  status?: string | null;
-  workstatus?: string | null;
-  education?: string | null;
-  workexperience?: string | null;
-  ssn?: string | null;
-  agreement?: string | null;
-  secondaryemail?: string | null;
-  secondaryphone?: string | null;
-  address?: string | null;
-  linkedin_id?: string | null;
-  dob?: string | Date | null;
-  emergcontactname?: string | null;
-  emergcontactemail?: string | null;
-  emergcontactphone?: string | null;
-  emergcontactaddrs?: string | null;
-  fee_paid?: number | null;
-  github_link?: string | null;
-  batchid: number;
-  candidate_folder?: string | null;
-  notes?: string | null;
-};
-
-type FormData = {
-  full_name: string;
+  full_name?: string;
   enrolled_date?: string;
-  email: string;
-  phone: string;
-  status: string;
-  workstatus: string;
-  education: string;
-  workexperience: string;
-  ssn: string;
-  agreement: string;
-  secondaryemail: string;
-  secondaryphone: string;
-  address: string;
-  linkedin_id: string;
+  email?: string;
+  phone?: string;
+  status?: string;
+  workstatus?: string;
+  education?: string;
+  workexperience?: string;
+  ssn?: string;
+  agreement?: string;
+  secondaryemail?: string;
+  secondaryphone?: string;
+  address?: string;
+  linkedin_id?: string;
   dob?: string;
-  emergcontactname: string;
-  emergcontactemail: string;
-  emergcontactphone: string;
-  emergcontactaddrs: string;
-  fee_paid: number;
-  github_link: string;
+  emergcontactname?: string;
+  emergcontactemail?: string;
+  emergcontactphone?: string;
+  emergcontactaddrs?: string;
+  fee_paid?: number;
+  notes?: string;
   batchid: number;
-  candidate_folder: string;
-  notes: string;
+  candidate_folder?: string;
 };
 
-type Batch = {
-  batchid: number;
-  batchname: string;
-  subject?: string;
-  courseid?: number;
-  orientationdate?: string;
-  startdate?: string;
-  enddate?: string;
-};
-
-const statusOptions = ["active", "discontinued", "break", "closed"];
-const workStatusOptions = [
-  "Waiting for Status",
-  "Citizen",
-  "Visa",
-  "Permanent resident",
-  "EAD",
-];
-
-const initialFormData: FormData = {
-  full_name: "",
-  enrolled_date: new Date().toISOString().split("T")[0],
-  email: "",
-  phone: "",
-  status: "active",
-  workstatus: "Waiting for Status",
-  education: "",
-  workexperience: "",
-  ssn: "",
-  agreement: "N",
-  secondaryemail: "",
-  secondaryphone: "",
-  address: "",
-  linkedin_id: "",
-  emergcontactname: "",
-  emergcontactemail: "",
-  emergcontactphone: "",
-  emergcontactaddrs: "",
-  fee_paid: 0,
-  github_link: "",
-  batchid: 0,
-  candidate_folder: "",
-  notes: "",
-};
-
+/* -------------------------------------- */
+/* 🔹 Utility renderers & formatters       */
+/* -------------------------------------- */
 const StatusRenderer = ({ value }: { value?: string }) => {
   const status = value?.toLowerCase() || "";
-  const variantMap: Record<string, string> = {
-    active:
-      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-    discontinued:
-      "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
-    break: "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
-    closed: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
-    default: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
-  };
-  return (
-    <Badge className={`${variantMap[status] || variantMap.default} capitalize`}>
-      {value || "N/A"}
-    </Badge>
-  );
+  const color =
+    status === "active"
+      ? "bg-green-100 text-green-800"
+      : status === "discontinued"
+      ? "bg-red-100 text-red-800"
+      : "bg-gray-100 text-gray-800";
+  return <Badge className={`${color} capitalize`}>{value || "N/A"}</Badge>;
 };
 
 const WorkStatusRenderer = ({ value }: { value?: string }) => {
-  const workstatus = value?.toLowerCase() || "";
-  const variantMap: Record<string, string> = {
-    citizen:
-      "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
-    visa: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-    "permanent resident":
-      "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
-    ead: "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300",
-    "waiting for status":
-      "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
-    default: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
+  const status = (value || "").toLowerCase();
+  const map: Record<string, string> = {
+    citizen: "bg-indigo-100 text-indigo-800",
+    visa: "bg-blue-100 text-blue-800",
+    "permanent resident": "bg-emerald-100 text-emerald-800",
+    ead: "bg-teal-100 text-teal-800",
+    "waiting for status": "bg-orange-100 text-orange-800",
   };
   return (
-    <Badge
-      className={`${variantMap[workstatus] || variantMap.default} capitalize`}
-    >
+    <Badge className={`${map[status] || "bg-gray-100 text-gray-800"} capitalize`}>
       {value || "N/A"}
     </Badge>
   );
 };
 
-const CandidateNameRenderer = (params: any) => {
-  const candidateId = params.data?.id;
-  const candidateName = params.value;
-  if (!candidateId || !candidateName) {
-    return <span className="text-gray-500">{candidateName || "N/A"}</span>;
-  }
-  return (
-    <Link
-      href={`/avatar/candidates/search?candidateId=${candidateId}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-black-600 cursor-pointer font-medium hover:text-blue-800"
-    >
-      {candidateName}
-    </Link>
-  );
-};
-
-const FilterHeaderComponent = ({
-  selectedItems,
-  setSelectedItems,
-  options,
-  label,
-  color = "blue",
-  renderOption = (option: any) => option,
-  getOptionValue = (option: any) => option,
-  getOptionKey = (option: any) => option,
-}: {
-  selectedItems: any[];
-  setSelectedItems: React.Dispatch<React.SetStateAction<any[]>>;
-  options: any[];
-  label: string;
-  color?: string;
-  renderOption?: (option: any) => React.ReactNode;
-  getOptionValue?: (option: any) => any;
-  getOptionKey?: (option: any) => any;
-}) => {
-  const handleItemChange = (item: any) => {
-    const value = getOptionValue(item);
-    setSelectedItems((prev: any[]) => {
-      const isSelected = prev.some((i) => getOptionValue(i) === value);
-      return isSelected
-        ? prev.filter((i) => getOptionValue(i) !== value)
-        : [...prev, item];
-    });
-  };
-  const filterButtonRef = useRef<HTMLDivElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>(
-    { top: 0, left: 0 }
-  );
-  const [filterVisible, setFilterVisible] = useState(false);
-  const toggleFilter = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (filterButtonRef.current) {
-      const rect = filterButtonRef.current.getBoundingClientRect();
-      setDropdownPos({
-        top: rect.bottom + window.scrollY,
-        left: Math.max(0, rect.left + window.scrollX - 100),
-      });
-    }
-    setFilterVisible((v) => !v);
-  };
-  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.stopPropagation();
-    setSelectedItems(e.target.checked ? [...options] : []);
-  };
-  const isAllSelected =
-    selectedItems.length === options.length && options.length > 0;
-  const isIndeterminate =
-    selectedItems.length > 0 && selectedItems.length < options.length;
-  const colorMap: Record<string, string> = {
-    blue: "bg-blue-500",
-    green: "bg-green-500",
-    purple: "bg-purple-500",
-    red: "bg-red-500",
-    orange: "bg-orange-500",
-  };
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        filterButtonRef.current &&
-        !filterButtonRef.current.contains(event.target as Node) &&
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setFilterVisible(false);
-      }
-    };
-    const handleScroll = (e: Event) => {
-      const target = e.target as HTMLElement;
-      if (dropdownRef.current && !dropdownRef.current.contains(target)) {
-        setFilterVisible(false);
-      }
-    };
-    if (filterVisible) {
-      document.addEventListener("mousedown", handleClickOutside);
-      window.addEventListener("scroll", handleScroll, {
-        capture: true,
-        passive: true,
-      });
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      window.removeEventListener("scroll", handleScroll, true);
-    };
-  }, [filterVisible]);
-  return (
-    <div className="relative flex w-full items-center">
-      <span className="mr-2 flex-grow">{label}</span>
-      <div
-        ref={filterButtonRef}
-        className="flex cursor-pointer items-center gap-1 rounded p-1 hover:bg-gray-100 dark:hover:bg-gray-700"
-        onClick={toggleFilter}
-      >
-        {selectedItems.length > 0 && (
-          <span
-            className={`${colorMap[color]} min-w-[20px] rounded-full px-2 py-0.5 text-center text-xs text-white`}
-          >
-            {selectedItems.length}
-          </span>
-        )}
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-4 w-4 text-gray-500 hover:text-gray-700"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z"
-          />
-        </svg>
-      </div>
-      {filterVisible &&
-        createPortal(
-          <div
-            ref={dropdownRef}
-            className="filter-dropdown pointer-events-auto fixed flex w-56 flex-col space-y-2 rounded-lg border bg-white p-3 text-sm shadow-xl dark:border-gray-600 dark:bg-gray-800"
-            style={{
-              top: dropdownPos.top + 5,
-              left: dropdownPos.left,
-              zIndex: 99999,
-              maxHeight: "300px",
-              overflowY: "auto",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-2 border-b pb-2">
-              <label
-                className="font-medium,text-sm flex cursor-pointer items-center rounded px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <input
-                  type="checkbox"
-                  checked={isAllSelected}
-                  ref={(el) => {
-                    if (el) el.indeterminate = isIndeterminate;
-                  }}
-                  onChange={handleSelectAll}
-                  className="mr-3"
-                />
-                Select All
-              </label>
-            </div>
-            {options.map((option) => {
-              const value = getOptionValue(option);
-              const key = getOptionKey(option);
-              const isSelected = selectedItems.some(
-                (i) => getOptionValue(i) === value
-              );
-              return (
-                <label
-                  key={key}
-                  className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => handleItemChange(option)}
-                    className="mr-3"
-                  />
-                  {renderOption(option)}
-                </label>
-              );
-            })}
-            {selectedItems.length > 0 && (
-              <div className="mt-2 border-t pt-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedItems([]);
-                  }}
-                  className="w-full py-1 text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                >
-                  Clear All
-                </button>
-              </div>
-            )}
-          </div>,
-          document.body
-        )}
-    </div>
-  );
-};
-
+/* -------------------------------------- */
+/* 🔹 Main Component                      */
+/* -------------------------------------- */
 export default function CandidatesPage() {
-  const gridRef = useRef<any>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const isNewCandidate = searchParams.get("newcandidate") === "true";
+  const gridRef = useRef<any>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [filteredCandidates, setFilteredCandidates] = useState<Candidate[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [searchBy, setSearchBy] = useState("all");
-  const [sortModel, setSortModel] = useState([
-    { colId: "enrolled_date", sort: "desc" as "desc" },
-  ]);
-  const [filterModel, setFilterModel] = useState({});
-  const [newCandidateForm, setNewCandidateForm] = useState(isNewCandidate);
-  const [formData, setFormData] = useState<FormData>(initialFormData);
-  const [formSaveLoading, setFormSaveLoading] = useState(false);
-  const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
-  const [allBatches, setAllBatches] = useState<Batch[]>([]);
-  const [mlBatches, setMlBatches] = useState<Batch[]>([]);
-  const [batchesLoading, setBatchesLoading] = useState(true);
 
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-  const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>(
-    []
-  );
-  const [selectedBatches, setSelectedBatches] = useState<Batch[]>([]);
+  const apiEndpoint = useMemo(() => `${getBaseUrl()}/candidates`, []);
 
-  const apiEndpoint = useMemo(
-    () => `${process.env.NEXT_PUBLIC_API_URL}/candidates`,
-    []
-  );
+  /* -------------------------------------- */
+  /* 🔸 Fetch Candidates                   */
+  /* -------------------------------------- */
+ // paste above helpers getAuthHeaders() and getBaseUrl() if not present
+// (getAuthHeaders() should return { Authorization: `Bearer ${token}` } or {} )
 
-  const gridOptions = useMemo(
-    () => ({
-      defaultColDef: {
-        filter: "agSetColumnFilter",
-        sortable: true,
-        resizable: true,
-      },
-      suppressRowClickSelection: true,
-      rowSelection: "single",
-    }),
-    []
-  );
+const fetchCandidates = useCallback(
+  async (query?: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const tokenHeaders = getAuthHeaders();
+      const params: Record<string, string> = {};
+      if (query && query.trim()) params["search"] = query.trim();
 
-  const courseId = "3";
+      const url = apiEndpoint; // already normalized in useMemo
 
-  useEffect(() => {
-    const newCandidateParam = searchParams.get("newcandidate") === "true";
-    setNewCandidateForm(newCandidateParam);
-  }, [searchParams]);
+      console.debug("[fetchCandidates] — sending request:", { url, params, headers: tokenHeaders });
 
-  const formatPhoneNumber = (phoneNumberString: string) => {
-    const cleaned = ("" + phoneNumberString).replace(/\D/g, "");
-    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
-    if (match) return `+1 (${match[1]}) ${match[2]}-${match[3]}`;
-    return `+1 ${phoneNumberString}`;
-  };
-
-  const formatDate = (dateString: string | Date | null | undefined) => {
-    if (!dateString) return "-";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      timeZone: "UTC",
-    });
-  };
-
-  const columnDefs: ColDef<any, any>[] = useMemo(
-    () => [
-      {
-        field: "id",
-        headerName: "ID",
-        width: 80,
-        pinned: "left",
-        sortable: true,
-        filter: "agSetColumnFilter",
-        valueGetter: (params) => params.data?.id || "N/A",
-      },
-
-      {
-        field: "full_name",
-        headerName: "Full Name",
-        width: 180,
-        sortable: true,
-        filter: "agSetColumnFilter",
-        cellRenderer: CandidateNameRenderer,
-      },
-      {
-        field: "phone",
-        headerName: "Phone",
-        width: 150,
-        editable: true,
-        sortable: true,
-        filter: "agSetColumnFilter",
-        cellRenderer: (params: any) => {
-          if (!params.value) return "";
-          const formattedPhone = formatPhoneNumber(params.value);
-          return (
-            <a
-              href={`tel:${params.value}`}
-              className="text-blue-600 underline hover:text-blue-800"
-            >
-              {formattedPhone}
-            </a>
-          );
+      const res = await axios.get(url, {
+        headers: {
+          ...tokenHeaders,
+          // ensure content-type not forcing body on GET (safe)
         },
-      },
-      {
-        field: "email",
-        headerName: "Email",
-        width: 200,
-        editable: true,
-        sortable: true,
-        filter: "agSetColumnFilter",
-        cellRenderer: (params: any) => {
-          if (!params.value) return "";
-          return (
-            <a
-              href={`mailto:${params.value}`}
-              className="text-blue-600 underline hover:text-blue-800"
-              onClick={(event) => event.stopPropagation()}
-            >
-              {params.value}
-            </a>
-          );
-        },
-      },
-      {
-        field: "batchid",
-        headerName: "Batch",
-        width: 140,
-        sortable: true,
-        filter: "agSetColumnFilter",
-        cellRenderer: (params: any) => {
-          if (!params.value || !allBatches.length) return params.value || "";
-          const batch = allBatches.find((b) => b.batchid === params.value);
-          return batch ? (
-            <span title={`Batch ID: ${params.value}`}>{batch.batchname}</span>
-          ) : (
-            params.value
-          );
-        },
-        headerComponent: (props: any) => (
-          <FilterHeaderComponent
-            {...props}
-            selectedItems={selectedBatches}
-            setSelectedItems={setSelectedBatches}
-            options={mlBatches}
-            label="Batch"
-            color="purple"
-            renderOption={(option: Batch) => option.batchname}
-            getOptionValue={(option: Batch) => option}
-            getOptionKey={(option: Batch) => option.batchid}
-          />
-        ),
-      },
+        params,
+        validateStatus: (s) => true // allow us to log non-2xx here and throw manually
+      });
 
-      {
-        field: "status",
-        headerName: "Status",
-        width: 120,
-        sortable: true,
-        filter: "agTextColumnFilter",
-        cellRenderer: StatusRenderer,
-        headerComponent: (props: any) => (
-          <FilterHeaderComponent
-            {...props}
-            selectedItems={selectedStatuses}
-            setSelectedItems={setSelectedStatuses}
-            options={statusOptions}
-            label="Status"
-            color="blue"
-            renderOption={(option) => <StatusRenderer value={option} />}
-            getOptionValue={(option) => option}
-            getOptionKey={(option) => option}
-          />
-        ),
-      },
+      // Log full response for debugging
+      console.debug("[fetchCandidates] response status:", res.status);
+      console.debug("[fetchCandidates] response headers:", res.headers);
+      console.debug("[fetchCandidates] response data:", res.data);
 
-      {
-        field: "workstatus",
-        headerName: "Work Status",
-        width: 150,
-        sortable: true,
-        filter: "agSetColumnFilter",
-        cellRenderer: WorkStatusRenderer,
-        headerComponent: (props: any) => (
-          <FilterHeaderComponent
-            {...props}
-            selectedItems={selectedWorkStatuses}
-            setSelectedItems={setSelectedWorkStatuses}
-            options={workStatusOptions}
-            label="Work Status"
-            color="green"
-            renderOption={(option) => option}
-            getOptionValue={(option) => option}
-            getOptionKey={(option) => option}
-          />
-        ),
-      },
-      {
-        field: "enrolled_date",
-        headerName: "Enrolled Date",
-        width: 150,
-        sortable: true,
-        filter: "agSetColumnFilter",
-        valueFormatter: ({ value }: ValueFormatterParams) => formatDate(value),
-      },
-      {
-        field: "education",
-        headerName: "Education",
-        width: 200,
-        sortable: true,
-        filter: "agSetColumnFilter",
-      },
-      {
-        field: "workexperience",
-        headerName: "Work Experience",
-        width: 200,
-        sortable: true,
-        filter: "agSetColumnFilter",
-      },
-      {
-        field: "ssn",
-        headerName: "SSN",
-        width: 120,
-        sortable: true,
-        filter: "agSetColumnFilter",
-      },
-      {
-        field: "agreement",
-        headerName: "Agreement",
-        width: 100,
-        sortable: true,
-        filter: "agSetColumnFilter",
-      },
-      {
-        field: "secondaryemail",
-        headerName: "Secondary Email",
-        width: 200,
-        sortable: true,
-        filter: "agSetColumnFilter",
-        cellRenderer: (params: any) => {
-          if (!params.value) return "";
-          return (
-            <a
-              href={`mailto:${params.value}`}
-              className="text-blue-600 underline hover:text-purple-800"
-              onClick={(event) => event.stopPropagation()}
-            >
-              {params.value}
-            </a>
-          );
-        },
-      },
-      {
-        field: "secondaryphone",
-        headerName: "Secondary Phone",
-        width: 150,
-        sortable: true,
-        filter: "agSetColumnFilter",
-        cellRenderer: (params: any) => {
-          if (!params.value) return "";
-          const formattedPhone = formatPhoneNumber(params.value);
-          return (
-            <a
-              href={`tel:${params.value}`}
-              className="text-blue-600 underline hover:text-purple-800"
-            >
-              {formattedPhone}
-            </a>
-          );
-        },
-      },
-      {
-        field: "address",
-        headerName: "Address",
-        width: 300,
-        sortable: true,
-        filter: "agSetColumnFilter",
-      },
-      {
-        field: "linkedin_id",
-        headerName: "LinkedIn ID",
-        width: 150,
-        sortable: true,
-        filter: "agSetColumnFilter",
-        cellRenderer: (params: any) => {
-          if (!params.value) return "";
-          const formattedPhone = formatPhoneNumber(params.value);
-          return (
-            <a
-              href={`tel:${params.value}`}
-              className="text-blue-600 underline hover:text-purple-800"
-            >
-              {formattedPhone}
-            </a>
-          );
-        },
-      },
-      {
-        field: "dob",
-        headerName: "Date of Birth",
-        width: 150,
-        sortable: true,
-        editable: true,
-        filter: "agSetColumnFilter",
-        valueFormatter: ({ value }: ValueFormatterParams) => formatDate(value),
-        valueParser: (params) => {
-          if (!params.newValue) return null;
-          const date = new Date(params.newValue);
-          return date.toISOString();
-        },
-        cellEditor: "agDateCellEditor",
-        cellEditorParams: {
-          min: "1900-01-01",
-          max: new Date().toISOString().split("T")[0],
-        },
-      },
-      {
-        field: "emergcontactname",
-        headerName: "Emergency Contact Name",
-        width: 200,
-        sortable: true,
-        filter: "agSetColumnFilter",
-      },
-      {
-        field: "emergcontactemail",
-        headerName: "Emergency Contact Email",
-        width: 200,
-        sortable: true,
-        filter: "agSetColumnFilter",
-        cellRenderer: (params: any) => {
-          if (!params.value) return "";
-          return (
-            <a
-              href={`mailto:${params.value}`}
-              className="text-blue-600 underline hover:text-purple-800"
-              onClick={(event) => event.stopPropagation()}
-            >
-              {params.value}
-            </a>
-          );
-        },
-      },
-      {
-        field: "emergcontactphone",
-        headerName: "Emergency Contact Phone",
-        width: 150,
-        sortable: true,
-        filter: "agSetColumnFilter",
-        cellRenderer: (params: any) => {
-          if (!params.value) return "";
-          const formattedPhone = formatPhoneNumber(params.value);
-          return (
-            <a
-              href={`tel:${params.value}`}
-              className="text-blue-600 underline hover:text-purple-800"
-            >
-              {formattedPhone}
-            </a>
-          );
-        },
-      },
-      {
-        field: "emergcontactaddrs",
-        headerName: "Emergency Contact Address",
-        width: 300,
-        sortable: true,
-        filter: "agSetColumnFilter",
-      },
-      {
-        field: "fee_paid",
-        headerName: "Fee Paid",
-        width: 120,
-        sortable: true,
-        filter: "agSetColumnFilter",
-        cellClass: (params) =>
-          params.value && params.value > 0 ? "text-green-500 " : "",
-        valueFormatter: ({ value }: ValueFormatterParams) =>
-          value != null ? `$${Number(value).toLocaleString()}` : "",
-        cellStyle: { textAlign: "right" },
-      },
-
-      {
-        field: "move_to_prep",
-        headerName: "Move to Prep",
-        width: 150,
-        sortable: true,
-        filter: "agSetColumnFilter",
-        cellRenderer: (params: any) => (
-          <span>{params.value ? "Yes" : "No"}</span>
-        ),
-      },
-
-      {
-        field: "notes",
-        headerName: "Notes",
-        minWidth: 100,
-        editable: true,
-        cellRenderer: (params: any) => {
-          if (!params.value) return "";
-          return (
-            <div
-              className="prose prose-sm dark:prose-invert max-w-none"
-              dangerouslySetInnerHTML={{ __html: params.value }}
-            />
-          );
-        },
-      },
-      {
-        field: "candidate_folder",
-        headerName: "Candidate Folder",
-        width: 200,
-        sortable: true,
-        filter: "agSetColumnFilter",
-        cellRenderer: (params: any) => {
-          if (!params.value) return "";
-          return (
-            <a
-              href={params.value}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 underline hover:text-blue-800"
-              onClick={(event) => event.stopPropagation()}
-            >
-              {params.value}
-            </a>
-          );
-        },
-      },
-    ],
-    [allBatches, selectedStatuses, selectedWorkStatuses, selectedBatches]
-  );
-
-  const fetchCandidates = useCallback(
-    async (
-      search?: string,
-      searchBy: string = "all",
-      sort: any[] = [{ colId: "enrolled_date", sort: "desc" }],
-      filters: any = {}
-    ) => {
-      setLoading(true);
-      try {
-        let url = `${apiEndpoint}?limit=0`;
-        if (search && search.trim()) {
-          url += `&search=${encodeURIComponent(
-            search.trim()
-          )}&search_by=${searchBy}`;
-        }
-        const sortToApply =
-          sort && sort.length > 0
-            ? sort
-            : [{ colId: "enrolled_date", sort: "desc" }];
-        const sortParam = sortToApply
-          .map((s) => `${s.colId}:${s.sort}`)
-          .join(",");
-        url += `&sort=${encodeURIComponent(sortParam)}`;
-        if (Object.keys(filters).length > 0) {
-          url += `&filters=${encodeURIComponent(JSON.stringify(filters))}`;
-        }
-        const token = localStorage.getItem("token");
-        const res = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        const data = await res.json();
-        setCandidates(data.data);
-      } catch (err) {
-        const error =
-          err instanceof Error ? err.message : "Failed to load candidates";
-        setError(error);
-        toast.error(error);
-      } finally {
-        setLoading(false);
-        if (searchInputRef.current) searchInputRef.current.focus();
-      }
-    },
-    [apiEndpoint]
-  );
-
-  const getWorkStatusColor = (status) => {
-    switch (status.toLowerCase()) {
-      case "waiting for status":
-        return { backgroundColor: "#FFEDD5", color: "#C2410C" }; // orange
-      case "citizen":
-        return { backgroundColor: "#D1FAE5", color: "#065F46" }; // green
-      case "visa":
-        return { backgroundColor: "#DBEAFE", color: "#1D4ED8" }; // blue
-      case "others":
-        return { backgroundColor: "#F3E8FF", color: "#7C3AED" }; // purple
-      case "ead":
-        return { backgroundColor: "#FEF3C7", color: "#92400E" }; // yellow
-      default:
-        return { backgroundColor: "white", color: "black" };
-    }
-  };
-
-  useEffect(() => {
-    const fetchBatches = async () => {
-      setBatchesLoading(true);
-      try {
-        const token = localStorage.getItem("accesstoken");
-        const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/batch`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
+      if (res.status >= 200 && res.status < 300) {
+        const data = Array.isArray(res.data) ? res.data : res.data?.data ?? [];
+        setCandidates(data);
+        setError(null);
+      } else {
+        // Try to extract meaningful error message from body
+        let serverMsg = "(no server message)";
+        try {
+          // if res.data is object, pick likely keys
+          if (res.data) {
+            if (typeof res.data === "string") serverMsg = res.data;
+            else if (res.data.message) serverMsg = String(res.data.message);
+            else if (res.data.error) serverMsg = String(res.data.error);
+            else serverMsg = JSON.stringify(res.data);
           }
-        );
-
-        const sortedAllBatches = [...res.data].sort(
-          (a: Batch, b: Batch) => b.batchid - a.batchid
-        );
-        setAllBatches(sortedAllBatches);
-
-        const uniqueSubjects = [
-          ...new Set(sortedAllBatches.map((batch) => batch.subject)),
-        ];
-        const uniqueCourseIds = [
-          ...new Set(sortedAllBatches.map((batch) => batch.courseid)),
-        ];
-        console.log(" Available subjects:", uniqueSubjects);
-        console.log(" Available course IDs:", uniqueCourseIds);
-        console.log(" Total batches:", sortedAllBatches.length);
-
-        let mlBatchesOnly = sortedAllBatches.filter((batch) => {
-          const subject = batch.subject?.toLowerCase();
-          return (
-            subject === "ml" ||
-            subject === "machine learning" ||
-            subject === "machinelearning" ||
-            subject?.includes("ml")
-          );
-        });
-        if (mlBatchesOnly.length === 0) {
-          console.log("No ML batches found by subject, trying courseid = 3");
-          mlBatchesOnly = sortedAllBatches.filter(
-            (batch) => batch.courseid === 3
-          );
+        } catch (e) {
+          serverMsg = "(could not parse server message)";
         }
-        if (mlBatchesOnly.length === 0) {
-          console.warn(
-            "No ML batches found! Showing all batches in form as fallback"
-          );
-          mlBatchesOnly = sortedAllBatches;
-        }
-        console.log(" Filtered ML batches for form:", mlBatchesOnly.length);
-        setMlBatches(mlBatchesOnly);
 
-        if (
-          isNewCandidate &&
-          mlBatchesOnly.length > 0 &&
-          mlBatchesOnly[0]?.batchid
-        ) {
-          setFormData((prev) => ({
-            ...prev,
-            batchid: mlBatchesOnly[0].batchid,
-          }));
+        console.error("[fetchCandidates] server returned error:", res.status, serverMsg);
+
+        if (res.status === 401 || res.status === 403) {
+          toast.error("Unauthorized — please sign in again");
+          // optionally: redirect to login page
+        } else if (res.status >= 500) {
+          toast.error(`Server error (${res.status}): ${serverMsg}`);
+        } else {
+          toast.error(`Request failed (${res.status}): ${serverMsg}`);
         }
-      } catch (error) {
-        console.error("Failed to load batches:", error);
-      } finally {
-        setBatchesLoading(false);
+
+        setError(`Request failed (${res.status}): ${serverMsg}`);
       }
-    };
-    fetchBatches();
-  }, [courseId, isNewCandidate]);
+    } catch (err: any) {
+      // Network / unexpected errors
+      console.error("[fetchCandidates] unexpected error:", err);
 
-  useEffect(() => {
-    let filtered = [...candidates];
-    if (selectedStatuses.length > 0) {
-      filtered = filtered.filter((candidate) =>
-        selectedStatuses.some(
-          (status) =>
-            status.toLowerCase() === (candidate.status || "").toLowerCase()
-        )
-      );
+      // axios-specific data (if available)
+      if (err.response) {
+        // server responded with a status outside 2xx
+        console.error("Response data:", err.response.data);
+        console.error("Response status:", err.response.status);
+        console.error("Response headers:", err.response.headers);
+        toast.error(`Server error: ${err.response.status} - ${err.response.data?.message || JSON.stringify(err.response.data)}`);
+        setError(String(err.response.data?.message || `HTTP ${err.response.status}`));
+      } else if (err.request) {
+        // request sent but no response
+        console.error("No response received. Request:", err.request);
+        toast.error("No response from server. Check server or network.");
+        setError("No response from server.");
+      } else {
+        // something else
+        toast.error("Failed to fetch candidates: " + (err.message || String(err)));
+        setError("Failed to fetch candidates: " + (err.message || String(err)));
+      }
+    } finally {
+      setLoading(false);
+      if (searchInputRef.current) searchInputRef.current.focus();
     }
-    if (selectedWorkStatuses.length > 0) {
-      filtered = filtered.filter((candidate) =>
-        selectedWorkStatuses.some(
-          (ws) =>
-            ws.toLowerCase() === (candidate.workstatus || "").toLowerCase()
-        )
-      );
-    }
-    if (selectedBatches.length > 0) {
-      filtered = filtered.filter((candidate) =>
-        selectedBatches.some((batch) => batch.batchid === candidate.batchid)
-      );
-    }
-    if (searchTerm.trim() !== "") {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (candidate) =>
-          candidate.full_name?.toLowerCase().includes(term) ||
-          candidate.email?.toLowerCase().includes(term) ||
-          candidate.phone?.toLowerCase().includes(term) ||
-          (candidate.id?.toString() || "").includes(term)
-      );
-    }
+  },
+  [apiEndpoint]
+);
 
-    setFilteredCandidates(filtered);
-  }, [
-    candidates,
-    selectedStatuses,
-    selectedWorkStatuses,
-    selectedBatches,
-    searchTerm,
-  ]);
 
   useEffect(() => {
     fetchCandidates();
   }, [fetchCandidates]);
 
-  useEffect(() => {
-    const debounceTimer = setTimeout(() => {
-      if (searchTerm !== undefined) {
-        const autoSearchBy = detectSearchBy(searchTerm);
-        fetchCandidates(searchTerm, autoSearchBy, sortModel, filterModel);
-      }
-    }, 500);
-    return () => clearTimeout(debounceTimer);
-  }, [searchTerm, searchBy, sortModel, filterModel, fetchCandidates]);
-
-  const detectSearchBy = (search: string) => {
-    if (/^\d+$/.test(search)) return "id";
-    if (/^\S+@\S+\.\S+$/.test(search)) return "email";
-    if (/^[\d\s\+\-()]+$/.test(search)) return "phone";
-    return "full_name";
-  };
-
-  const handleOpenNewCandidateForm = () => {
-    router.push("/avatar/candidates?newcandidate=true", { scroll: false });
-    setNewCandidateForm(true);
-    if (mlBatches.length > 0) {
-      const latestBatch = mlBatches[0];
-      setFormData((prev) => ({
-        ...prev,
-        batchid: latestBatch?.batchid,
-      }));
-    }
-  };
-
-  const handleCloseNewCandidateForm = () => {
-    router.push("/avatar/candidates", { scroll: false });
-    setNewCandidateForm(false);
-    setFormData(initialFormData);
-  };
-
-  const handleNewCandidateFormChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
-  ) => {
-    const { name, value, type } = e.target;
-    if (
-      name === "phone" ||
-      name === "secondaryphone" ||
-      name === "emergcontactphone"
-    ) {
-      // Allow only numbers
-      const numericValue = value.replace(/[^0-9]/g, "");
-      setFormData((prev) => ({ ...prev, [name]: numericValue }));
-      return;
-    }
-
-    if (name === "full_name" || name === "emergcontactname") {
-      // Allow letters (a-z, A-Z), dot, and spaces
-      const nameValue = value.replace(/[^a-zA-Z. ]/g, "");
-      setFormData((prev) => ({ ...prev, [name]: nameValue }));
-      return;
-    }
-    if (type === "checkbox") {
-      const checked = (e.target as HTMLInputElement).checked;
-      setFormData((prev) => ({ ...prev, [name]: checked ? "Y" : "N" }));
-    } else if (type === "number") {
-      setFormData((prev) => ({ ...prev, [name]: parseInt(value) || 0 }));
-    } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
-    }
-  };
-
-  const handleNewCandidateFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.full_name.trim()) {
-      toast.error("Full name is required");
-      return;
-    }
-    setFormSaveLoading(true);
-    try {
-      const payload = {
-        ...formData,
-        enrolled_date:
-          formData.enrolled_date || new Date().toISOString().split("T")[0],
-        status: formData.status || "active",
-        workstatus: formData.workstatus || "Waiting for Status",
-        agreement: formData.agreement || "N",
-        fee_paid: formData.fee_paid || 0,
-      };
-      const response = await fetch(apiEndpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to create candidate");
-      }
-      const newId = await response.json();
-      toast.success(`Candidate created successfully with ID: ${newId}`);
-      setNewCandidateForm(false);
-      setFormData(initialFormData);
-      fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
-    } catch (error) {
-      toast.error("Failed to create candidate: " + (error as Error).message);
-      console.error("Error creating candidate:", error);
-    } finally {
-      setFormSaveLoading(false);
-    }
-  };
-
+  /* -------------------------------------- */
+  /* 🔸 Update a candidate (PUT)           */
+  /* -------------------------------------- */
   const handleRowUpdated = useCallback(
     async (updatedRow: Candidate) => {
-      setLoadingRowId(updatedRow.id);
       try {
-        const updatedData = { ...updatedRow };
-        if (!updatedData.status || updatedData.status === "") {
-          updatedData.status = "active";
-        }
-        const { id, ...payload } = updatedData;
+        const tokenHeaders = {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        };
 
-        const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+        await axios.put(`${apiEndpoint}/${updatedRow.id}`, updatedRow, {
+          headers: tokenHeaders,
         });
-        if (!response.ok) throw new Error("Failed to update candidate");
+
+        setCandidates((prev) =>
+          prev.map((c) => (c.id === updatedRow.id ? updatedRow : c))
+        );
 
         toast.success("Candidate updated successfully");
-
-        // Update only this row in AG Grid
-        if (gridRef.current) {
-          const rowNode = gridRef.current.api.getRowNode(
-            updatedRow.id.toString()
-          );
-          if (rowNode) rowNode.setData(updatedData);
-        }
-      } catch (error) {
+      } catch (err: any) {
+        console.error("Update failed:", err?.response?.data ?? err);
         toast.error("Failed to update candidate");
-        console.error("Error updating candidate:", error);
-      } finally {
-        setLoadingRowId(null);
       }
     },
     [apiEndpoint]
   );
-  // Add ESC key listener
-  useEffect(() => {
-    const handleEsc = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        handleCloseNewCandidateForm();
-      }
-    };
-    window.addEventListener("keydown", handleEsc);
-    return () => window.removeEventListener("keydown", handleEsc);
-  }, []);
+
+  /* -------------------------------------- */
+  /* 🔸 Delete a candidate (DELETE)        */
+  /* -------------------------------------- */
   const handleRowDeleted = useCallback(
     async (id: number) => {
       try {
-        const response = await fetch(`${apiEndpoint}/${id}`, {
-          method: "DELETE",
-        });
-        if (!response.ok) throw new Error("Failed to delete candidate");
-
-        toast.success("Candidate deleted successfully");
-
-        if (gridRef.current) {
-          gridRef.current.api.applyTransaction({ remove: [{ id }] });
-        }
-      } catch (error) {
+        const tokenHeaders = getAuthHeaders();
+        await axios.delete(`${apiEndpoint}/${id}`, { headers: tokenHeaders });
+        setCandidates((prev) => prev.filter((c) => c.id !== id));
+        toast.success("Candidate deleted");
+      } catch (err: any) {
+        console.error("Delete failed:", err?.response?.data ?? err);
         toast.error("Failed to delete candidate");
-        console.error("Error deleting candidate:", error);
       }
     },
     [apiEndpoint]
   );
 
-  const handleFilterChanged = useCallback(
-    (filterModelFromGrid: any) => {
-      setFilterModel(filterModelFromGrid);
-      fetchCandidates(searchTerm, searchBy, sortModel, filterModelFromGrid);
-    },
-    [searchTerm, searchBy, sortModel, fetchCandidates]
+  /* -------------------------------------- */
+  /* 🔸 Filter and search locally           */
+  /* -------------------------------------- */
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      setFilteredCandidates(candidates);
+      return;
+    }
+    const term = searchTerm.toLowerCase();
+    const filtered = candidates.filter(
+      (c) =>
+        c.full_name?.toLowerCase().includes(term) ||
+        c.email?.toLowerCase().includes(term) ||
+        c.phone?.toLowerCase().includes(term) ||
+        String(c.id).includes(term)
+    );
+    setFilteredCandidates(filtered);
+  }, [candidates, searchTerm]);
+
+  /* -------------------------------------- */
+  /* 🔸 AG Grid column definitions          */
+  /* -------------------------------------- */
+  const columnDefs: ColDef[] = useMemo(
+    () => [
+      { field: "id", headerName: "ID", width: 90, pinned: "left" },
+      {
+        field: "full_name",
+        headerName: "Full Name",
+        width: 200,
+        cellRenderer: (params: any) =>
+          params.value ? (
+            <Link
+              href={`/avatar/candidates/search?candidateId=${params.data.id}`}
+              className="text-blue-600 hover:underline"
+            >
+              {params.value}
+            </Link>
+          ) : (
+            "N/A"
+          ),
+      },
+      { field: "email", headerName: "Email", width: 220 },
+      { field: "phone", headerName: "Phone", width: 140 },
+      {
+        field: "status",
+        headerName: "Status",
+        width: 140,
+        cellRenderer: StatusRenderer,
+      },
+      {
+        field: "workstatus",
+        headerName: "Work Status",
+        width: 160,
+        cellRenderer: WorkStatusRenderer,
+      },
+      {
+        field: "enrolled_date",
+        headerName: "Enrolled Date",
+        width: 180,
+        valueFormatter: (params: ValueFormatterParams) =>
+          params.value ? new Date(params.value).toLocaleDateString() : "",
+      },
+      { field: "education", headerName: "Education", width: 180 },
+      { field: "fee_paid", headerName: "Fee Paid ($)", width: 150 },
+      { field: "notes", headerName: "Notes", width: 300 },
+    ],
+    []
   );
 
+  /* -------------------------------------- */
+  /* 🔸 Render                             */
+  /* -------------------------------------- */
   if (error) {
     return (
       <div className="flex h-64 items-center justify-center">
         <div className="text-red-500">{error}</div>
         <Button
           variant="outline"
-          onClick={() =>
-            fetchCandidates(searchTerm, searchBy, sortModel, filterModel)
-          }
+          onClick={() => fetchCandidates()}
           className="ml-4"
         >
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Retry
+          <RefreshCw className="mr-2 h-4 w-4" /> Retry
         </Button>
       </div>
     );
@@ -1188,511 +348,57 @@ export default function CandidatesPage() {
 
   return (
     <div className="space-y-6">
-      <style jsx global>{`
-        .filter-dropdown {
-          scrollbar-width: thin;
-        }
-        .filter-dropdown::-webkit-scrollbar {
-          width: 8px;
-        }
-        .filter-dropdown::-webkit-scrollbar-track {
-          background: #f1f1f1;
-          border-radius: 4px;
-        }
-        .filter-dropdown::-webkit-scrollbar-thumb {
-          background: #c1c1c1;
-          border-radius: 4px;
-        }
-        .filter-dropdown::-webkit-scrollbar-thumb:hover {
-          background: #a8a8a8;
-        }
-      `}</style>
-      <Toaster position="top-center" />
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        {/* Left side: Title and description */}
-        <div className="flex-1">
+      <Toaster position="top-center" richColors />
+
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Candidates Management
+            Candidates
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            All Candidates ({candidates.length})
-            {selectedStatuses.length > 0 ||
-            selectedWorkStatuses.length > 0 ||
-            selectedBatches.length > 0 ? (
-              <span className="ml-2 text-blue-600 dark:text-blue-400">
-                - Filtered ({filteredCandidates.length} shown)
-              </span>
-            ) : (
-              " - Sorted by latest first"
-            )}
+            Manage all candidates ({filteredCandidates.length})
           </p>
-
-          {/* Search input */}
-          <div className="mt-2 sm:mt-0 sm:max-w-md">
-            <Label
-              htmlFor="search"
-              className="text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Search Candidates
-            </Label>
-            <div className="relative mt-1">
-              <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-              <Input
-                id="search"
-                type="text"
-                ref={searchInputRef}
-                placeholder="Search by ID, name, email, phone..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 text-sm sm:text-base"
-              />
-            </div>
-            {searchTerm && (
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {filteredCandidates.length} candidates found
-              </p>
-            )}
-          </div>
         </div>
+        <Button className="bg-green-600 hover:bg-green-700 text-white">
+          <PlusCircle className="h-4 w-4 mr-2" /> Add Candidate
+        </Button>
+      </div>
 
-        {/* Right side: Button */}
-        <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
-          <Button
-            onClick={handleOpenNewCandidateForm}
-            className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700"
-          >
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add New Candidate
-          </Button>
+      {/* Search Bar */}
+      <div className="max-w-md">
+        <Label
+          htmlFor="search"
+          className="text-sm font-medium text-gray-700 dark:text-gray-300"
+        >
+          Search by Name, Email, or ID
+        </Label>
+        <div className="relative mt-1">
+          <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+          <Input
+            id="search"
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Type to search..."
+            className="pl-10"
+          />
         </div>
       </div>
 
-      {/* AG Grid Table */}
-      <div className="flex w-full justify-center">
+      {/* Table */}
+      {loading ? (
+        <p className="text-center mt-8">Loading candidates...</p>
+      ) : (
         <AGGridTable
-          key={`${filteredCandidates.length}-${selectedStatuses.join(
-            ","
-          )}-${selectedWorkStatuses.join(",")}-${selectedBatches
-            .map((b) => b.batchid)
-            .join(",")}`}
-          rowData={loading ? undefined : filteredCandidates}
+          rowData={filteredCandidates}
           columnDefs={columnDefs}
+          title={`Candidates (${filteredCandidates.length})`}
+          height="600px"
+          showSearch={false}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
-          showFilters={true}
-          getRowNodeId={(data) => data.id.toString()}
-          showSearch={true}
-          batches={allBatches}
-          loading={loading}
-          height="600px"
-          gridOptions={gridOptions}
-          overlayNoRowsTemplate={
-            loading
-              ? ""
-              : '<span class="ag-overlay-no-rows-center">No candidates found</span>'
-          }
         />
-      </div>
-      {newCandidateForm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              handleCloseNewCandidateForm();
-            }
-          }}
-        >
-          <div className="max-h-[90vh] w-full max-w-6xl overflow-y-auto rounded-xl bg-gradient-to-b from-white to-gray-50 p-6 shadow-2xl dark:from-gray-800 dark:to-gray-700">
-            <h2 className="mb-6 text-center text-3xl font-bold text-indigo-600 dark:text-indigo-400">
-              New Candidate Form
-            </h2>
-
-            <form onSubmit={handleNewCandidateFormSubmit}>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="full_name"
-                    className="block text-sm font-medium"
-                  >
-                    Full Name *
-                  </Label>
-                  <Input
-                    id="full_name"
-                    name="full_name"
-                    value={formData.full_name}
-                    onChange={handleNewCandidateFormChange}
-                    required
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="email" className="block text-sm font-medium">
-                    Email *
-                  </Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={handleNewCandidateFormChange}
-                    required
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="phone" className="block text-sm font-medium">
-                    Phone *
-                  </Label>
-                  <Input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={handleNewCandidateFormChange}
-                    required
-                    placeholder="+1 (123) 456-7890"
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="status" className="block text-sm font-medium">
-                    Status
-                  </Label>
-                  <select
-                    id="status"
-                    name="status"
-                    value={formData.status}
-                    onChange={handleNewCandidateFormChange}
-                    className="h-10 w-full rounded-md border p-2"
-                  >
-                    {statusOptions.map((status) => (
-                      <option key={status} value={status}>
-                        {status.charAt(0).toUpperCase() + status.slice(1)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="workstatus"
-                    className="block text-sm font-medium"
-                  >
-                    Work Status
-                  </Label>
-                  <select
-                    id="workstatus"
-                    name="workstatus"
-                    value={formData.workstatus}
-                    onChange={handleNewCandidateFormChange}
-                    className="h-10 w-full rounded-md border p-2"
-                  >
-                    {workStatusOptions.map((status) => (
-                      <option key={status} value={status}>
-                        {status}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="education"
-                    className="block text-sm font-medium"
-                  >
-                    Education
-                  </Label>
-                  <Input
-                    id="education"
-                    name="education"
-                    value={formData.education}
-                    onChange={handleNewCandidateFormChange}
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="workexperience"
-                    className="block text-sm font-medium"
-                  >
-                    Work Experience
-                  </Label>
-                  <Input
-                    id="workexperience"
-                    name="workexperience"
-                    value={formData.workexperience}
-                    onChange={handleNewCandidateFormChange}
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="agreement"
-                    className="block text-sm font-medium"
-                  >
-                    Agreement
-                  </Label>
-                  <select
-                    id="agreement"
-                    name="agreement"
-                    value={formData.agreement}
-                    onChange={handleNewCandidateFormChange}
-                    className="h-10 w-full rounded-md border p-2"
-                  >
-                    <option value="Y">Yes</option>
-                    <option value="N">No</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="ssn" className="block text-sm font-medium">
-                    SSN
-                  </Label>
-                  <Input
-                    id="ssn"
-                    name="ssn"
-                    type="password"
-                    value={formData.ssn}
-                    onChange={handleNewCandidateFormChange}
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="secondaryemail"
-                    className="block text-sm font-medium"
-                  >
-                    Secondary Email
-                  </Label>
-                  <Input
-                    id="secondaryemail"
-                    name="secondaryemail"
-                    type="email"
-                    value={formData.secondaryemail}
-                    onChange={handleNewCandidateFormChange}
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="secondaryphone"
-                    className="block text-sm font-medium"
-                  >
-                    Secondary Phone
-                  </Label>
-                  <Input
-                    id="secondaryphone"
-                    name="secondaryphone"
-                    type="tel"
-                    value={formData.secondaryphone}
-                    onChange={handleNewCandidateFormChange}
-                    placeholder="+1 (123) 456-7890"
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="linkedin_id"
-                    className="block text-sm font-medium"
-                  >
-                    LinkedIn ID
-                  </Label>
-                  <Input
-                    id="linkedin_id"
-                    name="linkedin_id"
-                    value={formData.linkedin_id}
-                    onChange={handleNewCandidateFormChange}
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="dob" className="block text-sm font-medium">
-                    Date of Birth *
-                  </Label>
-                  <Input
-                    id="dob"
-                    name="dob"
-                    type="date"
-                    value={formData.dob}
-                    onChange={handleNewCandidateFormChange}
-                    required
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="emergcontactname"
-                    className="block text-sm font-medium"
-                  >
-                    Emergency Contact Name
-                  </Label>
-                  <Input
-                    id="emergcontactname"
-                    name="emergcontactname"
-                    value={formData.emergcontactname}
-                    onChange={handleNewCandidateFormChange}
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="emergcontactemail"
-                    className="block text-sm font-medium"
-                  >
-                    Emergency Contact Email
-                  </Label>
-                  <Input
-                    id="emergcontactemail"
-                    name="emergcontactemail"
-                    type="email"
-                    value={formData.emergcontactemail}
-                    onChange={handleNewCandidateFormChange}
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="emergcontactphone"
-                    className="block text-sm font-medium"
-                  >
-                    Emergency Contact Phone
-                  </Label>
-                  <Input
-                    id="emergcontactphone"
-                    name="emergcontactphone"
-                    type="tel"
-                    value={formData.emergcontactphone}
-                    onChange={handleNewCandidateFormChange}
-                    placeholder="+1 (123) 456-7890"
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1 md:col-span-2">
-                  <Label
-                    htmlFor="emergcontactaddrs"
-                    className="block text-sm font-medium"
-                  >
-                    Emergency Contact Address
-                  </Label>
-                  <Input
-                    id="emergcontactaddrs"
-                    name="emergcontactaddrs"
-                    value={formData.emergcontactaddrs}
-                    onChange={handleNewCandidateFormChange}
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="fee_paid"
-                    className="block text-sm font-medium"
-                  >
-                    Fee Paid ($)
-                  </Label>
-                  <Input
-                    id="fee_paid"
-                    name="fee_paid"
-                    type="number"
-                    value={formData.fee_paid}
-                    onChange={handleNewCandidateFormChange}
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="batchid"
-                    className="block text-sm font-medium"
-                  >
-                    Batch *
-                  </Label>
-                  <select
-                    id="batchid"
-                    name="batchid"
-                    value={formData.batchid}
-                    onChange={handleNewCandidateFormChange}
-                    required
-                    className="h-10 w-full rounded-md border p-2"
-                    disabled={batchesLoading}
-                  >
-                    {batchesLoading ? (
-                      <option value="0">Loading batches...</option>
-                    ) : (
-                      <>
-                        {mlBatches.map((batch) => (
-                          <option key={batch.batchid} value={batch.batchid}>
-                            {batch.batchname}
-                          </option>
-                        ))}
-                      </>
-                    )}
-                  </select>
-                </div>
-                <div className="space-y-1 md:col-span-2">
-                  <Label htmlFor="notes" className="block text-sm font-medium">
-                    Notes
-                  </Label>
-                  <textarea
-                    id="notes"
-                    name="notes"
-                    value={formData.notes}
-                    onChange={handleNewCandidateFormChange}
-                    className="min-h-[100px] w-full rounded-md border p-2"
-                  />
-                </div>
-                <div className="space-y-1 md:col-span-2">
-                  <Label
-                    htmlFor="candidate_folder"
-                    className="block text-sm font-medium"
-                  >
-                    Candidate Folder
-                  </Label>
-                  <Input
-                    id="candidate_folder"
-                    name="candidate_folder"
-                    value={formData.candidate_folder}
-                    onChange={handleNewCandidateFormChange}
-                    placeholder="Google Drive/Dropbox link"
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="enrolled_date"
-                    className="block text-sm font-medium"
-                  >
-                    Enrolled Date
-                  </Label>
-                  <Input
-                    id="enrolled_date"
-                    name="enrolled_date"
-                    type="date"
-                    value={formData.enrolled_date}
-                    onChange={handleNewCandidateFormChange}
-                    className="h-10 w-full"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <button
-                  type="submit"
-                  disabled={formSaveLoading}
-                  className={`w-full rounded-md py-2.5 text-sm font-medium transition duration-200 ${
-                    formSaveLoading
-                      ? "cursor-not-allowed bg-gray-400"
-                      : "bg-green-600 text-white hover:bg-green-700"
-                  }`}
-                >
-                  {formSaveLoading ? "Saving..." : "Save"}
-                </button>
-              </div>
-            </form>
-            <button
-              onClick={handleCloseNewCandidateForm}
-              className="absolute right-3 top-3 text-2xl leading-none text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              aria-label="Close"
-            >
-              &times;
-            </button>
-          </div>
-        </div>
       )}
     </div>
   );
