@@ -64,6 +64,8 @@
     "country-codes-list": "^1.6.11",
     "country-data": "^0.0.31",
     "debounce": "^2.1.0",
+    "dexie": "^4.2.1",
+    "dexie-react-hooks": "^4.2.0",
     "dotenv": "^16.4.5",
     "embla-carousel-react": "^8.6.0",
     "eslint": "8.33.0",
