@@ -22,7 +22,6 @@ export default function CandidatesInterviews() {
   const [perPage, setPerPage] = useState(50);
   const [total, setTotal] = useState(0);
 
-  // Add Interview Modal State
   const [showAddForm, setShowAddForm] = useState(false);
   const [newInterview, setNewInterview] = useState<any>({
     candidate_id: "",
@@ -84,7 +83,7 @@ export default function CandidatesInterviews() {
 
   const filteredInterviews = filterData(searchTerm);
 
-  // Badge renderers
+
   const StatusRenderer = (params: any) => {
     const v = params.value?.toLowerCase() ?? "";
     const classes =
@@ -111,7 +110,6 @@ const LinkRenderer = (params: any) => {
   const value = params.value;
   if (!value) return <span className="text-gray-500">Not Available</span>;
 
-  // Split links by comma or whitespace
   const links = value
     .split(/[,​\s]+/)
     .map((link: string) => link.trim())
