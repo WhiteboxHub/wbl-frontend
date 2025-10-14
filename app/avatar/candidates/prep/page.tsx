@@ -251,7 +251,7 @@ export default function CandidatesPrepPage() {
     return [
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
       { field: "candidate.full_name", headerName: "Candidate Name", cellRenderer: CandidateNameRenderer, sortable: true, minWidth: 150, editable: false },
-      { field: "batch", headerName: "Batch", sortable: true, maxWidth: 150 },
+      { headerName: "Batch", sortable: true, maxWidth: 150, valueGetter: (params) => params.data.candidate?.batch?.batchname || "N/A" },
       { field: "start_date", headerName: "Start Date", sortable: true, maxWidth: 130 },
       {
         field: "status",
