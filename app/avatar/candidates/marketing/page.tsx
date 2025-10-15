@@ -25,9 +25,22 @@ const StatusRenderer = (params: any) => {
   return <Badge className={badgeClass}>{status?.toUpperCase()}</Badge>;
 };
 
+// ---------------- Filter Option Interface ----------------
+interface FilterOption {
+  value: string;
+  label: string;
+}
+
 // ---------------- Status Filter Header ----------------
-const StatusHeaderComponent = (props: any) => {
-  const { selectedStatuses, setSelectedStatuses } = props;
+interface StatusHeaderProps {
+  selectedStatuses: string[];
+  setSelectedStatuses: (values: string[]) => void;
+}
+
+const StatusHeaderComponent = ({
+  selectedStatuses,
+  setSelectedStatuses,
+}: StatusHeaderProps) => {
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
@@ -36,15 +49,18 @@ const StatusHeaderComponent = (props: any) => {
   const toggleFilter = () => {
     if (filterButtonRef.current) {
       const rect = filterButtonRef.current.getBoundingClientRect();
-      setDropdownPos({ top: rect.bottom, left: rect.left });
+      setDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left });
     }
     setFilterVisible((v) => !v);
   };
 
-  const handleStatusChange = (status: string) => {
-    setSelectedStatuses((prev: string[]) =>
-      prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
-    );
+  const handleValueChange = (value: string) => {
+    if (selectedStatuses.includes(value)) {
+      setSelectedStatuses(selectedStatuses.filter((v) => v !== value));
+    } else {
+      setSelectedStatuses([...selectedStatuses, value]);
+    }
+    setFilterVisible(false);
   };
 
   useEffect(() => {
@@ -67,9 +83,14 @@ const StatusHeaderComponent = (props: any) => {
     };
   }, []);
 
+  const statusOptions: FilterOption[] = [
+    { value: "active", label: "Active" },
+    { value: "inactive", label: "Inactive" },
+  ];
+
   return (
     <div className="relative flex items-center w-full" ref={filterButtonRef}>
-      <span className="mr-12">Status</span>
+      <span className="mr-2">Status</span>
       <svg
         onClick={toggleFilter}
         xmlns="http://www.w3.org/2000/svg"
@@ -84,23 +105,28 @@ const StatusHeaderComponent = (props: any) => {
         createPortal(
           <div
             ref={dropdownRef}
-            className="z-[99999] bg-white border rounded shadow-lg p-3 flex flex-col space-y-2 w-48 pointer-events-auto"
-            style={{ top: dropdownPos.top, left: dropdownPos.left, position: "fixed" }}
+            className="z-[99999] bg-white border border-gray-200 rounded-md shadow-lg w-48 max-h-60 overflow-y-auto"
+            style={{
+              top: `${dropdownPos.top}px`,
+              left: `${dropdownPos.left}px`,
+              position: "absolute",
+            }}
           >
-            {[
-              { value: "active", label: "Active" },
-              { value: "inactive", label: "Inactive" },
-            ].map(({ value, label }) => (
-              <label key={value} className="flex items-center px-2 py-1 hover:bg-gray-100 cursor-pointer rounded">
-                <input
-                  type="checkbox"
-                  checked={selectedStatuses.includes(value)}
-                  onChange={() => handleStatusChange(value)}
-                  className="mr-3 h-4 w-4 text-blue-600 rounded focus:ring-blue-500"
-                />
-                {label}
-              </label>
-            ))}
+            <div className="py-1">
+              {statusOptions.map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => handleValueChange(value)}
+                  className={`block w-full text-left px-4 py-2 text-sm ${
+                    selectedStatuses.includes(value)
+                      ? "bg-blue-50 text-blue-700"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>,
           document.body
         )}
@@ -250,6 +276,7 @@ export default function CandidatesMarketingPage() {
         cellRenderer: CandidateNameRenderer,
         valueGetter: (params) => params.data.candidate?.full_name || "N/A",
       },
+      { headerName: "Batch", sortable: true, maxWidth: 150, valueGetter: (params) => params.data.candidate?.batch?.batchname || "N/A" },
       {
         field: "start_date",
         headerName: "Start Date",
@@ -292,6 +319,24 @@ export default function CandidatesMarketingPage() {
           params.data.marketing_manager_obj?.name || "N/A",
       },
       { field: "email", headerName: "Email", width: 200, editable: true },
+      {
+        field: "email",
+        headerName: "Email",
+        width: 250,
+        editable: true,
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          return (
+            <a
+              href={`mailto:${params.value}`}
+              className="text-blue-600 underline hover:text-blue-800"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {params.value}
+            </a>
+          );
+        },
+      },
       { field: "password", headerName: "Password", width: 150, editable: true },
       {
         field: "google_voice_number",

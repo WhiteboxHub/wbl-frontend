@@ -118,6 +118,8 @@ const StatusRenderer = ({ value }: { value?: string }) => {
   const variantMap: Record<string, string> = {
     active:
       "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    inactive:
+      "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
     discontinued:
       "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
     break: "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
@@ -497,19 +499,14 @@ export default function CandidatesPage() {
         },
       },
       {
-        field: "batchid",
+        field: "batch",
         headerName: "Batch",
         width: 140,
         sortable: true,
         filter: "agSetColumnFilter",
         cellRenderer: (params: any) => {
-          if (!params.value || !allBatches.length) return params.value || "";
-          const batch = allBatches.find((b) => b.batchid === params.value);
-          return batch ? (
-            <span title={`Batch ID: ${params.value}`}>{batch.batchname}</span>
-          ) : (
-            params.value
-          );
+          const batch = params.data?.batch;
+          return batch ? batch.batchname : "N/A";
         },
         headerComponent: (props: any) => (
           <FilterHeaderComponent

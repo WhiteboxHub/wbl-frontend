@@ -55,7 +55,6 @@
     "@radix-ui/react-tooltip": "^1.2.7",
     "@tabler/icons-react": "^3.34.1",
     "ag-grid-community": "^33.3.2",
-    "ag-grid-enterprise": "^33.3.2",
     "ag-grid-react": "^33.3.2",
     "axios": "^1.7.2",
     "class-variance-authority": "^0.7.1",
