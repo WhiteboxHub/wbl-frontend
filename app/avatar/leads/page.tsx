@@ -480,6 +480,8 @@
 //     () => `${process.env.NEXT_PUBLIC_API_URL}/leads`,
 //     []
 //   );
+//  const [leadList, setLeadList] = useState<DexieLead[]>([]);
+
 
 //   // Helper functions for form dropdown colors
 //   const getStatusColor = (status: string) => {
@@ -1286,6 +1288,8 @@
 
 
 
+// ================================================================================================
+
 
 
 
@@ -1295,52 +1299,17 @@ import { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon, PlusCircle, RefreshCw, WifiOff } from "lucide-react";
+import { SearchIcon, PlusCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { toast, Toaster } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AGGridTable } from "@/components/AGGridTable";
 import { createPortal } from "react-dom";
-import { AgGridReact } from "ag-grid-react";
 import type { AgGridReact as AgGridReactType } from "ag-grid-react";
 import type { GridApi } from "ag-grid-community";
-import { leadsStorage } from "@/utils/leadsStorage";
-import { SyncService } from "@/utils/syncService";
-import { LocalStorageHelper, LEADS_KEYS } from "@/utils/localStorageHelper";
+import { LeadsHelper, db, Lead as DexieLead } from "@/lib/dexieDB";
 
-// Type definitions
-interface SortModel {
-  colId: string;
-  sort: 'asc' | 'desc';
-}
-
-interface FilterState {
-  status: string[];
-  workstatus: string[];
-}
-
-type Lead = {
-  id: number;
-  full_name?: string | null;
-  email: string;
-  phone?: string | null;
-  workstatus?: string | null;
-  status?: string | null;
-  secondary_email?: string | null;
-  secondary_phone?: string | null;
-  address?: string | null;
-  entry_date?: string | Date | null;
-  closed_date?: string | Date | null;
-  city?: string | null;
-  state?: string | null;
-  country?: string | null;
-  moved_to_candidate?: boolean;
-  notes?: string | null;
-  massemail_unsubscribe?: boolean;
-  massemail_email_sent?: boolean;
-  last_synced?: string;
-  is_local?: boolean;
-};
+type Lead = DexieLead;
 
 type FormData = {
   full_name: string;
@@ -1383,6 +1352,77 @@ const workStatusOptions = [
   "OPT",
   "CPT",
 ];
+
+// Simple cache implementation
+const useSimpleCache = () => {
+  const cacheRef = useRef<{
+    data: Lead[];
+    timestamp: number;
+    searchTerm: string;
+    searchBy: string;
+  } | null>(null);
+
+  //  Check cache validity
+  const isCacheValid = async (
+    searchTerm: string,
+    searchBy: string = "all",
+    maxAge: number = 60000
+  ) => {
+    //  Memory cache valid?
+    if (cacheRef.current) {
+      if (cacheRef.current.searchTerm === searchTerm && cacheRef.current.searchBy === searchBy) {
+        const age = Date.now() - cacheRef.current.timestamp;
+        if (age < maxAge) return true;
+      }
+    }
+
+    // Persistent cache fallback (IndexedDB)
+    const localLeads = await db.leads.toArray();
+    if (localLeads.length > 0) {
+      console.log("Using IndexedDB cache — treating as valid");
+      return true;
+    }
+
+    // No memory or local cache
+    return false;
+  };
+
+  const setCache = (data: Lead[], searchTerm: string, searchBy: string = "all") => {
+    cacheRef.current = {
+      data,
+      timestamp: Date.now(),
+      searchTerm,
+      searchBy,
+    };
+  };
+
+  const getCache = () => cacheRef.current?.data || null;
+
+  const invalidateCache = () => {
+    cacheRef.current = null;
+  };
+
+  return { isCacheValid, setCache, getCache, invalidateCache };
+};
+// Rate limiter to prevent too many API calls
+const useRateLimiter = () => {
+  const lastCallRef = useRef<number>(0);
+  
+  const canMakeCall = (minInterval: number = 3000) => {
+    const now = Date.now();
+    const timeSinceLastCall = now - lastCallRef.current;
+    
+    if (timeSinceLastCall < minInterval) {
+      console.log(`🚫 Rate limited: ${minInterval - timeSinceLastCall}ms remaining`);
+      return false;
+    }
+    
+    lastCallRef.current = now;
+    return true;
+  };
+  
+  return { canMakeCall };
+};
 
 const StatusRenderer = ({ value }: { value?: string }) => {
   const status = value?.toLowerCase() || "";
@@ -1430,12 +1470,10 @@ const StatusFilterHeaderComponent = (props: any) => {
   const { selectedStatuses, setSelectedStatuses } = props;
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>(
-    {
-      top: 0,
-      left: 0,
-    }
-  );
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
   const [filterVisible, setFilterVisible] = useState(false);
 
   const toggleFilter = (e: React.MouseEvent) => {
@@ -1450,34 +1488,21 @@ const StatusFilterHeaderComponent = (props: any) => {
     setFilterVisible((v) => !v);
   };
 
-  const handleStatusChange = (
-    status: string,
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleStatusChange = (status: string, e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
-    setSelectedStatuses((prev: string[]) => {
-      const isSelected = prev.includes(status);
-      if (isSelected) {
-        return prev.filter((s) => s !== status);
-      } else {
-        return [...prev, status];
-      }
-    });
+    setSelectedStatuses((prev: string[]) =>
+      prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
+    );
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
-    if (e.target.checked) {
-      setSelectedStatuses([...statusOptions]);
-    } else {
-      setSelectedStatuses([]);
-    }
+    setSelectedStatuses(e.target.checked ? [...statusOptions] : []);
   };
 
   const isAllSelected = selectedStatuses.length === statusOptions.length;
   const isIndeterminate =
-    selectedStatuses.length > 0 &&
-    selectedStatuses.length < statusOptions.length;
+    selectedStatuses.length > 0 && selectedStatuses.length < statusOptions.length;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -1521,12 +1546,7 @@ const StatusFilterHeaderComponent = (props: any) => {
           viewBox="0 0 24 24"
           stroke="currentColor"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z"
-          />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z" />
         </svg>
       </div>
       {filterVisible &&
@@ -1534,13 +1554,7 @@ const StatusFilterHeaderComponent = (props: any) => {
           <div
             ref={dropdownRef}
             className="pointer-events-auto fixed flex w-56 flex-col space-y-2 rounded-lg border bg-white p-3 shadow-xl dark:border-gray-600 dark:bg-gray-800"
-            style={{
-              top: dropdownPos.top + 5,
-              left: dropdownPos.left,
-              zIndex: 99999,
-              maxHeight: "300px",
-              overflowY: "auto",
-            }}
+            style={{ top: dropdownPos.top + 5, left: dropdownPos.left, zIndex: 99999, maxHeight: "300px", overflowY: "auto" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-2 border-b pb-2">
@@ -1551,26 +1565,24 @@ const StatusFilterHeaderComponent = (props: any) => {
                   ref={(el) => {
                     if (el) el.indeterminate = isIndeterminate;
                   }}
+                  className="mr-2"
                   onChange={handleSelectAll}
-                  className="mr-3"
-                  onClick={(e) => e.stopPropagation()}
                 />
-                Select All
+                All
               </label>
             </div>
             {statusOptions.map((status) => (
               <label
                 key={status}
-                className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700"
+                className="flex cursor-pointer items-center rounded px-2 py-1 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 <input
                   type="checkbox"
                   checked={selectedStatuses.includes(status)}
+                  className="mr-2"
                   onChange={(e) => handleStatusChange(status, e)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="mr-3"
                 />
-                <StatusRenderer value={status} />
+                {status}
               </label>
             ))}
             {selectedStatuses.length > 0 && (
@@ -1597,12 +1609,10 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
   const { selectedWorkStatuses, setSelectedWorkStatuses } = props;
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>(
-    {
-      top: 0,
-      left: 0,
-    }
-  );
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
   const [filterVisible, setFilterVisible] = useState(false);
 
   const toggleFilter = (e: React.MouseEvent) => {
@@ -1617,34 +1627,21 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
     setFilterVisible((v) => !v);
   };
 
-  const handleWorkStatusChange = (
-    workStatus: string,
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleWorkStatusChange = (workStatus: string, e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
-    setSelectedWorkStatuses((prev: string[]) => {
-      if (prev.includes(workStatus)) {
-        return prev.filter((s) => s !== workStatus);
-      } else {
-        return [...prev, workStatus];
-      }
-    });
+    setSelectedWorkStatuses((prev: string[]) =>
+      prev.includes(workStatus) ? prev.filter((s) => s !== workStatus) : [...prev, workStatus]
+    );
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
-    if (e.target.checked) {
-      setSelectedWorkStatuses([...workStatusOptions]);
-    } else {
-      setSelectedWorkStatuses([]);
-    }
+    setSelectedWorkStatuses(e.target.checked ? [...workStatusOptions] : []);
   };
 
-  const isAllSelected =
-    selectedWorkStatuses.length === workStatusOptions.length;
+  const isAllSelected = selectedWorkStatuses.length === workStatusOptions.length;
   const isIndeterminate =
-    selectedWorkStatuses.length > 0 &&
-    selectedWorkStatuses.length < workStatusOptions.length;
+    selectedWorkStatuses.length > 0 && selectedWorkStatuses.length < workStatusOptions.length;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -1667,7 +1664,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
       window.removeEventListener("scroll", handleScroll, true);
     };
   }, [filterVisible]);
-
+  
   return (
     <div className="relative flex w-full items-center">
       <span className="mr-2 flex-grow">Work Status</span>
@@ -1688,12 +1685,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
           viewBox="0 0 24 24"
           stroke="currentColor"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z"
-          />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z" />
         </svg>
       </div>
       {filterVisible &&
@@ -1701,13 +1693,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
           <div
             ref={dropdownRef}
             className="pointer-events-auto fixed flex w-56 flex-col space-y-2 rounded-lg border bg-white p-3 text-sm shadow-xl dark:border-gray-600 dark:bg-gray-800"
-            style={{
-              top: dropdownPos.top + 5,
-              left: dropdownPos.left,
-              zIndex: 99999,
-              maxHeight: "300px",
-              overflowY: "auto",
-            }}
+            style={{ top: dropdownPos.top + 5, left: dropdownPos.left, zIndex: 99999, maxHeight: "300px", overflowY: "auto" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-2 border-b pb-2">
@@ -1718,8 +1704,8 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
                   ref={(el) => {
                     if (el) el.indeterminate = isIndeterminate;
                   }}
-                  onChange={handleSelectAll}
                   className="mr-3"
+                  onChange={handleSelectAll}
                 />
                 Select All
               </label>
@@ -1771,97 +1757,24 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchBy, setSearchBy] = useState("full_name");
-  const [sortModel, setSortModel] = useState<SortModel[]>([
-    { colId: "entry_date", sort: "desc" },
-  ]);
+  const [sortModel, setSortModel] = useState([{ colId: "entry_date", sort: "desc" as const }]);
   const [newLeadForm, setNewLeadForm] = useState(isNewLead);
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [formSaveLoading, setFormSaveLoading] = useState(false);
   const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
-  const [offlineMode, setOfflineMode] = useState(false);
-  const [lastSync, setLastSync] = useState<string | null>(null);
-  const [isOnline, setIsOnline] = useState(true);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   
-  const gridRef = useRef<InstanceType<typeof AgGridReact> | null>(null);
-  const apiEndpoint = useMemo(
-    () => `${process.env.NEXT_PUBLIC_API_URL}/leads`,
-    []
-  );
+  const gridRef = useRef<AgGridReactType<Lead> | null>(null);
+  const apiEndpoint = useMemo(() => `${process.env.NEXT_PUBLIC_API_URL}/leads`, []);
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  
+  const cache = useSimpleCache();
+  const rateLimiter = useRateLimiter();
 
-  const syncService = useMemo(() => new SyncService(apiEndpoint), [apiEndpoint]);
-
-  // Initialize and load cached data
-  useEffect(() => {
-    const initializeStorage = async () => {
-      try {
-        await leadsStorage.init();
-        
-        // Load cached preferences with proper typing
-        const savedSortState = LocalStorageHelper.get<SortModel[]>(LEADS_KEYS.SORT_STATE);
-        const savedFilterState = LocalStorageHelper.get<FilterState>(LEADS_KEYS.FILTER_STATE);
-        
-        // Type-safe sort model loading
-        if (savedSortState && Array.isArray(savedSortState)) {
-          const validSortModel = savedSortState.filter(item => 
-            item && 
-            typeof item.colId === 'string' && 
-            (item.sort === 'asc' || item.sort === 'desc')
-          );
-          
-          if (validSortModel.length > 0) {
-            setSortModel(validSortModel);
-          }
-        }
-        
-        // Type-safe filter loading
-        if (savedFilterState) {
-          if (savedFilterState.status && Array.isArray(savedFilterState.status)) {
-            setSelectedStatuses(savedFilterState.status);
-          }
-          if (savedFilterState.workstatus && Array.isArray(savedFilterState.workstatus)) {
-            setSelectedWorkStatuses(savedFilterState.workstatus);
-          }
-        }
-        
-        // Load last sync time
-        const lastSyncTime = LocalStorageHelper.get<string>('last_sync');
-        setLastSync(lastSyncTime);
-
-        // Load initial data
-        await loadLeads();
-      } catch (error) {
-        console.error('Storage initialization failed:', error);
-        toast.error("Failed to initialize local storage");
-      }
-    };
-
-    initializeStorage();
-
-    // Setup online/offline listeners
-    const handleOnline = () => {
-      setIsOnline(true);
-      setOfflineMode(false);
-      syncService.syncPendingChanges();
-    };
-
-    const handleOffline = () => {
-      setIsOnline(false);
-      setOfflineMode(true);
-      toast.warning("You are currently offline");
-    };
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    
-    setIsOnline(navigator.onLine);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
+  // NUCLEAR OPTION - Track call count
+  const callCountRef = useRef(0);
 
   // Helper functions for form dropdown colors
   const getStatusColor = (status: string) => {
@@ -1898,83 +1811,184 @@ export default function LeadsPage() {
     }
   };
 
-  // Enhanced fetchLeads with offline support
-  const fetchLeads = useCallback(
-    async (
-      search?: string,
-      searchBy: string = "all",
-      sort: SortModel[] = [{ colId: "entry_date", sort: "desc" }]
-    ) => {
-      setLoading(true);
-      try {
-        // Save search to history
-        if (search?.trim()) {
-          const searchHistory = LocalStorageHelper.get<string[]>(LEADS_KEYS.SEARCH_HISTORY, []);
-          const newHistory = [search, ...searchHistory.filter(s => s !== search)].slice(0, 10);
-          LocalStorageHelper.set(LEADS_KEYS.SEARCH_HISTORY, newHistory);
-        }
+  // DEBUG VERSION - fetchLeads function with strict call prevention
+  const fetchLeads = useCallback(async (
+    search?: string,
+    searchBy: string = "all",
+    sort: any[] = [{ colId: "entry_date", sort: "desc" }],
+    forceRefresh = false
+  ) => {
+    callCountRef.current++;
+    console.log('🚨 fetchLeads CALLED - investigating multiple calls');
+    console.log('   Call count:', callCountRef.current);
+    console.log('   search:', search);
+    console.log('   searchBy:', searchBy);
+    console.log('   forceRefresh:', forceRefresh);
+    console.log('   loading state:', loading);
+    console.log('   cache valid?', cache.isCacheValid(search || "", searchBy));
+    console.log('   stack trace:', new Error().stack);
 
-        // Save sort state with proper typing
-        LocalStorageHelper.set<SortModel[]>(LEADS_KEYS.SORT_STATE, sort);
-
-        // Save filter state
-        LocalStorageHelper.set<FilterState>(LEADS_KEYS.FILTER_STATE, {
-          status: selectedStatuses,
-          workstatus: selectedWorkStatuses
-        });
-
-        const filters = {
-          status: selectedStatuses,
-          workstatus: selectedWorkStatuses
-        };
-
-        const leadsData = await syncService.getLeadsWithFallback(search, filters);
-        
-        setLeads(leadsData);
-        setError(null);
-        
-      } catch (err) {
-        const error = err instanceof Error ? err.message : "Failed to load leads";
-        setError(error);
-        
-        // If online and failed, try loading from local storage
-        if (isOnline) {
-          try {
-            const localLeads = await leadsStorage.getAllLeads();
-            setLeads(localLeads);
-            toast.warning("Using cached data due to server issues");
-            setOfflineMode(true);
-          } catch (localError) {
-            toast.error(error);
-          }
-        } else {
-          toast.warning("Offline mode: Using cached data");
-          setOfflineMode(true);
-        }
-      } finally {
-        setLoading(false);
-        if (searchInputRef.current) {
-          searchInputRef.current.focus();
-        }
-      }
-    },
-    [apiEndpoint, selectedStatuses, selectedWorkStatuses, syncService, isOnline]
-  );
-
-  // Load leads from local storage
-  const loadLeads = async () => {
-    try {
-      const leadsData = await leadsStorage.getAllLeads();
-      setLeads(leadsData);
-      setFilteredLeads(leadsData);
-      setTotalLeads(leadsData.length);
-    } catch (error) {
-      console.error('Failed to load leads from storage:', error);
+    // NUCLEAR OPTION - Completely block multiple calls
+    if (callCountRef.current > 1) {
+      console.log('💥 BLOCKING DUPLICATE CALL - Only allowing first call');
+      return;
     }
-  };
 
+    const searchKey = search || "";
+    
+    // STRICT CACHE CHECK - Only proceed if absolutely necessary
+    if (!forceRefresh && cache.isCacheValid(searchKey, searchBy)) {
+      console.log('✅ STRICT CACHE HIT - Blocking API call');
+      const cachedData = cache.getCache();
+      if (cachedData) {
+        setLeads(cachedData);
+        setFilteredLeads(cachedData);
+        return;
+      }
+    }
+
+    // RATE LIMITING - Strict enforcement
+    if (!rateLimiter.canMakeCall(5000)) { // 5 seconds between calls
+      console.log('🚫 STRICT RATE LIMIT - Blocking API call');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Load from IndexedDB first
+      const localLeads = await db.leads.toArray();
+      console.log(`📁 IndexedDB has ${localLeads.length} leads`);
+      
+      // Only proceed with API call if absolutely necessary
+      if (isOnline && (forceRefresh || !cache.isCacheValid(searchKey, searchBy))) {
+        let url = `${apiEndpoint}`;
+        const params = new URLSearchParams();
+        if (search && search.trim()) {
+          params.append("search", search.trim());
+          params.append("search_by", searchBy);
+        }
+        const sortParam = sort.map((s) => `${s.colId}:${s.sort}`).join(",");
+        params.append("sort", sortParam);
+        
+        if (params.toString()) {
+          url += `?${params.toString()}`;
+        }
+
+        console.log('📡 MAKING SINGLE API CALL TO:', url);
+        
+        const token = localStorage.getItem("token");
+        const res = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        
+        const data = await res.json();
+        let leadsData: Lead[] = [];
+        if (data.data && Array.isArray(data.data)) {
+          leadsData = data.data;
+        } else if (Array.isArray(data)) {
+          leadsData = data;
+        }
+
+        console.log(`📥 API returned ${leadsData.length} leads - UPDATING CACHE`);
+        
+        // Update state and cache
+        setLeads(leadsData);
+        setFilteredLeads(leadsData);
+        cache.setCache(leadsData, searchKey, searchBy);
+        
+        // Update local DB
+        await db.leads.clear();
+        await db.leads.bulkPut(leadsData);
+      } else {
+        console.log('🏠 Using IndexedDB data - NO API CALL');
+        setLeads(localLeads);
+        setFilteredLeads(localLeads);
+      }
+    } catch (err) {
+      console.error('❌ API Error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [apiEndpoint, cache, isOnline, rateLimiter, loading]);
+
+  //  IndexedDB-only search (no API calls)
   useEffect(() => {
-    let filtered = [...leads];
+    const timeoutId = setTimeout(async () => {
+      const term = searchTerm.trim().toLowerCase();
+
+      if (!term) {
+        console.log("Empty search — showing all local leads");
+        const allLeads = await db.leads.toArray();
+        setFilteredLeads(allLeads);
+        setTotalLeads(allLeads.length);
+        return;
+      }
+
+      
+      console.log(" Local search in IndexedDB for:", term);
+      const allLeads = await db.leads.toArray();
+
+      const filtered = allLeads.filter((lead) => {
+        const nameMatch = lead.full_name?.toLowerCase().includes(term);
+        const emailMatch = lead.email?.toLowerCase().includes(term);
+        const phoneMatch = lead.phone?.toLowerCase().includes(term);
+        const idMatch = lead.id?.toString().includes(term);
+        return nameMatch || emailMatch || phoneMatch || idMatch;
+      });
+
+      setFilteredLeads(filtered);
+      setTotalLeads(filtered.length);
+      console.log(`Found ${filtered.length} leads locally`);
+    }, 400); 
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
+
+  
+  useEffect(() => {
+    const loadInitialData = async () => {
+      console.log('Initial page load starting...');
+      callCountRef.current = 0; // Reset call counter on page load
+      
+      // ALWAYS load from IndexedDB first (instant)
+      const localLeads = await db.leads.toArray();
+      console.log(`Initial IndexedDB load: ${localLeads.length} leads`);
+      
+      if (localLeads.length > 0) {
+        setLeads(localLeads);
+        setFilteredLeads(localLeads);
+        console.log('Showing IndexedDB data immediately');
+        
+        // Only fetch from API in background if data is old
+        if (!cache.isCacheValid("", "all")) {
+          console.log('Cache expired, fetching fresh data in background...');
+          // Use setTimeout to avoid blocking the UI
+          setTimeout(() => {
+            fetchLeads("", "all", sortModel, false);
+          }, 3000); // Wait 3 seconds before background refresh
+        } else {
+          console.log('Using cached data - no initial API call');
+        }
+      } else {
+        // No local data, fetch from API
+        console.log('No local data, fetching from API...');
+        fetchLeads("", "all", sortModel, true);
+      }
+    };
+
+    loadInitialData();
+  }, []); // Empty dependency array - only run once on mount
+
+  // Client-side filtering (reduces API calls)
+  useEffect(() => {
+    let filtered = [...leads];  
+    
+    // Status filter
     if (selectedStatuses.length > 0) {
       filtered = filtered.filter((lead) =>
         selectedStatuses.some(
@@ -1982,6 +1996,7 @@ export default function LeadsPage() {
         )
       );
     }
+
     if (selectedWorkStatuses.length > 0) {
       filtered = filtered.filter((lead) =>
         selectedWorkStatuses.some(
@@ -1989,6 +2004,7 @@ export default function LeadsPage() {
         )
       );
     }
+
     if (searchTerm.trim() !== "") {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
@@ -1999,25 +2015,31 @@ export default function LeadsPage() {
           lead.id.toString().includes(term)
       );
     }
+    
     setFilteredLeads(filtered);
     setTotalLeads(filtered.length);
   }, [leads, selectedStatuses, selectedWorkStatuses, searchTerm]);
 
+  // Online/offline handling
   useEffect(() => {
-    fetchLeads();
-  }, [fetchLeads]);
+    const handleOnline = () => {
+      setIsOnline(true);
+      console.log(' Online - syncing changes if any');
+    };
+    
+    const handleOffline = () => {
+      setIsOnline(false);
+      console.log(' Offline - using local data only');
+    };
 
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (searchTerm.trim()) {
-        const detectedSearchBy = detectSearchBy(searchTerm);
-        fetchLeads(searchTerm, detectedSearchBy, sortModel);
-      } else {
-        fetchLeads("", searchBy, sortModel);
-      }
-    }, 300);
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm, searchBy, sortModel, fetchLeads]);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   const detectSearchBy = (search: string) => {
     if (/^\d+$/.test(search)) return "id";
@@ -2026,105 +2048,32 @@ export default function LeadsPage() {
     return "full_name";
   };
 
-  // Enhanced handleNewLeadFormSubmit with offline support - FIXED VERSION
-  const handleNewLeadFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormSaveLoading(true);
+  const handleSearch = useCallback((term: string) => {
+    setSearchTerm(term);
+  }, []);
+
+  // Form validation
+  const validateForm = (data: FormData): boolean => {
+    const errors: Record<string, string> = {};
     
-    try {
-      const updatedData = { ...formData };
-      if (!updatedData.status || updatedData.status === "") {
-        updatedData.status = "waiting for status";
-      }
-      if (!updatedData.workstatus || updatedData.workstatus === "") {
-        updatedData.workstatus = "Waiting for Status";
-      }
-      if (updatedData.moved_to_candidate) {
-        updatedData.status = "Closed";
-      }
-      if (!updatedData.status || updatedData.status === "") {
-        updatedData.status = updatedData.moved_to_candidate ? "Closed" : "Open";
-      }
-      if (!updatedData.workstatus || updatedData.workstatus === "") {
-        updatedData.workstatus = "Waiting for Status";
-      }
-      const booleanFields = [
-        "moved_to_candidate",
-        "massemail_email_sent",
-        "massemail_unsubscribe",
-      ];
-      booleanFields.forEach((field) => {
-        if (
-          updatedData[field as keyof FormData] === undefined ||
-          updatedData[field as keyof FormData] === null ||
-          updatedData[field as keyof FormData] === ""
-        ) {
-          (updatedData[field as keyof FormData] as boolean) = false;
-        }
-      });
-
-      // Define payload here before using it
-      const payload = {
-        ...updatedData,
-        entry_date: new Date().toISOString(),
-        closed_date:
-          updatedData.status === "Closed"
-            ? new Date().toISOString().split("T")[0]
-            : null,
-      };
-
-      if (isOnline) {
-        // Online: Try to save to server first
-        const token = localStorage.getItem('token');
-        const response = await fetch(apiEndpoint, {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` })
-          },
-          body: JSON.stringify(payload),
-        });
-        
-        if (response.ok) {
-          const savedLead = await response.json();
-          await leadsStorage.addLead(savedLead);
-          toast.success("Lead created successfully!");
-        } else {
-          throw new Error("Server save failed");
-        }
-      } else {
-        // Offline: Save locally and queue for sync
-        const localId = await leadsStorage.addLead(payload);
-        toast.success("Lead saved locally (offline mode)");
-        setOfflineMode(true);
-      }
-
-      setNewLeadForm(false);
-      setFormData(initialFormData);
-      fetchLeads(searchTerm, searchBy, sortModel);
-      
-    } catch (error) {
-      // If online save failed, save locally
-      if (isOnline) {
-        try {
-          // Define payload again for the catch block
-          const payload = {
-            ...formData,
-            entry_date: new Date().toISOString(),
-            closed_date: formData.status === "Closed" ? new Date().toISOString().split("T")[0] : null,
-          };
-          await leadsStorage.addLead(payload);
-          toast.warning("Server unavailable, lead saved locally");
-          setOfflineMode(true);
-        } catch (localError) {
-          toast.error("Failed to save lead");
-        }
-      } else {
-        toast.error("Failed to save lead locally");
-      }
-    } finally {
-      setFormSaveLoading(false);
+    if (!data.full_name.trim()) {
+      errors.full_name = "Full name is required";
     }
+    
+    if (!data.email.trim()) {
+      errors.email = "Email is required";
+    } else if (!/^\S+@\S+\.\S+$/.test(data.email)) {
+      errors.email = "Please enter a valid email";
+    }
+    
+    if (!data.phone.trim()) {
+      errors.phone = "Phone is required";
+    } else if (data.phone.replace(/\D/g, '').length < 10) {
+      errors.phone = "Please enter a valid phone number";
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleNewLeadFormChange = (
@@ -2150,6 +2099,79 @@ export default function LeadsPage() {
     }
   };
 
+  const handleNewLeadFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormSaveLoading(true);
+    setFormErrors({});
+
+    if (!validateForm(formData)) {
+      setFormSaveLoading(false);
+      return;
+    }
+
+    try {
+      const updatedData = { 
+        ...formData,
+        status: formData.status || "Open",
+        workstatus: formData.workstatus || "Waiting for Status",
+        moved_to_candidate: Boolean(formData.moved_to_candidate),
+        massemail_email_sent: Boolean(formData.massemail_email_sent),
+        massemail_unsubscribe: Boolean(formData.massemail_unsubscribe),
+        entry_date: formData.entry_date || new Date().toISOString(),
+        closed_date: formData.status === "Closed" ? new Date().toISOString().split("T")[0] : null,
+      };
+
+      // Add to local DB first
+      const tempLead: Lead = {
+        ...updatedData,
+        id: Date.now(), 
+        synced: !isOnline, 
+        _action: "add" as const,
+      } as Lead;
+
+      await db.leads.add(tempLead);
+      setLeads(prev => [tempLead, ...prev]);
+      setFilteredLeads(prev => [tempLead, ...prev]);
+      
+      // Invalidate cache since data changed
+      cache.invalidateCache();
+
+      // Sync with API if online (in background)
+      if (isOnline) {
+        const token = localStorage.getItem("token");
+        const response = await fetch(apiEndpoint, {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(updatedData),
+        });
+        
+        if (!response.ok) throw new Error("Failed to create lead");
+        
+        const savedLead = await response.json();
+        
+        // Update local DB with saved lead
+        await db.leads.delete(tempLead.id);
+        await db.leads.add({ ...savedLead, synced: true, _action: null });
+        
+        setLeads(prev => prev.map(l => l.id === tempLead.id ? savedLead : l));
+        setFilteredLeads(prev => prev.map(l => l.id === tempLead.id ? savedLead : l));
+      }
+
+      toast.success("Lead created successfully!");
+      setNewLeadForm(false);
+      setFormData(initialFormData);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to create lead";
+      toast.error(errorMessage);
+      console.error("Error creating lead:", error);
+    } finally {
+      setFormSaveLoading(false);
+    }
+  };
+
   const handleOpenNewLeadForm = () => {
     router.push("/avatar/leads?newlead=true");
     setNewLeadForm(true);
@@ -2161,176 +2183,94 @@ export default function LeadsPage() {
     setFormData(initialFormData);
   };
 
-  // Enhanced handleRowUpdated with offline support
-  const handleRowUpdated = useCallback(
-    async (updatedRow: Lead) => {
-      setLoadingRowId(updatedRow.id);
-      try {
-        const { id, entry_date, ...payload } = updatedRow;
-        
-        if (payload.moved_to_candidate && payload.status !== "Closed") {
-          payload.status = "Closed";
-          payload.closed_date = new Date().toISOString().split("T")[0];
-        } else if (!payload.moved_to_candidate && payload.status === "Closed") {
-          payload.status = "Open";
-          payload.closed_date = null;
-        }
+  // Optimistic updates for row operations
+  const handleRowUpdated = useCallback(async (updatedRow: Lead) => {
+    setLoadingRowId(updatedRow.id);
+    
+    // Optimistic update - update UI immediately
+    const previousLeads = [...leads];
+    
+    setLeads(prev => prev.map(l => l.id === updatedRow.id ? updatedRow : l));
+    setFilteredLeads(prev => prev.map(l => l.id === updatedRow.id ? updatedRow : l));
+    
+    // Update local DB immediately
+    await db.leads.put(updatedRow);
+    
+    // Invalidate cache since data changed
+    cache.invalidateCache();
 
-        payload.moved_to_candidate = Boolean(payload.moved_to_candidate);
-        payload.massemail_unsubscribe = Boolean(payload.massemail_unsubscribe);
-        payload.massemail_email_sent = Boolean(payload.massemail_email_sent);
-
-        // Update locally first
-        await leadsStorage.updateLead(updatedRow.id, payload);
-
-        if (isOnline) {
-          // Try to sync with server
-          const token = localStorage.getItem('token');
-          const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
-            method: "PUT",
-            headers: { 
-              "Content-Type": "application/json",
-              ...(token && { Authorization: `Bearer ${token}` })
-            },
-            body: JSON.stringify(payload),
-          });
-          
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.detail || "Failed to update lead");
-          }
-          
-          toast.success(
-            payload.moved_to_candidate
-              ? "Lead moved to candidate and marked Closed"
-              : "Lead updated successfully"
-          );
-        } else {
-          toast.success("Lead updated locally (offline mode)");
-          setOfflineMode(true);
-        }
-
-        // Update grid
-        if (gridRef.current) {
-          gridRef.current.api.applyTransaction({ update: [updatedRow] });
-        }
-        
-      } catch (error) {
-        toast.error("Failed to update lead");
+    // Sync with API in background (don't wait for response)
+    if (isOnline) {
+      const { id, ...payload } = updatedRow;
+      if (payload.moved_to_candidate && payload.status !== "Closed") {
+        payload.status = "Closed";
+        payload.closed_date = new Date().toISOString().split("T")[0];
+      } else if (!payload.moved_to_candidate && payload.status === "Closed") {
+        payload.status = "Open";
+        payload.closed_date = null;
+      }
+      payload.moved_to_candidate = Boolean(payload.moved_to_candidate);
+      payload.massemail_unsubscribe = Boolean(payload.massemail_unsubscribe);
+      payload.massemail_email_sent = Boolean(payload.massemail_email_sent);
+      
+      const token = localStorage.getItem("token");
+      fetch(`${apiEndpoint}/${updatedRow.id}`, {
+        method: "PUT",
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      })
+      .then(response => {
+        if (!response.ok) throw new Error("Failed to update lead");
+        toast.success("Lead updated successfully");
+      })
+      .catch(error => {
+        setLeads(previousLeads);
+        setFilteredLeads(previousLeads);
+        toast.error("Failed to update lead - changes reverted");
         console.error("Error updating lead:", error);
-      } finally {
+      })
+      .finally(() => {
         setLoadingRowId(null);
-      }
-    },
-    [apiEndpoint, isOnline]
-  );
-
-  const handleRowDeleted = useCallback(
-    async (id: number) => {
-      try {
-        // Delete locally first
-        await leadsStorage.deleteLead(id);
-
-        if (isOnline) {
-          const token = localStorage.getItem('token');
-          const response = await fetch(`${apiEndpoint}/${id}`, {
-            method: "DELETE",
-            headers: {
-              ...(token && { Authorization: `Bearer ${token}` })
-            },
-          });
-          if (!response.ok) throw new Error("Failed to delete candidate");
-        } else {
-          toast.success("Candidate deleted locally (offline mode)");
-          setOfflineMode(true);
-        }
-
-        const rowNode = gridRef.current?.api.getRowNode(id.toString());
-        if (rowNode) rowNode.setData(null);
-        gridRef.current?.api.applyTransaction({ remove: [rowNode?.data] });
-        toast.success("Candidate deleted successfully");
-      } catch (error) {
-        toast.error("Failed to delete candidate");
-        console.error(error);
-      }
-    },
-    [apiEndpoint, isOnline]
-  );
-
-  const handleMoveToCandidate = useCallback(
-    async (lead: Lead, Moved: boolean) => {
-      setLoadingRowId(lead.id);
-      try {
-        const payload: Partial<Lead> = {
-          moved_to_candidate: !Moved,
-          status: !Moved ? "Closed" : "Open",
-          closed_date: !Moved ? new Date().toISOString().split("T")[0] : null,
-        };
-
-        // Update locally
-        await leadsStorage.updateLead(lead.id, payload);
-
-        if (isOnline) {
-          const method = Moved ? "DELETE" : "POST";
-          const url = `${apiEndpoint}/${lead.id}/move-to-candidate`;
-          const token = localStorage.getItem('token');
-          
-          const response = await fetch(url, {
-            method,
-            headers: {
-              "Content-Type": "application/json",
-              ...(token && { Authorization: `Bearer ${token}` })
-            },
-            body: JSON.stringify(payload),
-          });
-          
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(
-              errorData.detail || "Failed to move lead to candidate"
-            );
-          }
-          
-          const data = await response.json();
-          if (Moved) {
-            toast.success(
-              `Lead removed from candidate list (Candidate ID: ${data.candidate_id})`
-            );
-          } else {
-            toast.success(
-              `Lead moved to candidate (Candidate ID: ${data.candidate_id}) and status set to Closed`
-            );
-          }
-        } else {
-          toast.success("Operation completed locally (offline mode)");
-          setOfflineMode(true);
-        }
-
-        fetchLeads(searchTerm, searchBy, sortModel);
-      } catch (error: any) {
-        console.error("Error moving lead to candidate:", error);
-        toast.error(error.message || "Failed to move lead to candidate");
-      } finally {
-        setLoadingRowId(null);
-      }
-    },
-    [apiEndpoint, searchTerm, searchBy, sortModel, fetchLeads, isOnline]
-  );
-
-  // Manual sync function
-  const handleManualSync = async () => {
-    try {
-      setLoading(true);
-      await syncService.fullSyncFromServer();
-      await loadLeads();
-      setOfflineMode(false);
-      toast.success("Data synced successfully!");
-    } catch (error) {
-      toast.error("Sync failed - using cached data");
-    } finally {
-      setLoading(false);
+      });
+    } else {
+      setLoadingRowId(null);
     }
-  };
+  }, [apiEndpoint, isOnline, leads, cache]);
+
+  const handleRowDeleted = useCallback(async (id: number) => {
+    // Optimistic update
+    const previousLeads = [...leads];    
+    setLeads(prev => prev.filter((l) => l.id !== id));
+    setFilteredLeads(prev => prev.filter((l) => l.id !== id));    
+    // Update local DB immediately
+    await db.leads.delete(id);    
+    // Invalidate cache
+    cache.invalidateCache();
+    // Sync with API in background
+    if (isOnline) {
+      const token = localStorage.getItem("token");
+      fetch(`${apiEndpoint}/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      .then(response => {
+        if (!response.ok) throw new Error("Failed to delete lead");
+        toast.success("Lead deleted successfully");
+      })
+      .catch(error => {
+        // Revert on failure
+        setLeads(previousLeads);
+        setFilteredLeads(previousLeads);
+        toast.error("Failed to delete lead - changes reverted");
+        console.error(error);
+      });
+    }
+  }, [apiEndpoint, isOnline, leads, cache]);
 
   const formatPhoneNumber = (phoneNumberString: string) => {
     const cleaned = ("" + phoneNumberString).replace(/\D/g, "");
@@ -2522,16 +2462,6 @@ export default function LeadsPage() {
             : false,
         valueFormatter: ({ value }) => (value ? "True" : "False"),
       },
-      {
-        field: "is_local",
-        headerName: "Local",
-        width: 100,
-        sortable: true,
-        valueFormatter: ({ value }) => (value ? "Yes" : "No"),
-        cellStyle: (params) => {
-          return params.value ? { backgroundColor: '#fff3cd' } : null;
-        },
-      },
     ],
     [selectedStatuses, selectedWorkStatuses]
   );
@@ -2542,7 +2472,7 @@ export default function LeadsPage() {
         <div className="text-red-500">{error}</div>
         <Button
           variant="outline"
-          onClick={() => fetchLeads(searchTerm, searchBy, sortModel)}
+          onClick={() => fetchLeads(searchTerm, searchBy, sortModel, true)}
           className="ml-4"
         >
           <RefreshCw className="mr-2 h-4 w-4" />
@@ -2553,38 +2483,33 @@ export default function LeadsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4">
       <Toaster position="top-center" />
       
-      {/* Offline Indicator */}
-      {offlineMode && (
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-4 py-3 rounded">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <WifiOff className="w-4 h-4 mr-2" />
-              <span>Offline Mode - Using cached data</span>
-            </div>
-            <Button
-              onClick={handleManualSync}
-              variant="outline"
-              size="sm"
-              disabled={loading || !isOnline}
-            >
-              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              {isOnline ? 'Sync Now' : 'Offline'}
-            </Button>
-          </div>
+      {/* Online/Offline indicator */}
+      {!isOnline && (
+        <div className="rounded-md bg-yellow-100 p-3 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+          You are currently offline. Changes will be synced when you reconnect.
         </div>
       )}
-
+      
+      {/* Form errors display */}
+      {Object.keys(formErrors).length > 0 && (
+        <div className="rounded-md bg-red-100 p-3 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+          Please fix the following errors:
+          <ul className="mt-1 list-disc pl-5">
+            {Object.values(formErrors).map((error, index) => (
+              <li key={index}>{error}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         {/* Left side: Title and description */}
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             Leads Management
-            {!isOnline && (
-              <WifiOff className="inline ml-2 h-5 w-5 text-yellow-600" />
-            )}
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
             All Leads ({totalLeads})
@@ -2595,9 +2520,9 @@ export default function LeadsPage() {
             ) : (
               " - Sorted by latest first"
             )}
-            {offlineMode && (
+            {!isOnline && (
               <span className="ml-2 text-yellow-600 dark:text-yellow-400">
-                • Offline
+                (Offline Mode)
               </span>
             )}
           </p>
@@ -2612,35 +2537,34 @@ export default function LeadsPage() {
                 ref={searchInputRef}
                 placeholder="Search by ID, name, email, phone..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearch(e.target.value)}
                 className="w-full pl-10 text-sm sm:text-base"
               />
             </div>
             {searchTerm && (
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {leads.length} candidates found
+                {filteredLeads.length} leads found
               </p>
             )}
           </div>
         </div>
 
         {/* Right side: Buttons */}
-        <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
-          <Button
-            onClick={handleManualSync}
-            variant="outline"
-            disabled={loading || !isOnline}
-            className="whitespace-nowrap"
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            {isOnline ? 'Sync' : 'Offline'}
-          </Button>
+        <div className="mt-4 flex flex-row items-center gap-2 sm:mt-0">
           <Button
             onClick={handleOpenNewLeadForm}
             className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700"
           >
             <PlusCircle className="mr-2 h-4 w-4" />
             Add New Lead
+          </Button>
+          <Button 
+            onClick={() => fetchLeads(searchTerm, searchBy, sortModel, true)} 
+            variant="outline"
+            disabled={loading}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> 
+            {loading ? "Refreshing..." : "Refresh"}
           </Button>
         </div>
       </div>
@@ -2721,7 +2645,7 @@ export default function LeadsPage() {
                       name={name}
                       value={
                         (formData[name as keyof FormData] as string) ||
-                        "Waiting for Status"
+                        (name === "workstatus" ? "Waiting for Status" : "Open")
                       }
                       onChange={handleNewLeadFormChange}
                       className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
@@ -2787,6 +2711,9 @@ export default function LeadsPage() {
                       required={config.required}
                     />
                   )}
+                  {formErrors[name] && (
+                    <p className="mt-1 text-sm text-red-600">{formErrors[name]}</p>
+                  )}
                 </div>
               ))}
               <div className="md:col-span-2">
@@ -2820,6 +2747,13 @@ export default function LeadsPage() {
                   }`}
                 >
                   {formSaveLoading ? "Saving..." : "Save"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCloseNewLeadForm}
+                  className="w-full rounded-md bg-gray-500 py-2 text-white transition duration-200 hover:bg-gray-600"
+                >
+                  Cancel
                 </button>
               </div>
             </form>
