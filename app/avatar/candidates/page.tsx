@@ -510,19 +510,14 @@ export default function CandidatesPage() {
         },
       },
       {
-        field: "batchid",
+        field: "batch",
         headerName: "Batch",
         width: 140,
         sortable: true,
         filter: "agSetColumnFilter",
         cellRenderer: (params: any) => {
-          if (!params.value || !allBatches.length) return params.value || "";
-          const batch = allBatches.find((b) => b.batchid === params.value);
-          return batch ? (
-            <span title={`Batch ID: ${params.value}`}>{batch.batchname}</span>
-          ) : (
-            params.value
-          );
+          const batch = params.data?.batch;
+          return batch ? batch.batchname : "N/A";
         },
         headerComponent: (props: any) => (
           <FilterHeaderComponent

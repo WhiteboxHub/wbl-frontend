@@ -276,6 +276,7 @@ export default function CandidatesMarketingPage() {
         cellRenderer: CandidateNameRenderer,
         valueGetter: (params) => params.data.candidate?.full_name || "N/A",
       },
+      { headerName: "Batch", sortable: true, maxWidth: 150, valueGetter: (params) => params.data.candidate?.batch?.batchname || "N/A" },
       {
         field: "start_date",
         headerName: "Start Date",
