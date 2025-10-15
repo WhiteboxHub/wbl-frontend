@@ -5,17 +5,11 @@ import { ColDef } from "ag-grid-community";
 import { AGGridTable } from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon } from "lucide-react";
+import { SearchIcon, X } from "lucide-react";
 import axios from "axios";
 import { Button } from "@/components/admin_ui/button";
 import { toast, Toaster } from "sonner";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/admin_ui/dialog";
+import { useForm } from "react-hook-form";
 
 interface CourseMaterial {
   id: number;
@@ -36,6 +30,16 @@ interface Course {
 interface Subject {
   id: number;
   name: string;
+}
+
+interface MaterialFormData {
+  courseid: string;
+  subjectid: string;
+  type: string;
+  sortorder: string;
+  name: string;
+  link: string;
+  description: string;
 }
 
 const TYPE_MAPPING = {
@@ -69,17 +73,23 @@ export default function CourseMaterialPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [newMaterial, setNewMaterial] = useState({
-    subjectid: "0",
-    courseid: "",
-    subjectName: "Basic Fundamentals",
-    courseName: "",
-    name: "",
-    description: "",
-    type: "P",
-    typeName: "Presentations",
-    link: "",
-    sortorder: "9999",
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+    setValue
+  } = useForm<MaterialFormData>({
+    defaultValues: {
+      subjectid: "0",
+      courseid: "",
+      type: "P",
+      sortorder: "9999",
+      name: "",
+      description: "",
+      link: ""
+    }
   });
 
   const fetchCourses = async () => {
@@ -124,17 +134,12 @@ export default function CourseMaterialPage() {
     }
   };
 
-  
   useEffect(() => {
-    if (isModalOpen && courses.length > 0 && !newMaterial.courseid) {
+    if (isModalOpen && courses.length > 0) {
       const latestCourse = courses[0];
-      setNewMaterial(prev => ({
-        ...prev,
-        courseid: latestCourse.id.toString(),
-        courseName: latestCourse.name
-      }));
+      setValue('courseid', latestCourse.id.toString());
     }
-  }, [isModalOpen, courses, newMaterial.courseid]);
+  }, [isModalOpen, courses, setValue]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -148,7 +153,6 @@ export default function CourseMaterialPage() {
     };
     loadData();
   }, []);
-
 
   const getSubjectDisplayName = (subjectId: number) => {
     if (subjectId === 0) return "Basic Fundamentals";
@@ -240,20 +244,20 @@ export default function CourseMaterialPage() {
   ], [subjects, courses]);
 
   // Add new material
-  const handleAddMaterial = async () => {
-    if (!newMaterial.courseid || !newMaterial.name.trim()) {
+  const onSubmit = async (data: MaterialFormData) => {
+    if (!data.courseid || !data.name.trim()) {
       toast.error("Course Name and Material Name are required");
       return;
     }
 
     const payload = {
-      subjectid: Number(newMaterial.subjectid) || 0,
-      courseid: Number(newMaterial.courseid) || 0,
-      name: newMaterial.name,
-      description: newMaterial.description,
-      type: newMaterial.type,
-      link: newMaterial.link,
-      sortorder: Number(newMaterial.sortorder) || 9999,
+      subjectid: Number(data.subjectid) || 0,
+      courseid: Number(data.courseid) || 0,
+      name: data.name,
+      description: data.description,
+      type: data.type,
+      link: data.link,
+      sortorder: Number(data.sortorder) || 9999,
     };
 
     try {
@@ -269,18 +273,7 @@ export default function CourseMaterialPage() {
       setFilteredMaterials(updated);
       toast.success("Course Material added successfully", { position: "top-center" });
       setIsModalOpen(false);
-      setNewMaterial({
-        subjectid: "0",
-        courseid: "",
-        subjectName: "Basic Fundamentals",
-        courseName: "",
-        name: "",
-        description: "",
-        type: "P",
-        typeName: "Presentations",
-        link: "",
-        sortorder: "9999",
-      });
+      reset();
     } catch (e: any) {
       toast.error(
         e.response?.data?.message || "Failed to add Course Material",
@@ -374,216 +367,194 @@ export default function CourseMaterialPage() {
       </div>
 
       {/* Add Material Modal */}
-      <Dialog
-        open={isModalOpen}
-        onOpenChange={(open) => {
-          setIsModalOpen(open);
-          if (!open) {
-            setNewMaterial({
-              subjectid: "0",
-              courseid: "",
-              subjectName: "Basic Fundamentals",
-              courseName: "",
-              name: "",
-              description: "",
-              type: "P",
-              typeName: "Presentations",
-              link: "",
-              sortorder: "9999",
-            });
-          }
-        }}
-      >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Add New Course Material</DialogTitle>
-          </DialogHeader>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Course Name */}
-            <div className="space-y-2">
-              <Label htmlFor="coursename">Course Name*</Label>
-              {courses.length === 0 ? (
-                <p className="text-gray-500">Loading courses...</p>
-              ) : (
-                <select
-                  id="coursename"
-                  value={newMaterial.courseid}
-                  onChange={(e) => {
-                    const selectedValue = e.target.value;
-                    if (selectedValue === "0") {
-                      setNewMaterial((prev) => ({
-                        ...prev,
-                        courseName: "Fundamentals",
-                        courseid: "0",
-                      }));
-                    } else {
-                      const selectedCourse = courses.find(
-                        (c) => c.id === parseInt(selectedValue)
-                      );
-                      setNewMaterial((prev) => ({
-                        ...prev,
-                        courseName: selectedCourse ? selectedCourse.name : "",
-                        courseid: selectedValue,
-                      }));
-                    }
-                  }}
-                  className="w-full border border-gray-300 rounded px-2 py-1 max-h-48 overflow-y-auto"
-                >
-                  <option value="" disabled hidden>Select a course</option>
-                  {courses.map((course) => (
-                    <option key={course.id} value={course.id}>
-                      {course.name}
-                    </option>
-                  ))}
-                  <option value="0">Fundamentals</option>
-                </select>
-              )}
-            </div>
-
-            {/* Subject Name */}
-            <div className="space-y-2">
-              <Label htmlFor="subjectname">Subject Name</Label>
-              {subjects.length === 0 ? (
-                <p className="text-gray-500">Loading subjects...</p>
-              ) : (
-                <select
-                  id="subjectname"
-                  value={newMaterial.subjectid}
-                  onChange={(e) => {
-                    const selectedValue = e.target.value;
-                    if (selectedValue === "0") {
-                      setNewMaterial((prev) => ({
-                        ...prev,
-                        subjectName: "Basic Fundamentals",
-                        subjectid: "0",
-                      }));
-                    } else {
-                      const selectedSubject = subjects.find(
-                        (s) => s.id === parseInt(selectedValue)
-                      );
-                      setNewMaterial((prev) => ({
-                        ...prev,
-                        subjectName: selectedSubject ? selectedSubject.name : "",
-                        subjectid: selectedValue,
-                      }));
-                    }
-                  }}
-                  className="w-full border border-gray-300 rounded px-2 py-1 max-h-48 overflow-y-auto"
-                >
-                  <option value="0">Basic Fundamentals</option>
-                  {subjects.map((subject) => (
-                    <option key={subject.id} value={subject.id}>
-                      {subject.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-            
-            {/* Type Dropdown */}
-            <div className="space-y-2">
-              <Label htmlFor="type">Type*</Label>
-              <select
-                id="type"
-                value={newMaterial.type}
-                onChange={(e) => {
-                  const selectedType = TYPE_OPTIONS.find(
-                    (t) => t.value === e.target.value
-                  );
-                  setNewMaterial((prev) => ({
-                    ...prev,
-                    type: e.target.value,
-                    typeName: selectedType ? selectedType.label : "Presentations",
-                  }));
-                }}
-                className="w-full border border-gray-300 rounded px-2 py-1"
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-sm sm:max-w-md md:max-w-2xl max-h-[95vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 md:py-5 border-b border-blue-200 flex justify-between items-center">
+              <h2 className="text-sm sm:text-base md:text-lg font-semibold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                Add Course Material
+              </h2>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-blue-400 hover:text-blue-600 hover:bg-blue-100 p-1 rounded-lg transition"
               >
-                {TYPE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                <X size={16} className="sm:w-5 sm:h-5" />
+              </button>
             </div>
 
-            {/* Sort Order */}
-            <div className="space-y-2">
-              <Label htmlFor="sortorder">Sort Order</Label>
-              <Input
-                id="sortorder"
-                type="number"
-                value={newMaterial.sortorder}
-                onChange={(e) =>
-                  setNewMaterial((prev) => ({
-                    ...prev,
-                    sortorder: e.target.value,
-                  }))
-                }
-              />
-            </div>
+            {/* Form */}
+            <div className="p-3 sm:p-4 md:p-6 bg-white">
+              <form onSubmit={handleSubmit(onSubmit)}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 md:gap-5">
+                  
+                  {/* Course */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Course <span className="text-red-700">*</span>
+                    </label>
+                    {courses.length === 0 ? (
+                      <p className="text-gray-500 text-xs">Loading courses...</p>
+                    ) : (
+                      <select
+                        {...register("courseid", { required: "Course is required" })}
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                      >
+                        <option value="">Select a course</option>
+                        {courses.map((course) => (
+                          <option key={course.id} value={course.id}>
+                            {course.name}
+                          </option>
+                        ))}
+                        <option value="0">Fundamentals</option>
+                      </select>
+                    )}
+                    {errors.courseid && (
+                      <p className="text-red-600 text-xs mt-1">{errors.courseid.message}</p>
+                    )}
+                  </div>
 
-            {/* Material Name */}
-            <div className="md:col-span-2 space-y-2">
-              <Label htmlFor="name">Material Name*</Label>
-              <Input
-                id="name"
-                value={newMaterial.name}
-                maxLength={250}
-                required
-                onChange={(e) =>
-                  setNewMaterial((prev) => ({ ...prev, name: e.target.value }))
-                }
-              />
-            </div>
+                  {/* Type */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Type <span className="text-red-700">*</span>
+                    </label>
+                    <select
+                      {...register("type", { required: "Type is required" })}
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                    >
+                      {TYPE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.type && (
+                      <p className="text-red-600 text-xs mt-1">{errors.type.message}</p>
+                    )}
+                  </div>
 
-            {/* Link */}
-            <div className="md:col-span-2 space-y-2">
-              <Label htmlFor="link">Link</Label>
-              <Input
-                id="link"
-                value={newMaterial.link}
-                maxLength={500}
-                onChange={(e) =>
-                  setNewMaterial((prev) => ({ ...prev, link: e.target.value }))
-                }
-              />
-            </div>
+                  {/* Material Name */}
+                  <div className="sm:col-span-2 space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Material Name <span className="text-red-700">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      {...register("name", { 
+                        required: "Material name is required",
+                        maxLength: {
+                          value: 250,
+                          message: "Material name cannot exceed 250 characters"
+                        }
+                      })}
+                      placeholder="Enter material name"
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                    />
+                    {errors.name && (
+                      <p className="text-red-600 text-xs mt-1">{errors.name.message}</p>
+                    )}
+                  </div>
 
-            {/* Description */}
-            <div className="md:col-span-2 space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <textarea
-                id="description"
-                value={newMaterial.description}
-                maxLength={1000}
-                onChange={(e) =>
-                  setNewMaterial((prev) => ({
-                    ...prev,
-                    description: e.target.value,
-                  }))
-                }
-                className="w-full border border-gray-300 rounded px-2 py-1"
-              />
+                  {/* Subject */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Subject
+                    </label>
+                    {subjects.length === 0 ? (
+                      <p className="text-gray-500 text-xs">Loading subjects...</p>
+                    ) : (
+                      <select
+                        {...register("subjectid")}
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                      >
+                        <option value="0">Basic Fundamentals</option>
+                        {subjects.map((subject) => (
+                          <option key={subject.id} value={subject.id}>
+                            {subject.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
+                  {/* Sort Order */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Sort Order
+                    </label>
+                    <input
+                      type="number"
+                      {...register("sortorder")}
+                      placeholder="9999"
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                    />
+                  </div>
+
+                  {/* Link */}
+                  <div className="sm:col-span-2 space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Link
+                    </label>
+                    <input
+                      type="url"
+                      {...register("link", {
+                        maxLength: {
+                          value: 500,
+                          message: "Link cannot exceed 500 characters"
+                        }
+                      })}
+                      placeholder="https://example.com"
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                    />
+                    {errors.link && (
+                      <p className="text-red-600 text-xs mt-1">{errors.link.message}</p>
+                    )}
+                  </div>
+
+                  {/* Description */}
+                  <div className="sm:col-span-2 space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Description
+                    </label>
+                    <textarea
+                      {...register("description", {
+                        maxLength: {
+                          value: 1000,
+                          message: "Description cannot exceed 1000 characters"
+                        }
+                      })}
+                      placeholder="Enter description..."
+                      rows={2}
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm resize-none"
+                    />
+                    {errors.description && (
+                      <p className="text-red-600 text-xs mt-1">{errors.description.message}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="flex justify-end gap-2 sm:gap-3 mt-3 sm:mt-4 md:mt-6 pt-2 sm:pt-3 md:pt-4 border-t border-blue-200">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-blue-700 border border-blue-300 rounded-lg hover:bg-blue-50 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-3 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg hover:from-cyan-600 hover:to-blue-600 transition shadow-md"
+                  >
+                    Save
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
-
-          <DialogFooter className="mt-4">
-            <Button
-              onClick={handleAddMaterial}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              Save
-            </Button>
-            <Button
-              onClick={() => setIsModalOpen(false)}
-              className="bg-gray-600 hover:bg-gray-700 text-white"
-            >
-              Cancel
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
 
       {/* AG Grid Table */}
       <AGGridTable

@@ -1,12 +1,11 @@
+//updated esc functionality
 
 "use client";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/admin_ui/dialog";
-import { Label } from "@/components/admin_ui/label";
+import { useForm } from "react-hook-form";
+import { useEffect, useRef } from "react";
+import { X } from "lucide-react";
 import { Badge } from "@/components/admin_ui/badge";
+// import { useRef } from "react";
 
 interface ViewModalProps {
   isOpen: boolean;
@@ -22,7 +21,7 @@ const excludedFields = [
   "vendor_type", "last_mod_datetime", "last_modified", "logincount", "googleId",
   "subject_id", "lastmoddatetime", "course_id", "new_subject_id", "instructor_1id",
   "instructor_2id", "instructor_3id", "instructor1_id", "instructor2_id",
-  "instructor3_id", "enddate", "candidate_id",  
+  "instructor3_id", "enddate", "candidate_id"
 ];
 
 const fieldSections: Record<string, string> = {
@@ -32,7 +31,7 @@ const fieldSections: Record<string, string> = {
   instructor3_name: "Professional Information",
   interviewer_emails: "Contact Information",
   interviewer_contact: "Contact Information",
-  cm_course: "Professional Information", 
+  interviewer_linkedin: "Contact Information",
   id: "Basic Information",
   alias: "Basic Information",
   Fundamentals: "Basic Information",
@@ -152,6 +151,7 @@ const fieldSections: Record<string, string> = {
   subject_name: "Basic Information",
   employee_name: "Basic Information",
   secondaryphone: "Contact Information",
+  secondary_email:"Contact Information",
   cm_subject: "Basic Information",
   material_type: "Basic Information",
   recording_link: "Professional Information",
@@ -252,6 +252,39 @@ const dateFields = [
 const courseMaterialHiddenFields = ["subjectid", "courseid", "type"];
 
 export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate, title }: ViewModalProps) {
+  const { register, watch, setValue, reset } = useForm();
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  // Handle ESC key press
+  useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscKey);
+    
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [isOpen, onClose]);
+
+  // Handle outside click
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(event.target as Node) && isOpen) {
+        onClose();
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [isOpen, onClose]);
+
   if (!data) return null;
 
   // Handle both single object and array of objects
@@ -285,19 +318,19 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     else if (typeof status === "number" || typeof status === "boolean") normalized = status ? "active" : "inactive";
     else normalized = "inactive";
     return normalized === "active"
-      ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-      : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+      ? "bg-green-100 text-green-800"
+      : "bg-red-100 text-red-800";
   };
 
   const getVisaColor = (visa: string) => {
     switch (visa?.toLowerCase()) {
-      case "h1b": return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300";
-      case "green card": return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300";
-      case "f1": return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300";
+      case "h1b": return "bg-blue-100 text-blue-800";
+      case "green card": return "bg-emerald-100 text-emerald-800";
+      case "f1": return "bg-purple-100 text-purple-800";
       case "h4":
-      case "ead": return "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300";
-      case "permanent resident": return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300";
-      default: return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";
+      case "ead": return "bg-orange-100 text-orange-800";
+      case "permanent resident": return "bg-indigo-100 text-indigo-800";
+      default: return "bg-gray-100 text-gray-800";
     }
   };
 
@@ -320,15 +353,15 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     if (["feepaid", "feedue", "salary0", "salary6", "salary12"].includes(lowerKey)) return <p>${Number(value).toLocaleString()}</p>;
     if (lowerKey.includes("rating")) return <p>{value} ⭐</p>;
     if (["notes", "task"].includes(lowerKey)) return <div dangerouslySetInnerHTML={{ __html: value }} />;
-    if (["recording_link", "transcript", "url","candidate_resume","backup_url","linkedin","github","resume", "link"].includes(lowerKey)) {
+    if (["recording_link", "transcript", "url","candidate_resume","backup_url","linkedin","github","resume", "interviewer_linkedin", "link"].includes(lowerKey)) {
       return (
         <a
           href={value}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-blue-600 hover:underline dark:text-blue-400"
+          className="text-blue-600 underline hover:text-blue-800"
         >
-          Click here
+          Click Here
         </a>
       );
     }
@@ -337,7 +370,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       return (
         <a
           href={`mailto:${value}`}
-          className="text-blue-600 hover:underline dark:text-blue-400"
+          className="text-blue-600 underline hover:text-blue-800"
         >
           {value}
         </a>
@@ -348,7 +381,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       return (
         <a
           href={`tel:${value}`}
-          className="text-blue-600 hover:underline dark:text-blue-400"
+          className="text-blue-600 underline hover:text-blue-800"
         >
           {value}
         </a>
@@ -390,130 +423,137 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     sectionedFields[section].push({ key, value });
   });
 
-  // For course materials
-  if (isCourseMaterial && sectionedFields["Professional Information"]) {
-    const basicInfoFields = sectionedFields["Professional Information"];
-    const courseNameIndex = basicInfoFields.findIndex(item => 
-      item.key === "cm_course" || item.key === "course_name"
-    );
-    
-    if (courseNameIndex > -1) {
-      const courseNameField = basicInfoFields.splice(courseNameIndex, 1)[0];
-      basicInfoFields.unshift(courseNameField);
-    }
-  }
-
   const visibleSections = Object.keys(sectionedFields).filter(section => section !== "Notes" && sectionedFields[section]?.length > 0);
   const columnCount = Math.min(visibleSections.length, 4);
-  const modalWidthClass = { 1: "max-w-xl", 2: "max-w-3xl", 3: "max-w-5xl", 4: "max-w-6xl" }[columnCount] || "max-w-6xl";
-  const gridColsClass = { 1: "grid-cols-1", 2: "md:grid-cols-2", 3: "md:grid-cols-3", 4: "lg:grid-cols-4 md:grid-cols-2" }[columnCount] || "lg:grid-cols-4 md:grid-cols-2";
+
+  if (!isOpen) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className={`${modalWidthClass} max-h-[80vh] overflow-y-auto p-0`}>
-        {/* Header */}
-        <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-          <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-            {title} - View Details
-          </DialogTitle>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:hover:text-white focus:outline-none" aria-label="Close">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        {/* Content Grid */}
-        <div className={`grid ${gridColsClass} gap-6 p-6`}>
-          {visibleSections.map(section => (
-            <div key={section} className="space-y-4">
-              <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">{section}</h3>
-              {sectionedFields[section].map(({ key, value }) => (
-                <div key={key} className="grid grid-cols-3 gap-4 items-start py-1">
-                  <div className="text-sm font-semibold text-gray-600 dark:text-gray-400">{toLabel(key)}</div>
-                  <div className="col-span-2 text-sm font-medium text-gray-900 dark:text-gray-200">{renderValue(key, value)}</div>
-                </div>
-              ))}
+    <>
+      {isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center p-2 sm:p-4 z-50">
+          {/* CHANGE THIS max-w VALUE TO ADJUST MODAL SIZE: 
+              max-w-sm (small) - max-w-md (medium) - max-w-lg (large) - max-w-xl (extra large) - max-w-2xl (2x large) - max-w-3xl (3x large) - max-w-4xl (4x large) - max-w-5xl (5x large) - max-w-6xl (6x large) - max-w-7xl (7x large)
+              Current: max-w-4xl (good balance for desktop) */}
+          <div 
+            ref={modalRef}
+            className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+          >
+            {/* Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 md:py-4 border-b border-blue-200 flex justify-between items-center">
+              <h2 className="text-sm sm:text-base md:text-lg font-semibold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                {title} - View Details
+              </h2>
+              <button
+                onClick={onClose}
+                className="text-blue-400 hover:text-blue-600 hover:bg-blue-100 p-1 rounded-lg transition"
+              >
+                <X size={16} className="sm:w-5 sm:h-5" />
+              </button>
             </div>
-          ))}
-        </div>
-        {/* Notes Section */}
-        {sectionedFields["Notes"]?.length > 0 && (
-          <div className="px-6 pb-6">
-            <div className="space-y-6 mt-4">
-              {sectionedFields["Notes"].map(({ key, value }) => (
-                <div key={key} className="space-y-1">
-                  <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">{toLabel(key)}</Label>
-                  <div className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100 bg-gray-50">
-                    <p className="whitespace-pre-wrap text-sm">{value}</p>
+
+            {/* Content */}
+            <div className="p-3 sm:p-4 md:p-5 bg-white">
+              <form>
+                
+                {/* Content Grid */}
+                <div className={`grid grid-cols-1 ${columnCount >= 2 ? 'md:grid-cols-2' : ''} ${columnCount >= 3 ? 'lg:grid-cols-3' : ''} ${columnCount >= 4 ? 'xl:grid-cols-4' : ''} gap-3 sm:gap-4`}>
+                  {visibleSections.map(section => (
+                    <div key={section} className="space-y-2 sm:space-y-3">
+                      <h3 className="text-sm sm:text-base font-bold text-blue-700 border-b border-blue-200 pb-1 sm:pb-2">
+                        {section}
+                      </h3>
+                      <div className="space-y-1.5 sm:space-y-2">
+                        {sectionedFields[section].map(({ key, value }) => (
+                          <div key={key} className="space-y-1">
+                            <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                              {toLabel(key)}
+                            </label>
+                            <div className="w-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm border border-blue-200 rounded-lg bg-white">
+                              {renderValue(key, value)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Notes Section */}
+                {sectionedFields["Notes"]?.length > 0 && (
+                  <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-blue-200">
+                    <div className="space-y-2 sm:space-y-3">
+                      {sectionedFields["Notes"].map(({ key, value }) => (
+                        <div key={key} className="space-y-1">
+                          <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                            {toLabel(key)}
+                          </label>
+                          <div className="w-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm border border-blue-200 rounded-lg bg-white min-h-[60px]">
+                            <div className="whitespace-pre-wrap">{value}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                )}
+
+                {/* Navigation */}
+                {hasNavigation && (
+                  <div className="flex justify-between items-center mt-4 sm:mt-5 p-3 bg-blue-50 rounded-lg">
+                    <button
+                      type="button"
+                      onClick={handlePrevious}
+                      disabled={isFirstContact}
+                      className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 min-w-[90px] sm:min-w-[100px] justify-center ${
+                        isFirstContact
+                          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                          : "bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-md hover:shadow-lg"
+                      }`}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-3 w-3 sm:h-4 sm:w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                      </svg>
+                      Previous
+                    </button>
+
+                    <span className="text-xs sm:text-sm font-bold text-indigo-700 bg-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg shadow-sm">
+                      {validIndex + 1} of {dataArray.length}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={handleNext}
+                      disabled={isLastContact}
+                      className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 min-w-[90px] sm:min-w-[100px] justify-center ${
+                        isLastContact
+                          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                          : "bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-md hover:shadow-lg"
+                      }`}
+                    >
+                      Next
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-3 w-3 sm:h-4 sm:w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+              </form>
             </div>
           </div>
-        )}
-        {/* Navigation Footer */}
-        {hasNavigation && (
-          <div className="sticky bottom-0 z-10 bg-white dark:bg-gray-900 px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-            <button
-              onClick={handlePrevious}
-              disabled={isFirstContact}
-              className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                isFirstContact
-                  ? "bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600"
-                  : "bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-              }`}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4 mr-2"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
-              Previous
-            </button>
-
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                {validIndex + 1} of {dataArray.length}
-              </span>
-            </div>
-
-            <button
-              onClick={handleNext}
-              disabled={isLastContact}
-              className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                isLastContact
-                  ? "bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600"
-                  : "bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-              }`}
-            >
-              Next
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-4 w-4 ml-2"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </button>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
+        </div>
+      )}
+    </>
   );
 }
