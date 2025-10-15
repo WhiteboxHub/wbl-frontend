@@ -102,6 +102,9 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             },
           }
         );
+        const sortedData = (placementsRes.data.data || placementsRes.data).sort(
+          (a, b) => b.id - a.id
+        );
         setPlacementsData(placementsRes.data.data || placementsRes.data);
 
         const interviewsRes = await axios.get(
