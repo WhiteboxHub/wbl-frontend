@@ -4,7 +4,7 @@ import { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon, PlusCircle, RefreshCw } from "lucide-react";
+import { SearchIcon, PlusCircle, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { toast, Toaster } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -12,6 +12,7 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { createPortal } from "react-dom";
 import axios from "axios";
 import Link from "next/link";
+import { useForm } from "react-hook-form";
 
 type Candidate = {
   id: number;
@@ -381,9 +382,7 @@ export default function CandidatesPage() {
     { colId: "enrolled_date", sort: "desc" as "desc" },
   ]);
   const [filterModel, setFilterModel] = useState({});
-  const [newCandidateForm, setNewCandidateForm] = useState(isNewCandidate);
-  const [formData, setFormData] = useState<FormData>(initialFormData);
-  const [formSaveLoading, setFormSaveLoading] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(isNewCandidate);
   const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
   const [allBatches, setAllBatches] = useState<Batch[]>([]);
   const [mlBatches, setMlBatches] = useState<Batch[]>([]);
@@ -399,6 +398,18 @@ export default function CandidatesPage() {
     () => `${process.env.NEXT_PUBLIC_API_URL}/candidates`,
     []
   );
+
+  // React Hook Form
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+    setValue,
+    watch
+  } = useForm<FormData>({
+    defaultValues: initialFormData
+  });
 
   const gridOptions = useMemo(
     () => ({
@@ -417,7 +428,7 @@ export default function CandidatesPage() {
 
   useEffect(() => {
     const newCandidateParam = searchParams.get("newcandidate") === "true";
-    setNewCandidateForm(newCandidateParam);
+    setIsModalOpen(newCandidateParam);
   }, [searchParams]);
 
   const formatPhoneNumber = (phoneNumberString: string) => {
@@ -924,14 +935,11 @@ export default function CandidatesPage() {
         setMlBatches(mlBatchesOnly);
 
         if (
-          isNewCandidate &&
+          isModalOpen &&
           mlBatchesOnly.length > 0 &&
           mlBatchesOnly[0]?.batchid
         ) {
-          setFormData((prev) => ({
-            ...prev,
-            batchid: mlBatchesOnly[0].batchid,
-          }));
+          setValue('batchid', mlBatchesOnly[0].batchid);
         }
       } catch (error) {
         console.error("Failed to load batches:", error);
@@ -940,7 +948,7 @@ export default function CandidatesPage() {
       }
     };
     fetchBatches();
-  }, [courseId, isNewCandidate]);
+  }, [courseId, isModalOpen, setValue]);
 
   useEffect(() => {
     let filtered = [...candidates];
@@ -1006,94 +1014,68 @@ export default function CandidatesPage() {
     return "full_name";
   };
 
-  const handleOpenNewCandidateForm = () => {
-    router.push("/avatar/candidates?newcandidate=true", { scroll: false });
-    setNewCandidateForm(true);
-    if (mlBatches.length > 0) {
-      const latestBatch = mlBatches[0];
-      setFormData((prev) => ({
-        ...prev,
-        batchid: latestBatch?.batchid,
-      }));
-    }
-  };
-
-  const handleCloseNewCandidateForm = () => {
-    router.push("/avatar/candidates", { scroll: false });
-    setNewCandidateForm(false);
-    setFormData(initialFormData);
-  };
-
-  const handleNewCandidateFormChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
-  ) => {
-    const { name, value, type } = e.target;
-    if (
-      name === "phone" ||
-      name === "secondaryphone" ||
-      name === "emergcontactphone"
-    ) {
-      // Allow only numbers
-      const numericValue = value.replace(/[^0-9]/g, "");
-      setFormData((prev) => ({ ...prev, [name]: numericValue }));
+  // Form submission with react-hook-form
+  const onSubmit = async (data: FormData) => {
+    if (!data.full_name.trim() || !data.email.trim() || !data.phone.trim() || !data.dob) {
+      toast.error("Full Name, Email, Phone, and Date of Birth are required");
       return;
     }
 
-    if (name === "full_name" || name === "emergcontactname") {
-      // Allow letters (a-z, A-Z), dot, and spaces
-      const nameValue = value.replace(/[^a-zA-Z. ]/g, "");
-      setFormData((prev) => ({ ...prev, [name]: nameValue }));
-      return;
-    }
-    if (type === "checkbox") {
-      const checked = (e.target as HTMLInputElement).checked;
-      setFormData((prev) => ({ ...prev, [name]: checked ? "Y" : "N" }));
-    } else if (type === "number") {
-      setFormData((prev) => ({ ...prev, [name]: parseInt(value) || 0 }));
-    } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
-    }
-  };
-
-  const handleNewCandidateFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.full_name.trim()) {
-      toast.error("Full name is required");
-      return;
-    }
-    setFormSaveLoading(true);
     try {
       const payload = {
-        ...formData,
-        enrolled_date:
-          formData.enrolled_date || new Date().toISOString().split("T")[0],
-        status: formData.status || "active",
-        workstatus: formData.workstatus || "Waiting for Status",
-        agreement: formData.agreement || "N",
-        fee_paid: formData.fee_paid || 0,
+        ...data,
+        enrolled_date: data.enrolled_date || new Date().toISOString().split("T")[0],
+        status: data.status || "active",
+        workstatus: data.workstatus || "Waiting for Status",
+        agreement: data.agreement || "N",
+        fee_paid: data.fee_paid || 0,
       };
+
       const response = await fetch(apiEndpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`
+        },
         body: JSON.stringify(payload),
       });
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || "Failed to create candidate");
       }
-      const newId = await response.json();
-      toast.success(`Candidate created successfully with ID: ${newId}`);
-      setNewCandidateForm(false);
-      setFormData(initialFormData);
-      fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
+
+      const newCandidate = await response.json();
+      
+      const updated = [...candidates, newCandidate].sort((a, b) => 
+        new Date(b.enrolled_date || 0).getTime() - new Date(a.enrolled_date || 0).getTime()
+      );
+      setCandidates(updated);
+      setFilteredCandidates(updated);
+      
+      toast.success(`Candidate created successfully with ID: ${newCandidate.id}`, { position: "top-center" });
+      setIsModalOpen(false);
+      reset();
+      router.push("/avatar/candidates");
     } catch (error) {
-      toast.error("Failed to create candidate: " + (error as Error).message);
+      toast.error("Failed to create candidate: " + (error as Error).message, { position: "top-center" });
       console.error("Error creating candidate:", error);
-    } finally {
-      setFormSaveLoading(false);
     }
+  };
+
+  const handleOpenModal = () => {
+    router.push("/avatar/candidates?newcandidate=true", { scroll: false });
+    setIsModalOpen(true);
+    if (mlBatches.length > 0) {
+      const latestBatch = mlBatches[0];
+      setValue('batchid', latestBatch?.batchid);
+    }
+  };
+
+  const handleCloseModal = () => {
+    router.push("/avatar/candidates", { scroll: false });
+    setIsModalOpen(false);
+    reset();
   };
 
   const handleRowUpdated = useCallback(
@@ -1108,7 +1090,10 @@ export default function CandidatesPage() {
 
         const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`
+          },
           body: JSON.stringify(payload),
         });
         if (!response.ok) throw new Error("Failed to update candidate");
@@ -1131,21 +1116,15 @@ export default function CandidatesPage() {
     },
     [apiEndpoint]
   );
-  // Add ESC key listener
-  useEffect(() => {
-    const handleEsc = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        handleCloseNewCandidateForm();
-      }
-    };
-    window.addEventListener("keydown", handleEsc);
-    return () => window.removeEventListener("keydown", handleEsc);
-  }, []);
+
   const handleRowDeleted = useCallback(
     async (id: number) => {
       try {
         const response = await fetch(`${apiEndpoint}/${id}`, {
           method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`
+          }
         });
         if (!response.ok) throw new Error("Failed to delete candidate");
 
@@ -1169,6 +1148,17 @@ export default function CandidatesPage() {
     },
     [searchTerm, searchBy, sortModel, fetchCandidates]
   );
+
+  // Add ESC key listener
+  useEffect(() => {
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        handleCloseModal();
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, []);
 
   if (error) {
     return (
@@ -1260,7 +1250,7 @@ export default function CandidatesPage() {
         {/* Right side: Button */}
         <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
           <Button
-            onClick={handleOpenNewCandidateForm}
+            onClick={handleOpenModal}
             className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700"
           >
             <PlusCircle className="mr-2 h-4 w-4" />
@@ -1295,404 +1285,408 @@ export default function CandidatesPage() {
           }
         />
       </div>
-      {newCandidateForm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              handleCloseNewCandidateForm();
-            }
-          }}
-        >
-          <div className="max-h-[90vh] w-full max-w-6xl overflow-y-auto rounded-xl bg-gradient-to-b from-white to-gray-50 p-6 shadow-2xl dark:from-gray-800 dark:to-gray-700">
-            <h2 className="mb-6 text-center text-3xl font-bold text-indigo-600 dark:text-indigo-400">
-              New Candidate Form
-            </h2>
 
-            <form onSubmit={handleNewCandidateFormSubmit}>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="full_name"
-                    className="block text-sm font-medium"
-                  >
-                    Full Name *
-                  </Label>
-                  <Input
-                    id="full_name"
-                    name="full_name"
-                    value={formData.full_name}
-                    onChange={handleNewCandidateFormChange}
-                    required
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="email" className="block text-sm font-medium">
-                    Email *
-                  </Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={handleNewCandidateFormChange}
-                    required
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="phone" className="block text-sm font-medium">
-                    Phone *
-                  </Label>
-                  <Input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={handleNewCandidateFormChange}
-                    required
-                    placeholder="+1 (123) 456-7890"
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="status" className="block text-sm font-medium">
-                    Status
-                  </Label>
-                  <select
-                    id="status"
-                    name="status"
-                    value={formData.status}
-                    onChange={handleNewCandidateFormChange}
-                    className="h-10 w-full rounded-md border p-2"
-                  >
-                    {statusOptions.map((status) => (
-                      <option key={status} value={status}>
-                        {status.charAt(0).toUpperCase() + status.slice(1)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="workstatus"
-                    className="block text-sm font-medium"
-                  >
-                    Work Status
-                  </Label>
-                  <select
-                    id="workstatus"
-                    name="workstatus"
-                    value={formData.workstatus}
-                    onChange={handleNewCandidateFormChange}
-                    className="h-10 w-full rounded-md border p-2"
-                  >
-                    {workStatusOptions.map((status) => (
-                      <option key={status} value={status}>
-                        {status}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="education"
-                    className="block text-sm font-medium"
-                  >
-                    Education
-                  </Label>
-                  <Input
-                    id="education"
-                    name="education"
-                    value={formData.education}
-                    onChange={handleNewCandidateFormChange}
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="workexperience"
-                    className="block text-sm font-medium"
-                  >
-                    Work Experience
-                  </Label>
-                  <Input
-                    id="workexperience"
-                    name="workexperience"
-                    value={formData.workexperience}
-                    onChange={handleNewCandidateFormChange}
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="agreement"
-                    className="block text-sm font-medium"
-                  >
-                    Agreement
-                  </Label>
-                  <select
-                    id="agreement"
-                    name="agreement"
-                    value={formData.agreement}
-                    onChange={handleNewCandidateFormChange}
-                    className="h-10 w-full rounded-md border p-2"
-                  >
-                    <option value="Y">Yes</option>
-                    <option value="N">No</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="ssn" className="block text-sm font-medium">
-                    SSN
-                  </Label>
-                  <Input
-                    id="ssn"
-                    name="ssn"
-                    type="password"
-                    value={formData.ssn}
-                    onChange={handleNewCandidateFormChange}
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="secondaryemail"
-                    className="block text-sm font-medium"
-                  >
-                    Secondary Email
-                  </Label>
-                  <Input
-                    id="secondaryemail"
-                    name="secondaryemail"
-                    type="email"
-                    value={formData.secondaryemail}
-                    onChange={handleNewCandidateFormChange}
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="secondaryphone"
-                    className="block text-sm font-medium"
-                  >
-                    Secondary Phone
-                  </Label>
-                  <Input
-                    id="secondaryphone"
-                    name="secondaryphone"
-                    type="tel"
-                    value={formData.secondaryphone}
-                    onChange={handleNewCandidateFormChange}
-                    placeholder="+1 (123) 456-7890"
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="linkedin_id"
-                    className="block text-sm font-medium"
-                  >
-                    LinkedIn ID
-                  </Label>
-                  <Input
-                    id="linkedin_id"
-                    name="linkedin_id"
-                    value={formData.linkedin_id}
-                    onChange={handleNewCandidateFormChange}
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="dob" className="block text-sm font-medium">
-                    Date of Birth *
-                  </Label>
-                  <Input
-                    id="dob"
-                    name="dob"
-                    type="date"
-                    value={formData.dob}
-                    onChange={handleNewCandidateFormChange}
-                    required
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="emergcontactname"
-                    className="block text-sm font-medium"
-                  >
-                    Emergency Contact Name
-                  </Label>
-                  <Input
-                    id="emergcontactname"
-                    name="emergcontactname"
-                    value={formData.emergcontactname}
-                    onChange={handleNewCandidateFormChange}
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="emergcontactemail"
-                    className="block text-sm font-medium"
-                  >
-                    Emergency Contact Email
-                  </Label>
-                  <Input
-                    id="emergcontactemail"
-                    name="emergcontactemail"
-                    type="email"
-                    value={formData.emergcontactemail}
-                    onChange={handleNewCandidateFormChange}
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="emergcontactphone"
-                    className="block text-sm font-medium"
-                  >
-                    Emergency Contact Phone
-                  </Label>
-                  <Input
-                    id="emergcontactphone"
-                    name="emergcontactphone"
-                    type="tel"
-                    value={formData.emergcontactphone}
-                    onChange={handleNewCandidateFormChange}
-                    placeholder="+1 (123) 456-7890"
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1 md:col-span-2">
-                  <Label
-                    htmlFor="emergcontactaddrs"
-                    className="block text-sm font-medium"
-                  >
-                    Emergency Contact Address
-                  </Label>
-                  <Input
-                    id="emergcontactaddrs"
-                    name="emergcontactaddrs"
-                    value={formData.emergcontactaddrs}
-                    onChange={handleNewCandidateFormChange}
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="fee_paid"
-                    className="block text-sm font-medium"
-                  >
-                    Fee Paid ($)
-                  </Label>
-                  <Input
-                    id="fee_paid"
-                    name="fee_paid"
-                    type="number"
-                    value={formData.fee_paid}
-                    onChange={handleNewCandidateFormChange}
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="batchid"
-                    className="block text-sm font-medium"
-                  >
-                    Batch *
-                  </Label>
-                  <select
-                    id="batchid"
-                    name="batchid"
-                    value={formData.batchid}
-                    onChange={handleNewCandidateFormChange}
-                    required
-                    className="h-10 w-full rounded-md border p-2"
-                    disabled={batchesLoading}
-                  >
+      {/* Add Candidate Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-6xl">
+            {/* Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 sm:px-4 md:px-6 py-2 sm:py-2 border-b border-blue-200 flex justify-between items-center">
+              <h2 className="text-sm sm:text-base md:text-lg font-semibold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                Add New Candidate
+              </h2>
+              <button
+                onClick={handleCloseModal}
+                className="text-blue-400 hover:text-blue-600 hover:bg-blue-100 p-1 rounded-lg transition"
+              >
+                <X size={16} className="sm:w-5 sm:h-5" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <div className="p-3 sm:p-4 md:p-6 bg-white">
+              <form onSubmit={handleSubmit(onSubmit)}>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+                  
+                  {/* Full Name */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Full Name <span className="text-red-700">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      {...register("full_name", { 
+                        required: "Full name is required",
+                        maxLength: {
+                          value: 100,
+                          message: "Full name cannot exceed 100 characters"
+                        }
+                      })}
+                      placeholder="Enter full name"
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                    />
+                    {errors.full_name && (
+                      <p className="text-red-600 text-xs mt-1">{errors.full_name.message}</p>
+                    )}
+                  </div>
+
+                  {/* Email */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Email <span className="text-red-700">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      {...register("email", { 
+                        required: "Email is required",
+                        pattern: {
+                          value: /^\S+@\S+\.\S+$/,
+                          message: "Invalid email address"
+                        }
+                      })}
+                      placeholder="Enter email"
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                    />
+                    {errors.email && (
+                      <p className="text-red-600 text-xs mt-1">{errors.email.message}</p>
+                    )}
+                  </div>
+
+                  {/* Phone */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Phone <span className="text-red-700">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      {...register("phone", { 
+                        required: "Phone is required",
+                        pattern: {
+                          value: /^\d+$/,
+                          message: "Phone must contain only numbers"
+                        }
+                      })}
+                      placeholder="Enter phone number"
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                    />
+                    {errors.phone && (
+                      <p className="text-red-600 text-xs mt-1">{errors.phone.message}</p>
+                    )}
+                  </div>
+
+                  {/* Date of Birth */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Date of Birth <span className="text-red-700">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      {...register("dob", { 
+                        required: "Date of birth is required"
+                      })}
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                    />
+                    {errors.dob && (
+                      <p className="text-red-600 text-xs mt-1">{errors.dob.message}</p>
+                    )}
+                  </div>
+
+                  {/* Batch */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Batch <span className="text-red-700">*</span>
+                    </label>
                     {batchesLoading ? (
-                      <option value="0">Loading batches...</option>
+                      <p className="text-gray-500 text-xs">Loading batches...</p>
                     ) : (
-                      <>
+                      <select
+                        {...register("batchid", { 
+                          required: "Batch is required",
+                          validate: value => value !== 0 || "Please select a batch"
+                        })}
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                      >
+                        <option value="0">Select a batch</option>
                         {mlBatches.map((batch) => (
                           <option key={batch.batchid} value={batch.batchid}>
                             {batch.batchname}
                           </option>
                         ))}
-                      </>
+                      </select>
                     )}
-                  </select>
-                </div>
-                <div className="space-y-1 md:col-span-2">
-                  <Label htmlFor="notes" className="block text-sm font-medium">
-                    Notes
-                  </Label>
-                  <textarea
-                    id="notes"
-                    name="notes"
-                    value={formData.notes}
-                    onChange={handleNewCandidateFormChange}
-                    className="min-h-[100px] w-full rounded-md border p-2"
-                  />
-                </div>
-                <div className="space-y-1 md:col-span-2">
-                  <Label
-                    htmlFor="candidate_folder"
-                    className="block text-sm font-medium"
-                  >
-                    Candidate Folder
-                  </Label>
-                  <Input
-                    id="candidate_folder"
-                    name="candidate_folder"
-                    value={formData.candidate_folder}
-                    onChange={handleNewCandidateFormChange}
-                    placeholder="Google Drive/Dropbox link"
-                    className="h-10 w-full"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="enrolled_date"
-                    className="block text-sm font-medium"
-                  >
-                    Enrolled Date
-                  </Label>
-                  <Input
-                    id="enrolled_date"
-                    name="enrolled_date"
-                    type="date"
-                    value={formData.enrolled_date}
-                    onChange={handleNewCandidateFormChange}
-                    className="h-10 w-full"
-                  />
-                </div>
-              </div>
+                    {errors.batchid && (
+                      <p className="text-red-600 text-xs mt-1">{errors.batchid.message}</p>
+                    )}
+                  </div>
 
-              <div className="mt-6">
-                <button
-                  type="submit"
-                  disabled={formSaveLoading}
-                  className={`w-full rounded-md py-2.5 text-sm font-medium transition duration-200 ${
-                    formSaveLoading
-                      ? "cursor-not-allowed bg-gray-400"
-                      : "bg-green-600 text-white hover:bg-green-700"
-                  }`}
-                >
-                  {formSaveLoading ? "Saving..." : "Save"}
-                </button>
-              </div>
-            </form>
-            <button
-              onClick={handleCloseNewCandidateForm}
-              className="absolute right-3 top-3 text-2xl leading-none text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              aria-label="Close"
-            >
-              &times;
-            </button>
+                  {/* Status */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Status
+                    </label>
+                    <select
+                      {...register("status")}
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                    >
+                      {statusOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option.charAt(0).toUpperCase() + option.slice(1)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Work Status */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Work Status
+                    </label>
+                    <select
+                      {...register("workstatus")}
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                    >
+                      {workStatusOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Education */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Education
+                    </label>
+                    <input
+                      type="text"
+                      {...register("education")}
+                      placeholder="Enter education"
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                    />
+                  </div>
+
+                  {/* Work Experience */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Work Experience
+                    </label>
+                    <input
+                      type="text"
+                      {...register("workexperience")}
+                      placeholder="Enter work experience"
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                    />
+                  </div>
+
+                  {/* SSN */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      SSN
+                    </label>
+                    <input
+                      type="password"
+                      {...register("ssn")}
+                      placeholder="Enter SSN"
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                    />
+                  </div>
+
+                  {/* Agreement */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Agreement
+                    </label>
+                    <select
+                      {...register("agreement")}
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                    >
+                      <option value="Y">Yes</option>
+                      <option value="N">No</option>
+                    </select>
+                  </div>
+
+                  {/* Secondary Email */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Secondary Email
+                    </label>
+                    <input
+                      type="email"
+                      {...register("secondaryemail")}
+                      placeholder="Enter secondary email"
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                    />
+                  </div>
+
+                  {/* Secondary Phone */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Secondary Phone
+                    </label>
+                    <input
+                      type="tel"
+                      {...register("secondaryphone")}
+                      placeholder="Enter secondary phone"
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                    />
+                  </div>
+
+                  {/* LinkedIn ID */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      LinkedIn ID
+                    </label>
+                    <input
+                      type="text"
+                      {...register("linkedin_id")}
+                      placeholder="Enter LinkedIn ID"
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                    />
+                  </div>
+
+                  {/* Fee Paid */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Fee Paid ($)
+                    </label>
+                    <input
+                      type="number"
+                      {...register("fee_paid", { 
+                        valueAsNumber: true,
+                        min: {
+                          value: 0,
+                          message: "Fee paid cannot be negative"
+                        }
+                      })}
+                      placeholder="0"
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                    />
+                    {errors.fee_paid && (
+                      <p className="text-red-600 text-xs mt-1">{errors.fee_paid.message}</p>
+                    )}
+                  </div>
+
+                  {/* Enrolled Date */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Enrolled Date
+                    </label>
+                    <input
+                      type="date"
+                      {...register("enrolled_date")}
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                    />
+                  </div>
+
+                  {/* Emergency Contact Name */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Emergency Contact Name
+                    </label>
+                    <input
+                      type="text"
+                      {...register("emergcontactname")}
+                      placeholder="Enter emergency contact name"
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                    />
+                  </div>
+
+                  {/* Emergency Contact Email */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Emergency Contact Email
+                    </label>
+                    <input
+                      type="email"
+                      {...register("emergcontactemail")}
+                      placeholder="Enter emergency contact email"
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                    />
+                  </div>
+
+                  {/* Emergency Contact Phone */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Emergency Contact Phone
+                    </label>
+                    <input
+                      type="tel"
+                      {...register("emergcontactphone")}
+                      placeholder="Enter emergency contact phone"
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                    />
+                  </div>
+
+                  {/* Address */}
+                  <div className="lg:col-span-2 space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Address
+                    </label>
+                    <input
+                      type="text"
+                      {...register("address")}
+                      placeholder="Enter address"
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                    />
+                  </div>
+
+                  {/* Emergency Contact Address */}
+                  <div className="lg:col-span-2 space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Emergency Contact Address
+                    </label>
+                    <input
+                      type="text"
+                      {...register("emergcontactaddrs")}
+                      placeholder="Enter emergency contact address"
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                    />
+                  </div>
+                  {/* Candidate Folder */}
+                     <div className="space-y-1 sm:space-y-1.5">
+                      <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                        Candidate Folder
+                      </label>
+                      <input
+                        type="text"
+                        {...register("candidate_folder")}
+                        placeholder="Google Drive/Dropbox link"
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                      />
+                    </div>
+                 {/* Notes */}
+                    <div className="lg:col-span-2 space-y- sm:space-y-1.5">
+                      <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                        Notes
+                      </label>
+                      <textarea
+                        {...register("notes")}
+                        placeholder="Enter notes..."
+                        rows={1}
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm resize-none"
+                      />
+                    </div>
+                  </div>
+
+                {/* Footer */}
+                <div className="flex justify-end gap-2 sm:gap-3 mt-3 sm:mt-4 md:mt-6 pt-2 sm:pt-3 md:pt-4 border-t border-blue-200">
+                  <button
+                    type="button"
+                    onClick={handleCloseModal}
+                    className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-blue-700 border border-blue-300 rounded-lg hover:bg-blue-50 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-3 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg hover:from-cyan-600 hover:to-blue-600 transition shadow-md"
+                  >
+                    Save Candidate
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
