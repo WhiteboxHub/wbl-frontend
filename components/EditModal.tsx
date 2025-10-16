@@ -32,7 +32,7 @@ const excludedFields = [
   "vendor_type", "last_mod_datetime", "last_modified", "logincount", "googleId",
   "subject_id", "lastmoddatetime", "course_id", "new_subject_id", "instructor_1id",
   "instructor_2id", "instructor_3id", "instructor1_id", "instructor2_id",
-  "instructor3_id", "enddate", "candidate_id"
+  "instructor3_id", "enddate", "candidate_id","batch"
 ];
 
 const fieldSections: Record<string, string> = {
@@ -42,6 +42,7 @@ const fieldSections: Record<string, string> = {
   instructor3_name: "Professional Information",
   interviewer_emails: "Contact Information",
   interviewer_contact: "Contact Information",
+  interviewer_linkedin: "Contact Information",
   id: "Basic Information",
   alias: "Basic Information",
   Fundamentals: "Basic Information",
@@ -102,7 +103,7 @@ const fieldSections: Record<string, string> = {
   lastlogin: "Professional Information",
   logincount: "Professional Information",
   course: "Professional Information",
-  registereddate: "Professional Information",
+  registereddate: "Basic Information",
   company: "Professional Information",
   client_id: "Professional Information",
   client_name: "Professional Information",
@@ -229,7 +230,6 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "false", label: "No" },
     { value: "true", label: "Yes" },
   ],
-  
   linkedin_connected: [
     { value: "no", label: "No" },
     { value: "yes", label: "Yes" },
@@ -266,31 +266,30 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "false", label: "No" },
     { value: "true", label: "Yes" },
   ],
-rating: [
-  { value: "", label: "Select Rating" },
-  { value: "Good", label: "Good" },
-  { value: "Very Good", label: "Very Good" },
-  { value: "Average", label: "Average" },
-  { value: "Poor", label: "Poor" },
-  { value: "Need to Improve", label: "Need to Improve" },
-],
-tech_rating: [
-  { value: "", label: "Select Rating" },
-  { value: "Good", label: "Good" },
-  { value: "Very Good", label: "Very Good" },
-  { value: "Average", label: "Average" },
-  { value: "Poor", label: "Poor" },
-  { value: "Need to Improve", label: "Need to Improve" },
-],
-communication: [
-  { value: "", label: "Select" },
-  { value: "Very Good", label: "Very Good" },
-  { value: "Average", label: "Average" },
-  { value: "Good", label: "Good" },
-  { value: "Need to Improve", label: "Need to Improve" },
-  { value: "Poor", label: "Poor" },
-],
-
+  rating: [
+    { value: "", label: "Select Rating" },
+    { value: "Good", label: "Good" },
+    { value: "Very Good", label: "Very Good" },
+    { value: "Average", label: "Average" },
+    { value: "Poor", label: "Poor" },
+    { value: "Need to Improve", label: "Need to Improve" },
+  ],
+  tech_rating: [
+    { value: "", label: "Select Rating" },
+    { value: "Good", label: "Good" },
+    { value: "Very Good", label: "Very Good" },
+    { value: "Average", label: "Average" },
+    { value: "Poor", label: "Poor" },
+    { value: "Need to Improve", label: "Need to Improve" },
+  ],
+  communication: [
+    { value: "", label: "Select" },
+    { value: "Very Good", label: "Very Good" },
+    { value: "Average", label: "Average" },
+    { value: "Good", label: "Good" },
+    { value: "Need to Improve", label: "Need to Improve" },
+    { value: "Poor", label: "Poor" },
+  ],
   status: [
     { value: "active", label: "Active" },
     { value: "inactive", label: "Inactive" },
@@ -315,7 +314,7 @@ communication: [
     { value: "In Person", label: "In Person" },
     { value: "Prep Call", label: "Prep Call" },
   ],
-  feedback:  [
+  feedback: [
     { value: 'Pending', label: 'Pending' },
     { value: 'Positive', label: 'Positive' },
     { value: 'Negative', label: 'Negative' },
@@ -372,6 +371,7 @@ const labelOverrides: Record<string, string> = {
   interview_date: "Interview Date",
   interview_mode: "Interview Mode",
   visa_status: "Visa Status",
+  marketing_manager_obj: "Marketing Manager",
   workstatus: "Work Status",
   message: "Message",
   education: "Education",
@@ -1034,17 +1034,15 @@ export function EditModal({
                       value={formData.notes || ""}
                       onChange={(content) => setFormData(prev => ({ ...prev, notes: content }))}
                     />
-
                     <button
                       type="button"
                       onClick={() => {
-                        const timestamp = <p><strong>[${new Date().toLocaleString()}]</strong></p>;
-                        setFormData(prev => ({...prev,notes: (prev.notes || "") + <p><strong>[${new Date().toLocaleString()}]</strong></p>}));
+                        const timestamp = `[${new Date().toLocaleString()}]`;
+                        setFormData(prev => ({...prev, notes: (prev.notes || "") + `\n${timestamp}\n`}));
                       }}
                     >
                       + Add Timestamp
-
-                      </button>
+                    </button>
                   </div>
                 ))}
               </div>

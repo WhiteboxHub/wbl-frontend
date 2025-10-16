@@ -9,9 +9,248 @@ import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon, PlusIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import axios from "axios";
 import { toast, Toaster } from "sonner";
+import { createPortal } from "react-dom";
+
+// Generic Filter Component
+interface FilterOption {
+  value: string;
+  label: string;
+}
+
+interface FilterHeaderProps {
+  columnName: string;
+  options: FilterOption[];
+  selectedValues: string[];
+  setSelectedValues: (values: string[]) => void;
+}
+
+const FilterHeaderComponent = ({
+  columnName,
+  options,
+  selectedValues,
+  setSelectedValues,
+}: FilterHeaderProps) => {
+  const filterButtonRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [filterVisible, setFilterVisible] = useState(false);
+
+  const toggleFilter = () => {
+    if (filterButtonRef.current) {
+      const rect = filterButtonRef.current.getBoundingClientRect();
+      setDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left });
+    }
+    setFilterVisible((v) => !v);
+  };
+
+  const handleValueChange = (value: string) => {
+    if (selectedValues.includes(value)) {
+      setSelectedValues(selectedValues.filter((v) => v !== value));
+    } else {
+      setSelectedValues([...selectedValues, value]);
+    }
+    setFilterVisible(false);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        filterButtonRef.current &&
+        !filterButtonRef.current.contains(event.target as Node) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setFilterVisible(false);
+      }
+    };
+    const handleScroll = () => setFilterVisible(false);
+    document.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("scroll", handleScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleScroll, true);
+    };
+  }, []);
+
+  return (
+    <div className="relative flex items-center w-full" ref={filterButtonRef}>
+      <span className="mr-2">{columnName}</span>
+      <svg
+        onClick={toggleFilter}
+        xmlns="http://www.w3.org/2000/svg"
+        className="h-4 w-4 cursor-pointer text-gray-500 hover:text-gray-700"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z" />
+      </svg>
+      {filterVisible &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            className="z-[99999] bg-white border border-gray-200 rounded-md shadow-lg w-48 max-h-60 overflow-y-auto"
+            style={{
+              top: `${dropdownPos.top}px`,
+              left: `${dropdownPos.left}px`,
+              position: "absolute",
+            }}
+          >
+            <div className="py-1">
+              {options.map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => handleValueChange(value)}
+                  className={`block w-full text-left px-4 py-2 text-sm ${
+                    selectedValues.includes(value)
+                      ? "bg-blue-50 text-blue-700"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>,
+          document.body
+        )}
+    </div>
+  );
+};
+
+// Mode Renderer
+const ModeRenderer = (params: any) => {
+  const value = params.value?.toLowerCase();
+  let badgeClass = "bg-gray-100 text-gray-800";
+  if (value === "virtual") {
+    badgeClass = "bg-blue-100 text-blue-800";
+  } else if (value === "in person") {
+    badgeClass = "bg-green-100 text-green-800";
+  } else if (value === "phone") {
+    badgeClass = "bg-yellow-100 text-yellow-800";
+  } else if (value === "assessment") {
+    badgeClass = "bg-purple-100 text-purple-800";
+  }
+  return <Badge className={badgeClass}>{params.value}</Badge>;
+};
+
+// Type Renderer
+const TypeRenderer = (params: any) => {
+  const value = params.value?.toLowerCase();
+  let badgeClass = "bg-gray-100 text-gray-800";
+  if (value === "technical") {
+    badgeClass = "bg-indigo-100 text-indigo-800";
+  } else if (value === "hr round") {
+    badgeClass = "bg-pink-100 text-pink-800";
+  } else if (value === "phone") {
+    badgeClass = "bg-yellow-100 text-yellow-800";
+  } else if (value === "in person") {
+    badgeClass = "bg-green-100 text-green-800";
+  } else if (value === "assessment") {
+    badgeClass = "bg-purple-100 text-purple-800";
+  } else if (value === "recruiter call") {
+    badgeClass = "bg-cyan-100 text-cyan-800";
+  } else if (value === "prep call") {
+    badgeClass = "bg-teal-100 text-teal-800";
+  }
+  return <Badge className={badgeClass}>{params.value}</Badge>;
+};
+
+// Company Type Renderer
+const CompanyTypeRenderer = (params: any) => {
+  const value = params.value?.toLowerCase();
+  let badgeClass = "bg-gray-100 text-gray-800";
+  if (value === "client") {
+    badgeClass = "bg-blue-100 text-blue-800";
+  } else if (value === "third-party-vendor") {
+    badgeClass = "bg-orange-100 text-orange-800";
+  } else if (value === "implementation-partner") {
+    badgeClass = "bg-green-100 text-green-800";
+  } else if (value === "sourcer") {
+    badgeClass = "bg-red-100 text-red-800";
+  } else if (value === "contact-from-ip") {
+    badgeClass = "bg-purple-100 text-purple-800";
+  }
+  return <Badge className={badgeClass}>{params.value}</Badge>;
+};
+
+// Status Renderer
+const StatusRenderer = (params: any) => {
+  const v = params.value?.toLowerCase() ?? "";
+  const classes =
+    v === "cleared"
+      ? "bg-green-100 text-green-800"
+      : v === "rejected"
+      ? "bg-red-100 text-red-800"
+      : "bg-gray-100 text-gray-800";
+  return <Badge className={classes}>{params.value}</Badge>;
+};
+
+// Feedback Renderer
+const FeedbackRenderer = (params: any) => {
+  const value = params.value?.toLowerCase() ?? "";
+  if (!value || value === "no response")
+    return <Badge className="bg-gray-100 text-gray-800">Pending</Badge>;
+  if (value === "positive")
+    return <Badge className="bg-green-300 text-green-800">Positive</Badge>;
+  if (value === "failure" || value === "negative")
+    return <Badge className="bg-red-100 text-red-800">Failure</Badge>;
+  return <Badge className="bg-gray-100 text-gray-800">{params.value}</Badge>;
+};
+
+// Link Renderer
+const LinkRenderer = (params: any) => {
+  const value = params.value;
+  if (!value) return <span className="text-gray-500">Not Available</span>;
+  const links = value
+    .split(/[,​\s]+/)
+    .map((link: string) => link.trim())
+    .filter((link: string) => link.length > 0);
+  if (links.length === 0) return <span className="text-gray-500">Not Available</span>;
+  const formatLink = (link: string) => {
+    if (!/^https?:\/\//i.test(link)) {
+      return `https://${link}`;
+    }
+    return link;
+  };
+  return (
+    <div className="flex flex-col space-y-1">
+      {links.map((link: string, idx: number) => (
+        <a
+          key={idx}
+          href={formatLink(link)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 underline hover:text-blue-800"
+        >
+          Click here
+        </a>
+      ))}
+    </div>
+  );
+};
+
+// Candidate Name Renderer
+const CandidateNameRenderer = (params: any) => {
+  const candidateId = params.data?.candidate_id;
+  const candidateName = params.value;
+  if (!candidateId || !candidateName) {
+    return <span className="text-gray-500">{candidateName || "N/A"}</span>;
+  }
+  return (
+    <Link
+      href={`/avatar/candidates/search?candidateId=${candidateId}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
+    >
+      {candidateName}
+    </Link>
+  );
+};
 
 export default function CandidatesInterviews() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -21,24 +260,46 @@ export default function CandidatesInterviews() {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(50);
   const [total, setTotal] = useState(0);
-
-  // Add Interview Modal State
   const [showAddForm, setShowAddForm] = useState(false);
   const [newInterview, setNewInterview] = useState<any>({
     candidate_id: "",
+    candidate_name: "",
     company: "",
-    mode_of_interview: "",
-    type_of_interview: "",
-    interview_date: "",
-    feedback: "",
+    company_type: "",
     interviewer_emails: "",
     interviewer_contact: "",
+    interview_date: "",
+    mode_of_interview: "",
+    type_of_interview: "",
     notes: "",
-    recording_link: "",
-    transcript: "", 
-    backup_url: "",
-    url: "",
   });
+  const [candidates, setCandidates] = useState<any[]>([]);
+  const [selectedModes, setSelectedModes] = useState<string[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+
+  const modeOfInterviewOptions = [
+    { value: "phone", label: "Phone" },
+    { value: "virtual", label: "Virtual" },
+    { value: "assessment", label: "Assessment" },
+    { value: "in person", label: "In Person" },
+  ];
+
+  const companyTypeOptions = [
+    { value: "client", label: "Client" },
+    { value: "third-party-vendor", label: "Third Party Vendor" },
+    { value: "implementation-partner", label: "Implementation Partner" },
+    { value: "sourcer", label: "Sourcer" },
+    { value: "contact-from-ip", label: "Contact from IP" },
+  ];
+
+  const typeOfInterviewOptions = [
+    { value: "technical", label: "Technical" },
+    { value: "hr round", label: "HR Round" },
+    { value: "recruiter call ", label: "Recruiter Call" },
+    { value: "in person", label: "In Person" },
+    { value: "assessment", label: "Assessment" },
+    { value: "prep call", label: "Prep Call" },
+  ];
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem("token");
@@ -54,8 +315,8 @@ export default function CandidatesInterviews() {
       );
       if (!res.ok) throw new Error("Failed to load interviews");
       const data = await res.json();
-      setInterviews(data);
-      setTotal(data.total);
+      setInterviews(data.data || data);
+      setTotal(data.total || data.length);
     } catch (err) {
       setError("Failed to load interviews.");
       toast.error("Failed to load interviews.");
@@ -68,142 +329,131 @@ export default function CandidatesInterviews() {
     fetchInterviews(page, perPage);
   }, [page, perPage]);
 
-  const filterData = useCallback(
-    (term: string) => {
-      if (!term.trim()) return interviews;
-      const lower = term.toLowerCase();
-      return interviews.filter((item) => {
-        if (item.candidate?.full_name?.toLowerCase().includes(lower)) return true;
-        return Object.values(item).some((val) =>
+  useEffect(() => {
+    if (!showAddForm) return;
+    const fetchMarketingCandidates = async () => {
+      try {
+        const res = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing?page=1&limit=200`,
+          { headers: getAuthHeaders() }
+        );
+        const activeCandidates = res.data?.data?.filter(
+          (m: any) => m.status === "active" && m.candidate
+        );
+        setCandidates(activeCandidates);
+      } catch (err: any) {
+        console.error("Failed to fetch marketing candidates:", err.response?.data || err.message);
+        toast.error("Failed to load candidates from marketing.");
+      }
+    };
+    fetchMarketingCandidates();
+  }, [showAddForm]);
+
+  const filterData = useCallback(() => {
+    let filtered = [...interviews];
+    if (selectedModes.length > 0) {
+      filtered = filtered.filter((i) =>
+        selectedModes.includes(i.mode_of_interview?.toLowerCase())
+      );
+    }
+    if (selectedTypes.length > 0) {
+      filtered = filtered.filter((i) =>
+        selectedTypes.includes(i.type_of_interview?.toLowerCase())
+      );
+    }
+    if (searchTerm.trim() !== "") {
+      const lower = searchTerm.toLowerCase();
+      filtered = filtered.filter((i) => {
+        if (i.candidate?.full_name?.toLowerCase().includes(lower)) return true;
+        return Object.values(i).some((val) =>
           val?.toString().toLowerCase().includes(lower)
         );
       });
-    },
-    [interviews]
-  );
+    }
+    return filtered;
+  }, [interviews, searchTerm, selectedModes, selectedTypes]);
 
-  const filteredInterviews = filterData(searchTerm);
-
-  // Badge renderers
-  const StatusRenderer = (params: any) => {
-    const v = params.value?.toLowerCase() ?? "";
-    const classes =
-      v === "cleared"
-        ? "bg-green-100 text-green-800"
-        : v === "rejected"
-        ? "bg-red-100 text-red-800"
-        : "bg-gray-100 text-gray-800";
-    return <Badge className={classes}>{params.value}</Badge>;
-  };
-
-  const FeedbackRenderer = (params: any) => {
-    const value = params.value?.toLowerCase() ?? "";
-    if (!value || value === "no response")
-      return <Badge className="bg-gray-100 text-gray-800">Pending</Badge>;
-    if (value === "positive")
-      return <Badge className="bg-green-300 text-green-800">Positive</Badge>;
-    if (value === "failure" || value === "negative")
-      return <Badge className="bg-red-100 text-red-800">Failure</Badge>;
-    return <Badge className="bg-gray-100 text-gray-800">{params.value}</Badge>;
-  };
-
-const LinkRenderer = (params: any) => {
-  const value = params.value;
-  if (!value) return <span className="text-gray-500">Not Available</span>;
-
-  const links = value
-    .split(/[,​\s]+/)
-    .map((link: string) => link.trim())
-    .filter((link: string) => link.length > 0);
-
-  if (links.length === 0) return <span className="text-gray-500">Not Available</span>;
-
-  return (
-    <div className="flex flex-col space-y-1">
-      {links.map((link: string, idx: number) => (
-        <a
-          key={idx}
-          href={link}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-600 underline hover:text-blue-800"
-        >
-          Click here
-        </a>
-      ))}
-    </div>
-  );
-};
-
-
-
-const CandidateNameRenderer = (params: any) => {
-  const candidateId = params.data?.candidate_id; 
-  const candidateName = params.value; 
-  
-  if (!candidateId || !candidateName) {
-    return <span className="text-gray-500">{candidateName || "N/A"}</span>;
-  }
-  
-  return (
-    <Link 
-      href={`/avatar/candidates/search?candidateId=${candidateId}`}
-      target="_blank" 
-      rel="noopener noreferrer"
-      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer" 
-    >
-      {candidateName}
-    </Link>
-  );
-};
-
-
+  const filteredInterviews = filterData();
 
   const columnDefs = useMemo<ColDef[]>(
     () => [
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
-      { field: "candidate.full_name", headerName: "Full Name", cellRenderer: CandidateNameRenderer, sortable: true, minWidth: 140, editable: false },
-      { field: "company", headerName: "Company", sortable: true, maxWidth: 130, editable: true },
-      { field: "company_type", headerName: "Company Type", sortable: true, maxWidth: 150, editable: true },
-      { field: "mode_of_interview", headerName: "Mode", maxWidth: 130, editable: true },
+      { field: "candidate.full_name", headerName: "Full Name", cellRenderer: CandidateNameRenderer, sortable: true, width: 140, editable: false },
+      { field: "company", headerName: "Company", sortable: true, width: 130, editable: true },
+      {
+        field: "mode_of_interview",
+        headerName: "Mode",
+        width: 120,
+        editable: true,
+        headerComponent: FilterHeaderComponent,
+        headerComponentParams: {
+          columnName: "Mode",
+          options: modeOfInterviewOptions,
+          selectedValues: selectedModes,
+          setSelectedValues: setSelectedModes,
+        },
+        cellRenderer: ModeRenderer,
+      },
       {
         field: "type_of_interview",
         headerName: "Type",
-        maxWidth: 150,
+        width: 140,
         editable: true,
-        filter: "agSetColumnFilter",
-        filterParams: {
-          values: ["Technical", "Phone Call", "Virtual"],
-          comparator: (a: string, b: string) => a.localeCompare(b),
+        headerComponent: FilterHeaderComponent,
+        headerComponentParams: {
+          columnName: "Type",
+          options: typeOfInterviewOptions,
+          selectedValues: selectedTypes,
+          setSelectedValues: setSelectedTypes,
+        },
+        cellRenderer: TypeRenderer,
+      },
+      {
+        field: "company_type",
+        headerName: "Company Type",
+        width: 170,
+        editable: true,
+        headerComponent: FilterHeaderComponent,
+        headerComponentParams: {
+          columnName: "Company Type",
+          options: companyTypeOptions,
+          selectedValues: selectedTypes,
+          setSelectedValues: setSelectedTypes,
+        },
+        cellRenderer: CompanyTypeRenderer,
+      },
+      { field: "interview_date", headerName: "Date", width: 120, editable: true },
+      { field: "recording_link", headerName: "Recording", cellRenderer: LinkRenderer, width: 120, editable: true },
+      { field: "transcript", headerName: "Transcript", cellRenderer: LinkRenderer, width: 120, editable: true },
+      { field: "backup_url", headerName: "Backup URL", cellRenderer: LinkRenderer, width: 120, editable: true },
+      { field: "url", headerName: "Job URL", cellRenderer: LinkRenderer, width: 120, editable: true },
+      { field: "instructor1_name", headerName: "Instructor 1", width: 150 },
+      { field: "instructor2_name", headerName: "Instructor 2", width: 150 },
+      { field: "instructor3_name", headerName: "Instructor 3", width: 150 },
+      { field: "feedback", headerName: "Feedback", cellRenderer: FeedbackRenderer, width: 120, editable: true },
+      {
+        field: "interviewer_emails",
+        headerName: "Email",
+        width: 250,
+        editable: true,
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          return (
+            <a
+              href={`mailto:${params.value}`}
+              className="text-blue-600 underline hover:text-blue-800"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {params.value}
+            </a>
+          );
         },
       },
-      { field: "interview_date", headerName: "Date", maxWidth: 120, editable: true },
-      { field: "recording_link", headerName: "Recording", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
-      { field: "transcript", headerName: "Transcript", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
-      { field: "backup_url", headerName: "Backup URL", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
-      { field: "url", headerName: "Job URL", cellRenderer: LinkRenderer, minWidth: 200, editable: true },
-      { field: "instructor1_name", headerName: "Instructor 1", minWidth: 140 },
-      { field: "instructor2_name", headerName: "Instructor 2", minWidth: 140 },
-      { field: "instructor3_name", headerName: "Instructor 3", minWidth: 140 },
-      { field: "feedback", headerName: "Feedback", cellRenderer: FeedbackRenderer, maxWidth: 130, editable: true },
-      { field: "interviewer_emails", headerName: "Emails", minWidth: 180, editable: true },
-      { field: "interviewer_contact", headerName: "Contact", minWidth: 140, editable: true },
-      {             field: "notes",
-            headerName: "Notes",
-            width: 300,
-            sortable: true,
-            cellRenderer: (params: any) => {
-              if (!params.value) return "";
-              return (
-                <div
-                  className="prose prose-sm max-w-none dark:prose-invert"
-                  dangerouslySetInnerHTML={{ __html: params.value }}
-                />
-              );
-            },
-          },
+      { field: "interviewer_contact", headerName: "Phone", width: 120, editable: true },
+      { field: "interviewer_linkedin", headerName: "Linkedin", cellRenderer: LinkRenderer, width: 120, editable: true },
+      { field: "notes", headerName: "Notes", width: 200, sortable: true, cellRenderer: (params: any) => params.value ? <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: params.value }} /> : "" },
     ],
-    []
+    [selectedModes, selectedTypes]
   );
 
   const handleRowUpdated = async (updatedRow: any) => {
@@ -226,33 +476,29 @@ const CandidateNameRenderer = (params: any) => {
     }
   };
 
-const handleRowDeleted = async (interviewId: number) => {
-  try {
-    if (!interviewId) {
-      toast.error("Cannot delete interview: missing ID");
-      console.error("Delete failed, interviewId:", interviewId);
-      return;
+  const handleRowDeleted = async (interviewId: number) => {
+    try {
+      if (!interviewId) {
+        toast.error("Cannot delete interview: missing ID");
+        return;
+      }
+      const res = await axios.delete(
+        `${process.env.NEXT_PUBLIC_API_URL}/interviews/${interviewId}`,
+        { headers: getAuthHeaders() }
+      );
+      if (res.status === 200) {
+        setInterviews((prev) => prev.filter((r) => r.id !== interviewId));
+        toast.success("Interview deleted successfully!");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to delete interview.");
     }
-
-    const res = await axios.delete(
-      `${process.env.NEXT_PUBLIC_API_URL}/interviews/${interviewId}`,
-      { headers: getAuthHeaders() }
-    );
-
-    if (res.status === 200) {
-      setInterviews((prev) => prev.filter((r) => r.id !== interviewId));
-      toast.success("Interview deleted successfully!");
-    }
-  } catch (err) {
-    console.error("Delete error:", err);
-    toast.error("Failed to delete interview.");
-  }
-};
-
+  };
 
   const handleAddInterview = async () => {
     if (!newInterview.candidate_id || !newInterview.company) {
-      toast.error("Candidate ID and Company are required!");
+      toast.error("Candidate and Company are required!");
       return;
     }
     try {
@@ -266,19 +512,16 @@ const handleRowDeleted = async (interviewId: number) => {
       setShowAddForm(false);
       setNewInterview({
         candidate_id: "",
+        candidate_name: "",
         company: "",
-        mode_of_interview: "",
-        type_of_interview: "",
-        interview_date: "",
-        status: "",
-        feedback: "",
+        company_type: "",
         interviewer_emails: "",
         interviewer_contact: "",
+        interviewer_linkedin: "",
+        interview_date: "",
+        mode_of_interview: "",
+        type_of_interview: "",
         notes: "",
-        recording_link: "",
-        transcript: "",
-        backup_url: "",
-        url: "",
       });
       toast.success('Interview added successfully!');
     } catch (err: any) {
@@ -299,7 +542,6 @@ const handleRowDeleted = async (interviewId: number) => {
           <PlusIcon className="h-4 w-4 mr-2" /> Add Interview
         </Button>
       </div>
-
       <div className="max-w-md">
         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">Search</Label>
         <div className="relative mt-1">
@@ -314,7 +556,6 @@ const handleRowDeleted = async (interviewId: number) => {
           />
         </div>
       </div>
-
       {loading ? (
         <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-8">Loading...</p>
       ) : error ? (
@@ -334,29 +575,166 @@ const handleRowDeleted = async (interviewId: number) => {
           </div>
         </div>
       )}
-
       {/* Add Interview Modal */}
       {showAddForm && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div
+          className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50"
+          onClick={() => setShowAddForm(false)}
+        >
+          <div
+            className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+            tabIndex={-1}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setShowAddForm(false);
+            }}
+          >
             <h2 className="text-xl font-bold mb-4">Add Interview</h2>
-            <div className="space-y-3">
-              <Input placeholder="Candidate ID" value={newInterview.candidate_id} onChange={(e) => setNewInterview({ ...newInterview, candidate_id: e.target.value })} />
-              <Input placeholder="Company" value={newInterview.company} onChange={(e) => setNewInterview({ ...newInterview, company: e.target.value })} />
-              <select value={newInterview.mode_of_interview} onChange={(e) => setNewInterview({ ...newInterview, mode_of_interview: e.target.value })} className="w-full p-2 border rounded">
-                <option value="">Mode of Interview</option>
-                <option value="Virtual">Virtual</option>
-                <option value="In Person">In Person</option>
-                <option value="Phone">Phone</option>
-                <option value="Assessment">Assessment</option>
-              </select>
-              <select value={newInterview.type_of_interview} onChange={(e) => setNewInterview({ ...newInterview, type_of_interview: e.target.value })} className="w-full p-2 border rounded">
-                <option value="">Type of Interview</option>
-                <option value="Technical">Technical</option>
-                <option value="Phone Call">Phone Call</option>
-                <option value="Virtual">Virtual</option>
-              </select>
-              <Input type="date" placeholder="Interview Date" value={newInterview.interview_date} onChange={(e) => setNewInterview({ ...newInterview, interview_date: e.target.value })} />
+            <div className="space-y-4">
+              {/* Candidate Dropdown */}
+              <div>
+                <Label htmlFor="candidate_id">Candidate Name</Label>
+                <select
+                  id="candidate_id"
+                  value={newInterview.candidate_id}
+                  onChange={(e) => {
+                    const selected = candidates.find(
+                      (m) => m.candidate.id.toString() === e.target.value
+                    );
+                    setNewInterview({
+                      ...newInterview,
+                      candidate_id: selected?.candidate.id || "",
+                      candidate_name: selected?.candidate.full_name || "",
+                      interviewer_emails: newInterview.interviewer_emails || null,
+                      interviewer_contact: newInterview.interviewer_contact || null,
+                      interviewer_linkedin: newInterview.interviewer_linkedin || null,
+                    });
+                  }}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="">Select Candidate</option>
+                  {candidates.map((m) => (
+                    <option key={m.candidate.id} value={m.candidate.id}>
+                      {m.candidate.full_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {/* Company */}
+              <div>
+                <Label htmlFor="company">Company</Label>
+                <Input
+                  id="company"
+                  placeholder="Enter company name"
+                  value={newInterview.company}
+                  onChange={(e) =>
+                    setNewInterview({ ...newInterview, company: e.target.value })
+                  }
+                />
+              </div>
+              {/* Company Type */}
+              <div>
+                <Label htmlFor="company_type">Company Type</Label>
+                <select
+                  id="company_type"
+                  value={newInterview.company_type}
+                  onChange={(e) => setNewInterview({ ...newInterview, company_type: e.target.value })}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="">Select Company Type</option>
+                  <option value="client">Client</option>
+                  <option value="third-party-vendor">Third-Party Vendor</option>
+                  <option value="implementation-partner">Implementation Partner</option>
+                  <option value="sourcer">Sourcer</option>
+                  <option value="contact-from-ip">Contact from IP</option>
+                </select>
+              </div>
+              {/* Interview Date */}
+              <div>
+                <Label htmlFor="interview_date">Interview Date</Label>
+                <Input
+                  type="date"
+                  id="interview_date"
+                  value={newInterview.interview_date}
+                  onChange={(e) => setNewInterview({ ...newInterview, interview_date: e.target.value })}
+                />
+              </div>
+              {/* Mode of Interview */}
+              <div>
+                <Label htmlFor="mode_of_interview">Mode of Interview</Label>
+                <select
+                  id="mode_of_interview"
+                  value={newInterview.mode_of_interview}
+                  onChange={(e) => setNewInterview({ ...newInterview, mode_of_interview: e.target.value })}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="">Select Mode</option>
+                  <option value="Virtual">Virtual</option>
+                  <option value="In Person">In Person</option>
+                  <option value="Phone">Phone</option>
+                  <option value="Assessment">Assessment</option>
+                </select>
+              </div>
+              {/* Type of Interview */}
+              <div>
+                <Label htmlFor="type_of_interview">Type of Interview</Label>
+                <select
+                  id="type_of_interview"
+                  value={newInterview.type_of_interview}
+                  onChange={(e) => setNewInterview({ ...newInterview, type_of_interview: e.target.value })}
+                  className="w-full p-2 border rounded"
+                >
+                  <option value="">Select Type</option>
+                  <option value="Technical">Technical</option>
+                  <option value="Recruiter Call">Recruiter Call</option>
+                  <option value="HR Round">HR Round</option>
+                  <option value="In Person">In Person</option>
+                  <option value="Assessment">Assessment</option>
+                  <option value="Prep Call">Prep Call</option>
+                  <option value="AI Interview">AI Interview</option>
+                </select>
+              </div>
+              {/* Interviewer Emails */}
+              <div>
+                <Label htmlFor="interviewer_emails">Interviewer Emails</Label>
+                <Input
+                  id="interviewer_emails"
+                  placeholder="Enter emails"
+                  value={newInterview.interviewer_emails}
+                  onChange={(e) => setNewInterview({ ...newInterview, interviewer_emails: e.target.value })}
+                />
+              </div>
+              {/* Interviewer Contact */}
+              <div>
+                <Label htmlFor="interviewer_contact">Interviewer Contact</Label>
+                <Input
+                  id="interviewer_contact"
+                  placeholder="Enter contact"
+                  value={newInterview.interviewer_contact}
+                  onChange={(e) => setNewInterview({ ...newInterview, interviewer_contact: e.target.value })}
+                />
+              </div>
+              {/* Interviewer Linkedin */}
+              <div>
+                <Label htmlFor="interviewer_linkedin">Interviewer Linkedin</Label>
+                <Input
+                  id="interviewer_linkedin"
+                  placeholder="Enter Linkedin"
+                  value={newInterview.interviewer_linkedin}
+                  onChange={(e) => setNewInterview({ ...newInterview, interviewer_linkedin: e.target.value })}
+                />
+              </div>
+              {/* Notes */}
+              <div>
+                <Label htmlFor="notes">Notes</Label>
+                <textarea
+                  id="notes"
+                  className="w-full p-2 border rounded"
+                  rows={4}
+                  value={newInterview.notes}
+                  onChange={(e) => setNewInterview({ ...newInterview, notes: e.target.value })}
+                />
+              </div>
             </div>
             <div className="flex justify-end mt-6 space-x-3">
               <button onClick={() => setShowAddForm(false)} className="px-4 py-2 bg-gray-300 rounded">Cancel</button>
