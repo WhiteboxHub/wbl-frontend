@@ -25,6 +25,22 @@ const StatusRenderer = (params: any) => {
   return <Badge className={badgeClass}>{status?.toUpperCase()}</Badge>;
 };
 
+
+
+const getAllValues = (obj: any): string[] => {
+  let values: string[] = [];
+  for (const val of Object.values(obj)) {
+    if (val && typeof val === "object") {
+      values = values.concat(getAllValues(val));
+    } else if (val !== null && val !== undefined) {
+      values.push(String(val));
+    }
+  }
+  return values;
+};
+
+
+
 // ---------------- Filter Option Interface ----------------
 interface FilterOption {
   value: string;
@@ -172,23 +188,25 @@ export default function CandidatesMarketingPage() {
   }, []);
 
   // ---------------- Filtering ----------------
-  useEffect(() => {
-    let filtered = [...allCandidates];
-    if (selectedStatuses.length > 0) {
-      filtered = filtered.filter((c) =>
-        selectedStatuses.includes(c.status?.toLowerCase())
-      );
-    }
-    if (searchTerm.trim() !== "") {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter((c) =>
-        Object.values(c).some((val) =>
-          val?.toString().toLowerCase().includes(term)
-        )
-      );
-    }
-    setFilteredCandidates(filtered);
-  }, [allCandidates, searchTerm, selectedStatuses]);
+useEffect(() => {
+  let filtered = [...allCandidates];
+
+  if (selectedStatuses.length > 0) {
+    filtered = filtered.filter((c) =>
+      selectedStatuses.includes(c.status?.toLowerCase())
+    );
+  }
+
+  if (searchTerm.trim() !== "") {
+    const term = searchTerm.toLowerCase();
+    filtered = filtered.filter((c) =>
+      getAllValues(c).some((val) => val.toLowerCase().includes(term))
+    );
+  }
+
+  setFilteredCandidates(filtered);
+}, [allCandidates, searchTerm, selectedStatuses]);
+
 
   // ---------------- Resume Renderer ----------------
   const ResumeRenderer = (params: any) => (
@@ -318,7 +336,6 @@ export default function CandidatesMarketingPage() {
         valueGetter: (params) =>
           params.data.marketing_manager_obj?.name || "N/A",
       },
-      { field: "email", headerName: "Email", width: 200, editable: true },
       {
         field: "email",
         headerName: "Email",
