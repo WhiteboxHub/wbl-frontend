@@ -605,6 +605,9 @@ export default function CandidatesInterviews() {
                       ...newInterview,
                       candidate_id: selected?.candidate.id || "",
                       candidate_name: selected?.candidate.full_name || "",
+                      interviewer_emails: newInterview.interviewer_emails || null,
+                      interviewer_contact: newInterview.interviewer_contact || null,
+                      interviewer_linkedin: newInterview.interviewer_linkedin || null,
                     });
                   }}
                   className="w-full p-2 border rounded"
@@ -683,12 +686,12 @@ export default function CandidatesInterviews() {
                 >
                   <option value="">Select Type</option>
                   <option value="Technical">Technical</option>
+                  <option value="Recruiter Call">Recruiter Call</option>
                   <option value="HR Round">HR Round</option>
-                  <option value="Phone">Phone</option>
                   <option value="In Person">In Person</option>
                   <option value="Assessment">Assessment</option>
                   <option value="Prep Call">Prep Call</option>
-                  <option value="Prep Call">AI Interview</option>
+                  <option value="AI Interview">AI Interview</option>
                 </select>
               </div>
               {/* Interviewer Emails */}

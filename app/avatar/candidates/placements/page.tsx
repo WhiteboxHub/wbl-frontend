@@ -185,11 +185,13 @@ export default function CandidatesPlacements() {
 
   useEffect(() => {
     const lower = searchTerm.toLowerCase();
-    setFilteredPlacements(
-      allPlacements.filter((p) =>
-        Object.values(p).some((v) => String(v).toLowerCase().includes(lower))
-      )
-    );
+setFilteredPlacements(
+  allPlacements
+    .filter((p) =>
+      Object.values(p).some((v) => String(v).toLowerCase().includes(lower))
+    )
+    .sort((a, b) => b.id - a.id) 
+);
   }, [searchTerm, allPlacements]);
 
   const handleRowUpdated = async (updatedRow: Placement) => {
