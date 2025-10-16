@@ -60,7 +60,7 @@ const RecordingComp: React.FC = () => {
       const data = await response.json();
       const batchList = data.batches || data;
 
-      //  Always include Kumar Recordings (batchid 99999)
+      // Always include Kumar Recordings (batchid 99999)
       if (!batchList.some((b: Batch) => b.batchid === 99999)) {
         batchList.push({ batchname: "Kumar Recordings", batchid: 99999 });
       }
