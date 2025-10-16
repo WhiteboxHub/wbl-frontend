@@ -499,19 +499,14 @@ export default function CandidatesPage() {
         },
       },
       {
-        field: "batchid",
+        field: "batch",
         headerName: "Batch",
         width: 140,
         sortable: true,
         filter: "agSetColumnFilter",
         cellRenderer: (params: any) => {
-          if (!params.value || !allBatches.length) return params.value || "";
-          const batch = allBatches.find((b) => b.batchid === params.value);
-          return batch ? (
-            <span title={`Batch ID: ${params.value}`}>{batch.batchname}</span>
-          ) : (
-            params.value
-          );
+          const batch = params.data?.batch;
+          return batch ? batch.batchname : "N/A";
         },
         headerComponent: (props: any) => (
           <FilterHeaderComponent
@@ -1216,7 +1211,7 @@ export default function CandidatesPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             Candidates Management
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
+          {/* <p className="text-gray-600 dark:text-gray-400">
             All Candidates ({candidates.length})
             {selectedStatuses.length > 0 ||
             selectedWorkStatuses.length > 0 ||
@@ -1227,7 +1222,7 @@ export default function CandidatesPage() {
             ) : (
               " - Sorted by latest first"
             )}
-          </p>
+          </p> */}
 
           {/* Search input */}
           <div className="mt-2 sm:mt-0 sm:max-w-md">
@@ -1278,6 +1273,7 @@ export default function CandidatesPage() {
             .map((b) => b.batchid)
             .join(",")}`}
           rowData={loading ? undefined : filteredCandidates}
+          title={`Candidates (${filteredCandidates.length})`}
           columnDefs={columnDefs}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}

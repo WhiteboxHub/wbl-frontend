@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useState } from "react";
 import {
@@ -32,7 +33,7 @@ const excludedFields = [
   "vendor_type", "last_mod_datetime", "last_modified", "logincount", "googleId",
   "subject_id", "lastmoddatetime", "course_id", "new_subject_id", "instructor_1id",
   "instructor_2id", "instructor_3id", "instructor1_id", "instructor2_id",
-  "instructor3_id", "enddate", "candidate_id"
+  "instructor3_id", "enddate", "candidate_id","batch"
 ];
 
 const fieldSections: Record<string, string> = {
@@ -161,6 +162,9 @@ const fieldSections: Record<string, string> = {
   notes: "Notes",
   course_name: "Professional Information",
   subject_name: "Basic Information",
+  cm_course: "Professional Information", 
+  cm_subject: "Basic Information",
+  material_type: "Basic Information",
 };
 
 const workVisaStatusOptions = [
@@ -319,6 +323,17 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: 'Positive', label: 'Positive' },
     { value: 'Negative', label: 'Negative' },
   ],
+  // Course Material specific enum options
+  material_type: [
+    { value: "P", label: "Presentations" },
+    { value: "C", label: "Cheatsheets" },
+    { value: "D", label: "Diagrams" },
+    { value: "S", label: "Softwares" },
+    { value: "I", label: "Installations" },
+    { value: "B", label: "Books" },
+    { value: "N", label: "Newsletters" },
+    { value: "M", label: "Materials" },
+  ],
 };
 
 const labelOverrides: Record<string, string> = {
@@ -418,7 +433,10 @@ const labelOverrides: Record<string, string> = {
   course_name: "Course Name",
   subject_name: "Subject Name",
   assigned_date: "Assigned Date",
-  employee_name: "Employee Name"
+  employee_name: "Employee Name",
+  cm_course: "Course Name",
+  cm_subject: "Subject Name",
+  material_type: "Material Type"
 };
 
 const dateFields = [
@@ -446,6 +464,8 @@ export function EditModal({
 }: EditModalProps) {
   const flattenData = (data: Record<string, any>) => {
     const flattened: Record<string, any> = { ...data };
+    
+    // Handle candidate and instructor data
     if (data.candidate) {
       flattened.candidate_full_name = data.candidate.full_name;
     }
@@ -461,6 +481,8 @@ export function EditModal({
       flattened.instructor3_name = data.instructor3.name;
       flattened.instructor3_id = data.instructor3.id;
     }
+    
+    // Handle status fields
     if (data.visa_status) {
       flattened.visa_status = String(data.visa_status).toLowerCase();
     }
@@ -470,6 +492,28 @@ export function EditModal({
     if (data.work_status) {
       flattened.work_status = String(data.work_status).toLowerCase();
     }
+    
+    if (data.type) {
+      flattened.material_type = data.type;
+    }
+    
+   
+    if (data.cm_course) {
+      flattened.cm_course = data.cm_course;
+    } else if (data.course_name) {
+      flattened.cm_course = data.course_name;
+    } else if (data.courseid === 0) {
+      flattened.cm_course = "Fundamentals";
+    }
+    
+    if (data.cm_subject) {
+      flattened.cm_subject = data.cm_subject;
+    } else if (data.subject_name) {
+      flattened.cm_subject = data.subject_name;
+    } else if (data.subjectid === 0) {
+      flattened.cm_subject = "Basic Fundamentals";
+    }
+    
     return flattened;
   };
 
@@ -521,6 +565,14 @@ export function EditModal({
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
+  const isCourseMaterialModal = title.toLowerCase().includes("coursematerial") || 
+                               title.toLowerCase().includes("course material");
+
+
+  const isCourseSubjectModal = title.toLowerCase().includes("coursesubject") || 
+                               title.toLowerCase().includes("course-subject");
+                        
+
   React.useEffect(() => {
     const fetchCourses = async () => {
       try {
@@ -528,22 +580,38 @@ export function EditModal({
         const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/courses`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setCourses(res.data);
+        const sortedCourses = res.data.sort((a: any, b: any) => b.id - a.id);
+        
+        let coursesWithOrphans = [...sortedCourses];
+        if (isCourseMaterialModal && !coursesWithOrphans.some(course => course.id === 0)) {
+          coursesWithOrphans.unshift({ id: 0, name: "Fundamentals" });
+        }
+        
+        setCourses(coursesWithOrphans);
       } catch (error) {
         console.error("Failed to fetch courses:", error);
       }
     };
+
     const fetchSubjects = async () => {
       try {
         const token = localStorage.getItem("token");
         const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/subjects`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setSubjects(res.data);
+        const sortedSubjects = res.data.sort((a: any, b: any) => b.id - a.id);
+    
+        let subjectsWithOrphans = [...sortedSubjects];
+        if (isCourseMaterialModal && !subjectsWithOrphans.some(subject => subject.id === 0)) {
+          subjectsWithOrphans.unshift({ id: 0, name: "Basic Fundamentals" });
+        }
+        
+        setSubjects(subjectsWithOrphans);
       } catch (error) {
         console.error("Failed to fetch subjects:", error);
       }
     };
+
     const fetchEmployees = async () => {
       try {
         const token = localStorage.getItem("token");
@@ -556,11 +624,11 @@ export function EditModal({
         console.error("Failed to fetch employees:", error);
       }
     };
+
     fetchCourses();
     fetchSubjects();
     fetchEmployees();
-  }, []);
-
+  }, [isCourseMaterialModal]); 
   const handleChange = (key: string, value: any) => {
     setFormData((prev) => {
       const newData = { ...prev, [key]: value };
@@ -590,6 +658,18 @@ export function EditModal({
   };
 
   Object.entries(formData).forEach(([key, value]) => {
+    if (isCourseMaterialModal && ["subjectid", "courseid", "course_name", "subject_name"].includes(key.toLowerCase())) {
+      return;
+    }
+    
+    if (isCourseSubjectModal && ["cm_course", "cm_subject", "material_type"].includes(key.toLowerCase())) {
+      return;
+    }
+    
+    if (isCourseMaterialModal && key.toLowerCase() === "type") {
+      return;
+    }
+    
     if (excludedFields.includes(key)) return;
     if (key === "id") return;
     if (key.toLowerCase() === "status" && (title.toLowerCase().includes("preparation") || title.toLowerCase().includes("marketing"))) {
@@ -658,6 +738,28 @@ export function EditModal({
           onSubmit={(e) => {
             e.preventDefault();
             const reconstructedData = { ...formData };
+            
+            if (isCourseMaterialModal) {
+              if (formData.cm_course) {
+                const selectedCourse = courses.find(course => course.name === formData.cm_course);
+                if (selectedCourse) {
+                  reconstructedData.courseid = selectedCourse.id;
+                }
+              }
+              
+              if (formData.cm_subject) {
+                const selectedSubject = subjects.find(subject => subject.name === formData.cm_subject);
+                if (selectedSubject) {
+                  reconstructedData.subjectid = selectedSubject.id;
+                }
+              }
+              
+              if (formData.material_type) {
+                reconstructedData.type = formData.material_type;
+              }
+            }
+
+            // Handle candidate and instructor data reconstruction
             if (formData.candidate_full_name) {
               reconstructedData.candidate = {
                 ...data.candidate,
@@ -685,6 +787,7 @@ export function EditModal({
                 id: formData.instructor3_id,
               };
             }
+            
             onSave(reconstructedData);
             onClose();
           }}
@@ -697,6 +800,88 @@ export function EditModal({
                   <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
                     {section}
                   </h3>
+                  
+                  {/* Course Material Specific Dropdowns */}
+                  {isCourseMaterialModal && section === "Professional Information" && (
+                    <>
+                      {/* Course Dropdown course materials */}
+                      <div className="space-y-1">
+                        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                          Course Name
+                        </Label>
+                        <select
+                          value={formData["cm_course"] || ""}
+                          onChange={(e) => handleChange("cm_course", e.target.value)}
+                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                        >
+                          {courses.length === 0 ? (
+                            <option value="">Loading...</option>
+                          ) : (
+                            <>
+                              {/* Show all courses */}
+                              {courses.map((course) => (
+                                <option key={course.id} value={course.name}>
+                                  {course.name}
+                                </option>
+                              ))}
+                            </>
+                          )}
+                        </select>
+                      </div>
+                    </>
+                  )}
+
+                  {isCourseMaterialModal && section === "Basic Information" && (
+                    <>
+                      {/* Subject Dropdown for course materials */}
+                      <div className="space-y-1">
+                        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                          Subject Name
+                        </Label>
+                        <select
+                          value={formData["cm_subject"] || ""}
+                          onChange={(e) => handleChange("cm_subject", e.target.value)}
+                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                        >
+                          {subjects.length === 0 ? (
+                            <option value="">Loading...</option>
+                          ) : (
+                            <>
+                              {/* Show all subjects*/}
+                              {subjects.map((subject) => (
+                                <option key={subject.id} value={subject.name}>
+                                  {subject.name}
+                                </option>
+                              ))}
+                            </>
+                          )}
+                        </select>
+                      </div>
+
+                      {/* Material Type Dropdown */}
+                      <div className="space-y-1">
+                        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                          Material Type
+                        </Label>
+                        <select
+                          value={formData["material_type"] || ""}
+                          onChange={(e) => {
+                            handleChange("material_type", e.target.value);
+                            handleChange("type", e.target.value);
+                          }}
+                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                        >
+                          <option value="">Select Material Type</option>
+                          {enumOptions["material_type"].map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  )}
+                  
                   {section === "Professional Information" && title.toLowerCase().includes("preparation") && (
                     <>
                       <div className="space-y-1">
@@ -780,6 +965,7 @@ export function EditModal({
                           "instructor1_id",
                           "instructor2_id",
                           "instructor3_id",
+                          ...(isCourseMaterialModal ? ["cm_course", "cm_subject", "material_type"] : [])
                         ].includes(key)
                     )
                     .map(({ key, value }) => {

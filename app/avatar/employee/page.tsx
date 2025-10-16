@@ -525,7 +525,7 @@ export default function EmployeesPage() {
             rowData={filteredEmployees}
             columnDefs={columnDefs}
             onRowClicked={(event) => console.log("Row clicked:", event.data)}
-            // title="Employee"
+            title={`Employees (${filteredEmployees.length})`}
             height="70vh"
             loading={loading}
             onRowUpdated={handleRowUpdated}

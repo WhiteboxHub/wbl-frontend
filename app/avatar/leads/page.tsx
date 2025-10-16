@@ -1045,7 +1045,7 @@ export default function LeadsPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             Leads Management
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
+          {/* <p className="text-gray-600 dark:text-gray-400">
             All Leads ({totalLeads})
             {selectedStatuses.length > 0 || selectedWorkStatuses.length > 0 ? (
               <span className="ml-2 text-blue-600 dark:text-blue-400">
@@ -1054,7 +1054,7 @@ export default function LeadsPage() {
             ) : (
               " - Sorted by latest first"
             )}
-          </p>
+          </p> */}
 
           {/* Search input */}
           <div className="mt-2 sm:mt-0 sm:max-w-md">
@@ -1092,11 +1092,12 @@ export default function LeadsPage() {
 
       <div className="flex w-full justify-center">
         <AGGridTable
-          key={`${filteredLeads.length}-${selectedStatuses.join(
-            ","
-          )}-${selectedWorkStatuses.join(",")}`}
+          // key={`${filteredLeads.length}-${selectedStatuses.join(
+          //   ","
+          // )}-${selectedWorkStatuses.join(",")}`}
           rowData={filteredLeads}
           columnDefs={columnDefs}
+          title={`Leads (${filteredLeads.length})`}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
           loading={loading}
