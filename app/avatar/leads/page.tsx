@@ -525,7 +525,7 @@ export default function LeadsPage() {
     forceRefresh = false
   ) => {
     callCountRef.current++;
-    console.log('🚨 fetchLeads CALLED - investigating multiple calls');
+    console.log('   fetchLeads CALLED - investigating multiple calls');
     console.log('   Call count:', callCountRef.current);
     console.log('   search:', search);
     console.log('   searchBy:', searchBy);
@@ -536,7 +536,7 @@ export default function LeadsPage() {
 
     // NUCLEAR OPTION - Completely block multiple calls
     if (callCountRef.current > 1) {
-      console.log('💥 BLOCKING DUPLICATE CALL - Only allowing first call');
+      console.log(' BLOCKING DUPLICATE CALL - Only allowing first call');
       return;
     }
 
@@ -544,7 +544,7 @@ export default function LeadsPage() {
     
     // STRICT CACHE CHECK - Only proceed if absolutely necessary
     if (!forceRefresh && cache.isCacheValid(searchKey, searchBy)) {
-      console.log('✅ STRICT CACHE HIT - Blocking API call');
+      console.log(' STRICT CACHE HIT - Blocking API call');
       const cachedData = cache.getCache();
       if (cachedData) {
         setLeads(cachedData);
@@ -555,7 +555,7 @@ export default function LeadsPage() {
 
     // RATE LIMITING - Strict enforcement
     if (!rateLimiter.canMakeCall(5000)) { // 5 seconds between calls
-      console.log('🚫 STRICT RATE LIMIT - Blocking API call');
+      console.log(' STRICT RATE LIMIT - Blocking API call');
       return;
     }
 
@@ -563,7 +563,7 @@ export default function LeadsPage() {
     try {
       // Load from IndexedDB first
       const localLeads = await db.leads.toArray();
-      console.log(`📁 IndexedDB has ${localLeads.length} leads`);
+      console.log(` IndexedDB has ${localLeads.length} leads`);
       
       // Only proceed with API call if absolutely necessary
       if (isOnline && (forceRefresh || !cache.isCacheValid(searchKey, searchBy))) {
@@ -600,7 +600,7 @@ export default function LeadsPage() {
           leadsData = data;
         }
 
-        console.log(`📥 API returned ${leadsData.length} leads - UPDATING CACHE`);
+        console.log(` API returned ${leadsData.length} leads - UPDATING CACHE`);
         
         // Update state and cache
         setLeads(leadsData);
@@ -611,12 +611,12 @@ export default function LeadsPage() {
         await db.leads.clear();
         await db.leads.bulkPut(leadsData);
       } else {
-        console.log('🏠 Using IndexedDB data - NO API CALL');
+        console.log(' Using IndexedDB data - NO API CALL');
         setLeads(localLeads);
         setFilteredLeads(localLeads);
       }
     } catch (err) {
-      console.error('❌ API Error:', err);
+      console.error(' API Error:', err);
     } finally {
       setLoading(false);
     }
