@@ -90,13 +90,11 @@ const RecordingComp: React.FC = () => {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/recording?course=${course}&batchid=${batchid}`
       );
-
       if (!response.ok) throw new Error("Failed to fetch recordings");
 
       const data = await response.json();
       console.log("Recording API Response:", data);
 
-      //  Handle both list and object responses
       const recList = Array.isArray(data)
         ? data
         : data.batch_recordings || data.recordings || [];
