@@ -47,7 +47,7 @@ const RecordingComp: React.FC = () => {
     }
   }, [selectedBatch]);
 
-  // Fetch batches from backend (adds Kumar batch)
+  //  Fetch batches (ensures Kumar Recordings is at bottom)
   const fetchBatches = async (course: string) => {
     try {
       setIsLoadingBatches(true);
@@ -58,19 +58,25 @@ const RecordingComp: React.FC = () => {
       if (!response.ok) throw new Error("Failed to fetch batches");
 
       const data = await response.json();
-      const batchList = data.batches || data; // handles both wrapped & raw arrays
+      const batchList = data.batches || data;
 
-      //  Always include the special Kumar batch (99999)
+      //  Always include Kumar Recordings (batchid 99999)
       if (!batchList.some((b: Batch) => b.batchid === 99999)) {
-        batchList.unshift({ batchname: "Kumar Recordings", batchid: 99999 });
+        batchList.push({ batchname: "Kumar Recordings", batchid: 99999 });
       }
 
-      setBatches(batchList);
+      //  Move Kumar (99999) to end without changing original order
+      const kumarBatch = batchList.find((b: Batch) => b.batchid === 99999);
+      const normalBatches = batchList.filter((b: Batch) => b.batchid !== 99999);
+      const finalBatchList = [...normalBatches, kumarBatch].filter(Boolean);
 
-      //  Automatically select Kumar batch if available
+      setBatches(finalBatchList);
+
+      //  Default: select first normal batch (not Kumar)
       const defaultBatch =
-        batchList.find((b: Batch) => b.batchid === 99999) || batchList[0];
+        finalBatchList.find((b: Batch) => b.batchid !== 99999) || finalBatchList[0];
       setSelectedBatch(defaultBatch);
+
     } catch (err) {
       console.error("Error loading batches:", err);
       setError("Failed to load batches. Please try again.");
@@ -79,7 +85,7 @@ const RecordingComp: React.FC = () => {
     }
   };
 
-  //  Fetch recordings from backend (works for normal + Kumar batch)
+  //  Fetch recordings (works for normal + Kumar batches)
   const fetchRecordings = async (batchid: number) => {
     try {
       setIsLoadingRecordings(true);
@@ -112,7 +118,7 @@ const RecordingComp: React.FC = () => {
     }
   };
 
-  //  Handle dropdown changes
+  // Handle batch dropdown change
   const handleBatchChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = parseInt(e.target.value);
     const selected = batches.find((batch) => batch.batchid === selectedId);
@@ -125,6 +131,7 @@ const RecordingComp: React.FC = () => {
     }
   };
 
+  // Handle recording dropdown change
   const handleVideoSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = parseInt(e.target.value);
     const selected = recordings.find((rec) => rec.id === selectedId);
@@ -136,7 +143,7 @@ const RecordingComp: React.FC = () => {
     }
   };
 
-  //  Format recording title neatly
+  // Format video title cleanly
   const formatVideoTitle = (filename: string) => {
     filename = filename.replace(/class_/gi, "");
     filename = filename.replace(/class/gi, "");
@@ -157,7 +164,7 @@ const RecordingComp: React.FC = () => {
     return filename;
   };
 
-  //  Display YouTube or video link
+  // Render video player (YouTube or normal video)
   const renderVideoPlayer = (video: Video) => {
     if (video.link.includes("youtu.be") || video.link.includes("youtube.com")) {
       const youtubeId = video.videoid;
@@ -184,7 +191,7 @@ const RecordingComp: React.FC = () => {
     }
   };
 
-  //  Render UI
+  // UI
   return (
     <div className="mx-auto mt-6 max-w-full flex-grow space-y-4 sm:mt-0 sm:max-w-3xl">
       {/* Batch Dropdown */}
@@ -202,7 +209,7 @@ const RecordingComp: React.FC = () => {
           ) : (
             <>
               <option value="" disabled>
-                Please Select a batch...
+                Please select a batch...
               </option>
               {batches.map((batch) => (
                 <option key={batch.batchid} value={batch.batchid}>
