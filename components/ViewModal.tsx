@@ -151,6 +151,10 @@ const fieldSections: Record<string, string> = {
   subject_name: "Basic Information",
   employee_name: "Basic Information",
   secondaryphone: "Contact Information",
+  secondary_email:"Contact Information",
+  cm_course:"Professional Information",
+  cm_subject: "Basic Information",
+  material_type: "Basic Information",
 };
 
 const workVisaStatusOptions = [
@@ -224,6 +228,7 @@ const labelOverrides: Record<string, string> = {
   cm_course: "Course Name",
   cm_subject: "Subject Name",
   subject: "Subject",
+  material_type: "Material Type",
   link: "Link"
 };
 
@@ -347,7 +352,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     if (["feepaid", "feedue", "salary0", "salary6", "salary12"].includes(lowerKey)) return <p>${Number(value).toLocaleString()}</p>;
     if (lowerKey.includes("rating")) return <p>{value} ⭐</p>;
     if (["notes", "task"].includes(lowerKey)) return <div dangerouslySetInnerHTML={{ __html: value }} />;
-    if (["recording_link", "transcript", "url","candidate_resume","backup_url","linkedin","github","resume", "interviewer_linkedin"].includes(lowerKey)) {
+    if (["recording_link", "transcript", "url","candidate_resume","backup_url","linkedin","github","resume", "interviewer_linkedin","link"].includes(lowerKey)) {
       return (
         <a
           href={value}
@@ -390,10 +395,30 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     if (data.instructor1) flattened.instructor1_name = data.instructor1.name;
     if (data.instructor2) flattened.instructor2_name = data.instructor2.name;
     if (data.instructor3) flattened.instructor3_name = data.instructor3.name;
-    return flattened;
-  };
+
+    if (data.course) {
+    flattened.cm_course = data.course.name || data.course.course_name;
+    }
+    if (data.subject) {
+      flattened.cm_subject = data.subject.name || data.subject.subject_name;
+    }
+    // For material_type, check if it's nested in type object or direct
+    if (data.type && typeof data.type === 'object') {
+      flattened.material_type = data.type.name || data.type.type_name;
+    } else if (data.type) {
+      flattened.material_type = data.type;
+    }
+      return flattened;
+    };
 
   const flattenedData = flattenData(currentData);
+  console.log('Flattened Data:', flattenedData); // Add this line
+  console.log('Course Material Fields:', {
+  cm_course: flattenedData.cm_course,
+  cm_subject: flattenedData.cm_subject,
+  material_type: flattenedData.material_type
+  });
+  
   const sectionedFields: Record<string, { key: string; value: any }[]> = {
     "Basic Information": [],
     "Professional Information": [],
@@ -416,6 +441,20 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     if (!sectionedFields[section]) sectionedFields[section] = [];
     sectionedFields[section].push({ key, value });
   });
+
+   // For course materials
+  if (isCourseMaterial && sectionedFields["Professional Information"]) {
+    const basicInfoFields = sectionedFields["Professional Information"];
+    const courseNameIndex = basicInfoFields.findIndex(item => 
+      item.key === "cm_course" || item.key === "course_name"
+    );
+    
+    if (courseNameIndex > -1) {
+      const courseNameField = basicInfoFields.splice(courseNameIndex, 1)[0];
+      basicInfoFields.unshift(courseNameField);
+    }
+  }
+
 
   const visibleSections = Object.keys(sectionedFields).filter(section => section !== "Notes" && sectionedFields[section]?.length > 0);
   const columnCount = Math.min(visibleSections.length, 4);
