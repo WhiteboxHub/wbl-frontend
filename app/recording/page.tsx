@@ -6,16 +6,15 @@ import { isAuthenticated } from "@/utils/auth";
 import ClassComp from "@/components/Recording/ClassComp";
 import SearchComp from "@/components/Recording/SearchComp";
 import SessionComp from "@/components/Recording/SessionComp";
-import MyRecordings from  "@/components/Recording/MyRecordings";
 import CourseNavigation from "@/components/Common/CourseNavigation";
 
 
-type ComponentType = "class" | "search" | "session" |"MyRecordings";
+type ComponentType = "class" | "search" | "session"
 
 export default function Recordings() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const components = ["class", "search", "session","MyRecordings"];
+  const components = ["class", "search", "session"];
   const [activeComponent, setActiveComponent] = useState<ComponentType>("class");
 
   const handleTabClick = (component: ComponentType) => {
@@ -30,8 +29,6 @@ export default function Recordings() {
         return <SearchComp />;
       case "session":
         return <SessionComp />;
-        case "MyRecordings":
-      return <MyRecordings />;
       default:
         return null;
     }

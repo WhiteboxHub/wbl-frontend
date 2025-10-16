@@ -7,6 +7,9 @@ interface Video {
   description: string;
   link: string;
   videoid: string;
+  subject: string;
+  classdate: string;
+  filename: string;
 }
 
 interface Batch {
@@ -40,46 +43,60 @@ const RecordingComp: React.FC = () => {
   // Fetch recordings when batch changes
   useEffect(() => {
     if (selectedBatch) {
-      setSelectedVideo(null);
-      setError(null);
-      setRecordings([]);
       fetchRecordings(selectedBatch.batchid);
     }
   }, [selectedBatch]);
 
-  // Fetch batches from backend
+  // Fetch batches from backend (adds Kumar batch)
   const fetchBatches = async (course: string) => {
     try {
       setIsLoadingBatches(true);
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/batches?course=${course}`
       );
+
       if (!response.ok) throw new Error("Failed to fetch batches");
 
       const data = await response.json();
-      const batchList = data.batches || data; // supports both wrapped & raw arrays
+      const batchList = data.batches || data; // handles both wrapped & raw arrays
+
+      //  Always include the special Kumar batch (99999)
+      if (!batchList.some((b: Batch) => b.batchid === 99999)) {
+        batchList.unshift({ batchname: "Kumar Recordings", batchid: 99999 });
+      }
+
       setBatches(batchList);
 
-      if (batchList.length > 0) {
-        setSelectedBatch(batchList[0]);
-      }
+      //  Automatically select Kumar batch if available
+      const defaultBatch =
+        batchList.find((b: Batch) => b.batchid === 99999) || batchList[0];
+      setSelectedBatch(defaultBatch);
     } catch (err) {
+      console.error("Error loading batches:", err);
       setError("Failed to load batches. Please try again.");
     } finally {
       setIsLoadingBatches(false);
     }
   };
 
-  // Fetch recordings from backend
+  //  Fetch recordings from backend (works for normal + Kumar batch)
   const fetchRecordings = async (batchid: number) => {
     try {
       setIsLoadingRecordings(true);
+      setError(null);
+
+      console.log("Fetching recordings for batch:", batchid);
+
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/recording?course=${course}&batchid=${batchid}`
       );
+
       if (!response.ok) throw new Error("Failed to fetch recordings");
 
       const data = await response.json();
+      console.log("Recording API Response:", data);
+
+      //  Handle both list and object responses
       const recList = Array.isArray(data)
         ? data
         : data.batch_recordings || data.recordings || [];
@@ -90,12 +107,14 @@ const RecordingComp: React.FC = () => {
         setError("No recordings found for this batch.");
       }
     } catch (err) {
+      console.error("Error fetching recordings:", err);
       setError("No recordings found for this batch. Please try again.");
     } finally {
       setIsLoadingRecordings(false);
     }
   };
 
+  //  Handle dropdown changes
   const handleBatchChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = parseInt(e.target.value);
     const selected = batches.find((batch) => batch.batchid === selectedId);
@@ -119,6 +138,7 @@ const RecordingComp: React.FC = () => {
     }
   };
 
+  //  Format recording title neatly
   const formatVideoTitle = (filename: string) => {
     filename = filename.replace(/class_/gi, "");
     filename = filename.replace(/class/gi, "");
@@ -139,6 +159,7 @@ const RecordingComp: React.FC = () => {
     return filename;
   };
 
+  //  Display YouTube or video link
   const renderVideoPlayer = (video: Video) => {
     if (video.link.includes("youtu.be") || video.link.includes("youtube.com")) {
       const youtubeId = video.videoid;
@@ -155,12 +176,20 @@ const RecordingComp: React.FC = () => {
         ></iframe>
       );
     } else {
-      return <video src={video.link} controls className="mb-2 w-full" />;
+      return (
+        <video
+          src={video.link}
+          controls
+          className="mb-2 w-full rounded-xl border-2 border-gray-500"
+        />
+      );
     }
   };
 
+  //  Render UI
   return (
     <div className="mx-auto mt-6 max-w-full flex-grow space-y-4 sm:mt-0 sm:max-w-3xl">
+      {/* Batch Dropdown */}
       <div className="flex flex-grow flex-col">
         <label htmlFor="dropdown1">Batch:</label>
         <select
@@ -179,7 +208,9 @@ const RecordingComp: React.FC = () => {
               </option>
               {batches.map((batch) => (
                 <option key={batch.batchid} value={batch.batchid}>
-                  {batch.batchname}
+                  {batch.batchid === 99999
+                    ? "Kumar Recordings"
+                    : batch.batchname}
                 </option>
               ))}
             </>
@@ -187,6 +218,7 @@ const RecordingComp: React.FC = () => {
         </select>
       </div>
 
+      {/* Recording Dropdown */}
       <div className="flex flex-grow flex-col justify-between">
         <label htmlFor="dropdown2">Recordings:</label>
         <select
@@ -202,7 +234,9 @@ const RecordingComp: React.FC = () => {
               <option value="">Please select a recording...</option>
               {recordings.map((recording) => (
                 <option key={recording.id} value={recording.id}>
-                  {formatVideoTitle(recording.description)}
+                  {formatVideoTitle(
+                    recording.description || recording.filename
+                  )}
                 </option>
               ))}
             </>
@@ -210,7 +244,10 @@ const RecordingComp: React.FC = () => {
         </select>
       </div>
 
+      {/* Error Message */}
       {error && <p className="text-red-500">{error}</p>}
+
+      {/* Video Player */}
       {selectedVideo && <div>{renderVideoPlayer(selectedVideo)}</div>}
     </div>
   );
