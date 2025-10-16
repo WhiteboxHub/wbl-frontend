@@ -4,7 +4,7 @@ import { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon, PlusCircle, RefreshCw } from "lucide-react";
+import { SearchIcon, PlusCircle, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { toast, Toaster } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -13,6 +13,7 @@ import { createPortal } from "react-dom";
 import { AgGridReact } from "ag-grid-react";
 import type { AgGridReact as AgGridReactType } from "ag-grid-react";
 import type { GridApi } from "ag-grid-community";
+import { useForm } from "react-hook-form";
 
 type Lead = {
   id: number;
@@ -467,9 +468,7 @@ export default function LeadsPage() {
   const [sortModel, setSortModel] = useState([
     { colId: "entry_date", sort: "desc" as "desc" },
   ]);
-  const [newLeadForm, setNewLeadForm] = useState(isNewLead);
-  const [formData, setFormData] = useState<FormData>(initialFormData);
-  const [formSaveLoading, setFormSaveLoading] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(isNewLead);
   const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>(
@@ -481,40 +480,17 @@ export default function LeadsPage() {
     []
   );
 
-  // Helper functions for form dropdown colors
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "open":
-        return { backgroundColor: "#DBEAFE", color: "#1E40AF" };
-      case "closed":
-        return { backgroundColor: "#D1FAE5", color: "#065F46" };
-      case "future":
-        return { backgroundColor: "#EDE9FE", color: "#7C3AED" };
-      default:
-        return { backgroundColor: "#F3F4F6", color: "#374151" };
-    }
-  };
-
-  const getWorkStatusColor = (workstatus: string) => {
-    switch (workstatus.toLowerCase()) {
-      case "waiting for status":
-        return { backgroundColor: "#FFEDD5", color: "#9A3412" };
-      case "h1b":
-        return { backgroundColor: "#DBEAFE", color: "#1E40AF" };
-      case "h4 ead":
-        return { backgroundColor: "#FCE7F3", color: "#BE185D" };
-      case "permanent resident":
-        return { backgroundColor: "#D1FAE5", color: "#065F46" };
-      case "citizen":
-        return { backgroundColor: "#E0E7FF", color: "#4338CA" };
-      case "opt":
-        return { backgroundColor: "#FEF3C7", color: "#92400E" };
-      case "cpt":
-        return { backgroundColor: "#FEF3C7", color: "#B45309" };
-      default:
-        return { backgroundColor: "#F3F4F6", color: "#374151" };
-    }
-  };
+  // React Hook Form
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+    setValue,
+    watch,
+  } = useForm<FormData>({
+    defaultValues: initialFormData,
+  });
 
   const fetchLeads = useCallback(
     async (
@@ -627,36 +603,17 @@ export default function LeadsPage() {
     return "full_name";
   };
 
-  const handleNewLeadFormChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
-  ) => {
-    const { name, value, type } = e.target;
-    if (type === "checkbox") {
-      const checked = (e.target as HTMLInputElement).checked;
-      setFormData((prev) => ({ ...prev, [name]: checked }));
-    } else if (name === "phone" || name === "secondary_phone") {
-      const numericValue = value.replace(/\D/g, "");
-      setFormData((prev) => ({ ...prev, [name]: numericValue }));
-    } else if (name === "address") {
-      const sanitizedValue = value.replace(/[^a-zA-Z0-9, ]/g, "");
-      setFormData((prev) => ({ ...prev, [name]: sanitizedValue }));
-    } else if (name === "full_name") {
-      const sanitizedValue = value.replace(/[^a-zA-Z. ]/g, "");
-      setFormData((prev) => ({ ...prev, [name]: sanitizedValue }));
-    } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
+  // Form submission with react-hook-form
+  const onSubmit = async (data: FormData) => {
+    if (!data.full_name.trim() || !data.email.trim() || !data.phone.trim()) {
+      toast.error("Full Name, Email, and Phone are required");
+      return;
     }
-  };
 
-  const handleNewLeadFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormSaveLoading(true);
     try {
-      const updatedData = { ...formData };
+      const updatedData = { ...data };
       if (!updatedData.status || updatedData.status === "") {
-        updatedData.status = "waiting for status";
+        updatedData.status = "Open";
       }
       if (!updatedData.workstatus || updatedData.workstatus === "") {
         updatedData.workstatus = "Waiting for Status";
@@ -664,12 +621,7 @@ export default function LeadsPage() {
       if (updatedData.moved_to_candidate) {
         updatedData.status = "Closed";
       }
-      if (!updatedData.status || updatedData.status === "") {
-        updatedData.status = updatedData.moved_to_candidate ? "Closed" : "Open";
-      }
-      if (!updatedData.workstatus || updatedData.workstatus === "") {
-        updatedData.workstatus = "Waiting for Status";
-      }
+
       const booleanFields = [
         "moved_to_candidate",
         "massemail_email_sent",
@@ -677,13 +629,14 @@ export default function LeadsPage() {
       ];
       booleanFields.forEach((field) => {
         if (
-          updatedData[field] === undefined ||
-          updatedData[field] === null ||
-          updatedData[field] === ""
+          updatedData[field as keyof FormData] === undefined ||
+          updatedData[field as keyof FormData] === null ||
+          updatedData[field as keyof FormData] === ""
         ) {
-          updatedData[field] = false;
+          (updatedData[field as keyof FormData] as boolean) = false;
         }
       });
+
       const payload = {
         ...updatedData,
         entry_date: new Date().toISOString(),
@@ -692,33 +645,47 @@ export default function LeadsPage() {
             ? new Date().toISOString().split("T")[0]
             : null,
       };
+
       const response = await fetch(apiEndpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
         body: JSON.stringify(payload),
       });
+
       if (!response.ok) throw new Error("Failed to create lead");
-      toast.success("Lead created successfully!");
-      setNewLeadForm(false);
-      setFormData(initialFormData);
-      fetchLeads(searchTerm, searchBy, sortModel);
+
+      const newLead = await response.json();
+
+      const updated = [...leads, newLead].sort(
+        (a, b) =>
+          new Date(b.entry_date || 0).getTime() -
+          new Date(a.entry_date || 0).getTime()
+      );
+      setLeads(updated);
+      setFilteredLeads(updated);
+
+      toast.success("Lead created successfully!", { position: "top-center" });
+      setIsModalOpen(false);
+      reset();
+      router.push("/avatar/leads");
     } catch (error) {
-      toast.error("Failed to create lead");
+      toast.error("Failed to create lead", { position: "top-center" });
       console.error("Error creating lead:", error);
-    } finally {
-      setFormSaveLoading(false);
     }
   };
 
-  const handleOpenNewLeadForm = () => {
+  const handleOpenModal = () => {
     router.push("/avatar/leads?newlead=true");
-    setNewLeadForm(true);
+    setIsModalOpen(true);
   };
 
-  const handleCloseNewLeadForm = () => {
+  const handleCloseModal = () => {
     router.push("/avatar/leads");
-    setNewLeadForm(false);
-    setFormData(initialFormData);
+    setIsModalOpen(false);
+    reset();
   };
 
   const handleRowUpdated = useCallback(
@@ -738,7 +705,10 @@ export default function LeadsPage() {
         payload.massemail_email_sent = Boolean(payload.massemail_email_sent);
         const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
           body: JSON.stringify(payload),
         });
         if (!response.ok) {
@@ -769,6 +739,9 @@ export default function LeadsPage() {
       try {
         const response = await fetch(`${apiEndpoint}/${id}`, {
           method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
         });
         if (!response.ok) throw new Error("Failed to delete candidate");
         const rowNode = gridRef.current?.api.getRowNode(id.toString());
@@ -796,7 +769,10 @@ export default function LeadsPage() {
         };
         const response = await fetch(url, {
           method,
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
           body: JSON.stringify(payload),
         });
         if (!response.ok) {
@@ -838,7 +814,7 @@ export default function LeadsPage() {
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        handleCloseNewLeadForm();
+        handleCloseModal();
       }
     };
     window.addEventListener("keydown", handleEsc);
@@ -965,21 +941,21 @@ export default function LeadsPage() {
               })
             : "-",
       },
-          {
-            field: "notes",
-            headerName: "Notes",
-            width: 300,
-            sortable: true,
-            cellRenderer: (params: any) => {
-              if (!params.value) return "";
-              return (
-                <div
-                  className="prose prose-sm max-w-none dark:prose-invert"
-                  dangerouslySetInnerHTML={{ __html: params.value }}
-                />
-              );
-            },
-          },
+      {
+        field: "notes",
+        headerName: "Notes",
+        width: 300,
+        sortable: true,
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          return (
+            <div
+              className="prose prose-sm dark:prose-invert max-w-none"
+              dangerouslySetInnerHTML={{ __html: params.value }}
+            />
+          );
+        },
+      },
       {
         field: "massemail_unsubscribe",
         headerName: "Mass Email Unsubscribe",
@@ -1081,7 +1057,7 @@ export default function LeadsPage() {
         {/* Right side: Button */}
         <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
           <Button
-            onClick={handleOpenNewLeadForm}
+            onClick={handleOpenModal}
             className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700"
           >
             <PlusCircle className="mr-2 h-4 w-4" />
@@ -1105,176 +1081,252 @@ export default function LeadsPage() {
           height="600px"
         />
       </div>
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 p-2 sm:p-4">
+          <div className="w-full max-w-sm rounded-xl bg-white shadow-2xl sm:max-w-md sm:rounded-2xl md:max-w-2xl">
+            {/* Header */}
+            <div className="sticky top-0 flex items-center justify-between border-b border-blue-200 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 py-2 sm:px-4 sm:py-2 md:px-6">
+              <h2 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-sm font-semibold text-transparent sm:text-base md:text-lg">
+                Add New Lead
+              </h2>
+              <button
+                onClick={handleCloseModal}
+                className="rounded-lg p-1 text-blue-400 transition hover:bg-blue-100 hover:text-blue-600"
+              >
+                <X size={16} className="sm:h-5 sm:w-5" />
+              </button>
+            </div>
 
-      {newLeadForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="relative min-h-[40vh] w-full max-w-xl rounded-lg bg-white p-4 shadow-md">
-            <h2 className="mb-4 text-center text-xl font-semibold">
-              New Lead Form
-            </h2>
-            <form className="grid grid-cols-1 gap-2 md:grid-cols-2">
-              {Object.entries({
-                full_name: {
-                  label: "Full Name *",
-                  type: "text",
-                  required: true,
-                },
-                email: { label: "Email *", type: "email", required: true },
-                phone: { label: "Phone *", type: "tel", required: true },
-                secondary_email: { label: "Secondary Email", type: "email" },
-                secondary_phone: { label: "Secondary Phone", type: "tel" },
-                workstatus: {
-                  label: "Work Status",
-                  type: "select",
-                  options: workStatusOptions,
-                  required: true,
-                },
-                address: { label: "Address", type: "text" },
-                status: {
-                  label: "Status",
-                  type: "select",
-                  options: statusOptions,
-                  required: true,
-                },
-                notes: { label: "Notes (optional)", type: "textarea" },
-                moved_to_candidate: {
-                  label: "Moved to Candidate",
-                  type: "checkbox",
-                },
-                massemail_unsubscribe: {
-                  label: "Mass Email Unsubscribe",
-                  type: "checkbox",
-                },
-                massemail_email_sent: {
-                  label: "Mass Email Sent",
-                  type: "checkbox",
-                },
-              }).map(([name, config]) => (
-                <div
-                  key={name}
-                  className={config.type === "textarea" ? "md:col-span-2" : ""}
-                >
-                  <label
-                    htmlFor={name}
-                    className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {config.label}
-                  </label>
-                  {config.type === "select" ? (
+            {/* Form */}
+            <div className="bg-white p-3 sm:p-4 md:p-5">
+              <form onSubmit={handleSubmit(onSubmit)}>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 md:gap-4">
+                  {/* Full Name */}
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                      Full Name <span className="text-red-700">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      {...register("full_name", {
+                        required: "Full name is required",
+                        maxLength: {
+                          value: 100,
+                          message: "Full name cannot exceed 100 characters",
+                        },
+                      })}
+                      placeholder="Enter full name"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    />
+                    {errors.full_name && (
+                      <p className="mt-1 text-xs text-red-600">
+                        {errors.full_name.message}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Email */}
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                      Email <span className="text-red-700">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      {...register("email", {
+                        required: "Email is required",
+                        pattern: {
+                          value: /^\S+@\S+\.\S+$/,
+                          message: "Invalid email address",
+                        },
+                      })}
+                      placeholder="Enter email"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    />
+                    {errors.email && (
+                      <p className="mt-1 text-xs text-red-600">
+                        {errors.email.message}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Phone */}
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                      Phone <span className="text-red-700">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      {...register("phone", {
+                        required: "Phone is required",
+                        pattern: {
+                          value: /^\d+$/,
+                          message: "Phone must contain only numbers",
+                        },
+                      })}
+                      placeholder="Enter phone number"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                      onInput={(e) => {
+                        // Remove any non-digit characters
+                        e.currentTarget.value = e.currentTarget.value.replace(
+                          /\D/g,
+                          ""
+                        );
+                      }}
+                    />
+                    {errors.phone && (
+                      <p className="mt-1 text-xs text-red-600">
+                        {errors.phone.message}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Status */}
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                      Status
+                    </label>
                     <select
-                      id={name}
-                      name={name}
-                      value={
-                        (formData[name as keyof FormData] as string) ||
-                        "Waiting for Status"
-                      }
-                      onChange={handleNewLeadFormChange}
-                      className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
-                      style={
-                        name === "status"
-                          ? getStatusColor(formData.status)
-                          : name === "workstatus"
-                          ? getWorkStatusColor(formData.workstatus)
-                          : {}
-                      }
-                      required={config.required}
+                      {...register("status")}
+                      className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     >
-                      {config.options?.map((option) => (
-                        <option
-                          key={option}
-                          value={option}
-                          style={
-                            name === "status"
-                              ? getStatusColor(option)
-                              : name === "workstatus"
-                              ? getWorkStatusColor(option)
-                              : {}
-                          }
-                        >
+                      {statusOptions.map((option) => (
+                        <option key={option} value={option}>
                           {option}
                         </option>
                       ))}
                     </select>
-                  ) : config.type === "textarea" ? (
-                    <textarea
-                      id={name}
-                      name={name}
-                      value={formData[name as keyof FormData] as string}
-                      onChange={handleNewLeadFormChange}
-                      rows={3}
-                      className="w-full rounded-sm border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+                  </div>
+
+                  {/* Work Status */}
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                      Work Status
+                    </label>
+                    <select
+                      {...register("workstatus")}
+                      className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    >
+                      {workStatusOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Secondary Email */}
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                      Secondary Email
+                    </label>
+                    <input
+                      type="email"
+                      {...register("secondary_email")}
+                      placeholder="Enter secondary email"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
-                  ) : config.type === "checkbox" ? (
-                    <div className="flex items-center space-x-2">
+                  </div>
+
+                  {/* Secondary Phone */}
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                      Secondary Phone
+                    </label>
+                    <input
+                      type="tel"
+                      {...register("secondary_phone")}
+                      placeholder="Enter secondary phone"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                      onInput={(e) => {
+                        // Remove any non-digit characters
+                        e.currentTarget.value = e.currentTarget.value.replace(
+                          /\D/g,
+                          ""
+                        );
+                      }}
+                    />
+                  </div>
+
+                  {/* Address */}
+                  <div className="space-y-1 sm:col-span-2">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                      Address
+                    </label>
+                    <input
+                      type="text"
+                      {...register("address")}
+                      placeholder="Enter address"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    />
+                  </div>
+
+                  {/* Notes */}
+                  <div className="space-y-1 sm:col-span-2">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                      Notes
+                    </label>
+                    <textarea
+                      {...register("notes")}
+                      placeholder="Enter notes..."
+                      className="w-full resize-none rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    />
+                  </div>
+
+                  {/* Checkboxes */}
+                  <div className="grid grid-cols-1 gap-2 pt-1 sm:col-span-2 sm:grid-cols-3">
+                    <label className="flex items-center space-x-2">
                       <input
                         type="checkbox"
-                        id={name}
-                        name={name}
-                        checked={formData[name as keyof FormData] as boolean}
-                        onChange={handleNewLeadFormChange}
-                        className="h-4 w-4"
+                        {...register("moved_to_candidate")}
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
-                      <label
-                        htmlFor={name}
-                        className="text-sm text-gray-700 dark:text-gray-300"
-                      >
-                        {config.label}
-                      </label>
-                    </div>
-                  ) : (
-                    <input
-                      type={config.type}
-                      id={name}
-                      name={name}
-                      value={formData[name as keyof FormData] as string}
-                      onChange={handleNewLeadFormChange}
-                      className="w-full rounded-sm border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
-                      required={config.required}
-                    />
-                  )}
+                      <span className="text-xs text-gray-700 sm:text-sm">
+                        Moved to Candidate
+                      </span>
+                    </label>
+
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        {...register("massemail_unsubscribe")}
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-xs text-gray-700 sm:text-sm">
+                        Mass Email Unsubscribe
+                      </span>
+                    </label>
+
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        {...register("massemail_email_sent")}
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-xs text-gray-700 sm:text-sm">
+                        Mass Email Sent
+                      </span>
+                    </label>
+                  </div>
                 </div>
-              ))}
-              <div className="md:col-span-2">
-                <label
-                  htmlFor="entry_date"
-                  className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  Entry Date
-                </label>
-                <input
-                  type="date"
-                  id="entry_date"
-                  name="entry_date"
-                  value={
-                    formData.entry_date ||
-                    new Date().toISOString().split("T")[0]
-                  }
-                  onChange={handleNewLeadFormChange}
-                  className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <button
-                  type="submit"
-                  disabled={formSaveLoading}
-                  onClick={handleNewLeadFormSubmit}
-                  className={`w-full rounded-md py-2 transition duration-200 ${
-                    formSaveLoading
-                      ? "cursor-not-allowed bg-gray-400"
-                      : "bg-green-600 text-white hover:bg-green-700"
-                  }`}
-                >
-                  {formSaveLoading ? "Saving..." : "Save"}
-                </button>
-              </div>
-            </form>
-            <button
-              onClick={handleCloseNewLeadForm}
-              className="absolute right-3 top-3 text-2xl leading-none text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              aria-label="Close"
-            >
-              &times;
-            </button>
+
+                {/* Footer */}
+                <div className="mt-3 flex justify-end gap-2 border-t border-blue-200 pt-2 sm:mt-3 sm:gap-3 sm:pt-2 md:mt-4 md:pt-3">
+                  <button
+                    type="button"
+                    onClick={handleCloseModal}
+                    className="rounded-lg border border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-700 transition hover:bg-blue-50 sm:px-4 sm:py-2 sm:text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 px-3 py-1.5 text-xs font-medium text-white shadow-md transition hover:from-cyan-600 hover:to-blue-600 sm:px-5 sm:py-2 sm:text-sm"
+                  >
+                    Save Lead
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

@@ -7,12 +7,13 @@ import { Button } from "@/components/admin_ui/button";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon, PlusIcon } from "lucide-react";
+import { SearchIcon, PlusIcon, X } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import axios from "axios";
 import { toast, Toaster } from "sonner";
 import { createPortal } from "react-dom";
+import { useForm } from "react-hook-form";
 
 // Generic Filter Component
 interface FilterOption {
@@ -252,6 +253,35 @@ const CandidateNameRenderer = (params: any) => {
   );
 };
 
+// Form Data Type
+type InterviewFormData = {
+  candidate_id: string;
+  candidate_name: string;
+  company: string;
+  company_type: string;
+  interviewer_emails: string;
+  interviewer_contact: string;
+  interviewer_linkedin: string;
+  interview_date: string;
+  mode_of_interview: string;
+  type_of_interview: string;
+  notes: string;
+};
+
+const initialFormData: InterviewFormData = {
+  candidate_id: "",
+  candidate_name: "",
+  company: "",
+  company_type: "",
+  interviewer_emails: "",
+  interviewer_contact: "",
+  interviewer_linkedin: "",
+  interview_date: "",
+  mode_of_interview: "",
+  type_of_interview: "",
+  notes: "",
+};
+
 export default function CandidatesInterviews() {
   const [searchTerm, setSearchTerm] = useState("");
   const [interviews, setInterviews] = useState<any[]>([]);
@@ -261,21 +291,21 @@ export default function CandidatesInterviews() {
   const [perPage, setPerPage] = useState(50);
   const [total, setTotal] = useState(0);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newInterview, setNewInterview] = useState<any>({
-    candidate_id: "",
-    candidate_name: "",
-    company: "",
-    company_type: "",
-    interviewer_emails: "",
-    interviewer_contact: "",
-    interview_date: "",
-    mode_of_interview: "",
-    type_of_interview: "",
-    notes: "",
-  });
   const [candidates, setCandidates] = useState<any[]>([]);
   const [selectedModes, setSelectedModes] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+
+  // React Hook Form
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+    setValue,
+    watch,
+  } = useForm<InterviewFormData>({
+    defaultValues: initialFormData,
+  });
 
   const modeOfInterviewOptions = [
     { value: "phone", label: "Phone" },
@@ -496,39 +526,74 @@ export default function CandidatesInterviews() {
     }
   };
 
-  const handleAddInterview = async () => {
-    if (!newInterview.candidate_id || !newInterview.company) {
+  // Form submission with react-hook-form
+  const onSubmit = async (data: InterviewFormData) => {
+    if (!data.candidate_id || !data.company.trim()) {
       toast.error("Candidate and Company are required!");
       return;
     }
+
     try {
-      const payload = { ...newInterview, candidate_id: Number(newInterview.candidate_id) };
+      const payload = { 
+        ...data, 
+        candidate_id: Number(data.candidate_id),
+        interviewer_emails: data.interviewer_emails || null,
+        interviewer_contact: data.interviewer_contact || null,
+        interviewer_linkedin: data.interviewer_linkedin || null,
+        notes: data.notes || null
+      };
+      
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/interviews`,
         payload,
         { headers: getAuthHeaders() }
       );
+      
       setInterviews((prev) => [res.data, ...prev]);
       setShowAddForm(false);
-      setNewInterview({
-        candidate_id: "",
-        candidate_name: "",
-        company: "",
-        company_type: "",
-        interviewer_emails: "",
-        interviewer_contact: "",
-        interviewer_linkedin: "",
-        interview_date: "",
-        mode_of_interview: "",
-        type_of_interview: "",
-        notes: "",
-      });
+      reset();
       toast.success('Interview added successfully!');
     } catch (err: any) {
       console.error("Failed to add interview:", err.response?.data || err);
       toast.error("Failed to add interview. Make sure all fields are valid.");
     }
   };
+
+  const handleOpenModal = () => {
+    setShowAddForm(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowAddForm(false);
+    reset();
+  };
+
+  // Handle candidate selection
+  const handleCandidateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedCandidate = candidates.find(
+      (m) => m.candidate.id.toString() === e.target.value
+    );
+    
+    if (selectedCandidate) {
+      setValue("candidate_id", selectedCandidate.candidate.id.toString());
+      setValue("candidate_name", selectedCandidate.candidate.full_name);
+    } else {
+      setValue("candidate_id", "");
+      setValue("candidate_name", "");
+    }
+  };
+
+  useEffect(() => {
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        handleCloseModal();
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => {
+      window.removeEventListener("keydown", handleEsc);
+    };
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -538,7 +603,7 @@ export default function CandidatesInterviews() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Interviews</h1>
           <p className="text-gray-600 dark:text-gray-400">Candidates scheduled for interviews</p>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white flex items-center" onClick={() => setShowAddForm(true)}>
+        <Button className="bg-blue-600 hover:bg-blue-700 text-white flex items-center" onClick={handleOpenModal}>
           <PlusIcon className="h-4 w-4 mr-2" /> Add Interview
         </Button>
       </div>
@@ -575,167 +640,219 @@ export default function CandidatesInterviews() {
           </div>
         </div>
       )}
-      {/* Add Interview Modal */}
+      
+      {/* Add Interview Modal with React Hook Form */}
       {showAddForm && (
-        <div
-          className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50"
-          onClick={() => setShowAddForm(false)}
-        >
-          <div
-            className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-            tabIndex={-1}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") setShowAddForm(false);
-            }}
-          >
-            <h2 className="text-xl font-bold mb-4">Add Interview</h2>
-            <div className="space-y-4">
-              {/* Candidate Dropdown */}
-              <div>
-                <Label htmlFor="candidate_id">Candidate Name</Label>
-                <select
-                  id="candidate_id"
-                  value={newInterview.candidate_id}
-                  onChange={(e) => {
-                    const selected = candidates.find(
-                      (m) => m.candidate.id.toString() === e.target.value
-                    );
-                    setNewInterview({
-                      ...newInterview,
-                      candidate_id: selected?.candidate.id || "",
-                      candidate_name: selected?.candidate.full_name || "",
-                    });
-                  }}
-                  className="w-full p-2 border rounded"
-                >
-                  <option value="">Select Candidate</option>
-                  {candidates.map((m) => (
-                    <option key={m.candidate.id} value={m.candidate.id}>
-                      {m.candidate.full_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {/* Company */}
-              <div>
-                <Label htmlFor="company">Company</Label>
-                <Input
-                  id="company"
-                  placeholder="Enter company name"
-                  value={newInterview.company}
-                  onChange={(e) =>
-                    setNewInterview({ ...newInterview, company: e.target.value })
-                  }
-                />
-              </div>
-              {/* Company Type */}
-              <div>
-                <Label htmlFor="company_type">Company Type</Label>
-                <select
-                  id="company_type"
-                  value={newInterview.company_type}
-                  onChange={(e) => setNewInterview({ ...newInterview, company_type: e.target.value })}
-                  className="w-full p-2 border rounded"
-                >
-                  <option value="">Select Company Type</option>
-                  <option value="client">Client</option>
-                  <option value="third-party-vendor">Third-Party Vendor</option>
-                  <option value="implementation-partner">Implementation Partner</option>
-                  <option value="sourcer">Sourcer</option>
-                  <option value="contact-from-ip">Contact from IP</option>
-                </select>
-              </div>
-              {/* Interview Date */}
-              <div>
-                <Label htmlFor="interview_date">Interview Date</Label>
-                <Input
-                  type="date"
-                  id="interview_date"
-                  value={newInterview.interview_date}
-                  onChange={(e) => setNewInterview({ ...newInterview, interview_date: e.target.value })}
-                />
-              </div>
-              {/* Mode of Interview */}
-              <div>
-                <Label htmlFor="mode_of_interview">Mode of Interview</Label>
-                <select
-                  id="mode_of_interview"
-                  value={newInterview.mode_of_interview}
-                  onChange={(e) => setNewInterview({ ...newInterview, mode_of_interview: e.target.value })}
-                  className="w-full p-2 border rounded"
-                >
-                  <option value="">Select Mode</option>
-                  <option value="Virtual">Virtual</option>
-                  <option value="In Person">In Person</option>
-                  <option value="Phone">Phone</option>
-                  <option value="Assessment">Assessment</option>
-                </select>
-              </div>
-              {/* Type of Interview */}
-              <div>
-                <Label htmlFor="type_of_interview">Type of Interview</Label>
-                <select
-                  id="type_of_interview"
-                  value={newInterview.type_of_interview}
-                  onChange={(e) => setNewInterview({ ...newInterview, type_of_interview: e.target.value })}
-                  className="w-full p-2 border rounded"
-                >
-                  <option value="">Select Type</option>
-                  <option value="Technical">Technical</option>
-                  <option value="HR Round">HR Round</option>
-                  <option value="Phone">Phone</option>
-                  <option value="In Person">In Person</option>
-                  <option value="Assessment">Assessment</option>
-                  <option value="Prep Call">Prep Call</option>
-                  <option value="Prep Call">AI Interview</option>
-                </select>
-              </div>
-              {/* Interviewer Emails */}
-              <div>
-                <Label htmlFor="interviewer_emails">Interviewer Emails</Label>
-                <Input
-                  id="interviewer_emails"
-                  placeholder="Enter emails"
-                  value={newInterview.interviewer_emails}
-                  onChange={(e) => setNewInterview({ ...newInterview, interviewer_emails: e.target.value })}
-                />
-              </div>
-              {/* Interviewer Contact */}
-              <div>
-                <Label htmlFor="interviewer_contact">Interviewer Contact</Label>
-                <Input
-                  id="interviewer_contact"
-                  placeholder="Enter contact"
-                  value={newInterview.interviewer_contact}
-                  onChange={(e) => setNewInterview({ ...newInterview, interviewer_contact: e.target.value })}
-                />
-              </div>
-              {/* Interviewer Linkedin */}
-              <div>
-                <Label htmlFor="interviewer_linkedin">Interviewer Linkedin</Label>
-                <Input
-                  id="interviewer_linkedin"
-                  placeholder="Enter Linkedin"
-                  value={newInterview.interviewer_linkedin}
-                  onChange={(e) => setNewInterview({ ...newInterview, interviewer_linkedin: e.target.value })}
-                />
-              </div>
-              {/* Notes */}
-              <div>
-                <Label htmlFor="notes">Notes</Label>
-                <textarea
-                  id="notes"
-                  className="w-full p-2 border rounded"
-                  rows={4}
-                  value={newInterview.notes}
-                  onChange={(e) => setNewInterview({ ...newInterview, notes: e.target.value })}
-                />
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4">
+          <div className="w-full max-w-2xl rounded-xl bg-white shadow-2xl dark:bg-gray-800 max-h-[85vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 flex items-center justify-between border-b border-blue-200 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 py-3">
+              <h2 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-lg font-semibold text-transparent">
+                Add Interview
+              </h2>
+              <button
+                onClick={handleCloseModal}
+                className="rounded-lg p-1 text-blue-400 transition hover:bg-blue-100 hover:text-blue-600"
+              >
+                <X size={20} />
+              </button>
             </div>
-            <div className="flex justify-end mt-6 space-x-3">
-              <button onClick={() => setShowAddForm(false)} className="px-4 py-2 bg-gray-300 rounded">Cancel</button>
-              <button onClick={handleAddInterview} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save</button>
+
+            {/* Form */}
+            <div className="p-4">
+              <form onSubmit={handleSubmit(onSubmit)}>
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                  {/* Candidate Dropdown */}
+                  <div className="space-y-2">
+                    <Label htmlFor="candidate_id" className="text-sm font-bold text-blue-700">
+                      Candidate Name <span className="text-red-700">*</span>
+                    </Label>
+                    <select
+                      id="candidate_id"
+                      {...register("candidate_id", { required: "Candidate is required" })}
+                      onChange={handleCandidateChange}
+                      className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    >
+                      <option value="">Select Candidate</option>
+                      {candidates.map((m) => (
+                        <option key={m.candidate.id} value={m.candidate.id}>
+                          {m.candidate.full_name}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.candidate_id && (
+                      <p className="mt-1 text-xs text-red-600">{errors.candidate_id.message}</p>
+                    )}
+                  </div>
+
+                  {/* Company */}
+                  <div className="space-y-2">
+                    <Label htmlFor="company" className="text-sm font-bold text-blue-700">
+                      Company <span className="text-red-700">*</span>
+                    </Label>
+                    <input
+                      type="text"
+                      id="company"
+                      {...register("company", { 
+                        required: "Company is required",
+                        maxLength: {
+                          value: 100,
+                          message: "Company name cannot exceed 100 characters"
+                        }
+                      })}
+                      placeholder="Enter company name"
+                      className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                    {errors.company && (
+                      <p className="mt-1 text-xs text-red-600">{errors.company.message}</p>
+                    )}
+                  </div>
+
+                  {/* Company Type */}
+                  <div className="space-y-2">
+                    <Label htmlFor="company_type" className="text-sm font-bold text-blue-700">
+                      Company Type
+                    </Label>
+                    <select
+                      id="company_type"
+                      {...register("company_type")}
+                      className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    >
+                      <option value="">Select Company Type</option>
+                      <option value="client">Client</option>
+                      <option value="third-party-vendor">Third-Party Vendor</option>
+                      <option value="implementation-partner">Implementation Partner</option>
+                      <option value="sourcer">Sourcer</option>
+                      <option value="contact-from-ip">Contact from IP</option>
+                    </select>
+                  </div>
+
+                  {/* Interview Date */}
+                  <div className="space-y-2">
+                    <Label htmlFor="interview_date" className="text-sm font-bold text-blue-700">
+                      Interview Date
+                    </Label>
+                    <input
+                      type="date"
+                      id="interview_date"
+                      {...register("interview_date")}
+                      className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                  </div>
+
+                  {/* Mode of Interview */}
+                  <div className="space-y-2">
+                    <Label htmlFor="mode_of_interview" className="text-sm font-bold text-blue-700">
+                      Mode of Interview
+                    </Label>
+                    <select
+                      id="mode_of_interview"
+                      {...register("mode_of_interview")}
+                      className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    >
+                      <option value="">Select Mode</option>
+                      <option value="Virtual">Virtual</option>
+                      <option value="In Person">In Person</option>
+                      <option value="Phone">Phone</option>
+                      <option value="Assessment">Assessment</option>
+                    </select>
+                  </div>
+
+                  {/* Type of Interview */}
+                  <div className="space-y-2">
+                    <Label htmlFor="type_of_interview" className="text-sm font-bold text-blue-700">
+                      Type of Interview
+                    </Label>
+                    <select
+                      id="type_of_interview"
+                      {...register("type_of_interview")}
+                      className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    >
+                      <option value="">Select Type</option>
+                      <option value="Technical">Technical</option>
+                      <option value="Recruiter Call">Recruiter Call</option>
+                      <option value="HR Round">HR Round</option>
+                      <option value="In Person">In Person</option>
+                      <option value="Assessment">Assessment</option>
+                      <option value="Prep Call">Prep Call</option>
+                      <option value="AI Interview">AI Interview</option>
+                    </select>
+                  </div>
+
+                  {/* Interviewer Emails */}
+                  <div className="space-y-2">
+                    <Label htmlFor="interviewer_emails" className="text-sm font-bold text-blue-700">
+                      Interviewer Emails
+                    </Label>
+                    <input
+                      type="text"
+                      id="interviewer_emails"
+                      {...register("interviewer_emails")}
+                      placeholder="Enter emails (comma separated)"
+                      className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                  </div>
+
+                  {/* Interviewer Contact */}
+                  <div className="space-y-2">
+                    <Label htmlFor="interviewer_contact" className="text-sm font-bold text-blue-700">
+                      Interviewer Contact
+                    </Label>
+                    <input
+                      type="text"
+                      id="interviewer_contact"
+                      {...register("interviewer_contact")}
+                      placeholder="Enter contact number"
+                      className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                  </div>
+
+                  {/* Interviewer LinkedIn */}
+                  <div className="space-y-2">
+                    <Label htmlFor="interviewer_linkedin" className="text-sm font-bold text-blue-700">
+                      Interviewer LinkedIn
+                    </Label>
+                    <input
+                      type="text"
+                      id="interviewer_linkedin"
+                      {...register("interviewer_linkedin")}
+                      placeholder="Enter LinkedIn profile URL"
+                      className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                  </div>
+
+                  {/* Notes */}
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="notes" className="text-sm font-bold text-blue-700">
+                      Notes
+                    </Label>
+                    <textarea
+                      id="notes"
+                      {...register("notes")}
+                      placeholder="Enter notes..."
+                      rows={1}
+                      className="w-full resize-none rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="mt-6 flex justify-end gap-3 border-t border-blue-200 pt-4">
+                  <button
+                    type="button"
+                    onClick={handleCloseModal}
+                    className="rounded-lg border border-blue-300 px-4 py-2 text-sm font-medium text-blue-700 transition hover:bg-blue-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 px-4 py-2 text-sm font-medium text-white shadow-md transition hover:from-cyan-600 hover:to-blue-600"
+                  >
+                    Save Interview
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
