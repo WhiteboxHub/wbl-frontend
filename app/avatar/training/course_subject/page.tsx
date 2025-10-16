@@ -108,11 +108,11 @@ export default function CourseSubjectPage() {
   };
   const fetchCourses = async () => {
     try {
-      const token = localStorage.getItem("token"); // ✅ get token
+      const token = localStorage.getItem("token"); 
       const res = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/courses`,
         {
-          headers: { Authorization: `Bearer ${token}` }, // ✅ pass token
+          headers: { Authorization: `Bearer ${token}` }, 
         }
       );
 
@@ -128,11 +128,11 @@ export default function CourseSubjectPage() {
 
   const fetchSubjects = async () => {
     try {
-      const token = localStorage.getItem("token"); // ✅ get token
+      const token = localStorage.getItem("token");
       const res = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/subjects`,
         {
-          headers: { Authorization: `Bearer ${token}` }, // ✅ pass token
+          headers: { Authorization: `Bearer ${token}` }, 
         }
       );
 
@@ -308,47 +308,45 @@ export default function CourseSubjectPage() {
   return (
     <div className="space-y-6">
       <Toaster richColors position="top-center" />
-      {/* Header + Search Section (Responsive) */}
-      <div className="flex flex-col gap-4 sm:flex-col md:flex-row md:items-center md:justify-between">
-        {/* Left: Title and Description */}
+      
+      {/* Header Section */}
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold">Course-Subject Relationships</h1>
+          <h1 className="text-2xl font-bold ">
+            Course-Subject Relationships
+          </h1>
           <p>
-            Manage mappings between courses and subjects. Total mappings:{" "}
-            {courseSubjects.length}
+            Manage mappings between courses and subjects.
           </p>
         </div>
-
-        {/* Right: Search + Add Button (Responsive) */}
-        <div className="flex w-full flex-col items-stretch gap-2 sm:flex-row sm:items-center md:w-auto">
-          {/* Search Box */}
-          <div className="relative flex-1">
-            <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <Input
-              id="search"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Enter course or subject name or id..."
-              className="w-full pl-10"
-            />
-          </div>
-
-          {/* Add Mapping Button */}
-          <Button
-            className="w-full sm:w-auto"
-            size="sm"
-            onClick={() => setShowModal(true)}
-          >
-            <PlusIcon className="mr-2 h-4 w-4" />
+        <div className="flex gap-2">
+          <Button onClick={() => setShowModal(true)} size="sm">
+            <PlusIcon className="h-4 w-4 mr-2" />
             Add Mapping
           </Button>
+        </div>
+       </div>
+
+      <div className="max-w-md">
+        <Label htmlFor="search" className="text-sm font-medium">
+          Search 
+        </Label>
+        <div className="relative mt-1">
+          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            id="search"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Enter course or subject name or id..."
+            className="pl-10"
+          />
         </div>
       </div>
 
       <AGGridTable
         rowData={filteredCourseSubjects}
         columnDefs={columnDefs}
-        title={`Course-Subject Mappings (${filteredCourseSubjects.length} results)`}
+        title={`Course-Subject (${filteredCourseSubjects.length} results)`}
         height="calc(70vh - 100px)"
         onRowDeleted={handleRowDeleted}
         showSearch={false}
@@ -357,7 +355,7 @@ export default function CourseSubjectPage() {
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="max-w-sm p-4">
           <DialogHeader>
-            <DialogTitle>Add Course-Subject Mapping</DialogTitle>
+            <DialogTitle>Add Mapping</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>

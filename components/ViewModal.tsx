@@ -1,11 +1,10 @@
-//updated esc functionality
 
 "use client";
 import { useForm } from "react-hook-form";
 import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { Badge } from "@/components/admin_ui/badge";
-// import { useRef } from "react";
+
 
 interface ViewModalProps {
   isOpen: boolean;
@@ -254,7 +253,6 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
   const { register, watch, setValue, reset } = useForm();
   const modalRef = useRef<HTMLDivElement>(null);
 
-  // Handle ESC key press
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && isOpen) {
@@ -269,7 +267,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     };
   }, [isOpen, onClose]);
 
-  // Handle outside click
+  
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
       if (modalRef.current && !modalRef.current.contains(event.target as Node) && isOpen) {
@@ -390,35 +388,45 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
   };
 
   const flattenData = (data: Record<string, any>) => {
-    const flattened: Record<string, any> = { ...data };
-    if (data.candidate) flattened.candidate_full_name = data.candidate.full_name;
-    if (data.instructor1) flattened.instructor1_name = data.instructor1.name;
-    if (data.instructor2) flattened.instructor2_name = data.instructor2.name;
-    if (data.instructor3) flattened.instructor3_name = data.instructor3.name;
+  const flattened: Record<string, any> = { ...data };
+  if (data.candidate) flattened.candidate_full_name = data.candidate.full_name;
+  if (data.instructor1) flattened.instructor1_name = data.instructor1.name;
+  if (data.instructor2) flattened.instructor2_name = data.instructor2.name;
+  if (data.instructor3) flattened.instructor3_name = data.instructor3.name;
 
-    if (data.course) {
+  if (data.course) {
     flattened.cm_course = data.course.name || data.course.course_name;
-    }
-    if (data.subject) {
-      flattened.cm_subject = data.subject.name || data.subject.subject_name;
-    }
-    // For material_type, check if it's nested in type object or direct
-    if (data.type && typeof data.type === 'object') {
-      flattened.material_type = data.type.name || data.type.type_name;
-    } else if (data.type) {
-      flattened.material_type = data.type;
-    }
-      return flattened;
-    };
+  }
+  if (data.subject) {
+    flattened.cm_subject = data.subject.name || data.subject.subject_name;
+  }
+  
+ 
+  const typeMap: Record<string, string> = {
+    'P': 'Presentations',
+    'C': 'Cheatsheets',
+    'D': 'Diagrams', 
+    'S': 'Softwares',
+    'I': 'Installations',
+    'B': 'Books',
+    'N': 'Newsletters',
+    'M': 'Materials'
+  };
+
+  if (data.type && typeof data.type === 'object') {
+    flattened.material_type = data.type.name || data.type.type_name;
+  } else if (data.type) {
+    flattened.material_type = typeMap[data.type] || data.type;
+  }
+  
+  if (data.material_type && data.material_type.length === 1 && typeMap[data.material_type]) {
+    flattened.material_type = typeMap[data.material_type];
+  }
+
+  return flattened;
+  };
 
   const flattenedData = flattenData(currentData);
-  console.log('Flattened Data:', flattenedData); // Add this line
-  console.log('Course Material Fields:', {
-  cm_course: flattenedData.cm_course,
-  cm_subject: flattenedData.cm_subject,
-  material_type: flattenedData.material_type
-  });
-  
   const sectionedFields: Record<string, { key: string; value: any }[]> = {
     "Basic Information": [],
     "Professional Information": [],
@@ -432,10 +440,16 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
                           title.toLowerCase().includes("material") ||
                           flattenedData.hasOwnProperty("cm_course");
 
+  
+  const isCandidateOrEmployee = title.toLowerCase().includes("candidate") || 
+                                title.toLowerCase().includes("employee");
+
   Object.entries(flattenedData).forEach(([key, value]) => {
     // Skip excluded fields and course material specific hidden fields
     if (excludedFields.includes(key)) return;
     if (isCourseMaterial && courseMaterialHiddenFields.includes(key)) return;
+
+    if (isCandidateOrEmployee && key === "name") return;
     
     const section = fieldSections[key] || "Other";
     if (!sectionedFields[section]) sectionedFields[section] = [];
@@ -465,9 +479,6 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     <>
       {isOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center p-2 sm:p-4 z-50">
-          {/* CHANGE THIS max-w VALUE TO ADJUST MODAL SIZE: 
-              max-w-sm (small) - max-w-md (medium) - max-w-lg (large) - max-w-xl (extra large) - max-w-2xl (2x large) - max-w-3xl (3x large) - max-w-4xl (4x large) - max-w-5xl (5x large) - max-w-6xl (6x large) - max-w-7xl (7x large)
-              Current: max-w-4xl (good balance for desktop) */}
           <div 
             ref={modalRef}
             className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto"

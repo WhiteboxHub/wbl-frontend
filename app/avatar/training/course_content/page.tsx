@@ -168,37 +168,28 @@ export default function CourseContentPage() {
   if (error) return <p className="mt-8 text-center text-red-600">{error}</p>;
 
   return (
-    <div className="space-y-6">
+     <div className="space-y-6">
       <Toaster position="top-center" />
-      {/* Header + Search Section */}
-      <div className="flex flex-col gap-4 sm:flex-col md:flex-row md:items-center md:justify-between">
-        {/* Left: Title and Description */}
-        <div>
-          <h1 className="text-2xl font-bold">Course Contents</h1>
-          <p>Manage course contents for Fundamentals, AIML, UI, QE.</p>
-        </div>
-
-        {/* Right: Button + Search (Responsive) */}
-        <div className="flex w-full flex-col items-stretch gap-2 sm:flex-row sm:items-center md:w-auto">
-          {/* Search Box */}
-          <div className="relative flex-1">
-            <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <Input
-              id="search"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by ID or content field..."
-              className="w-full pl-10"
-            />
-          </div>
-
-          {/* Add Button */}
-          <Button
-            className="w-full sm:w-auto"
-            onClick={() => setIsModalOpen(true)}
-          >
-            + Add CourseContent
-          </Button>
+      <div className="flex justify-between items-center">
+      <div>
+        <h1 className="text-2xl font-bold">Course Contents</h1>
+        <p>Manage course contents for Fundamentals, AIML, UI, QE.</p>
+      </div>
+      <Button onClick={() => setIsModalOpen(true)}>+ Add Content</Button>
+      </div>
+      
+      {/* Search */}
+      <div className="max-w-md">
+        <Label htmlFor="search">Search</Label>
+        <div className="relative mt-1">
+          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            id="search"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search by ID or content field..."
+            className="pl-10"
+          />
         </div>
       </div>
 
@@ -224,7 +215,7 @@ export default function CourseContentPage() {
               />
             </div>
             <div>
-              <Label htmlFor="AIML">AIML (Required)</Label>
+              <Label htmlFor="AIML">AIML*</Label>
               <Input
                 id="AIML"
                 value={newContent.AIML}
