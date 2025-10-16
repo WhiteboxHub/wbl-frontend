@@ -1,3 +1,4 @@
+
 "use client";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
@@ -10,31 +11,13 @@ import { toast, Toaster } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AGGridTable } from "@/components/AGGridTable";
 import { createPortal } from "react-dom";
-import { AgGridReact } from "ag-grid-react";
 import type { AgGridReact as AgGridReactType } from "ag-grid-react";
 import type { GridApi } from "ag-grid-community";
+import { LeadsHelper, db, Lead as DexieLead } from "@/lib/dexieDB";
 import { useForm } from "react-hook-form";
 
-type Lead = {
-  id: number;
-  full_name?: string | null;
-  email: string;
-  phone?: string | null;
-  workstatus?: string | null;
-  status?: string | null;
-  secondary_email?: string | null;
-  secondary_phone?: string | null;
-  address?: string | null;
-  entry_date?: string | Date | null;
-  closed_date?: string | Date | null;
-  city?: string | null;
-  state?: string | null;
-  country?: string | null;
-  moved_to_candidate?: boolean;
-  notes?: string | null;
-  massemail_unsubscribe?: boolean;
-  massemail_email_sent?: boolean;
-};
+
+type Lead = DexieLead;
 
 type FormData = {
   full_name: string;
@@ -77,6 +60,77 @@ const workStatusOptions = [
   "OPT",
   "CPT",
 ];
+
+// Simple cache implementation
+const useSimpleCache = () => {
+  const cacheRef = useRef<{
+    data: Lead[];
+    timestamp: number;
+    searchTerm: string;
+    searchBy: string;
+  } | null>(null);
+
+  //  Check cache validity
+  const isCacheValid = async (
+    searchTerm: string,
+    searchBy: string = "all",
+    maxAge: number = 60000
+  ) => {
+    //  Memory cache valid?
+    if (cacheRef.current) {
+      if (cacheRef.current.searchTerm === searchTerm && cacheRef.current.searchBy === searchBy) {
+        const age = Date.now() - cacheRef.current.timestamp;
+        if (age < maxAge) return true;
+      }
+    }
+
+    // Persistent cache fallback (IndexedDB)
+    const localLeads = await db.leads.toArray();
+    if (localLeads.length > 0) {
+      console.log("Using IndexedDB cache — treating as valid");
+      return true;
+    }
+
+    // No memory or local cache
+    return false;
+  };
+
+  const setCache = (data: Lead[], searchTerm: string, searchBy: string = "all") => {
+    cacheRef.current = {
+      data,
+      timestamp: Date.now(),
+      searchTerm,
+      searchBy,
+    };
+  };
+
+  const getCache = () => cacheRef.current?.data || null;
+
+  const invalidateCache = () => {
+    cacheRef.current = null;
+  };
+
+  return { isCacheValid, setCache, getCache, invalidateCache };
+};
+// Rate limiter to prevent too many API calls
+const useRateLimiter = () => {
+  const lastCallRef = useRef<number>(0);
+  
+  const canMakeCall = (minInterval: number = 3000) => {
+    const now = Date.now();
+    const timeSinceLastCall = now - lastCallRef.current;
+    
+    if (timeSinceLastCall < minInterval) {
+      console.log(`🚫 Rate limited: ${minInterval - timeSinceLastCall}ms remaining`);
+      return false;
+    }
+    
+    lastCallRef.current = now;
+    return true;
+  };
+  
+  return { canMakeCall };
+};
 
 const StatusRenderer = ({ value }: { value?: string }) => {
   const status = value?.toLowerCase() || "";
@@ -124,12 +178,10 @@ const StatusFilterHeaderComponent = (props: any) => {
   const { selectedStatuses, setSelectedStatuses } = props;
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>(
-    {
-      top: 0,
-      left: 0,
-    }
-  );
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
   const [filterVisible, setFilterVisible] = useState(false);
 
   const toggleFilter = (e: React.MouseEvent) => {
@@ -144,34 +196,21 @@ const StatusFilterHeaderComponent = (props: any) => {
     setFilterVisible((v) => !v);
   };
 
-  const handleStatusChange = (
-    status: string,
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleStatusChange = (status: string, e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
-    setSelectedStatuses((prev: string[]) => {
-      const isSelected = prev.includes(status);
-      if (isSelected) {
-        return prev.filter((s) => s !== status);
-      } else {
-        return [...prev, status];
-      }
-    });
+    setSelectedStatuses((prev: string[]) =>
+      prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
+    );
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
-    if (e.target.checked) {
-      setSelectedStatuses([...statusOptions]);
-    } else {
-      setSelectedStatuses([]);
-    }
+    setSelectedStatuses(e.target.checked ? [...statusOptions] : []);
   };
 
   const isAllSelected = selectedStatuses.length === statusOptions.length;
   const isIndeterminate =
-    selectedStatuses.length > 0 &&
-    selectedStatuses.length < statusOptions.length;
+    selectedStatuses.length > 0 && selectedStatuses.length < statusOptions.length;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -215,12 +254,7 @@ const StatusFilterHeaderComponent = (props: any) => {
           viewBox="0 0 24 24"
           stroke="currentColor"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z"
-          />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z" />
         </svg>
       </div>
       {filterVisible &&
@@ -228,13 +262,7 @@ const StatusFilterHeaderComponent = (props: any) => {
           <div
             ref={dropdownRef}
             className="pointer-events-auto fixed flex w-56 flex-col space-y-2 rounded-lg border bg-white p-3 shadow-xl dark:border-gray-600 dark:bg-gray-800"
-            style={{
-              top: dropdownPos.top + 5,
-              left: dropdownPos.left,
-              zIndex: 99999,
-              maxHeight: "300px",
-              overflowY: "auto",
-            }}
+            style={{ top: dropdownPos.top + 5, left: dropdownPos.left, zIndex: 99999, maxHeight: "300px", overflowY: "auto" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-2 border-b pb-2">
@@ -245,26 +273,24 @@ const StatusFilterHeaderComponent = (props: any) => {
                   ref={(el) => {
                     if (el) el.indeterminate = isIndeterminate;
                   }}
+                  className="mr-2"
                   onChange={handleSelectAll}
-                  className="mr-3"
-                  onClick={(e) => e.stopPropagation()}
                 />
-                Select All
+                All
               </label>
             </div>
             {statusOptions.map((status) => (
               <label
                 key={status}
-                className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700"
+                className="flex cursor-pointer items-center rounded px-2 py-1 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 <input
                   type="checkbox"
                   checked={selectedStatuses.includes(status)}
+                  className="mr-2"
                   onChange={(e) => handleStatusChange(status, e)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="mr-3"
                 />
-                <StatusRenderer value={status} />
+                {status}
               </label>
             ))}
             {selectedStatuses.length > 0 && (
@@ -291,12 +317,10 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
   const { selectedWorkStatuses, setSelectedWorkStatuses } = props;
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>(
-    {
-      top: 0,
-      left: 0,
-    }
-  );
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
   const [filterVisible, setFilterVisible] = useState(false);
 
   const toggleFilter = (e: React.MouseEvent) => {
@@ -311,34 +335,21 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
     setFilterVisible((v) => !v);
   };
 
-  const handleWorkStatusChange = (
-    workStatus: string,
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleWorkStatusChange = (workStatus: string, e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
-    setSelectedWorkStatuses((prev: string[]) => {
-      if (prev.includes(workStatus)) {
-        return prev.filter((s) => s !== workStatus);
-      } else {
-        return [...prev, workStatus];
-      }
-    });
+    setSelectedWorkStatuses((prev: string[]) =>
+      prev.includes(workStatus) ? prev.filter((s) => s !== workStatus) : [...prev, workStatus]
+    );
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
-    if (e.target.checked) {
-      setSelectedWorkStatuses([...workStatusOptions]);
-    } else {
-      setSelectedWorkStatuses([]);
-    }
+    setSelectedWorkStatuses(e.target.checked ? [...workStatusOptions] : []);
   };
 
-  const isAllSelected =
-    selectedWorkStatuses.length === workStatusOptions.length;
+  const isAllSelected = selectedWorkStatuses.length === workStatusOptions.length;
   const isIndeterminate =
-    selectedWorkStatuses.length > 0 &&
-    selectedWorkStatuses.length < workStatusOptions.length;
+    selectedWorkStatuses.length > 0 && selectedWorkStatuses.length < workStatusOptions.length;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -361,7 +372,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
       window.removeEventListener("scroll", handleScroll, true);
     };
   }, [filterVisible]);
-
+  
   return (
     <div className="relative flex w-full items-center">
       <span className="mr-2 flex-grow">Work Status</span>
@@ -382,12 +393,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
           viewBox="0 0 24 24"
           stroke="currentColor"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z"
-          />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z" />
         </svg>
       </div>
       {filterVisible &&
@@ -395,13 +401,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
           <div
             ref={dropdownRef}
             className="pointer-events-auto fixed flex w-56 flex-col space-y-2 rounded-lg border bg-white p-3 text-sm shadow-xl dark:border-gray-600 dark:bg-gray-800"
-            style={{
-              top: dropdownPos.top + 5,
-              left: dropdownPos.left,
-              zIndex: 99999,
-              maxHeight: "300px",
-              overflowY: "auto",
-            }}
+            style={{ top: dropdownPos.top + 5, left: dropdownPos.left, zIndex: 99999, maxHeight: "300px", overflowY: "auto" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-2 border-b pb-2">
@@ -412,8 +412,8 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
                   ref={(el) => {
                     if (el) el.indeterminate = isIndeterminate;
                   }}
-                  onChange={handleSelectAll}
                   className="mr-3"
+                  onChange={handleSelectAll}
                 />
                 Select All
               </label>
@@ -464,21 +464,29 @@ export default function LeadsPage() {
   const [totalLeads, setTotalLeads] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [searchBy, setSearchBy] = useState("full_name");
+  const [searchBy, setSearchBy] = useState("full_name");  
+  const [newLeadForm, setNewLeadForm] = useState(isNewLead);
+  const [formData, setFormData] = useState<FormData>(initialFormData);
+  const [formSaveLoading, setFormSaveLoading] = useState(false);
   const [sortModel, setSortModel] = useState([
     { colId: "entry_date", sort: "desc" as "desc" },
   ]);
-  const [isModalOpen, setIsModalOpen] = useState(isNewLead);
+  
+
   const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-  const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>(
-    []
-  );
-  const gridRef = useRef<InstanceType<typeof AgGridReact> | null>(null);
-  const apiEndpoint = useMemo(
-    () => `${process.env.NEXT_PUBLIC_API_URL}/leads`,
-    []
-  );
+  const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  
+  const gridRef = useRef<AgGridReactType<Lead> | null>(null);
+  const apiEndpoint = useMemo(() => `${process.env.NEXT_PUBLIC_API_URL}/leads`, []);
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  
+  const cache = useSimpleCache();
+  const rateLimiter = useRateLimiter();
+
+  // NUCLEAR OPTION - Track call count
+  const callCountRef = useRef(0);
 
   // React Hook Form
   const {
@@ -492,31 +500,71 @@ export default function LeadsPage() {
     defaultValues: initialFormData,
   });
 
-  const fetchLeads = useCallback(
-    async (
-      search?: string,
-      searchBy: string = "all",
-      sort: any[] = [{ colId: "entry_date", sort: "desc" }]
-    ) => {
-      setLoading(true);
-      try {
+  // DEBUG VERSION - fetchLeads function with strict call prevention
+  const fetchLeads = useCallback(async (
+    search?: string,
+    searchBy: string = "all",
+    sort: any[] = [{ colId: "entry_date", sort: "desc" }],
+    forceRefresh = false
+  ) => {
+    callCountRef.current++;
+    console.log('   fetchLeads CALLED - investigating multiple calls');
+    console.log('   Call count:', callCountRef.current);
+    console.log('   search:', search);
+    console.log('   searchBy:', searchBy);
+    console.log('   forceRefresh:', forceRefresh);
+    console.log('   loading state:', loading);
+    console.log('   cache valid?', cache.isCacheValid(search || "", searchBy));
+    console.log('   stack trace:', new Error().stack);
+
+    // NUCLEAR OPTION - Completely block multiple calls
+    if (callCountRef.current > 1) {
+      console.log(' BLOCKING DUPLICATE CALL - Only allowing first call');
+      return;
+    }
+
+    const searchKey = search || "";
+    
+    // STRICT CACHE CHECK - Only proceed if absolutely necessary
+    if (!forceRefresh && cache.isCacheValid(searchKey, searchBy)) {
+      console.log(' STRICT CACHE HIT - Blocking API call');
+      const cachedData = cache.getCache();
+      if (cachedData) {
+        setLeads(cachedData);
+        setFilteredLeads(cachedData);
+        return;
+      }
+    }
+
+    // RATE LIMITING - Strict enforcement
+    if (!rateLimiter.canMakeCall(5000)) { // 5 seconds between calls
+      console.log(' STRICT RATE LIMIT - Blocking API call');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Load from IndexedDB first
+      const localLeads = await db.leads.toArray();
+      console.log(` IndexedDB has ${localLeads.length} leads`);
+      
+      // Only proceed with API call if absolutely necessary
+      if (isOnline && (forceRefresh || !cache.isCacheValid(searchKey, searchBy))) {
         let url = `${apiEndpoint}`;
         const params = new URLSearchParams();
         if (search && search.trim()) {
           params.append("search", search.trim());
           params.append("search_by", searchBy);
         }
-        const sortToApply =
-          sort && sort.length > 0
-            ? sort
-            : [{ colId: "entry_date", sort: "desc" }];
-        const sortParam = sortToApply
-          .map((s) => `${s.colId}:${s.sort}`)
-          .join(",");
+        const sortParam = sort.map((s) => `${s.colId}:${s.sort}`).join(",");
         params.append("sort", sortParam);
+        
         if (params.toString()) {
           url += `?${params.toString()}`;
         }
+
+        console.log('📡 MAKING SINGLE API CALL TO:', url);
+        
         const token = localStorage.getItem("token");
         const res = await fetch(url, {
           headers: {
@@ -524,34 +572,112 @@ export default function LeadsPage() {
             "Content-Type": "application/json",
           },
         });
+        
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        
         const data = await res.json();
-        let leadsData = [];
+        let leadsData: Lead[] = [];
         if (data.data && Array.isArray(data.data)) {
           leadsData = data.data;
         } else if (Array.isArray(data)) {
           leadsData = data;
-        } else {
-          throw new Error("Invalid response format");
         }
-        setLeads(leadsData);
-      } catch (err) {
-        const error =
-          err instanceof Error ? err.message : "Failed to load leads";
-        setError(error);
-        toast.error(error);
-      } finally {
-        setLoading(false);
-        if (searchInputRef.current) {
-          searchInputRef.current.focus();
-        }
-      }
-    },
-    [apiEndpoint]
-  );
 
+        console.log(` API returned ${leadsData.length} leads - UPDATING CACHE`);
+        
+        // Update state and cache
+        setLeads(leadsData);
+        setFilteredLeads(leadsData);
+        cache.setCache(leadsData, searchKey, searchBy);
+        
+        // Update local DB
+        await db.leads.clear();
+        await db.leads.bulkPut(leadsData);
+      } else {
+        console.log(' Using IndexedDB data - NO API CALL');
+        setLeads(localLeads);
+        setFilteredLeads(localLeads);
+      }
+    } catch (err) {
+      console.error(' API Error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [apiEndpoint, cache, isOnline, rateLimiter, loading]);
+
+  //  IndexedDB-only search (no API calls)
   useEffect(() => {
-    let filtered = [...leads];
+    const timeoutId = setTimeout(async () => {
+      const term = searchTerm.trim().toLowerCase();
+
+      if (!term) {
+        console.log("Empty search — showing all local leads");
+        const allLeads = await db.leads.toArray();
+        setFilteredLeads(allLeads);
+        setTotalLeads(allLeads.length);
+        return;
+      }
+
+      
+      console.log(" Local search in IndexedDB for:", term);
+      const allLeads = await db.leads.toArray();
+
+      const filtered = allLeads.filter((lead) => {
+        const nameMatch = lead.full_name?.toLowerCase().includes(term);
+        const emailMatch = lead.email?.toLowerCase().includes(term);
+        const phoneMatch = lead.phone?.toLowerCase().includes(term);
+        const idMatch = lead.id?.toString().includes(term);
+        return nameMatch || emailMatch || phoneMatch || idMatch;
+      });
+
+      setFilteredLeads(filtered);
+      setTotalLeads(filtered.length);
+      console.log(`Found ${filtered.length} leads locally`);
+    }, 400); 
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
+
+  
+  useEffect(() => {
+    const loadInitialData = async () => {
+      console.log('Initial page load starting...');
+      callCountRef.current = 0; 
+      
+      // ALWAYS load from IndexedDB first (instant)
+      const localLeads = await db.leads.toArray();
+      console.log(`Initial IndexedDB load: ${localLeads.length} leads`);
+      
+      if (localLeads.length > 0) {
+        setLeads(localLeads);
+        setFilteredLeads(localLeads);
+        console.log('Showing IndexedDB data immediately');
+        
+        // Only fetch from API in background if data is old
+        if (!cache.isCacheValid("", "all")) {
+          console.log('Cache expired, fetching fresh data in background...');
+          // Use setTimeout to avoid blocking the UI
+          setTimeout(() => {
+            fetchLeads("", "all", sortModel, false);
+          }, 3000); 
+        } else {
+          console.log('Using cached data - no initial API call');
+        }
+      } else {
+        // No local data, fetch from API
+        console.log('No local data, fetching from API...');
+        fetchLeads("", "all", sortModel, true);
+      }
+    };
+
+    loadInitialData();
+  }, []); 
+
+  // Client-side filtering (reduces API calls)
+  useEffect(() => {
+    let filtered = [...leads];  
+    
+    // Status filter
     if (selectedStatuses.length > 0) {
       filtered = filtered.filter((lead) =>
         selectedStatuses.some(
@@ -559,6 +685,7 @@ export default function LeadsPage() {
         )
       );
     }
+
     if (selectedWorkStatuses.length > 0) {
       filtered = filtered.filter((lead) =>
         selectedWorkStatuses.some(
@@ -566,6 +693,7 @@ export default function LeadsPage() {
         )
       );
     }
+
     if (searchTerm.trim() !== "") {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
@@ -576,25 +704,31 @@ export default function LeadsPage() {
           lead.id.toString().includes(term)
       );
     }
+    
     setFilteredLeads(filtered);
     setTotalLeads(filtered.length);
   }, [leads, selectedStatuses, selectedWorkStatuses, searchTerm]);
 
+  // Online/offline handling
   useEffect(() => {
-    fetchLeads();
-  }, [fetchLeads]);
+    const handleOnline = () => {
+      setIsOnline(true);
+      console.log(' Online - syncing changes if any');
+    };
+    
+    const handleOffline = () => {
+      setIsOnline(false);
+      console.log(' Offline - using local data only');
+    };
 
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (searchTerm.trim()) {
-        const detectedSearchBy = detectSearchBy(searchTerm);
-        fetchLeads(searchTerm, detectedSearchBy, sortModel);
-      } else {
-        fetchLeads("", searchBy, sortModel);
-      }
-    }, 300);
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm, searchBy, sortModel, fetchLeads]);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   const detectSearchBy = (search: string) => {
     if (/^\d+$/.test(search)) return "id";
@@ -603,12 +737,132 @@ export default function LeadsPage() {
     return "full_name";
   };
 
+
+  const handleSearch = useCallback((term: string) => {
+    setSearchTerm(term);
+  }, []);
+
+  // Form validation
+  const validateForm = (data: FormData): boolean => {
+    const errors: Record<string, string> = {};
+    
+    if (!data.full_name.trim()) {
+      errors.full_name = "Full name is required";
+    }
+    
+    if (!data.email.trim()) {
+      errors.email = "Email is required";
+    } else if (!/^\S+@\S+\.\S+$/.test(data.email)) {
+      errors.email = "Please enter a valid email";
+    }
+    
+    if (!data.phone.trim()) {
+      errors.phone = "Phone is required";
+    } else if (data.phone.replace(/\D/g, '').length < 10) {
+      errors.phone = "Please enter a valid phone number";
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleNewLeadFormChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
+    const { name, value, type } = e.target;
+    if (type === "checkbox") {
+      const checked = (e.target as HTMLInputElement).checked;
+      setFormData((prev) => ({ ...prev, [name]: checked }));
+    } else if (name === "phone" || name === "secondary_phone") {
+      const numericValue = value.replace(/\D/g, "");
+      setFormData((prev) => ({ ...prev, [name]: numericValue }));
+    } else if (name === "address") {
+      const sanitizedValue = value.replace(/[^a-zA-Z0-9, ]/g, "");
+      setFormData((prev) => ({ ...prev, [name]: sanitizedValue }));
+    } else if (name === "full_name") {
+      const sanitizedValue = value.replace(/[^a-zA-Z. ]/g, "");
+      setFormData((prev) => ({ ...prev, [name]: sanitizedValue }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+
   // Form submission with react-hook-form
   const onSubmit = async (data: FormData) => {
     if (!data.full_name.trim() || !data.email.trim() || !data.phone.trim()) {
       toast.error("Full Name, Email, and Phone are required");
       return;
+
     }
+
+
+  const handleNewLeadFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormSaveLoading(true);
+    setFormErrors({});
+
+    if (!validateForm(formData)) {
+      setFormSaveLoading(false);
+      return;
+    }
+
+    try {
+      const updatedData = { 
+        ...formData,
+        status: formData.status || "Open",
+        workstatus: formData.workstatus || "Waiting for Status",
+        moved_to_candidate: Boolean(formData.moved_to_candidate),
+        massemail_email_sent: Boolean(formData.massemail_email_sent),
+        massemail_unsubscribe: Boolean(formData.massemail_unsubscribe),
+        entry_date: formData.entry_date || new Date().toISOString(),
+        closed_date: formData.status === "Closed" ? new Date().toISOString().split("T")[0] : null,
+      };
+
+      // Add to local DB first
+      const tempLead: Lead = {
+        ...updatedData,
+        id: Date.now(), 
+        synced: !isOnline, 
+        _action: "add" as const,
+      } as Lead;
+
+      await db.leads.add(tempLead);
+      setLeads(prev => [tempLead, ...prev]);
+      setFilteredLeads(prev => [tempLead, ...prev]);
+      
+      // Invalidate cache since data changed
+      cache.invalidateCache();
+
+      // Sync with API if online (in background)
+      if (isOnline) {
+        const token = localStorage.getItem("token");
+        const response = await fetch(apiEndpoint, {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(updatedData),
+        });
+        
+        if (!response.ok) throw new Error("Failed to create lead");
+        
+        const savedLead = await response.json();
+        
+        // Update local DB with saved lead
+        await db.leads.delete(tempLead.id);
+        await db.leads.add({ ...savedLead, synced: true, _action: null });
+        
+        setLeads(prev => prev.map(l => l.id === tempLead.id ? savedLead : l));
+        setFilteredLeads(prev => prev.map(l => l.id === tempLead.id ? savedLead : l));
+      }
+
+      toast.success("Lead created successfully!");
+      setNewLeadForm(false);
+      setFormData(initialFormData);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to create lead";
+      toast.error(errorMessage);
 
     try {
       const updatedData = { ...data };
@@ -673,6 +927,7 @@ export default function LeadsPage() {
       router.push("/avatar/leads");
     } catch (error) {
       toast.error("Failed to create lead", { position: "top-center" });
+
       console.error("Error creating lead:", error);
     }
   };
@@ -727,12 +982,14 @@ export default function LeadsPage() {
       } catch (error) {
         toast.error("Failed to update lead");
         console.error("Error updating lead:", error);
-      } finally {
+      })
+      .finally(() => {
         setLoadingRowId(null);
-      }
-    },
-    [apiEndpoint]
-  );
+      });
+    } else {
+      setLoadingRowId(null);
+    }
+  }, [apiEndpoint, isOnline, leads, cache]);
 
   const handleRowDeleted = useCallback(
     async (id: number) => {
@@ -1002,7 +1259,7 @@ export default function LeadsPage() {
         <div className="text-red-500">{error}</div>
         <Button
           variant="outline"
-          onClick={() => fetchLeads(searchTerm, searchBy, sortModel)}
+          onClick={() => fetchLeads(searchTerm, searchBy, sortModel, true)}
           className="ml-4"
         >
           <RefreshCw className="mr-2 h-4 w-4" />
@@ -1013,8 +1270,28 @@ export default function LeadsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4">
       <Toaster position="top-center" />
+      
+      {/* Online/Offline indicator */}
+      {!isOnline && (
+        <div className="rounded-md bg-yellow-100 p-3 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+          You are currently offline. Changes will be synced when you reconnect.
+        </div>
+      )}
+      
+      {/* Form errors display */}
+      {Object.keys(formErrors).length > 0 && (
+        <div className="rounded-md bg-red-100 p-3 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+          Please fix the following errors:
+          <ul className="mt-1 list-disc pl-5">
+            {Object.values(formErrors).map((error, index) => (
+              <li key={index}>{error}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         {/* Left side: Title and description */}
         <div className="flex-1">
@@ -1030,6 +1307,11 @@ export default function LeadsPage() {
             ) : (
               " - Sorted by latest first"
             )}
+            {!isOnline && (
+              <span className="ml-2 text-yellow-600 dark:text-yellow-400">
+                (Offline Mode)
+              </span>
+            )}
           </p>
 
           {/* Search input */}
@@ -1042,26 +1324,34 @@ export default function LeadsPage() {
                 ref={searchInputRef}
                 placeholder="Search by ID, name, email, phone..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearch(e.target.value)}
                 className="w-full pl-10 text-sm sm:text-base"
               />
             </div>
             {searchTerm && (
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {leads.length} candidates found
+                {filteredLeads.length} leads found
               </p>
             )}
           </div>
         </div>
 
-        {/* Right side: Button */}
-        <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
+        {/* Right side: Buttons */}
+        <div className="mt-4 flex flex-row items-center gap-2 sm:mt-0">
           <Button
             onClick={handleOpenModal}
             className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700"
           >
             <PlusCircle className="mr-2 h-4 w-4" />
             Add New Lead
+          </Button>
+          <Button 
+            onClick={() => fetchLeads(searchTerm, searchBy, sortModel, true)} 
+            variant="outline"
+            disabled={loading}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> 
+            {loading ? "Refreshing..." : "Refresh"}
           </Button>
         </div>
       </div>

@@ -157,6 +157,12 @@ interface PreparationMetrics {
   inactive_candidates: number;
 }
 
+interface VendorMetrics{
+    total_vendors: number;
+    today_extracted: number;
+    week_extracted: number;
+}
+
 // Hook for animated counters
 function useCounter(target: number, duration = 1000) {
   const [count, setCount] = useState(0);
@@ -190,77 +196,77 @@ export default function Index() {
   });
   const [preparationMetrics, setPreparationMetrics] = useState<PreparationMetrics | null>(null);
 
-const [leadMetrics, setLeadMetrics] = useState<LeadMetrics | null>(null);
-const [activeTab, setActiveTab] = useState("batch");
+  const [leadMetrics, setLeadMetrics] = useState<LeadMetrics | null>(null);
+  const [activeTab, setActiveTab] = useState("batch");
+  const [vendorMetrics, setVendorMetrics] = useState<VendorMetrics | null>(null);
 
+  useEffect(() => {
+    const fetchInterviewPerformance = async () => {
+      try {
+        const token = localStorage.getItem("access_token");
+        if (!token) return;
 
-useEffect(() => {
-  const fetchInterviewPerformance = async () => {
-    try {
-      const token = localStorage.getItem("access_token");
-      if (!token) return;
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/interview/performance`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/interview/performance`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+        const data = await res.json();
+        if (data.success) setData(data.data);
+      } catch (err) {
+        console.error("Error fetching interview performance:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-      const data = await res.json();
-      if (data.success) setData(data.data);
-    } catch (err) {
-      console.error("Error fetching interview performance:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    fetchInterviewPerformance();
+  }, []);
 
-  fetchInterviewPerformance();
-}, []);
+  useEffect(() => {
+    const fetchEmployeeBirthdays = async () => {
+      try {
+        const token = localStorage.getItem("access_token");
+        if (!token) return;
 
-useEffect(() => {
-  const fetchEmployeeBirthdays = async () => {
-    try {
-      const token = localStorage.getItem("access_token");
-      if (!token) return;
+        const res = await fetch(`${API_BASE_URL}/employee-birthdays`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
-      const res = await fetch(`${API_BASE_URL}/employee-birthdays`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+        const data = await res.json();
+        setBirthdays(data);
+      } catch (err) {
+        console.error("Error fetching birthdays:", err);
+      }
+    };
 
-      const data = await res.json();
-      setBirthdays(data);
-    } catch (err) {
-      console.error("Error fetching birthdays:", err);
-    }
-  };
+    fetchEmployeeBirthdays();
+  }, []);
 
-  fetchEmployeeBirthdays();
-}, []);
+  useEffect(() => {
+    const fetchLeadMetrics = async () => {
+      try {
+        const token = localStorage.getItem("access_token");
+        if (!token) return;
 
-useEffect(() => {
-  const fetchLeadMetrics = async () => {
-    try {
-      const token = localStorage.getItem("access_token");
-      if (!token) return;
+        const res = await fetch(`${API_BASE_URL}/leads/metrics`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
-      const res = await fetch(`${API_BASE_URL}/leads/metrics`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+        const data: LeadMetricsResponse = await res.json();
+        if (data.success) setLeadMetrics(data.data);
+      } catch (err) {
+        console.error("Error fetching lead metrics:", err);
+      }
+    };
 
-      const data: LeadMetricsResponse = await res.json();
-      if (data.success) setLeadMetrics(data.data);
-    } catch (err) {
-      console.error("Error fetching lead metrics:", err);
-    }
-  };
-
-  fetchLeadMetrics();
-}, []);
+    fetchLeadMetrics();
+  }, []);
 
   useEffect(() => {
     setTime(new Date());
@@ -298,24 +304,40 @@ useEffect(() => {
   }, []);
 
 
-useEffect(() => {
-  const fetchPreparationMetrics = async () => {
-    try {
-      const token = localStorage.getItem("access_token");
+  useEffect(() => {
+    const fetchPreparationMetrics = async () => {
+      try {
+        const token = localStorage.getItem("access_token");
 
-      const res = await axios.get(`${API_BASE_URL}/candidate/preparation/metrics`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      setPreparationMetrics(res.data);
-    } catch (error) {
-      console.error("Error fetching preparation metrics:", error);
-    }
-  };
+        const res = await axios.get(`${API_BASE_URL}/candidate/preparation/metrics`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        setPreparationMetrics(res.data);
+      } catch (error) {
+        console.error("Error fetching preparation metrics:", error);
+      }
+    };
 
-  fetchPreparationMetrics();
-}, []);
+    fetchPreparationMetrics();
+  }, []);
+
+  useEffect(() => {
+    const fetchVendorMetrics = async () => {
+      try {
+        const token = localStorage.getItem("access_token");
+        const res = await fetch(`${API_BASE_URL}/vendors/metrics`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        setVendorMetrics(data);
+      } catch (err) {
+        console.error("Error fetching vendor metrics:", err);
+      }
+    };
+    fetchVendorMetrics();
+  }, []);
 
 
   // Animated counters
@@ -340,6 +362,9 @@ useEffect(() => {
   const currentDate = new Date();
   const currentMonth = currentDate.toLocaleString("default", { month: "long" });
   const currentYear = currentDate.getFullYear();
+  const totalvendors = useCounter(vendorMetrics?.total_vendors || 0);
+  const todayextracted = useCounter(vendorMetrics?.today_extracted || 0);
+  const weekextracted = useCounter(vendorMetrics?.week_extracted || 0);
 
   // Calculate derived metrics
   const averageFeePerCandidate = metrics ? Math.round((metrics.financial_metrics.total_fee_current_batch / Math.max(1, metrics.batch_metrics.enrolled_candidates_current))) : 0;
@@ -381,6 +406,7 @@ useEffect(() => {
           <TabsTrigger value="marketing" className="data-[state=active]:bg-pink-100 data-[state=active]:text-pink-800">Marketing</TabsTrigger>
           <TabsTrigger value="placement" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-800">Placement</TabsTrigger> 
           <TabsTrigger value="employee" className="data-[state=active]:bg-pink-100 data-[state=active]:text-pink-800">Employee</TabsTrigger>
+          <TabsTrigger value="vendor" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800">Vendor</TabsTrigger>
           <TabsTrigger value="finance" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-800">Finance</TabsTrigger>
         </TabsList>
 
@@ -886,7 +912,14 @@ useEffect(() => {
             />
           </div>
         </TabsContent>
-
+        {/* 8.Vendors */}
+        <TabsContent value="vendor">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+            <EnhancedMetricCard title="Total Vendors" value={vendorMetrics?.total_vendors || 0} icon={<Layers3 className="size-4" />} variant="purple"/>
+            <EnhancedMetricCard title="Extracted Today" value={vendorMetrics?.today_extracted || 0} icon={<CalendarDays className="size-4" />} variant="purple"/>
+            <EnhancedMetricCard title="Extracted This Week" value={vendorMetrics?.week_extracted || 0} icon={<TrendingUp className="size-4" />} variant="purple"/>
+          </div>
+        </TabsContent>
       </Tabs>
     </div>
   );
