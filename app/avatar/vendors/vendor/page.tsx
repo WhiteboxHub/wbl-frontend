@@ -565,7 +565,7 @@ export default function VendorPage() {
       </div>
       <div className="max-w-md">
         <div className="relative mt-1">
-          <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 text-gray-400" />
+          <SearchIcon className="absolute left-3 top-1/3 h-4 w-4 text-gray-400" />
           <Input
             id="search"
             value={searchTerm}

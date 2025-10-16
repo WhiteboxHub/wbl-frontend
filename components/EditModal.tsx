@@ -5,11 +5,10 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/admin_ui/dialog";
-import { apiFetch } from "@/lib/api.js";
 import { Label } from "@/components/admin_ui/label";
 import { Input } from "@/components/admin_ui/input";
 import { Textarea } from "@/components/admin_ui/textarea";
-// import axios from "axios";
+import axios from "axios";
 import dynamic from "next/dynamic";
 const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
 import "react-quill/dist/quill.snow.css";
@@ -33,7 +32,7 @@ const excludedFields = [
   "vendor_type", "last_mod_datetime", "last_modified", "logincount", "googleId",
   "subject_id", "lastmoddatetime", "course_id", "new_subject_id", "instructor_1id",
   "instructor_2id", "instructor_3id", "instructor1_id", "instructor2_id",
-  "instructor3_id", "enddate", "candidate_id"
+  "instructor3_id", "enddate", "candidate_id","batch"
 ];
 
 const fieldSections: Record<string, string> = {
@@ -43,6 +42,7 @@ const fieldSections: Record<string, string> = {
   instructor3_name: "Professional Information",
   interviewer_emails: "Contact Information",
   interviewer_contact: "Contact Information",
+  interviewer_linkedin: "Contact Information",
   id: "Basic Information",
   alias: "Basic Information",
   Fundamentals: "Basic Information",
@@ -476,20 +476,28 @@ export function EditModal({
   const [batches, setBatches] = useState<Batch[]>([]);
   const courseId = "3";
 
-const fetchBatches = async (courseId: string) => {
-  try {
-    if (!courseId) {
+  const fetchBatches = async (courseId: string) => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        console.error("No access token found");
+        setBatches([]);
+        return;
+      }
+      const res = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/batch?course=${courseId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      setBatches(res.data);
+    } catch (error) {
+      console.error("Failed to fetch batches:", error);
       setBatches([]);
-      return;
     }
-    const data = await apiFetch(`/batch?course=${encodeURIComponent(courseId)}`);
-    setBatches(Array.isArray(data) ? data : data?.data || []);
-  } catch (error) {
-    console.error("Failed to fetch batches:", error);
-    setBatches([]);
-  }
-};
-
+  };
 
   React.useEffect(() => {
     if (isOpen) {
@@ -513,31 +521,45 @@ const fetchBatches = async (courseId: string) => {
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-React.useEffect(() => {
-  const fetchAll = async () => {
-    try {
-      setIsLoading(true);
-      const [coursesData, subjectsData, employeesData] = await Promise.all([
-        apiFetch("/courses"),
-        apiFetch("/subjects"),
-        apiFetch("/employees"),
-      ]);
-
-      setCourses(Array.isArray(coursesData) ? coursesData : coursesData?.data || []);
-      setSubjects(Array.isArray(subjectsData) ? subjectsData : subjectsData?.data || []);
-
-      const employeesArr = Array.isArray(employeesData) ? employeesData : employeesData?.data || [];
-      const activeEmployees = employeesArr.filter((emp: any) => emp.status === 1);
-      setEmployees(activeEmployees);
-    } catch (err) {
-      console.error("Failed to fetch initial data:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  fetchAll();
-}, []);
+  React.useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/courses`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setCourses(res.data);
+      } catch (error) {
+        console.error("Failed to fetch courses:", error);
+      }
+    };
+    const fetchSubjects = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/subjects`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setSubjects(res.data);
+      } catch (error) {
+        console.error("Failed to fetch subjects:", error);
+      }
+    };
+    const fetchEmployees = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/employees`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const activeEmployees = res.data.filter((emp: any) => emp.status === 1);
+        setEmployees(activeEmployees);
+      } catch (error) {
+        console.error("Failed to fetch employees:", error);
+      }
+    };
+    fetchCourses();
+    fetchSubjects();
+    fetchEmployees();
+  }, []);
 
   const handleChange = (key: string, value: any) => {
     setFormData((prev) => {
@@ -632,57 +654,41 @@ React.useEffect(() => {
             </svg>
           </button>
         </div>
-<form
-  onSubmit={async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError(null);
-    try {
-      const reconstructedData: Record<string, any> = { ...formData };
-      if (formData.candidate_full_name) {
-        reconstructedData.candidate = {
-          ...data.candidate,
-          full_name: formData.candidate_full_name,
-        };
-      }
-      if (formData.instructor1_name) {
-        reconstructedData.instructor1 = {
-          ...data.instructor1,
-          name: formData.instructor1_name,
-          id: formData.instructor1_id,
-        };
-      }
-      if (formData.instructor2_name) {
-        reconstructedData.instructor2 = {
-          ...data.instructor2,
-          name: formData.instructor2_name,
-          id: formData.instructor2_id,
-        };
-      }
-      if (formData.instructor3_name) {
-        reconstructedData.instructor3 = {
-          ...data.instructor3,
-          name: formData.instructor3_name,
-          id: formData.instructor3_id,
-        };
-      }
-
-      // Save using apiFetch (auto adds Bearer token)
-      await apiFetch(`/vendors/${data.id}`, {
-        method: "PUT", // change to PATCH if your backend expects partial update
-        body: reconstructedData,
-      });
-
-      onSave(reconstructedData);
-      onClose();
-    } catch (err: any) {
-      console.error("Save failed:", err);
-      setError(err?.message || "Failed to save changes");
-    } finally {
-      setIsLoading(false);
-    }
-  }}
->
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const reconstructedData = { ...formData };
+            if (formData.candidate_full_name) {
+              reconstructedData.candidate = {
+                ...data.candidate,
+                full_name: formData.candidate_full_name,
+              };
+            }
+            if (formData.instructor1_name) {
+              reconstructedData.instructor1 = {
+                ...data.instructor1,
+                name: formData.instructor1_name,
+                id: formData.instructor1_id,
+              };
+            }
+            if (formData.instructor2_name) {
+              reconstructedData.instructor2 = {
+                ...data.instructor2,
+                name: formData.instructor2_name,
+                id: formData.instructor2_id,
+              };
+            }
+            if (formData.instructor3_name) {
+              reconstructedData.instructor3 = {
+                ...data.instructor3,
+                name: formData.instructor3_name,
+                id: formData.instructor3_id,
+              };
+            }
+            onSave(reconstructedData);
+            onClose();
+          }}
+        >
           <div className={`grid ${gridColsClass} gap-6 p-6`}>
             {visibleSections
               .filter((section) => section !== "Notes")

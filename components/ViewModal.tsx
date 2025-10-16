@@ -31,6 +31,7 @@ const fieldSections: Record<string, string> = {
   instructor3_name: "Professional Information",
   interviewer_emails: "Contact Information",
   interviewer_contact: "Contact Information",
+  interviewer_linkedin: "Contact Information",
   id: "Basic Information",
   alias: "Basic Information",
   Fundamentals: "Basic Information",
@@ -150,9 +151,6 @@ const fieldSections: Record<string, string> = {
   subject_name: "Basic Information",
   employee_name: "Basic Information",
   secondaryphone: "Contact Information",
-  // recording_link: "Professional Information",
-  // transcript: "Professional Information",
-  // backup_url: "Professional Information",
 };
 
 const workVisaStatusOptions = [
@@ -244,11 +242,11 @@ const dateFields = [
 export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate, title }: ViewModalProps) {
   if (!data) return null;
 
-  // Handle both single object and array of objects
+
   const dataArray = Array.isArray(data) ? data : [data];
   const hasNavigation = Array.isArray(data) && data.length > 1 && onNavigate;
 
-  // Validate currentIndex
+
   const validIndex = Math.max(0, Math.min(currentIndex, dataArray.length - 1));
   const currentData = dataArray[validIndex];
 
@@ -310,7 +308,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     if (["feepaid", "feedue", "salary0", "salary6", "salary12"].includes(lowerKey)) return <p>${Number(value).toLocaleString()}</p>;
     if (lowerKey.includes("rating")) return <p>{value} ⭐</p>;
     if (["notes", "task"].includes(lowerKey)) return <div dangerouslySetInnerHTML={{ __html: value }} />;
-    if (["recording_link", "transcript", "url","candidate_resume","backup_url","linkedin","github","resume"].includes(lowerKey)) {
+    if (["recording_link", "transcript", "url","candidate_resume","backup_url","linkedin","github","resume", "interviewer_linkedin"].includes(lowerKey)) {
       return (
         <a
           href={value}
