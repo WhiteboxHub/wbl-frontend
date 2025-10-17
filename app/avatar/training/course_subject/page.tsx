@@ -75,7 +75,7 @@ export default function CourseSubjectPage() {
   const [selectedCourseName, setSelectedCourseName] = useState("");
   const [selectedSubjectName, setSelectedSubjectName] = useState("");
   const [refreshing, setRefreshing] = useState(false);
-  const token = localStorage.getItem("token"); // get token once
+  const token = localStorage.getItem("token"); 
 
   const fetchCourseSubjects = async () => {
     try {
@@ -85,7 +85,7 @@ export default function CourseSubjectPage() {
         `${process.env.NEXT_PUBLIC_API_URL}/course-subjects`,
         {
           headers: {
-            Authorization: `Bearer ${token}`, // pass token in headers
+            Authorization: `Bearer ${token}`, 
           },
         }
       );
@@ -128,7 +128,7 @@ export default function CourseSubjectPage() {
 
   const fetchSubjects = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("token"); 
       const res = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/subjects`,
         {
@@ -308,38 +308,43 @@ export default function CourseSubjectPage() {
   return (
     <div className="space-y-6">
       <Toaster richColors position="top-center" />
-      
-      {/* Header Section */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold ">
-            Course-Subject Relationships
-          </h1>
-          <p>
-            Manage mappings between courses and subjects.
-          </p>
+      {/* Header + Search Section (Updated for left-side search on large screens) */}
+      <div className="flex flex-col gap-4 sm:flex-col md:flex-row md:items-center md:justify-between">
+        {/* Left: Title, Description + Search Box */}
+        <div className="flex-1">
+          <div className="mb-4">
+            <h1 className="text-2xl font-bold">Course-Subject Relationships</h1>
+            <p>
+              Manage mappings between courses and subjects. Total mappings:{" "}
+              {courseSubjects.length}
+            </p>
+          </div>
+          
+          {/* Search Box - Now on LEFT side under title */}
+          <div className="max-w-md">
+            <div className="relative">
+              <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Input
+                id="search"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Enter course or subject name or id..."
+                className="w-full pl-10"
+              />
+            </div>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => setShowModal(true)} size="sm">
-            <PlusIcon className="h-4 w-4 mr-2" />
+
+        {/* Right: Only Add Mapping Button */}
+        <div className="flex items-center">
+          <Button
+            className="w-full sm:w-auto"
+            size="sm"
+            onClick={() => setShowModal(true)}
+          >
+            <PlusIcon className="mr-2 h-4 w-4" />
             Add Mapping
           </Button>
-        </div>
-       </div>
-
-      <div className="max-w-md">
-        <Label htmlFor="search" className="text-sm font-medium">
-          Search 
-        </Label>
-        <div className="relative mt-1">
-          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            id="search"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Enter course or subject name or id..."
-            className="pl-10"
-          />
         </div>
       </div>
 

@@ -5,14 +5,46 @@ import "@/styles/admin.css";
 import "@/styles/App.css";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon, Plus } from "lucide-react";
+import { SearchIcon, Plus, X } from "lucide-react";
 import axios from "axios";
 import AGGridTable from "@/components/AGGridTable";
+import { useForm } from "react-hook-form";
 
 const DateFormatter = (params: any) => {
   if (!params.value) return "";
   const [year, month, day] = params.value.split("-");
   return `${month}/${day}/${year}`;
+};
+
+// Form Data Type
+type EmployeeFormData = {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  state: string;
+  dob: string;
+  startdate: string;
+  enddate: string;
+  instructor: number;
+  status: number;
+  notes: string;
+  aadhaar: string;
+};
+
+const initialFormData: EmployeeFormData = {
+  name: "",
+  email: "",
+  phone: "",
+  address: "",
+  state: "",
+  dob: "",
+  startdate: "",
+  enddate: "",
+  instructor: 0,
+  status: 1,
+  notes: "",
+  aadhaar: "",
 };
 
 export default function EmployeesPage() {
@@ -23,37 +55,22 @@ export default function EmployeesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showEmployeeForm, setShowEmployeeForm] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    address: "",
-    state: "",
-    dob: "",
-    startdate: "",
-    enddate: "",
-    instructor: 0,
-    status: 1,
-    notes: "",
-    aadhaar: "",
-  });
   const [formSaveLoading, setFormSaveLoading] = useState(false);
 
-  const blankEmployeeData = {
-    name: "",
-    email: "",
-    phone: "",
-    address: "",
-    state: "",
-    dob: "",
-    startdate: "",
-    enddate: "",
-    instructor: 0,
-    status: 1,
-    notes: "",
-    aadhaar: "",
-  };
+  // React Hook Form
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+    setValue,
+    watch,
+  } = useForm<EmployeeFormData>({
+    defaultValues: initialFormData,
+  });
+
   const token = localStorage.getItem("token");
+  
   const fetchEmployees = async () => {
     try {
       setLoading(true);
@@ -153,65 +170,26 @@ export default function EmployeesPage() {
 
   const handleCloseEmployeeForm = () => {
     setShowEmployeeForm(false);
+    reset();
   };
 
-  const handleFormChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >
-  ) => {
-    const { name, value } = e.target;
-    // Validation for "Full Name" field
-    if (name === "name") {
-      const regex = /^[A-Za-z. ]*$/;
-      if (!regex.test(value)) {
-        return;
-      }
-    }
-    // Validation for "Full Name"
-    if (name === "name") {
-      const regex = /^[A-Za-z. ]*$/;
-      if (!regex.test(value)) return;
-    }
-
-    // Validation for "Phone"
-    if (name === "phone" || name === "aadhaar") {
-      const regex = /^[0-9]*$/;
-      if (!regex.test(value)) return;
-    }
-    // Validation for "Address"
-    if (name === "address") {
-      const regex = /^[A-Za-z0-9, ]*$/;
-      if (!regex.test(value)) return;
-    }
-    // Validation for "State"
-    if (name === "state") {
-      const regex = /^[A-Za-z ]*$/;
-      if (!regex.test(value)) return;
-    }
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  // Form submission with react-hook-form
+  const onSubmit = async (data: EmployeeFormData) => {
     setFormSaveLoading(true);
     try {
       const payload = {
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone || null,
-        address: formData.address || null,
-        state: formData.state || null,
-        dob: formData.dob || null,
-        startdate: formData.startdate || null,
-        enddate: formData.enddate || null,
-        notes: formData.notes || null,
-        status: formData.status || null,
-        instructor: formData.instructor || null,
-        aadhaar: formData.aadhaar || null,
+        name: data.name,
+        email: data.email,
+        phone: data.phone || null,
+        address: data.address || null,
+        state: data.state || null,
+        dob: data.dob || null,
+        startdate: data.startdate || null,
+        enddate: data.enddate || null,
+        notes: data.notes || null,
+        status: data.status || null,
+        instructor: data.instructor || null,
+        aadhaar: data.aadhaar || null,
       };
       console.log("Sending payload:", payload);
       const response = await axios.post(
@@ -226,7 +204,6 @@ export default function EmployeesPage() {
       };
       setFilteredEmployees((prev) => [newEmployee, ...prev]);
       handleCloseEmployeeForm();
-      setFormData(blankEmployeeData);
     } catch (error) {
       console.error("Failed to add employee:", error);
       setError("Failed to add employee");
@@ -348,6 +325,18 @@ export default function EmployeesPage() {
     },
   ];
 
+  useEffect(() => {
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        handleCloseEmployeeForm();
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => {
+      window.removeEventListener("keydown", handleEsc);
+    };
+  }, []);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -408,109 +397,259 @@ export default function EmployeesPage() {
 
       {showEmployeeForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="relative w-full max-w-2xl rounded-xl bg-white p-4 shadow-md">
-            <h2 className="mb-4 text-center text-xl font-semibold">
-              New Employee Form
-            </h2>
-            <form
-              onSubmit={handleFormSubmit}
-              className="grid grid-cols-1 gap-2 md:grid-cols-2"
-            >
-              {Object.entries({
-                name: { label: "Full Name", type: "text", required: true },
-                email: { label: "Email", type: "email", required: true },
-                phone: { label: "Phone", type: "tel" },
-                address: { label: "Address", type: "text" },
-                state: { label: "State", type: "text" },
-                dob: { label: "Date of Birth", type: "date" },
-                startdate: { label: "Start Date", type: "date" },
-                enddate: { label: "End Date", type: "date" },
-                aadhaar: { label: "Aadhaar Number", type: "text" },
-                notes: { label: "Notes (optional)", type: "textarea" },
-                status: {
-                  label: "Status",
-                  type: "select",
-                  options: [0, 1],
-                  required: true,
-                },
-                instructor: {
-                  label: "Instructor",
-                  type: "select",
-                  options: [0, 1],
-                  required: true,
-                },
-              }).map(([name, config]) => (
-                <div
-                  key={name}
-                  className={config.type === "textarea" ? "md:col-span-2" : ""}
+          <div className="relative w-full max-w-2xl rounded-xl bg-white p-6 shadow-2xl">
+            {/* Header */}
+            <div className="sticky top-0 flex items-center justify-between border-b border-blue-200 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-4 py-3 -mx-6 -mt-6 mb-4">
+              <h2 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-lg font-semibold text-transparent">
+                Add Employee
+              </h2>
+              <button
+                onClick={handleCloseEmployeeForm}
+                className="rounded-lg p-1 text-blue-400 transition hover:bg-blue-100 hover:text-blue-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 gap-1 md:grid-cols-2">
+              {/* Full Name */}
+              <div className="space-y-2">
+                <Label htmlFor="name" className="text-sm font-bold text-blue-700">
+                  Full Name <span className="text-red-700">*</span>
+                </Label>
+                <input
+                  type="text"
+                  id="name"
+                  {...register("name", { 
+                    required: "Full Name is required",
+                    pattern: {
+                      value: /^[A-Za-z. ]*$/,
+                      message: "Only letters, dots and spaces are allowed"
+                    }
+                  })}
+                  className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+                {errors.name && (
+                  <p className="mt-1 text-xs text-red-600">{errors.name.message}</p>
+                )}
+              </div>
+
+              {/* Email */}
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-sm font-bold text-blue-700">
+                  Email <span className="text-red-700">*</span>
+                </Label>
+                <input
+                  type="email"
+                  id="email"
+                  {...register("email", { 
+                    required: "Email is required",
+                    pattern: {
+                      value: /^\S+@\S+\.\S+$/,
+                      message: "Invalid email address"
+                    }
+                  })}
+                  className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+                {errors.email && (
+                  <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>
+                )}
+              </div>
+
+              {/* Phone */}
+              <div className="space-y-2">
+                <Label htmlFor="phone" className="text-sm font-bold text-blue-700">
+                  Phone
+                </Label>
+                <input
+                  type="text"
+                  id="phone"
+                  {...register("phone", {
+                    pattern: {
+                      value: /^[0-9]*$/,
+                      message: "Only numbers are allowed"
+                    }
+                  })}
+                  className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+                {errors.phone && (
+                  <p className="mt-1 text-xs text-red-600">{errors.phone.message}</p>
+                )}
+              </div>
+
+              {/* Address */}
+              <div className="space-y-2">
+                <Label htmlFor="address" className="text-sm font-bold text-blue-700">
+                  Address
+                </Label>
+                <input
+                  type="text"
+                  id="address"
+                  {...register("address", {
+                    pattern: {
+                      value: /^[A-Za-z0-9, ]*$/,
+                      message: "Only letters, numbers, commas and spaces are allowed"
+                    }
+                  })}
+                  className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+                {errors.address && (
+                  <p className="mt-1 text-xs text-red-600">{errors.address.message}</p>
+                )}
+              </div>
+
+              {/* State */}
+              <div className="space-y-2">
+                <Label htmlFor="state" className="text-sm font-bold text-blue-700">
+                  State
+                </Label>
+                <input
+                  type="text"
+                  id="state"
+                  {...register("state", {
+                    pattern: {
+                      value: /^[A-Za-z ]*$/,
+                      message: "Only letters and spaces are allowed"
+                    }
+                  })}
+                  className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+                {errors.state && (
+                  <p className="mt-1 text-xs text-red-600">{errors.state.message}</p>
+                )}
+              </div>
+
+              {/* Date of Birth */}
+              <div className="space-y-2">
+                <Label htmlFor="dob" className="text-sm font-bold text-blue-700">
+                  Date of Birth
+                </Label>
+                <input
+                  type="date"
+                  id="dob"
+                  {...register("dob")}
+                  className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+
+              {/* Start Date */}
+              <div className="space-y-2">
+                <Label htmlFor="startdate" className="text-sm font-bold text-blue-700">
+                  Start Date
+                </Label>
+                <input
+                  type="date"
+                  id="startdate"
+                  {...register("startdate")}
+                  className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+
+              {/* End Date */}
+              <div className="space-y-2">
+                <Label htmlFor="enddate" className="text-sm font-bold text-blue-700">
+                  End Date
+                </Label>
+                <input
+                  type="date"
+                  id="enddate"
+                  {...register("enddate")}
+                  className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+
+              {/* Aadhaar Number */}
+              <div className="space-y-2">
+                <Label htmlFor="aadhaar" className="text-sm font-bold text-blue-700">
+                  Aadhaar Number
+                </Label>
+                <input
+                  type="text"
+                  id="aadhaar"
+                  {...register("aadhaar", {
+                    pattern: {
+                      value: /^[0-9]*$/,
+                      message: "Only numbers are allowed"
+                    }
+                  })}
+                  className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+                {errors.aadhaar && (
+                  <p className="mt-1 text-xs text-red-600">{errors.aadhaar.message}</p>
+                )}
+              </div>
+
+              {/* Status */}
+              <div className="space-y-2">
+                <Label htmlFor="status" className="text-sm font-bold text-blue-700">
+                  Status <span className="text-red-700">*</span>
+                </Label>
+                <select
+                  id="status"
+                  {...register("status", { 
+                    required: "Status is required",
+                    valueAsNumber: true 
+                  })}
+                  className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 >
-                  <label
-                    htmlFor={name}
-                    className="mb-0.5 block text-xs font-medium text-gray-700"
-                  >
-                    {config.label}
-                  </label>
-                  {config.type === "select" ? (
-                    <select
-                      id={name}
-                      name={name}
-                      value={formData[name as keyof typeof formData]}
-                      onChange={handleFormChange}
-                      className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      required={config.required}
-                    >
-                      <option value="" disabled>
-                        Select {config.label}
-                      </option>
-                      {config.options.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  ) : config.type === "textarea" ? (
-                    <textarea
-                      id={name}
-                      name={name}
-                      value={formData[name as keyof typeof formData]}
-                      onChange={handleFormChange}
-                      rows={2}
-                      className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
-                  ) : (
-                    <input
-                      type={config.type}
-                      id={name}
-                      name={name}
-                      value={formData[name as keyof typeof formData]}
-                      onChange={handleFormChange}
-                      className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      required={config.required}
-                    />
-                  )}
-                </div>
-              ))}
+                  <option value="" disabled>Select Status</option>
+                  <option value={0}>0</option>
+                  <option value={1}>1</option>
+                </select>
+                {errors.status && (
+                  <p className="mt-1 text-xs text-red-600">{errors.status.message}</p>
+                )}
+              </div>
+
+              {/* Instructor */}
+              <div className="space-y-2">
+                <Label htmlFor="instructor" className="text-sm font-bold text-blue-700">
+                  Instructor <span className="text-red-700">*</span>
+                </Label>
+                <select
+                  id="instructor"
+                  {...register("instructor", { 
+                    required: "Instructor is required",
+                    valueAsNumber: true 
+                  })}
+                  className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                >
+                  <option value="" disabled>Select Instructor</option>
+                  <option value={0}>0</option>
+                  <option value={1}>1</option>
+                </select>
+                {errors.instructor && (
+                  <p className="mt-1 text-xs text-red-600">{errors.instructor.message}</p>
+                )}
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="notes" className="text-sm font-bold text-blue-700">
+                  Notes (optional)
+                </Label>
+                <textarea
+                  id="notes"
+                  {...register("notes")}
+                  rows={1}
+                  className="w-full resize-none rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+
+              {/* Submit Button */}
               <div className="md:col-span-2">
                 <button
                   type="submit"
                   disabled={formSaveLoading}
-                  className={`w-full rounded-md py-1.5 text-sm transition duration-200 ${
+                  className={`w-full rounded-lg py-2.5 text-sm font-medium transition duration-200 ${
                     formSaveLoading
                       ? "cursor-not-allowed bg-gray-400"
-                      : "bg-green-600 text-white hover:bg-green-700"
+                      : "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-md hover:from-cyan-600 hover:to-blue-600"
                   }`}
                 >
-                  {formSaveLoading ? "Saving..." : "Save"}
+                  {formSaveLoading ? "Saving..." : "Save Employee"}
                 </button>
               </div>
             </form>
-            <button
-              onClick={handleCloseEmployeeForm}
-              className="absolute right-2 top-2 text-xl leading-none text-gray-500 hover:text-gray-700"
-              aria-label="Close"
-            >
-              &times;
-            </button>
           </div>
         </div>
       )}

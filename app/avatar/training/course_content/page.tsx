@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useEffect, useState } from "react";
@@ -170,26 +171,37 @@ export default function CourseContentPage() {
   return (
      <div className="space-y-6">
       <Toaster position="top-center" />
-      <div className="flex justify-between items-center">
-      <div>
-        <h1 className="text-2xl font-bold">Course Contents</h1>
-        <p>Manage course contents for Fundamentals, AIML, UI, QE.</p>
-      </div>
-      <Button onClick={() => setIsModalOpen(true)}>+ Add Content</Button>
-      </div>
-      
-      {/* Search */}
-      <div className="max-w-md">
-        <Label htmlFor="search">Search</Label>
-        <div className="relative mt-1">
-          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            id="search"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by ID or content field..."
-            className="pl-10"
-          />
+      {/* Header + Search Section - Updated for left-side search */}
+      <div className="flex flex-col gap-4 sm:flex-col md:flex-row md:items-center md:justify-between">
+        {/* Left: Title, Description + Search Box */}
+        <div className="flex-1">
+          <div className="mb-4">
+            <h1 className="text-2xl font-bold">Course Contents</h1>
+            <p>Manage course contents for Fundamentals, AIML, UI, QE.</p>
+          </div>
+          
+          {/* Search Box - Now on LEFT side under title */}
+          <div className="max-w-md">
+            <div className="relative">
+              <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Input
+                id="search"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by ID or content field..."
+                className="w-full pl-10"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Only Add Button */}
+        <div className="flex items-center">
+          <Button
+            onClick={() => setIsModalOpen(true)}
+          >
+            + Add CourseContent
+          </Button>
         </div>
       </div>
 
