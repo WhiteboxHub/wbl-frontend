@@ -111,6 +111,7 @@ const fieldSections: Record<string, string> = {
   vendor_or_client_name: "Professional Information",
   vendor_or_client_contact: "Professional Information",
   marketing_email_address: "Professional Information",
+  transcript: "Professional Information",
   interview_date: "Professional Information",
   interview_mode: "Professional Information",
   visa_status: "Professional Information",
@@ -131,7 +132,7 @@ const fieldSections: Record<string, string> = {
   recruiterassesment: "Professional Information",
   statuschangedate: "Professional Information",
   aadhaar: "Basic Information",
-  url: "Basic Information",
+  job_posting_url: "Basic Information",
   feedback: "Basic Information",
   entry_date: "Professional Information",
   closed_date: "Professional Information",
@@ -266,6 +267,14 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "false", label: "No" },
     { value: "true", label: "Yes" },
   ],
+  priority: [
+    { value: "", label: "Select" },
+    { value: "1", label: "1" },
+    { value: "2", label: "2" },
+    { value: "3", label: "3" },
+    { value: "4", label: "4" },
+    { value: "5", label: "5" },
+  ],
   rating: [
     { value: "", label: "Select Rating" },
     { value: "Good", label: "Good" },
@@ -355,6 +364,7 @@ const labelOverrides: Record<string, string> = {
   subject: "Subject",
   title: "Title",
   enrolleddate: "Enrolled Date",
+  resume_url: "Resume URL",
   orientationdate: "Orientation Date",
   promissory: "Promissory",
   lastlogin: "Last Login",
@@ -390,7 +400,7 @@ const labelOverrides: Record<string, string> = {
   statuschangedate: "Status Change Date",
   move_to_mrkt: "Move to Marketing",
   aadhaar: "Aadhaar",
-  url: "Job URL",
+  job_posting_url: "Job Posting URL",
   feedback: "Feedback",
   entry_date: "Entry Date",
   closed_date: "Closed Date",
@@ -1029,20 +1039,28 @@ export function EditModal({
                     <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                       {toLabel(key)}
                     </Label>
+
                     <ReactQuill
                       theme="snow"
                       value={formData.notes || ""}
-                      onChange={(content) => setFormData(prev => ({ ...prev, notes: content }))}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const timestamp = `[${new Date().toLocaleString()}]`;
-                        setFormData(prev => ({...prev, notes: (prev.notes || "") + `\n${timestamp}\n`}));
+                      onChange={(content) =>
+                        setFormData((prev) => ({ ...prev, notes: content }))
+                      }
+                      onFocus={() => {
+                        setFormData((prev) => {
+                          const timestamp = `<p><strong>[${new Date().toLocaleString()}]:</strong></p>`;
+                          // Only add a new timestamp if the last one isn’t already today’s
+                          if (!prev.notes || !prev.notes.includes(timestamp)) {
+                            return {
+                              ...prev,
+                              notes: timestamp + (prev.notes || ""),
+                            };
+                          }
+                          return prev;
+                        });
                       }}
-                    >
-                      + Add Timestamp
-                    </button>
+                      className="bg-white dark:bg-gray-800"
+                    />
                   </div>
                 ))}
               </div>
