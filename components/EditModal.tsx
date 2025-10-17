@@ -1039,20 +1039,28 @@ export function EditModal({
                     <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                       {toLabel(key)}
                     </Label>
+
                     <ReactQuill
                       theme="snow"
                       value={formData.notes || ""}
-                      onChange={(content) => setFormData(prev => ({ ...prev, notes: content }))}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const timestamp = `[${new Date().toLocaleString()}]`;
-                        setFormData(prev => ({...prev, notes: (prev.notes || "") + `\n${timestamp}\n`}));
+                      onChange={(content) =>
+                        setFormData((prev) => ({ ...prev, notes: content }))
+                      }
+                      onFocus={() => {
+                        setFormData((prev) => {
+                          const timestamp = `<p><strong>[${new Date().toLocaleString()}]:</strong></p>`;
+                          // Only add a new timestamp if the last one isn’t already today’s
+                          if (!prev.notes || !prev.notes.includes(timestamp)) {
+                            return {
+                              ...prev,
+                              notes: timestamp + (prev.notes || ""),
+                            };
+                          }
+                          return prev;
+                        });
                       }}
-                    >
-                      + Add Timestamp
-                    </button>
+                      className="bg-white dark:bg-gray-800"
+                    />
                   </div>
                 ))}
               </div>

@@ -411,9 +411,10 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
               {sectionedFields["Notes"].map(({ key, value }) => (
                 <div key={key} className="space-y-1">
                   <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">{toLabel(key)}</Label>
-                  <div className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100 bg-gray-50">
-                    <p className="whitespace-pre-wrap text-sm">{value}</p>
-                  </div>
+                   <div
+                    className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100 bg-gray-50 text-sm prose max-w-none"
+                    dangerouslySetInnerHTML={{ __html: value || "" }}
+                  />
                 </div>
               ))}
             </div>
