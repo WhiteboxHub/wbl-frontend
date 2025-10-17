@@ -14,6 +14,7 @@ import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 import NewEvent from "@/components/NewEvent";
 import ReferralNotificationButton from "@/components/ReferralNotificationButton";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
 
 export default function RootLayout({
   children,
@@ -57,6 +58,7 @@ export default function RootLayout({
         />
       </head>
       <body className="dark:bg-black" suppressHydrationWarning>
+        <GoogleAnalytics />
         <SessionProvider>
           <AuthProvider>
             <Providers>
