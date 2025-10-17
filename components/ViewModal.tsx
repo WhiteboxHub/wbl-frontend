@@ -1,10 +1,9 @@
-
+//--------------------------------------------------------------------------------------
 "use client";
 import { useForm } from "react-hook-form";
 import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { Badge } from "@/components/admin_ui/badge";
-
 
 interface ViewModalProps {
   isOpen: boolean;
@@ -227,6 +226,7 @@ const labelOverrides: Record<string, string> = {
   cm_course: "Course Name",
   cm_subject: "Subject Name",
   subject: "Subject",
+  type:"Type",
   material_type: "Material Type",
   link: "Link"
 };
@@ -248,6 +248,34 @@ const dateFields = [
 ];
 
 const courseMaterialHiddenFields = ["subjectid", "courseid", "type"];
+
+// Title-specific exclusions
+const getTitleSpecificExclusions = (title: string): string[] => {
+  const lowerTitle = title.toLowerCase();
+  const exclusions: string[] = [];
+  
+  // batches
+  if (lowerTitle.includes('batch')) {
+    exclusions.push('cm_subject', 'subject_name');
+  }
+  
+  // class recordings
+  if (lowerTitle.includes('recording') || lowerTitle.includes('class recording')) {
+    exclusions.push('material_type', 'cm_subject', 'subject_name');
+  }
+  
+  // sessions
+  if (lowerTitle.includes('session') && !lowerTitle.includes('submission')) {
+    exclusions.push('material_type', 'cm_subject', 'subject_name');
+  }
+  
+  // vendors
+  if (lowerTitle.includes('vendor')) {
+    exclusions.push('material_type');
+  }
+  
+  return exclusions;
+};
 
 export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate, title }: ViewModalProps) {
   const { register, watch, setValue, reset } = useForm();
@@ -284,10 +312,8 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
 
   if (!data) return null;
 
-
   const dataArray = Array.isArray(data) ? data : [data];
   const hasNavigation = Array.isArray(data) && data.length > 1 && onNavigate;
-
 
   const validIndex = Math.max(0, Math.min(currentIndex, dataArray.length - 1));
   const currentData = dataArray[validIndex];
@@ -401,7 +427,6 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     flattened.cm_subject = data.subject.name || data.subject.subject_name;
   }
   
- 
   const typeMap: Record<string, string> = {
     'P': 'Presentations',
     'C': 'Cheatsheets',
@@ -440,15 +465,22 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
                           title.toLowerCase().includes("material") ||
                           flattenedData.hasOwnProperty("cm_course");
 
-  
   const isCandidateOrEmployee = title.toLowerCase().includes("candidate") || 
                                 title.toLowerCase().includes("employee");
 
-  Object.entries(flattenedData).forEach(([key, value]) => {
-    // Skip excluded fields and course material specific hidden fields
-    if (excludedFields.includes(key)) return;
-    if (isCourseMaterial && courseMaterialHiddenFields.includes(key)) return;
+  // Get title-specific exclusions
+  const titleExclusions = getTitleSpecificExclusions(title);
 
+  Object.entries(flattenedData).forEach(([key, value]) => {
+    // Skip excluded fields
+    if (excludedFields.includes(key)) return;
+    
+    // Skip course material specific hidden fields
+    if (isCourseMaterial && courseMaterialHiddenFields.includes(key)) return;
+    
+    // Skip title-specific excluded fields
+    if (titleExclusions.includes(key)) return;
+    
     if (isCandidateOrEmployee && key === "name") return;
     
     const section = fieldSections[key] || "Other";
@@ -468,7 +500,6 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       basicInfoFields.unshift(courseNameField);
     }
   }
-
 
   const visibleSections = Object.keys(sectionedFields).filter(section => section !== "Notes" && sectionedFields[section]?.length > 0);
   const columnCount = Math.min(visibleSections.length, 4);

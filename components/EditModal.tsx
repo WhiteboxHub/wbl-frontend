@@ -1,14 +1,8 @@
-
+//fixing
 "use client";
-import React, { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/admin_ui/dialog";
-import { Label } from "@/components/admin_ui/label";
-import { Input } from "@/components/admin_ui/input";
-import { Textarea } from "@/components/admin_ui/textarea";
+import React, { useState, useEffect, useRef } from "react";
+import { useForm } from "react-hook-form";
+import { X } from "lucide-react";
 import axios from "axios";
 import dynamic from "next/dynamic";
 const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
@@ -165,6 +159,7 @@ const fieldSections: Record<string, string> = {
   cm_course: "Professional Information", 
   cm_subject: "Basic Information",
   material_type: "Basic Information",
+  secondary_email:"Contact Information",
 };
 
 const workVisaStatusOptions = [
@@ -323,7 +318,6 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: 'Positive', label: 'Positive' },
     { value: 'Negative', label: 'Negative' },
   ],
-  // Course Material specific enum options
   material_type: [
     { value: "P", label: "Presentations" },
     { value: "C", label: "Cheatsheets" },
@@ -461,11 +455,64 @@ export function EditModal({
   data,
   title,
   onSave,
+  batches,
 }: EditModalProps) {
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+    watch,
+    setValue,
+    getValues,
+  } = useForm();
+
+  const [courses, setCourses] = useState<{ id: number; name: string }[]>([]);
+  const [subjects, setSubjects] = useState<{ id: number; name: string }[]>([]);
+  const [employees, setEmployees] = useState<{ id: number; name: string }[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData] = useState<Record<string, any>>({});
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  const isCourseMaterialModal = title.toLowerCase().includes("coursematerial") || 
+                               title.toLowerCase().includes("course material");
+
+  const isCourseSubjectModal = title.toLowerCase().includes("coursesubject") || 
+                               title.toLowerCase().includes("course-subject");
+
+  // Escape key handler
+  useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscKey);
+    
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }, [isOpen, onClose]);
+
+  // Outside click handler
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(event.target as Node) && isOpen) {
+        onClose();
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [isOpen, onClose]);
+
   const flattenData = (data: Record<string, any>) => {
     const flattened: Record<string, any> = { ...data };
     
-    // Handle candidate and instructor data
     if (data.candidate) {
       flattened.candidate_full_name = data.candidate.full_name;
     }
@@ -482,7 +529,6 @@ export function EditModal({
       flattened.instructor3_id = data.instructor3.id;
     }
     
-    // Handle status fields
     if (data.visa_status) {
       flattened.visa_status = String(data.visa_status).toLowerCase();
     }
@@ -497,7 +543,6 @@ export function EditModal({
       flattened.material_type = data.type;
     }
     
-   
     if (data.cm_course) {
       flattened.cm_course = data.cm_course;
     } else if (data.course_name) {
@@ -513,67 +558,18 @@ export function EditModal({
     } else if (data.subjectid === 0) {
       flattened.cm_subject = "Basic Fundamentals";
     }
+
+    // Handle date fields formatting
+    dateFields.forEach(dateField => {
+      if (flattened[dateField] && !isNaN(new Date(flattened[dateField]).getTime())) {
+        flattened[dateField] = new Date(flattened[dateField]).toISOString().split('T')[0];
+      }
+    });
     
     return flattened;
   };
 
-  const [batches, setBatches] = useState<Batch[]>([]);
-  const courseId = "3";
-
-  const fetchBatches = async (courseId: string) => {
-    try {
-      const token = localStorage.getItem("access_token");
-      if (!token) {
-        console.error("No access token found");
-        setBatches([]);
-        return;
-      }
-      const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/batch?course=${courseId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      setBatches(res.data);
-    } catch (error) {
-      console.error("Failed to fetch batches:", error);
-      setBatches([]);
-    }
-  };
-
-  React.useEffect(() => {
-    if (isOpen) {
-      fetchBatches(courseId);
-    }
-  }, [isOpen, courseId]);
-
-  const [formData, setFormData] = React.useState<Record<string, any>>(
-    flattenData(data || {})
-  );
-
-  React.useEffect(() => {
-    if (data) {
-      setFormData(flattenData(data));
-    }
-  }, [data]);
-
-  const [courses, setCourses] = React.useState<{ id: number; name: string }[]>([]);
-  const [subjects, setSubjects] = React.useState<{ id: number; name: string }[]>([]);
-  const [employees, setEmployees] = React.useState<{ id: number; name: string }[]>([]);
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-
-  const isCourseMaterialModal = title.toLowerCase().includes("coursematerial") || 
-                               title.toLowerCase().includes("course material");
-
-
-  const isCourseSubjectModal = title.toLowerCase().includes("coursesubject") || 
-                               title.toLowerCase().includes("course-subject");
-                        
-
-  React.useEffect(() => {
+  useEffect(() => {
     const fetchCourses = async () => {
       try {
         const token = localStorage.getItem("token");
@@ -628,15 +624,69 @@ export function EditModal({
     fetchCourses();
     fetchSubjects();
     fetchEmployees();
-  }, [isCourseMaterialModal]); 
-  const handleChange = (key: string, value: any) => {
-    setFormData((prev) => {
-      const newData = { ...prev, [key]: value };
-      if (key === "status" && value === "closed" && !prev.closed_date) {
-        newData["closed_date"] = new Date().toISOString().split("T")[0];
+  }, [isCourseMaterialModal]);
+
+  useEffect(() => {
+    if (data && isOpen) {
+      const flattenedData = flattenData(data);
+      setFormData(flattenedData);
+      reset(flattenedData);
+    }
+  }, [data, isOpen, reset]);
+
+  const onSubmit = (formData: any) => {
+    const reconstructedData = { ...formData };
+    
+    if (isCourseMaterialModal) {
+      if (formData.cm_course) {
+        const selectedCourse = courses.find(course => course.name === formData.cm_course);
+        if (selectedCourse) {
+          reconstructedData.courseid = selectedCourse.id;
+        }
       }
-      return newData;
-    });
+      
+      if (formData.cm_subject) {
+        const selectedSubject = subjects.find(subject => subject.name === formData.cm_subject);
+        if (selectedSubject) {
+          reconstructedData.subjectid = selectedSubject.id;
+        }
+      }
+      
+      if (formData.material_type) {
+        reconstructedData.type = formData.material_type;
+      }
+    }
+
+    if (formData.candidate_full_name) {
+      reconstructedData.candidate = {
+        ...data.candidate,
+        full_name: formData.candidate_full_name,
+      };
+    }
+    if (formData.instructor1_name) {
+      reconstructedData.instructor1 = {
+        ...data.instructor1,
+        name: formData.instructor1_name,
+        id: formData.instructor1_id,
+      };
+    }
+    if (formData.instructor2_name) {
+      reconstructedData.instructor2 = {
+        ...data.instructor2,
+        name: formData.instructor2_name,
+        id: formData.instructor2_id,
+      };
+    }
+    if (formData.instructor3_name) {
+      reconstructedData.instructor3 = {
+        ...data.instructor3,
+        name: formData.instructor3_name,
+        id: formData.instructor3_id,
+      };
+    }
+    
+    onSave(reconstructedData);
+    onClose();
   };
 
   const toLabel = (key: string) => {
@@ -657,6 +707,7 @@ export function EditModal({
     Notes: [],
   };
 
+  const formValues = watch();
   Object.entries(formData).forEach(([key, value]) => {
     if (isCourseMaterialModal && ["subjectid", "courseid", "course_name", "subject_name"].includes(key.toLowerCase())) {
       return;
@@ -685,565 +736,453 @@ export function EditModal({
   );
 
   const columnCount = Math.min(visibleSections.length, 4);
-  const modalWidthClass = {
-    1: "max-w-xl",
-    2: "max-w-3xl",
-    3: "max-w-5xl",
-    4: "max-w-6xl",
-  }[columnCount] || "max-w-6xl";
-
   const gridColsClass = {
     1: "grid-cols-1",
-    2: "md:grid-cols-2",
-    3: "md:grid-cols-3",
-    4: "lg:grid-cols-4 md:grid-cols-2",
-  }[columnCount] || "lg:grid-cols-4 md:grid-cols-2";
+    2: "sm:grid-cols-2",
+    3: "sm:grid-cols-2 md:grid-cols-3",
+    4: "sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4",
+  }[columnCount] || "sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4";
 
   const isVendorModal = title.toLowerCase().includes("vendor");
   const isInterviewOrMarketing = title.toLowerCase().includes("interview") || title.toLowerCase().includes("marketing");
 
-  if (!data) return null;
+  if (!isOpen || !data) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        className={`${modalWidthClass} max-h-[80vh] overflow-y-auto p-0`}
-      >
-        <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-          <DialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-            {title} - Edit Details
-          </DialogTitle>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 dark:hover:text-white focus:outline-none"
-            aria-label="Close"
+    <>
+      {isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center p-2 sm:p-4 z-50">
+          <div 
+            ref={modalRef}
+            className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-sm sm:max-w-md md:max-w-2xl lg:max-w-6xl max-h-[95vh] overflow-y-auto"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const reconstructedData = { ...formData };
-            
-            if (isCourseMaterialModal) {
-              if (formData.cm_course) {
-                const selectedCourse = courses.find(course => course.name === formData.cm_course);
-                if (selectedCourse) {
-                  reconstructedData.courseid = selectedCourse.id;
-                }
-              }
-              
-              if (formData.cm_subject) {
-                const selectedSubject = subjects.find(subject => subject.name === formData.cm_subject);
-                if (selectedSubject) {
-                  reconstructedData.subjectid = selectedSubject.id;
-                }
-              }
-              
-              if (formData.material_type) {
-                reconstructedData.type = formData.material_type;
-              }
-            }
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 md:py-5 border-b border-blue-200 flex justify-between items-center">
+              <h2 className="text-sm sm:text-base md:text-lg font-semibold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                {title} - Edit Details
+              </h2>
+              <button
+                onClick={onClose}
+                className="text-blue-400 hover:text-blue-600 hover:bg-blue-100 p-1 rounded-lg transition"
+              >
+                <X size={16} className="sm:w-5 sm:h-5" />
+              </button>
+            </div>
 
-            // Handle candidate and instructor data reconstruction
-            if (formData.candidate_full_name) {
-              reconstructedData.candidate = {
-                ...data.candidate,
-                full_name: formData.candidate_full_name,
-              };
-            }
-            if (formData.instructor1_name) {
-              reconstructedData.instructor1 = {
-                ...data.instructor1,
-                name: formData.instructor1_name,
-                id: formData.instructor1_id,
-              };
-            }
-            if (formData.instructor2_name) {
-              reconstructedData.instructor2 = {
-                ...data.instructor2,
-                name: formData.instructor2_name,
-                id: formData.instructor2_id,
-              };
-            }
-            if (formData.instructor3_name) {
-              reconstructedData.instructor3 = {
-                ...data.instructor3,
-                name: formData.instructor3_name,
-                id: formData.instructor3_id,
-              };
-            }
-            
-            onSave(reconstructedData);
-            onClose();
-          }}
-        >
-          <div className={`grid ${gridColsClass} gap-6 p-6`}>
-            {visibleSections
-              .filter((section) => section !== "Notes")
-              .map((section) => (
-                <div key={section} className="space-y-4">
-                  <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700 pb-2">
-                    {section}
-                  </h3>
-                  
-                  {/* Course Material Specific Dropdowns */}
-                  {isCourseMaterialModal && section === "Professional Information" && (
-                    <>
-                      {/* Course Dropdown course materials */}
-                      <div className="space-y-1">
-                        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                          Course Name
-                        </Label>
-                        <select
-                          value={formData["cm_course"] || ""}
-                          onChange={(e) => handleChange("cm_course", e.target.value)}
-                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                        >
-                          {courses.length === 0 ? (
-                            <option value="">Loading...</option>
-                          ) : (
-                            <>
-                              {/* Show all courses */}
-                              {courses.map((course) => (
-                                <option key={course.id} value={course.name}>
-                                  {course.name}
-                                </option>
-                              ))}
-                            </>
-                          )}
-                        </select>
-                      </div>
-                    </>
-                  )}
+            {/* Modal Form */}
+            <div className="p-3 sm:p-4 md:p-6 bg-white">
+              <form onSubmit={handleSubmit(onSubmit)}>
+                <div className={`grid ${gridColsClass} gap-2.5 sm:gap-3 md:gap-5`}>
+                  {visibleSections
+                    .filter((section) => section !== "Notes")
+                    .map((section) => (
+                      <div key={section} className="space-y-3 sm:space-y-4">
+                        <h3 className="text-xs sm:text-sm font-semibold text-blue-700 border-b border-blue-200 pb-1.5 sm:pb-2">
+                          {section}
+                        </h3>
+                        
+                        {/* Course Material Specific Dropdowns */}
+                        {isCourseMaterialModal && section === "Professional Information" && (
+                          <div className="space-y-1 sm:space-y-1.5">
+                            <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                              Course Name
+                            </label>
+                            <select
+                              {...register("cm_course")}
+                              defaultValue={formData.cm_course || ""}
+                              className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                            >
+                              {courses.length === 0 ? (
+                                <option value="">Loading...</option>
+                              ) : (
+                                courses.map((course) => (
+                                  <option key={course.id} value={course.name}>
+                                    {course.name}
+                                  </option>
+                                ))
+                              )}
+                            </select>
+                          </div>
+                        )}
 
-                  {isCourseMaterialModal && section === "Basic Information" && (
-                    <>
-                      {/* Subject Dropdown for course materials */}
-                      <div className="space-y-1">
-                        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                          Subject Name
-                        </Label>
-                        <select
-                          value={formData["cm_subject"] || ""}
-                          onChange={(e) => handleChange("cm_subject", e.target.value)}
-                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                        >
-                          {subjects.length === 0 ? (
-                            <option value="">Loading...</option>
-                          ) : (
-                            <>
-                              {/* Show all subjects*/}
-                              {subjects.map((subject) => (
-                                <option key={subject.id} value={subject.name}>
-                                  {subject.name}
-                                </option>
-                              ))}
-                            </>
-                          )}
-                        </select>
-                      </div>
-
-                      {/* Material Type Dropdown */}
-                      <div className="space-y-1">
-                        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                          Material Type
-                        </Label>
-                        <select
-                          value={formData["material_type"] || ""}
-                          onChange={(e) => {
-                            handleChange("material_type", e.target.value);
-                            handleChange("type", e.target.value);
-                          }}
-                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                        >
-                          <option value="">Select Material Type</option>
-                          {enumOptions["material_type"].map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </>
-                  )}
-                  
-                  {section === "Professional Information" && title.toLowerCase().includes("preparation") && (
-                    <>
-                      <div className="space-y-1">
-                        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                          Instructor 1
-                        </Label>
-                        <select
-                          value={formData.instructor1_id || ""}
-                          onChange={(e) => {
-                            const selected = employees.find(
-                              (emp) => emp.id === Number(e.target.value)
-                            );
-                            handleChange("instructor1_name", selected?.name || "");
-                            handleChange("instructor1_id", selected?.id || null);
-                          }}
-                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                        >
-                          <option value="">Select Instructor</option>
-                          {employees.map((emp) => (
-                            <option key={emp.id} value={emp.id}>
-                              {emp.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                          Instructor 2
-                        </Label>
-                        <select
-                          value={formData.instructor2_id || ""}
-                          onChange={(e) => {
-                            const selected = employees.find(
-                              (emp) => emp.id === Number(e.target.value)
-                            );
-                            handleChange("instructor2_name", selected?.name || "");
-                            handleChange("instructor2_id", selected?.id || null);
-                          }}
-                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                        >
-                          <option value="">Select Instructor</option>
-                          {employees.map((emp) => (
-                            <option key={emp.id} value={emp.id}>
-                              {emp.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                          Instructor 3
-                        </Label>
-                        <select
-                          value={formData.instructor3_id || ""}
-                          onChange={(e) => {
-                            const selected = employees.find(
-                              (emp) => emp.id === Number(e.target.value)
-                            );
-                            handleChange("instructor3_name", selected?.name || "");
-                            handleChange("instructor3_id", selected?.id || null);
-                          }}
-                          className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                        >
-                          <option value="">Select Instructor</option>
-                          {employees.map((emp) => (
-                            <option key={emp.id} value={emp.id}>
-                              {emp.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </>
-                  )}
-                  {sectionedFields[section]
-                    .filter(
-                      ({ key }) =>
-                        ![
-                          "instructor1_name",
-                          "instructor2_name",
-                          "instructor3_name",
-                          "instructor1_id",
-                          "instructor2_id",
-                          "instructor3_id",
-                          ...(isCourseMaterialModal ? ["cm_course", "cm_subject", "material_type"] : [])
-                        ].includes(key)
-                    )
-                    .map(({ key, value }) => {
-                      const isTypeField = key.toLowerCase() === "type";
-                      const isBatchField = key.toLowerCase() === "batchid";
-                      const isVendorField = isVendorModal && key.toLowerCase() === "status";
-                      if (isInterviewOrMarketing && ["instructor1_name", "instructor2_name", "instructor3_name"].includes(key)) {
-                        return null;
-                      }
-                      if (isTypeField) {
-                        if (isVendorModal) {
-                          return (
-                            <div key={key} className="space-y-1">
-                              <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                                {toLabel(key)}
-                              </Label>
+                        {isCourseMaterialModal && section === "Basic Information" && (
+                          <>
+                            <div className="space-y-1 sm:space-y-1.5">
+                              <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                Subject Name
+                              </label>
                               <select
-                                value={String(formData[key] ?? "")}
-                                onChange={(e) => handleChange(key, e.target.value)}
-                                className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
+                                {...register("cm_subject")}
+                                defaultValue={formData.cm_subject || ""}
+                                className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
                               >
-                                {enumOptions["type"].map((opt) => (
+                                {subjects.length === 0 ? (
+                                  <option value="">Loading...</option>
+                                ) : (
+                                  subjects.map((subject) => (
+                                    <option key={subject.id} value={subject.name}>
+                                      {subject.name}
+                                    </option>
+                                  ))
+                                )}
+                              </select>
+                            </div>
+
+                            <div className="space-y-1 sm:space-y-1.5">
+                              <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                Material Type
+                              </label>
+                              <select
+                                {...register("material_type")}
+                                defaultValue={formData.material_type || ""}
+                                className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                              >
+                                <option value="">Select Material Type</option>
+                                {enumOptions["material_type"].map((opt) => (
                                   <option key={opt.value} value={opt.value}>
                                     {opt.label}
                                   </option>
                                 ))}
                               </select>
                             </div>
-                          );
-                        } else {
-                          return (
-                            <div key={key} className="space-y-1">
-                              <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                                {toLabel(key)}
-                              </Label>
-                              <Input
-                                value={formData[key] ?? ""}
-                                onChange={(e) => handleChange(key, e.target.value)}
-                                className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                              />
+                          </>
+                        )}
+                        
+                        {section === "Professional Information" && title.toLowerCase().includes("preparation") && (
+                          <>
+                            <div className="space-y-1 sm:space-y-1.5">
+                              <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                Instructor 1
+                              </label>
+                              <select
+                                {...register("instructor1_id")}
+                                defaultValue={formData.instructor1_id || ""}
+                                className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                              >
+                                <option value="">Select Instructor</option>
+                                {employees.map((emp) => (
+                                  <option key={emp.id} value={emp.id}>
+                                    {emp.name}
+                                  </option>
+                                ))}
+                              </select>
                             </div>
-                          );
-                        }
-                      }
-                      if (key.toLowerCase() === "subjectid") {
-                        return (
-                          <div key={key} className="space-y-1">
-                            <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                              {toLabel(key)}
-                            </Label>
-                            <select
-                              value={formData[key] || "0"}
-                              onChange={(e) => handleChange(key, Number(e.target.value))}
-                              className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                            >
-                              <option value="0">0</option>
-                              {subjects.map((subject) => (
-                                <option key={subject.id} value={subject.id}>
-                                  {subject.id}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        );
-                      }
-                      if (key.toLowerCase() === "course_name") {
-                        return (
-                          <div key={key} className="space-y-1">
-                            <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                              {toLabel(key)}
-                            </Label>
-                            <select
-                              value={formData["course_name"] || ""}
-                              onChange={(e) => handleChange("course_name", e.target.value)}
-                              className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                            >
-                              {courses.length === 0 ? (
-                                <option value="">Loading...</option>
-                              ) : (
-                                <>
-                                  {courses.map((course) => (
-                                    <option key={course.id} value={course.name}>
-                                      {course.name}
-                                    </option>
-                                  ))}
-                                </>
-                              )}
-                            </select>
-                          </div>
-                        );
-                      }
-                      if (key.toLowerCase() === "subject_name") {
-                        return (
-                          <div key={key} className="space-y-1">
-                            <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                              {toLabel(key)}
-                            </Label>
-                            <select
-                              value={formData["subject_name"] || ""}
-                              onChange={(e) => handleChange("subject_name", e.target.value)}
-                              className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                            >
-                              {subjects.length === 0 ? (
-                                <option value="">Loading...</option>
-                              ) : (
-                                <>
-                                  {subjects.map((subject) => (
-                                    <option key={subject.id} value={subject.name}>
-                                      {subject.name}
-                                    </option>
-                                  ))}
-                                </>
-                              )}
-                            </select>
-                          </div>
-                        );
-                      }
-                      if (isBatchField) {
-                        return (
-                          <div key={key} className="space-y-1">
-                            <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                              {toLabel(key)}
-                            </Label>
-                            <select
-                              value={formData.batchid || ""}
-                              onChange={(e) => {
-                                const selectedBatch = batches.find(batch => batch.batchid === Number(e.target.value));
-                                handleChange("batchid", Number(e.target.value));
-                                if (selectedBatch) {
-                                  handleChange("batchname", selectedBatch.batchname);
-                                }
-                              }}
-                              className="border rounded-md p-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                              <option value="">Select a batch (optional)</option>
-                              {batches.map(batch => (
-                                <option key={batch.batchid} value={batch.batchid}>
-                                  {batch.batchname}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        );
-                      }
-                      if (dateFields.includes(key.toLowerCase())) {
-                        return (
-                          <div key={key} className="space-y-1">
-                            <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                              {toLabel(key)}
-                            </Label>
-                            <input
-                              type="date"
-                              value={
-                                formData[key] && !isNaN(new Date(formData[key]).getTime())
-                                  ? new Date(formData[key]).toISOString().split("T")[0]
-                                  : ""
-                              }
-                              onChange={(e) => handleChange(key, e.target.value)}
-                              className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                            />
-                          </div>
-                        );
-                      }
-                      if (isVendorField) {
-                        return (
-                          <div key={key} className="space-y-1">
-                            <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                              {toLabel(key)}
-                            </Label>
-                            <select
-                              value={String(formData[key] ?? "")}
-                              onChange={(e) => handleChange(key, e.target.value)}
-                              className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                            >
-                              {vendorStatuses.map((opt) => (
-                                <option key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        );
-                      }
-                      if (enumOptions[key.toLowerCase()]) {
-                        return (
-                          <div key={key} className="space-y-1">
-                            <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                              {toLabel(key)}
-                            </Label>
-                            <select
-                              value={String(formData[key] ?? "")}
-                              onChange={(e) =>
-                                handleChange(
-                                  key,
-                                  e.target.value === "true"
-                                    ? true
-                                    : e.target.value === "false"
-                                      ? false
-                                      : e.target.value
-                                )
-                              }
-                              className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100"
-                            >
-                              {reorderYesNoOptions(key, value, enumOptions[key.toLowerCase()]).map((opt) => (
-                                <option key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        );
-                      }
-                      if (typeof value === "string" && value.length > 100) {
-                        return (
-                          <div key={key} className="space-y-1">
-                            <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                              {toLabel(key)}
-                            </Label>
-                            <Textarea
-                              value={formData[key] || ""}
-                              onChange={(e) => handleChange(key, e.target.value)}
-                            />
-                          </div>
-                        );
-                      }
-                      return (
-                        <div key={key} className="space-y-1">
-                          <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                            {toLabel(key)}
-                          </Label>
-                          <Input
-                            value={formData[key] ?? ""}
-                            onChange={(e) => handleChange(key, e.target.value)}
-                          />
-                        </div>
-                      );
-                    })}
+                            <div className="space-y-1 sm:space-y-1.5">
+                              <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                Instructor 2
+                              </label>
+                              <select
+                                {...register("instructor2_id")}
+                                defaultValue={formData.instructor2_id || ""}
+                                className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                              >
+                                <option value="">Select Instructor</option>
+                                {employees.map((emp) => (
+                                  <option key={emp.id} value={emp.id}>
+                                    {emp.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="space-y-1 sm:space-y-1.5">
+                              <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                Instructor 3
+                              </label>
+                              <select
+                                {...register("instructor3_id")}
+                                defaultValue={formData.instructor3_id || ""}
+                                className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                              >
+                                <option value="">Select Instructor</option>
+                                {employees.map((emp) => (
+                                  <option key={emp.id} value={emp.id}>
+                                    {emp.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </>
+                        )}
+                        
+                        {sectionedFields[section]
+                          .filter(
+                            ({ key }) =>
+                              ![
+                                "instructor1_name",
+                                "instructor2_name",
+                                "instructor3_name",
+                                "instructor1_id",
+                                "instructor2_id",
+                                "instructor3_id",
+                                ...(isCourseMaterialModal ? ["cm_course", "cm_subject", "material_type"] : [])
+                              ].includes(key)
+                          )
+                          .map(({ key, value }) => {
+                            const isTypeField = key.toLowerCase() === "type";
+                            const isBatchField = key.toLowerCase() === "batchid";
+                            const isVendorField = isVendorModal && key.toLowerCase() === "status";
+                            
+                            if (isInterviewOrMarketing && ["instructor1_name", "instructor2_name", "instructor3_name"].includes(key)) {
+                              return null;
+                            }
+
+                            if (isTypeField && isVendorModal) {
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                    {toLabel(key)}
+                                  </label>
+                                  <select
+                                    {...register(key)}
+                                    defaultValue={formData[key] || ""}
+                                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                                  >
+                                    {enumOptions["type"].map((opt) => (
+                                      <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              );
+                            }
+
+                            if (key.toLowerCase() === "subjectid") {
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                    {toLabel(key)}
+                                  </label>
+                                  <select
+                                    {...register(key)}
+                                    defaultValue={formData[key] || "0"}
+                                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                                  >
+                                    <option value="0">0</option>
+                                    {subjects.map((subject) => (
+                                      <option key={subject.id} value={subject.id}>
+                                        {subject.id}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              );
+                            }
+
+                            if (key.toLowerCase() === "course_name") {
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                    {toLabel(key)}
+                                  </label>
+                                  <select
+                                    {...register("course_name")}
+                                    defaultValue={formData.course_name || ""}
+                                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                                  >
+                                    {courses.length === 0 ? (
+                                      <option value="">Loading...</option>
+                                    ) : (
+                                      courses.map((course) => (
+                                        <option key={course.id} value={course.name}>
+                                          {course.name}
+                                        </option>
+                                      ))
+                                    )}
+                                  </select>
+                                </div>
+                              );
+                            }
+
+                            if (key.toLowerCase() === "subject_name") {
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                    {toLabel(key)}
+                                  </label>
+                                  <select
+                                    {...register("subject_name")}
+                                    defaultValue={formData.subject_name || ""}
+                                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                                  >
+                                    {subjects.length === 0 ? (
+                                      <option value="">Loading...</option>
+                                    ) : (
+                                      subjects.map((subject) => (
+                                        <option key={subject.id} value={subject.name}>
+                                          {subject.name}
+                                        </option>
+                                      ))
+                                    )}
+                                  </select>
+                                </div>
+                              );
+                            }
+
+                            if (isBatchField) {
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                    {toLabel(key)}
+                                  </label>
+                                  <select
+                                    {...register("batchid")}
+                                    defaultValue={formData.batchid || ""}
+                                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                                  >
+                                    <option value="">Select a batch (optional)</option>
+                                    {batches.map(batch => (
+                                      <option key={batch.batchid} value={batch.batchid}>
+                                        {batch.batchname}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              );
+                            }
+
+                            if (dateFields.includes(key.toLowerCase())) {
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                    {toLabel(key)}
+                                  </label>
+                                  <input
+                                    type="date"
+                                    {...register(key)}
+                                    defaultValue={formData[key] || ""}
+                                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                                  />
+                                </div>
+                              );
+                            }
+
+                            if (isVendorField) {
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                    {toLabel(key)}
+                                  </label>
+                                  <select
+                                    {...register(key)}
+                                    defaultValue={formData[key] || ""}
+                                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                                  >
+                                    {vendorStatuses.map((opt) => (
+                                      <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              );
+                            }
+
+                            if (enumOptions[key.toLowerCase()]) {
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                    {toLabel(key)}
+                                  </label>
+                                  <select
+                                    {...register(key)}
+                                    defaultValue={formData[key] || ""}
+                                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                                  >
+                                    {reorderYesNoOptions(key, formData[key], enumOptions[key.toLowerCase()]).map((opt) => (
+                                      <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              );
+                            }
+
+                            if (typeof value === "string" && value.length > 100) {
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                    {toLabel(key)}
+                                  </label>
+                                  <textarea
+                                    {...register(key)}
+                                    defaultValue={formData[key] || ""}
+                                    rows={3}
+                                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm resize-none"
+                                  />
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <div key={key} className="space-y-1 sm:space-y-1.5">
+                                <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                  {toLabel(key)}
+                                </label>
+                                <input
+                                  type="text"
+                                  {...register(key)}
+                                  defaultValue={formData[key] || ""}
+                                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                                />
+                              </div>
+                            );
+                          })}
+                      </div>
+                    ))}
                 </div>
-              ))}
-          </div>
-          {/* Notes Section */}
-          {sectionedFields["Notes"].length > 0 && (
-            <div className="px-6 pb-6">
-              <div className="space-y-6 mt-4">
-                {sectionedFields["Notes"].map(({ key, value }) => (
-                  <div key={key} className="space-y-1">
-                    <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                      {toLabel(key)}
-                    </Label>
-                    <ReactQuill
-                      theme="snow"
-                      value={formData.notes || ""}
-                      onChange={(content) => setFormData(prev => ({ ...prev, notes: content }))}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const timestamp = `[${new Date().toLocaleString()}]`;
-                        setFormData(prev => ({...prev, notes: (prev.notes || "") + `\n${timestamp}\n`}));
-                      }}
-                    >
-                      + Add Timestamp
-                    </button>
+
+                {/* Notes Section */}
+                {sectionedFields["Notes"].length > 0 && (
+                  <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-blue-200">
+                    <div className="space-y-3 sm:space-y-4">
+                      {sectionedFields["Notes"].map(({ key }) => (
+                        <div key={key} className="space-y-1 sm:space-y-1.5">
+                          <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                            {toLabel(key)}
+                          </label>
+                          <ReactQuill
+                            theme="snow"
+                            value={formData.notes || ""}
+                            onChange={(content) => {
+                              setValue("notes", content);
+                              setFormData(prev => ({ ...prev, notes: content }));
+                            }}
+                            className="text-xs sm:text-sm"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const timestamp = `[${new Date().toLocaleString()}]`;
+                              const newNotes = (formData.notes || "") + `\n${timestamp}\n`;
+                              setValue("notes", newNotes);
+                              setFormData(prev => ({ ...prev, notes: newNotes }));
+                            }}
+                            className="text-xs text-blue-600 hover:text-blue-800 mt-1"
+                          >
+                            + Add Timestamp
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
-              </div>
+                )}
+
+                {/* Modal Footer - Only Save button */}
+                <div className="flex justify-end mt-3 sm:mt-4 md:mt-6 pt-2 sm:pt-3 md:pt-4 border-t border-blue-200">
+                  <button
+                    type="submit"
+                    className="px-3 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg hover:from-cyan-600 hover:to-blue-600 transition shadow-md"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </form>
             </div>
-          )}
-          <div className="flex justify-end px-6 pb-6">
-            <button
-              type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow"
-            >
-              Save Changes
-            </button>
           </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+        </div>
+      )}
+    </>
   );
 }
