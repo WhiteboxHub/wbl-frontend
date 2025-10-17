@@ -361,7 +361,7 @@ useEffect(() => {
         width: 150,
         editable: true,
       },
-      { field: "rating", headerName: "Rating", width: 100, editable: true },
+      // { field: "rating", headerName: "Rating", width: 100, editable: true },
       { field: "priority", headerName: "Priority", width: 100, editable: true },
       {
         field: "move_to_placement",
@@ -389,7 +389,7 @@ useEffect(() => {
         },
       },
       {
-        field: "candidate_resume",
+        field: "resume_url",
         headerName: "Resume",
         width: 200,
         cellRenderer: ResumeRenderer,

@@ -9,12 +9,12 @@ import { SessionProvider } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { Providers } from "./providers";
 import { AuthProvider } from "@/utils/AuthContext";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 import NewEvent from "@/components/NewEvent";
 import ReferralNotificationButton from "@/components/ReferralNotificationButton";
-// import { AGGridTable } from "@/components/AGGridTable";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
 
 export default function RootLayout({
   children,
@@ -25,17 +25,20 @@ export default function RootLayout({
   const isAvatarSection = pathname.startsWith("/avatar");
   const [isOpen, setIsOpen] = useState(false);
 
-  const rowData = [{ id: 1, name: "Test User" }];
-
-  const columnDefs = [
-    { headerName: "ID", field: "id" },
-    { headerName: "Name", field: "name" },
-  ];
+  useEffect(() => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Poppins:wght@400;500;600;700&display=swap";
+    document.head.appendChild(link);
+  }, []);
 
   return (
     <html suppressHydrationWarning lang="en">
       <head>
-        <title>Whitebox-Learning - AIML Training and Placements in Bay area</title>
+        <title>
+          Whitebox-Learning - AIML Training and Placements in Bay area
+        </title>
         <meta content="width=device-width, initial-scale=1" name="viewport" />
         <meta
           name="description"
@@ -48,10 +51,14 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.ico" />
         <link rel="canonical" href="https://whitebox-learning.com/" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
       </head>
-      <body className="dark:bg-black">
+      <body className="dark:bg-black" suppressHydrationWarning>
+        <GoogleAnalytics />
         <SessionProvider>
           <AuthProvider>
             <Providers>
@@ -68,13 +75,6 @@ export default function RootLayout({
                   <Footer />
                   <ScrollToTop />
                   <ReferralNotificationButton />
-                  {/* <NewEvent 
-                    title="Upcoming Events"
-                    message="Stay updated with our latest events, workshops, and training programs!"
-                    ctaText="View Events"
-                    ctaLink="/schedule"
-                    autoHide={false}
-                  /> */}
                 </>
               )}
             </Providers>

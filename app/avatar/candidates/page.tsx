@@ -204,10 +204,12 @@ const FilterHeaderComponent = ({
   };
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>(
-    { top: 0, left: 0 }
-  );
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
   const [filterVisible, setFilterVisible] = useState(false);
+
   const toggleFilter = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (filterButtonRef.current) {
@@ -219,14 +221,17 @@ const FilterHeaderComponent = ({
     }
     setFilterVisible((v) => !v);
   };
+
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
     setSelectedItems(e.target.checked ? [...options] : []);
   };
+
   const isAllSelected =
     selectedItems.length === options.length && options.length > 0;
   const isIndeterminate =
     selectedItems.length > 0 && selectedItems.length < options.length;
+
   const colorMap: Record<string, string> = {
     blue: "bg-blue-500",
     green: "bg-green-500",
@@ -234,6 +239,7 @@ const FilterHeaderComponent = ({
     red: "bg-red-500",
     orange: "bg-orange-500",
   };
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -263,6 +269,7 @@ const FilterHeaderComponent = ({
       window.removeEventListener("scroll", handleScroll, true);
     };
   }, [filterVisible]);
+
   return (
     <div className="relative flex w-full items-center">
       <span className="mr-2 flex-grow">{label}</span>
@@ -387,34 +394,29 @@ export default function CandidatesPage() {
   const [allBatches, setAllBatches] = useState<Batch[]>([]);
   const [mlBatches, setMlBatches] = useState<Batch[]>([]);
   const [batchesLoading, setBatchesLoading] = useState(true);
-
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-  const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>(
-    []
-  );
+  const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
   const [selectedBatches, setSelectedBatches] = useState<Batch[]>([]);
-
   const apiEndpoint = useMemo(
     () => `${process.env.NEXT_PUBLIC_API_URL}/candidates`,
     []
   );
 
-  // React Hook Form
   const {
     register,
     handleSubmit,
     reset,
     formState: { errors },
     setValue,
-    watch
+    watch,
   } = useForm<FormData>({
-    defaultValues: initialFormData
+    defaultValues: initialFormData,
   });
 
   const gridOptions = useMemo(
     () => ({
       defaultColDef: {
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
         sortable: true,
         resizable: true,
       },
@@ -457,16 +459,15 @@ export default function CandidatesPage() {
         width: 80,
         pinned: "left",
         sortable: true,
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
         valueGetter: (params) => params.data?.id || "N/A",
       },
-
       {
         field: "full_name",
         headerName: "Full Name",
         width: 180,
         sortable: true,
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
         cellRenderer: CandidateNameRenderer,
       },
       {
@@ -475,7 +476,7 @@ export default function CandidatesPage() {
         width: 150,
         editable: true,
         sortable: true,
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
         cellRenderer: (params: any) => {
           if (!params.value) return "";
           const formattedPhone = formatPhoneNumber(params.value);
@@ -495,7 +496,7 @@ export default function CandidatesPage() {
         width: 200,
         editable: true,
         sortable: true,
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
         cellRenderer: (params: any) => {
           if (!params.value) return "";
           return (
@@ -514,7 +515,7 @@ export default function CandidatesPage() {
         headerName: "Batch",
         width: 140,
         sortable: true,
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
         cellRenderer: (params: any) => {
           const batch = params.data?.batch;
           return batch ? batch.batchname : "N/A";
@@ -533,7 +534,6 @@ export default function CandidatesPage() {
           />
         ),
       },
-
       {
         field: "status",
         headerName: "Status",
@@ -555,13 +555,12 @@ export default function CandidatesPage() {
           />
         ),
       },
-
       {
         field: "workstatus",
         headerName: "Work Status",
         width: 150,
         sortable: true,
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
         cellRenderer: WorkStatusRenderer,
         headerComponent: (props: any) => (
           <FilterHeaderComponent
@@ -582,7 +581,7 @@ export default function CandidatesPage() {
         headerName: "Enrolled Date",
         width: 150,
         sortable: true,
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
         valueFormatter: ({ value }: ValueFormatterParams) => formatDate(value),
       },
       {
@@ -590,35 +589,35 @@ export default function CandidatesPage() {
         headerName: "Education",
         width: 200,
         sortable: true,
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
       },
       {
         field: "workexperience",
         headerName: "Work Experience",
         width: 200,
         sortable: true,
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
       },
       {
         field: "ssn",
         headerName: "SSN",
         width: 120,
         sortable: true,
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
       },
       {
         field: "agreement",
         headerName: "Agreement",
         width: 100,
         sortable: true,
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
       },
       {
         field: "secondaryemail",
         headerName: "Secondary Email",
         width: 200,
         sortable: true,
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
         cellRenderer: (params: any) => {
           if (!params.value) return "";
           return (
@@ -637,7 +636,7 @@ export default function CandidatesPage() {
         headerName: "Secondary Phone",
         width: 150,
         sortable: true,
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
         cellRenderer: (params: any) => {
           if (!params.value) return "";
           const formattedPhone = formatPhoneNumber(params.value);
@@ -656,23 +655,24 @@ export default function CandidatesPage() {
         headerName: "Address",
         width: 300,
         sortable: true,
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
       },
       {
         field: "linkedin_id",
         headerName: "LinkedIn ID",
         width: 150,
         sortable: true,
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
         cellRenderer: (params: any) => {
           if (!params.value) return "";
-          const formattedPhone = formatPhoneNumber(params.value);
           return (
             <a
-              href={`tel:${params.value}`}
+              href={`https://linkedin.com/in/${params.value}`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-blue-600 underline hover:text-purple-800"
             >
-              {formattedPhone}
+              {params.value}
             </a>
           );
         },
@@ -683,7 +683,7 @@ export default function CandidatesPage() {
         width: 150,
         sortable: true,
         editable: true,
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
         valueFormatter: ({ value }: ValueFormatterParams) => formatDate(value),
         valueParser: (params) => {
           if (!params.newValue) return null;
@@ -701,14 +701,14 @@ export default function CandidatesPage() {
         headerName: "Emergency Contact Name",
         width: 200,
         sortable: true,
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
       },
       {
         field: "emergcontactemail",
         headerName: "Emergency Contact Email",
         width: 200,
         sortable: true,
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
         cellRenderer: (params: any) => {
           if (!params.value) return "";
           return (
@@ -727,7 +727,7 @@ export default function CandidatesPage() {
         headerName: "Emergency Contact Phone",
         width: 150,
         sortable: true,
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
         cellRenderer: (params: any) => {
           if (!params.value) return "";
           const formattedPhone = formatPhoneNumber(params.value);
@@ -746,32 +746,30 @@ export default function CandidatesPage() {
         headerName: "Emergency Contact Address",
         width: 300,
         sortable: true,
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
       },
       {
         field: "fee_paid",
         headerName: "Fee Paid",
         width: 120,
         sortable: true,
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
         cellClass: (params) =>
           params.value && params.value > 0 ? "text-green-500 " : "",
         valueFormatter: ({ value }: ValueFormatterParams) =>
           value != null ? `$${Number(value).toLocaleString()}` : "",
         cellStyle: { textAlign: "right" },
       },
-
       {
         field: "move_to_prep",
         headerName: "Move to Prep",
         width: 150,
         sortable: true,
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
         cellRenderer: (params: any) => (
           <span>{params.value ? "Yes" : "No"}</span>
         ),
       },
-
       {
         field: "notes",
         headerName: "Notes",
@@ -792,7 +790,7 @@ export default function CandidatesPage() {
         headerName: "Candidate Folder",
         width: 200,
         sortable: true,
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
         cellRenderer: (params: any) => {
           if (!params.value) return "";
           return (
@@ -861,18 +859,18 @@ export default function CandidatesPage() {
     [apiEndpoint]
   );
 
-  const getWorkStatusColor = (status) => {
+  const getWorkStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case "waiting for status":
-        return { backgroundColor: "#FFEDD5", color: "#C2410C" }; // orange
+        return { backgroundColor: "#FFEDD5", color: "#C2410C" };
       case "citizen":
-        return { backgroundColor: "#D1FAE5", color: "#065F46" }; // green
+        return { backgroundColor: "#D1FAE5", color: "#065F46" };
       case "visa":
-        return { backgroundColor: "#DBEAFE", color: "#1D4ED8" }; // blue
+        return { backgroundColor: "#DBEAFE", color: "#1D4ED8" };
       case "others":
-        return { backgroundColor: "#F3E8FF", color: "#7C3AED" }; // purple
+        return { backgroundColor: "#F3E8FF", color: "#7C3AED" };
       case "ead":
-        return { backgroundColor: "#FEF3C7", color: "#92400E" }; // yellow
+        return { backgroundColor: "#FEF3C7", color: "#92400E" };
       default:
         return { backgroundColor: "white", color: "black" };
     }
@@ -889,12 +887,10 @@ export default function CandidatesPage() {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
-
         const sortedAllBatches = [...res.data].sort(
           (a: Batch, b: Batch) => b.batchid - a.batchid
         );
         setAllBatches(sortedAllBatches);
-
         const uniqueSubjects = [
           ...new Set(sortedAllBatches.map((batch) => batch.subject)),
         ];
@@ -904,7 +900,6 @@ export default function CandidatesPage() {
         console.log(" Available subjects:", uniqueSubjects);
         console.log(" Available course IDs:", uniqueCourseIds);
         console.log(" Total batches:", sortedAllBatches.length);
-
         let mlBatchesOnly = sortedAllBatches.filter((batch) => {
           const subject = batch.subject?.toLowerCase();
           return (
@@ -928,7 +923,6 @@ export default function CandidatesPage() {
         }
         console.log(" Filtered ML batches for form:", mlBatchesOnly.length);
         setMlBatches(mlBatchesOnly);
-
         if (
           isModalOpen &&
           mlBatchesOnly.length > 0 &&
@@ -978,7 +972,6 @@ export default function CandidatesPage() {
           (candidate.id?.toString() || "").includes(term)
       );
     }
-
     setFilteredCandidates(filtered);
   }, [
     candidates,
@@ -1009,13 +1002,11 @@ export default function CandidatesPage() {
     return "full_name";
   };
 
-  // Form submission with react-hook-form
   const onSubmit = async (data: FormData) => {
     if (!data.full_name.trim() || !data.email.trim() || !data.phone.trim() || !data.dob) {
       toast.error("Full Name, Email, Phone, and Date of Birth are required");
       return;
     }
-
     try {
       const payload = {
         ...data,
@@ -1025,29 +1016,24 @@ export default function CandidatesPage() {
         agreement: data.agreement || "N",
         fee_paid: data.fee_paid || 0,
       };
-
       const response = await fetch(apiEndpoint, {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("token")}`
         },
         body: JSON.stringify(payload),
       });
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || "Failed to create candidate");
       }
-
       const newCandidate = await response.json();
-      
-      const updated = [...candidates, newCandidate].sort((a, b) => 
+      const updated = [...candidates, newCandidate].sort((a, b) =>
         new Date(b.enrolled_date || 0).getTime() - new Date(a.enrolled_date || 0).getTime()
       );
       setCandidates(updated);
       setFilteredCandidates(updated);
-      
       toast.success(`Candidate created successfully with ID: ${newCandidate.id}`, { position: "top-center" });
       setIsModalOpen(false);
       reset();
@@ -1077,31 +1063,28 @@ export default function CandidatesPage() {
     async (updatedRow: Candidate) => {
       setLoadingRowId(updatedRow.id);
       try {
-        const updatedData = { ...updatedRow };
-        if (!updatedData.status || updatedData.status === "") {
-          updatedData.status = "active";
-        }
-        const { id, ...payload } = updatedData;
-
+        const { id, ...payload } = updatedRow;
         const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
           method: "PUT",
-          headers: { 
+          headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
           body: JSON.stringify(payload),
         });
         if (!response.ok) throw new Error("Failed to update candidate");
-
-        toast.success("Candidate updated successfully");
-
-        // Update only this row in AG Grid
+        setCandidates((prevCandidates) =>
+          prevCandidates.map((candidate) =>
+            candidate.id === updatedRow.id ? { ...candidate, ...payload } : candidate
+          )
+        );
         if (gridRef.current) {
-          const rowNode = gridRef.current.api.getRowNode(
-            updatedRow.id.toString()
-          );
-          if (rowNode) rowNode.setData(updatedData);
+          const rowNode = gridRef.current.api.getRowNode(id.toString());
+          if (rowNode) {
+            rowNode.setData({ ...updatedRow, ...payload });
+          }
         }
+        toast.success("Candidate updated successfully");
       } catch (error) {
         toast.error("Failed to update candidate");
         console.error("Error updating candidate:", error);
@@ -1115,19 +1098,13 @@ export default function CandidatesPage() {
   const handleRowDeleted = useCallback(
     async (id: number) => {
       try {
-        const response = await fetch(`${apiEndpoint}/${id}`, {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`
-          }
-        });
+        const response = await fetch(`${apiEndpoint}/${id}`, { method: "DELETE" });
         if (!response.ok) throw new Error("Failed to delete candidate");
-
-        toast.success("Candidate deleted successfully");
-
+        setCandidates((prevCandidates) => prevCandidates.filter((candidate) => candidate.id !== id));
         if (gridRef.current) {
           gridRef.current.api.applyTransaction({ remove: [{ id }] });
         }
+        toast.success("Candidate deleted successfully");
       } catch (error) {
         toast.error("Failed to delete candidate");
         console.error("Error deleting candidate:", error);
@@ -1144,7 +1121,6 @@ export default function CandidatesPage() {
     [searchTerm, searchBy, sortModel, fetchCandidates]
   );
 
-  // Add ESC key listener
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -1196,7 +1172,6 @@ export default function CandidatesPage() {
       `}</style>
       <Toaster position="top-center" />
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        {/* Left side: Title and description */}
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             Candidates Management
@@ -1204,8 +1179,8 @@ export default function CandidatesPage() {
           <p className="text-gray-600 dark:text-gray-400">
             All Candidates ({candidates.length})
             {selectedStatuses.length > 0 ||
-            selectedWorkStatuses.length > 0 ||
-            selectedBatches.length > 0 ? (
+              selectedWorkStatuses.length > 0 ||
+              selectedBatches.length > 0 ? (
               <span className="ml-2 text-blue-600 dark:text-blue-400">
                 - Filtered ({filteredCandidates.length} shown)
               </span>
@@ -1213,8 +1188,6 @@ export default function CandidatesPage() {
               " - Sorted by latest first"
             )}
           </p>
-
-          {/* Search input */}
           <div className="mt-2 sm:mt-0 sm:max-w-md">
             <Label
               htmlFor="search"
@@ -1241,8 +1214,6 @@ export default function CandidatesPage() {
             )}
           </div>
         </div>
-
-        {/* Right side: Button */}
         <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
           <Button
             onClick={handleOpenModal}
@@ -1253,8 +1224,6 @@ export default function CandidatesPage() {
           </Button>
         </div>
       </div>
-
-      {/* AG Grid Table */}
       <div className="flex w-full justify-center">
         <AGGridTable
           key={`${filteredCandidates.length}-${selectedStatuses.join(
@@ -1280,12 +1249,9 @@ export default function CandidatesPage() {
           }
         />
       </div>
-
-      {/* Add Candidate Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center p-2 sm:p-4 z-50">
           <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-6xl">
-            {/* Header */}
             <div className="sticky top-0 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 sm:px-4 md:px-6 py-2 sm:py-2 border-b border-blue-200 flex justify-between items-center">
               <h2 className="text-sm sm:text-base md:text-lg font-semibold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
                 Add New Candidate
@@ -1297,20 +1263,16 @@ export default function CandidatesPage() {
                 <X size={16} className="sm:w-5 sm:h-5" />
               </button>
             </div>
-
-            {/* Form */}
             <div className="p-3 sm:p-4 md:p-6 bg-white">
               <form onSubmit={handleSubmit(onSubmit)}>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
-                  
-                  {/* Full Name */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs sm:text-sm font-bold text-blue-700">
                       Full Name <span className="text-red-700">*</span>
                     </label>
                     <input
                       type="text"
-                      {...register("full_name", { 
+                      {...register("full_name", {
                         required: "Full name is required",
                         maxLength: {
                           value: 100,
@@ -1324,15 +1286,13 @@ export default function CandidatesPage() {
                       <p className="text-red-600 text-xs mt-1">{errors.full_name.message}</p>
                     )}
                   </div>
-
-                  {/* Email */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs sm:text-sm font-bold text-blue-700">
                       Email <span className="text-red-700">*</span>
                     </label>
                     <input
                       type="email"
-                      {...register("email", { 
+                      {...register("email", {
                         required: "Email is required",
                         pattern: {
                           value: /^\S+@\S+\.\S+$/,
@@ -1346,15 +1306,13 @@ export default function CandidatesPage() {
                       <p className="text-red-600 text-xs mt-1">{errors.email.message}</p>
                     )}
                   </div>
-
-                  {/* Phone */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs sm:text-sm font-bold text-blue-700">
                       Phone <span className="text-red-700">*</span>
                     </label>
                     <input
                       type="tel"
-                      {...register("phone", { 
+                      {...register("phone", {
                         required: "Phone is required",
                         pattern: {
                           value: /^\d+$/,
@@ -1368,15 +1326,13 @@ export default function CandidatesPage() {
                       <p className="text-red-600 text-xs mt-1">{errors.phone.message}</p>
                     )}
                   </div>
-
-                  {/* Date of Birth */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs sm:text-sm font-bold text-blue-700">
                       Date of Birth <span className="text-red-700">*</span>
                     </label>
                     <input
                       type="date"
-                      {...register("dob", { 
+                      {...register("dob", {
                         required: "Date of birth is required"
                       })}
                       className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
@@ -1385,8 +1341,6 @@ export default function CandidatesPage() {
                       <p className="text-red-600 text-xs mt-1">{errors.dob.message}</p>
                     )}
                   </div>
-
-                  {/* Batch */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs sm:text-sm font-bold text-blue-700">
                       Batch <span className="text-red-700">*</span>
@@ -1395,7 +1349,7 @@ export default function CandidatesPage() {
                       <p className="text-gray-500 text-xs">Loading batches...</p>
                     ) : (
                       <select
-                        {...register("batchid", { 
+                        {...register("batchid", {
                           required: "Batch is required",
                           validate: value => value !== 0 || "Please select a batch"
                         })}
@@ -1413,8 +1367,6 @@ export default function CandidatesPage() {
                       <p className="text-red-600 text-xs mt-1">{errors.batchid.message}</p>
                     )}
                   </div>
-
-                  {/* Status */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs sm:text-sm font-bold text-blue-700">
                       Status
@@ -1430,8 +1382,6 @@ export default function CandidatesPage() {
                       ))}
                     </select>
                   </div>
-
-                  {/* Work Status */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs sm:text-sm font-bold text-blue-700">
                       Work Status
@@ -1447,8 +1397,6 @@ export default function CandidatesPage() {
                       ))}
                     </select>
                   </div>
-
-                  {/* Education */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs sm:text-sm font-bold text-blue-700">
                       Education
@@ -1460,8 +1408,6 @@ export default function CandidatesPage() {
                       className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
                     />
                   </div>
-
-                  {/* Work Experience */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs sm:text-sm font-bold text-blue-700">
                       Work Experience
@@ -1473,8 +1419,6 @@ export default function CandidatesPage() {
                       className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
                     />
                   </div>
-
-                  {/* SSN */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs sm:text-sm font-bold text-blue-700">
                       SSN
@@ -1486,8 +1430,6 @@ export default function CandidatesPage() {
                       className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
                     />
                   </div>
-
-                  {/* Agreement */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs sm:text-sm font-bold text-blue-700">
                       Agreement
@@ -1500,8 +1442,6 @@ export default function CandidatesPage() {
                       <option value="N">No</option>
                     </select>
                   </div>
-
-                  {/* Secondary Email */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs sm:text-sm font-bold text-blue-700">
                       Secondary Email
@@ -1513,8 +1453,6 @@ export default function CandidatesPage() {
                       className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
                     />
                   </div>
-
-                  {/* Secondary Phone */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs sm:text-sm font-bold text-blue-700">
                       Secondary Phone
@@ -1526,8 +1464,6 @@ export default function CandidatesPage() {
                       className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
                     />
                   </div>
-
-                  {/* LinkedIn ID */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs sm:text-sm font-bold text-blue-700">
                       LinkedIn ID
@@ -1539,15 +1475,13 @@ export default function CandidatesPage() {
                       className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
                     />
                   </div>
-
-                  {/* Fee Paid */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs sm:text-sm font-bold text-blue-700">
                       Fee Paid ($)
                     </label>
                     <input
                       type="number"
-                      {...register("fee_paid", { 
+                      {...register("fee_paid", {
                         valueAsNumber: true,
                         min: {
                           value: 0,
@@ -1561,8 +1495,6 @@ export default function CandidatesPage() {
                       <p className="text-red-600 text-xs mt-1">{errors.fee_paid.message}</p>
                     )}
                   </div>
-
-                  {/* Enrolled Date */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs sm:text-sm font-bold text-blue-700">
                       Enrolled Date
@@ -1573,8 +1505,6 @@ export default function CandidatesPage() {
                       className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
                     />
                   </div>
-
-                  {/* Emergency Contact Name */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs sm:text-sm font-bold text-blue-700">
                       Emergency Contact Name
@@ -1586,8 +1516,6 @@ export default function CandidatesPage() {
                       className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
                     />
                   </div>
-
-                  {/* Emergency Contact Email */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs sm:text-sm font-bold text-blue-700">
                       Emergency Contact Email
@@ -1599,8 +1527,6 @@ export default function CandidatesPage() {
                       className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
                     />
                   </div>
-
-                  {/* Emergency Contact Phone */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs sm:text-sm font-bold text-blue-700">
                       Emergency Contact Phone
@@ -1612,8 +1538,6 @@ export default function CandidatesPage() {
                       className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
                     />
                   </div>
-
-                  {/* Address */}
                   <div className="lg:col-span-2 space-y-1 sm:space-y-1.5">
                     <label className="block text-xs sm:text-sm font-bold text-blue-700">
                       Address
@@ -1625,8 +1549,6 @@ export default function CandidatesPage() {
                       className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
                     />
                   </div>
-
-                  {/* Emergency Contact Address */}
                   <div className="lg:col-span-2 space-y-1 sm:space-y-1.5">
                     <label className="block text-xs sm:text-sm font-bold text-blue-700">
                       Emergency Contact Address
@@ -1638,33 +1560,29 @@ export default function CandidatesPage() {
                       className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
                     />
                   </div>
-                  {/* Candidate Folder */}
-                     <div className="space-y-1 sm:space-y-1.5">
-                      <label className="block text-xs sm:text-sm font-bold text-blue-700">
-                        Candidate Folder
-                      </label>
-                      <input
-                        type="text"
-                        {...register("candidate_folder")}
-                        placeholder="Google Drive/Dropbox link"
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
-                      />
-                    </div>
-                 {/* Notes */}
-                    <div className="lg:col-span-2 space-y- sm:space-y-1.5">
-                      <label className="block text-xs sm:text-sm font-bold text-blue-700">
-                        Notes
-                      </label>
-                      <textarea
-                        {...register("notes")}
-                        placeholder="Enter notes..."
-                        rows={1}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm resize-none"
-                      />
-                    </div>
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Candidate Folder
+                    </label>
+                    <input
+                      type="text"
+                      {...register("candidate_folder")}
+                      placeholder="Google Drive/Dropbox link"
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                    />
                   </div>
-
-                {/* Footer */}
+                  <div className="lg:col-span-2 space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                      Notes
+                    </label>
+                    <textarea
+                      {...register("notes")}
+                      placeholder="Enter notes..."
+                      rows={1}
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm resize-none"
+                    />
+                  </div>
+                </div>
                 <div className="flex justify-end gap-2 sm:gap-3 mt-3 sm:mt-4 md:mt-6 pt-2 sm:pt-3 md:pt-4 border-t border-blue-200">
                   <button
                     type="button"
