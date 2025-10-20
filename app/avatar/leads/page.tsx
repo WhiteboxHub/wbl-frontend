@@ -15,8 +15,6 @@ import type { AgGridReact as AgGridReactType } from "ag-grid-react";
 import type { GridApi } from "ag-grid-community";
 import { LeadsHelper, db, Lead as DexieLead } from "@/lib/dexieDB";
 import { useForm } from "react-hook-form";
-
-
 type Lead = DexieLead;
 
 type FormData = {
@@ -476,6 +474,7 @@ export default function LeadsPage() {
   const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
+
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   
   const gridRef = useRef<AgGridReactType<Lead> | null>(null);
@@ -488,7 +487,7 @@ export default function LeadsPage() {
   // NUCLEAR OPTION - Track call count
   const callCountRef = useRef(0);
 
-  // React Hook Form
+
   const {
     register,
     handleSubmit,
@@ -738,6 +737,7 @@ export default function LeadsPage() {
   };
 
 
+
   const handleSearch = useCallback((term: string) => {
     setSearchTerm(term);
   }, []);
@@ -788,6 +788,7 @@ export default function LeadsPage() {
       setFormData((prev) => ({ ...prev, [name]: value }));
 
   // Form submission with react-hook-form
+
   const onSubmit = async (data: FormData) => {
     if (!data.full_name.trim() || !data.email.trim() || !data.phone.trim()) {
       toast.error("Full Name, Email, and Phone are required");
@@ -805,7 +806,6 @@ export default function LeadsPage() {
       setFormSaveLoading(false);
       return;
     }
-
     try {
       const updatedData = { 
         ...formData,
@@ -875,7 +875,6 @@ export default function LeadsPage() {
       if (updatedData.moved_to_candidate) {
         updatedData.status = "Closed";
       }
-
       const booleanFields = [
         "moved_to_candidate",
         "massemail_email_sent",
@@ -890,7 +889,6 @@ export default function LeadsPage() {
           (updatedData[field as keyof FormData] as boolean) = false;
         }
       });
-
       const payload = {
         ...updatedData,
         entry_date: new Date().toISOString(),
@@ -899,7 +897,6 @@ export default function LeadsPage() {
             ? new Date().toISOString().split("T")[0]
             : null,
       };
-
       const response = await fetch(apiEndpoint, {
         method: "POST",
         headers: {
@@ -908,11 +905,8 @@ export default function LeadsPage() {
         },
         body: JSON.stringify(payload),
       });
-
       if (!response.ok) throw new Error("Failed to create lead");
-
       const newLead = await response.json();
-
       const updated = [...leads, newLead].sort(
         (a, b) =>
           new Date(b.entry_date || 0).getTime() -
@@ -920,7 +914,6 @@ export default function LeadsPage() {
       );
       setLeads(updated);
       setFilteredLeads(updated);
-
       toast.success("Lead created successfully!", { position: "top-center" });
       setIsModalOpen(false);
       reset();
@@ -950,7 +943,7 @@ export default function LeadsPage() {
         const { id, entry_date, ...payload } = updatedRow;
         if (payload.moved_to_candidate && payload.status !== "Closed") {
           payload.status = "Closed";
-          payload.closed_date = new Date().toISOString().split("T")[0];
+          payload.closed_date = new Date().toISOString().split('T')[0];
         } else if (!payload.moved_to_candidate && payload.status === "Closed") {
           payload.status = "Open";
           payload.closed_date = null;
@@ -966,19 +959,12 @@ export default function LeadsPage() {
           },
           body: JSON.stringify(payload),
         });
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.detail || "Failed to update lead");
-        }
-        const updatedLead = { ...updatedRow, ...payload };
-        if (gridRef.current) {
-          gridRef.current.api.applyTransaction({ update: [updatedLead] });
-        }
-        toast.success(
-          payload.moved_to_candidate
-            ? "Lead moved to candidate and marked Closed"
-            : "Lead updated successfully"
+        if (!response.ok) throw new Error("Failed to update lead");
+        const updatedLead = await response.json();
+        setLeads(prevLeads =>
+          prevLeads.map(lead => (lead.id === updatedLead.id ? updatedLead : lead))
         );
+        toast.success("Lead updated successfully");
       } catch (error) {
         toast.error("Failed to update lead");
         console.error("Error updating lead:", error);
@@ -1000,14 +986,12 @@ export default function LeadsPage() {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
         });
-        if (!response.ok) throw new Error("Failed to delete candidate");
-        const rowNode = gridRef.current?.api.getRowNode(id.toString());
-        if (rowNode) rowNode.setData(null);
-        gridRef.current?.api.applyTransaction({ remove: [rowNode.data] });
-        toast.success("Candidate deleted successfully");
+        if (!response.ok) throw new Error("Failed to delete lead");
+        setLeads(prevLeads => prevLeads.filter(lead => lead.id !== id));
+        toast.success("Lead deleted successfully");
       } catch (error) {
-        toast.error("Failed to delete candidate");
-        console.error(error);
+        toast.error("Failed to delete lead");
+        console.error("Error deleting lead:", error);
       }
     },
     [apiEndpoint]
@@ -1293,7 +1277,6 @@ export default function LeadsPage() {
       )}
       
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        {/* Left side: Title and description */}
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             Leads Management
@@ -1313,8 +1296,6 @@ export default function LeadsPage() {
               </span>
             )}
           </p>
-
-          {/* Search input */}
           <div className="mt-2 sm:mt-0 sm:max-w-md">
             <div className="relative">
               <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
@@ -1335,9 +1316,7 @@ export default function LeadsPage() {
             )}
           </div>
         </div>
-
-        {/* Right side: Buttons */}
-        <div className="mt-4 flex flex-row items-center gap-2 sm:mt-0">
+        <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
           <Button
             onClick={handleOpenModal}
             className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700"
@@ -1355,7 +1334,6 @@ export default function LeadsPage() {
           </Button>
         </div>
       </div>
-
       <div className="flex w-full justify-center">
         <AGGridTable
           key={`${filteredLeads.length}-${selectedStatuses.join(
@@ -1374,7 +1352,6 @@ export default function LeadsPage() {
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 p-2 sm:p-4">
           <div className="w-full max-w-sm rounded-xl bg-white shadow-2xl sm:max-w-md sm:rounded-2xl md:max-w-2xl">
-            {/* Header */}
             <div className="sticky top-0 flex items-center justify-between border-b border-blue-200 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 py-2 sm:px-4 sm:py-2 md:px-6">
               <h2 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-sm font-semibold text-transparent sm:text-base md:text-lg">
                 Add New Lead
@@ -1386,12 +1363,9 @@ export default function LeadsPage() {
                 <X size={16} className="sm:h-5 sm:w-5" />
               </button>
             </div>
-
-            {/* Form */}
             <div className="bg-white p-3 sm:p-4 md:p-5">
               <form onSubmit={handleSubmit(onSubmit)}>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 md:gap-4">
-                  {/* Full Name */}
                   <div className="space-y-1">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Full Name <span className="text-red-700">*</span>
@@ -1414,8 +1388,6 @@ export default function LeadsPage() {
                       </p>
                     )}
                   </div>
-
-                  {/* Email */}
                   <div className="space-y-1">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Email <span className="text-red-700">*</span>
@@ -1438,8 +1410,6 @@ export default function LeadsPage() {
                       </p>
                     )}
                   </div>
-
-                  {/* Phone */}
                   <div className="space-y-1">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Phone <span className="text-red-700">*</span>
@@ -1456,7 +1426,6 @@ export default function LeadsPage() {
                       placeholder="Enter phone number"
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                       onInput={(e) => {
-                        // Remove any non-digit characters
                         e.currentTarget.value = e.currentTarget.value.replace(
                           /\D/g,
                           ""
@@ -1469,8 +1438,6 @@ export default function LeadsPage() {
                       </p>
                     )}
                   </div>
-
-                  {/* Status */}
                   <div className="space-y-1">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Status
@@ -1486,8 +1453,6 @@ export default function LeadsPage() {
                       ))}
                     </select>
                   </div>
-
-                  {/* Work Status */}
                   <div className="space-y-1">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Work Status
@@ -1503,8 +1468,6 @@ export default function LeadsPage() {
                       ))}
                     </select>
                   </div>
-
-                  {/* Secondary Email */}
                   <div className="space-y-1">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Secondary Email
@@ -1516,8 +1479,6 @@ export default function LeadsPage() {
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                   </div>
-
-                  {/* Secondary Phone */}
                   <div className="space-y-1">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Secondary Phone
@@ -1528,7 +1489,6 @@ export default function LeadsPage() {
                       placeholder="Enter secondary phone"
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                       onInput={(e) => {
-                        // Remove any non-digit characters
                         e.currentTarget.value = e.currentTarget.value.replace(
                           /\D/g,
                           ""
@@ -1536,8 +1496,6 @@ export default function LeadsPage() {
                       }}
                     />
                   </div>
-
-                  {/* Address */}
                   <div className="space-y-1 sm:col-span-2">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Address
@@ -1549,8 +1507,6 @@ export default function LeadsPage() {
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                   </div>
-
-                  {/* Notes */}
                   <div className="space-y-1 sm:col-span-2">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Notes
@@ -1561,8 +1517,6 @@ export default function LeadsPage() {
                       className="w-full resize-none rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                   </div>
-
-                  {/* Checkboxes */}
                   <div className="grid grid-cols-1 gap-2 pt-1 sm:col-span-2 sm:grid-cols-3">
                     <label className="flex items-center space-x-2">
                       <input
@@ -1574,7 +1528,6 @@ export default function LeadsPage() {
                         Moved to Candidate
                       </span>
                     </label>
-
                     <label className="flex items-center space-x-2">
                       <input
                         type="checkbox"
@@ -1585,7 +1538,6 @@ export default function LeadsPage() {
                         Mass Email Unsubscribe
                       </span>
                     </label>
-
                     <label className="flex items-center space-x-2">
                       <input
                         type="checkbox"
@@ -1598,8 +1550,6 @@ export default function LeadsPage() {
                     </label>
                   </div>
                 </div>
-
-                {/* Footer */}
                 <div className="mt-3 flex justify-end gap-2 border-t border-blue-200 pt-2 sm:mt-3 sm:gap-3 sm:pt-2 md:mt-4 md:pt-3">
                   <button
                     type="button"

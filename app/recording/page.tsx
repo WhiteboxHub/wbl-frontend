@@ -8,7 +8,8 @@ import SearchComp from "@/components/Recording/SearchComp";
 import SessionComp from "@/components/Recording/SessionComp";
 import CourseNavigation from "@/components/Common/CourseNavigation";
 
-type ComponentType = "class" | "search" | "session";
+
+type ComponentType = "class" | "search" | "session"
 
 export default function Recordings() {
   const router = useRouter();
