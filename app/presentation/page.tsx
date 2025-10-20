@@ -22,7 +22,8 @@ export default function Presentation() {
   const searchParams = useSearchParams();
   const [course, setCourse] = useState("ML");
   const [loading, setLoading] = useState(true);
-  const [activeComponent, setActiveComponent] = useState<ComponentType>("Presentations");
+  const [activeComponent, setActiveComponent] =
+    useState<ComponentType>("Presentations");
 
   const buttons = [
     { type: "Presentations", label: "Presentations" },
@@ -32,7 +33,7 @@ export default function Presentation() {
     { type: "Installations", label: "Installations" },
     { type: "Books", label: "Books" },
     { type: "Newsletters", label: "Newsletters" },
-    { type: "Assignments", label: "Assignments" }
+    { type: "Assignments", label: "Assignments" },
   ];
 
   const handleButtonClick = (component: ComponentType) => {
@@ -74,7 +75,7 @@ export default function Presentation() {
   return (
     <div>
       <main className="container">
-        <nav className="mt-20 flex h-28 flex-col items-start justify-center sm:mt-28 sm:mb-10 sm:flex-row sm:items-center sm:justify-between">
+        <nav className="mt-20 flex h-28 flex-col items-start justify-center sm:mb-10 sm:mt-28 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-center text-2xl font-bold sm:pt-0 sm:text-start sm:text-3xl lg:text-4xl">
             Course Material
             <span className="text-lg font-light sm:text-2xl"> (PDF)</span>
@@ -92,11 +93,14 @@ export default function Presentation() {
               {buttons.map((button) => (
                 <button
                   key={button.type}
-                  className={`mb-1 w-full rounded-md px-4 py-2 font-bold text-black hover:bg-gradient-to-tl hover:from-primary hover:to-blue-300 sm:w-36 ${activeComponent === button.type
-                      ? "bg-gradient-to-br from-primary to-blue-400 text-white border-2 border-blue-600 shadow-lg"
+                  className={`mb-1 w-full rounded-md px-4 py-2 font-bold text-black hover:bg-gradient-to-tl hover:from-primary hover:to-blue-300 sm:w-36 ${
+                    activeComponent === button.type
+                      ? "border-2 border-blue-600 bg-gradient-to-br from-primary to-blue-400 text-white shadow-lg"
                       : "bg-gradient-to-br from-primary to-blue-300"
-                    }`}
-                  onClick={() => handleButtonClick(button.type as ComponentType)}
+                  }`}
+                  onClick={() =>
+                    handleButtonClick(button.type as ComponentType)
+                  }
                 >
                   {button.label}
                 </button>
@@ -105,7 +109,7 @@ export default function Presentation() {
           </div>
           <div className="mt-10 flex justify-center sm:-mt-10 sm:w-4/5">
             {activeComponent === "Assignments" ? (
-              <Assignments />
+              <Assignments course={course} />
             ) : (
               <ResourcesTable course={course} type={activeComponent} />
             )}
