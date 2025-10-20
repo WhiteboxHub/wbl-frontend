@@ -184,7 +184,6 @@ const Assignments = ({ course }: { course: string }) => {
                   onClick={() =>
                     handleSubjectClick(assignment.link, assignment.name)
                   }
-
                   className="w-full text-blue-600 transition-colors focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:text-white"
                   aria-label={`Open ${assignment.name} in new tab`}
                   disabled={!assignment.link}
