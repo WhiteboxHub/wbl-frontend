@@ -285,6 +285,7 @@ useEffect(() => {
   // ---------------- Column Defs ----------------
   const columnDefs: ColDef[] = useMemo(
     () => [
+      { field: "id", headerName: "ID", pinned: "left", width: 80 },
       {
         field: "candidate_name",
         headerName: "Full Name",

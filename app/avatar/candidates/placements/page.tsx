@@ -116,6 +116,12 @@ export default function CandidatesPlacements() {
               editable: true,
             },
             {
+              field: "marketing_start_date",
+              headerName: "Marketing Date",
+              minWidth: 130,
+              editable: true,
+            },
+            {
               field: "placement_date",
               headerName: "Placement Date",
               minWidth: 130,
