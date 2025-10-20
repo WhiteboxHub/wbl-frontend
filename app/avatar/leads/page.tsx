@@ -4,15 +4,14 @@ import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
-import { Label } from "@/components/admin_ui/label";
-import { SearchIcon, PlusCircle, RefreshCw } from "lucide-react";
+import { SearchIcon, PlusCircle, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { toast, Toaster } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AGGridTable } from "@/components/AGGridTable";
 import { createPortal } from "react-dom";
 import type { AgGridReact as AgGridReactType } from "ag-grid-react";
-import type { GridApi } from "ag-grid-community";
+import { useForm } from "react-hook-form";
 import { LeadsHelper, db, Lead as DexieLead } from "@/lib/dexieDB";
 
 type Lead = DexieLead;
@@ -68,13 +67,11 @@ const useSimpleCache = () => {
     searchBy: string;
   } | null>(null);
 
-  //  Check cache validity
   const isCacheValid = async (
     searchTerm: string,
     searchBy: string = "all",
     maxAge: number = 60000
   ) => {
-    //  Memory cache valid?
     if (cacheRef.current) {
       if (cacheRef.current.searchTerm === searchTerm && cacheRef.current.searchBy === searchBy) {
         const age = Date.now() - cacheRef.current.timestamp;
@@ -82,14 +79,12 @@ const useSimpleCache = () => {
       }
     }
 
-    // Persistent cache fallback (IndexedDB)
     const localLeads = await db.leads.toArray();
     if (localLeads.length > 0) {
       console.log("Using IndexedDB cache — treating as valid");
       return true;
     }
 
-    // No memory or local cache
     return false;
   };
 
@@ -103,13 +98,13 @@ const useSimpleCache = () => {
   };
 
   const getCache = () => cacheRef.current?.data || null;
-
   const invalidateCache = () => {
     cacheRef.current = null;
   };
 
   return { isCacheValid, setCache, getCache, invalidateCache };
 };
+
 // Rate limiter to prevent too many API calls
 const useRateLimiter = () => {
   const lastCallRef = useRef<number>(0);
@@ -134,10 +129,8 @@ const StatusRenderer = ({ value }: { value?: string }) => {
   const status = value?.toLowerCase() || "";
   const variantMap: Record<string, string> = {
     open: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-    closed:
-      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-    future:
-      "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+    closed: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    future: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
     default: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
   };
   return (
@@ -150,23 +143,17 @@ const StatusRenderer = ({ value }: { value?: string }) => {
 const WorkStatusRenderer = ({ value }: { value?: string }) => {
   const workstatus = value?.toLowerCase() || "";
   const variantMap: Record<string, string> = {
-    "waiting for status":
-      "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+    "waiting for status": "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
     h1b: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-    "h4 ead":
-      "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
-    "permanent resident":
-      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-    citizen:
-      "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
+    "h4 ead": "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
+    "permanent resident": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    citizen: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
     opt: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
     cpt: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
     default: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
   };
   return (
-    <Badge
-      className={`${variantMap[workstatus] || variantMap.default} capitalize`}
-    >
+    <Badge className={`${variantMap[workstatus] || variantMap.default} capitalize`}>
       {value || "N/A"}
     </Badge>
   );
@@ -207,8 +194,7 @@ const StatusFilterHeaderComponent = (props: any) => {
   };
 
   const isAllSelected = selectedStatuses.length === statusOptions.length;
-  const isIndeterminate =
-    selectedStatuses.length > 0 && selectedStatuses.length < statusOptions.length;
+  const isIndeterminate = selectedStatuses.length > 0 && selectedStatuses.length < statusOptions.length;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -464,13 +450,10 @@ export default function LeadsPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchBy, setSearchBy] = useState("full_name");
   const [sortModel, setSortModel] = useState([{ colId: "entry_date", sort: "desc" as const }]);
-  const [newLeadForm, setNewLeadForm] = useState(isNewLead);
-  const [formData, setFormData] = useState<FormData>(initialFormData);
-  const [formSaveLoading, setFormSaveLoading] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(isNewLead);
   const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   
   const gridRef = useRef<AgGridReactType<Lead> | null>(null);
   const apiEndpoint = useMemo(() => `${process.env.NEXT_PUBLIC_API_URL}/leads`, []);
@@ -478,46 +461,21 @@ export default function LeadsPage() {
   
   const cache = useSimpleCache();
   const rateLimiter = useRateLimiter();
-
-  // NUCLEAR OPTION - Track call count
   const callCountRef = useRef(0);
 
-  // Helper functions for form dropdown colors
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "open":
-        return { backgroundColor: "#DBEAFE", color: "#1E40AF" };
-      case "closed":
-        return { backgroundColor: "#D1FAE5", color: "#065F46" };
-      case "future":
-        return { backgroundColor: "#EDE9FE", color: "#7C3AED" };
-      default:
-        return { backgroundColor: "#F3F4F6", color: "#374151" };
-    }
-  };
+  // React Hook Form for better form handling
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+    setValue,
+    watch,
+  } = useForm<FormData>({
+    defaultValues: initialFormData,
+  });
 
-  const getWorkStatusColor = (workstatus: string) => {
-    switch (workstatus.toLowerCase()) {
-      case "waiting for status":
-        return { backgroundColor: "#FFEDD5", color: "#9A3412" };
-      case "h1b":
-        return { backgroundColor: "#DBEAFE", color: "#1E40AF" };
-      case "h4 ead":
-        return { backgroundColor: "#FCE7F3", color: "#BE185D" };
-      case "permanent resident":
-        return { backgroundColor: "#D1FAE5", color: "#065F46" };
-      case "citizen":
-        return { backgroundColor: "#E0E7FF", color: "#4338CA" };
-      case "opt":
-        return { backgroundColor: "#FEF3C7", color: "#92400E" };
-      case "cpt":
-        return { backgroundColor: "#FEF3C7", color: "#B45309" };
-      default:
-        return { backgroundColor: "#F3F4F6", color: "#374151" };
-    }
-  };
-
-  // DEBUG VERSION - fetchLeads function with strict call prevention
+  // Enhanced fetchLeads with offline support
   const fetchLeads = useCallback(async (
     search?: string,
     searchBy: string = "all",
@@ -525,26 +483,18 @@ export default function LeadsPage() {
     forceRefresh = false
   ) => {
     callCountRef.current++;
-    console.log('🚨 fetchLeads CALLED - investigating multiple calls');
-    console.log('   Call count:', callCountRef.current);
-    console.log('   search:', search);
-    console.log('   searchBy:', searchBy);
-    console.log('   forceRefresh:', forceRefresh);
-    console.log('   loading state:', loading);
-    console.log('   cache valid?', cache.isCacheValid(search || "", searchBy));
-    console.log('   stack trace:', new Error().stack);
-
-    // NUCLEAR OPTION - Completely block multiple calls
+    
+    // Prevent duplicate calls
     if (callCountRef.current > 1) {
-      console.log('💥 BLOCKING DUPLICATE CALL - Only allowing first call');
+      console.log('💥 BLOCKING DUPLICATE CALL');
       return;
     }
 
     const searchKey = search || "";
     
-    // STRICT CACHE CHECK - Only proceed if absolutely necessary
+    // Use cache if valid
     if (!forceRefresh && cache.isCacheValid(searchKey, searchBy)) {
-      console.log('✅ STRICT CACHE HIT - Blocking API call');
+      console.log('✅ STRICT CACHE HIT');
       const cachedData = cache.getCache();
       if (cachedData) {
         setLeads(cachedData);
@@ -553,9 +503,9 @@ export default function LeadsPage() {
       }
     }
 
-    // RATE LIMITING - Strict enforcement
-    if (!rateLimiter.canMakeCall(5000)) { // 5 seconds between calls
-      console.log('🚫 STRICT RATE LIMIT - Blocking API call');
+    // Rate limiting
+    if (!rateLimiter.canMakeCall(5000)) {
+      console.log('🚫 STRICT RATE LIMIT');
       return;
     }
 
@@ -565,7 +515,7 @@ export default function LeadsPage() {
       const localLeads = await db.leads.toArray();
       console.log(`📁 IndexedDB has ${localLeads.length} leads`);
       
-      // Only proceed with API call if absolutely necessary
+      // Only proceed with API call if necessary
       if (isOnline && (forceRefresh || !cache.isCacheValid(searchKey, searchBy))) {
         let url = `${apiEndpoint}`;
         const params = new URLSearchParams();
@@ -600,14 +550,12 @@ export default function LeadsPage() {
           leadsData = data;
         }
 
-        console.log(`📥 API returned ${leadsData.length} leads - UPDATING CACHE`);
+        console.log(`📥 API returned ${leadsData.length} leads`);
         
-        // Update state and cache
         setLeads(leadsData);
         setFilteredLeads(leadsData);
         cache.setCache(leadsData, searchKey, searchBy);
         
-        // Update local DB
         await db.leads.clear();
         await db.leads.bulkPut(leadsData);
       } else {
@@ -617,28 +565,25 @@ export default function LeadsPage() {
       }
     } catch (err) {
       console.error('❌ API Error:', err);
+      setError(err instanceof Error ? err.message : "Failed to load leads");
     } finally {
       setLoading(false);
     }
-  }, [apiEndpoint, cache, isOnline, rateLimiter, loading]);
+  }, [apiEndpoint, cache, isOnline, rateLimiter]);
 
-  //  IndexedDB-only search (no API calls)
+  // Local search in IndexedDB
   useEffect(() => {
     const timeoutId = setTimeout(async () => {
       const term = searchTerm.trim().toLowerCase();
 
       if (!term) {
-        console.log("Empty search — showing all local leads");
         const allLeads = await db.leads.toArray();
         setFilteredLeads(allLeads);
         setTotalLeads(allLeads.length);
         return;
       }
 
-      
-      console.log(" Local search in IndexedDB for:", term);
       const allLeads = await db.leads.toArray();
-
       const filtered = allLeads.filter((lead) => {
         const nameMatch = lead.full_name?.toLowerCase().includes(term);
         const emailMatch = lead.email?.toLowerCase().includes(term);
@@ -649,52 +594,40 @@ export default function LeadsPage() {
 
       setFilteredLeads(filtered);
       setTotalLeads(filtered.length);
-      console.log(`Found ${filtered.length} leads locally`);
-    }, 400); 
+    }, 400);
 
     return () => clearTimeout(timeoutId);
   }, [searchTerm]);
 
-  
+  // Initial data load
   useEffect(() => {
     const loadInitialData = async () => {
-      console.log('Initial page load starting...');
-      callCountRef.current = 0; 
+      callCountRef.current = 0;
       
-      // ALWAYS load from IndexedDB first (instant)
       const localLeads = await db.leads.toArray();
       console.log(`Initial IndexedDB load: ${localLeads.length} leads`);
       
       if (localLeads.length > 0) {
         setLeads(localLeads);
         setFilteredLeads(localLeads);
-        console.log('Showing IndexedDB data immediately');
         
-        // Only fetch from API in background if data is old
         if (!cache.isCacheValid("", "all")) {
-          console.log('Cache expired, fetching fresh data in background...');
-          // Use setTimeout to avoid blocking the UI
           setTimeout(() => {
             fetchLeads("", "all", sortModel, false);
-          }, 3000); 
-        } else {
-          console.log('Using cached data - no initial API call');
+          }, 3000);
         }
       } else {
-        // No local data, fetch from API
-        console.log('No local data, fetching from API...');
         fetchLeads("", "all", sortModel, true);
       }
     };
 
     loadInitialData();
-  }, []); 
+  }, []);
 
-  // Client-side filtering (reduces API calls)
+  // Client-side filtering
   useEffect(() => {
     let filtered = [...leads];  
     
-    // Status filter
     if (selectedStatuses.length > 0) {
       filtered = filtered.filter((lead) =>
         selectedStatuses.some(
@@ -730,12 +663,12 @@ export default function LeadsPage() {
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      console.log(' Online - syncing changes if any');
+      console.log('Online - syncing changes if any');
     };
     
     const handleOffline = () => {
       setIsOnline(false);
-      console.log(' Offline - using local data only');
+      console.log('Offline - using local data only');
     };
 
     window.addEventListener("online", handleOnline);
@@ -758,80 +691,25 @@ export default function LeadsPage() {
     setSearchTerm(term);
   }, []);
 
-  // Form validation
-  const validateForm = (data: FormData): boolean => {
-    const errors: Record<string, string> = {};
-    
-    if (!data.full_name.trim()) {
-      errors.full_name = "Full name is required";
-    }
-    
-    if (!data.email.trim()) {
-      errors.email = "Email is required";
-    } else if (!/^\S+@\S+\.\S+$/.test(data.email)) {
-      errors.email = "Please enter a valid email";
-    }
-    
-    if (!data.phone.trim()) {
-      errors.phone = "Phone is required";
-    } else if (data.phone.replace(/\D/g, '').length < 10) {
-      errors.phone = "Please enter a valid phone number";
-    }
-    
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleNewLeadFormChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
-  ) => {
-    const { name, value, type } = e.target;
-    if (type === "checkbox") {
-      const checked = (e.target as HTMLInputElement).checked;
-      setFormData((prev) => ({ ...prev, [name]: checked }));
-    } else if (name === "phone" || name === "secondary_phone") {
-      const numericValue = value.replace(/\D/g, "");
-      setFormData((prev) => ({ ...prev, [name]: numericValue }));
-    } else if (name === "address") {
-      const sanitizedValue = value.replace(/[^a-zA-Z0-9, ]/g, "");
-      setFormData((prev) => ({ ...prev, [name]: sanitizedValue }));
-    } else if (name === "full_name") {
-      const sanitizedValue = value.replace(/[^a-zA-Z. ]/g, "");
-      setFormData((prev) => ({ ...prev, [name]: sanitizedValue }));
-    } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
-    }
-  };
-
-  const handleNewLeadFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormSaveLoading(true);
-    setFormErrors({});
-
-    if (!validateForm(formData)) {
-      setFormSaveLoading(false);
-      return;
-    }
-
+  // Enhanced form submission with offline support
+  const onSubmit = async (data: FormData) => {
     try {
       const updatedData = { 
-        ...formData,
-        status: formData.status || "Open",
-        workstatus: formData.workstatus || "Waiting for Status",
-        moved_to_candidate: Boolean(formData.moved_to_candidate),
-        massemail_email_sent: Boolean(formData.massemail_email_sent),
-        massemail_unsubscribe: Boolean(formData.massemail_unsubscribe),
-        entry_date: formData.entry_date || new Date().toISOString(),
-        closed_date: formData.status === "Closed" ? new Date().toISOString().split("T")[0] : null,
+        ...data,
+        status: data.status || "Open",
+        workstatus: data.workstatus || "Waiting for Status",
+        moved_to_candidate: Boolean(data.moved_to_candidate),
+        massemail_email_sent: Boolean(data.massemail_email_sent),
+        massemail_unsubscribe: Boolean(data.massemail_unsubscribe),
+        entry_date: data.entry_date || new Date().toISOString(),
+        closed_date: data.status === "Closed" ? new Date().toISOString().split("T")[0] : null,
       };
 
       // Add to local DB first
       const tempLead: Lead = {
         ...updatedData,
-        id: Date.now(), 
-        synced: !isOnline, 
+        id: Date.now(),
+        synced: !isOnline,
         _action: "add" as const,
       } as Lead;
 
@@ -839,10 +717,9 @@ export default function LeadsPage() {
       setLeads(prev => [tempLead, ...prev]);
       setFilteredLeads(prev => [tempLead, ...prev]);
       
-      // Invalidate cache since data changed
       cache.invalidateCache();
 
-      // Sync with API if online (in background)
+      // Sync with API if online
       if (isOnline) {
         const token = localStorage.getItem("token");
         const response = await fetch(apiEndpoint, {
@@ -858,7 +735,6 @@ export default function LeadsPage() {
         
         const savedLead = await response.json();
         
-        // Update local DB with saved lead
         await db.leads.delete(tempLead.id);
         await db.leads.add({ ...savedLead, synced: true, _action: null });
         
@@ -867,45 +743,37 @@ export default function LeadsPage() {
       }
 
       toast.success("Lead created successfully!");
-      setNewLeadForm(false);
-      setFormData(initialFormData);
+      handleCloseModal();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to create lead";
       toast.error(errorMessage);
       console.error("Error creating lead:", error);
-    } finally {
-      setFormSaveLoading(false);
     }
   };
 
-  const handleOpenNewLeadForm = () => {
+  const handleOpenModal = () => {
     router.push("/avatar/leads?newlead=true");
-    setNewLeadForm(true);
+    setIsModalOpen(true);
   };
 
-  const handleCloseNewLeadForm = () => {
+  const handleCloseModal = () => {
     router.push("/avatar/leads");
-    setNewLeadForm(false);
-    setFormData(initialFormData);
+    setIsModalOpen(false);
+    reset();
   };
 
   // Optimistic updates for row operations
   const handleRowUpdated = useCallback(async (updatedRow: Lead) => {
     setLoadingRowId(updatedRow.id);
     
-    // Optimistic update - update UI immediately
     const previousLeads = [...leads];
     
     setLeads(prev => prev.map(l => l.id === updatedRow.id ? updatedRow : l));
     setFilteredLeads(prev => prev.map(l => l.id === updatedRow.id ? updatedRow : l));
     
-    // Update local DB immediately
     await db.leads.put(updatedRow);
-    
-    // Invalidate cache since data changed
     cache.invalidateCache();
 
-    // Sync with API in background (don't wait for response)
     if (isOnline) {
       const { id, ...payload } = updatedRow;
       if (payload.moved_to_candidate && payload.status !== "Closed") {
@@ -947,15 +815,12 @@ export default function LeadsPage() {
   }, [apiEndpoint, isOnline, leads, cache]);
 
   const handleRowDeleted = useCallback(async (id: number) => {
-    // Optimistic update
     const previousLeads = [...leads];    
     setLeads(prev => prev.filter((l) => l.id !== id));
     setFilteredLeads(prev => prev.filter((l) => l.id !== id));    
-    // Update local DB immediately
     await db.leads.delete(id);    
-    // Invalidate cache
     cache.invalidateCache();
-    // Sync with API in background
+    
     if (isOnline) {
       const token = localStorage.getItem("token");
       fetch(`${apiEndpoint}/${id}`, {
@@ -969,7 +834,6 @@ export default function LeadsPage() {
         toast.success("Lead deleted successfully");
       })
       .catch(error => {
-        // Revert on failure
         setLeads(previousLeads);
         setFilteredLeads(previousLeads);
         toast.error("Failed to delete lead - changes reverted");
@@ -977,6 +841,51 @@ export default function LeadsPage() {
       });
     }
   }, [apiEndpoint, isOnline, leads, cache]);
+
+  // Move to candidate functionality from second version
+  const handleMoveToCandidate = useCallback(
+    async (lead: Lead, moved: boolean) => {
+      setLoadingRowId(lead.id);
+      try {
+        const method = moved ? "DELETE" : "POST";
+        const url = `${apiEndpoint}/${lead.id}/move-to-candidate`;
+        const payload: Partial<Lead> = {
+          moved_to_candidate: !moved,
+          status: !moved ? "Closed" : "Open",
+          closed_date: !moved ? new Date().toISOString().split("T")[0] : null,
+        };
+        
+        const response = await fetch(url, {
+          method,
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify(payload),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || "Failed to move lead to candidate");
+        }
+        
+        const data = await response.json();
+        fetchLeads(searchTerm, searchBy, sortModel);
+        
+        if (moved) {
+          toast.success(`Lead removed from candidate list (Candidate ID: ${data.candidate_id})`);
+        } else {
+          toast.success(`Lead moved to candidate (Candidate ID: ${data.candidate_id}) and status set to Closed`);
+        }
+      } catch (error: any) {
+        console.error("Error moving lead to candidate:", error);
+        toast.error(error.message || "Failed to move lead to candidate");
+      } finally {
+        setLoadingRowId(null);
+      }
+    },
+    [apiEndpoint, searchTerm, searchBy, sortModel, fetchLeads]
+  );
 
   const formatPhoneNumber = (phoneNumberString: string) => {
     const cleaned = ("" + phoneNumberString).replace(/\D/g, "");
@@ -990,7 +899,7 @@ export default function LeadsPage() {
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        handleCloseNewLeadForm();
+        handleCloseModal();
       }
     };
     window.addEventListener("keydown", handleEsc);
@@ -1199,20 +1108,7 @@ export default function LeadsPage() {
         </div>
       )}
       
-      {/* Form errors display */}
-      {Object.keys(formErrors).length > 0 && (
-        <div className="rounded-md bg-red-100 p-3 text-red-800 dark:bg-red-900/30 dark:text-red-300">
-          Please fix the following errors:
-          <ul className="mt-1 list-disc pl-5">
-            {Object.values(formErrors).map((error, index) => (
-              <li key={index}>{error}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-      
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        {/* Left side: Title and description */}
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             Leads Management
@@ -1233,7 +1129,6 @@ export default function LeadsPage() {
             )}
           </p>
 
-          {/* Search input */}
           <div className="mt-2 sm:mt-0 sm:max-w-md">
             <div className="relative">
               <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
@@ -1255,10 +1150,9 @@ export default function LeadsPage() {
           </div>
         </div>
 
-        {/* Right side: Buttons */}
         <div className="mt-4 flex flex-row items-center gap-2 sm:mt-0">
           <Button
-            onClick={handleOpenNewLeadForm}
+            onClick={handleOpenModal}
             className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700"
           >
             <PlusCircle className="mr-2 h-4 w-4" />
@@ -1291,185 +1185,220 @@ export default function LeadsPage() {
         />
       </div>
 
-      {newLeadForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="relative min-h-[40vh] w-full max-w-xl rounded-lg bg-white p-4 shadow-md">
-            <h2 className="mb-4 text-center text-xl font-semibold">
-              New Lead Form
-            </h2>
-            <form className="grid grid-cols-1 gap-2 md:grid-cols-2">
-              {Object.entries({
-                full_name: {
-                  label: "Full Name *",
-                  type: "text",
-                  required: true,
-                },
-                email: { label: "Email *", type: "email", required: true },
-                phone: { label: "Phone *", type: "tel", required: true },
-                secondary_email: { label: "Secondary Email", type: "email" },
-                secondary_phone: { label: "Secondary Phone", type: "tel" },
-                workstatus: {
-                  label: "Work Status",
-                  type: "select",
-                  options: workStatusOptions,
-                  required: true,
-                },
-                address: { label: "Address", type: "text" },
-                status: {
-                  label: "Status",
-                  type: "select",
-                  options: statusOptions,
-                  required: true,
-                },
-                notes: { label: "Notes (optional)", type: "textarea" },
-                moved_to_candidate: {
-                  label: "Moved to Candidate",
-                  type: "checkbox",
-                },
-                massemail_unsubscribe: {
-                  label: "Mass Email Unsubscribe",
-                  type: "checkbox",
-                },
-                massemail_email_sent: {
-                  label: "Mass Email Sent",
-                  type: "checkbox",
-                },
-              }).map(([name, config]) => (
-                <div
-                  key={name}
-                  className={config.type === "textarea" ? "md:col-span-2" : ""}
-                >
-                  <label
-                    htmlFor={name}
-                    className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {config.label}
-                  </label>
-                  {config.type === "select" ? (
+      {/* Enhanced Modal from second version */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 p-2 sm:p-4">
+          <div className="w-full max-w-sm rounded-xl bg-white shadow-2xl sm:max-w-md sm:rounded-2xl md:max-w-2xl">
+            <div className="sticky top-0 flex items-center justify-between border-b border-blue-200 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 py-2 sm:px-4 sm:py-2 md:px-6">
+              <h2 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-sm font-semibold text-transparent sm:text-base md:text-lg">
+                Add New Lead
+              </h2>
+              <button
+                onClick={handleCloseModal}
+                className="rounded-lg p-1 text-blue-400 transition hover:bg-blue-100 hover:text-blue-600"
+              >
+                <X size={16} className="sm:h-5 sm:w-5" />
+              </button>
+            </div>
+            <div className="bg-white p-3 sm:p-4 md:p-5">
+              <form onSubmit={handleSubmit(onSubmit)}>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 md:gap-4">
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                      Full Name <span className="text-red-700">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      {...register("full_name", {
+                        required: "Full name is required",
+                        maxLength: {
+                          value: 100,
+                          message: "Full name cannot exceed 100 characters",
+                        },
+                      })}
+                      placeholder="Enter full name"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    />
+                    {errors.full_name && (
+                      <p className="mt-1 text-xs text-red-600">
+                        {errors.full_name.message}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                      Email <span className="text-red-700">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      {...register("email", {
+                        required: "Email is required",
+                        pattern: {
+                          value: /^\S+@\S+\.\S+$/,
+                          message: "Invalid email address",
+                        },
+                      })}
+                      placeholder="Enter email"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    />
+                    {errors.email && (
+                      <p className="mt-1 text-xs text-red-600">
+                        {errors.email.message}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                      Phone <span className="text-red-700">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      {...register("phone", {
+                        required: "Phone is required",
+                        pattern: {
+                          value: /^\d+$/,
+                          message: "Phone must contain only numbers",
+                        },
+                      })}
+                      placeholder="Enter phone number"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                      onInput={(e) => {
+                        e.currentTarget.value = e.currentTarget.value.replace(/\D/g, "");
+                      }}
+                    />
+                    {errors.phone && (
+                      <p className="mt-1 text-xs text-red-600">
+                        {errors.phone.message}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                      Status
+                    </label>
                     <select
-                      id={name}
-                      name={name}
-                      value={
-                        (formData[name as keyof FormData] as string) ||
-                        (name === "workstatus" ? "Waiting for Status" : "Open")
-                      }
-                      onChange={handleNewLeadFormChange}
-                      className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
-                      style={
-                        name === "status"
-                          ? getStatusColor(formData.status)
-                          : name === "workstatus"
-                          ? getWorkStatusColor(formData.workstatus)
-                          : {}
-                      }
-                      required={config.required}
+                      {...register("status")}
+                      className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     >
-                      {config.options?.map((option) => (
-                        <option
-                          key={option}
-                          value={option}
-                          style={
-                            name === "status"
-                              ? getStatusColor(option)
-                              : name === "workstatus"
-                              ? getWorkStatusColor(option)
-                              : {}
-                          }
-                        >
+                      {statusOptions.map((option) => (
+                        <option key={option} value={option}>
                           {option}
                         </option>
                       ))}
                     </select>
-                  ) : config.type === "textarea" ? (
-                    <textarea
-                      id={name}
-                      name={name}
-                      value={formData[name as keyof FormData] as string}
-                      onChange={handleNewLeadFormChange}
-                      rows={3}
-                      className="w-full rounded-sm border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+                  </div>
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                      Work Status
+                    </label>
+                    <select
+                      {...register("workstatus")}
+                      className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    >
+                      {workStatusOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                      Secondary Email
+                    </label>
+                    <input
+                      type="email"
+                      {...register("secondary_email")}
+                      placeholder="Enter secondary email"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
-                  ) : config.type === "checkbox" ? (
-                    <div className="flex items-center space-x-2">
+                  </div>
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                      Secondary Phone
+                    </label>
+                    <input
+                      type="tel"
+                      {...register("secondary_phone")}
+                      placeholder="Enter secondary phone"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                      onInput={(e) => {
+                        e.currentTarget.value = e.currentTarget.value.replace(/\D/g, "");
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-1 sm:col-span-2">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                      Address
+                    </label>
+                    <input
+                      type="text"
+                      {...register("address")}
+                      placeholder="Enter address"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1 sm:col-span-2">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                      Notes
+                    </label>
+                    <textarea
+                      {...register("notes")}
+                      placeholder="Enter notes..."
+                      className="w-full resize-none rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 pt-1 sm:col-span-2 sm:grid-cols-3">
+                    <label className="flex items-center space-x-2">
                       <input
                         type="checkbox"
-                        id={name}
-                        name={name}
-                        checked={formData[name as keyof FormData] as boolean}
-                        onChange={handleNewLeadFormChange}
-                        className="h-4 w-4"
+                        {...register("moved_to_candidate")}
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
-                      <label
-                        htmlFor={name}
-                        className="text-sm text-gray-700 dark:text-gray-300"
-                      >
-                        {config.label}
-                      </label>
-                    </div>
-                  ) : (
-                    <input
-                      type={config.type}
-                      id={name}
-                      name={name}
-                      value={formData[name as keyof FormData] as string}
-                      onChange={handleNewLeadFormChange}
-                      className="w-full rounded-sm border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
-                      required={config.required}
-                    />
-                  )}
-                  {formErrors[name] && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors[name]}</p>
-                  )}
+                      <span className="text-xs text-gray-700 sm:text-sm">
+                        Moved to Candidate
+                      </span>
+                    </label>
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        {...register("massemail_unsubscribe")}
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-xs text-gray-700 sm:text-sm">
+                        Mass Email Unsubscribe
+                      </span>
+                    </label>
+                    <label className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        {...register("massemail_email_sent")}
+                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-xs text-gray-700 sm:text-sm">
+                        Mass Email Sent
+                      </span>
+                    </label>
+                  </div>
                 </div>
-              ))}
-              <div className="md:col-span-2">
-                <label
-                  htmlFor="entry_date"
-                  className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  Entry Date
-                </label>
-                <input
-                  type="date"
-                  id="entry_date"
-                  name="entry_date"
-                  value={
-                    formData.entry_date ||
-                    new Date().toISOString().split("T")[0]
-                  }
-                  onChange={handleNewLeadFormChange}
-                  className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <button
-                  type="submit"
-                  disabled={formSaveLoading}
-                  onClick={handleNewLeadFormSubmit}
-                  className={`w-full rounded-md py-2 transition duration-200 ${
-                    formSaveLoading
-                      ? "cursor-not-allowed bg-gray-400"
-                      : "bg-green-600 text-white hover:bg-green-700"
-                  }`}
-                >
-                  {formSaveLoading ? "Saving..." : "Save"}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCloseNewLeadForm}
-                  className="w-full rounded-md bg-gray-500 py-2 text-white transition duration-200 hover:bg-gray-600"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-            <button
-              onClick={handleCloseNewLeadForm}
-              className="absolute right-3 top-3 text-2xl leading-none text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              aria-label="Close"
-            >
-              &times;
-            </button>
+                <div className="mt-3 flex justify-end gap-2 border-t border-blue-200 pt-2 sm:mt-3 sm:gap-3 sm:pt-2 md:mt-4 md:pt-3">
+                  <button
+                    type="button"
+                    onClick={handleCloseModal}
+                    className="rounded-lg border border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-700 transition hover:bg-blue-50 sm:px-4 sm:py-2 sm:text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 px-3 py-1.5 text-xs font-medium text-white shadow-md transition hover:from-cyan-600 hover:to-blue-600 disabled:opacity-50 sm:px-5 sm:py-2 sm:text-sm"
+                  >
+                    {isSubmitting ? "Saving..." : "Save Lead"}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
