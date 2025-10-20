@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from "react";
-
-// TypeScript Interface for Assignment data
 interface Assignment {
   id: string | number;
   name: string;
@@ -72,7 +70,7 @@ const Assignments = ({ course }: { course: string }) => {
   const handleSubjectClick = (link: string | null, assignmentName: string) => {
     if (!link) {
       setClickError("Oops !! No data found");
-      setTimeout(() => setClickError(null), 3000); // Clear message after 3 seconds
+      setTimeout(() => setClickError(null), 3000);
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
