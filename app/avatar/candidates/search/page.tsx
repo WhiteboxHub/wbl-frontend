@@ -256,24 +256,23 @@ useEffect(() => {
 
             let displayValue = value;
 
-                if ((key === 'Last Login' && value) || (key === 'Last Modified' && value)) {
-                  const date = new Date(value as string | number | Date);
-                  displayValue = date.toLocaleString('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true
-                  });
-                }
+            if ((key === 'Last Login' && value) || (key === 'Last Modified' && value)) {
+              const date = new Date(value as string | number | Date);
+              displayValue = date.toLocaleString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+              });
+            }
             if (key === 'candidate_folder' && value && value.toString().trim() !== '') {
               const url = value.toString().trim();
               let finalUrl = url;
               if (!url.startsWith('http://') && !url.startsWith('https://')) {
                 finalUrl = 'https://' + url;
               }
-
               displayValue = (
                 <button
                   className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer whitespace-nowrap inline-block min-w-0 max-w-fit"
@@ -286,7 +285,44 @@ useEffect(() => {
                 Folder
                 </button>
               );
-            }else if (value && typeof value === "string") {
+            } else if (key.toLowerCase().includes('linkedin') && value && value.toString().trim() !== '') {
+              const url = value.toString().trim();
+              const finalUrl = url.startsWith('http') ? url : `https://${url}`;
+              displayValue = renderOpenLinkButton(finalUrl, "Open LinkedIn");
+            } else if (key.toLowerCase().includes('github') && value && value.toString().trim() !== '') {
+              const url = value.toString().trim();
+              const finalUrl = url.startsWith('http') ? url : `https://${url}`;
+              displayValue = renderOpenLinkButton(finalUrl, "Open GitHub");
+            } else if (key.toLowerCase().includes('notes') && typeof value === 'string') {
+              // Use DOMParser to robustly strip HTML and preserve newlines
+              const parseHtmlToText = (htmlString: string) => {
+                const doc = new DOMParser().parseFromString(htmlString, 'text/html');
+                return doc.body.innerText || '';
+              };
+              const textOnly = parseHtmlToText(value);
+              displayValue = (
+                <div className="whitespace-pre-wrap text-sm break-words dark:text-black-100 text-black-900">
+                  {textOnly}
+                </div>
+              );
+            }
+            else if (
+              (key.toLowerCase().includes('phone')) &&
+              value &&
+              value.toString().trim() !== ''
+            ) {
+              const phone = value.toString().trim();
+              displayValue = (
+                <a
+                  href={`tel:${phone.replace(/\s+/g, '')}`}
+                  className="text-blue-600 hover:underline font-medium"
+                >
+                  {phone}
+                </a>
+              );
+            }
+            // --- Email clickable logic ---
+            else if (value && typeof value === "string") {
               const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
               if (emailRegex.test(value.trim())) {
                 displayValue = (
@@ -300,35 +336,8 @@ useEffect(() => {
                   </a>
                 );
               }
-            } else if (key.toLowerCase().includes('phone') && value && value.toString().trim() !== '') {
-              // Render phone as tel: link/button
-              displayValue = (
-                <a
-                  href={`tel:${value}`}
-                  className="text-blue-600 hover:underline font-medium"
-                >
-                  {value as React.ReactNode}
-                </a>
-              );
-            } else if (key === 'linkedin_id' && value && value.toString().trim() !== '') {
-              let url = value.toString().trim();
-              let finalUrl = url;
-              if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                finalUrl = 'https://' + url;
-              }
-              displayValue = (
-                <button
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer whitespace-nowrap inline-block min-w-0 max-w-fit"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    window.open(finalUrl, '_blank', 'noopener,noreferrer');
-                  }}
-                >
-                  LinkedIn
-                </button>
-              );
-            } else if (key.toLowerCase().includes('date')) {
+            }
+            else if (key.toLowerCase().includes('date')) {
               displayValue = DateFormatter(value);
             } else if (key === 'status') {
               displayValue = <StatusRenderer status={value as string} />;
@@ -482,7 +491,9 @@ useEffect(() => {
 
   return (
     <td key={column} className="p-2 text-black-900 max-w-xs break-words dark:text-black-100">
-      {value || "—"}
+      {column.toLowerCase().includes("notes") && typeof value === "string"
+        ? value.replace(/<[^>]+>/g, '')
+        : value || "—"}
     </td>
   );
 })}
