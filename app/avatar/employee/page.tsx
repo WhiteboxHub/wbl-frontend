@@ -70,7 +70,7 @@ export default function EmployeesPage() {
   });
 
   const token = localStorage.getItem("token");
-  
+
   const fetchEmployees = async () => {
     try {
       setLoading(true);
@@ -211,6 +211,52 @@ export default function EmployeesPage() {
       setFormSaveLoading(false);
     }
   };
+
+  // Add drag resize functionality for notes textarea
+  useEffect(() => {
+    if (!showEmployeeForm) return; // Only initialize when modal is open
+
+    const textarea = document.querySelector(
+      'textarea[id="notes"]'
+    ) as HTMLTextAreaElement;
+    const dragHandle = document.querySelector(".drag-handle") as HTMLElement;
+
+    if (!textarea || !dragHandle) return;
+
+    let isResizing = false;
+    let startY = 0;
+    let startHeight = 0;
+
+    const startResize = (e: MouseEvent) => {
+      isResizing = true;
+      startY = e.clientY;
+      startHeight = parseInt(
+        document.defaultView?.getComputedStyle(textarea).height || "0",
+        10
+      );
+      e.preventDefault();
+    };
+
+    const resize = (e: MouseEvent) => {
+      if (!isResizing) return;
+      const deltaY = e.clientY - startY;
+      textarea.style.height = `${Math.max(60, startHeight + deltaY)}px`; // Minimum height 60px
+    };
+
+    const stopResize = () => {
+      isResizing = false;
+    };
+
+    dragHandle.addEventListener("mousedown", startResize);
+    document.addEventListener("mousemove", resize);
+    document.addEventListener("mouseup", stopResize);
+
+    return () => {
+      dragHandle.removeEventListener("mousedown", startResize);
+      document.removeEventListener("mousemove", resize);
+      document.removeEventListener("mouseup", stopResize);
+    };
+  }, [showEmployeeForm]); // Re-initialize when modal opens/closes
 
   const columnDefs: ColDef[] = [
     { headerName: "ID", field: "id", width: 80, pinned: "left" },
@@ -357,7 +403,7 @@ export default function EmployeesPage() {
             >
               {/* Search Employees */}
             </Label>
-        
+
             {searchTerm && (
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                 {filteredEmployees.length} result(s) found
@@ -399,7 +445,7 @@ export default function EmployeesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
           <div className="relative w-full max-w-2xl rounded-xl bg-white p-6 shadow-2xl">
             {/* Header */}
-            <div className="sticky top-0 flex items-center justify-between border-b border-blue-200 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-4 py-3 -mx-6 -mt-6 mb-4">
+            <div className="sticky top-0 -mx-6 -mt-6 mb-4 flex items-center justify-between border-b border-blue-200 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-4 py-3">
               <h2 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-lg font-semibold text-transparent">
                 Add Employee
               </h2>
@@ -410,54 +456,70 @@ export default function EmployeesPage() {
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 gap-1 md:grid-cols-2">
+            <form
+              onSubmit={handleSubmit(onSubmit)}
+              className="grid grid-cols-1 gap-1 md:grid-cols-2"
+            >
               {/* Full Name */}
               <div className="space-y-2">
-                <Label htmlFor="name" className="text-sm font-bold text-blue-700">
+                <Label
+                  htmlFor="name"
+                  className="text-sm font-bold text-blue-700"
+                >
                   Full Name <span className="text-red-700">*</span>
                 </Label>
                 <input
                   type="text"
                   id="name"
-                  {...register("name", { 
+                  {...register("name", {
                     required: "Full Name is required",
                     pattern: {
                       value: /^[A-Za-z. ]*$/,
-                      message: "Only letters, dots and spaces are allowed"
-                    }
+                      message: "Only letters, dots and spaces are allowed",
+                    },
                   })}
                   className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 />
                 {errors.name && (
-                  <p className="mt-1 text-xs text-red-600">{errors.name.message}</p>
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.name.message}
+                  </p>
                 )}
               </div>
 
               {/* Email */}
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-bold text-blue-700">
+                <Label
+                  htmlFor="email"
+                  className="text-sm font-bold text-blue-700"
+                >
                   Email <span className="text-red-700">*</span>
                 </Label>
                 <input
                   type="email"
                   id="email"
-                  {...register("email", { 
+                  {...register("email", {
                     required: "Email is required",
                     pattern: {
                       value: /^\S+@\S+\.\S+$/,
-                      message: "Invalid email address"
-                    }
+                      message: "Invalid email address",
+                    },
                   })}
                   className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 />
                 {errors.email && (
-                  <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.email.message}
+                  </p>
                 )}
               </div>
 
               {/* Phone */}
               <div className="space-y-2">
-                <Label htmlFor="phone" className="text-sm font-bold text-blue-700">
+                <Label
+                  htmlFor="phone"
+                  className="text-sm font-bold text-blue-700"
+                >
                   Phone
                 </Label>
                 <input
@@ -466,19 +528,24 @@ export default function EmployeesPage() {
                   {...register("phone", {
                     pattern: {
                       value: /^[0-9]*$/,
-                      message: "Only numbers are allowed"
-                    }
+                      message: "Only numbers are allowed",
+                    },
                   })}
                   className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 />
                 {errors.phone && (
-                  <p className="mt-1 text-xs text-red-600">{errors.phone.message}</p>
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.phone.message}
+                  </p>
                 )}
               </div>
 
               {/* Address */}
               <div className="space-y-2">
-                <Label htmlFor="address" className="text-sm font-bold text-blue-700">
+                <Label
+                  htmlFor="address"
+                  className="text-sm font-bold text-blue-700"
+                >
                   Address
                 </Label>
                 <input
@@ -487,19 +554,25 @@ export default function EmployeesPage() {
                   {...register("address", {
                     pattern: {
                       value: /^[A-Za-z0-9, ]*$/,
-                      message: "Only letters, numbers, commas and spaces are allowed"
-                    }
+                      message:
+                        "Only letters, numbers, commas and spaces are allowed",
+                    },
                   })}
                   className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 />
                 {errors.address && (
-                  <p className="mt-1 text-xs text-red-600">{errors.address.message}</p>
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.address.message}
+                  </p>
                 )}
               </div>
 
               {/* State */}
               <div className="space-y-2">
-                <Label htmlFor="state" className="text-sm font-bold text-blue-700">
+                <Label
+                  htmlFor="state"
+                  className="text-sm font-bold text-blue-700"
+                >
                   State
                 </Label>
                 <input
@@ -508,19 +581,24 @@ export default function EmployeesPage() {
                   {...register("state", {
                     pattern: {
                       value: /^[A-Za-z ]*$/,
-                      message: "Only letters and spaces are allowed"
-                    }
+                      message: "Only letters and spaces are allowed",
+                    },
                   })}
                   className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 />
                 {errors.state && (
-                  <p className="mt-1 text-xs text-red-600">{errors.state.message}</p>
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.state.message}
+                  </p>
                 )}
               </div>
 
               {/* Date of Birth */}
               <div className="space-y-2">
-                <Label htmlFor="dob" className="text-sm font-bold text-blue-700">
+                <Label
+                  htmlFor="dob"
+                  className="text-sm font-bold text-blue-700"
+                >
                   Date of Birth
                 </Label>
                 <input
@@ -533,7 +611,10 @@ export default function EmployeesPage() {
 
               {/* Start Date */}
               <div className="space-y-2">
-                <Label htmlFor="startdate" className="text-sm font-bold text-blue-700">
+                <Label
+                  htmlFor="startdate"
+                  className="text-sm font-bold text-blue-700"
+                >
                   Start Date
                 </Label>
                 <input
@@ -546,7 +627,10 @@ export default function EmployeesPage() {
 
               {/* End Date */}
               <div className="space-y-2">
-                <Label htmlFor="enddate" className="text-sm font-bold text-blue-700">
+                <Label
+                  htmlFor="enddate"
+                  className="text-sm font-bold text-blue-700"
+                >
                   End Date
                 </Label>
                 <input
@@ -559,7 +643,10 @@ export default function EmployeesPage() {
 
               {/* Aadhaar Number */}
               <div className="space-y-2">
-                <Label htmlFor="aadhaar" className="text-sm font-bold text-blue-700">
+                <Label
+                  htmlFor="aadhaar"
+                  className="text-sm font-bold text-blue-700"
+                >
                   Aadhaar Number
                 </Label>
                 <input
@@ -568,71 +655,101 @@ export default function EmployeesPage() {
                   {...register("aadhaar", {
                     pattern: {
                       value: /^[0-9]*$/,
-                      message: "Only numbers are allowed"
-                    }
+                      message: "Only numbers are allowed",
+                    },
                   })}
                   className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 />
                 {errors.aadhaar && (
-                  <p className="mt-1 text-xs text-red-600">{errors.aadhaar.message}</p>
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.aadhaar.message}
+                  </p>
                 )}
               </div>
 
               {/* Status */}
               <div className="space-y-2">
-                <Label htmlFor="status" className="text-sm font-bold text-blue-700">
+                <Label
+                  htmlFor="status"
+                  className="text-sm font-bold text-blue-700"
+                >
                   Status <span className="text-red-700">*</span>
                 </Label>
                 <select
                   id="status"
-                  {...register("status", { 
+                  {...register("status", {
                     required: "Status is required",
-                    valueAsNumber: true 
+                    valueAsNumber: true,
                   })}
                   className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 >
-                  <option value="" disabled>Select Status</option>
+                  <option value="" disabled>
+                    Select Status
+                  </option>
                   <option value={0}>0</option>
                   <option value={1}>1</option>
                 </select>
                 {errors.status && (
-                  <p className="mt-1 text-xs text-red-600">{errors.status.message}</p>
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.status.message}
+                  </p>
                 )}
               </div>
 
               {/* Instructor */}
               <div className="space-y-2">
-                <Label htmlFor="instructor" className="text-sm font-bold text-blue-700">
+                <Label
+                  htmlFor="instructor"
+                  className="text-sm font-bold text-blue-700"
+                >
                   Instructor <span className="text-red-700">*</span>
                 </Label>
                 <select
                   id="instructor"
-                  {...register("instructor", { 
+                  {...register("instructor", {
                     required: "Instructor is required",
-                    valueAsNumber: true 
+                    valueAsNumber: true,
                   })}
                   className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 >
-                  <option value="" disabled>Select Instructor</option>
+                  <option value="" disabled>
+                    Select Instructor
+                  </option>
                   <option value={0}>0</option>
                   <option value={1}>1</option>
                 </select>
                 {errors.instructor && (
-                  <p className="mt-1 text-xs text-red-600">{errors.instructor.message}</p>
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.instructor.message}
+                  </p>
                 )}
               </div>
-
               {/* Notes */}
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="notes" className="text-sm font-bold text-blue-700">
+                <Label
+                  htmlFor="notes"
+                  className="text-sm font-bold text-blue-700"
+                >
                   Notes (optional)
                 </Label>
-                <textarea
-                  id="notes"
-                  {...register("notes")}
-                  rows={1}
-                  className="w-full resize-none rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                />
+                <div className="relative">
+                  <textarea
+                    id="notes"
+                    {...register("notes")}
+                    placeholder="Enter notes..."
+                    className="min-h-[60px] w-full resize-none rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                  {/* Drag handle in bottom-right corner */}
+                  <div
+                    className="drag-handle absolute bottom-1 right-1 cursor-nwse-resize p-1 text-gray-400 transition-colors hover:text-gray-600"
+                    title="Drag to resize"
+                    style={{ pointerEvents: "auto" }}
+                  >
+                    <div className="flex h-5 w-5 items-center justify-center text-lg font-bold">
+                      ↖
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Submit Button */}
