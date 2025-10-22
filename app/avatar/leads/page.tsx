@@ -4,6 +4,7 @@ import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
+import { Label } from "@/components/admin_ui/label";
 import { SearchIcon, PlusCircle, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { toast, Toaster } from "sonner";
@@ -11,6 +12,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AGGridTable } from "@/components/AGGridTable";
 import { createPortal } from "react-dom";
 import type { AgGridReact as AgGridReactType } from "ag-grid-react";
+import type { GridApi } from "ag-grid-community";
 import { useForm } from "react-hook-form";
 import { LeadsHelper, db, Lead as DexieLead } from "@/lib/dexieDB";
 
@@ -454,16 +456,15 @@ export default function LeadsPage() {
   const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
-  
   const gridRef = useRef<AgGridReactType<Lead> | null>(null);
   const apiEndpoint = useMemo(() => `${process.env.NEXT_PUBLIC_API_URL}/leads`, []);
-  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
-  
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true); 
   const cache = useSimpleCache();
   const rateLimiter = useRateLimiter();
   const callCountRef = useRef(0);
 
   // React Hook Form for better form handling
+
   const {
     register,
     handleSubmit,
@@ -493,7 +494,7 @@ export default function LeadsPage() {
     const searchKey = search || "";
     
     // Use cache if valid
-    if (!forceRefresh && cache.isCacheValid(searchKey, searchBy)) {
+    if (!forceRefresh && await cache.isCacheValid(searchKey, searchBy)) {
       console.log('✅ STRICT CACHE HIT');
       const cachedData = cache.getCache();
       if (cachedData) {
@@ -502,6 +503,7 @@ export default function LeadsPage() {
         return;
       }
     }
+
 
     // Rate limiting
     if (!rateLimiter.canMakeCall(5000)) {
@@ -1035,7 +1037,7 @@ export default function LeadsPage() {
           if (!params.value) return "";
           return (
             <div
-              className="prose prose-sm max-w-none dark:prose-invert"
+              className="prose prose-sm dark:prose-invert max-w-none"
               dangerouslySetInnerHTML={{ __html: params.value }}
             />
           );
@@ -1128,7 +1130,6 @@ export default function LeadsPage() {
               </span>
             )}
           </p>
-
           <div className="mt-2 sm:mt-0 sm:max-w-md">
             <div className="relative">
               <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
@@ -1149,8 +1150,7 @@ export default function LeadsPage() {
             )}
           </div>
         </div>
-
-        <div className="mt-4 flex flex-row items-center gap-2 sm:mt-0">
+        <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
           <Button
             onClick={handleOpenModal}
             className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700"
@@ -1168,7 +1168,6 @@ export default function LeadsPage() {
           </Button>
         </div>
       </div>
-
       <div className="flex w-full justify-center">
         <AGGridTable
           key={`${filteredLeads.length}-${selectedStatuses.join(
@@ -1184,7 +1183,6 @@ export default function LeadsPage() {
           height="600px"
         />
       </div>
-
       {/* Enhanced Modal from second version */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 p-2 sm:p-4">
@@ -1263,7 +1261,11 @@ export default function LeadsPage() {
                       placeholder="Enter phone number"
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                       onInput={(e) => {
-                        e.currentTarget.value = e.currentTarget.value.replace(/\D/g, "");
+                        e.currentTarget.value = e.currentTarget.value.replace(
+                          /\D/g,
+                          ""
+                        );
+
                       }}
                     />
                     {errors.phone && (
