@@ -83,7 +83,6 @@ const useSimpleCache = () => {
 
     const localLeads = await db.leads.toArray();
     if (localLeads.length > 0) {
-      console.log("Using IndexedDB cache — treating as valid");
       return true;
     }
 
@@ -116,7 +115,6 @@ const useRateLimiter = () => {
     const timeSinceLastCall = now - lastCallRef.current;
     
     if (timeSinceLastCall < minInterval) {
-      console.log(`🚫 Rate limited: ${minInterval - timeSinceLastCall}ms remaining`);
       return false;
     }
     
@@ -487,7 +485,6 @@ export default function LeadsPage() {
     
     // Prevent duplicate calls
     if (callCountRef.current > 1) {
-      console.log('💥 BLOCKING DUPLICATE CALL');
       return;
     }
 
@@ -495,7 +492,6 @@ export default function LeadsPage() {
     
     // Use cache if valid
     if (!forceRefresh && await cache.isCacheValid(searchKey, searchBy)) {
-      console.log('✅ STRICT CACHE HIT');
       const cachedData = cache.getCache();
       if (cachedData) {
         setLeads(cachedData);
@@ -507,7 +503,6 @@ export default function LeadsPage() {
 
     // Rate limiting
     if (!rateLimiter.canMakeCall(5000)) {
-      console.log('🚫 STRICT RATE LIMIT');
       return;
     }
 
@@ -515,7 +510,6 @@ export default function LeadsPage() {
     try {
       // Load from IndexedDB first
       const localLeads = await db.leads.toArray();
-      console.log(`📁 IndexedDB has ${localLeads.length} leads`);
       
       // Only proceed with API call if necessary
       if (isOnline && (forceRefresh || !cache.isCacheValid(searchKey, searchBy))) {
@@ -532,7 +526,7 @@ export default function LeadsPage() {
           url += `?${params.toString()}`;
         }
 
-        console.log('📡 MAKING SINGLE API CALL TO:', url);
+
         
         const token = localStorage.getItem("token");
         const res = await fetch(url, {
@@ -552,7 +546,6 @@ export default function LeadsPage() {
           leadsData = data;
         }
 
-        console.log(`📥 API returned ${leadsData.length} leads`);
         
         setLeads(leadsData);
         setFilteredLeads(leadsData);
@@ -561,12 +554,10 @@ export default function LeadsPage() {
         await db.leads.clear();
         await db.leads.bulkPut(leadsData);
       } else {
-        console.log('🏠 Using IndexedDB data - NO API CALL');
         setLeads(localLeads);
         setFilteredLeads(localLeads);
       }
     } catch (err) {
-      console.error('❌ API Error:', err);
       setError(err instanceof Error ? err.message : "Failed to load leads");
     } finally {
       setLoading(false);
@@ -607,7 +598,7 @@ export default function LeadsPage() {
       callCountRef.current = 0;
       
       const localLeads = await db.leads.toArray();
-      console.log(`Initial IndexedDB load: ${localLeads.length} leads`);
+  
       
       if (localLeads.length > 0) {
         setLeads(localLeads);
@@ -1158,14 +1149,14 @@ export default function LeadsPage() {
             <PlusCircle className="mr-2 h-4 w-4" />
             Add New Lead
           </Button>
-          <Button 
+          {/* <Button 
             onClick={() => fetchLeads(searchTerm, searchBy, sortModel, true)} 
             variant="outline"
             disabled={loading}
           >
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> 
             {loading ? "Refreshing..." : "Refresh"}
-          </Button>
+          </Button> */}
         </div>
       </div>
       <div className="flex w-full justify-center">
