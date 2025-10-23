@@ -130,13 +130,11 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "AI Interview", label: "AI Interview" },
   ],
   type_of_interview: [
-    { value: "Assessment", label: "Assessment" },
     { value: "Recruiter Call", label: "Recruiter Call" },
     { value: "Technical", label: "Technical" },
-    { value: "HR Round", label: "HR Round" },
-    { value: "In Person", label: "In Person" },
-    { value: "Prep Call", label: "Prep Call" },
     { value: "HR", label: "HR" },
+    { value: "Prep Call", label: "Prep Call" },
+   
   ],
   feedback: [
     { value: 'Pending', label: 'Pending' },
@@ -412,6 +410,7 @@ const fieldSections: Record<string, string> = {
   cm_course: "Professional Information",
   cm_subject: "Basic Information",
   material_type: "Basic Information",
+  transcript: "Professional Information",
 };
 
 // Override field labels for better readability
@@ -1509,41 +1508,6 @@ export function EditModal({
                       </div>
                     ))}
                 </div>
-                {/* Notes Section
-                {sectionedFields["Notes"].length > 0 && (
-                  <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-blue-200">
-                    <div className="space-y-3 sm:space-y-4">
-                      {sectionedFields["Notes"].map(({ key }) => (
-                        <div key={key} className="space-y-1 sm:space-y-1.5">
-                          <label className="block text-xs sm:text-sm font-bold text-blue-700">
-                            {toLabel(key)}
-                          </label>
-                          <ReactQuill
-                            theme="snow"
-                            value={currentFormValues.notes || formData.notes || ""}
-                            onChange={(content) => {
-                              setValue("notes", content);
-                              setFormData(prev => ({ ...prev, notes: content }));
-                            }}
-                            className="text-xs sm:text-sm"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const timestamp = `[${new Date().toLocaleString()}]`;
-                              const newNotes = (currentFormValues.notes || formData.notes || "") + `\n${timestamp}\n`;
-                              setValue("notes", newNotes);
-                              setFormData(prev => ({ ...prev, notes: newNotes }));
-                            }}
-                            className="text-xs text-blue-600 hover:text-blue-800 mt-1"
-                          >
-                            + Add Timestamp
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )} */}
                 {/* Notes Section */}
                 {sectionedFields["Notes"].length > 0 && (
                   <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-blue-200">
