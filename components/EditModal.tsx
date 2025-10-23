@@ -1030,38 +1030,88 @@ export function EditModal({
                 </div>
               ))}
           </div>
-          {/* Notes Section */}
-          {sectionedFields["Notes"].length > 0 && (
-            <div className="px-6 pb-6">
-              <div className="space-y-6 mt-4">
-                {sectionedFields["Notes"].map(({ key, value }) => (
-                  <div key={key} className="space-y-1">
-                    <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                      {toLabel(key)}
-                    </Label>
-                    <ReactQuill
-                      theme="snow"
-                      value={formData.notes || ""}
-                      onChange={(content) => setFormData(prev => ({ ...prev, notes: content }))}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const timestamp = `[${new Date().toLocaleString()}]`;
-                        setFormData(prev => ({...prev, notes: (prev.notes || "") + `\n${timestamp}\n`}));
-                      }}
-                    >
-                      + Add Timestamp
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+
+{/* Notes Section */}
+{sectionedFields["Notes"].length > 0 && (
+  <div className="px-6 pb-6">
+    <div className="space-y-6 mt-4">
+      {sectionedFields["Notes"].map(({ key, value }) => (
+        <div key={key} className="space-y-1">
+          <div className="flex justify-between items-center">
+            <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              {toLabel(key)}
+            </Label>
+            <button
+              type="button"
+              onClick={() => {
+                const timestamp = `[${new Date().toLocaleString()}]: `;
+                const newContent = `<p><strong>${timestamp}</strong></p>${formData.notes || ""}`;
+                
+                setFormData((prev) => ({
+                  ...prev,
+                  notes: newContent
+                }));
+                
+                // Focus after state update
+                setTimeout(() => {
+                  const quillEditor = document.querySelector('.ql-editor') as HTMLElement;
+                  if (quillEditor) {
+                    quillEditor.focus();
+                    // Set cursor after timestamp
+                    const range = document.createRange();
+                    const sel = window.getSelection();
+                    const firstP = quillEditor.querySelector('p');
+                    if (firstP && firstP.firstChild) {
+                      range.setStart(firstP, 1);
+                      range.collapse(true);
+                      sel?.removeAllRanges();
+                      sel?.addRange(range);
+                    }
+                  }
+                }, 0);
+              }}
+              className="px-4 py-2 text-sm font-medium text-white 
+                         bg-gradient-to-br from-blue-800 to-blue-600/80 
+                         backdrop-blur-md rounded-lg 
+                         shadow-[0_8px_16px_rgba(0,0,0,0.3)] 
+                         hover:shadow-[0_12px_24px_rgba(0,0,0,0.4)] 
+                         hover:scale-105 hover:-translate-y-0.5
+                         active:scale-95 active:shadow-[0_4px_8px_rgba(0,0,0,0.3)]
+                         border border-white/20
+                         transition-all duration-200 ease-in-out
+                         dark:from-blue-400/70 dark:to-blue-500/70"
+            >
+              + New Entry
+            </button>
+          </div>
+
+          <ReactQuill
+            theme="snow"
+            value={formData.notes || ""}
+            onChange={(content) =>
+              setFormData((prev) => ({ ...prev, notes: content }))
+            }
+            className="bg-white dark:bg-gray-800"
+          />
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+
           <div className="flex justify-end px-6 pb-6">
             <button
               type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow"
+              className="px-4 py-2 text-sm font-medium text-white 
+                         bg-gradient-to-br from-blue-800 to-blue-600/80 
+                         backdrop-blur-md rounded-lg 
+                         shadow-[0_8px_16px_rgba(0,0,0,0.3)] 
+                         hover:shadow-[0_12px_24px_rgba(0,0,0,0.4)] 
+                         hover:scale-105 hover:-translate-y-0.5
+                         active:scale-95 active:shadow-[0_4px_8px_rgba(0,0,0,0.3)]
+                         border border-white/20
+                         transition-all duration-200 ease-in-out
+                         dark:from-blue-400/70 dark:to-blue-500/70"
             >
               Save Changes
             </button>
