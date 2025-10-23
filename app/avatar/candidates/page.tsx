@@ -1,5 +1,6 @@
 
 "use client";
+
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { Badge } from "@/components/admin_ui/badge";
@@ -11,9 +12,12 @@ import { toast, Toaster } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AGGridTable } from "@/components/AGGridTable";
 import { createPortal } from "react-dom";
-import axios from "axios";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
+
+// ---- IMPORTANT: correct import for your api helper ----
+import api from "@/lib/api"; // <- points to src/utils/api.js (no .js extension needed)
+console.log("api import check ->", typeof api, api && Object.keys(api || {})); // remove after debugging
 
 type Candidate = {
   id: number;
@@ -401,10 +405,11 @@ export default function CandidatesPage() {
     []
   );
   const [selectedBatches, setSelectedBatches] = useState<Batch[]>([]);
-  const apiEndpoint = useMemo(
-    () => `${process.env.NEXT_PUBLIC_API_URL}/candidates`,
-    []
-  );
+
+
+  // NOTE: use path only - baseURL handled by api instance
+  const apiPath = "/candidates";
+
 
   const {
     register,
@@ -769,10 +774,13 @@ export default function CandidatesPage() {
         headerName: "Move to Prep",
         width: 150,
         sortable: true,
+
+
         filter: "agTextColumnFilter",
         cellRenderer: (params: any) => (
           <span>{params.value ? "Yes" : "No"}</span>
         ),
+
       },
       {
         field: "notes",
@@ -823,7 +831,7 @@ export default function CandidatesPage() {
     ) => {
       setLoading(true);
       try {
-        let url = `${apiEndpoint}?limit=0`;
+        let url = `${apiPath}?limit=0`;
         if (search && search.trim()) {
           url += `&search=${encodeURIComponent(
             search.trim()
@@ -840,27 +848,33 @@ export default function CandidatesPage() {
         if (Object.keys(filters).length > 0) {
           url += `&filters=${encodeURIComponent(JSON.stringify(filters))}`;
         }
-        const token = localStorage.getItem("token");
-        const res = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        const data = await res.json();
-        setCandidates(data.data);
-      } catch (err) {
-        const error =
-          err instanceof Error ? err.message : "Failed to load candidates";
-        setError(error);
-        toast.error(error);
+
+        // Use api (fetch wrapper) - it returns { data: <body> }
+        const res = await api.get(url);
+        // server might return { data: [...] } or an array directly
+        const payload = res.data;
+        const dataArray = payload?.data ?? payload;
+        if (!Array.isArray(dataArray)) {
+          // defensive fallback
+          setCandidates([]);
+          console.warn("Unexpected candidates response", payload);
+        } else {
+          setCandidates(dataArray);
+        }
+      } catch (err: any) {
+        const message =
+          err?.response?.data?.message ||
+          err?.message ||
+          "Failed to load candidates";
+        setError(message);
+        toast.error(message);
+        console.error("fetchCandidates error ->", err);
       } finally {
         setLoading(false);
         if (searchInputRef.current) searchInputRef.current.focus();
       }
     },
-    [apiEndpoint]
+    [apiPath]
   );
 
   const getWorkStatusColor = (status: string) => {
@@ -884,28 +898,17 @@ export default function CandidatesPage() {
     const fetchBatches = async () => {
       setBatchesLoading(true);
       try {
-        const token = localStorage.getItem("accesstoken");
-        const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/batch`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        const sortedAllBatches = [...res.data].sort(
+
+        const res = await api.get("/batch");
+        const rawBatches = res.data?.data ?? res.data;
+        const sortedAllBatches = [...(rawBatches || [])].sort(
           (a: Batch, b: Batch) => b.batchid - a.batchid
         );
         setAllBatches(sortedAllBatches);
-        const uniqueSubjects = [
-          ...new Set(sortedAllBatches.map((batch) => batch.subject)),
-        ];
-        const uniqueCourseIds = [
-          ...new Set(sortedAllBatches.map((batch) => batch.courseid)),
-        ];
-        console.log(" Available subjects:", uniqueSubjects);
-        console.log(" Available course IDs:", uniqueCourseIds);
-        console.log(" Total batches:", sortedAllBatches.length);
+
+
         let mlBatchesOnly = sortedAllBatches.filter((batch) => {
-          const subject = batch.subject?.toLowerCase();
+          const subject = (batch.subject || "").toLowerCase();
           return (
             subject === "ml" ||
             subject === "machine learning" ||
@@ -914,18 +917,11 @@ export default function CandidatesPage() {
           );
         });
         if (mlBatchesOnly.length === 0) {
-          console.log("No ML batches found by subject, trying courseid = 3");
-          mlBatchesOnly = sortedAllBatches.filter(
-            (batch) => batch.courseid === 3
-          );
+          mlBatchesOnly = sortedAllBatches.filter((batch) => batch.courseid === 3);
         }
         if (mlBatchesOnly.length === 0) {
-          console.warn(
-            "No ML batches found! Showing all batches in form as fallback"
-          );
           mlBatchesOnly = sortedAllBatches;
         }
-        console.log(" Filtered ML batches for form:", mlBatchesOnly.length);
         setMlBatches(mlBatchesOnly);
         if (
           isModalOpen &&
@@ -1013,7 +1009,18 @@ export default function CandidatesPage() {
       !data.phone.trim() ||
       !data.dob
     ) {
+
+      const numericValue = value.replace(/[^0-9]/g, "");
+      setFormData((prev) => ({ ...prev, [name]: numericValue }));
+      return;
+    }
+
+    if (name === "full_name" || name === "emergcontactname") {
+      const nameValue = value.replace(/[^a-zA-Z. ]/g, "");
+      setFormData((prev) => ({ ...prev, [name]: nameValue }));
+
       toast.error("Full Name, Email, Phone, and Date of Birth are required");
+
       return;
     }
     try {
@@ -1026,37 +1033,18 @@ export default function CandidatesPage() {
         agreement: data.agreement || "N",
         fee_paid: data.fee_paid || 0,
       };
-      const response = await fetch(apiEndpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to create candidate");
-      }
-      const newCandidate = await response.json();
-      const updated = [...candidates, newCandidate].sort(
-        (a, b) =>
-          new Date(b.enrolled_date || 0).getTime() -
-          new Date(a.enrolled_date || 0).getTime()
-      );
-      setCandidates(updated);
-      setFilteredCandidates(updated);
-      toast.success(
-        `Candidate created successfully with ID: ${newCandidate.id}`,
-        { position: "top-center" }
-      );
-      setIsModalOpen(false);
-      reset();
-      router.push("/avatar/candidates");
-    } catch (error) {
-      toast.error("Failed to create candidate: " + (error as Error).message, {
-        position: "top-center",
-      });
+
+      const res = await api.post(apiPath, payload);
+      const newId = res.data?.id ?? res.data;
+      toast.success(`Candidate created successfully${newId ? ` (ID: ${newId})` : ""}`);
+      setNewCandidateForm(false);
+      setFormData(initialFormData);
+      fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message || error?.message || "Failed to create candidate";
+      toast.error("Failed to create candidate: " + message);
+
       console.error("Error creating candidate:", error);
     }
   };
@@ -1080,28 +1068,21 @@ export default function CandidatesPage() {
     async (updatedRow: Candidate) => {
       setLoadingRowId(updatedRow.id);
       try {
-        const { id, ...payload } = updatedRow;
-        const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-          body: JSON.stringify(payload),
-        });
-        if (!response.ok) throw new Error("Failed to update candidate");
-        setCandidates((prevCandidates) =>
-          prevCandidates.map((candidate) =>
-            candidate.id === updatedRow.id
-              ? { ...candidate, ...payload }
-              : candidate
-          )
-        );
+
+        const updatedData = { ...updatedRow };
+        if (!updatedData.status || updatedData.status === "") {
+          updatedData.status = "active";
+        }
+        const { id, ...payload } = updatedData;
+
+        await api.put(`${apiPath}/${updatedRow.id}`, payload);
+
+        toast.success("Candidate updated successfully");
+
         if (gridRef.current) {
-          const rowNode = gridRef.current.api.getRowNode(id.toString());
-          if (rowNode) {
-            rowNode.setData({ ...updatedRow, ...payload });
-          }
+          const rowNode = gridRef.current.api.getRowNode(updatedRow.id.toString());
+          if (rowNode) rowNode.setData(updatedData);
+
         }
         toast.success("Candidate updated successfully");
       } catch (error) {
@@ -1111,10 +1092,10 @@ export default function CandidatesPage() {
         setLoadingRowId(null);
       }
     },
-    [apiEndpoint]
+    [apiPath]
   );
 
-  // Add this useEffect with your other useEffect hooks
+
   useEffect(() => {
     if (!isModalOpen) return; // Only initialize when modal is open
 
@@ -1139,6 +1120,7 @@ export default function CandidatesPage() {
       e.preventDefault();
     };
 
+
     const resize = (e: MouseEvent) => {
       if (!isResizing) return;
       const deltaY = e.clientY - startY;
@@ -1160,9 +1142,11 @@ export default function CandidatesPage() {
     };
   }, [isModalOpen]); // Re-initialize when modal opens
 
+
   const handleRowDeleted = useCallback(
     async (id: number) => {
       try {
+
         const response = await fetch(`${apiEndpoint}/${id}`, {
           method: "DELETE",
         });
@@ -1170,6 +1154,7 @@ export default function CandidatesPage() {
         setCandidates((prevCandidates) =>
           prevCandidates.filter((candidate) => candidate.id !== id)
         );
+
         if (gridRef.current) {
           gridRef.current.api.applyTransaction({ remove: [{ id }] });
         }
@@ -1179,7 +1164,7 @@ export default function CandidatesPage() {
         console.error("Error deleting candidate:", error);
       }
     },
-    [apiEndpoint]
+    [apiPath]
   );
 
   const handleFilterChanged = useCallback(
@@ -1318,6 +1303,7 @@ export default function CandidatesPage() {
           }
         />
       </div>
+
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 p-2 sm:p-4">
           <div className="w-full max-w-6xl rounded-xl bg-white shadow-2xl sm:rounded-2xl">
@@ -1718,6 +1704,7 @@ export default function CandidatesPage() {
                 </div>
               </form>
             </div>
+
           </div>
         </div>
       )}

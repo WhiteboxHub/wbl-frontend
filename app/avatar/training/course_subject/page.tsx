@@ -6,9 +6,11 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { Button } from "@/components/admin_ui/button";
-import { SearchIcon, PlusIcon, X } from "lucide-react";
-import axios from "axios";
+
+import { SearchIcon, PlusIcon,X } from "lucide-react";
 import { toast, Toaster } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/admin_ui/dialog";
+import { apiFetch } from "@/lib/api.js";
 
 interface CourseSubject {
   subject_id: number;
@@ -35,14 +37,16 @@ interface Subject {
 
 function getErrorMessage(e: any): string {
   if (typeof e === "string") return e;
-  if (e?.response?.data?.detail) {
-    const detail = e.response.data.detail;
-    if (typeof detail === "string") return detail;
+  if (e?.body) {
     try {
-      return JSON.stringify(detail);
+      return typeof e.body === "string" ? e.body : JSON.stringify(e.body);
     } catch {
       return "Unexpected error format";
     }
+  }
+  if (e?.response?.data?.detail) {
+    const detail = e.response.data.detail;
+    return typeof detail === "string" ? detail : JSON.stringify(detail);
   }
   if (e?.message) return e.message;
   return "Unknown error occurred";
@@ -51,43 +55,32 @@ function getErrorMessage(e: any): string {
 export default function CourseSubjectPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [courseSubjects, setCourseSubjects] = useState<CourseSubject[]>([]);
-  const [filteredCourseSubjects, setFilteredCourseSubjects] = useState<
-    CourseSubject[]
-  >([]);
+  const [filteredCourseSubjects, setFilteredCourseSubjects] = useState<CourseSubject[]>([]);
   const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showModal, setShowModal] = useState(false);
-  const [newMapping, setNewMapping] = useState<NewMapping>({
-    course_id: "",
-    subject_id: "",
-  });
+  const [newMapping, setNewMapping] = useState<NewMapping>({ course_id: "", subject_id: "" });
   const [saving, setSaving] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [selectedCourseName, setSelectedCourseName] = useState("");
   const [selectedSubjectName, setSelectedSubjectName] = useState("");
   const [refreshing, setRefreshing] = useState(false);
-  const token = localStorage.getItem("token"); 
+
 
   const fetchCourseSubjects = async () => {
     try {
       setLoading(true);
       setError("");
-      const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/course-subjects`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`, 
-          },
-        }
-      );
 
-      const dataWithId = res.data.map((item: CourseSubject) => ({
+      const res = await apiFetch("/course-subjects");
+      const arr = Array.isArray(res) ? res : res?.data ?? [];
+      const dataWithId = (arr || []).map((item: any) => ({
+
         ...item,
         id: `${item.course_id}-${item.subject_id}`,
       }));
-
       setCourseSubjects(dataWithId);
       setFilteredCourseSubjects(dataWithId);
       toast.success("Course-subject mappings loaded successfully!");
@@ -99,19 +92,14 @@ export default function CourseSubjectPage() {
       setLoading(false);
     }
   };
+
   const fetchCourses = async () => {
     try {
-      const token = localStorage.getItem("token"); 
-      const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/courses`,
-        {
-          headers: { Authorization: `Bearer ${token}` }, 
-        }
-      );
 
-      const sortedCourses = res.data.sort(
-        (a: Course, b: Course) => b.id - a.id
-      );
+      const res = await apiFetch("/courses");
+      const arr = Array.isArray(res) ? res : res?.data ?? [];
+      const sortedCourses = (arr || []).slice().sort((a: Course, b: Course) => b.id - a.id);
+
       setCourses(sortedCourses);
     } catch (e: any) {
       console.error("Failed to fetch courses:", e);
@@ -139,17 +127,10 @@ useEffect(() => {
 
   const fetchSubjects = async () => {
     try {
-      const token = localStorage.getItem("token"); 
-      const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/subjects`,
-        {
-          headers: { Authorization: `Bearer ${token}` }, 
-        }
-      );
+      const res = await apiFetch("/subjects");
+      const arr = Array.isArray(res) ? res : res?.data ?? [];
+      const sortedSubjects = (arr || []).slice().sort((a: Subject, b: Subject) => b.id - a.id);
 
-      const sortedSubjects = res.data.sort(
-        (a: Subject, b: Subject) => b.id - a.id
-      );
       setSubjects(sortedSubjects);
     } catch (e: any) {
       console.error("Failed to fetch subjects:", e);
@@ -161,7 +142,8 @@ useEffect(() => {
     fetchCourseSubjects();
     fetchCourses();
     fetchSubjects();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshing]);
 
   useEffect(() => {
     const lower = searchTerm.trim().toLowerCase();
@@ -197,18 +179,8 @@ useEffect(() => {
     setColumnDefs([
       { field: "course_id", headerName: "Course ID", hide: true },
       { field: "subject_id", headerName: "Subject ID", hide: true },
-      {
-        field: "course_name",
-        headerName: "Course",
-        width: 300,
-        editable: false,
-      },
-      {
-        field: "subject_name",
-        headerName: "Subject",
-        width: 400,
-        editable: false,
-      },
+      { field: "course_name", headerName: "Course", width: 300, editable: false },
+      { field: "subject_name", headerName: "Subject", width: 400, editable: false },
     ]);
   }, []);
 
@@ -220,15 +192,10 @@ useEffect(() => {
         return;
       }
 
-      await axios.delete(
-        `${process.env.NEXT_PUBLIC_API_URL}/course-subjects/${courseId}/${subjectId}`
-      );
+      await apiFetch(`/course-subjects/${courseId}/${subjectId}`, { method: "DELETE" });
 
       setCourseSubjects((prev) => prev.filter((r) => r.id !== compositeId));
-      setFilteredCourseSubjects((prev) =>
-        prev.filter((r) => r.id !== compositeId)
-      );
-
+      setFilteredCourseSubjects((prev) => prev.filter((r) => r.id !== compositeId));
       toast.success("Course-subject mapping deleted successfully!");
     } catch (e: any) {
       const errorMsg = getErrorMessage(e);
@@ -243,12 +210,8 @@ useEffect(() => {
       return;
     }
 
-    const selectedCourse = courses.find(
-      (course) => course.name === selectedCourseName
-    );
-    const selectedSubject = subjects.find(
-      (subject) => subject.name === selectedSubjectName
-    );
+    const selectedCourse = courses.find((course) => course.name === selectedCourseName);
+    const selectedSubject = subjects.find((subject) => subject.name === selectedSubjectName);
 
     if (!selectedCourse || !selectedSubject) {
       toast.error("Invalid selection. Please try again.");
@@ -258,10 +221,7 @@ useEffect(() => {
     const courseId = selectedCourse.id;
     const subjectId = selectedSubject.id;
 
-    const exists = courseSubjects.some(
-      (item) => item.course_id === courseId && item.subject_id === subjectId
-    );
-
+    const exists = courseSubjects.some((item) => item.course_id === courseId && item.subject_id === subjectId);
     if (exists) {
       toast.error("This course-subject mapping already exists!");
       return;
@@ -269,19 +229,10 @@ useEffect(() => {
 
     try {
       setSaving(true);
-      const res = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/course-subjects`,
-        {
-          course_id: courseId,
-          subject_id: subjectId,
-        }
-      );
+      const res = await apiFetch("/course-subjects", { method: "POST", body: { course_id: courseId, subject_id: subjectId } });
+      const created = res && !Array.isArray(res) ? (res.data ?? res) : res;
 
-      const newRecordWithId = {
-        ...res.data,
-        id: `${res.data.course_id}-${res.data.subject_id}`,
-      };
-
+      const newRecordWithId = { ...created, id: `${created.course_id}-${created.subject_id}` };
       const updated = [newRecordWithId, ...courseSubjects];
       setCourseSubjects(updated);
       setFilteredCourseSubjects(updated);
@@ -318,6 +269,7 @@ useEffect(() => {
 
   return (
     <div className="space-y-6">
+
       <Toaster position="top-center" />
       {/* Header + Search Section (Updated for left-side search on large screens) */}
       <div className="flex flex-col gap-4 sm:flex-col md:flex-row md:items-center md:justify-between">
@@ -346,13 +298,8 @@ useEffect(() => {
           </div>
         </div>
 
-        {/* Right: Only Add Mapping Button */}
-        <div className="flex items-center">
-          <Button
-            className="w-full sm:w-auto"
-            size="sm"
-            onClick={() => setShowModal(true)}
-          >
+          <Button className="w-full sm:w-auto" size="sm" onClick={() => setShowModal(true)}>
+
             <PlusIcon className="mr-2 h-4 w-4" />
             Add Mapping
           </Button>
@@ -463,6 +410,58 @@ useEffect(() => {
         onRowDeleted={handleRowDeleted}
         showSearch={false}
       />
+
+
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="max-w-sm p-4">
+          <DialogHeader>
+            <DialogTitle>Add Course-Subject Mapping</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="course" className="text-sm font-medium">
+                Course <span className="text-red-500">*</span>
+              </Label>
+              <select id="course" value={selectedCourseName} onChange={(e) => setSelectedCourseName(e.target.value)} className="w-full rounded-md border p-2">
+                <option value="" disabled hidden>
+                  Select course
+                </option>
+                {courses.map((course) => (
+                  <option key={course.id} value={course.name}>
+                    {course.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <Label htmlFor="subject" className="text-sm font-medium">
+                Subject <span className="text-red-500">*</span>
+              </Label>
+              <select id="subject" value={selectedSubjectName} onChange={(e) => setSelectedSubjectName(e.target.value)} className="w-full rounded-md border p-2">
+                <option value="" disabled hidden>
+                  Select subject
+                </option>
+                {subjects.map((subject) => (
+                  <option key={subject.id} value={subject.name}>
+                    {subject.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowModal(false); setSelectedCourseName(""); setSelectedSubjectName(""); }} disabled={saving}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddMapping} disabled={saving || !selectedCourseName || !selectedSubjectName}>
+              {saving ? "Adding..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }

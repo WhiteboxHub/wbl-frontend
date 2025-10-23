@@ -1,4 +1,3 @@
-// whiteboxLearning-wbl/app/avatar/session/page.tsx
 "use client";
 
 import "@/styles/admin.css";
@@ -7,11 +6,28 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Button } from "@/components/admin_ui/button";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon, PlusIcon } from "lucide-react";
+import { SearchIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect } from "react";
 import axios from "axios";
 import { toast, Toaster } from "sonner";
+
+/* 🔹 Token Helpers */
+const ACCESS_TOKEN_KEYS = ["access_token", "token", "accesstoken"];
+
+function getStoredToken(): string | null {
+  for (const key of ACCESS_TOKEN_KEYS) {
+    const val = typeof window !== "undefined" ? localStorage.getItem(key) : null;
+    if (val) return val;
+  }
+  return null;
+}
+
+function getAuthHeaders() {
+  const token = getStoredToken();
+  if (!token) return {};
+  return { Authorization: `Bearer ${token}` };
+}
 
 export default function SessionsPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -19,7 +35,7 @@ export default function SessionsPage() {
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Debounce search
+  /* 🔸 Debounce search input */
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(searchTerm);
@@ -27,28 +43,34 @@ export default function SessionsPage() {
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  // Fetch sessions (no pagination)
+  /* 🔸 Fetch Sessions with Authorization header */
   const fetchSessions = async () => {
     try {
       setLoading(true);
+      const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+      const url = new URL(`${base}/session`);
 
-      const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/session`);
       if (debouncedSearch.trim()) {
         url.searchParams.append("search_title", debouncedSearch.trim());
       }
 
-      const res = await fetch(url.toString());
-      if (!res.ok) {
-        setSessions([]);
-        return;
-      }
+      const headers = { ...getAuthHeaders(), "Content-Type": "application/json" };
+      const res = await axios.get(url.toString(), { headers });
 
-      // Backend now directly returns a list (not {data, total})
-      const data = await res.json();
-      setSessions(data || []);
+      const data = Array.isArray(res.data)
+        ? res.data
+        : Array.isArray(res.data?.data)
+        ? res.data.data
+        : [];
+
+      setSessions(data);
     } catch (err: any) {
-      console.error(err);
-      toast.error("Failed to fetch sessions.");
+      console.error("Failed to fetch sessions:", err?.response?.data ?? err?.message ?? err);
+      if (err?.response?.status === 401) {
+        toast.error("Not authorized — please login again.");
+      } else {
+        toast.error("Failed to fetch sessions.");
+      }
       setSessions([]);
     } finally {
       setLoading(false);
@@ -59,46 +81,53 @@ export default function SessionsPage() {
     fetchSessions();
   }, [debouncedSearch]);
 
-  // Column definitions
-  const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
-    { field: "sessionid", headerName: "ID", width: 120, pinned: "left" },
-    { field: "title", headerName: "Title", width: 380, editable: true },
-    { field: "videoid", headerName: "Video ID", width: 160, editable: true },
-    { field: "type", headerName: "Type", width: 140, editable: true },
-    { field: "subject", headerName: "Subject", width: 180, editable: true },
-    {
-      field: "sessiondate",
-      headerName: "Session Date",
-      width: 180,
-      valueFormatter: (params) =>
-        params.value ? new Date(params.value).toLocaleDateString() : "",
-      editable: true,
-    },
-    {
-      field: "link",
-      headerName: "Link",
-      width: 200,
-      cellRenderer: (params: any) => {
-        if (!params.value) return "";
-        return (
-          <a
-            href={params.value}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 underline hover:text-blue-800"
-          >
-            Link
-          </a>
-        );
+  /* 🔸 Column definitions */
+  const columnDefs: ColDef[] = useMemo<ColDef[]>(
+    () => [
+      { field: "sessionid", headerName: "ID", width: 120, pinned: "left" },
+      { field: "title", headerName: "Title", width: 380, editable: true },
+      { field: "videoid", headerName: "Video ID", width: 160, editable: true },
+      { field: "type", headerName: "Type", width: 140, editable: true },
+      { field: "subject", headerName: "Subject", width: 180, editable: true },
+      {
+        field: "sessiondate",
+        headerName: "Session Date",
+        width: 180,
+        editable: true,
+        valueFormatter: (params) =>
+          params.value ? new Date(params.value).toLocaleDateString() : "",
       },
-      editable: true,
-    },
-  ], []);
+      {
+        field: "link",
+        headerName: "Link",
+        width: 250,
+        editable: true,
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          return (
+            <a
+              href={params.value}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 underline hover:text-blue-800"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Open
+            </a>
+          );
+        },
+      },
+    ],
+    []
+  );
 
-  // PUT request on row update
+  /* 🔸 PUT request on row update */
   const handleRowUpdated = async (updatedRow: any) => {
     try {
-      const payload: any = {
+      const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+      const headers = { ...getAuthHeaders(), "Content-Type": "application/json" };
+
+      const payload = {
         title: updatedRow.title,
         link: updatedRow.link,
         videoid: updatedRow.videoid,
@@ -108,10 +137,7 @@ export default function SessionsPage() {
         subject: updatedRow.subject,
       };
 
-      await axios.put(
-        `${process.env.NEXT_PUBLIC_API_URL}/session/${updatedRow.sessionid}`,
-        payload
-      );
+      await axios.put(`${base}/session/${updatedRow.sessionid}`, payload, { headers });
 
       setSessions((prev) =>
         prev.map((row) =>
@@ -121,25 +147,36 @@ export default function SessionsPage() {
 
       toast.success("Session updated successfully.");
     } catch (err: any) {
-      console.error("Failed to update session:", err.response?.data || err);
-      toast.error("Failed to update session.");
+      console.error("Failed to update session:", err?.response?.data ?? err?.message ?? err);
+      if (err?.response?.status === 401) {
+        toast.error("Not authorized — please login again.");
+      } else {
+        toast.error("Failed to update session.");
+      }
     }
   };
 
-  // DELETE request on row deletion
+  /* 🔸 DELETE request on row deletion */
   const handleRowDeleted = async (id: number | string) => {
     try {
-      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/session/${id}`);
+      const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+      const headers = { ...getAuthHeaders(), "Content-Type": "application/json" };
+
+      await axios.delete(`${base}/session/${id}`, { headers });
 
       setSessions((prev) => prev.filter((row) => row.sessionid !== id));
-
       toast.success(`Session ${id} deleted.`);
     } catch (err: any) {
-      console.error("Failed to delete session:", err);
-      toast.error("Failed to delete session.");
+      console.error("Failed to delete session:", err?.response?.data ?? err?.message ?? err);
+      if (err?.response?.status === 401) {
+        toast.error("Not authorized — please login again.");
+      } else {
+        toast.error("Failed to delete session.");
+      }
     }
   };
 
+  /* 🔸 UI render */
   return (
     <div className="space-y-6">
       <Toaster position="top-center" richColors />
@@ -150,15 +187,20 @@ export default function SessionsPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             Sessions
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Manage class sessions
-          </p>
+          <p className="text-gray-600 dark:text-gray-400">Manage class sessions</p>
         </div>
+        <Button className="bg-whitebox-600 hover:bg-whitebox-700 text-white">
+          <SearchIcon className="h-4 w-4 mr-2" />
+          Add Session
+        </Button>
       </div>
 
       {/* Search Input */}
       <div className="max-w-md">
-        <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <Label
+          htmlFor="search"
+          className="text-sm font-medium text-gray-700 dark:text-gray-300"
+        >
           Search by ID or Title
         </Label>
         <div className="relative mt-1">
@@ -193,5 +235,3 @@ export default function SessionsPage() {
     </div>
   );
 }
-
-

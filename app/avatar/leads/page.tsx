@@ -13,6 +13,7 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { createPortal } from "react-dom";
 import type { AgGridReact as AgGridReactType } from "ag-grid-react";
 import type { GridApi } from "ag-grid-community";
+import { apiFetch } from "@/lib/api";
 import { LeadsHelper, db, Lead as DexieLead } from "@/lib/dexieDB";
 import { useForm } from "react-hook-form";
 type Lead = DexieLead;
@@ -463,6 +464,13 @@ export default function LeadsPage() {
   const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
 
+  const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>(
+    []
+  );
+  const gridRef = useRef<InstanceType<typeof AgGridReact> | null>(null);
+const apiEndpoint = "/leads"; // cleaner base path, handled by apiFetch
+
+
   const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -522,6 +530,50 @@ export default function LeadsPage() {
         return;
       }
     }
+
+ const fetchLeads = useCallback(
+  async (
+    search?: string,
+    searchBy: string = "all",
+    sort: any[] = [{ colId: "entry_date", sort: "desc" }]
+  ) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (search && search.trim()) {
+        params.append("search", search.trim());
+        params.append("search_by", searchBy);
+      }
+      const sortToApply =
+        sort && sort.length > 0
+          ? sort
+          : [{ colId: "entry_date", sort: "desc" }];
+      const sortParam = sortToApply
+        .map((s) => `${s.colId}:${s.sort}`)
+        .join(",");
+      params.append("sort", sortParam);
+
+      const url = `${apiEndpoint}${params.toString() ? `?${params}` : ""}`;
+
+      const data = await apiFetch(url); // ✅ replaces fetch + token
+
+      let leadsData = [];
+      if (Array.isArray(data.data)) leadsData = data.data;
+      else if (Array.isArray(data)) leadsData = data;
+      else throw new Error("Invalid response format");
+
+      setLeads(leadsData);
+    } catch (err) {
+      const error = err instanceof Error ? err.message : "Failed to load leads";
+      setError(error);
+      toast.error(error);
+    } finally {
+      setLoading(false);
+      if (searchInputRef.current) searchInputRef.current.focus();
+    }
+  },
+  [apiEndpoint]
+);
 
     // RATE LIMITING - Strict enforcement
     if (!rateLimiter.canMakeCall(5000)) { // 5 seconds between calls
@@ -642,6 +694,7 @@ export default function LeadsPage() {
 
     loadInitialData();
   }, []);
+
 
   // Client-side filtering
   useEffect(() => {
@@ -910,27 +963,17 @@ export default function LeadsPage() {
             ? new Date().toISOString().split("T")[0]
             : null,
       };
-      const response = await fetch(apiEndpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) throw new Error("Failed to create lead");
-      const newLead = await response.json();
-      const updated = [...leads, newLead].sort(
-        (a, b) =>
-          new Date(b.entry_date || 0).getTime() -
-          new Date(a.entry_date || 0).getTime()
-      );
-      setLeads(updated);
-      setFilteredLeads(updated);
-      toast.success("Lead created successfully!", { position: "top-center" });
-      setIsModalOpen(false);
-      reset();
-      router.push("/avatar/leads");
+
+await apiFetch(apiEndpoint, {
+  method: "POST",
+  body: JSON.stringify(payload),
+});
+
+      toast.success("Lead created successfully!");
+      setNewLeadForm(false);
+      setFormData(initialFormData);
+      fetchLeads(searchTerm, searchBy, sortModel);
+
     } catch (error) {
       toast.error("Failed to create lead", { position: "top-center" });
 
@@ -964,20 +1007,20 @@ export default function LeadsPage() {
         payload.moved_to_candidate = Boolean(payload.moved_to_candidate);
         payload.massemail_unsubscribe = Boolean(payload.massemail_unsubscribe);
         payload.massemail_email_sent = Boolean(payload.massemail_email_sent);
-        const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
+        await apiFetch(`${apiEndpoint}/${updatedRow.id}`, {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
+
           body: JSON.stringify(payload),
         });
-        if (!response.ok) throw new Error("Failed to update lead");
-        const updatedLead = await response.json();
-        setLeads((prevLeads) =>
-          prevLeads.map((lead) =>
-            lead.id === updatedLead.id ? updatedLead : lead
-          )
+
+        const updatedLead = { ...updatedRow, ...payload };
+        if (gridRef.current) {
+          gridRef.current.api.applyTransaction({ update: [updatedLead] });
+        }
+        toast.success(
+          payload.moved_to_candidate
+            ? "Lead moved to candidate and marked Closed"
+            : "Lead updated successfully
         );
         toast.success("Lead updated successfully");
       } catch (error) {
@@ -1588,3 +1631,4 @@ export default function LeadsPage() {
     </div>
   );
 }
+
