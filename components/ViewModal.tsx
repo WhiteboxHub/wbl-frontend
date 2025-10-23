@@ -636,23 +636,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
                   ))}
                 </div>
 
-                {/* Notes Section */}
-                {/* {sectionedFields["Notes"]?.length > 0 && (
-                  <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-blue-200">
-                    <div className="space-y-2 sm:space-y-3">
-                      {sectionedFields["Notes"].map(({ key, value }) => (
-                        <div key={key} className="space-y-1">
-                          <label className="block text-xs sm:text-sm font-bold text-blue-700">
-                            {toLabel(key)}
-                          </label>
-                          <div className="w-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm border border-blue-200 rounded-lg bg-white min-h-[60px]">
-                            <div className="whitespace-pre-wrap">{value}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )} */}
+                {/* Notes Section */}      
                 {sectionedFields["Notes"]?.length > 0 && (
                 <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-blue-200">
                   <div className="space-y-2 sm:space-y-3">
