@@ -28,7 +28,7 @@ interface CandidateData {
   placement_records: any[];
   login_access: any;
   miscellaneous: any;
-  session_records?: any[]; // Added to fix the error
+  session_records?: any[];
 }
 
 const StatusRenderer = ({ status }: {status: string }) => {
@@ -256,24 +256,23 @@ useEffect(() => {
 
             let displayValue = value;
 
-                if ((key === 'Last Login' && value) || (key === 'Last Modified' && value)) {
-                  const date = new Date(value as string | number | Date);
-                  displayValue = date.toLocaleString('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true
-                  });
-                }
+            if ((key === 'Last Login' && value) || (key === 'Last Modified' && value)) {
+              const date = new Date(value as string | number | Date);
+              displayValue = date.toLocaleString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+              });
+            }
             if (key === 'candidate_folder' && value && value.toString().trim() !== '') {
               const url = value.toString().trim();
               let finalUrl = url;
               if (!url.startsWith('http://') && !url.startsWith('https://')) {
                 finalUrl = 'https://' + url;
               }
-
               displayValue = (
                 <button
                   className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer whitespace-nowrap inline-block min-w-0 max-w-fit"
@@ -286,7 +285,43 @@ useEffect(() => {
                 Folder
                 </button>
               );
-            }else if (value && typeof value === "string") {
+            } else if (key.toLowerCase().includes('linkedin') && value && value.toString().trim() !== '') {
+              const url = value.toString().trim();
+              const finalUrl = url.startsWith('http') ? url : `https://${url}`;
+              displayValue = renderOpenLinkButton(finalUrl, "Open LinkedIn");
+            } else if (key.toLowerCase().includes('github') && value && value.toString().trim() !== '') {
+              const url = value.toString().trim();
+              const finalUrl = url.startsWith('http') ? url : `https://${url}`;
+              displayValue = renderOpenLinkButton(finalUrl, "Open GitHub");
+            } else if (key.toLowerCase().includes('notes') && typeof value === 'string') {
+              
+              const parseHtmlToText = (htmlString: string) => {
+                const doc = new DOMParser().parseFromString(htmlString, 'text/html');
+                return doc.body.innerText || '';
+              };
+              const textOnly = parseHtmlToText(value);
+              displayValue = (
+                <div className="whitespace-pre-wrap text-sm break-words dark:text-black-100 text-black-900">
+                  {textOnly}
+                </div>
+              );
+            }
+            else if (
+              (key.toLowerCase().includes('phone')) &&
+              value &&
+              value.toString().trim() !== ''
+            ) {
+              const phone = value.toString().trim();
+              displayValue = (
+                <a
+                  href={`tel:${phone.replace(/\s+/g, '')}`}
+                  className="text-blue-600 hover:underline font-medium"
+                >
+                  {phone}
+                </a>
+              );
+            }
+            else if (value && typeof value === "string") {
               const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
               if (emailRegex.test(value.trim())) {
                 displayValue = (
@@ -300,44 +335,15 @@ useEffect(() => {
                   </a>
                 );
               }
-            } else if (key.toLowerCase().includes('phone') && value && value.toString().trim() !== '') {
-              // Render phone as tel: link/button
-              displayValue = (
-                <a
-                  href={`tel:${value}`}
-                  className="text-blue-600 hover:underline font-medium"
-                >
-                  {value as React.ReactNode}
-                </a>
-              );
-            } else if (key === 'linkedin_id' && value && value.toString().trim() !== '') {
-              let url = value.toString().trim();
-              let finalUrl = url;
-              if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                finalUrl = 'https://' + url;
-              }
-              displayValue = (
-                <button
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer whitespace-nowrap inline-block min-w-0 max-w-fit"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    window.open(finalUrl, '_blank', 'noopener,noreferrer');
-                  }}
-                >
-                  LinkedIn
-                </button>
-              );
-            } else if (key.toLowerCase().includes('date')) {
+            }
+            else if (key.toLowerCase().includes('date')) {
               displayValue = DateFormatter(value);
             } else if (key === 'status') {
               displayValue = <StatusRenderer status={value as string} />;
             }
-            // --- Enhanced logic for agreement, arrays, and url-like strings ---
             else if (key === "agreement") {
               displayValue = value === "Y" ? " Yes" : " No";
             }
-            // If value is an array, check if items are potential URLs and render buttons
             else if (Array.isArray(value) && value.length > 0 && value.every(v => isPotentialUrl(v))) {
               displayValue = (
                 <div className="flex flex-wrap gap-1">
@@ -347,7 +353,6 @@ useEffect(() => {
                 </div>
               );
             }
-            // If value is a url-like string, render open link button
             else if (typeof value === "string" && isPotentialUrl(value)) {
               displayValue = renderOpenLinkButton(value, "Open Link");
             }
@@ -466,7 +471,6 @@ useEffect(() => {
       </button>
     );
   }
-  // --- Insert: render array of urls or url-like strings as open link buttons ---
   else if (Array.isArray(value) && value.length > 0 && value.every(v => isPotentialUrl(v))) {
     value = (
       <div className="flex flex-wrap gap-1">
@@ -482,7 +486,9 @@ useEffect(() => {
 
   return (
     <td key={column} className="p-2 text-black-900 max-w-xs break-words dark:text-black-100">
-      {value || "—"}
+      {column.toLowerCase().includes("notes") && typeof value === "string"
+        ? value.replace(/<[^>]+>/g, '')
+        : value || "—"}
     </td>
   );
 })}
@@ -497,7 +503,6 @@ useEffect(() => {
     );
   };
 
-  // Add renderSessionsTable function to render session records
   const renderSessionsTable = (title: string, icon: React.ReactNode, records: any[]) => {
     if (!records || records.length === 0) {
       return (
@@ -555,7 +560,6 @@ useEffect(() => {
                     if (column.toLowerCase().includes('date')) {
                       value = DateFormatter(value);
                     }
-                    // Insert: handle arrays and url-like strings
                     else if (Array.isArray(value) && value.length > 0 && value.every(v => isPotentialUrl(v))) {
                       value = (
                         <div className="flex flex-wrap gap-1">
@@ -760,11 +764,15 @@ useEffect(() => {
               </button>
               {openSections['interviews'] && (
                 <div className="pb-4">
-                  {renderTable("Interview Records", <Briefcase className="h-4 w-4" />, 
+                  {renderTable(
+                    "Interview Records",
+                    <Briefcase className="h-4 w-4" />,
                     [...selectedCandidate.interview_records].sort((a, b) => {
-                      const ad = a["Interview Date"] ? new Date(a["Interview Date"]).getTime() : -Infinity;
-                      const bd = b["Interview Date"] ? new Date(b["Interview Date"]).getTime() : -Infinity;
-                      return bd - ad;
+                      const parseDate = (dateStr: string) => {
+                        if (!dateStr) return -Infinity;
+                        return new Date(dateStr).getTime(); // ISO format parsing
+                      };
+                      return parseDate(b["interview_date"]) - parseDate(a["interview_date"]); // latest first
                     })
                   )}
                   {renderTable("Placement Records", <DollarSign className="h-4 w-4" />, selectedCandidate.placement_records)}

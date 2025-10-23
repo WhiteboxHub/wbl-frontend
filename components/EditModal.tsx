@@ -271,7 +271,7 @@ interface EditModalProps {
 
 // Fields to exclude from the form
 const excludedFields = [
-  "candidate", "instructor1", "instructor2", "instructor3", "id", "sessionid",
+  "candidate", "instructor1", "instructor2", "instructor3", "id", "sessionid", "vendor_type"
   "last_mod_datetime", "last_modified", "logincount", "googleId",
   "subject_id", "lastmoddatetime", "course_id", "new_subject_id", "instructor_1id",
   "instructor_2id", "instructor_3id", "instructor1_id", "instructor2_id",
@@ -541,6 +541,7 @@ const dateFields = [
   "enrolled_date",
   "interview_date",
   "placement_date",
+  "marketing_start_date",
   "target_date_of_marketing",
 ];
 

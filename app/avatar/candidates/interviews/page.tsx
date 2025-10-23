@@ -247,7 +247,7 @@ const CandidateNameRenderer = (params: any) => {
       href={`/avatar/candidates/search?candidateId=${candidateId}`}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
+      className="text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer"
     >
       {candidateName}
     </Link>
@@ -386,6 +386,52 @@ export default function CandidatesInterviews() {
     };
     fetchMarketingCandidates();
   }, [showAddForm]);
+
+  // Add drag resize functionality for notes textarea
+  useEffect(() => {
+    if (!showAddForm) return;
+
+    const textarea = document.querySelector(
+      'textarea[id="notes"]'
+    ) as HTMLTextAreaElement;
+    const dragHandle = document.querySelector(".drag-handle") as HTMLElement;
+
+    if (!textarea || !dragHandle) return;
+
+    let isResizing = false;
+    let startY = 0;
+    let startHeight = 0;
+
+    const startResize = (e: MouseEvent) => {
+      isResizing = true;
+      startY = e.clientY;
+      startHeight = parseInt(
+        document.defaultView?.getComputedStyle(textarea).height || "0",
+        10
+      );
+      e.preventDefault();
+    };
+
+    const resize = (e: MouseEvent) => {
+      if (!isResizing) return;
+      const deltaY = e.clientY - startY;
+      textarea.style.height = `${Math.max(60, startHeight + deltaY)}px`; // Minimum height 60px
+    };
+
+    const stopResize = () => {
+      isResizing = false;
+    };
+
+    dragHandle.addEventListener("mousedown", startResize);
+    document.addEventListener("mousemove", resize);
+    document.addEventListener("mouseup", stopResize);
+
+    return () => {
+      dragHandle.removeEventListener("mousedown", startResize);
+      document.removeEventListener("mousemove", resize);
+      document.removeEventListener("mouseup", stopResize);
+    };
+  }, [showAddForm]); // Re-initialize when modal opens/closes
 
   const filterData = useCallback(() => {
     let filtered = [...interviews];
@@ -678,7 +724,7 @@ export default function CandidatesInterviews() {
       {/* Add Interview Modal with React Hook Form */}
       {showAddForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4">
-          <div className="w-full max-w-2xl rounded-xl bg-white shadow-2xl dark:bg-gray-800 max-h-[85vh] overflow-y-auto">
+          <div className="w-full max-w-2xl rounded-xl bg-white shadow-2xl dark:bg-gray-800 max-h-[95vh] overflow-y-auto">
             {/* Header */}
             <div className="sticky top-0 flex items-center justify-between border-b border-blue-200 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 py-3">
               <h2 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-lg font-semibold text-transparent">
@@ -894,18 +940,29 @@ export default function CandidatesInterviews() {
                     />
                   </div>
 
-                  {/* Notes */}
+                  {/* Notes with Drag to Resize */}
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="notes" className="text-sm font-bold text-blue-700">
                       Notes
                     </Label>
-                    <textarea
-                      id="notes"
-                      {...register("notes")}
-                      placeholder="Enter notes..."
-                      rows={1}
-                      className="w-full resize-none rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    />
+                    <div className="relative">
+                      <textarea
+                        id="notes"
+                        {...register("notes")}
+                        placeholder="Enter notes..."
+                        className="min-h-[60px] w-full resize-none rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                      {/* Drag handle in bottom-right corner */}
+                      <div
+                        className="drag-handle absolute bottom-1 right-1 cursor-nwse-resize p-1 text-gray-400 transition-colors hover:text-gray-600"
+                        title="Drag to resize"
+                        style={{ pointerEvents: "auto" }}
+                      >
+                        <div className="flex h-5 w-5 items-center justify-center text-lg font-bold">
+                          ↖
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 

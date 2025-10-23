@@ -670,9 +670,6 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
-
                 {/* Navigation */}
                 {hasNavigation && (
                   <div className="flex justify-between items-center mt-3 p-2 bg-blue-50 rounded-md">

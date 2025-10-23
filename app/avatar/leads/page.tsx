@@ -1,3 +1,4 @@
+
 "use client";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
@@ -10,31 +11,11 @@ import { toast, Toaster } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AGGridTable } from "@/components/AGGridTable";
 import { createPortal } from "react-dom";
-import { AgGridReact } from "ag-grid-react";
 import type { AgGridReact as AgGridReactType } from "ag-grid-react";
 import type { GridApi } from "ag-grid-community";
+import { LeadsHelper, db, Lead as DexieLead } from "@/lib/dexieDB";
 import { useForm } from "react-hook-form";
-
-type Lead = {
-  id: number;
-  full_name?: string | null;
-  email: string;
-  phone?: string | null;
-  workstatus?: string | null;
-  status?: string | null;
-  secondary_email?: string | null;
-  secondary_phone?: string | null;
-  address?: string | null;
-  entry_date?: string | Date | null;
-  closed_date?: string | Date | null;
-  city?: string | null;
-  state?: string | null;
-  country?: string | null;
-  moved_to_candidate?: boolean;
-  notes?: string | null;
-  massemail_unsubscribe?: boolean;
-  massemail_email_sent?: boolean;
-};
+type Lead = DexieLead;
 
 type FormData = {
   full_name: string;
@@ -78,14 +59,77 @@ const workStatusOptions = [
   "CPT",
 ];
 
+// Simple cache implementation
+const useSimpleCache = () => {
+  const cacheRef = useRef<{
+    data: Lead[];
+    timestamp: number;
+    searchTerm: string;
+    searchBy: string;
+  } | null>(null);
+
+  const isCacheValid = async (
+    searchTerm: string,
+    searchBy: string = "all",
+    maxAge: number = 60000
+  ) => {
+    if (cacheRef.current) {
+      if (cacheRef.current.searchTerm === searchTerm && cacheRef.current.searchBy === searchBy) {
+        const age = Date.now() - cacheRef.current.timestamp;
+        if (age < maxAge) return true;
+      }
+    }
+
+    const localLeads = await db.leads.toArray();
+    if (localLeads.length > 0) {
+      return true;
+    }
+
+    return false;
+  };
+
+  const setCache = (data: Lead[], searchTerm: string, searchBy: string = "all") => {
+    cacheRef.current = {
+      data,
+      timestamp: Date.now(),
+      searchTerm,
+      searchBy,
+    };
+  };
+
+  const getCache = () => cacheRef.current?.data || null;
+  const invalidateCache = () => {
+    cacheRef.current = null;
+  };
+
+  return { isCacheValid, setCache, getCache, invalidateCache };
+};
+
+// Rate limiter to prevent too many API calls
+const useRateLimiter = () => {
+  const lastCallRef = useRef<number>(0);
+  
+  const canMakeCall = (minInterval: number = 3000) => {
+    const now = Date.now();
+    const timeSinceLastCall = now - lastCallRef.current;
+    
+    if (timeSinceLastCall < minInterval) {
+      return false;
+    }
+    
+    lastCallRef.current = now;
+    return true;
+  };
+  
+  return { canMakeCall };
+};
+
 const StatusRenderer = ({ value }: { value?: string }) => {
   const status = value?.toLowerCase() || "";
   const variantMap: Record<string, string> = {
     open: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-    closed:
-      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-    future:
-      "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+    closed: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    future: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
     default: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
   };
   return (
@@ -98,23 +142,17 @@ const StatusRenderer = ({ value }: { value?: string }) => {
 const WorkStatusRenderer = ({ value }: { value?: string }) => {
   const workstatus = value?.toLowerCase() || "";
   const variantMap: Record<string, string> = {
-    "waiting for status":
-      "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+    "waiting for status": "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
     h1b: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-    "h4 ead":
-      "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
-    "permanent resident":
-      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-    citizen:
-      "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
+    "h4 ead": "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
+    "permanent resident": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    citizen: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
     opt: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
     cpt: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
     default: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
   };
   return (
-    <Badge
-      className={`${variantMap[workstatus] || variantMap.default} capitalize`}
-    >
+    <Badge className={`${variantMap[workstatus] || variantMap.default} capitalize`}>
       {value || "N/A"}
     </Badge>
   );
@@ -124,10 +162,12 @@ const StatusFilterHeaderComponent = (props: any) => {
   const { selectedStatuses, setSelectedStatuses } = props;
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({
-    top: 0,
-    left: 0,
-  });
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>(
+    {
+      top: 0,
+      left: 0,
+    }
+  );
   const [filterVisible, setFilterVisible] = useState(false);
 
   const toggleFilter = (e: React.MouseEvent) => {
@@ -142,34 +182,20 @@ const StatusFilterHeaderComponent = (props: any) => {
     setFilterVisible((v) => !v);
   };
 
-  const handleStatusChange = (
-    status: string,
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleStatusChange = (status: string, e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
-    setSelectedStatuses((prev: string[]) => {
-      const isSelected = prev.includes(status);
-      if (isSelected) {
-        return prev.filter((s) => s !== status);
-      } else {
-        return [...prev, status];
-      }
-    });
+    setSelectedStatuses((prev: string[]) =>
+      prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
+    );
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
-    if (e.target.checked) {
-      setSelectedStatuses([...statusOptions]);
-    } else {
-      setSelectedStatuses([]);
-    }
+    setSelectedStatuses(e.target.checked ? [...statusOptions] : []);
   };
 
   const isAllSelected = selectedStatuses.length === statusOptions.length;
-  const isIndeterminate =
-    selectedStatuses.length > 0 &&
-    selectedStatuses.length < statusOptions.length;
+  const isIndeterminate = selectedStatuses.length > 0 && selectedStatuses.length < statusOptions.length;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -213,12 +239,7 @@ const StatusFilterHeaderComponent = (props: any) => {
           viewBox="0 0 24 24"
           stroke="currentColor"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z"
-          />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z" />
         </svg>
       </div>
       {filterVisible &&
@@ -226,13 +247,7 @@ const StatusFilterHeaderComponent = (props: any) => {
           <div
             ref={dropdownRef}
             className="pointer-events-auto fixed flex w-56 flex-col space-y-2 rounded-lg border bg-white p-3 shadow-xl dark:border-gray-600 dark:bg-gray-800"
-            style={{
-              top: dropdownPos.top + 5,
-              left: dropdownPos.left,
-              zIndex: 99999,
-              maxHeight: "300px",
-              overflowY: "auto",
-            }}
+            style={{ top: dropdownPos.top + 5, left: dropdownPos.left, zIndex: 99999, maxHeight: "300px", overflowY: "auto" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-2 border-b pb-2">
@@ -243,26 +258,24 @@ const StatusFilterHeaderComponent = (props: any) => {
                   ref={(el) => {
                     if (el) el.indeterminate = isIndeterminate;
                   }}
+                  className="mr-2"
                   onChange={handleSelectAll}
-                  className="mr-3"
-                  onClick={(e) => e.stopPropagation()}
                 />
-                Select All
+                All
               </label>
             </div>
             {statusOptions.map((status) => (
               <label
                 key={status}
-                className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700"
+                className="flex cursor-pointer items-center rounded px-2 py-1 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 <input
                   type="checkbox"
                   checked={selectedStatuses.includes(status)}
+                  className="mr-2"
                   onChange={(e) => handleStatusChange(status, e)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="mr-3"
                 />
-                <StatusRenderer value={status} />
+                {status}
               </label>
             ))}
             {selectedStatuses.length > 0 && (
@@ -289,10 +302,12 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
   const { selectedWorkStatuses, setSelectedWorkStatuses } = props;
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({
-    top: 0,
-    left: 0,
-  });
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>(
+    {
+      top: 0,
+      left: 0,
+    }
+  );
   const [filterVisible, setFilterVisible] = useState(false);
 
   const toggleFilter = (e: React.MouseEvent) => {
@@ -307,34 +322,21 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
     setFilterVisible((v) => !v);
   };
 
-  const handleWorkStatusChange = (
-    workStatus: string,
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleWorkStatusChange = (workStatus: string, e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
-    setSelectedWorkStatuses((prev: string[]) => {
-      if (prev.includes(workStatus)) {
-        return prev.filter((s) => s !== workStatus);
-      } else {
-        return [...prev, workStatus];
-      }
-    });
+    setSelectedWorkStatuses((prev: string[]) =>
+      prev.includes(workStatus) ? prev.filter((s) => s !== workStatus) : [...prev, workStatus]
+    );
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
-    if (e.target.checked) {
-      setSelectedWorkStatuses([...workStatusOptions]);
-    } else {
-      setSelectedWorkStatuses([]);
-    }
+    setSelectedWorkStatuses(e.target.checked ? [...workStatusOptions] : []);
   };
 
-  const isAllSelected =
-    selectedWorkStatuses.length === workStatusOptions.length;
+  const isAllSelected = selectedWorkStatuses.length === workStatusOptions.length;
   const isIndeterminate =
-    selectedWorkStatuses.length > 0 &&
-    selectedWorkStatuses.length < workStatusOptions.length;
+    selectedWorkStatuses.length > 0 && selectedWorkStatuses.length < workStatusOptions.length;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -357,7 +359,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
       window.removeEventListener("scroll", handleScroll, true);
     };
   }, [filterVisible]);
-
+  
   return (
     <div className="relative flex w-full items-center">
       <span className="mr-2 flex-grow">Work Status</span>
@@ -378,12 +380,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
           viewBox="0 0 24 24"
           stroke="currentColor"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z"
-          />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z" />
         </svg>
       </div>
       {filterVisible &&
@@ -391,13 +388,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
           <div
             ref={dropdownRef}
             className="pointer-events-auto fixed flex w-56 flex-col space-y-2 rounded-lg border bg-white p-3 text-sm shadow-xl dark:border-gray-600 dark:bg-gray-800"
-            style={{
-              top: dropdownPos.top + 5,
-              left: dropdownPos.left,
-              zIndex: 99999,
-              maxHeight: "300px",
-              overflowY: "auto",
-            }}
+            style={{ top: dropdownPos.top + 5, left: dropdownPos.left, zIndex: 99999, maxHeight: "300px", overflowY: "auto" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-2 border-b pb-2">
@@ -408,8 +399,8 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
                   ref={(el) => {
                     if (el) el.indeterminate = isIndeterminate;
                   }}
-                  onChange={handleSelectAll}
                   className="mr-3"
+                  onChange={handleSelectAll}
                 />
                 Select All
               </label>
@@ -460,56 +451,107 @@ export default function LeadsPage() {
   const [totalLeads, setTotalLeads] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [searchBy, setSearchBy] = useState("full_name");
+  const [searchBy, setSearchBy] = useState("full_name");  
+  const [newLeadForm, setNewLeadForm] = useState(isNewLead);
+  const [formData, setFormData] = useState<FormData>(initialFormData);
+  const [formSaveLoading, setFormSaveLoading] = useState(false);
   const [sortModel, setSortModel] = useState([
     { colId: "entry_date", sort: "desc" as "desc" },
   ]);
-  const [isModalOpen, setIsModalOpen] = useState(isNewLead);
+  
+
   const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+
   const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
-  const gridRef = useRef<InstanceType<typeof AgGridReact> | null>(null);
-  const apiEndpoint = useMemo(
-    () => `${process.env.NEXT_PUBLIC_API_URL}/leads`,
-    []
-  );
+
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  
+  const gridRef = useRef<AgGridReactType<Lead> | null>(null);
+  const apiEndpoint = useMemo(() => `${process.env.NEXT_PUBLIC_API_URL}/leads`, []);
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true); 
+  const cache = useSimpleCache();
+  const rateLimiter = useRateLimiter();
+  const callCountRef = useRef(0);
+
+
 
   const {
     register,
     handleSubmit,
     reset,
-    formState: { errors },
+    formState: { errors, isSubmitting },
     setValue,
     watch,
   } = useForm<FormData>({
     defaultValues: initialFormData,
   });
 
-  const fetchLeads = useCallback(
-    async (
-      search?: string,
-      searchBy: string = "all",
-      sort: any[] = [{ colId: "entry_date", sort: "desc" }]
-    ) => {
-      setLoading(true);
-      try {
+  // Enhanced fetchLeads with offline support
+  const fetchLeads = useCallback(async (
+    search?: string,
+    searchBy: string = "all",
+    sort: any[] = [{ colId: "entry_date", sort: "desc" }],
+    forceRefresh = false
+  ) => {
+    callCountRef.current++;
+    console.log('   fetchLeads CALLED - investigating multiple calls');
+    console.log('   Call count:', callCountRef.current);
+    console.log('   search:', search);
+    console.log('   searchBy:', searchBy);
+    console.log('   forceRefresh:', forceRefresh);
+    console.log('   loading state:', loading);
+    console.log('   cache valid?', cache.isCacheValid(search || "", searchBy));
+    console.log('   stack trace:', new Error().stack);
+
+    // NUCLEAR OPTION - Completely block multiple calls
+    if (callCountRef.current > 1) {
+      console.log(' BLOCKING DUPLICATE CALL - Only allowing first call');
+      return;
+    }
+
+    const searchKey = search || "";
+    
+    // STRICT CACHE CHECK - Only proceed if absolutely necessary
+    if (!forceRefresh && cache.isCacheValid(searchKey, searchBy)) {
+      console.log(' STRICT CACHE HIT - Blocking API call');
+      const cachedData = cache.getCache();
+      if (cachedData) {
+        setLeads(cachedData);
+        setFilteredLeads(cachedData);
+        return;
+      }
+    }
+
+    // RATE LIMITING - Strict enforcement
+    if (!rateLimiter.canMakeCall(5000)) { // 5 seconds between calls
+      console.log(' STRICT RATE LIMIT - Blocking API call');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Load from IndexedDB first
+      const localLeads = await db.leads.toArray();
+      console.log(` IndexedDB has ${localLeads.length} leads`);
+      
+      // Only proceed with API call if necessary
+      if (isOnline && (forceRefresh || !cache.isCacheValid(searchKey, searchBy))) {
         let url = `${apiEndpoint}`;
         const params = new URLSearchParams();
         if (search && search.trim()) {
           params.append("search", search.trim());
           params.append("search_by", searchBy);
         }
-        const sortToApply =
-          sort && sort.length > 0
-            ? sort
-            : [{ colId: "entry_date", sort: "desc" }];
-        const sortParam = sortToApply
-          .map((s) => `${s.colId}:${s.sort}`)
-          .join(",");
+        const sortParam = sort.map((s) => `${s.colId}:${s.sort}`).join(",");
         params.append("sort", sortParam);
+        
         if (params.toString()) {
           url += `?${params.toString()}`;
         }
+
+
+        
         const token = localStorage.getItem("token");
         const res = await fetch(url, {
           headers: {
@@ -517,34 +559,94 @@ export default function LeadsPage() {
             "Content-Type": "application/json",
           },
         });
+        
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        
         const data = await res.json();
-        let leadsData = [];
+        let leadsData: Lead[] = [];
         if (data.data && Array.isArray(data.data)) {
           leadsData = data.data;
         } else if (Array.isArray(data)) {
           leadsData = data;
-        } else {
-          throw new Error("Invalid response format");
         }
-        setLeads(leadsData);
-      } catch (err) {
-        const error =
-          err instanceof Error ? err.message : "Failed to load leads";
-        setError(error);
-        toast.error(error);
-      } finally {
-        setLoading(false);
-        if (searchInputRef.current) {
-          searchInputRef.current.focus();
-        }
-      }
-    },
-    [apiEndpoint]
-  );
 
+        console.log(` API returned ${leadsData.length} leads - UPDATING CACHE`);
+        
+        setLeads(leadsData);
+        setFilteredLeads(leadsData);
+        cache.setCache(leadsData, searchKey, searchBy);
+        
+        await db.leads.clear();
+        await db.leads.bulkPut(leadsData);
+      } else {
+        console.log(' Using IndexedDB data - NO API CALL');
+        setLeads(localLeads);
+        setFilteredLeads(localLeads);
+      }
+    } catch (err) {
+      console.error(' API Error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [apiEndpoint, cache, isOnline, rateLimiter]);
+
+  // Local search in IndexedDB
   useEffect(() => {
-    let filtered = [...leads];
+    const timeoutId = setTimeout(async () => {
+      const term = searchTerm.trim().toLowerCase();
+
+      if (!term) {
+        const allLeads = await db.leads.toArray();
+        setFilteredLeads(allLeads);
+        setTotalLeads(allLeads.length);
+        return;
+      }
+
+      const allLeads = await db.leads.toArray();
+      const filtered = allLeads.filter((lead) => {
+        const nameMatch = lead.full_name?.toLowerCase().includes(term);
+        const emailMatch = lead.email?.toLowerCase().includes(term);
+        const phoneMatch = lead.phone?.toLowerCase().includes(term);
+        const idMatch = lead.id?.toString().includes(term);
+        return nameMatch || emailMatch || phoneMatch || idMatch;
+      });
+
+      setFilteredLeads(filtered);
+      setTotalLeads(filtered.length);
+    }, 400);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
+
+  // Initial data load
+  useEffect(() => {
+    const loadInitialData = async () => {
+      callCountRef.current = 0;
+      
+      const localLeads = await db.leads.toArray();
+  
+      
+      if (localLeads.length > 0) {
+        setLeads(localLeads);
+        setFilteredLeads(localLeads);
+        
+        if (!cache.isCacheValid("", "all")) {
+          setTimeout(() => {
+            fetchLeads("", "all", sortModel, false);
+          }, 3000);
+        }
+      } else {
+        fetchLeads("", "all", sortModel, true);
+      }
+    };
+
+    loadInitialData();
+  }, []);
+
+  // Client-side filtering
+  useEffect(() => {
+    let filtered = [...leads];  
+    
     if (selectedStatuses.length > 0) {
       filtered = filtered.filter((lead) =>
         selectedStatuses.some(
@@ -552,6 +654,7 @@ export default function LeadsPage() {
         )
       );
     }
+
     if (selectedWorkStatuses.length > 0) {
       filtered = filtered.filter((lead) =>
         selectedWorkStatuses.some(
@@ -559,6 +662,7 @@ export default function LeadsPage() {
         )
       );
     }
+
     if (searchTerm.trim() !== "") {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
@@ -569,25 +673,77 @@ export default function LeadsPage() {
           lead.id.toString().includes(term)
       );
     }
+    
     setFilteredLeads(filtered);
     setTotalLeads(filtered.length);
   }, [leads, selectedStatuses, selectedWorkStatuses, searchTerm]);
 
+  // Online/offline handling
   useEffect(() => {
-    fetchLeads();
-  }, [fetchLeads]);
+    const handleOnline = () => {
+      setIsOnline(true);
+      console.log('Online - syncing changes if any');
+    };
+    
+    const handleOffline = () => {
+      setIsOnline(false);
+      console.log('Offline - using local data only');
+    };
 
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  // Add this useEffect for drag functionality
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (searchTerm.trim()) {
-        const detectedSearchBy = detectSearchBy(searchTerm);
-        fetchLeads(searchTerm, detectedSearchBy, sortModel);
-      } else {
-        fetchLeads("", searchBy, sortModel);
-      }
-    }, 300);
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm, searchBy, sortModel, fetchLeads]);
+    if (!isModalOpen) return; // Only initialize when modal is open
+
+    const textarea = document.querySelector(
+      'textarea[name="notes"]'
+    ) as HTMLTextAreaElement;
+    const dragHandle = document.querySelector(".drag-handle") as HTMLElement;
+
+    if (!textarea || !dragHandle) return;
+
+    let isResizing = false;
+    let startY = 0;
+    let startHeight = 0;
+
+    const startResize = (e: MouseEvent) => {
+      isResizing = true;
+      startY = e.clientY;
+      startHeight = parseInt(
+        document.defaultView?.getComputedStyle(textarea).height || "0",
+        10
+      );
+      e.preventDefault();
+    };
+
+    const resize = (e: MouseEvent) => {
+      if (!isResizing) return;
+      const deltaY = e.clientY - startY;
+      textarea.style.height = `${Math.max(80, startHeight + deltaY)}px`; // Minimum height 80px
+    };
+
+    const stopResize = () => {
+      isResizing = false;
+    };
+
+    dragHandle.addEventListener("mousedown", startResize);
+    document.addEventListener("mousemove", resize);
+    document.addEventListener("mouseup", stopResize);
+
+    return () => {
+      dragHandle.removeEventListener("mousedown", startResize);
+      document.removeEventListener("mousemove", resize);
+      document.removeEventListener("mouseup", stopResize);
+    };
+  }, [isModalOpen]); // Re-initialize when modal opens
 
   const detectSearchBy = (search: string) => {
     if (/^\d+$/.test(search)) return "id";
@@ -596,11 +752,131 @@ export default function LeadsPage() {
     return "full_name";
   };
 
+
+
+  const handleSearch = useCallback((term: string) => {
+    setSearchTerm(term);
+  }, []);
+
+  // Form validation
+  const validateForm = (data: FormData): boolean => {
+    const errors: Record<string, string> = {};
+    
+    if (!data.full_name.trim()) {
+      errors.full_name = "Full name is required";
+    }
+    
+    if (!data.email.trim()) {
+      errors.email = "Email is required";
+    } else if (!/^\S+@\S+\.\S+$/.test(data.email)) {
+      errors.email = "Please enter a valid email";
+    }
+    
+    if (!data.phone.trim()) {
+      errors.phone = "Phone is required";
+    } else if (data.phone.replace(/\D/g, '').length < 10) {
+      errors.phone = "Please enter a valid phone number";
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleNewLeadFormChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
+    const { name, value, type } = e.target;
+    if (type === "checkbox") {
+      const checked = (e.target as HTMLInputElement).checked;
+      setFormData((prev) => ({ ...prev, [name]: checked }));
+    } else if (name === "phone" || name === "secondary_phone") {
+      const numericValue = value.replace(/\D/g, "");
+      setFormData((prev) => ({ ...prev, [name]: numericValue }));
+    } else if (name === "address") {
+      const sanitizedValue = value.replace(/[^a-zA-Z0-9, ]/g, "");
+      setFormData((prev) => ({ ...prev, [name]: sanitizedValue }));
+    } else if (name === "full_name") {
+      const sanitizedValue = value.replace(/[^a-zA-Z. ]/g, "");
+      setFormData((prev) => ({ ...prev, [name]: sanitizedValue }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+
+  // Form submission with react-hook-form
+
   const onSubmit = async (data: FormData) => {
     if (!data.full_name.trim() || !data.email.trim() || !data.phone.trim()) {
       toast.error("Full Name, Email, and Phone are required");
       return;
+
     }
+
+
+  const handleNewLeadFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormSaveLoading(true);
+    setFormErrors({});
+
+    if (!validateForm(formData)) {
+      setFormSaveLoading(false);
+      return;
+    }
+    try {
+      const updatedData = { 
+        ...data,
+        status: data.status || "Open",
+        workstatus: data.workstatus || "Waiting for Status",
+        moved_to_candidate: Boolean(data.moved_to_candidate),
+        massemail_email_sent: Boolean(data.massemail_email_sent),
+        massemail_unsubscribe: Boolean(data.massemail_unsubscribe),
+        entry_date: data.entry_date || new Date().toISOString(),
+        closed_date: data.status === "Closed" ? new Date().toISOString().split("T")[0] : null,
+      };
+
+      // Add to local DB first
+      const tempLead: Lead = {
+        ...updatedData,
+        id: Date.now(),
+        synced: !isOnline,
+        _action: "add" as const,
+      } as Lead;
+
+      await db.leads.add(tempLead);
+      setLeads(prev => [tempLead, ...prev]);
+      setFilteredLeads(prev => [tempLead, ...prev]);
+      
+      cache.invalidateCache();
+
+      // Sync with API if online
+      if (isOnline) {
+        const token = localStorage.getItem("token");
+        const response = await fetch(apiEndpoint, {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(updatedData),
+        });
+        
+        if (!response.ok) throw new Error("Failed to create lead");
+        
+        const savedLead = await response.json();
+        
+        await db.leads.delete(tempLead.id);
+        await db.leads.add({ ...savedLead, synced: true, _action: null });
+        
+        setLeads(prev => prev.map(l => l.id === tempLead.id ? savedLead : l));
+        setFilteredLeads(prev => prev.map(l => l.id === tempLead.id ? savedLead : l));
+      }
+
+      toast.success("Lead created successfully!");
+      handleCloseModal();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to create lead";
+      toast.error(errorMessage);
+
     try {
       const updatedData = { ...data };
       if (!updatedData.status || updatedData.status === "") {
@@ -657,6 +933,7 @@ export default function LeadsPage() {
       router.push("/avatar/leads");
     } catch (error) {
       toast.error("Failed to create lead", { position: "top-center" });
+
       console.error("Error creating lead:", error);
     }
   };
@@ -679,7 +956,7 @@ export default function LeadsPage() {
         const { id, entry_date, ...payload } = updatedRow;
         if (payload.moved_to_candidate && payload.status !== "Closed") {
           payload.status = "Closed";
-          payload.closed_date = new Date().toISOString().split('T')[0];
+          payload.closed_date = new Date().toISOString().split("T")[0];
         } else if (!payload.moved_to_candidate && payload.status === "Closed") {
           payload.status = "Open";
           payload.closed_date = null;
@@ -697,19 +974,23 @@ export default function LeadsPage() {
         });
         if (!response.ok) throw new Error("Failed to update lead");
         const updatedLead = await response.json();
-        setLeads(prevLeads =>
-          prevLeads.map(lead => (lead.id === updatedLead.id ? updatedLead : lead))
+        setLeads((prevLeads) =>
+          prevLeads.map((lead) =>
+            lead.id === updatedLead.id ? updatedLead : lead
+          )
         );
         toast.success("Lead updated successfully");
       } catch (error) {
         toast.error("Failed to update lead");
         console.error("Error updating lead:", error);
-      } finally {
+      })
+      .finally(() => {
         setLoadingRowId(null);
-      }
-    },
-    [apiEndpoint]
-  );
+      });
+    } else {
+      setLoadingRowId(null);
+    }
+  }, [apiEndpoint, isOnline, leads, cache]);
 
   const handleRowDeleted = useCallback(
     async (id: number) => {
@@ -721,7 +1002,7 @@ export default function LeadsPage() {
           },
         });
         if (!response.ok) throw new Error("Failed to delete lead");
-        setLeads(prevLeads => prevLeads.filter(lead => lead.id !== id));
+        setLeads((prevLeads) => prevLeads.filter((lead) => lead.id !== id));
         toast.success("Lead deleted successfully");
       } catch (error) {
         toast.error("Failed to delete lead");
@@ -732,16 +1013,17 @@ export default function LeadsPage() {
   );
 
   const handleMoveToCandidate = useCallback(
-    async (lead: Lead, Moved: boolean) => {
+    async (lead: Lead, moved: boolean) => {
       setLoadingRowId(lead.id);
       try {
-        const method = Moved ? "DELETE" : "POST";
+        const method = moved ? "DELETE" : "POST";
         const url = `${apiEndpoint}/${lead.id}/move-to-candidate`;
         const payload: Partial<Lead> = {
-          moved_to_candidate: !Moved,
-          status: !Moved ? "Closed" : "Open",
-          closed_date: !Moved ? new Date().toISOString().split("T")[0] : null,
+          moved_to_candidate: !moved,
+          status: !moved ? "Closed" : "Open",
+          closed_date: !moved ? new Date().toISOString().split("T")[0] : null,
         };
+        
         const response = await fetch(url, {
           method,
           headers: {
@@ -750,22 +1032,19 @@ export default function LeadsPage() {
           },
           body: JSON.stringify(payload),
         });
+        
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(
-            errorData.detail || "Failed to move lead to candidate"
-          );
+          throw new Error(errorData.detail || "Failed to move lead to candidate");
         }
+        
         const data = await response.json();
         fetchLeads(searchTerm, searchBy, sortModel);
-        if (Moved) {
-          toast.success(
-            `Lead removed from candidate list (Candidate ID: ${data.candidate_id})`
-          );
+        
+        if (moved) {
+          toast.success(`Lead removed from candidate list (Candidate ID: ${data.candidate_id})`);
         } else {
-          toast.success(
-            `Lead moved to candidate (Candidate ID: ${data.candidate_id}) and status set to Closed`
-          );
+          toast.success(`Lead moved to candidate (Candidate ID: ${data.candidate_id}) and status set to Closed`);
         }
       } catch (error: any) {
         console.error("Error moving lead to candidate:", error);
@@ -977,7 +1256,7 @@ export default function LeadsPage() {
         <div className="text-red-500">{error}</div>
         <Button
           variant="outline"
-          onClick={() => fetchLeads(searchTerm, searchBy, sortModel)}
+          onClick={() => fetchLeads(searchTerm, searchBy, sortModel, true)}
           className="ml-4"
         >
           <RefreshCw className="mr-2 h-4 w-4" />
@@ -988,8 +1267,16 @@ export default function LeadsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4">
       <Toaster position="top-center" />
+      
+      {/* Online/Offline indicator */}
+      {!isOnline && (
+        <div className="rounded-md bg-yellow-100 p-3 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+          You are currently offline. Changes will be synced when you reconnect.
+        </div>
+      )}
+      
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
@@ -1007,6 +1294,13 @@ export default function LeadsPage() {
           </p> */}
 
           {/* Search input */}
+
+            {!isOnline && (
+              <span className="ml-2 text-yellow-600 dark:text-yellow-400">
+                (Offline Mode)
+              </span>
+            )}
+          </p>
           <div className="mt-2 sm:mt-0 sm:max-w-md">
             <div className="relative">
               <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
@@ -1016,13 +1310,13 @@ export default function LeadsPage() {
                 ref={searchInputRef}
                 placeholder="Search by ID, name, email, phone..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearch(e.target.value)}
                 className="w-full pl-10 text-sm sm:text-base"
               />
             </div>
             {searchTerm && (
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {leads.length} candidates found
+                {filteredLeads.length} leads found
               </p>
             )}
           </div>
@@ -1035,6 +1329,14 @@ export default function LeadsPage() {
             <PlusCircle className="mr-2 h-4 w-4" />
             Add New Lead
           </Button>
+          {/* <Button 
+            onClick={() => fetchLeads(searchTerm, searchBy, sortModel, true)} 
+            variant="outline"
+            disabled={loading}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> 
+            {loading ? "Refreshing..." : "Refresh"}
+          </Button> */}
         </div>
       </div>
       <div className="flex w-full justify-center">
@@ -1053,6 +1355,7 @@ export default function LeadsPage() {
           height="600px"
         />
       </div>
+      {/* Enhanced Modal from second version */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 p-2 sm:p-4">
           <div className="w-full max-w-sm rounded-xl bg-white shadow-2xl sm:max-w-md sm:rounded-2xl md:max-w-2xl">
@@ -1134,6 +1437,7 @@ export default function LeadsPage() {
                           /\D/g,
                           ""
                         );
+
                       }}
                     />
                     {errors.phone && (
@@ -1193,10 +1497,7 @@ export default function LeadsPage() {
                       placeholder="Enter secondary phone"
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                       onInput={(e) => {
-                        e.currentTarget.value = e.currentTarget.value.replace(
-                          /\D/g,
-                          ""
-                        );
+                        e.currentTarget.value = e.currentTarget.value.replace(/\D/g, "");
                       }}
                     />
                   </div>
@@ -1211,15 +1512,29 @@ export default function LeadsPage() {
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                   </div>
+                  {/* Updated Notes section with drag functionality */}
                   <div className="space-y-1 sm:col-span-2">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Notes
                     </label>
-                    <textarea
-                      {...register("notes")}
-                      placeholder="Enter notes..."
-                      className="w-full resize-none rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                    />
+                    <div className="relative">
+                      <textarea
+                        {...register("notes")}
+                        placeholder="Enter notes..."
+                        className="w-full resize-none rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                        style={{ minHeight: "60px" }}
+                      />
+                      {/* Drag handle in bottom-right corner */}
+                      <div
+                        className="drag-handle absolute bottom-1 right-1 cursor-nwse-resize p-1 text-gray-400 transition-colors hover:text-gray-600"
+                        title="Drag to resize"
+                        style={{ pointerEvents: "auto" }}
+                      >
+                        <div className="flex h-5 w-5 items-center justify-center text-lg font-bold">
+                          ↖
+                        </div>
+                      </div>
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 gap-2 pt-1 sm:col-span-2 sm:grid-cols-3">
                     <label className="flex items-center space-x-2">
@@ -1264,9 +1579,10 @@ export default function LeadsPage() {
                   </button>
                   <button
                     type="submit"
-                    className="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 px-3 py-1.5 text-xs font-medium text-white shadow-md transition hover:from-cyan-600 hover:to-blue-600 sm:px-5 sm:py-2 sm:text-sm"
+                    disabled={isSubmitting}
+                    className="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 px-3 py-1.5 text-xs font-medium text-white shadow-md transition hover:from-cyan-600 hover:to-blue-600 disabled:opacity-50 sm:px-5 sm:py-2 sm:text-sm"
                   >
-                    Save Lead
+                    {isSubmitting ? "Saving..." : "Save Lead"}
                   </button>
                 </div>
               </form>

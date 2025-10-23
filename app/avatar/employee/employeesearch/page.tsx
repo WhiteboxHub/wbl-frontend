@@ -234,41 +234,51 @@ export default function EmployeeSearchPage() {
         <h4 className="font-semibold text-lg text-black-900 dark:text-black-100">Recent Activity Timeline</h4>
         <Badge variant="secondary">{timeline.length}</Badge>
       </div>
-      
+
       {timeline.length > 0 ? (
         <div className="space-y-4">
           {timeline.map((item, idx) => (
-            <div key={idx} className="flex items-start gap-4 p-4 border border-black-200 dark:border-black-700 rounded-lg">
-              <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                item.type === "class" ? "bg-blue-100 text-blue-800" : "bg-purple-100 text-purple-800"
-              }`}>
+            <div
+              key={idx}
+              className="flex items-start gap-4 p-4 border border-black-200 dark:border-black-700 rounded-lg"
+            >
+              <div
+                className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                  item.type === "class"
+                    ? "bg-blue-100 text-blue-800"
+                    : "bg-purple-100 text-purple-800"
+                }`}
+              >
                 {item.type === "class" ? "C" : "S"}
               </div>
+
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-black-900 dark:text-black-100">{item.title || "Untitled Event"}</p>
-                <p className="text-sm text-black-500 dark:text-black-400 flex items-center gap-1 mt-1">
-                  <Calendar className="w-4 h-4" />
-                  {item.date ? DateFormatter(item.date) : "No date"}
-                </p>
-                {item.link && (
-                  <a 
-                    href={item.link} 
-                    target="_blank" 
+                {item.link ? (
+                  <a
+                    href={item.link}
+                    target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-2 inline-block text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    className="font-semibold text-black-900 dark:text-black-100 hover:text-blue-600 transition-colors"
                   >
-                    {item.type === "class" ? "View Class Recording" : "Open Session Link"}
+                    {item.title || "Untitled Event"}
                   </a>
+                ) : (
+                  <p className="font-semibold text-black-900 dark:text-black-100">
+                    {item.title || "Untitled Event"}
+                  </p>
                 )}
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <p className="text-black-500 dark:text-black-400 text-sm">No sessions or classes recorded</p>
+        <p className="text-black-500 dark:text-black-400 text-sm">
+          No sessions or classes recorded
+        </p>
       )}
     </div>
   );
+
 
   return (
     <div className="space-y-6 p-6">
@@ -415,9 +425,6 @@ export default function EmployeeSearchPage() {
                 <div className="flex items-center gap-3">
                   <Users className="h-5 w-5 text-black-600 dark:text-black-400" />
                   <span className="font-semibold text-black-900 dark:text-black-100">Candidate Information</span>
-                  <Badge variant="secondary">
-                    {candidates ? candidates.preparation.count + candidates.marketing.count : 0}
-                  </Badge>
                 </div>
                 <span className="text-2xl font-bold text-black-400 transition-transform duration-200">
                   {openSections['candidates'] ? '−' : '+'}
@@ -461,9 +468,6 @@ export default function EmployeeSearchPage() {
                 <div className="flex items-center gap-3">
                   <Activity className="h-5 w-5 text-black-600 dark:text-black-400" />
                   <span className="font-semibold text-black-900 dark:text-black-100">Sessions & Classes</span>
-                  <Badge variant="secondary">
-                    {sessionClassData ? sessionClassData.class_count + sessionClassData.session_count : 0}
-                  </Badge>
                 </div>
                 <span className="text-2xl font-bold text-black-400 transition-transform duration-200">
                   {openSections['teaching'] ? '−' : '+'}
