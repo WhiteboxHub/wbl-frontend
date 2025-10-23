@@ -69,7 +69,7 @@ export default function CandidatesPlacements() {
         href={`/avatar/candidates/search?candidateId=${candidateId}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-black-600 cursor-pointer font-medium hover:text-blue-800"
+        className="text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer"
       >
         {candidateName}
       </Link>
@@ -100,9 +100,32 @@ export default function CandidatesPlacements() {
               cellRenderer: CandidateNameRenderer,
               valueGetter: (params) => params.data?.candidate_name ?? params.data?.candidate?.full_name ?? "N/A",
             },
-            { field: "company", headerName: "Company", minWidth: 150, editable: true },
-            { field: "position", headerName: "Position", minWidth: 150, editable: true },
-            { field: "placement_date", headerName: "Placement Date", minWidth: 130, editable: true },
+
+            {
+              field: "company",
+              headerName: "Company",
+              minWidth: 150,
+              editable: true,
+            },
+            {
+              field: "position",
+              headerName: "Position",
+              minWidth: 150,
+              editable: true,
+            },
+            {
+              field: "marketing_start_date",
+              headerName: "Marketing Date",
+              minWidth: 130,
+              editable: true,
+            },
+            {
+              field: "placement_date",
+              headerName: "Placement Date",
+              minWidth: 130,
+              editable: true,
+            },
+
             {
               field: "type",
               headerName: "Type",
@@ -134,9 +157,26 @@ export default function CandidatesPlacements() {
               editable: true,
               cellRenderer: AmountRenderer,
             },
-            { field: "benefits", headerName: "Benefits", minWidth: 150, editable: true },
-            { field: "notes", headerName: "Notes", minWidth: 150, editable: true },
-            { field: "priority", headerName: "Priority", minWidth: 90, editable: true },
+
+            {
+              field: "benefits",
+              headerName: "Benefits",
+              minWidth: 150,
+              editable: true,
+            },
+            {
+              field: "notes",
+              headerName: "Notes",
+              minWidth: 150,
+              editable: true,
+            },
+            // {
+            //   field: "priority",
+            //   headerName: "Priority",
+            //   minWidth: 90,
+            //   editable: true,
+            // },
+
           ];
           setColumnDefs(cols);
         }
@@ -155,11 +195,15 @@ export default function CandidatesPlacements() {
   // search filtering
   useEffect(() => {
     const lower = searchTerm.toLowerCase();
-    setFilteredPlacements(
-      allPlacements.filter((p) =>
-        Object.values(p).some((v) => String(v ?? "").toLowerCase().includes(lower))
-      )
-    );
+
+setFilteredPlacements(
+  allPlacements
+    .filter((p) =>
+      Object.values(p).some((v) => String(v).toLowerCase().includes(lower))
+    )
+    .sort((a, b) => b.id - a.id) 
+);
+
   }, [searchTerm, allPlacements]);
 
   // update placement

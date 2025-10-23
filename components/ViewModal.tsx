@@ -21,7 +21,7 @@ const excludedFields = [
   "vendor_type", "last_mod_datetime", "last_modified", "logincount", "googleId",
   "subject_id", "lastmoddatetime", "course_id", "new_subject_id", "instructor_1id",
   "instructor_2id", "instructor_3id", "instructor1_id", "instructor2_id",
-  "instructor3_id", "enddate", "candidate_id"
+  "instructor3_id", "enddate", "candidate_id", "batch"
 ];
 
 const fieldSections: Record<string, string> = {
@@ -122,7 +122,7 @@ const fieldSections: Record<string, string> = {
   recruiterassesment: "Professional Information",
   statuschangedate: "Professional Information",
   aadhaar: "Basic Information",
-  url: "Basic Information",
+  job_posting_url: "Basic Information",
   feedback: "Basic Information",
   entry_date: "Professional Information",
   closed_date: "Professional Information",
@@ -183,7 +183,7 @@ const labelOverrides: Record<string, string> = {
   candidate_email: "Candidate Email",
   uname: "Email",
   fullname: "Full Name",
-  url: "Job URL",
+  job_posting_url: "Job Posting URL",
   ssn: "SSN",
   dob: "Date of Birth",
   phone: "Phone",
@@ -220,7 +220,7 @@ const labelOverrides: Record<string, string> = {
   subject_name: "Subject Name",
   recording_link: "Recording Link",
   transcript: "Transcript",
-  backup_url: "Backup URL",
+  backup_recording_url: "Backup Recording Link",
 };
 
 const dateFields = [
@@ -308,7 +308,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     if (["feepaid", "feedue", "salary0", "salary6", "salary12"].includes(lowerKey)) return <p>${Number(value).toLocaleString()}</p>;
     if (lowerKey.includes("rating")) return <p>{value} ⭐</p>;
     if (["notes", "task"].includes(lowerKey)) return <div dangerouslySetInnerHTML={{ __html: value }} />;
-    if (["recording_link", "transcript", "url","candidate_resume","backup_url","linkedin","github","resume", "interviewer_linkedin"].includes(lowerKey)) {
+    if (["recording_link", "transcript", "job_posting_url","resume_url","backup_recording_url","linkedin","github","resume", "interviewer_linkedin"].includes(lowerKey)) {
       return (
         <a
           href={value}
@@ -411,9 +411,10 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
               {sectionedFields["Notes"].map(({ key, value }) => (
                 <div key={key} className="space-y-1">
                   <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">{toLabel(key)}</Label>
-                  <div className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100 bg-gray-50">
-                    <p className="whitespace-pre-wrap text-sm">{value}</p>
-                  </div>
+                   <div
+                    className="w-full border rounded-md p-2 dark:bg-gray-800 dark:text-gray-100 bg-gray-50 text-sm prose max-w-none"
+                    dangerouslySetInnerHTML={{ __html: value || "" }}
+                  />
                 </div>
               ))}
             </div>

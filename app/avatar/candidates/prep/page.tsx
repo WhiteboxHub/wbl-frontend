@@ -632,7 +632,7 @@ export default function CandidatesPrepPage() {
         href={`/avatar/candidates/search?candidateId=${candidateId}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
+        className="text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer"
       >
         {candidateName}
       </Link>
@@ -661,15 +661,10 @@ export default function CandidatesPrepPage() {
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => {
     return [
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
-      {
-        field: "candidate.full_name",
-        headerName: "Candidate Name",
-        cellRenderer: CandidateNameRenderer,
-        sortable: true,
-        minWidth: 150,
-        editable: false,
-      },
-      { field: "batch", headerName: "Batch", sortable: true, maxWidth: 150 },
+
+      { field: "candidate.full_name", headerName: "Candidate Name", cellRenderer: CandidateNameRenderer, sortable: true, minWidth: 150, editable: false },
+      { headerName: "Batch", sortable: true, maxWidth: 150, valueGetter: (params) => params.data.candidate?.batch?.batchname || "N/A" },
+
       { field: "start_date", headerName: "Start Date", sortable: true, maxWidth: 130 },
       {
         field: "status",

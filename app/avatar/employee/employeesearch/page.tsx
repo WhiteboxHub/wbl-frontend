@@ -229,6 +229,7 @@ export default function EmployeeSearchPage() {
         </h4>
         <Badge variant="secondary">{timeline.length}</Badge>
       </div>
+
       {timeline.length > 0 ? (
         <div className="space-y-4">
           {timeline.map((item, idx) => (
@@ -245,6 +246,7 @@ export default function EmployeeSearchPage() {
               >
                 {item.type === "class" ? "C" : "S"}
               </div>
+
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-black-900 dark:text-black-100">
                   {item.title || "Untitled"}
@@ -253,17 +255,35 @@ export default function EmployeeSearchPage() {
                   <Calendar className="w-4 h-4" />
                   {item.date ? DateFormatter(item.date) : "No date"}
                 </p>
+                {item.link ? (
+                  <a
+                    href={item.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold text-black-900 dark:text-black-100 hover:text-blue-600 transition-colors"
+                  >
+                    {item.title || "Untitled Event"}
+                  </a>
+                ) : (
+                  <p className="font-semibold text-black-900 dark:text-black-100">
+                    {item.title || "Untitled Event"}
+                  </p>
+                )}
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <p className="text-black-500 dark:text-black-400 text-sm">No activity yet</p>
+
+        <p className="text-black-500 dark:text-black-400 text-sm">
+          No sessions or classes recorded
+        </p>
+
       )}
     </div>
   );
 
-  // ---------------------- RENDER PAGE ----------------------
+
   return (
     <div className="space-y-6 p-6">
       <h1 className="text-2xl font-bold text-black-900 dark:text-black-100">Search Employees</h1>
@@ -320,25 +340,156 @@ export default function EmployeeSearchPage() {
             </p>
           </div>
 
-          <div className="p-6 space-y-6">
-            {renderInfoCard("Employee Details", <User className="h-4 w-4" />, selectedEmployee)}
-            {candidates && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {renderCandidateSection(
-                  "Preparation Candidates",
-                  candidates.preparation.count,
-                  candidates.preparation.names,
-                  "bg-indigo-50 dark:bg-indigo-900/20"
-                )}
-                {renderCandidateSection(
-                  "Marketing Candidates",
-                  candidates.marketing.count,
-                  candidates.marketing.names,
-                  "bg-teal-50 dark:bg-teal-900/20"
-                )}
-              </div>
-            )}
-            {sessionClassData && renderTeachingTimeline(sessionClassData.timeline)}
+
+          <div className="divide-y divide-black-200 dark:divide-black-700">
+            {/* Basic Information Section */}
+            <div className="accordion-item">
+              <button
+                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-black-50 dark:hover:bg-black-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
+                onClick={() => toggleSection('basic')}
+              >
+                <div className="flex items-center gap-3">
+                  <User className="h-5 w-5 text-black-600 dark:text-black-400" />
+                  <span className="font-semibold text-black-900 dark:text-black-100">Basic Information</span>
+                </div>
+                <span className="text-2xl font-bold text-black-400 transition-transform duration-200">
+                  {openSections['basic'] ? '−' : '+'}
+                </span>
+              </button>
+              {openSections['basic'] && (
+                <div className="px-6 pb-4 space-y-4">
+                  {renderInfoCard("Employee Details", <User className="h-4 w-4" />, {
+                    name: selectedEmployee.name,
+                    email: selectedEmployee.email,
+                    phone: selectedEmployee.phone,
+                    status: selectedEmployee.status,
+                    start_date: selectedEmployee.startdate,
+                    end_date: selectedEmployee.enddate,
+                    date_of_birth: selectedEmployee.dob,
+                    state: selectedEmployee.state,
+                    aadhaar: selectedEmployee.aadhaar,
+                    instructor: selectedEmployee.instructor,
+                  })}
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-white dark:bg-black-800 rounded-lg border border-black-200 dark:border-black-700 p-6 shadow-sm">
+                      <div className="flex items-center gap-3 mb-4 pb-2 border-b border-black-200 dark:border-black-700">
+                        <MapPin className="h-4 w-4" />
+                        <h4 className="font-semibold text-lg text-black-900 dark:text-black-100">Address</h4>
+                      </div>
+                      <p className="text-black-900 dark:text-black-100">
+                        {selectedEmployee.address || "No address provided"}
+                      </p>
+                    </div>
+                    
+                    <div className="bg-white dark:bg-black-800 rounded-lg border border-black-200 dark:border-black-700 p-6 shadow-sm">
+                      <div className="flex items-center gap-3 mb-4 pb-2 border-b border-black-200 dark:border-black-700">
+                        <FileText className="h-4 w-4" />
+                        <h4 className="font-semibold text-lg text-black-900 dark:text-black-100">Notes</h4>
+                      </div>
+                      <p className="text-black-900 dark:text-black-100">
+                        {selectedEmployee.notes || "No notes available"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Candidate Information Section */}
+            <div className="accordion-item">
+              <button
+                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-black-50 dark:hover:bg-black-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
+                onClick={() => toggleSection('candidates')}
+              >
+                <div className="flex items-center gap-3">
+                  <Users className="h-5 w-5 text-black-600 dark:text-black-400" />
+                  <span className="font-semibold text-black-900 dark:text-black-100">Candidate Information</span>
+                </div>
+                <span className="text-2xl font-bold text-black-400 transition-transform duration-200">
+                  {openSections['candidates'] ? '−' : '+'}
+                </span>
+              </button>
+              {openSections['candidates'] && (
+                <div className="px-6 pb-4 space-y-4">
+                  {loadingCandidates ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                      <p className="ml-2 text-blue-500">Loading candidate details...</p>
+                    </div>
+                  ) : candidates ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {renderCandidateSection(
+                        "Preparation Candidates", 
+                        candidates.preparation.count, 
+                        candidates.preparation.names,
+                        "bg-indigo-50 dark:bg-indigo-900/20"
+                      )}
+                      {renderCandidateSection(
+                        "Marketing Candidates", 
+                        candidates.marketing.count, 
+                        candidates.marketing.names,
+                        "bg-teal-50 dark:bg-teal-900/20"
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-black-500 dark:text-black-400 text-center py-8">No candidate data available</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Teaching Information Section */}
+            <div className="accordion-item">
+              <button
+                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-black-50 dark:hover:bg-black-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
+                onClick={() => toggleSection('teaching')}
+              >
+                <div className="flex items-center gap-3">
+                  <Activity className="h-5 w-5 text-black-600 dark:text-black-400" />
+                  <span className="font-semibold text-black-900 dark:text-black-100">Sessions & Classes</span>
+                </div>
+                <span className="text-2xl font-bold text-black-400 transition-transform duration-200">
+                  {openSections['teaching'] ? '−' : '+'}
+                </span>
+              </button>
+              {openSections['teaching'] && (
+                <div className="px-6 pb-4 space-y-4">
+                  {loadingSessions ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                      <p className="ml-2 text-blue-500">Loading session/class data...</p>
+                    </div>
+                  ) : sessionClassData ? (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="bg-yellow-50 dark:bg-yellow-900/20 p-6 rounded-lg border border-black-200 dark:border-black-700 shadow-sm text-center">
+                          <div className="flex items-center gap-3 mb-2 justify-center">
+                            <BookOpen className="h-5 w-5 text-yellow-700" />
+                            <h4 className="font-semibold text-lg text-yellow-700">Total Classes</h4>
+                          </div>
+                          <p className="text-3xl font-bold text-yellow-700">{sessionClassData.class_count}</p>
+                        </div>
+                        
+                        <div className="bg-purple-50 dark:bg-purple-900/20 p-6 rounded-lg border border-black-200 dark:border-black-700 shadow-sm text-center">
+                          <div className="flex items-center gap-3 mb-2 justify-center">
+                            <Briefcase className="h-5 w-5 text-purple-700" />
+                            <h4 className="font-semibold text-lg text-purple-700">Total Sessions</h4>
+                          </div>
+                          <p className="text-3xl font-bold text-purple-700">{sessionClassData.session_count}</p>
+                        </div>
+                      </div>                      
+                      <div className="max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-blue-400 scrollbar-track-gray-100 dark:scrollbar-thumb-blue-600 dark:scrollbar-track-black-700">
+                        {renderTeachingTimeline(sessionClassData.timeline)}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-black-500 dark:text-black-400 text-center py-8">No session/class data available</p>
+                  )}
+                </div>
+              )}
+            </div>
+
           </div>
         </div>
       )}

@@ -227,6 +227,9 @@ interface Video {
   description: string;
   link: string;
   videoid: string;
+  subject: string;
+  classdate: string;
+  filename: string;
 }
 
 interface Batch {
@@ -266,9 +269,6 @@ const RecordingComp: React.FC = () => {
   // Fetch recordings when batch changes
   useEffect(() => {
     if (selectedBatch) {
-      setSelectedVideo(null);
-      setError(null);
-      setRecordings([]);
       fetchRecordings(selectedBatch.batchid);
     } else {
       setRecordings([]);
@@ -309,19 +309,22 @@ const RecordingComp: React.FC = () => {
       // apiFetch attaches response body to err.body when available
       const msg = err?.body || err?.message || "Failed to load batches. Please try again.";
       setError(String(msg));
+
     } finally {
       setIsLoadingBatches(false);
     }
   };
 
-  // Fetch recordings from backend using apiFetch (adds Authorization)
+
   const fetchRecordings = async (batchid: number) => {
     try {
       setIsLoadingRecordings(true);
       setError(null);
 
+
       const res = await apiFetch(
         `/recording?course=${encodeURIComponent(course)}&batchid=${encodeURIComponent(String(batchid))}`
+
       );
 
       const data = res?.data ?? res;
@@ -335,6 +338,7 @@ const RecordingComp: React.FC = () => {
         return;
       }
 
+
       setRecordings(recList);
 
       if (recList.length === 0) {
@@ -343,11 +347,13 @@ const RecordingComp: React.FC = () => {
     } catch (err: any) {
       const msg = err?.body || err?.message || "No recordings found for this batch. Please try again.";
       setError(String(msg));
+
     } finally {
       setIsLoadingRecordings(false);
     }
   };
 
+  // Handle batch dropdown change
   const handleBatchChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = parseInt(e.target.value, 10);
     const selected = batches.find((batch) => batch.batchid === selectedId);
@@ -360,6 +366,7 @@ const RecordingComp: React.FC = () => {
     }
   };
 
+  // Handle recording dropdown change
   const handleVideoSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = parseInt(e.target.value, 10);
     const selected = recordings.find((rec) => rec.id === selectedId);
@@ -371,6 +378,7 @@ const RecordingComp: React.FC = () => {
     }
   };
 
+  // Format video title cleanly
   const formatVideoTitle = (filename: string) => {
     filename = filename.replace(/class_/gi, "");
     filename = filename.replace(/class/gi, "");
@@ -391,6 +399,7 @@ const RecordingComp: React.FC = () => {
     return filename;
   };
 
+  // Render video player (YouTube or normal video)
   const renderVideoPlayer = (video: Video) => {
     if (!video) return null;
     if ((video.link || "").includes("youtu.be") || (video.link || "").includes("youtube.com")) {
@@ -408,12 +417,20 @@ const RecordingComp: React.FC = () => {
         />
       );
     } else {
-      return <video src={video.link} controls className="mb-2 w-full" />;
+      return (
+        <video
+          src={video.link}
+          controls
+          className="mb-2 w-full rounded-xl border-2 border-gray-500"
+        />
+      );
     }
   };
 
+  // UI
   return (
     <div className="mx-auto mt-6 max-w-full flex-grow space-y-4 sm:mt-0 sm:max-w-3xl">
+      {/* Batch Dropdown */}
       <div className="flex flex-grow flex-col">
         <label htmlFor="dropdown1">Batch:</label>
         <select
@@ -428,11 +445,13 @@ const RecordingComp: React.FC = () => {
           ) : (
             <>
               <option value="" disabled>
-                Please Select a batch...
+                Please select a batch...
               </option>
               {batches.map((batch) => (
                 <option key={batch.batchid} value={batch.batchid}>
-                  {batch.batchname}
+                  {batch.batchid === 99999
+                    ? "Kumar Recordings"
+                    : batch.batchname}
                 </option>
               ))}
             </>
@@ -440,6 +459,7 @@ const RecordingComp: React.FC = () => {
         </select>
       </div>
 
+      {/* Recording Dropdown */}
       <div className="flex flex-grow flex-col justify-between">
         <label htmlFor="dropdown2">Recordings:</label>
         <select
@@ -455,7 +475,9 @@ const RecordingComp: React.FC = () => {
               <option value="">Please select a recording...</option>
               {recordings.map((recording) => (
                 <option key={recording.id} value={recording.id}>
-                  {formatVideoTitle(recording.description)}
+                  {formatVideoTitle(
+                    recording.description || recording.filename
+                  )}
                 </option>
               ))}
             </>
@@ -463,7 +485,10 @@ const RecordingComp: React.FC = () => {
         </select>
       </div>
 
+      {/* Error Message */}
       {error && <p className="text-red-500">{error}</p>}
+
+      {/* Video Player */}
       {selectedVideo && <div>{renderVideoPlayer(selectedVideo)}</div>}
     </div>
   );

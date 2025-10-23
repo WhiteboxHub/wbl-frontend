@@ -6,7 +6,8 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { Button } from "@/components/admin_ui/button";
-import { SearchIcon, PlusIcon } from "lucide-react";
+
+import { SearchIcon, PlusIcon,X } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/admin_ui/dialog";
 import { apiFetch } from "@/lib/api.js";
@@ -67,13 +68,16 @@ export default function CourseSubjectPage() {
   const [selectedSubjectName, setSelectedSubjectName] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
+
   const fetchCourseSubjects = async () => {
     try {
       setLoading(true);
       setError("");
+
       const res = await apiFetch("/course-subjects");
       const arr = Array.isArray(res) ? res : res?.data ?? [];
       const dataWithId = (arr || []).map((item: any) => ({
+
         ...item,
         id: `${item.course_id}-${item.subject_id}`,
       }));
@@ -91,9 +95,11 @@ export default function CourseSubjectPage() {
 
   const fetchCourses = async () => {
     try {
+
       const res = await apiFetch("/courses");
       const arr = Array.isArray(res) ? res : res?.data ?? [];
       const sortedCourses = (arr || []).slice().sort((a: Course, b: Course) => b.id - a.id);
+
       setCourses(sortedCourses);
     } catch (e: any) {
       console.error("Failed to fetch courses:", e);
@@ -101,11 +107,30 @@ export default function CourseSubjectPage() {
     }
   };
 
+  // Add this useEffect after your existing useEffects
+useEffect(() => {
+  const handleEscKey = (event: KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      setShowModal(false);
+      setSelectedCourseName("");
+      setSelectedSubjectName("");
+    }
+  };
+
+  if (showModal) {
+    document.addEventListener('keydown', handleEscKey);
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }
+}, [showModal]);
+
   const fetchSubjects = async () => {
     try {
       const res = await apiFetch("/subjects");
       const arr = Array.isArray(res) ? res : res?.data ?? [];
       const sortedSubjects = (arr || []).slice().sort((a: Subject, b: Subject) => b.id - a.id);
+
       setSubjects(sortedSubjects);
     } catch (e: any) {
       console.error("Failed to fetch subjects:", e);
@@ -244,25 +269,138 @@ export default function CourseSubjectPage() {
 
   return (
     <div className="space-y-6">
-      <Toaster richColors position="top-center" />
+
+      <Toaster position="top-center" />
+      {/* Header + Search Section (Updated for left-side search on large screens) */}
       <div className="flex flex-col gap-4 sm:flex-col md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Course-Subject Relationships</h1>
-          <p>Manage mappings between courses and subjects. Total mappings: {courseSubjects.length}</p>
+        {/* Left: Title, Description + Search Box */}
+        <div className="flex-1">
+          <div className="mb-4">
+            <h1 className="text-2xl font-bold">Course-Subject Relationships</h1>
+            <p>
+              Manage mappings between courses and subjects. Total mappings:{" "}
+              {courseSubjects.length}
+            </p>
+          </div>
+          
+          {/* Search Box - Now on LEFT side under title */}
+          <div className="max-w-md">
+            <div className="relative">
+              <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Input
+                id="search"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Enter course or subject name or id..."
+                className="w-full pl-10"
+              />
+            </div>
+          </div>
         </div>
 
-        <div className="flex w-full flex-col items-stretch gap-2 sm:flex-row sm:items-center md:w-auto">
-          <div className="relative flex-1">
-            <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <Input id="search" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Enter course or subject name or id..." className="w-full pl-10" />
-          </div>
-
           <Button className="w-full sm:w-auto" size="sm" onClick={() => setShowModal(true)}>
+
             <PlusIcon className="mr-2 h-4 w-4" />
             Add Mapping
           </Button>
         </div>
       </div>
+
+      {/* Add Mapping Modal - Updated with same colors */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-sm sm:max-w-md max-h-[95vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 md:py-5 border-b border-blue-200 flex justify-between items-center">
+              <h2 className="text-sm sm:text-base md:text-lg font-semibold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                Add Course-Subject Mapping
+              </h2>
+              <button
+                onClick={() => {
+                  setShowModal(false);
+                  setSelectedCourseName("");
+                  setSelectedSubjectName("");
+                }}
+                className="text-blue-400 hover:text-blue-600 hover:bg-blue-100 p-1 rounded-lg transition"
+              >
+                <X size={16} className="sm:w-5 sm:h-5" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <div className="p-3 sm:p-4 md:p-6 bg-white">
+              <div className="grid grid-cols-1 gap-2.5 sm:gap-3 md:gap-5">
+                
+                {/* Course */}
+                <div className="space-y-1 sm:space-y-1.5">
+                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                    Course <span className="text-red-700">*</span>
+                  </label>
+                  <select
+                    value={selectedCourseName}
+                    onChange={(e) => setSelectedCourseName(e.target.value)}
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                  >
+                    <option value="" disabled hidden>
+                      Select course
+                    </option>
+                    {courses.map((course) => (
+                      <option key={course.id} value={course.name}>
+                        {course.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Subject */}
+                <div className="space-y-1 sm:space-y-1.5">
+                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                    Subject <span className="text-red-700">*</span>
+                  </label>
+                  <select
+                    value={selectedSubjectName}
+                    onChange={(e) => setSelectedSubjectName(e.target.value)}
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                  >
+                    <option value="" disabled hidden>
+                      Select subject
+                    </option>
+                    {subjects.map((subject) => (
+                      <option key={subject.id} value={subject.name}>
+                        {subject.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end gap-2 sm:gap-3 mt-3 sm:mt-4 md:mt-6 pt-2 sm:pt-3 md:pt-4 border-t border-blue-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowModal(false);
+                    setSelectedCourseName("");
+                    setSelectedSubjectName("");
+                  }}
+                  disabled={saving}
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-blue-700 border border-blue-300 rounded-lg hover:bg-blue-50 transition disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddMapping}
+                  disabled={saving || !selectedCourseName || !selectedSubjectName}
+                  className="px-3 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg hover:from-cyan-600 hover:to-blue-600 transition shadow-md disabled:opacity-50"
+                >
+                  {saving ? "Adding..." : "Save"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <AGGridTable
         rowData={filteredCourseSubjects}
@@ -272,6 +410,7 @@ export default function CourseSubjectPage() {
         onRowDeleted={handleRowDeleted}
         showSearch={false}
       />
+
 
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="max-w-sm p-4">
@@ -322,6 +461,7 @@ export default function CourseSubjectPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }

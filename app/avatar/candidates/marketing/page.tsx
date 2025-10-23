@@ -26,6 +26,22 @@ const StatusRenderer = (params: any) => {
   return <Badge className={badgeClass}>{label}</Badge>;
 };
 
+
+
+const getAllValues = (obj: any): string[] => {
+  let values: string[] = [];
+  for (const val of Object.values(obj)) {
+    if (val && typeof val === "object") {
+      values = values.concat(getAllValues(val));
+    } else if (val !== null && val !== undefined) {
+      values.push(String(val));
+    }
+  }
+  return values;
+};
+
+
+
 // ---------------- Filter Option Interface ----------------
 interface FilterOption {
   value: string;
@@ -141,23 +157,27 @@ export default function CandidatesMarketingPage() {
   }, []);
 
   // ---------------- Filtering ----------------
-  useEffect(() => {
-    let filtered = [...allCandidates];
-    if (selectedStatuses.length > 0) {
-      filtered = filtered.filter((c) =>
-        selectedStatuses.includes((c.status || "").toString().toLowerCase())
-      );
-    }
-    if (searchTerm.trim() !== "") {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter((c) =>
-        Object.values(c).some((val) =>
-          String(val || "").toLowerCase().includes(term)
-        )
-      );
-    }
-    setFilteredCandidates(filtered);
-  }, [allCandidates, searchTerm, selectedStatuses]);
+
+useEffect(() => {
+  let filtered = [...allCandidates];
+
+  if (selectedStatuses.length > 0) {
+    filtered = filtered.filter((c) =>
+      selectedStatuses.includes(c.status?.toLowerCase())
+    );
+  }
+
+  if (searchTerm.trim() !== "") {
+    const term = searchTerm.toLowerCase();
+    filtered = filtered.filter((c) =>
+      getAllValues(c).some((val) => val.toLowerCase().includes(term))
+    );
+  }
+
+  setFilteredCandidates(filtered);
+}, [allCandidates, searchTerm, selectedStatuses]);
+
+
 
   // ---------------- Resume Renderer ----------------
   const ResumeRenderer = (params: any) => (
@@ -226,7 +246,7 @@ export default function CandidatesMarketingPage() {
         href={`/avatar/candidates/search?candidateId=${candidateId}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
+        className="text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer"
       >
         {candidateName}
       </Link>
@@ -236,6 +256,7 @@ export default function CandidatesMarketingPage() {
   // ---------------- Column Defs ----------------
   const columnDefs: ColDef[] = useMemo(
     () => [
+      { field: "id", headerName: "ID", pinned: "left", width: 80 },
       {
         field: "candidate_name",
         headerName: "Full Name",
@@ -245,6 +266,7 @@ export default function CandidatesMarketingPage() {
         cellRenderer: CandidateNameRenderer,
         valueGetter: (params) => params.data?.candidate?.full_name ?? "N/A",
       },
+      { headerName: "Batch", sortable: true, maxWidth: 150, valueGetter: (params) => params.data.candidate?.batch?.batchname || "N/A" },
       {
         field: "start_date",
         headerName: "Start Date",
@@ -279,6 +301,12 @@ export default function CandidatesMarketingPage() {
         editable: false,
       },
       {
+        field: "resume_url",
+        headerName: "Resume",
+        width: 200,
+        cellRenderer: ResumeRenderer,
+      },
+      {
         field: "marketing_manager_obj",
         headerName: "Marketing Manager",
         width: 150,
@@ -310,7 +338,7 @@ export default function CandidatesMarketingPage() {
         width: 150,
         editable: true,
       },
-      { field: "rating", headerName: "Rating", width: 100, editable: true },
+      // { field: "rating", headerName: "Rating", width: 100, editable: true },
       { field: "priority", headerName: "Priority", width: 100, editable: true },
       {
         field: "move_to_placement",
@@ -334,12 +362,6 @@ export default function CandidatesMarketingPage() {
             />
           );
         },
-      },
-      {
-        field: "candidate_resume",
-        headerName: "Resume",
-        width: 200,
-        cellRenderer: ResumeRenderer,
       },
     ],
     [selectedStatuses]

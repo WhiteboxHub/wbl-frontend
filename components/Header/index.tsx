@@ -231,7 +231,7 @@ const Header = ({
                   {userRole === "admin" && (
                     <Link
                       href="/avatar"
-                      className="rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
+                      className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
                     >
                       Avatar
                     </Link>
@@ -240,14 +240,14 @@ const Header = ({
                   {
                     <button
                       onClick={display_user_dashboard}
-                      className="rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
+                      className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
                     >
                       My Profile
                     </button>
                   }
                   <button
                     onClick={handleLogout}
-                    className="rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
+                    className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
                   >
                     Logout
                   </button>
@@ -272,39 +272,50 @@ const Header = ({
                 <ThemeToggler />
               </div>
             </div>
-
-            {/* Mobile section */}
-            <div className="flex items-center gap-1 pr-12 lg:hidden">
-              <button
-                onClick={() => alert("Notifications clicked")}
-                className="p-2 text-gray-800 focus:outline-none dark:text-white"
-              ></button>
-              {isAuthenticated && userRole === "admin" && (
-                <Link
-                  href="/avatar"
-                  className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-4 py-2 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400"
-                >
-                  Avatar
-                </Link>
-              )}
-
-              {isAuthenticated && (
-                <>
-                  <button
-                    onClick={display_user_dashboard}
-                    className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-4 py-2 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400"
+            {/* Mobile Right Section - Clean and Non-Overlapping */}
+            <div className="flex w-full items-center justify-end gap-2 pr-3 lg:hidden">
+              <div className="no-scrollbar flex items-center gap-2 overflow-x-auto">
+                {/* Avatar Button (Admin only) */}
+                {isAuthenticated && userRole === "admin" && (
+                  <Link
+                    href="/avatar"
+                    className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-3 py-2 text-xs font-bold text-white sm:text-sm"
                   >
-                    My Profile
-                  </button>
-                  <button
-                    onClick={handleLogout}
-                    className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-4 py-2 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400"
-                  >
-                    Logout
-                  </button>
-                </>
-              )}
-              <ThemeToggler />
+                    Avatar
+                  </Link>
+                )}
+
+                {/* My Profile & Logout Buttons */}
+                {isAuthenticated && (
+                  <>
+                    <button
+                      onClick={display_user_dashboard}
+                      className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-3 py-2 text-xs font-bold text-white sm:text-sm"
+                    >
+                      My Profile
+                    </button>
+                    <button
+                      onClick={handleLogout}
+                      className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-3 py-2 text-xs font-bold text-white sm:text-sm"
+                    >
+                      Logout
+                    </button>
+                  </>
+                )}
+
+                {/* Theme Toggler */}
+                <div className="ml-1">
+                  <ThemeToggler />
+                </div>
+
+                {/* Hamburger Menu Button */}
+                <button
+                  onClick={navbarToggleHandler}
+                  id="navbarToggler"
+                  aria-label="Mobile Menu"
+                  className="ml-1 flex flex-col items-center justify-center focus:outline-none"
+                ></button>
+              </div>
             </div>
           </div>
         </div>

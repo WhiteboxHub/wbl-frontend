@@ -5,6 +5,7 @@ import { ColDef } from "ag-grid-community";
 import { AGGridTable } from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
+
 import { SearchIcon } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { toast, Toaster } from "sonner";
@@ -16,27 +17,92 @@ import {
   DialogFooter,
 } from "@/components/admin_ui/dialog";
 import { apiFetch } from "@/lib/api.js";
+import { useForm } from "react-hook-form";
+
+interface CourseMaterial {
+  id: number;
+  subjectid: number;
+  courseid: number;
+  name: string;
+  description: string;
+  type: string;
+  link: string;
+  sortorder: number;
+}
+
+interface Course {
+  id: number;
+  name: string;
+}
+
+interface Subject {
+  id: number;
+  name: string;
+}
+
+interface MaterialFormData {
+  courseid: string;
+  subjectid: string;
+  type: string;
+  sortorder: string;
+  name: string;
+  link: string;
+  description: string;
+}
+
+const TYPE_MAPPING = {
+  P: "Presentations",
+  C: "Cheatsheets",
+  D: "Diagrams",
+  S: "Softwares",
+  I: "Installations",
+  B: "Books",
+  N: "Newsletters",
+  M: "Materials",
+};
+
+const TYPE_OPTIONS = [
+  { value: "P", label: "Presentations" },
+  { value: "C", label: "Cheatsheets" },
+  { value: "D", label: "Diagrams" },
+  { value: "S", label: "Softwares" },
+  { value: "I", label: "Installations" },
+  { value: "B", label: "Books" },
+  { value: "N", label: "Newsletters" },
+  { value: "M", label: "Materials" },
+];
+
 
 export default function CourseMaterialPage() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [materials, setMaterials] = useState<any[]>([]);
-  const [filteredMaterials, setFilteredMaterials] = useState<any[]>([]);
+  const [materials, setMaterials] = useState<CourseMaterial[]>([]);
+  const [filteredMaterials, setFilteredMaterials] = useState<CourseMaterial[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [courses, setCourses] = useState<any[]>([]);
-  const [subjects, setSubjects] = useState<any[]>([]);
-  const [newMaterial, setNewMaterial] = useState({
-    subjectid: "0",
-    courseid: "",
-    name: "",
-    description: "",
-    type: "P",
-    link: "",
-    sortorder: "9999",
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+    setValue
+  } = useForm<MaterialFormData>({
+    defaultValues: {
+      subjectid: "0",
+      courseid: "",
+      type: "P",
+      sortorder: "9999",
+      name: "",
+      description: "",
+      link: ""
+    }
   });
 
   const fetchCourses = async () => {
+
     try {
       const res = await apiFetch("/courses");
       const arr = Array.isArray(res) ? res : res?.data ?? [];
@@ -57,9 +123,11 @@ export default function CourseMaterialPage() {
     } catch (e: any) {
       console.error("Failed to fetch subjects", e);
     }
+
   };
 
   const fetchMaterials = async () => {
+    setLoading(true);
     try {
       setLoading(true);
       setError("");
@@ -98,127 +166,146 @@ export default function CourseMaterialPage() {
     return subjectIdsFromMaterials
       .filter((id) => !subjects.some((subject) => subject.id === id))
       .sort((a, b) => b - a);
+
   };
 
-  // search filter
+  const getTypeDisplayName = (typeCode: string) => {
+    return TYPE_MAPPING[typeCode as keyof typeof TYPE_MAPPING] || typeCode;
+  };
+
+  // Search filter
   useEffect(() => {
     const lower = searchTerm.trim().toLowerCase();
+
     if (!lower) {
       setFilteredMaterials(materials);
       return;
     }
 
+
     const filtered = materials.filter((row) => {
       const idStr = row.id?.toString().toLowerCase() || "";
       const nameStr = row.name?.toLowerCase() || "";
-      const typeStr = row.type?.toLowerCase() || "";
-      const courseIdStr = row.courseid?.toString().toLowerCase() || "";
-      const subjectIdStr = row.subjectid?.toString().toLowerCase() || "";
+      const typeStr = getTypeDisplayName(row.type)?.toLowerCase() || "";
+      const courseNameStr = getCourseDisplayName(row.courseid)?.toLowerCase() || "";
+      const subjectNameStr = getSubjectDisplayName(row.subjectid)?.toLowerCase() || "";
 
       return (
         idStr.includes(lower) ||
         nameStr.includes(lower) ||
         typeStr.includes(lower) ||
-        courseIdStr.includes(lower) ||
-        subjectIdStr.includes(lower)
+        courseNameStr.includes(lower) ||
+        subjectNameStr.includes(lower)
       );
     });
 
     setFilteredMaterials(filtered);
-  }, [searchTerm, materials]);
+  }, [searchTerm, materials, subjects, courses]);
 
-  const columnDefs: ColDef[] = useMemo<ColDef[]>(
-    () => [
-      {
-        field: "id",
-        headerName: "ID",
-        width: 130,
-        pinned: "left",
-        editable: false,
+  const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
+    { field: "id", headerName: "ID", width: 130, pinned: "left", editable: false },
+    {
+      field: "subjectid",
+      headerName: "Subject Name",
+      width: 180,
+      editable: true,
+      valueGetter: (params) => getSubjectDisplayName(params.data.subjectid),
+    },
+    {
+      field: "courseid",
+      headerName: "Course Name",
+      width: 180,
+      editable: true,
+      valueGetter: (params) => getCourseDisplayName(params.data.courseid),
+    },
+    { field: "name", headerName: "Material Name", width: 250, editable: true },
+    { field: "description", headerName: "Description", width: 230, editable: true },
+    {
+      field: "type",
+      headerName: "Type",
+      width: 150,
+      editable: true,
+      valueGetter: (params) => getTypeDisplayName(params.data.type),
+      cellEditor: "agSelectCellEditor",
+      cellEditorParams: {
+        values: Object.keys(TYPE_MAPPING),
       },
-      {
-        field: "subjectid",
-        headerName: "Subject ID",
-        width: 130,
-        editable: true,
+    },
+    {
+      field: "link",
+      headerName: "Link",
+      width: 130,
+      cellRenderer: (params: any) => {
+        if (!params.value) return "";
+        return (
+          <a
+            href={params.value}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 underline hover:text-blue-800"
+          >
+            Click Here
+          </a>
+        );
       },
-      {
-        field: "courseid",
-        headerName: "Course ID",
-        width: 130,
-        editable: true,
-      },
-      { field: "name", headerName: "Name", width: 250, editable: true },
-      {
-        field: "description",
-        headerName: "Description",
-        width: 230,
-        editable: true,
-      },
-      { field: "type", headerName: "Type", width: 130, editable: true },
-      {
-        field: "link",
-        headerName: "Link",
-        width: 130,
-        cellRenderer: (params: any) => {
-          if (!params.value) return "";
-          return (
-            <a
-              href={params.value}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 underline hover:text-blue-800"
-            >
-              Click Here
-            </a>
-          );
-        },
-      },
-      {
-        field: "sortorder",
-        headerName: "Sort Order",
-        width: 140,
-        editable: true,
-      },
-    ],
-    []
-  );
+    },
+    { field: "sortorder", headerName: "Sort Order", width: 140, editable: true },
+  ], [subjects, courses]);
 
   // Add new material
-  const handleAddMaterial = async () => {
+  const onSubmit = async (data: MaterialFormData) => {
+    if (!data.courseid || !data.name.trim()) {
+      toast.error("Course Name and Material Name are required");
+      return;
+    }
+
     const payload = {
-      ...newMaterial,
-      subjectid: Number(newMaterial.subjectid) || 0,
-      courseid: Number(newMaterial.courseid) || 0,
-      sortorder: Number(newMaterial.sortorder) || 9999,
+      subjectid: Number(data.subjectid) || 0,
+      courseid: Number(data.courseid) || 0,
+      name: data.name,
+      description: data.description,
+      type: data.type,
+      link: data.link,
+      sortorder: Number(data.sortorder) || 9999,
     };
 
     try {
+
       const res = await apiFetch("/course-materials", { method: "POST", body: payload });
       const created = res && !Array.isArray(res) ? (res.data ?? res) : res;
       const updated = [...materials, created].slice().sort((a, b) => b.id - a.id);
+
       setMaterials(updated);
       setFilteredMaterials(updated);
       toast.success("Course Material added successfully", { position: "top-center" });
       setIsModalOpen(false);
-      setNewMaterial({
-        subjectid: "0",
-        courseid: "",
-        name: "",
-        description: "",
-        type: "P",
-        link: "",
-        sortorder: "9999",
-      });
+      reset();
     } catch (e: any) {
       const msg = e?.body || e?.message || "Failed to add Course Material";
       toast.error(typeof msg === "string" ? msg : JSON.stringify(msg), { position: "top-center" });
     }
   };
 
-  // update
+  // Add this useEffect after your existing useEffects
+useEffect(() => {
+  const handleEscKey = (event: KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      setIsModalOpen(false);
+    }
+  };
+
+  if (isModalOpen) {
+    document.addEventListener('keydown', handleEscKey);
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }
+}, [isModalOpen]);
+
+  // Update material
   const handleRowUpdated = async (updatedRow: any) => {
     try {
+
       await apiFetch(`/course-materials/${updatedRow.id}`, { method: "PUT", body: updatedRow });
       setMaterials((prev) => prev.map((r) => (r.id === updatedRow.id ? updatedRow : r)));
       setFilteredMaterials((prev) => prev.map((r) => (r.id === updatedRow.id ? updatedRow : r)));
@@ -226,12 +313,14 @@ export default function CourseMaterialPage() {
     } catch (e: any) {
       const msg = e?.body || e?.message || "Failed to update Course Material";
       toast.error(typeof msg === "string" ? msg : JSON.stringify(msg), { position: "top-center" });
+
     }
   };
 
-  // delete
+  // Delete material
   const handleRowDeleted = async (id: number) => {
     try {
+
       await apiFetch(`/course-materials/${id}`, { method: "DELETE" });
       setMaterials((prev) => prev.filter((r) => r.id !== id));
       setFilteredMaterials((prev) => prev.filter((r) => r.id !== id));
@@ -239,6 +328,7 @@ export default function CourseMaterialPage() {
     } catch (e: any) {
       const msg = e?.body || e?.message || "Failed to delete Course Material";
       toast.error(typeof msg === "string" ? msg : JSON.stringify(msg), { position: "top-center" });
+
     }
   };
 
@@ -248,6 +338,7 @@ export default function CourseMaterialPage() {
   return (
     <div className="space-y-6">
       <Toaster position="top-center" />
+
       {/* Header + Search + Add Button (Responsive Layout) */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         {/* Left Section */}
@@ -264,7 +355,11 @@ export default function CourseMaterialPage() {
             </div>
             {searchTerm && <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{filteredMaterials.length} results found</p>}
           </div>
+
         </div>
+        <Button onClick={() => setIsModalOpen(true)}>+ Add Course Material</Button>
+      </div>
+
 
         {/* Right Section */}
         <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
@@ -273,6 +368,7 @@ export default function CourseMaterialPage() {
       </div>
 
       {/* Add Material Modal */}
+
       <Dialog
         open={isModalOpen}
         onOpenChange={(open) => {
@@ -347,6 +443,8 @@ export default function CourseMaterialPage() {
               <Input id="link" value={newMaterial.link} maxLength={500} onChange={(e) => setNewMaterial((prev) => ({ ...prev, link: e.target.value }))} />
             </div>
           </div>
+        </div>
+      )}
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
@@ -363,11 +461,10 @@ export default function CourseMaterialPage() {
           flex: 1,
           resizable: true,
         }}
+
         title={`Course Materials (${filteredMaterials.length})`}
-        height="calc(70vh)"
         onRowUpdated={handleRowUpdated}
         onRowDeleted={handleRowDeleted}
-        showSearch={false}
       />
     </div>
   );
