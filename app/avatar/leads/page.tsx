@@ -1325,15 +1325,9 @@ await apiFetch(apiEndpoint, {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             Leads Management
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            All Leads ({totalLeads})
-            {selectedStatuses.length > 0 || selectedWorkStatuses.length > 0 ? (
-              <span className="ml-2 text-blue-600 dark:text-blue-400">
-                - Filtered ({filteredLeads.length} shown)
-              </span>
-            ) : (
-              " - Sorted by latest first"
-            )}
+
+          {/* Search input */}
+
             {!isOnline && (
               <span className="ml-2 text-yellow-600 dark:text-yellow-400">
                 (Offline Mode)
@@ -1380,11 +1374,9 @@ await apiFetch(apiEndpoint, {
       </div>
       <div className="flex w-full justify-center">
         <AGGridTable
-          key={`${filteredLeads.length}-${selectedStatuses.join(
-            ","
-          )}-${selectedWorkStatuses.join(",")}`}
           rowData={filteredLeads}
           columnDefs={columnDefs}
+          title={`Leads (${filteredLeads.length})`}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
           loading={loading}

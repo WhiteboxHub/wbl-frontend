@@ -154,7 +154,7 @@ useEffect(() => {
   if (error) return <p className="mt-8 text-center text-red-600">{error}</p>;
 
   return (
-    <div className="space-y-6">
+     <div className="space-y-6">
       <Toaster position="top-center" />
       {/* Header + Search Section - Updated for left-side search */}
       <div className="flex flex-col gap-4 sm:flex-col md:flex-row md:items-center md:justify-between">

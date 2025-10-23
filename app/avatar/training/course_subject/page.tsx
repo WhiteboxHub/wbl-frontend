@@ -405,7 +405,7 @@ useEffect(() => {
       <AGGridTable
         rowData={filteredCourseSubjects}
         columnDefs={columnDefs}
-        title={`Course-Subject Mappings (${filteredCourseSubjects.length} results)`}
+        title={`Course-Subject (${filteredCourseSubjects.length} results)`}
         height="calc(70vh - 100px)"
         onRowDeleted={handleRowDeleted}
         showSearch={false}

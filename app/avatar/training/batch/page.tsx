@@ -370,11 +370,13 @@ export default function BatchPage() {
 
   useEffect(() => {
     fetchBatches();
+  }, [debouncedSearch]);
+  
+ 
   }, [fetchBatches]);
 
   // Date formatter for AG Grid (safe)
   const dateFormatter = (params: any) => {
-
 
     if (!params.value) return "";
 
@@ -383,7 +385,6 @@ export default function BatchPage() {
     const [year, month, day] = dateStr.split("-");
 
     const dateObj = new Date(Number(year), Number(month) - 1, Number(day));
-    // Force formatting as "DD Mon YYYY" without timezone shifts
     return dateObj.toLocaleDateString("en-GB", {
       day: "2-digit",
       month: "short",
@@ -391,6 +392,7 @@ export default function BatchPage() {
     });
 
   };
+
 
   // Add this useEffect after your existing useEffects
 useEffect(() => {
@@ -407,6 +409,7 @@ useEffect(() => {
     };
   }
 }, [isModalOpen]);
+
 
   // Subject badge renderer
   const SubjectRenderer = (props: any) => {
