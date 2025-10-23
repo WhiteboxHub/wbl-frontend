@@ -1508,7 +1508,7 @@ export function EditModal({
                       </div>
                     ))}
                 </div>
-                {/* Notes Section */}
+                {/* Notes Section
                 {sectionedFields["Notes"].length > 0 && (
                   <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-blue-200">
                     <div className="space-y-3 sm:space-y-4">
@@ -1538,6 +1538,69 @@ export function EditModal({
                           >
                             + Add Timestamp
                           </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )} */}
+                {/* Notes Section */}
+                {sectionedFields["Notes"].length > 0 && (
+                  <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-blue-200">
+                    <div className="space-y-6">
+                      {sectionedFields["Notes"].map(({ key, value }) => (
+                        <div key={key} className="space-y-1">
+                          <div className="flex justify-between items-center">
+                            <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                              {toLabel(key)}
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const timestamp = `[${new Date().toLocaleString()}]: `;
+                                const newContent = `<p><strong>${timestamp}</strong></p>${currentFormValues.notes || formData.notes || ""}`;
+                                
+                                setValue("notes", newContent);
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  notes: newContent
+                                }));
+                                
+                                // Focus after state update
+                                setTimeout(() => {
+                                  const quillEditor = document.querySelector('.ql-editor') as HTMLElement;
+                                  if (quillEditor) {
+                                    quillEditor.focus();
+                                    // Set cursor after timestamp
+                                    const range = document.createRange();
+                                    const sel = window.getSelection();
+                                    const firstP = quillEditor.querySelector('p');
+                                    if (firstP && firstP.firstChild) {
+                                      range.setStart(firstP, 1);
+                                      range.collapse(true);
+                                      sel?.removeAllRanges();
+                                      sel?.addRange(range);
+                                    }
+                                  }
+                                }, 0);
+                              }}
+                              className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white 
+                                        bg-gradient-to-r from-cyan-500 to-blue-500 
+                                        rounded-lg hover:from-cyan-600 hover:to-blue-600 
+                                        transition shadow-md"
+                            >
+                              + New Entry
+                            </button>
+                          </div>
+
+                          <ReactQuill
+                            theme="snow"
+                            value={currentFormValues.notes || formData.notes || ""}
+                            onChange={(content) => {
+                              setValue("notes", content);
+                              setFormData((prev) => ({ ...prev, notes: content }));
+                            }}
+                            className="bg-white dark:bg-gray-800"
+                          />
                         </div>
                       ))}
                     </div>
