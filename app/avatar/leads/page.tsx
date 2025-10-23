@@ -13,9 +13,8 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { createPortal } from "react-dom";
 import type { AgGridReact as AgGridReactType } from "ag-grid-react";
 import type { GridApi } from "ag-grid-community";
-import { useForm } from "react-hook-form";
 import { LeadsHelper, db, Lead as DexieLead } from "@/lib/dexieDB";
-
+import { useForm } from "react-hook-form";
 type Lead = DexieLead;
 
 type FormData = {
@@ -448,12 +447,21 @@ export default function LeadsPage() {
   const [totalLeads, setTotalLeads] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [searchBy, setSearchBy] = useState("full_name");
-  const [sortModel, setSortModel] = useState([{ colId: "entry_date", sort: "desc" as const }]);
-  const [isModalOpen, setIsModalOpen] = useState(isNewLead);
+  const [searchBy, setSearchBy] = useState("full_name");  
+  const [newLeadForm, setNewLeadForm] = useState(isNewLead);
+  const [formData, setFormData] = useState<FormData>(initialFormData);
+  const [formSaveLoading, setFormSaveLoading] = useState(false);
+  const [sortModel, setSortModel] = useState([
+    { colId: "entry_date", sort: "desc" as "desc" },
+  ]);
+  
+
   const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
+
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  
   const gridRef = useRef<AgGridReactType<Lead> | null>(null);
   const apiEndpoint = useMemo(() => `${process.env.NEXT_PUBLIC_API_URL}/leads`, []);
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true); 
@@ -461,7 +469,6 @@ export default function LeadsPage() {
   const rateLimiter = useRateLimiter();
   const callCountRef = useRef(0);
 
-  // React Hook Form for better form handling
 
   const {
     register,
@@ -482,16 +489,26 @@ export default function LeadsPage() {
     forceRefresh = false
   ) => {
     callCountRef.current++;
-    
-    // Prevent duplicate calls
+    console.log('   fetchLeads CALLED - investigating multiple calls');
+    console.log('   Call count:', callCountRef.current);
+    console.log('   search:', search);
+    console.log('   searchBy:', searchBy);
+    console.log('   forceRefresh:', forceRefresh);
+    console.log('   loading state:', loading);
+    console.log('   cache valid?', cache.isCacheValid(search || "", searchBy));
+    console.log('   stack trace:', new Error().stack);
+
+    // NUCLEAR OPTION - Completely block multiple calls
     if (callCountRef.current > 1) {
+      console.log(' BLOCKING DUPLICATE CALL - Only allowing first call');
       return;
     }
 
     const searchKey = search || "";
     
-    // Use cache if valid
-    if (!forceRefresh && await cache.isCacheValid(searchKey, searchBy)) {
+    // STRICT CACHE CHECK - Only proceed if absolutely necessary
+    if (!forceRefresh && cache.isCacheValid(searchKey, searchBy)) {
+      console.log(' STRICT CACHE HIT - Blocking API call');
       const cachedData = cache.getCache();
       if (cachedData) {
         setLeads(cachedData);
@@ -500,9 +517,9 @@ export default function LeadsPage() {
       }
     }
 
-
-    // Rate limiting
-    if (!rateLimiter.canMakeCall(5000)) {
+    // RATE LIMITING - Strict enforcement
+    if (!rateLimiter.canMakeCall(5000)) { // 5 seconds between calls
+      console.log(' STRICT RATE LIMIT - Blocking API call');
       return;
     }
 
@@ -510,6 +527,7 @@ export default function LeadsPage() {
     try {
       // Load from IndexedDB first
       const localLeads = await db.leads.toArray();
+      console.log(` IndexedDB has ${localLeads.length} leads`);
       
       // Only proceed with API call if necessary
       if (isOnline && (forceRefresh || !cache.isCacheValid(searchKey, searchBy))) {
@@ -546,6 +564,7 @@ export default function LeadsPage() {
           leadsData = data;
         }
 
+        console.log(` API returned ${leadsData.length} leads - UPDATING CACHE`);
         
         setLeads(leadsData);
         setFilteredLeads(leadsData);
@@ -554,11 +573,12 @@ export default function LeadsPage() {
         await db.leads.clear();
         await db.leads.bulkPut(leadsData);
       } else {
+        console.log(' Using IndexedDB data - NO API CALL');
         setLeads(localLeads);
         setFilteredLeads(localLeads);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load leads");
+      console.error(' API Error:', err);
     } finally {
       setLoading(false);
     }
@@ -680,12 +700,76 @@ export default function LeadsPage() {
     return "full_name";
   };
 
+
+
   const handleSearch = useCallback((term: string) => {
     setSearchTerm(term);
   }, []);
 
-  // Enhanced form submission with offline support
+  // Form validation
+  const validateForm = (data: FormData): boolean => {
+    const errors: Record<string, string> = {};
+    
+    if (!data.full_name.trim()) {
+      errors.full_name = "Full name is required";
+    }
+    
+    if (!data.email.trim()) {
+      errors.email = "Email is required";
+    } else if (!/^\S+@\S+\.\S+$/.test(data.email)) {
+      errors.email = "Please enter a valid email";
+    }
+    
+    if (!data.phone.trim()) {
+      errors.phone = "Phone is required";
+    } else if (data.phone.replace(/\D/g, '').length < 10) {
+      errors.phone = "Please enter a valid phone number";
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleNewLeadFormChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
+    const { name, value, type } = e.target;
+    if (type === "checkbox") {
+      const checked = (e.target as HTMLInputElement).checked;
+      setFormData((prev) => ({ ...prev, [name]: checked }));
+    } else if (name === "phone" || name === "secondary_phone") {
+      const numericValue = value.replace(/\D/g, "");
+      setFormData((prev) => ({ ...prev, [name]: numericValue }));
+    } else if (name === "address") {
+      const sanitizedValue = value.replace(/[^a-zA-Z0-9, ]/g, "");
+      setFormData((prev) => ({ ...prev, [name]: sanitizedValue }));
+    } else if (name === "full_name") {
+      const sanitizedValue = value.replace(/[^a-zA-Z. ]/g, "");
+      setFormData((prev) => ({ ...prev, [name]: sanitizedValue }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+
+  // Form submission with react-hook-form
+
   const onSubmit = async (data: FormData) => {
+    if (!data.full_name.trim() || !data.email.trim() || !data.phone.trim()) {
+      toast.error("Full Name, Email, and Phone are required");
+      return;
+
+    }
+
+
+  const handleNewLeadFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormSaveLoading(true);
+    setFormErrors({});
+
+    if (!validateForm(formData)) {
+      setFormSaveLoading(false);
+      return;
+    }
     try {
       const updatedData = { 
         ...data,
@@ -740,6 +824,64 @@ export default function LeadsPage() {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to create lead";
       toast.error(errorMessage);
+
+    try {
+      const updatedData = { ...data };
+      if (!updatedData.status || updatedData.status === "") {
+        updatedData.status = "Open";
+      }
+      if (!updatedData.workstatus || updatedData.workstatus === "") {
+        updatedData.workstatus = "Waiting for Status";
+      }
+      if (updatedData.moved_to_candidate) {
+        updatedData.status = "Closed";
+      }
+      const booleanFields = [
+        "moved_to_candidate",
+        "massemail_email_sent",
+        "massemail_unsubscribe",
+      ];
+      booleanFields.forEach((field) => {
+        if (
+          updatedData[field as keyof FormData] === undefined ||
+          updatedData[field as keyof FormData] === null ||
+          updatedData[field as keyof FormData] === ""
+        ) {
+          (updatedData[field as keyof FormData] as boolean) = false;
+        }
+      });
+      const payload = {
+        ...updatedData,
+        entry_date: new Date().toISOString(),
+        closed_date:
+          updatedData.status === "Closed"
+            ? new Date().toISOString().split("T")[0]
+            : null,
+      };
+      const response = await fetch(apiEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) throw new Error("Failed to create lead");
+      const newLead = await response.json();
+      const updated = [...leads, newLead].sort(
+        (a, b) =>
+          new Date(b.entry_date || 0).getTime() -
+          new Date(a.entry_date || 0).getTime()
+      );
+      setLeads(updated);
+      setFilteredLeads(updated);
+      toast.success("Lead created successfully!", { position: "top-center" });
+      setIsModalOpen(false);
+      reset();
+      router.push("/avatar/leads");
+    } catch (error) {
+      toast.error("Failed to create lead", { position: "top-center" });
+
       console.error("Error creating lead:", error);
     }
   };
@@ -755,48 +897,37 @@ export default function LeadsPage() {
     reset();
   };
 
-  // Optimistic updates for row operations
-  const handleRowUpdated = useCallback(async (updatedRow: Lead) => {
-    setLoadingRowId(updatedRow.id);
-    
-    const previousLeads = [...leads];
-    
-    setLeads(prev => prev.map(l => l.id === updatedRow.id ? updatedRow : l));
-    setFilteredLeads(prev => prev.map(l => l.id === updatedRow.id ? updatedRow : l));
-    
-    await db.leads.put(updatedRow);
-    cache.invalidateCache();
-
-    if (isOnline) {
-      const { id, ...payload } = updatedRow;
-      if (payload.moved_to_candidate && payload.status !== "Closed") {
-        payload.status = "Closed";
-        payload.closed_date = new Date().toISOString().split("T")[0];
-      } else if (!payload.moved_to_candidate && payload.status === "Closed") {
-        payload.status = "Open";
-        payload.closed_date = null;
-      }
-      payload.moved_to_candidate = Boolean(payload.moved_to_candidate);
-      payload.massemail_unsubscribe = Boolean(payload.massemail_unsubscribe);
-      payload.massemail_email_sent = Boolean(payload.massemail_email_sent);
-      
-      const token = localStorage.getItem("token");
-      fetch(`${apiEndpoint}/${updatedRow.id}`, {
-        method: "PUT",
-        headers: { 
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      })
-      .then(response => {
+  const handleRowUpdated = useCallback(
+    async (updatedRow: Lead) => {
+      setLoadingRowId(updatedRow.id);
+      try {
+        const { id, entry_date, ...payload } = updatedRow;
+        if (payload.moved_to_candidate && payload.status !== "Closed") {
+          payload.status = "Closed";
+          payload.closed_date = new Date().toISOString().split('T')[0];
+        } else if (!payload.moved_to_candidate && payload.status === "Closed") {
+          payload.status = "Open";
+          payload.closed_date = null;
+        }
+        payload.moved_to_candidate = Boolean(payload.moved_to_candidate);
+        payload.massemail_unsubscribe = Boolean(payload.massemail_unsubscribe);
+        payload.massemail_email_sent = Boolean(payload.massemail_email_sent);
+        const response = await fetch(`${apiEndpoint}/${updatedRow.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify(payload),
+        });
         if (!response.ok) throw new Error("Failed to update lead");
+        const updatedLead = await response.json();
+        setLeads(prevLeads =>
+          prevLeads.map(lead => (lead.id === updatedLead.id ? updatedLead : lead))
+        );
         toast.success("Lead updated successfully");
-      })
-      .catch(error => {
-        setLeads(previousLeads);
-        setFilteredLeads(previousLeads);
-        toast.error("Failed to update lead - changes reverted");
+      } catch (error) {
+        toast.error("Failed to update lead");
         console.error("Error updating lead:", error);
       })
       .finally(() => {
@@ -807,35 +938,26 @@ export default function LeadsPage() {
     }
   }, [apiEndpoint, isOnline, leads, cache]);
 
-  const handleRowDeleted = useCallback(async (id: number) => {
-    const previousLeads = [...leads];    
-    setLeads(prev => prev.filter((l) => l.id !== id));
-    setFilteredLeads(prev => prev.filter((l) => l.id !== id));    
-    await db.leads.delete(id);    
-    cache.invalidateCache();
-    
-    if (isOnline) {
-      const token = localStorage.getItem("token");
-      fetch(`${apiEndpoint}/${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-      .then(response => {
+  const handleRowDeleted = useCallback(
+    async (id: number) => {
+      try {
+        const response = await fetch(`${apiEndpoint}/${id}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
         if (!response.ok) throw new Error("Failed to delete lead");
+        setLeads(prevLeads => prevLeads.filter(lead => lead.id !== id));
         toast.success("Lead deleted successfully");
-      })
-      .catch(error => {
-        setLeads(previousLeads);
-        setFilteredLeads(previousLeads);
-        toast.error("Failed to delete lead - changes reverted");
-        console.error(error);
-      });
-    }
-  }, [apiEndpoint, isOnline, leads, cache]);
+      } catch (error) {
+        toast.error("Failed to delete lead");
+        console.error("Error deleting lead:", error);
+      }
+    },
+    [apiEndpoint]
+  );
 
-  // Move to candidate functionality from second version
   const handleMoveToCandidate = useCallback(
     async (lead: Lead, moved: boolean) => {
       setLoadingRowId(lead.id);
