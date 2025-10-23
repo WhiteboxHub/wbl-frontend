@@ -6,9 +6,18 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { Button } from "@/components/admin_ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/admin_ui/dialog";
 import { SearchIcon, X } from "lucide-react";
-import axios from "axios";
+
 import { toast, Toaster } from "sonner";
+
+import { apiFetch } from "@/lib/api.js"; // <-- use your api wrapper
 
 export default function CoursePage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -57,28 +66,22 @@ export default function CoursePage() {
       editable: true,
     },
   ];
-  const token = localStorage.getItem("token"); // get token once
 
+  // Fetch courses
   const fetchCourses = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/courses`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`, // pass token in headers
-          },
-        }
-      );
-
-      const sortedCourses = res.data.sort((a: any, b: any) => b.id - a.id);
-
+      setError("");
+      const res = await apiFetch("/courses");
+      const arr = Array.isArray(res) ? res : res?.data ?? [];
+      const sortedCourses = (arr || []).slice().sort((a: any, b: any) => b.id - a.id);
       setCourses(sortedCourses);
       setFilteredCourses(sortedCourses);
       toast.success("Fetched courses successfully.");
     } catch (e: any) {
-      setError(e.response?.data?.detail || e.message);
-      toast.error(e.response?.data?.detail || e.message);
+      const msg = e?.body || e?.message || "Failed to fetch courses";
+      setError(typeof msg === "string" ? msg : JSON.stringify(msg));
+      toast.error(typeof msg === "string" ? msg : JSON.stringify(msg));
     } finally {
       setLoading(false);
     }
@@ -123,36 +126,39 @@ useEffect(() => {
     setFilteredCourses(filtered);
   }, [searchTerm, courses]);
 
-  // Update 
+  // Update
   const handleRowUpdated = async (updatedRow: any) => {
     try {
-      await axios.put(
-        `${process.env.NEXT_PUBLIC_API_URL}/courses/${updatedRow.id}`,
-        updatedRow
-      );
+      await apiFetch(`/courses/${updatedRow.id}`, {
+        method: "PUT",
+        body: updatedRow,
+      });
 
       const updated = courses
         .map((c) => (c.id === updatedRow.id ? updatedRow : c))
+        .slice()
         .sort((a, b) => b.id - a.id);
 
       setCourses(updated);
       setFilteredCourses(updated);
       toast.success("Row updated successfully.");
     } catch (e: any) {
-      toast.error(e.response?.data?.detail || e.message);
+      const msg = e?.body || e?.message || "Failed to update course";
+      toast.error(typeof msg === "string" ? msg : JSON.stringify(msg));
     }
   };
 
-  // Delete 
+  // Delete
   const handleRowDeleted = async (id: number) => {
     try {
-      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/courses/${id}`);
+      await apiFetch(`/courses/${id}`, { method: "DELETE" });
       const updated = courses.filter((c) => c.id !== id);
       setCourses(updated);
       setFilteredCourses(updated);
       toast.success(`Course ${id} deleted.`);
     } catch (e: any) {
-      toast.error(e.response?.data?.detail || e.message);
+      const msg = e?.body || e?.message || "Failed to delete course";
+      toast.error(typeof msg === "string" ? msg : JSON.stringify(msg));
     }
   };
 
@@ -164,19 +170,17 @@ useEffect(() => {
     }
 
     try {
-      const res = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/courses`,
-        newCourse
-      );
-
-      const updated = [...courses, res.data].sort((a, b) => b.id - a.id);
+      const res = await apiFetch("/courses", { method: "POST", body: newCourse });
+      const created = res && !Array.isArray(res) ? (res.data ?? res) : res;
+      const updated = [...courses, created].slice().sort((a, b) => b.id - a.id);
       setCourses(updated);
       setFilteredCourses(updated);
       toast.success("New course created.");
       setIsModalOpen(false);
       setNewCourse({ name: "", alias: "", description: "", syllabus: "" });
     } catch (e: any) {
-      toast.error(e.response?.data?.detail || e.message);
+      const msg = e?.body || e?.message || "Failed to create course";
+      toast.error(typeof msg === "string" ? msg : JSON.stringify(msg));
     }
   };
 

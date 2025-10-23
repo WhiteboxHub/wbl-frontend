@@ -6,17 +6,24 @@ import React, {
   useRef,
   useCallback,
 } from "react";
+// wbl-frontend\lib\api.js
+// import api, { apiFetch ,} from "@/lib/api"; // default + named from your api.js
+import api, { apiFetch, API_BASE_URL } from "@/lib/api";
+import axios from "axios";
+
+// import { apiFetch } from "@/lib/api.js";
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { Button } from "@/components/admin_ui/button";
-import { SearchIcon, ChevronLeft, ChevronRight, UserPlus } from "lucide-react";
+import { SearchIcon, UserPlus } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import dynamic from "next/dynamic";
 import { toast, Toaster } from "sonner";
-import axios from "axios";
+// import axios, { AxiosRequestConfig } from "axios";
+// import axios, { AxiosRequestConfig } from "axios";
 
 const AGGridTable = dynamic(() => import("@/components/AGGridTable"), {
   ssr: false,
@@ -75,27 +82,139 @@ export default function VendorContactsGrid() {
     []
   );
 
-  const fetchContacts = useCallback(async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem("token");
+  // const fetchContacts = useCallback(async () => {
+  //   try {
+  //     setLoading(true);
 
-      const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/vendor_contact_extracts`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
+  //     const res = await axios.get(
+  //       `${process.env.NEXT_PUBLIC_API_URL}/vendor_contact_extracts`
+  //     );
+
+  //     const data = res.data || [];
+  //     setContacts(data);
+  //     setFilteredContacts(data);
+  //   } catch (err: any) {
+  //     toast.error(err.message || "Failed to load contacts");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // }, [apiEndpoint]);
+
+// replace the fetchContacts function in first file with this
+// add at top of file if not present:
+// import { apiFetch } from "@/lib/api";
+
+// Replace your fetchContacts with this
+// make sure these imports exist at top:
+// import api, { apiFetch, API_BASE_URL } from "@/lib/api";
+// import axios from "axios";
+
+const fetchContacts = useCallback(async () => {
+  setLoading(true);
+  console.log("[fetchContacts] API_BASE_URL =", typeof window !== "undefined" ? (window as any).process?.env?.NEXT_PUBLIC_API_URL : API_BASE_URL);
+  const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+  const endpointsToTry = [
+    "/vendor_contact_extracts",
+    "/vendor_contact_extracts/",
+    "/vendor_contact_extracts?limit=100",
+    "/vendor_contact_extracts/?limit=100",
+  ];
+
+  const normalize = (b: any) => {
+    if (!b) return [];
+    if (Array.isArray(b)) return b;
+    if (Array.isArray(b.data)) return b.data;
+    if (Array.isArray(b.results)) return b.results;
+    for (const k of Object.keys(b || {})) if (Array.isArray(b[k])) return b[k];
+    // if it's a single object, return single-element array (helpful while debugging)
+    if (typeof b === "object") return [b];
+    return [];
+  };
+
+  try {
+    // 1) try api.get (axios-like wrapper)
+    if (api?.get) {
+      for (const ep of endpointsToTry) {
+        try {
+          console.log("[fetchContacts] trying api.get", ep);
+          const resp = await api.get(ep);
+          console.log("[fetchContacts] api.get response:", resp);
+          const arr = normalize(resp?.data);
+          setContacts(arr);
+          setFilteredContacts(arr);
+          return;
+        } catch (err: any) {
+          console.warn("[fetchContacts] api.get failed for", ep, err?.status ?? err?.message ?? err);
         }
-      );
-
-      const data = res.data || [];
-      setContacts(data);
-      setFilteredContacts(data);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to load contacts");
-    } finally {
-      setLoading(false);
+      }
     }
-  }, [apiEndpoint]);
+
+    // 2) try apiFetch direct
+    if (typeof apiFetch === "function") {
+      for (const ep of endpointsToTry) {
+        try {
+          console.log("[fetchContacts] trying apiFetch", ep);
+          const body = await apiFetch(ep);
+          console.log("[fetchContacts] apiFetch body:", body);
+          const arr = normalize(body);
+          setContacts(arr);
+          setFilteredContacts(arr);
+          return;
+        } catch (err: any) {
+          console.warn("[fetchContacts] apiFetch failed for", ep, err?.status ?? err?.message ?? err);
+        }
+      }
+
+      // try with credentials (cookies) once
+      try {
+        console.log("[fetchContacts] trying apiFetch with credentials", endpointsToTry[0]);
+        const body = await apiFetch(endpointsToTry[0], { credentials: "include", useCookies: true });
+        console.log("[fetchContacts] apiFetch(creds) body:", body);
+        const arr = normalize(body);
+        setContacts(arr);
+        setFilteredContacts(arr);
+        return;
+      } catch (err: any) {
+        console.warn("[fetchContacts] apiFetch(creds) failed", err);
+      }
+    }
+
+    // 3) axios fallback — build full URL and try with/without base
+    for (const ep of endpointsToTry) {
+      const full = base ? `${base}${ep.startsWith("/") ? "" : "/"}${ep}` : ep;
+      try {
+        console.log("[fetchContacts] trying axios GET", full);
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("access_token") || localStorage.getItem("token") || localStorage.getItem("auth_token")
+            : null;
+        const headers: any = { Accept: "application/json" };
+        if (token) headers.Authorization = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+        const res = await axios.get(full, { headers, withCredentials: true });
+        console.log("[fetchContacts] axios res status", res.status, "data:", res.data);
+        const arr = normalize(res.data);
+        setContacts(arr);
+        setFilteredContacts(arr);
+        return;
+      } catch (err: any) {
+        console.warn("[fetchContacts] axios failed for", full, err?.response?.status ?? err?.message ?? err);
+      }
+    }
+
+    toast.error("Failed to load contacts — check console/network for details.");
+  } catch (err: any) {
+    console.error("[fetchContacts] unexpected", err);
+    toast.error(err?.message || "Failed to load contacts");
+  } finally {
+    setLoading(false);
+  }
+}, [apiEndpoint]);
+
+
+
+
+
+
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -120,36 +239,34 @@ export default function VendorContactsGrid() {
     return () => clearTimeout(timer);
   }, [searchTerm, contacts]);
 
-  const handleRowUpdated = async (updatedData: any) => {
-    try {
-      await axios.put(
-        `${process.env.NEXT_PUBLIC_API_URL}/vendor_contact/${updatedData.id}`,
-        updatedData
-      );
-      toast.success("Contact updated successfully");
-      fetchContacts();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to update contact");
-    }
-  };
+const handleRowUpdated = async (updatedData: any) => {
+  try {
+    await apiFetch(`/vendor_contact/${updatedData.id}`, {
+      method: "PUT",
+      body: updatedData,
+    });
+    toast.success("Contact updated successfully");
+    fetchContacts();
+  } catch (err: any) {
+    toast.error(err?.message || "Failed to update contact");
+  }
+};
 
-  const handleRowDeleted = async (contactId: number | string) => {
-    try {
-      await axios.delete(
-        `${process.env.NEXT_PUBLIC_API_URL}/vendor_contact/${contactId}`
-      );
-      toast.success("Contact deleted successfully");
-      fetchContacts();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to delete contact");
-    }
-  };
+const handleRowDeleted = async (contactId: number | string) => {
+  try {
+    await apiFetch(`/vendor_contact/${contactId}`, {
+      method: "DELETE",
+    });
+    toast.success("Contact deleted successfully");
+    fetchContacts();
+  } catch (err: any) {
+    toast.error(err?.message || "Failed to delete contact");
+  }
+};
 
   const handleMoveAllToVendor = async () => {
     setMovingToVendor(true);
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      const config = token ? { headers: { Authorization: `Bearer ${token}` } } : undefined;
       const toMove = contacts.filter((c) => !c.moved_to_vendor);
       if (!toMove.length) {
         toast.info("No contacts to move");
@@ -157,28 +274,37 @@ export default function VendorContactsGrid() {
       }
 
       let inserted = 0, skipped = 0, failed = 0;
-      for (const c of toMove) {
-        const payload: any = {
-          full_name: c.full_name || c.company_name || c.email || "Unknown",
-          email: c.email || undefined,
-          phone_number: c.phone || undefined,
-        };
-        try {
-          await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/vendors`, payload, config);
-          inserted++;
-          await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/vendor_contact/${c.id}`, { moved_to_vendor: true }, config);
-        } catch (e: any) {
-          const d = e?.response?.data?.detail || "";
-          if (typeof d === "string" && d.toLowerCase().includes("email already exists")) {
-            skipped++;
-            try {
-              await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/vendor_contact/${c.id}`, { moved_to_vendor: true }, config);
-            } catch {}
-          } else {
-            failed++;
-          }
-        }
-      }
+for (const c of toMove) {
+  const payload: any = {
+    full_name: c.full_name || c.company_name || c.email || "Unknown",
+    email: c.email || undefined,
+    phone_number: c.phone || undefined,
+  };
+  try {
+    // create vendor
+    await apiFetch("/vendors", { method: "POST", body: payload });
+
+    // mark moved
+    await apiFetch(`/vendor_contact/${c.id}`, {
+      method: "PUT",
+      body: { moved_to_vendor: true },
+    });
+    inserted++;
+  } catch (e: any) {
+    const d = (e?.body || "").toString().toLowerCase();
+    if (d.includes("email already exists")) {
+      skipped++;
+      try {
+        await apiFetch(`/vendor_contact/${c.id}`, {
+          method: "PUT",
+          body: { moved_to_vendor: true },
+        });
+      } catch {}
+    } else {
+      failed++;
+    }
+  }
+}
 
       if (inserted) {
         toast.success(`Moved ${inserted} contacts${skipped ? `, ${skipped} skipped` : ""}${failed ? `, ${failed} failed` : ""}`);
@@ -200,7 +326,7 @@ export default function VendorContactsGrid() {
 
   useEffect(() => {
     fetchContacts();
-    setIsLoading(true);
+    // setIsLoading(true);
   }, [fetchContacts]);
 
   const columnDefs: ColDef[] = useMemo<ColDef[]>(

@@ -1,19 +1,28 @@
-
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import axios from "axios";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { Badge } from "@/components/admin_ui/badge";
-import { SearchIcon, User, Users, MapPin, Calendar, FileText, Activity, BookOpen, Briefcase } from "lucide-react";
+import {
+  SearchIcon,
+  User,
+  Users,
+  MapPin,
+  Calendar,
+  FileText,
+  Activity,
+  BookOpen,
+  Briefcase,
+} from "lucide-react";
+import { apiFetch } from "@/lib/api"; // ✅ use centralized helper
 
-// Types (unchanged)
+// ---------------------- TYPES ----------------------
 type Employee = {
   id: number;
   name: string;
   email?: string;
   phone?: string;
-  startdate?: string;  
+  startdate?: string;
   address?: string;
   state?: string;
   dob?: string;
@@ -29,26 +38,33 @@ type Candidates = {
   marketing: { count: number; names: string[] };
 };
 
-type TeachingItem = { type: "class" | "session"; title: string; date?: string; link?: string; };
+type TeachingItem = {
+  type: "class" | "session";
+  title: string;
+  date?: string;
+  link?: string;
+};
 
-type SessionClassData = { class_count: number; session_count: number; timeline: TeachingItem[]; };
+type SessionClassData = {
+  class_count: number;
+  session_count: number;
+  timeline: TeachingItem[];
+};
 
+// ---------------------- SMALL COMPONENTS ----------------------
 const StatusRenderer = ({ status }: { status: number }) => {
   const statusMap: Record<number, { label: string; class: string }> = {
     1: { label: "ACTIVE", class: "bg-green-100 text-green-800" },
     0: { label: "INACTIVE", class: "bg-red-100 text-red-800" },
   };
-  
-  const statusConfig = statusMap[status] || { label: "UNKNOWN", class: "bg-gray-100 text-gray-800" };
-  
-  return <Badge className={statusConfig.class}>{statusConfig.label}</Badge>;
+  const s = statusMap[status] || { label: "UNKNOWN", class: "bg-gray-100 text-gray-800" };
+  return <Badge className={s.class}>{s.label}</Badge>;
 };
 
-
-const DateFormatter = (date: any) => 
+const DateFormatter = (date: any) =>
   date ? new Date(date).toLocaleDateString() : "Not Set";
 
-
+// ---------------------- MAIN COMPONENT ----------------------
 export default function EmployeeSearchPage() {
   const [query, setQuery] = useState("");
   const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
@@ -62,23 +78,14 @@ export default function EmployeeSearchPage() {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  
-  const BASE_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/api$/, "") || process.env.NEXT_PUBLIC_API_URL;
+  const toggleSection = (section: string) =>
+    setOpenSections((prev) => ({ ...prev, [section]: !prev[section] }));
 
-  const toggleSection = (section: string) => {
-    setOpenSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));   
-  };
-
-  
+  // ---------------------- SEARCH EMPLOYEES ----------------------
   useEffect(() => {
-    if (debounceTimeout.current) {
-      clearTimeout(debounceTimeout.current);
-    }
+    if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
 
-    if (!query.trim() || query.trim().length < 2) {
+    if (!query.trim() || query.length < 2) {
       setFilteredEmployees([]);
       setShowSuggestions(false);
       return;
@@ -87,116 +94,98 @@ export default function EmployeeSearchPage() {
     debounceTimeout.current = setTimeout(async () => {
       setLoading(true);
       try {
-        
-        const res = await axios.get(`${BASE_URL}/api/employees/search?query=${encodeURIComponent(query)}`);
-        setFilteredEmployees(res.data);
+        const data = await apiFetch(`/employees/search?query=${encodeURIComponent(query)}`);
+        setFilteredEmployees(Array.isArray(data) ? data : data?.data || []);
         setShowSuggestions(true);
       } catch (error) {
-        console.error("Failed to fetch employees:", error);
+        console.error("❌ Employee search failed:", error);
         setFilteredEmployees([]);
-      } finally { 
+      } finally {
         setLoading(false);
       }
-    }, 300);
+    }, 400);
 
-    return () => {
-      if (debounceTimeout.current) {
-        clearTimeout(debounceTimeout.current);
-      }
-    };
-  }, [query, BASE_URL]);
+    return () => debounceTimeout.current && clearTimeout(debounceTimeout.current);
+  }, [query]);
 
-  // Fetch Candidates
+  // ---------------------- FETCH CANDIDATES ----------------------
   useEffect(() => {
     if (!selectedEmployee) return;
     const fetchCandidates = async () => {
       setLoadingCandidates(true);
       try {
-        // Fixed URL construction
-        const res = await axios.get(`${BASE_URL}/api/employees/${selectedEmployee.id}/candidates`);
-        setCandidates(res.data);
+        const data = await apiFetch(`/employees/${selectedEmployee.id}/candidates`);
+        setCandidates(data);
       } catch (error) {
-        console.error("Failed to fetch candidates:", error);
+        console.error("❌ Candidate fetch failed:", error);
         setCandidates(null);
-      } finally { setLoadingCandidates(false); }
+      } finally {
+        setLoadingCandidates(false);
+      }
     };
     fetchCandidates();
-  }, [selectedEmployee?.id, BASE_URL]);
+  }, [selectedEmployee?.id]);
 
-  // Fetch Sessions & Classes
+  // ---------------------- FETCH SESSION / CLASS ----------------------
   useEffect(() => {
     if (!selectedEmployee) return;
-    const fetchSessionClassData = async () => {
+    const fetchSessions = async () => {
       setLoadingSessions(true);
       try {
-        // Fixed URL construction
-        const res = await axios.get(`${BASE_URL}/api/employees/${selectedEmployee.id}/session-class-data`);
-        const sortedTimeline = res.data.timeline.sort(
+        const data = await apiFetch(`/employees/${selectedEmployee.id}/session-class-data`);
+        const sorted = (data.timeline || []).sort(
           (a: TeachingItem, b: TeachingItem) =>
             new Date(b.date || "").getTime() - new Date(a.date || "").getTime()
         );
-        setSessionClassData({ ...res.data, timeline: sortedTimeline });
+        setSessionClassData({ ...data, timeline: sorted });
       } catch (error) {
-        console.error("Failed to fetch session data:", error);
+        console.error("❌ Session/Class fetch failed:", error);
         setSessionClassData(null);
-      } finally { setLoadingSessions(false); }
+      } finally {
+        setLoadingSessions(false);
+      }
     };
-    fetchSessionClassData();
-  }, [selectedEmployee?.id, BASE_URL]);
+    fetchSessions();
+  }, [selectedEmployee?.id]);
 
-  const selectEmployee = async (employee: Employee) => {
+  // ---------------------- SELECT EMPLOYEE ----------------------
+  const selectEmployee = (employee: Employee) => {
     setSelectedEmployee(employee);
     setShowSuggestions(false);
     setQuery("");
     setFilteredEmployees([]);
   };
 
-  // Render Info Card similar to candidate page
+  // ---------------------- RENDER HELPERS ----------------------
   const renderInfoCard = (title: string, icon: React.ReactNode, data: any) => (
     <div className="bg-white dark:bg-black-800 rounded-lg border border-black-200 dark:border-black-700 p-6 shadow-sm">
       <div className="flex items-center gap-3 mb-4 pb-2 border-b border-black-200 dark:border-black-700">
         {icon}
         <h4 className="font-semibold text-lg text-black-900 dark:text-black-100">{title}</h4>
       </div>
-      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-1 text-sm">
         {Object.entries(data).map(([key, value]) => {
-          if (value === null || value === undefined || value === "") return null;
-
-          const displayKey = key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()
-            .split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-
-          let displayValue = value;
-
-          if (key.toLowerCase().includes('date')) {
-            displayValue = DateFormatter(value);
-          } else if (key === 'status' && typeof value === 'number') {
+          if (!value) return null;
+          const displayKey = key
+            .replace(/_/g, " ")
+            .replace(/([A-Z])/g, " $1")
+            .trim()
+            .replace(/\b\w/g, (c) => c.toUpperCase());
+          let displayValue: any = value;
+          if (key.toLowerCase().includes("date")) displayValue = DateFormatter(value);
+          else if (key === "status" && typeof value === "number")
             displayValue = <StatusRenderer status={value} />;
-          } else if (key === 'email' && value) {
-            displayValue = (
-              <a
-                href={`mailto:${value}`}
-                className="text-blue-600 hover:underline font-medium"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-              </a>
-            );
-          } else if (key.toLowerCase().includes('phone') && value) {
-            displayValue = (
-              <a
-                href={`tel:${value}`}
-                className="text-blue-600 hover:underline font-medium"
-              >
-                {value as React.ReactNode}
-              </a>
-            );
-          }
-
           return (
-            <div key={key} className="flex items-center py-3 border-b border-black-100 dark:border-black-600 last:border-b-0">
-              <span className="text-black-600 dark:text-black-400 font-semibold w-auto flex-shrink-0 mr-3">{displayKey}:</span>
-              <span className="text-black-900 dark:text-black-100 font-medium">{displayValue as React.ReactNode}</span>
+            <div
+              key={key}
+              className="flex items-center py-3 border-b border-black-100 dark:border-black-600 last:border-b-0"
+            >
+              <span className="text-black-600 dark:text-black-400 font-semibold w-1/3">
+                {displayKey}:
+              </span>
+              <span className="text-black-900 dark:text-black-100 font-medium">
+                {displayValue}
+              </span>
             </div>
           );
         })}
@@ -204,8 +193,12 @@ export default function EmployeeSearchPage() {
     </div>
   );
 
-  // Render candidate lists similar to candidate page tables
-  const renderCandidateSection = (title: string, count: number, names: string[], color: string) => (
+  const renderCandidateSection = (
+    title: string,
+    count: number,
+    names: string[],
+    color: string
+  ) => (
     <div className={`${color} p-6 rounded-lg border border-black-200 dark:border-black-700 shadow-sm`}>
       <div className="flex items-center gap-3 mb-4 pb-2 border-b border-black-200 dark:border-black-700">
         <Users className="h-5 w-5" />
@@ -213,25 +206,27 @@ export default function EmployeeSearchPage() {
         <Badge variant="secondary">{count}</Badge>
       </div>
       {names.length > 0 ? (
-        <div className="space-y-2">
-          {names.map((name, idx) => (
-            <div key={idx} className="flex items-center py-2 border-b border-black-100 dark:border-black-600 last:border-b-0">
-              <span className="text-black-900 dark:text-black-100 font-medium">{name}</span>
-            </div>
-          ))}
-        </div>
+        names.map((n, i) => (
+          <div
+            key={i}
+            className="py-2 border-b border-black-100 dark:border-black-600 last:border-b-0 text-black-900 dark:text-black-100 font-medium"
+          >
+            {n}
+          </div>
+        ))
       ) : (
         <p className="text-black-500 dark:text-black-400 text-sm">No candidates found</p>
       )}
     </div>
   );
 
-  // Render teaching timeline similar to candidate page tables
   const renderTeachingTimeline = (timeline: TeachingItem[]) => (
     <div className="bg-white dark:bg-black-800 rounded-lg border border-black-200 dark:border-black-700 p-6 shadow-sm">
       <div className="flex items-center gap-3 mb-4 pb-2 border-b border-black-200 dark:border-black-700">
         <Activity className="h-5 w-5" />
-        <h4 className="font-semibold text-lg text-black-900 dark:text-black-100">Recent Activity Timeline</h4>
+        <h4 className="font-semibold text-lg text-black-900 dark:text-black-100">
+          Recent Activity Timeline
+        </h4>
         <Badge variant="secondary">{timeline.length}</Badge>
       </div>
 
@@ -253,6 +248,13 @@ export default function EmployeeSearchPage() {
               </div>
 
               <div className="flex-1 min-w-0">
+                <p className="font-semibold text-black-900 dark:text-black-100">
+                  {item.title || "Untitled"}
+                </p>
+                <p className="text-sm text-black-500 dark:text-black-400 flex items-center gap-1 mt-1">
+                  <Calendar className="w-4 h-4" />
+                  {item.date ? DateFormatter(item.date) : "No date"}
+                </p>
                 {item.link ? (
                   <a
                     href={item.link}
@@ -272,9 +274,11 @@ export default function EmployeeSearchPage() {
           ))}
         </div>
       ) : (
+
         <p className="text-black-500 dark:text-black-400 text-sm">
           No sessions or classes recorded
         </p>
+
       )}
     </div>
   );
@@ -282,84 +286,60 @@ export default function EmployeeSearchPage() {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-black-900 dark:text-black-100">
-            Search Employees
-          </h1>
-          <p className="text-black-600 dark:text-black-400">
-            Search employees by name, ID, or email to view comprehensive information
-          </p>
-        </div>
-      </div>
+      <h1 className="text-2xl font-bold text-black-900 dark:text-black-100">Search Employees</h1>
+      <p className="text-black-600 dark:text-black-400">
+        Search employees by name, ID, or email to view details
+      </p>
 
-      {/* Search Section - Matches Candidate Page Design */}
+      {/* 🔍 Search bar */}
       <div className="max-w-md relative">
         <Label htmlFor="search" className="text-sm font-medium text-black-700 dark:text-black-300">
           Search by Name, ID, or Email
         </Label>
         <div className="relative mt-1">
-          <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-black-400" />
+          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-black-400" />
           <Input
             id="search"
-            type="text"
-            placeholder="Enter employee name, ID, or email (min 2 characters)..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            placeholder="Enter at least 2 characters..."
             className="pl-10"
-            onFocus={() => {
-              if (filteredEmployees.length > 0) setShowSuggestions(true);
-            }}
           />
         </div>
 
         {showSuggestions && filteredEmployees.length > 0 && (
           <div className="absolute z-10 w-full mt-1 bg-white dark:bg-black-800 border border-black-200 dark:border-black-700 rounded-md shadow-lg max-h-60 overflow-auto">
-            {filteredEmployees.map((employee) => (
+            {filteredEmployees.map((emp) => (
               <button
-                key={employee.id}
-                className="w-full px-4 py-3 text-left hover:bg-black-50 dark:hover:bg-black-700 border-b border-black-100 dark:border-black-600 last:border-b-0 focus:outline-none focus:bg-black-50 dark:focus:bg-black-700 transition-colors"
-                onClick={() => selectEmployee(employee)}
+                key={emp.id}
+                onClick={() => selectEmployee(emp)}
+                className="w-full px-4 py-3 text-left hover:bg-black-50 dark:hover:bg-black-700 border-b border-black-100 dark:border-black-600 last:border-b-0"
               >
-                <div className="font-medium text-black-900 dark:text-black-100">{employee.name}</div>
-                <div className="text-sm text-black-500 dark:text-black-400">{employee.email}</div>
+                <div className="font-medium text-black-900 dark:text-black-100">{emp.name}</div>
+                <div className="text-sm text-black-500 dark:text-black-400">{emp.email}</div>
               </button>
             ))}
           </div>
         )}
 
-        {showSuggestions && (
-          <div 
-            className="fixed inset-0 z-0" 
-            onClick={() => setShowSuggestions(false)}
-          />
-        )}
-
         {loading && (
-          <div className="mt-2 flex items-center gap-2">
-            <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-blue-500 dark:text-blue-400">Searching employees...</p>
-          </div>
-        )}
-        
-        {query.length >= 2 && !loading && filteredEmployees.length === 0 && (
-          <p className="mt-2 text-sm text-black-500 dark:text-black-400">No employees found</p>
+          <p className="text-sm text-blue-500 mt-2">Searching employees...</p>
         )}
       </div>
 
-      {/* Employee Details - Matches Candidate Page Accordion Design */}
+      {/* Employee Details */}
       {selectedEmployee && (
         <div className="border border-black-200 dark:border-black-700 rounded-lg overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-black-800 dark:to-black-700 px-6 py-4 border-b border-black-200 dark:border-black-700">
+          <div className="bg-blue-50 dark:bg-black-800 px-6 py-4 border-b border-black-200 dark:border-black-700">
             <h2 className="text-xl font-bold text-black-900 dark:text-black-100">
               {selectedEmployee.name}
             </h2>
             <p className="text-black-600 dark:text-black-400">
-              ID: {selectedEmployee.id} • 
-              Email: {selectedEmployee.email || "No email"} • 
-              Status: <StatusRenderer status={selectedEmployee.status || 0} />
+              ID: {selectedEmployee.id} • Email: {selectedEmployee.email || "N/A"} • Status:{" "}
+              <StatusRenderer status={selectedEmployee.status || 0} />
             </p>
           </div>
+
 
           <div className="divide-y divide-black-200 dark:divide-black-700">
             {/* Basic Information Section */}
@@ -509,10 +489,10 @@ export default function EmployeeSearchPage() {
                 </div>
               )}
             </div>
+
           </div>
         </div>
       )}
     </div>
   );
 }
-

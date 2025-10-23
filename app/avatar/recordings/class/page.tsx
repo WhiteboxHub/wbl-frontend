@@ -12,43 +12,60 @@ import { useMemo, useState, useEffect } from "react";
 import axios from "axios";
 import { toast, Toaster } from "sonner";
 
+/* 🔹 Token helper (same as other pages) */
+const ACCESS_TOKEN_KEYS = ["access_token", "token", "accesstoken"];
+
+function getStoredToken(): string | null {
+  for (const k of ACCESS_TOKEN_KEYS) {
+    const val = typeof window !== "undefined" ? localStorage.getItem(k) : null;
+    if (val) return val;
+  }
+  return null;
+}
+
+function getAuthHeaders() {
+  const token = getStoredToken();
+  if (!token) return {};
+  return { Authorization: `Bearer ${token}` };
+}
+
 export default function RecordingsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
   const [recordings, setRecordings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Debounce search
+  // 🔹 Debounce search input
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(searchTerm);
     }, 500);
     return () => clearTimeout(handler);
   }, [searchTerm]);
- const token = localStorage.getItem("token"); // get token once
 
-  // Fetch recordings with token auth
+  // 🔹 Fetch recordings with Authorization header
   const fetchRecordings = async () => {
     try {
       setLoading(true);
+      const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+      const url = `${base}/recordings`;
 
-      const url = `${process.env.NEXT_PUBLIC_API_URL}/recordings`;
       const params: Record<string, string> = {};
-      if (debouncedSearch.trim()) {
-        params["search"] = debouncedSearch.trim();
-      }
+      if (debouncedSearch.trim()) params["search"] = debouncedSearch.trim();
 
-      const res = await axios.get(url, {
-        headers: {
-          Authorization: `Bearer ${token}`, // pass token
-        },
-        params, // query parameters
-      });
+      const headers = { ...getAuthHeaders(), "Content-Type": "application/json" };
 
-      setRecordings(res.data || []);
+      const res = await axios.get(url, { headers, params });
+
+      const data = res.data && Array.isArray(res.data) ? res.data : res.data?.data ?? [];
+      setRecordings(data);
     } catch (err: any) {
-      console.error(err);
-      toast.error(err.response?.data?.message || "Failed to fetch recordings.");
+      console.error("Failed to fetch recordings:", err?.response?.data ?? err?.message ?? err);
+      if (err?.response?.status === 401) {
+        toast.error("Not authorized — please login again.");
+      } else {
+        toast.error(err.response?.data?.message || "Failed to fetch recordings.");
+      }
       setRecordings([]);
     } finally {
       setLoading(false);
@@ -57,73 +74,90 @@ export default function RecordingsPage() {
 
   useEffect(() => {
     fetchRecordings();
-  }, [debouncedSearch, token]);
+  }, [debouncedSearch]);
 
-  // Column definitions
-  const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
-    { field: "id", headerName: "ID", width: 90, pinned: "left" },
-    { field: "batchname", headerName: "Batch Name", width: 200, editable: true },
-    { field: "description", headerName: "Description", width: 300, editable: true },
-    { field: "type", headerName: "Type", width: 140, editable: true, cellEditor: "agTextCellEditor"},
-    { field: "subject", headerName: "Subject", width: 180, editable: true },
-    { field: "filename", headerName: "File Name", width: 180, editable: true },
-    {
-      field: "link",
-      headerName: "Link",
-      width: 250,
-      cellRenderer: (params: any) => {
-        if (!params.value) return "";
-        return (
-          <a
-            href={params.value}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 underline hover:text-blue-800"
-          >
-            Link
-          </a>
-        );
+  /* 🔹 Column definitions for AG Grid */
+  const columnDefs: ColDef[] = useMemo<ColDef[]>(
+    () => [
+      { field: "id", headerName: "ID", width: 90, pinned: "left" },
+      { field: "batchname", headerName: "Batch Name", width: 200, editable: true },
+      { field: "description", headerName: "Description", width: 300, editable: true },
+      { field: "type", headerName: "Type", width: 140, editable: true, cellEditor: "agTextCellEditor" },
+      { field: "subject", headerName: "Subject", width: 180, editable: true },
+      { field: "filename", headerName: "File Name", width: 180, editable: true },
+      {
+        field: "link",
+        headerName: "Link",
+        width: 250,
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          return (
+            <a
+              href={params.value}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 underline hover:text-blue-800"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Open
+            </a>
+          );
+        },
       },
-    },
-    { field: "videoid", headerName: "Video ID", width: 160, editable: true },
-    {
-      field: "classdate",
-      headerName: "Class Date",
-      width: 180,
-      valueFormatter: (params) =>
-        params.value ? new Date(params.value).toLocaleDateString() : ""
-    },
-  ], []);
+      { field: "videoid", headerName: "Video ID", width: 160, editable: true },
+      {
+        field: "classdate",
+        headerName: "Class Date",
+        width: 180,
+        valueFormatter: (params) => (params.value ? new Date(params.value).toLocaleDateString() : ""),
+      },
+    ],
+    []
+  );
 
-  // PUT request on row update
+  /* 🔹 PUT request on row update */
   const handleRowUpdated = async (updatedRow: any) => {
     try {
-      await axios.put(`${process.env.NEXT_PUBLIC_API_URL}/recordings/${updatedRow.id}`, updatedRow);
+      const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+      const url = `${base}/recordings/${updatedRow.id}`;
+      const headers = { ...getAuthHeaders(), "Content-Type": "application/json" };
 
-      setRecordings((prev) =>
-        prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
-      );
+      await axios.put(url, updatedRow, { headers });
 
+      setRecordings((prev) => prev.map((r) => (r.id === updatedRow.id ? { ...r, ...updatedRow } : r)));
       toast.success("Recording updated successfully.");
     } catch (err: any) {
-      console.error("Failed to update recording:", err);
-      toast.error("Failed to update recording.");
+      console.error("Failed to update recording:", err?.response?.data ?? err?.message ?? err);
+      if (err?.response?.status === 401) {
+        toast.error("Not authorized — please login again.");
+      } else {
+        toast.error("Failed to update recording.");
+      }
     }
   };
 
-  // DELETE request on row deletion
+  /* 🔹 DELETE request on row deletion */
   const handleRowDeleted = async (id: number | string) => {
     try {
-      await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/recordings/${id}`);
+      const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+      const url = `${base}/recordings/${id}`;
+      const headers = { ...getAuthHeaders(), "Content-Type": "application/json" };
 
-      setRecordings((prev) => prev.filter((row) => row.id !== id));
+      await axios.delete(url, { headers });
+
+      setRecordings((prev) => prev.filter((r) => r.id !== id));
       toast.success(`Recording ${id} deleted.`);
     } catch (err: any) {
-      console.error("Failed to delete recording:", err);
-      toast.error("Failed to delete recording.");
+      console.error("Failed to delete recording:", err?.response?.data ?? err?.message ?? err);
+      if (err?.response?.status === 401) {
+        toast.error("Not authorized — please login again.");
+      } else {
+        toast.error("Failed to delete recording.");
+      }
     }
   };
 
+  /* 🔹 UI render */
   return (
     <div className="space-y-6">
       <Toaster position="top-center" richColors />
@@ -131,12 +165,8 @@ export default function RecordingsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Class Recordings
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Manage class recordings
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Class Recordings</h1>
+          <p className="text-gray-600 dark:text-gray-400">Manage class recordings</p>
         </div>
         <Button className="bg-whitebox-600 hover:bg-whitebox-700 text-white">
           <PlusIcon className="h-4 w-4 mr-2" />
@@ -162,7 +192,7 @@ export default function RecordingsPage() {
         </div>
       </div>
 
-      {/* AG Grid Table */}
+      {/* Table */}
       {loading ? (
         <p className="text-center mt-8">Loading...</p>
       ) : recordings.length === 0 ? (
@@ -181,5 +211,3 @@ export default function RecordingsPage() {
     </div>
   );
 }
-
-

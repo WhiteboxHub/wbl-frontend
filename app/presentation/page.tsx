@@ -5,7 +5,6 @@ import { isAuthenticated } from "@/utils/auth";
 import Layout from "@/components/Common/Layout";
 import ResourcesTable from "@/components/Common/resourcesTable";
 import CourseNavigation from "@/components/Common/CourseNavigation";
-import Assignments from "@/components/Common/Assignments";
 
 type ComponentType =
   | "Presentations"
@@ -108,15 +107,10 @@ export default function Presentation() {
             </div>
           </div>
           <div className="mt-10 flex justify-center sm:-mt-10 sm:w-4/5">
-            {activeComponent === "Assignments" ? (
-              <Assignments course={course} />
-            ) : (
-              <ResourcesTable course={course} type={activeComponent} />
-            )}
+            <ResourcesTable course={course} type={activeComponent} />
           </div>
         </section>
       </main>
     </div>
   );
 }
-
