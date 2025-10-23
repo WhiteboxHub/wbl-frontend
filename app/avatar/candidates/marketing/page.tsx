@@ -275,7 +275,7 @@ useEffect(() => {
         href={`/avatar/candidates/search?candidateId=${candidateId}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
+        className="text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer"
       >
         {candidateName}
       </Link>
@@ -285,6 +285,7 @@ useEffect(() => {
   // ---------------- Column Defs ----------------
   const columnDefs: ColDef[] = useMemo(
     () => [
+      { field: "id", headerName: "ID", pinned: "left", width: 80 },
       {
         field: "candidate_name",
         headerName: "Full Name",
@@ -327,6 +328,12 @@ useEffect(() => {
         headerName: "Instructor 3",
         width: 190,
         editable: false,
+      },
+      {
+        field: "resume_url",
+        headerName: "Resume",
+        width: 200,
+        cellRenderer: ResumeRenderer,
       },
       {
         field: "marketing_manager_obj",
@@ -387,12 +394,6 @@ useEffect(() => {
             />
           );
         },
-      },
-      {
-        field: "resume_url",
-        headerName: "Resume",
-        width: 200,
-        cellRenderer: ResumeRenderer,
       },
     ],
     [selectedStatuses]

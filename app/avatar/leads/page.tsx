@@ -162,10 +162,12 @@ const StatusFilterHeaderComponent = (props: any) => {
   const { selectedStatuses, setSelectedStatuses } = props;
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({
-    top: 0,
-    left: 0,
-  });
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>(
+    {
+      top: 0,
+      left: 0,
+    }
+  );
   const [filterVisible, setFilterVisible] = useState(false);
 
   const toggleFilter = (e: React.MouseEvent) => {
@@ -300,10 +302,12 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
   const { selectedWorkStatuses, setSelectedWorkStatuses } = props;
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({
-    top: 0,
-    left: 0,
-  });
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>(
+    {
+      top: 0,
+      left: 0,
+    }
+  );
   const [filterVisible, setFilterVisible] = useState(false);
 
   const toggleFilter = (e: React.MouseEvent) => {
@@ -458,6 +462,7 @@ export default function LeadsPage() {
 
   const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+
   const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -468,6 +473,7 @@ export default function LeadsPage() {
   const cache = useSimpleCache();
   const rateLimiter = useRateLimiter();
   const callCountRef = useRef(0);
+
 
 
   const {
@@ -693,6 +699,52 @@ export default function LeadsPage() {
     };
   }, []);
 
+  // Add this useEffect for drag functionality
+  useEffect(() => {
+    if (!isModalOpen) return; // Only initialize when modal is open
+
+    const textarea = document.querySelector(
+      'textarea[name="notes"]'
+    ) as HTMLTextAreaElement;
+    const dragHandle = document.querySelector(".drag-handle") as HTMLElement;
+
+    if (!textarea || !dragHandle) return;
+
+    let isResizing = false;
+    let startY = 0;
+    let startHeight = 0;
+
+    const startResize = (e: MouseEvent) => {
+      isResizing = true;
+      startY = e.clientY;
+      startHeight = parseInt(
+        document.defaultView?.getComputedStyle(textarea).height || "0",
+        10
+      );
+      e.preventDefault();
+    };
+
+    const resize = (e: MouseEvent) => {
+      if (!isResizing) return;
+      const deltaY = e.clientY - startY;
+      textarea.style.height = `${Math.max(80, startHeight + deltaY)}px`; // Minimum height 80px
+    };
+
+    const stopResize = () => {
+      isResizing = false;
+    };
+
+    dragHandle.addEventListener("mousedown", startResize);
+    document.addEventListener("mousemove", resize);
+    document.addEventListener("mouseup", stopResize);
+
+    return () => {
+      dragHandle.removeEventListener("mousedown", startResize);
+      document.removeEventListener("mousemove", resize);
+      document.removeEventListener("mouseup", stopResize);
+    };
+  }, [isModalOpen]); // Re-initialize when modal opens
+
   const detectSearchBy = (search: string) => {
     if (/^\d+$/.test(search)) return "id";
     if (/^\S+@\S+\.\S+$/.test(search)) return "email";
@@ -904,7 +956,7 @@ export default function LeadsPage() {
         const { id, entry_date, ...payload } = updatedRow;
         if (payload.moved_to_candidate && payload.status !== "Closed") {
           payload.status = "Closed";
-          payload.closed_date = new Date().toISOString().split('T')[0];
+          payload.closed_date = new Date().toISOString().split("T")[0];
         } else if (!payload.moved_to_candidate && payload.status === "Closed") {
           payload.status = "Open";
           payload.closed_date = null;
@@ -922,8 +974,10 @@ export default function LeadsPage() {
         });
         if (!response.ok) throw new Error("Failed to update lead");
         const updatedLead = await response.json();
-        setLeads(prevLeads =>
-          prevLeads.map(lead => (lead.id === updatedLead.id ? updatedLead : lead))
+        setLeads((prevLeads) =>
+          prevLeads.map((lead) =>
+            lead.id === updatedLead.id ? updatedLead : lead
+          )
         );
         toast.success("Lead updated successfully");
       } catch (error) {
@@ -948,7 +1002,7 @@ export default function LeadsPage() {
           },
         });
         if (!response.ok) throw new Error("Failed to delete lead");
-        setLeads(prevLeads => prevLeads.filter(lead => lead.id !== id));
+        setLeads((prevLeads) => prevLeads.filter((lead) => lead.id !== id));
         toast.success("Lead deleted successfully");
       } catch (error) {
         toast.error("Failed to delete lead");
@@ -1453,15 +1507,29 @@ export default function LeadsPage() {
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                   </div>
+                  {/* Updated Notes section with drag functionality */}
                   <div className="space-y-1 sm:col-span-2">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Notes
                     </label>
-                    <textarea
-                      {...register("notes")}
-                      placeholder="Enter notes..."
-                      className="w-full resize-none rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                    />
+                    <div className="relative">
+                      <textarea
+                        {...register("notes")}
+                        placeholder="Enter notes..."
+                        className="w-full resize-none rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                        style={{ minHeight: "60px" }}
+                      />
+                      {/* Drag handle in bottom-right corner */}
+                      <div
+                        className="drag-handle absolute bottom-1 right-1 cursor-nwse-resize p-1 text-gray-400 transition-colors hover:text-gray-600"
+                        title="Drag to resize"
+                        style={{ pointerEvents: "auto" }}
+                      >
+                        <div className="flex h-5 w-5 items-center justify-center text-lg font-bold">
+                          ↖
+                        </div>
+                      </div>
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 gap-2 pt-1 sm:col-span-2 sm:grid-cols-3">
                     <label className="flex items-center space-x-2">

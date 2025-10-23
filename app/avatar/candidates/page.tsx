@@ -1,3 +1,4 @@
+
 "use client";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
@@ -119,8 +120,7 @@ const StatusRenderer = ({ value }: { value?: string }) => {
   const variantMap: Record<string, string> = {
     active:
       "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-    inactive:
-      "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+    inactive: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
     discontinued:
       "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
     break: "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
@@ -167,7 +167,7 @@ const CandidateNameRenderer = (params: any) => {
       href={`/avatar/candidates/search?candidateId=${candidateId}`}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-black-600 cursor-pointer font-medium hover:text-blue-800"
+      className="text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer"
     >
       {candidateName}
     </Link>
@@ -204,10 +204,12 @@ const FilterHeaderComponent = ({
   };
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({
-    top: 0,
-    left: 0,
-  });
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>(
+    {
+      top: 0,
+      left: 0,
+    }
+  );
   const [filterVisible, setFilterVisible] = useState(false);
 
   const toggleFilter = (e: React.MouseEvent) => {
@@ -395,7 +397,9 @@ export default function CandidatesPage() {
   const [mlBatches, setMlBatches] = useState<Batch[]>([]);
   const [batchesLoading, setBatchesLoading] = useState(true);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-  const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
+  const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>(
+    []
+  );
   const [selectedBatches, setSelectedBatches] = useState<Batch[]>([]);
   const apiEndpoint = useMemo(
     () => `${process.env.NEXT_PUBLIC_API_URL}/candidates`,
@@ -928,7 +932,7 @@ export default function CandidatesPage() {
           mlBatchesOnly.length > 0 &&
           mlBatchesOnly[0]?.batchid
         ) {
-          setValue('batchid', mlBatchesOnly[0].batchid);
+          setValue("batchid", mlBatchesOnly[0].batchid);
         }
       } catch (error) {
         console.error("Failed to load batches:", error);
@@ -1003,14 +1007,20 @@ export default function CandidatesPage() {
   };
 
   const onSubmit = async (data: FormData) => {
-    if (!data.full_name.trim() || !data.email.trim() || !data.phone.trim() || !data.dob) {
+    if (
+      !data.full_name.trim() ||
+      !data.email.trim() ||
+      !data.phone.trim() ||
+      !data.dob
+    ) {
       toast.error("Full Name, Email, Phone, and Date of Birth are required");
       return;
     }
     try {
       const payload = {
         ...data,
-        enrolled_date: data.enrolled_date || new Date().toISOString().split("T")[0],
+        enrolled_date:
+          data.enrolled_date || new Date().toISOString().split("T")[0],
         status: data.status || "active",
         workstatus: data.workstatus || "Waiting for Status",
         agreement: data.agreement || "N",
@@ -1020,7 +1030,7 @@ export default function CandidatesPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
         body: JSON.stringify(payload),
       });
@@ -1029,17 +1039,24 @@ export default function CandidatesPage() {
         throw new Error(errorData.message || "Failed to create candidate");
       }
       const newCandidate = await response.json();
-      const updated = [...candidates, newCandidate].sort((a, b) =>
-        new Date(b.enrolled_date || 0).getTime() - new Date(a.enrolled_date || 0).getTime()
+      const updated = [...candidates, newCandidate].sort(
+        (a, b) =>
+          new Date(b.enrolled_date || 0).getTime() -
+          new Date(a.enrolled_date || 0).getTime()
       );
       setCandidates(updated);
       setFilteredCandidates(updated);
-      toast.success(`Candidate created successfully with ID: ${newCandidate.id}`, { position: "top-center" });
+      toast.success(
+        `Candidate created successfully with ID: ${newCandidate.id}`,
+        { position: "top-center" }
+      );
       setIsModalOpen(false);
       reset();
       router.push("/avatar/candidates");
     } catch (error) {
-      toast.error("Failed to create candidate: " + (error as Error).message, { position: "top-center" });
+      toast.error("Failed to create candidate: " + (error as Error).message, {
+        position: "top-center",
+      });
       console.error("Error creating candidate:", error);
     }
   };
@@ -1049,7 +1066,7 @@ export default function CandidatesPage() {
     setIsModalOpen(true);
     if (mlBatches.length > 0) {
       const latestBatch = mlBatches[0];
-      setValue('batchid', latestBatch?.batchid);
+      setValue("batchid", latestBatch?.batchid);
     }
   };
 
@@ -1075,7 +1092,9 @@ export default function CandidatesPage() {
         if (!response.ok) throw new Error("Failed to update candidate");
         setCandidates((prevCandidates) =>
           prevCandidates.map((candidate) =>
-            candidate.id === updatedRow.id ? { ...candidate, ...payload } : candidate
+            candidate.id === updatedRow.id
+              ? { ...candidate, ...payload }
+              : candidate
           )
         );
         if (gridRef.current) {
@@ -1095,12 +1114,62 @@ export default function CandidatesPage() {
     [apiEndpoint]
   );
 
+  // Add this useEffect with your other useEffect hooks
+  useEffect(() => {
+    if (!isModalOpen) return; // Only initialize when modal is open
+
+    const textarea = document.querySelector(
+      'textarea[name="notes"]'
+    ) as HTMLTextAreaElement;
+    const dragHandle = document.querySelector(".drag-handle") as HTMLElement;
+
+    if (!textarea || !dragHandle) return;
+
+    let isResizing = false;
+    let startY = 0;
+    let startHeight = 0;
+
+    const startResize = (e: MouseEvent) => {
+      isResizing = true;
+      startY = e.clientY;
+      startHeight = parseInt(
+        document.defaultView?.getComputedStyle(textarea).height || "0",
+        10
+      );
+      e.preventDefault();
+    };
+
+    const resize = (e: MouseEvent) => {
+      if (!isResizing) return;
+      const deltaY = e.clientY - startY;
+      textarea.style.height = `${Math.max(60, startHeight + deltaY)}px`; // Minimum height 60px
+    };
+
+    const stopResize = () => {
+      isResizing = false;
+    };
+
+    dragHandle.addEventListener("mousedown", startResize);
+    document.addEventListener("mousemove", resize);
+    document.addEventListener("mouseup", stopResize);
+
+    return () => {
+      dragHandle.removeEventListener("mousedown", startResize);
+      document.removeEventListener("mousemove", resize);
+      document.removeEventListener("mouseup", stopResize);
+    };
+  }, [isModalOpen]); // Re-initialize when modal opens
+
   const handleRowDeleted = useCallback(
     async (id: number) => {
       try {
-        const response = await fetch(`${apiEndpoint}/${id}`, { method: "DELETE" });
+        const response = await fetch(`${apiEndpoint}/${id}`, {
+          method: "DELETE",
+        });
         if (!response.ok) throw new Error("Failed to delete candidate");
-        setCandidates((prevCandidates) => prevCandidates.filter((candidate) => candidate.id !== id));
+        setCandidates((prevCandidates) =>
+          prevCandidates.filter((candidate) => candidate.id !== id)
+        );
         if (gridRef.current) {
           gridRef.current.api.applyTransaction({ remove: [{ id }] });
         }
@@ -1179,8 +1248,8 @@ export default function CandidatesPage() {
           <p className="text-gray-600 dark:text-gray-400">
             All Candidates ({candidates.length})
             {selectedStatuses.length > 0 ||
-              selectedWorkStatuses.length > 0 ||
-              selectedBatches.length > 0 ? (
+            selectedWorkStatuses.length > 0 ||
+            selectedBatches.length > 0 ? (
               <span className="ml-2 text-blue-600 dark:text-blue-400">
                 - Filtered ({filteredCandidates.length} shown)
               </span>
@@ -1250,24 +1319,24 @@ export default function CandidatesPage() {
         />
       </div>
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center p-2 sm:p-4 z-50">
-          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-6xl">
-            <div className="sticky top-0 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 sm:px-4 md:px-6 py-2 sm:py-2 border-b border-blue-200 flex justify-between items-center">
-              <h2 className="text-sm sm:text-base md:text-lg font-semibold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 p-2 sm:p-4">
+          <div className="w-full max-w-6xl rounded-xl bg-white shadow-2xl sm:rounded-2xl">
+            <div className="sticky top-0 flex items-center justify-between border-b border-blue-200 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 py-2 sm:px-4 sm:py-2 md:px-6">
+              <h2 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-sm font-semibold text-transparent sm:text-base md:text-lg">
                 Add New Candidate
               </h2>
               <button
                 onClick={handleCloseModal}
-                className="text-blue-400 hover:text-blue-600 hover:bg-blue-100 p-1 rounded-lg transition"
+                className="rounded-lg p-1 text-blue-400 transition hover:bg-blue-100 hover:text-blue-600"
               >
-                <X size={16} className="sm:w-5 sm:h-5" />
+                <X size={16} className="sm:h-5 sm:w-5" />
               </button>
             </div>
-            <div className="p-3 sm:p-4 md:p-6 bg-white">
+            <div className="bg-white p-3 sm:p-4 md:p-6">
               <form onSubmit={handleSubmit(onSubmit)}>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2">
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-4">
                   <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Full Name <span className="text-red-700">*</span>
                     </label>
                     <input
@@ -1276,18 +1345,20 @@ export default function CandidatesPage() {
                         required: "Full name is required",
                         maxLength: {
                           value: 100,
-                          message: "Full name cannot exceed 100 characters"
-                        }
+                          message: "Full name cannot exceed 100 characters",
+                        },
                       })}
                       placeholder="Enter full name"
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                     {errors.full_name && (
-                      <p className="text-red-600 text-xs mt-1">{errors.full_name.message}</p>
+                      <p className="mt-1 text-xs text-red-600">
+                        {errors.full_name.message}
+                      </p>
                     )}
                   </div>
                   <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Email <span className="text-red-700">*</span>
                     </label>
                     <input
@@ -1296,18 +1367,20 @@ export default function CandidatesPage() {
                         required: "Email is required",
                         pattern: {
                           value: /^\S+@\S+\.\S+$/,
-                          message: "Invalid email address"
-                        }
+                          message: "Invalid email address",
+                        },
                       })}
                       placeholder="Enter email"
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                     {errors.email && (
-                      <p className="text-red-600 text-xs mt-1">{errors.email.message}</p>
+                      <p className="mt-1 text-xs text-red-600">
+                        {errors.email.message}
+                      </p>
                     )}
                   </div>
                   <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Phone <span className="text-red-700">*</span>
                     </label>
                     <input
@@ -1316,44 +1389,57 @@ export default function CandidatesPage() {
                         required: "Phone is required",
                         pattern: {
                           value: /^\d+$/,
-                          message: "Phone must contain only numbers"
-                        }
+                          message: "Phone must contain only numbers",
+                        },
                       })}
+                      onInput={(e) => {
+                        e.currentTarget.value = e.currentTarget.value.replace(
+                          /[^0-9]/g,
+                          ""
+                        );
+                      }}
                       placeholder="Enter phone number"
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                     {errors.phone && (
-                      <p className="text-red-600 text-xs mt-1">{errors.phone.message}</p>
+                      <p className="mt-1 text-xs text-red-600">
+                        {errors.phone.message}
+                      </p>
                     )}
                   </div>
                   <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Date of Birth <span className="text-red-700">*</span>
                     </label>
                     <input
                       type="date"
                       {...register("dob", {
-                        required: "Date of birth is required"
+                        required: "Date of birth is required",
                       })}
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                     {errors.dob && (
-                      <p className="text-red-600 text-xs mt-1">{errors.dob.message}</p>
+                      <p className="mt-1 text-xs text-red-600">
+                        {errors.dob.message}
+                      </p>
                     )}
                   </div>
                   <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Batch <span className="text-red-700">*</span>
                     </label>
                     {batchesLoading ? (
-                      <p className="text-gray-500 text-xs">Loading batches...</p>
+                      <p className="text-xs text-gray-500">
+                        Loading batches...
+                      </p>
                     ) : (
                       <select
                         {...register("batchid", {
                           required: "Batch is required",
-                          validate: value => value !== 0 || "Please select a batch"
+                          validate: (value) =>
+                            value !== 0 || "Please select a batch",
                         })}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                        className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                       >
                         <option value="0">Select a batch</option>
                         {mlBatches.map((batch) => (
@@ -1364,16 +1450,18 @@ export default function CandidatesPage() {
                       </select>
                     )}
                     {errors.batchid && (
-                      <p className="text-red-600 text-xs mt-1">{errors.batchid.message}</p>
+                      <p className="mt-1 text-xs text-red-600">
+                        {errors.batchid.message}
+                      </p>
                     )}
                   </div>
                   <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Status
                     </label>
                     <select
                       {...register("status")}
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                      className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     >
                       {statusOptions.map((option) => (
                         <option key={option} value={option}>
@@ -1383,12 +1471,12 @@ export default function CandidatesPage() {
                     </select>
                   </div>
                   <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Work Status
                     </label>
                     <select
                       {...register("workstatus")}
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                      className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     >
                       {workStatusOptions.map((option) => (
                         <option key={option} value={option}>
@@ -1398,85 +1486,91 @@ export default function CandidatesPage() {
                     </select>
                   </div>
                   <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Education
                     </label>
                     <input
                       type="text"
                       {...register("education")}
                       placeholder="Enter education"
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                   </div>
                   <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Work Experience
                     </label>
                     <input
                       type="text"
                       {...register("workexperience")}
                       placeholder="Enter work experience"
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                   </div>
                   <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       SSN
                     </label>
                     <input
                       type="password"
                       {...register("ssn")}
                       placeholder="Enter SSN"
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                   </div>
                   <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Agreement
                     </label>
                     <select
                       {...register("agreement")}
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                      className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     >
                       <option value="Y">Yes</option>
                       <option value="N">No</option>
                     </select>
                   </div>
                   <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Secondary Email
                     </label>
                     <input
                       type="email"
                       {...register("secondaryemail")}
                       placeholder="Enter secondary email"
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                   </div>
                   <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Secondary Phone
                     </label>
                     <input
                       type="tel"
                       {...register("secondaryphone")}
+                      onInput={(e) => {
+                        e.currentTarget.value = e.currentTarget.value.replace(
+                          /[^0-9]/g,
+                          ""
+                        );
+                      }}
                       placeholder="Enter secondary phone"
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                   </div>
                   <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       LinkedIn ID
                     </label>
                     <input
                       type="text"
                       {...register("linkedin_id")}
                       placeholder="Enter LinkedIn ID"
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                   </div>
                   <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Fee Paid ($)
                     </label>
                     <input
@@ -1485,115 +1579,139 @@ export default function CandidatesPage() {
                         valueAsNumber: true,
                         min: {
                           value: 0,
-                          message: "Fee paid cannot be negative"
-                        }
+                          message: "Fee paid cannot be negative",
+                        },
                       })}
                       placeholder="0"
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                     {errors.fee_paid && (
-                      <p className="text-red-600 text-xs mt-1">{errors.fee_paid.message}</p>
+                      <p className="mt-1 text-xs text-red-600">
+                        {errors.fee_paid.message}
+                      </p>
                     )}
                   </div>
                   <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Enrolled Date
                     </label>
                     <input
                       type="date"
                       {...register("enrolled_date")}
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                   </div>
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
-                      Emergency Contact Name
-                    </label>
-                    <input
-                      type="text"
-                      {...register("emergcontactname")}
-                      placeholder="Enter emergency contact name"
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
-                    />
+
+                  {/* Emergency Contact Fields in Single Row */}
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-4 lg:col-span-4">
+                    <div className="space-y-1 sm:space-y-1.5">
+                      <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                        Emergency Contact Name
+                      </label>
+                      <input
+                        type="text"
+                        {...register("emergcontactname")}
+                        placeholder="Enter emergency contact name"
+                        className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1 sm:space-y-1.5">
+                      <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                        Emergency Contact Email
+                      </label>
+                      <input
+                        type="email"
+                        {...register("emergcontactemail")}
+                        placeholder="Enter emergency contact email"
+                        className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1 sm:space-y-1.5">
+                      <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                        Emergency Contact Phone
+                      </label>
+                      <input
+                        type="tel"
+                        {...register("emergcontactphone")}
+                        onInput={(e) => {
+                          e.currentTarget.value = e.currentTarget.value.replace(
+                            /[^0-9]/g,
+                            ""
+                          );
+                        }}
+                        placeholder="Enter emergency contact phone"
+                        className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1 sm:space-y-1.5">
+                      <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                        Candidate Folder
+                      </label>
+                      <input
+                        type="text"
+                        {...register("candidate_folder")}
+                        placeholder="Google Drive/Dropbox link"
+                        className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
-                      Emergency Contact Email
-                    </label>
-                    <input
-                      type="email"
-                      {...register("emergcontactemail")}
-                      placeholder="Enter emergency contact email"
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
-                    />
-                  </div>
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
-                      Emergency Contact Phone
-                    </label>
-                    <input
-                      type="tel"
-                      {...register("emergcontactphone")}
-                      placeholder="Enter emergency contact phone"
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
-                    />
-                  </div>
-                  <div className="lg:col-span-2 space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+
+                  <div className="space-y-1 sm:space-y-1.5 lg:col-span-2">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Address
                     </label>
                     <input
                       type="text"
                       {...register("address")}
                       placeholder="Enter address"
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                   </div>
-                  <div className="lg:col-span-2 space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                  <div className="space-y-1 sm:space-y-1.5 lg:col-span-2">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Emergency Contact Address
                     </label>
                     <input
                       type="text"
                       {...register("emergcontactaddrs")}
                       placeholder="Enter emergency contact address"
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                   </div>
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
-                      Candidate Folder
-                    </label>
-                    <input
-                      type="text"
-                      {...register("candidate_folder")}
-                      placeholder="Google Drive/Dropbox link"
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
-                    />
-                  </div>
-                  <div className="lg:col-span-2 space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                  <div className="space-y-1 sm:space-y-1.5 lg:col-span-4">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Notes
                     </label>
-                    <textarea
-                      {...register("notes")}
-                      placeholder="Enter notes..."
-                      rows={1}
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm resize-none"
-                    />
+                    <div className="relative">
+                      <textarea
+                        {...register("notes")}
+                        placeholder="Enter notes..."
+                        className="min-h-[60px] w-full resize-none rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                      />
+                      {/* Drag handle in bottom-right corner */}
+                      <div
+                        className="drag-handle absolute bottom-1 right-1 cursor-nwse-resize p-1 text-gray-400 transition-colors hover:text-gray-600"
+                        title="Drag to resize"
+                        style={{ pointerEvents: "auto" }}
+                      >
+                        <div className="flex h-5 w-5 items-center justify-center text-lg font-bold">
+                          ↖
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="flex justify-end gap-2 sm:gap-3 mt-3 sm:mt-4 md:mt-6 pt-2 sm:pt-3 md:pt-4 border-t border-blue-200">
+                <div className="mt-3 flex justify-end gap-2 border-t border-blue-200 pt-2 sm:mt-4 sm:gap-3 sm:pt-3 md:mt-6 md:pt-4">
                   <button
                     type="button"
                     onClick={handleCloseModal}
-                    className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-blue-700 border border-blue-300 rounded-lg hover:bg-blue-50 transition"
+                    className="rounded-lg border border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-700 transition hover:bg-blue-50 sm:px-4 sm:py-2 sm:text-sm"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-3 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg hover:from-cyan-600 hover:to-blue-600 transition shadow-md"
+                    className="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 px-3 py-1.5 text-xs font-medium text-white shadow-md transition hover:from-cyan-600 hover:to-blue-600 sm:px-5 sm:py-2 sm:text-sm"
                   >
                     Save Candidate
                   </button>
