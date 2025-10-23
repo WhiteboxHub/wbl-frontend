@@ -330,6 +330,12 @@ useEffect(() => {
         editable: false,
       },
       {
+        field: "resume_url",
+        headerName: "Resume",
+        width: 200,
+        cellRenderer: ResumeRenderer,
+      },
+      {
         field: "marketing_manager_obj",
         headerName: "Marketing Manager",
         width: 150,
@@ -388,12 +394,6 @@ useEffect(() => {
             />
           );
         },
-      },
-      {
-        field: "resume_url",
-        headerName: "Resume",
-        width: 200,
-        cellRenderer: ResumeRenderer,
       },
     ],
     [selectedStatuses]
