@@ -282,6 +282,22 @@ export default function CourseMaterialPage() {
     }
   };
 
+  // Add this useEffect after your existing useEffects
+useEffect(() => {
+  const handleEscKey = (event: KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      setIsModalOpen(false);
+    }
+  };
+
+  if (isModalOpen) {
+    document.addEventListener('keydown', handleEscKey);
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }
+}, [isModalOpen]);
+
   // Update material
   const handleRowUpdated = async (updatedRow: any) => {
     try {

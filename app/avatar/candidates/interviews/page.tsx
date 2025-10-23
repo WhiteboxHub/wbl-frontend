@@ -124,7 +124,7 @@ const FilterHeaderComponent = ({
 
 // Mode Renderer
 const ModeRenderer = (params: any) => {
-  const value = params.value?.toLowerCase();
+  const value = (params.value || "").toString().toLowerCase();
   let badgeClass = "bg-gray-100 text-gray-800";
   if (value === "virtual") {
     badgeClass = "bg-blue-100 text-blue-800";
@@ -134,53 +134,54 @@ const ModeRenderer = (params: any) => {
     badgeClass = "bg-yellow-100 text-yellow-800";
   } else if (value === "assessment") {
     badgeClass = "bg-purple-100 text-purple-800";
+  } else if (value === "ai interview") {
+    badgeClass = "bg-indigo-50 text-indigo-800";
   }
   return <Badge className={badgeClass}>{params.value}</Badge>;
 };
 
 // Type Renderer
 const TypeRenderer = (params: any) => {
-  const value = params.value?.toLowerCase();
+  const value = (params.value || "").toString().toLowerCase();
   let badgeClass = "bg-gray-100 text-gray-800";
   if (value === "technical") {
     badgeClass = "bg-indigo-100 text-indigo-800";
-  } else if (value === "hr round") {
+  } else if (value === "hr") {
     badgeClass = "bg-pink-100 text-pink-800";
-  } else if (value === "phone") {
-    badgeClass = "bg-yellow-100 text-yellow-800";
-  } else if (value === "in person") {
-    badgeClass = "bg-green-100 text-green-800";
-  } else if (value === "assessment") {
-    badgeClass = "bg-purple-100 text-purple-800";
   } else if (value === "recruiter call") {
     badgeClass = "bg-cyan-100 text-cyan-800";
   } else if (value === "prep call") {
     badgeClass = "bg-teal-100 text-teal-800";
+  } else if (value === "assessment") {
+    badgeClass = "bg-purple-100 text-purple-800";
   }
   return <Badge className={badgeClass}>{params.value}</Badge>;
 };
 
 // Company Type Renderer
 const CompanyTypeRenderer = (params: any) => {
-  const value = params.value?.toLowerCase();
+  const value = params.value || "";
+  const valueLower = value.toLowerCase(); // for badge color logic
+
   let badgeClass = "bg-gray-100 text-gray-800";
-  if (value === "client") {
-    badgeClass = "bg-blue-100 text-blue-800";
-  } else if (value === "third-party-vendor") {
-    badgeClass = "bg-orange-100 text-orange-800";
-  } else if (value === "implementation-partner") {
-    badgeClass = "bg-green-100 text-green-800";
-  } else if (value === "sourcer") {
-    badgeClass = "bg-red-100 text-red-800";
-  } else if (value === "contact-from-ip") {
-    badgeClass = "bg-purple-100 text-purple-800";
-  }
-  return <Badge className={badgeClass}>{params.value}</Badge>;
+  if (valueLower === "client") badgeClass = "bg-blue-100 text-blue-800";
+  else if (valueLower === "third-party-vendor") badgeClass = "bg-orange-100 text-orange-800";
+  else if (valueLower === "implementation-partner") badgeClass = "bg-green-100 text-green-800";
+  else if (valueLower === "sourcer") badgeClass = "bg-red-100 text-red-800";
+
+  // Display text with first letters capitalized
+  const displayText = value
+    .split(/[- ]/)
+    .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+
+  return <Badge className={badgeClass}>{displayText}</Badge>;
 };
+
 
 // Status Renderer
 const StatusRenderer = (params: any) => {
-  const v = params.value?.toLowerCase() ?? "";
+  const v = (params.value || "").toString().toLowerCase();
   const classes =
     v === "cleared"
       ? "bg-green-100 text-green-800"
@@ -192,8 +193,8 @@ const StatusRenderer = (params: any) => {
 
 // Feedback Renderer
 const FeedbackRenderer = (params: any) => {
-  const value = params.value?.toLowerCase() ?? "";
-  if (!value || value === "no response")
+  const value = (params.value || "").toString().toLowerCase();
+  if (!value || value === "no response" || value === "pending")
     return <Badge className="bg-gray-100 text-gray-800">Pending</Badge>;
   if (value === "positive")
     return <Badge className="bg-green-300 text-green-800">Positive</Badge>;
@@ -256,30 +257,38 @@ const CandidateNameRenderer = (params: any) => {
 // Form Data Type
 type InterviewFormData = {
   candidate_id: string;
-  candidate_name: string;
+  candidate_name?: string;
   company: string;
-  company_type: string;
-  interviewer_emails: string;
-  interviewer_contact: string;
-  interviewer_linkedin: string;
-  interview_date: string;
-  mode_of_interview: string;
-  type_of_interview: string;
-  notes: string;
+  company_type?: string;
+  interviewer_emails?: string;
+  interviewer_contact?: string;
+  interviewer_linkedin?: string;
+  interview_date?: string;
+  mode_of_interview?: string;
+  type_of_interview?: string;
+  notes?: string;
+  recording_link?: string;
+  backup_recording_url?: string;
+  job_posting_url?: string;
+  feedback?: string;
 };
 
 const initialFormData: InterviewFormData = {
   candidate_id: "",
   candidate_name: "",
   company: "",
-  company_type: "",
+  company_type: "client",
   interviewer_emails: "",
   interviewer_contact: "",
   interviewer_linkedin: "",
   interview_date: "",
-  mode_of_interview: "",
-  type_of_interview: "",
+  mode_of_interview: "Virtual",
+  type_of_interview: "Recruiter Call",
   notes: "",
+  recording_link: "",
+  backup_recording_url: "",
+  job_posting_url: "",
+  feedback: "Pending",
 };
 
 export default function CandidatesInterviews() {
@@ -294,6 +303,7 @@ export default function CandidatesInterviews() {
   const [candidates, setCandidates] = useState<any[]>([]);
   const [selectedModes, setSelectedModes] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [selectedCompanyTypes, setSelectedCompanyTypes] = useState<string[]>([]);
 
   // React Hook Form
   const {
@@ -308,10 +318,11 @@ export default function CandidatesInterviews() {
   });
 
   const modeOfInterviewOptions = [
-    { value: "phone", label: "Phone" },
-    { value: "virtual", label: "Virtual" },
-    { value: "assessment", label: "Assessment" },
-    { value: "in person", label: "In Person" },
+    { value: "Virtual", label: "Virtual" },
+    { value: "In Person", label: "In Person" },
+    { value: "Phone", label: "Phone" },
+    { value: "Assessment", label: "Assessment" },
+    { value: "AI Interview", label: "AI Interview" },
   ];
 
   const companyTypeOptions = [
@@ -319,16 +330,13 @@ export default function CandidatesInterviews() {
     { value: "third-party-vendor", label: "Third Party Vendor" },
     { value: "implementation-partner", label: "Implementation Partner" },
     { value: "sourcer", label: "Sourcer" },
-    { value: "contact-from-ip", label: "Contact from IP" },
   ];
 
   const typeOfInterviewOptions = [
-    { value: "technical", label: "Technical" },
-    { value: "hr round", label: "HR Round" },
-    { value: "recruiter call ", label: "Recruiter Call" },
-    { value: "in person", label: "In Person" },
-    { value: "assessment", label: "Assessment" },
-    { value: "prep call", label: "Prep Call" },
+    { value: "Recruiter Call", label: "Recruiter Call" },
+    { value: "Technical", label: "Technical" },
+    { value: "HR", label: "HR" },
+    { value: "Prep Call", label: "Prep Call" },
   ];
 
   const getAuthHeaders = () => {
@@ -379,16 +387,70 @@ export default function CandidatesInterviews() {
     fetchMarketingCandidates();
   }, [showAddForm]);
 
+  // Add drag resize functionality for notes textarea
+  useEffect(() => {
+    if (!showAddForm) return;
+
+    const textarea = document.querySelector(
+      'textarea[id="notes"]'
+    ) as HTMLTextAreaElement;
+    const dragHandle = document.querySelector(".drag-handle") as HTMLElement;
+
+    if (!textarea || !dragHandle) return;
+
+    let isResizing = false;
+    let startY = 0;
+    let startHeight = 0;
+
+    const startResize = (e: MouseEvent) => {
+      isResizing = true;
+      startY = e.clientY;
+      startHeight = parseInt(
+        document.defaultView?.getComputedStyle(textarea).height || "0",
+        10
+      );
+      e.preventDefault();
+    };
+
+    const resize = (e: MouseEvent) => {
+      if (!isResizing) return;
+      const deltaY = e.clientY - startY;
+      textarea.style.height = `${Math.max(60, startHeight + deltaY)}px`; // Minimum height 60px
+    };
+
+    const stopResize = () => {
+      isResizing = false;
+    };
+
+    dragHandle.addEventListener("mousedown", startResize);
+    document.addEventListener("mousemove", resize);
+    document.addEventListener("mouseup", stopResize);
+
+    return () => {
+      dragHandle.removeEventListener("mousedown", startResize);
+      document.removeEventListener("mousemove", resize);
+      document.removeEventListener("mouseup", stopResize);
+    };
+  }, [showAddForm]); // Re-initialize when modal opens/closes
+
   const filterData = useCallback(() => {
     let filtered = [...interviews];
     if (selectedModes.length > 0) {
-      filtered = filtered.filter((i) =>
-        selectedModes.includes(i.mode_of_interview?.toLowerCase())
+      const lowerSelectedModes = selectedModes.map(v => v.toLowerCase());
+      filtered = filtered.filter(i =>
+        i.mode_of_interview && lowerSelectedModes.includes(i.mode_of_interview.toLowerCase())
       );
     }
+
     if (selectedTypes.length > 0) {
+      const lowerSelectedTypes = selectedTypes.map(v => v.toLowerCase());
+      filtered = filtered.filter(i =>
+        i.type_of_interview && lowerSelectedTypes.includes(i.type_of_interview.toLowerCase())
+      );
+    }
+    if (selectedCompanyTypes.length > 0) {
       filtered = filtered.filter((i) =>
-        selectedTypes.includes(i.type_of_interview?.toLowerCase())
+        selectedCompanyTypes.includes((i.company_type || "").toString().toLowerCase())
       );
     }
     if (searchTerm.trim() !== "") {
@@ -401,7 +463,7 @@ export default function CandidatesInterviews() {
       });
     }
     return filtered;
-  }, [interviews, searchTerm, selectedModes, selectedTypes]);
+  }, [interviews, searchTerm, selectedModes, selectedTypes, selectedCompanyTypes]);
 
   const filteredInterviews = filterData();
 
@@ -447,16 +509,16 @@ export default function CandidatesInterviews() {
         headerComponentParams: {
           columnName: "Company Type",
           options: companyTypeOptions,
-          selectedValues: selectedTypes,
-          setSelectedValues: setSelectedTypes,
+          selectedValues: selectedCompanyTypes,
+          setSelectedValues: setSelectedCompanyTypes,
         },
         cellRenderer: CompanyTypeRenderer,
       },
       { field: "interview_date", headerName: "Date", width: 120, editable: true },
       { field: "recording_link", headerName: "Recording", cellRenderer: LinkRenderer, width: 120, editable: true },
       { field: "transcript", headerName: "Transcript", cellRenderer: LinkRenderer, width: 120, editable: true },
-      { field: "backup_url", headerName: "Backup URL", cellRenderer: LinkRenderer, width: 120, editable: true },
-      { field: "url", headerName: "Job URL", cellRenderer: LinkRenderer, width: 120, editable: true },
+      { field: "backup_recording_url", headerName: "Backup Recording", cellRenderer: LinkRenderer, width: 140, editable: true },
+      { field: "job_posting_url", headerName: "Job Posting URL", cellRenderer: LinkRenderer, width: 140, editable: true },
       { field: "instructor1_name", headerName: "Instructor 1", width: 150 },
       { field: "instructor2_name", headerName: "Instructor 2", width: 150 },
       { field: "instructor3_name", headerName: "Instructor 3", width: 150 },
@@ -483,12 +545,21 @@ export default function CandidatesInterviews() {
       { field: "interviewer_linkedin", headerName: "Linkedin", cellRenderer: LinkRenderer, width: 120, editable: true },
       { field: "notes", headerName: "Notes", width: 200, sortable: true, cellRenderer: (params: any) => params.value ? <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: params.value }} /> : "" },
     ],
-    [selectedModes, selectedTypes]
+    [selectedModes, selectedTypes, selectedCompanyTypes]
   );
 
   const handleRowUpdated = async (updatedRow: any) => {
     try {
       const payload = { ...updatedRow };
+
+      // Ensure we map front-end field names to the expected API fields
+      if (updatedRow.backup_recording_url === undefined && (updatedRow as any).backup_url) {
+        payload.backup_recording_url = (updatedRow as any).backup_url;
+      }
+      if (updatedRow.job_posting_url === undefined && (updatedRow as any).url) {
+        payload.job_posting_url = (updatedRow as any).url;
+      }
+
       if (updatedRow.id) {
         await axios.put(
           `${process.env.NEXT_PUBLIC_API_URL}/interviews/${updatedRow.id}`,
@@ -534,21 +605,30 @@ export default function CandidatesInterviews() {
     }
 
     try {
-      const payload = { 
-        ...data, 
+      const payload: any = {
         candidate_id: Number(data.candidate_id),
+        company: data.company,
+        company_type: data.company_type || null,
         interviewer_emails: data.interviewer_emails || null,
         interviewer_contact: data.interviewer_contact || null,
         interviewer_linkedin: data.interviewer_linkedin || null,
-        notes: data.notes || null
+        interview_date: data.interview_date || null,
+        mode_of_interview: data.mode_of_interview || null,
+        type_of_interview: data.type_of_interview || null,
+        notes: data.notes || null,
+        recording_link: data.recording_link || null,
+        backup_recording_url: data.backup_recording_url || null,
+        job_posting_url: data.job_posting_url || null,
+        feedback: data.feedback || null,
       };
-      
+
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_URL}/interviews`,
         payload,
         { headers: getAuthHeaders() }
       );
-      
+
+      // API may return the created interview as res.data
       setInterviews((prev) => [res.data, ...prev]);
       setShowAddForm(false);
       reset();
@@ -565,7 +645,7 @@ export default function CandidatesInterviews() {
 
   const handleCloseModal = () => {
     setShowAddForm(false);
-    reset();
+    reset(initialFormData);
   };
 
   // Handle candidate selection
@@ -573,7 +653,7 @@ export default function CandidatesInterviews() {
     const selectedCandidate = candidates.find(
       (m) => m.candidate.id.toString() === e.target.value
     );
-    
+
     if (selectedCandidate) {
       setValue("candidate_id", selectedCandidate.candidate.id.toString());
       setValue("candidate_name", selectedCandidate.candidate.full_name);
@@ -640,11 +720,11 @@ export default function CandidatesInterviews() {
           </div>
         </div>
       )}
-      
+
       {/* Add Interview Modal with React Hook Form */}
       {showAddForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4">
-          <div className="w-full max-w-2xl rounded-xl bg-white shadow-2xl dark:bg-gray-800 max-h-[85vh] overflow-y-auto">
+          <div className="w-full max-w-2xl rounded-xl bg-white shadow-2xl dark:bg-gray-800 max-h-[95vh] overflow-y-auto">
             {/* Header */}
             <div className="sticky top-0 flex items-center justify-between border-b border-blue-200 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 py-3">
               <h2 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-lg font-semibold text-transparent">
@@ -696,8 +776,8 @@ export default function CandidatesInterviews() {
                       {...register("company", { 
                         required: "Company is required",
                         maxLength: {
-                          value: 100,
-                          message: "Company name cannot exceed 100 characters"
+                          value: 200,
+                          message: "Company name cannot exceed 200 characters"
                         }
                       })}
                       placeholder="Enter company name"
@@ -723,7 +803,6 @@ export default function CandidatesInterviews() {
                       <option value="third-party-vendor">Third-Party Vendor</option>
                       <option value="implementation-partner">Implementation Partner</option>
                       <option value="sourcer">Sourcer</option>
-                      <option value="contact-from-ip">Contact from IP</option>
                     </select>
                   </div>
 
@@ -755,6 +834,7 @@ export default function CandidatesInterviews() {
                       <option value="In Person">In Person</option>
                       <option value="Phone">Phone</option>
                       <option value="Assessment">Assessment</option>
+                      <option value="AI Interview">AI Interview</option>
                     </select>
                   </div>
 
@@ -769,13 +849,10 @@ export default function CandidatesInterviews() {
                       className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
                     >
                       <option value="">Select Type</option>
-                      <option value="Technical">Technical</option>
                       <option value="Recruiter Call">Recruiter Call</option>
-                      <option value="HR Round">HR Round</option>
-                      <option value="In Person">In Person</option>
-                      <option value="Assessment">Assessment</option>
+                      <option value="Technical">Technical</option>
+                      <option value="HR">HR</option>
                       <option value="Prep Call">Prep Call</option>
-                      <option value="AI Interview">AI Interview</option>
                     </select>
                   </div>
 
@@ -821,18 +898,71 @@ export default function CandidatesInterviews() {
                     />
                   </div>
 
-                  {/* Notes */}
+                  {/* Recording Link */}
+                  <div className="space-y-2">
+                    <Label htmlFor="recording_link" className="text-sm font-bold text-blue-700">
+                      Recording Link
+                    </Label>
+                    <input
+                      type="text"
+                      id="recording_link"
+                      {...register("recording_link")}
+                      placeholder="Enter recording URL"
+                      className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                  </div>
+
+                  {/* Backup Recording URL */}
+                  <div className="space-y-2">
+                    <Label htmlFor="backup_recording_url" className="text-sm font-bold text-blue-700">
+                      Backup Recording URL
+                    </Label>
+                    <input
+                      type="text"
+                      id="backup_recording_url"
+                      {...register("backup_recording_url")}
+                      placeholder="Enter backup recording URL"
+                      className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                  </div>
+
+                  {/* Job Posting URL */}
+                  <div className="space-y-2">
+                    <Label htmlFor="job_posting_url" className="text-sm font-bold text-blue-700">
+                      Job Posting URL
+                    </Label>
+                    <input
+                      type="text"
+                      id="job_posting_url"
+                      {...register("job_posting_url")}
+                      placeholder="Enter job posting URL"
+                      className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    />
+                  </div>
+
+                  {/* Notes with Drag to Resize */}
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="notes" className="text-sm font-bold text-blue-700">
                       Notes
                     </Label>
-                    <textarea
-                      id="notes"
-                      {...register("notes")}
-                      placeholder="Enter notes..."
-                      rows={1}
-                      className="w-full resize-none rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    />
+                    <div className="relative">
+                      <textarea
+                        id="notes"
+                        {...register("notes")}
+                        placeholder="Enter notes..."
+                        className="min-h-[60px] w-full resize-none rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                      {/* Drag handle in bottom-right corner */}
+                      <div
+                        className="drag-handle absolute bottom-1 right-1 cursor-nwse-resize p-1 text-gray-400 transition-colors hover:text-gray-600"
+                        title="Drag to resize"
+                        style={{ pointerEvents: "auto" }}
+                      >
+                        <div className="flex h-5 w-5 items-center justify-center text-lg font-bold">
+                          ↖
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 

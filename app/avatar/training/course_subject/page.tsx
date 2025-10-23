@@ -6,15 +6,8 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { Button } from "@/components/admin_ui/button";
-import { SearchIcon, PlusIcon } from "lucide-react";
+import { SearchIcon, PlusIcon, X } from "lucide-react";
 import axios from "axios";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/admin_ui/dialog";
 import { toast, Toaster } from "sonner";
 
 interface CourseSubject {
@@ -125,6 +118,24 @@ export default function CourseSubjectPage() {
       toast.error("Failed to load courses");
     }
   };
+
+  // Add this useEffect after your existing useEffects
+useEffect(() => {
+  const handleEscKey = (event: KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      setShowModal(false);
+      setSelectedCourseName("");
+      setSelectedSubjectName("");
+    }
+  };
+
+  if (showModal) {
+    document.addEventListener('keydown', handleEscKey);
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }
+}, [showModal]);
 
   const fetchSubjects = async () => {
     try {
@@ -307,7 +318,7 @@ export default function CourseSubjectPage() {
 
   return (
     <div className="space-y-6">
-      <Toaster richColors position="top-center" />
+      <Toaster position="top-center" />
       {/* Header + Search Section (Updated for left-side search on large screens) */}
       <div className="flex flex-col gap-4 sm:flex-col md:flex-row md:items-center md:justify-between">
         {/* Left: Title, Description + Search Box */}
@@ -348,6 +359,102 @@ export default function CourseSubjectPage() {
         </div>
       </div>
 
+      {/* Add Mapping Modal - Updated with same colors */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-sm sm:max-w-md max-h-[95vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 md:py-5 border-b border-blue-200 flex justify-between items-center">
+              <h2 className="text-sm sm:text-base md:text-lg font-semibold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                Add Course-Subject Mapping
+              </h2>
+              <button
+                onClick={() => {
+                  setShowModal(false);
+                  setSelectedCourseName("");
+                  setSelectedSubjectName("");
+                }}
+                className="text-blue-400 hover:text-blue-600 hover:bg-blue-100 p-1 rounded-lg transition"
+              >
+                <X size={16} className="sm:w-5 sm:h-5" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <div className="p-3 sm:p-4 md:p-6 bg-white">
+              <div className="grid grid-cols-1 gap-2.5 sm:gap-3 md:gap-5">
+                
+                {/* Course */}
+                <div className="space-y-1 sm:space-y-1.5">
+                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                    Course <span className="text-red-700">*</span>
+                  </label>
+                  <select
+                    value={selectedCourseName}
+                    onChange={(e) => setSelectedCourseName(e.target.value)}
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                  >
+                    <option value="" disabled hidden>
+                      Select course
+                    </option>
+                    {courses.map((course) => (
+                      <option key={course.id} value={course.name}>
+                        {course.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Subject */}
+                <div className="space-y-1 sm:space-y-1.5">
+                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                    Subject <span className="text-red-700">*</span>
+                  </label>
+                  <select
+                    value={selectedSubjectName}
+                    onChange={(e) => setSelectedSubjectName(e.target.value)}
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                  >
+                    <option value="" disabled hidden>
+                      Select subject
+                    </option>
+                    {subjects.map((subject) => (
+                      <option key={subject.id} value={subject.name}>
+                        {subject.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end gap-2 sm:gap-3 mt-3 sm:mt-4 md:mt-6 pt-2 sm:pt-3 md:pt-4 border-t border-blue-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowModal(false);
+                    setSelectedCourseName("");
+                    setSelectedSubjectName("");
+                  }}
+                  disabled={saving}
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-blue-700 border border-blue-300 rounded-lg hover:bg-blue-50 transition disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddMapping}
+                  disabled={saving || !selectedCourseName || !selectedSubjectName}
+                  className="px-3 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg hover:from-cyan-600 hover:to-blue-600 transition shadow-md disabled:opacity-50"
+                >
+                  {saving ? "Adding..." : "Save"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <AGGridTable
         rowData={filteredCourseSubjects}
         columnDefs={columnDefs}
@@ -356,78 +463,6 @@ export default function CourseSubjectPage() {
         onRowDeleted={handleRowDeleted}
         showSearch={false}
       />
-
-      <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-sm p-4">
-          <DialogHeader>
-            <DialogTitle>Add Course-Subject Mapping</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="course" className="text-sm font-medium">
-                Course <span className="text-red-500">*</span>
-              </Label>
-              <select
-                id="course"
-                value={selectedCourseName}
-                onChange={(e) => setSelectedCourseName(e.target.value)}
-                className="w-full rounded-md border p-2"
-              >
-                <option value="" disabled hidden>
-                  Select course
-                </option>
-
-                {courses.map((course) => (
-                  <option key={course.id} value={course.name}>
-                    {course.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <Label htmlFor="subject" className="text-sm font-medium">
-                Subject <span className="text-red-500">*</span>
-              </Label>
-              <select
-                id="subject"
-                value={selectedSubjectName}
-                onChange={(e) => setSelectedSubjectName(e.target.value)}
-                className="w-full rounded-md border p-2"
-              >
-                <option value="" disabled hidden>
-                  Select subject
-                </option>
-                {subjects.map((subject) => (
-                  <option key={subject.id} value={subject.name}>
-                    {subject.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowModal(false);
-                setSelectedCourseName("");
-                setSelectedSubjectName("");
-              }}
-              disabled={saving}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleAddMapping}
-              disabled={saving || !selectedCourseName || !selectedSubjectName}
-            >
-              {saving ? "Adding..." : "Save"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
