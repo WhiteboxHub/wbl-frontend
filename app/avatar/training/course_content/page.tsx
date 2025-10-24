@@ -6,19 +6,10 @@ import { ColDef } from "ag-grid-community";
 import { AGGridTable } from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon } from "lucide-react";
+import { SearchIcon, X } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { toast, Toaster } from "sonner";
-import axios from "axios";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogTrigger,
-} from "@/components/admin_ui/dialog";
-
+import { apiFetch } from "@/lib/api.js";
 export default function CourseContentPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [contents, setContents] = useState<any[]>([]);
@@ -33,29 +24,20 @@ export default function CourseContentPage() {
     QE: "",
   });
 
-  const token = localStorage.getItem("token"); // get token once
-
   const fetchContents = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/course-contents`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`, // pass token in headers
-          },
-        }
-      );
-
-      const sortedContents = res.data.sort((a: any, b: any) => b.id - a.id);
+      setError("");
+      const res = await apiFetch("/course-contents");
+      const arr = Array.isArray(res) ? res : res?.data ?? [];
+      const sortedContents = (arr || []).slice().sort((a: any, b: any) => b.id - a.id);
 
       setContents(sortedContents);
       setFilteredContents(sortedContents);
-      toast.success("Course Content fetched successfully", {
-        position: "top-center",
-      });
+      toast.success("Course Content fetched successfully", { position: "top-center" });
     } catch (e: any) {
-      setError(e.response?.data?.message || e.message);
+      const msg = e?.body || e?.message || "Failed to fetch Course Content";
+      setError(typeof msg === "string" ? msg : JSON.stringify(msg));
       toast.error("Failed to fetch Course Content", { position: "top-center" });
     } finally {
       setLoading(false);
@@ -65,6 +47,22 @@ export default function CourseContentPage() {
   useEffect(() => {
     fetchContents();
   }, []);
+
+  // Add this useEffect after your existing useEffects
+useEffect(() => {
+  const handleEscKey = (event: KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      setIsModalOpen(false);
+    }
+  };
+
+  if (isModalOpen) {
+    document.addEventListener('keydown', handleEscKey);
+    return () => {
+      document.removeEventListener('keydown', handleEscKey);
+    };
+  }
+}, [isModalOpen]);
 
   // search
   useEffect(() => {
@@ -106,62 +104,49 @@ export default function CourseContentPage() {
 
   // Add
   const handleAddContent = async () => {
+    if (!newContent.AIML.trim()) {
+      toast.error("AIML field is required");
+      return;
+    }
+
     try {
-      const res = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/course-contents`,
-        newContent
-      );
-
-      const updated = [...contents, res.data].sort((a, b) => b.id - a.id);
-
+      const res = await apiFetch("/course-contents", { method: "POST", body: newContent });
+      const created = res && !Array.isArray(res) ? (res.data ?? res) : res;
+      const updated = [...contents, created].slice().sort((a, b) => b.id - a.id);
       setContents(updated);
       setFilteredContents(updated);
-      toast.success("Course Content added successfully", {
-        position: "top-center",
-      });
+      toast.success("Course Content added successfully", { position: "top-center" });
       setIsModalOpen(false);
       setNewContent({ Fundamentals: "", AIML: "", UI: "", QE: "" });
     } catch (e: any) {
-      toast.error(e.response?.data?.message || "Failed to add Course Content", {
-        position: "top-center",
-      });
+      const msg = e?.body || e?.message || "Failed to add Course Content";
+      toast.error(typeof msg === "string" ? msg : JSON.stringify(msg), { position: "top-center" });
     }
   };
 
   // update
   const handleRowUpdated = async (updatedRow: any) => {
     try {
-      await axios.put(
-        `${process.env.NEXT_PUBLIC_API_URL}/course-contents/${updatedRow.id}`,
-        updatedRow
-      );
-      setFilteredContents((prev) =>
-        prev.map((r) => (r.id === updatedRow.id ? updatedRow : r))
-      );
-      toast.success("Course Content updated successfully", {
-        position: "top-center",
-      });
-    } catch (e) {
-      toast.error(
-        e.response?.data?.message || "Failed to update Course Content",
-        { position: "top-center" }
-      );
+      await apiFetch(`/course-contents/${updatedRow.id}`, { method: "PUT", body: updatedRow });
+      setContents((prev) => prev.map((r) => (r.id === updatedRow.id ? updatedRow : r)));
+      setFilteredContents((prev) => prev.map((r) => (r.id === updatedRow.id ? updatedRow : r)));
+      toast.success("Course Content updated successfully", { position: "top-center" });
+    } catch (e: any) {
+      const msg = e?.body || e?.message || "Failed to update Course Content";
+      toast.error(typeof msg === "string" ? msg : JSON.stringify(msg), { position: "top-center" });
     }
   };
 
   // delete
   const handleRowDeleted = async (id: number) => {
     try {
-      await axios.delete(
-        `${process.env.NEXT_PUBLIC_API_URL}/course-contents/${id}`
-      );
+      await apiFetch(`/course-contents/${id}`, { method: "DELETE" });
+      setContents((prev) => prev.filter((row) => row.id !== id));
       setFilteredContents((prev) => prev.filter((row) => row.id !== id));
       toast.success(`Course Content ${id} deleted`, { position: "top-center" });
-    } catch (e) {
-      toast.error(
-        e.response?.data?.message || "Failed to delete Course Content",
-        { position: "top-center" }
-      );
+    } catch (e: any) {
+      const msg = e?.body || e?.message || "Failed to delete Course Content";
+      toast.error(typeof msg === "string" ? msg : JSON.stringify(msg), { position: "top-center" });
     }
   };
 
@@ -169,7 +154,7 @@ export default function CourseContentPage() {
   if (error) return <p className="mt-8 text-center text-red-600">{error}</p>;
 
   return (
-    <div className="space-y-6">
+     <div className="space-y-6">
       <Toaster position="top-center" />
       {/* Header + Search Section - Updated for left-side search */}
       <div className="flex flex-col gap-4 sm:flex-col md:flex-row md:items-center md:justify-between">
@@ -195,80 +180,130 @@ export default function CourseContentPage() {
           </div>
         </div>
 
-        {/* Right: Only Add Button */}
-        <div className="flex items-center">
-          <Button
-            onClick={() => setIsModalOpen(true)}
-          >
+          {/* Add Button */}
+          <Button className="w-full sm:w-auto" onClick={() => setIsModalOpen(true)}>
+
             + Add CourseContent
           </Button>
         </div>
       </div>
 
-      {/* Add Course Content */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add New Course Content</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="Fundamentals">Fundamentals</Label>
-              <Input
-                id="Fundamentals"
-                value={newContent.Fundamentals}
-                maxLength={255}
-                onChange={(e) =>
-                  setNewContent((prev) => ({
-                    ...prev,
-                    Fundamentals: e.target.value,
-                  }))
-                }
-              />
+      {/* Add Course Content Modal - Updated with same colors */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-sm sm:max-w-md md:max-w-2xl max-h-[80vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 md:py-5 border-b border-blue-200 flex justify-between items-center">
+              <h2 className="text-sm sm:text-base md:text-lg font-semibold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                Add Course Content
+              </h2>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-blue-400 hover:text-blue-600 hover:bg-blue-100 p-1 rounded-lg transition"
+              >
+                <X size={16} className="sm:w-5 sm:h-5" />
+              </button>
             </div>
-            <div>
-              <Label htmlFor="AIML">AIML (Required)</Label>
-              <Input
-                id="AIML"
-                value={newContent.AIML}
-                required
-                maxLength={255}
-                onChange={(e) =>
-                  setNewContent((prev) => ({ ...prev, AIML: e.target.value }))
-                }
-              />
-            </div>
-            <div>
-              <Label htmlFor="UI">UI</Label>
-              <Input
-                id="UI"
-                value={newContent.UI}
-                maxLength={255}
-                onChange={(e) =>
-                  setNewContent((prev) => ({ ...prev, UI: e.target.value }))
-                }
-              />
-            </div>
-            <div>
-              <Label htmlFor="QE">QE</Label>
-              <Input
-                id="QE"
-                value={newContent.QE}
-                maxLength={255}
-                onChange={(e) =>
-                  setNewContent((prev) => ({ ...prev, QE: e.target.value }))
-                }
-              />
+
+            {/* Form */}
+            <div className="p-3 sm:p-4 md:p-6 bg-white">
+              <div className="grid grid-cols-1 sm:grid-cols- gap-2.5 sm:gap-3 md:gap-5">
+                
+                {/* Fundamentals */}
+                <div className="space-y-1 sm:space-y-1.5">
+                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                    Fundamentals
+                  </label>
+                  <input
+                    type="text"
+                    value={newContent.Fundamentals}
+                    maxLength={255}
+                    onChange={(e) =>
+                      setNewContent((prev) => ({
+                        ...prev,
+                        Fundamentals: e.target.value,
+                      }))
+                    }
+                    placeholder="Enter fundamentals content"
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                  />
+                </div>
+
+                {/* AIML */}
+                <div className="space-y-1 sm:space-y-1.5">
+                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                    AIML <span className="text-red-700">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newContent.AIML}
+                    required
+                    maxLength={255}
+                    onChange={(e) =>
+                      setNewContent((prev) => ({ ...prev, AIML: e.target.value }))
+                    }
+                    placeholder="Enter AIML content"
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                  />
+                </div>
+
+                {/* UI */}
+                <div className="space-y-1 sm:space-y-1.5">
+                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                    UI
+                  </label>
+                  <input
+                    type="text"
+                    value={newContent.UI}
+                    maxLength={255}
+                    onChange={(e) =>
+                      setNewContent((prev) => ({ ...prev, UI: e.target.value }))
+                    }
+                    placeholder="Enter UI content"
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                  />
+                </div>
+
+                {/* QE */}
+                <div className="space-y-1 sm:space-y-1.5">
+                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                    QE
+                  </label>
+                  <input
+                    type="text"
+                    value={newContent.QE}
+                    maxLength={255}
+                    onChange={(e) =>
+                      setNewContent((prev) => ({ ...prev, QE: e.target.value }))
+                    }
+                    placeholder="Enter QE content"
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
+                  />
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex justify-end gap-2 sm:gap-3 mt-3 sm:mt-4 md:mt-6 pt-2 sm:pt-3 md:pt-4 border-t border-blue-200">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-blue-700 border border-blue-300 rounded-lg hover:bg-blue-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddContent}
+                  className="px-3 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg hover:from-cyan-600 hover:to-blue-600 transition shadow-md"
+                >
+                  Save
+                </button>
+              </div>
+
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAddContent}>Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
 
       <AGGridTable
         rowData={filteredContents}

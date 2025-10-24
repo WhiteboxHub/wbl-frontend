@@ -1,3 +1,4 @@
+// app/avatar/candidates/interviews/page.tsx (or wherever you keep it)
 "use client";
 import Link from "next/link";
 import "@/styles/admin.css";
@@ -9,9 +10,11 @@ import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon, PlusIcon, X } from "lucide-react";
 import { ColDef } from "ag-grid-community";
-import { useMemo, useState, useEffect, useCallback, useRef } from "react";
-import axios from "axios";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { toast, Toaster } from "sonner";
+
+import api from "@/lib/api"; // <-- thin wrapper around your apiFetch (see src/utils/api.ts)
+
 import { createPortal } from "react-dom";
 import { useForm } from "react-hook-form";
 
@@ -247,12 +250,13 @@ const CandidateNameRenderer = (params: any) => {
       href={`/avatar/candidates/search?candidateId=${candidateId}`}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
+      className="text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer"
     >
       {candidateName}
     </Link>
   );
 };
+
 
 // Form Data Type
 type InterviewFormData = {
@@ -299,7 +303,11 @@ export default function CandidatesInterviews() {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(50);
   const [total, setTotal] = useState(0);
+
   const [showAddForm, setShowAddForm] = useState(false);
+
+  // Candidate Marketing state
+
   const [candidates, setCandidates] = useState<any[]>([]);
   const [selectedModes, setSelectedModes] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
@@ -344,48 +352,100 @@ export default function CandidatesInterviews() {
     return { Authorization: `Bearer ${token}` };
   };
 
-  const fetchInterviews = async (page: number, perPage: number) => {
-    try {
+
+  // Fetch interviews (uses api wrapper that delegates to apiFetch)
+  const fetchInterviews = useCallback(
+    async (pageNum: number, perPageNum: number) => {
       setLoading(true);
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/interviews?page=${page}&per_page=${perPage}`,
-        { headers: getAuthHeaders() }
-      );
-      if (!res.ok) throw new Error("Failed to load interviews");
-      const data = await res.json();
-      setInterviews(data.data || data);
-      setTotal(data.total || data.length);
-    } catch (err) {
-      setError("Failed to load interviews.");
-      toast.error("Failed to load interviews.");
-    } finally {
-      setLoading(false);
-    }
-  };
+      setError("");
+      try {
+        // call api.get which returns { data: ... } as implemented in the wrapper
+        const res = await api.get(`/interviews?page=${pageNum}&per_page=${perPageNum}`);
+        const body = res?.data ?? res;
+        const items = Array.isArray(body) ? body : body.data ?? [];
+        setInterviews(items);
+        setTotal(body.total ?? items.length);
+      } catch (err: any) {
+        console.error("Failed to load interviews:", err);
+        setError("Failed to load interviews.");
+        toast.error("Failed to load interviews.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     fetchInterviews(page, perPage);
-  }, [page, perPage]);
+  }, [fetchInterviews, page, perPage]);
 
+  // When add form opens, fetch candidate marketing list
   useEffect(() => {
     if (!showAddForm) return;
-    const fetchMarketingCandidates = async () => {
+    let mounted = true;
+    (async () => {
       try {
-        const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing?page=1&limit=200`,
-          { headers: getAuthHeaders() }
-        );
-        const activeCandidates = res.data?.data?.filter(
-          (m: any) => m.status === "active" && m.candidate
-        );
+        const res = await api.get("/candidate/marketing?page=1&limit=200");
+        const body = res?.data ?? res;
+        const arr = Array.isArray(body) ? body : body.data ?? [];
+        const activeCandidates = (arr || []).filter((m: any) => (m?.status || "").toString().toLowerCase() === "active" && !!m.candidate);
+        if (!mounted) return;
         setCandidates(activeCandidates);
       } catch (err: any) {
-        console.error("Failed to fetch marketing candidates:", err.response?.data || err.message);
+        console.error("Failed to fetch marketing candidates:", err?.body ?? err);
         toast.error("Failed to load candidates from marketing.");
       }
-    };
-    fetchMarketingCandidates();
+    })();
+    return () => { mounted = false; };
   }, [showAddForm]);
+
+
+  // Add drag resize functionality for notes textarea
+  useEffect(() => {
+    if (!showAddForm) return;
+
+    const textarea = document.querySelector(
+      'textarea[id="notes"]'
+    ) as HTMLTextAreaElement;
+    const dragHandle = document.querySelector(".drag-handle") as HTMLElement;
+
+    if (!textarea || !dragHandle) return;
+
+    let isResizing = false;
+    let startY = 0;
+    let startHeight = 0;
+
+    const startResize = (e: MouseEvent) => {
+      isResizing = true;
+      startY = e.clientY;
+      startHeight = parseInt(
+        document.defaultView?.getComputedStyle(textarea).height || "0",
+        10
+      );
+      e.preventDefault();
+    };
+
+    const resize = (e: MouseEvent) => {
+      if (!isResizing) return;
+      const deltaY = e.clientY - startY;
+      textarea.style.height = `${Math.max(60, startHeight + deltaY)}px`; // Minimum height 60px
+    };
+
+    const stopResize = () => {
+      isResizing = false;
+    };
+
+    dragHandle.addEventListener("mousedown", startResize);
+    document.addEventListener("mousemove", resize);
+    document.addEventListener("mouseup", stopResize);
+
+    return () => {
+      dragHandle.removeEventListener("mousedown", startResize);
+      document.removeEventListener("mousemove", resize);
+      document.removeEventListener("mouseup", stopResize);
+    };
+  }, [showAddForm]); // Re-initialize when modal opens/closes
 
   const filterData = useCallback(() => {
     let filtered = [...interviews];
@@ -419,39 +479,100 @@ export default function CandidatesInterviews() {
     return filtered;
   }, [interviews, searchTerm, selectedModes, selectedTypes, selectedCompanyTypes]);
 
-  const filteredInterviews = filterData();
 
+  const filteredInterviews = filterData(searchTerm);
+
+  // Cell renderers
+  const StatusRenderer = (params: any) => {
+    const v = (params.value || "").toString().toLowerCase();
+    const classes =
+      v === "cleared"
+        ? "bg-green-100 text-green-800"
+        : v === "rejected"
+        ? "bg-red-100 text-red-800"
+        : "bg-gray-100 text-gray-800";
+    const label = params.value ?? "N/A";
+    return <Badge className={classes}>{label}</Badge>;
+  };
+
+  const FeedbackRenderer = (params: any) => {
+    const value = (params.value || "").toString().toLowerCase();
+    if (!value || value === "no response")
+      return <Badge className="bg-gray-100 text-gray-800">Pending</Badge>;
+    if (value === "positive")
+      return <Badge className="bg-green-300 text-green-800">Positive</Badge>;
+    if (value === "failure" || value === "negative")
+      return <Badge className="bg-red-100 text-red-800">Failure</Badge>;
+    return <Badge className="bg-gray-100 text-gray-800">{params.value}</Badge>;
+  };
+
+  const LinkRenderer = (params: any) => {
+    const raw = params.value;
+    if (!raw) return <span className="text-gray-500">Not Available</span>;
+
+    // normalize and split links (commas/spaces/newlines)
+    const links = String(raw)
+      .split(/[\s,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    if (links.length === 0) return <span className="text-gray-500">Not Available</span>;
+
+    return (
+      <div className="flex flex-col space-y-1">
+        {links.map((link: string, idx: number) => {
+          let href = link;
+          if (!/^https?:\/\//i.test(href)) href = `https://${href}`;
+          return (
+            <a key={idx} href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">
+              Click here
+            </a>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const CandidateNameRenderer = (params: any) => {
+    const candidateId = params.data?.candidate_id || params.data?.candidate?.id;
+    const candidateName = params.data?.candidate?.full_name || params.value || "N/A";
+    if (!candidateId) return <span className="text-gray-500">{candidateName}</span>;
+    return (
+      <Link
+        href={`/avatar/candidates/search?candidateId=${candidateId}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
+      >
+        {candidateName}
+      </Link>
+    );
+  };
+
+  // Column definitions
   const columnDefs = useMemo<ColDef[]>(
     () => [
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
-      { field: "candidate.full_name", headerName: "Full Name", cellRenderer: CandidateNameRenderer, sortable: true, width: 140, editable: false },
-      { field: "company", headerName: "Company", sortable: true, width: 130, editable: true },
       {
-        field: "mode_of_interview",
-        headerName: "Mode",
-        width: 120,
-        editable: true,
-        headerComponent: FilterHeaderComponent,
-        headerComponentParams: {
-          columnName: "Mode",
-          options: modeOfInterviewOptions,
-          selectedValues: selectedModes,
-          setSelectedValues: setSelectedModes,
-        },
-        cellRenderer: ModeRenderer,
+        field: "candidate.full_name",
+        headerName: "Full Name",
+        cellRenderer: CandidateNameRenderer,
+        sortable: true,
+        width: 200,
+        editable: false,
       },
+      { field: "company", headerName: "Company", sortable: true, width: 160, editable: true },
+      { field: "mode_of_interview", headerName: "Mode", width: 120, editable: true },
       {
         field: "type_of_interview",
         headerName: "Type",
-        width: 140,
+        width: 150,
         editable: true,
-        headerComponent: FilterHeaderComponent,
-        headerComponentParams: {
-          columnName: "Type",
-          options: typeOfInterviewOptions,
-          selectedValues: selectedTypes,
-          setSelectedValues: setSelectedTypes,
+        filter: "agSetColumnFilter",
+        filterParams: {
+          values: ["Technical", "Phone Call", "Virtual", "Assessment", "Recruiter Call", "HR Round", "In Person", "Prep Call"],
         },
+
         cellRenderer: TypeRenderer,
       },
       {
@@ -467,8 +588,11 @@ export default function CandidatesInterviews() {
           setSelectedValues: setSelectedCompanyTypes,
         },
         cellRenderer: CompanyTypeRenderer,
+
       },
+      { field: "company_type", headerName: "Company Type", sortable: true, width: 150, editable: true },
       { field: "interview_date", headerName: "Date", width: 120, editable: true },
+
       { field: "recording_link", headerName: "Recording", cellRenderer: LinkRenderer, width: 120, editable: true },
       { field: "transcript", headerName: "Transcript", cellRenderer: LinkRenderer, width: 120, editable: true },
       { field: "backup_recording_url", headerName: "Backup Recording", cellRenderer: LinkRenderer, width: 140, editable: true },
@@ -477,33 +601,25 @@ export default function CandidatesInterviews() {
       { field: "instructor2_name", headerName: "Instructor 2", width: 150 },
       { field: "instructor3_name", headerName: "Instructor 3", width: 150 },
       { field: "feedback", headerName: "Feedback", cellRenderer: FeedbackRenderer, width: 120, editable: true },
+
       {
-        field: "interviewer_emails",
-        headerName: "Email",
-        width: 250,
-        editable: true,
-        cellRenderer: (params: any) => {
-          if (!params.value) return "";
-          return (
-            <a
-              href={`mailto:${params.value}`}
-              className="text-blue-600 underline hover:text-blue-800"
-              onClick={(event) => event.stopPropagation()}
-            >
-              {params.value}
-            </a>
-          );
-        },
+        field: "notes",
+        headerName: "Notes",
+        width: 300,
+        sortable: true,
+        cellRenderer: (params: any) =>
+          params.value ? <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: params.value }} /> : "",
       },
-      { field: "interviewer_contact", headerName: "Phone", width: 120, editable: true },
-      { field: "interviewer_linkedin", headerName: "Linkedin", cellRenderer: LinkRenderer, width: 120, editable: true },
-      { field: "notes", headerName: "Notes", width: 200, sortable: true, cellRenderer: (params: any) => params.value ? <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: params.value }} /> : "" },
     ],
+
     [selectedModes, selectedTypes, selectedCompanyTypes]
+
   );
 
+  // Update row handler (PUT)
   const handleRowUpdated = async (updatedRow: any) => {
     try {
+
       const payload = { ...updatedRow };
 
       // Ensure we map front-end field names to the expected API fields
@@ -525,40 +641,40 @@ export default function CandidatesInterviews() {
         );
         toast.success('Interview updated successfully!');
       }
+
     } catch (err) {
-      console.error(err);
-      toast.error('Failed to update interview.');
+      console.error("Failed to update interview:", err);
+      toast.error("Failed to update interview.");
     }
   };
 
+  // Delete row handler (DELETE)
   const handleRowDeleted = async (interviewId: number) => {
     try {
       if (!interviewId) {
         toast.error("Cannot delete interview: missing ID");
         return;
       }
-      const res = await axios.delete(
-        `${process.env.NEXT_PUBLIC_API_URL}/interviews/${interviewId}`,
-        { headers: getAuthHeaders() }
-      );
-      if (res.status === 200) {
-        setInterviews((prev) => prev.filter((r) => r.id !== interviewId));
-        toast.success("Interview deleted successfully!");
-      }
+      await api.delete(`/interviews/${interviewId}`);
+      setInterviews((prev) => prev.filter((r) => r.id !== interviewId));
+      toast.success("Interview deleted successfully!");
     } catch (err) {
-      console.error(err);
+      console.error("Failed to delete interview:", err);
       toast.error("Failed to delete interview.");
     }
   };
 
+
   // Form submission with react-hook-form
   const onSubmit = async (data: InterviewFormData) => {
     if (!data.candidate_id || !data.company.trim()) {
+
       toast.error("Candidate and Company are required!");
       return;
     }
 
     try {
+
       const payload: any = {
         candidate_id: Number(data.candidate_id),
         company: data.company,
@@ -587,8 +703,9 @@ export default function CandidatesInterviews() {
       setShowAddForm(false);
       reset();
       toast.success('Interview added successfully!');
+
     } catch (err: any) {
-      console.error("Failed to add interview:", err.response?.data || err);
+      console.error("Failed to add interview:", err?.body ?? err);
       toast.error("Failed to add interview. Make sure all fields are valid.");
     }
   };
@@ -630,7 +747,7 @@ export default function CandidatesInterviews() {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4">
       <Toaster position="top-center" richColors />
       <div className="flex items-center justify-between">
         <div>
@@ -641,20 +758,15 @@ export default function CandidatesInterviews() {
           <PlusIcon className="h-4 w-4 mr-2" /> Add Interview
         </Button>
       </div>
+
       <div className="max-w-md">
         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">Search</Label>
         <div className="relative mt-1">
           <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            id="search"
-            type="text"
-            value={searchTerm}
-            placeholder="Search..."
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+          <Input id="search" type="text" value={searchTerm} placeholder="Search..." onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
         </div>
       </div>
+
       {loading ? (
         <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-8">Loading...</p>
       ) : error ? (
@@ -675,10 +787,11 @@ export default function CandidatesInterviews() {
         </div>
       )}
 
+
       {/* Add Interview Modal with React Hook Form */}
       {showAddForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4">
-          <div className="w-full max-w-2xl rounded-xl bg-white shadow-2xl dark:bg-gray-800 max-h-[85vh] overflow-y-auto">
+          <div className="w-full max-w-2xl rounded-xl bg-white shadow-2xl dark:bg-gray-800 max-h-[95vh] overflow-y-auto">
             {/* Header */}
             <div className="sticky top-0 flex items-center justify-between border-b border-blue-200 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 py-3">
               <h2 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-lg font-semibold text-transparent">
@@ -894,18 +1007,29 @@ export default function CandidatesInterviews() {
                     />
                   </div>
 
-                  {/* Notes */}
+                  {/* Notes with Drag to Resize */}
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="notes" className="text-sm font-bold text-blue-700">
                       Notes
                     </Label>
-                    <textarea
-                      id="notes"
-                      {...register("notes")}
-                      placeholder="Enter notes..."
-                      rows={1}
-                      className="w-full resize-none rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    />
+                    <div className="relative">
+                      <textarea
+                        id="notes"
+                        {...register("notes")}
+                        placeholder="Enter notes..."
+                        className="min-h-[60px] w-full resize-none rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      />
+                      {/* Drag handle in bottom-right corner */}
+                      <div
+                        className="drag-handle absolute bottom-1 right-1 cursor-nwse-resize p-1 text-gray-400 transition-colors hover:text-gray-600"
+                        title="Drag to resize"
+                        style={{ pointerEvents: "auto" }}
+                      >
+                        <div className="flex h-5 w-5 items-center justify-center text-lg font-bold">
+                          ↖
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -926,6 +1050,7 @@ export default function CandidatesInterviews() {
                   </button>
                 </div>
               </form>
+
             </div>
           </div>
         </div>
