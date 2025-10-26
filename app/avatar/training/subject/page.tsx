@@ -254,41 +254,6 @@ useEffect(() => {
         onRowDeleted={handleRowDeleted}
         showSearch={false}
       />
-
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add New Subject</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                maxLength={100}
-                className="w-[400px]"
-                value={newSubject.name}
-                onChange={(e) => setNewSubject((prev) => ({ ...prev, name: e.target.value }))}
-              />
-            </div>
-            <div>
-              <Label htmlFor="description">Description</Label>
-              <Input
-                id="description"
-                maxLength={300}
-                className="w-full min-h-[120px] p-2 border rounded-md"
-                value={newSubject.description}
-                onChange={(e) => setNewSubject((prev) => ({ ...prev, description: e.target.value }))}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleAddSubject}>Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
     </div>
   );
 }

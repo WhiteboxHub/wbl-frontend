@@ -8,25 +8,23 @@ import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
+import axios from "axios";
 import { createPortal } from "react-dom";
 import { toast, Toaster } from "sonner";
-import api from "@/lib/api"; // <-- thin wrapper around your apiFetch
+import  api, { smartUpdate }  from "@/lib/api";
 
 // ---------------- Status Renderer ----------------
 const StatusRenderer = (params: any) => {
-  const status = (params.value || "").toString().toLowerCase();
+  const status = params.value?.toLowerCase();
   let badgeClass = "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300";
   if (status === "active") {
     badgeClass = "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
   } else if (status === "inactive") {
     badgeClass = "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
   }
-  const label = (params.value || "N/A").toString();
-  return <Badge className={badgeClass}>{label}</Badge>;
+  return <Badge className={badgeClass}>{params.value?.toUpperCase()}</Badge>;
 };
-
-
 
 const getAllValues = (obj: any): string[] => {
   let values: string[] = [];
@@ -39,8 +37,6 @@ const getAllValues = (obj: any): string[] => {
   }
   return values;
 };
-
-
 
 // ---------------- Filter Option Interface ----------------
 interface FilterOption {
@@ -58,33 +54,58 @@ const StatusHeaderComponent = ({
   selectedStatuses,
   setSelectedStatuses,
 }: StatusHeaderProps) => {
-  const filterButtonRef = (null as unknown) as HTMLDivElement | null;
-  // Using createPortal so we don't need fully typed refs here; original implementation works visually.
+  const filterButtonRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [filterVisible, setFilterVisible] = useState(false);
+
+  const toggleFilter = () => {
+    if (filterButtonRef.current) {
+      const rect = filterButtonRef.current.getBoundingClientRect();
+      setDropdownPos({ top: rect.bottom + window.scrollY, left: rect.left });
+    }
+    setFilterVisible((v) => !v);
+  };
+
+  const handleValueChange = (value: string) => {
+    if (selectedStatuses.includes(value)) {
+      setSelectedStatuses(selectedStatuses.filter((v) => v !== value));
+    } else {
+      setSelectedStatuses([...selectedStatuses, value]);
+    }
+    setFilterVisible(false);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        filterButtonRef.current &&
+        !filterButtonRef.current.contains(event.target as Node) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setFilterVisible(false);
+      }
+    };
+    const handleScroll = () => setFilterVisible(false);
+    document.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("scroll", handleScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleScroll, true);
+    };
+  }, []);
 
   const statusOptions: FilterOption[] = [
     { value: "active", label: "Active" },
     { value: "inactive", label: "Inactive" },
   ];
 
-  // Local open state handled via document click (simple approach)
-  const [open, setOpen] = useState(false);
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      // close if clicked outside - simple global handler
-      const target = e.target as Node;
-      if (!target || (filterButtonRef && filterButtonRef.contains && !filterButtonRef.contains(target))) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [filterButtonRef]);
-
   return (
-    <div className="relative flex items-center w-full" ref={(el) => { /* no-op - for layout */ }}>
+    <div className="relative flex items-center w-full" ref={filterButtonRef}>
       <span className="mr-2">Status</span>
       <svg
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggleFilter}
         xmlns="http://www.w3.org/2000/svg"
         className="h-4 w-4 cursor-pointer text-gray-500 hover:text-gray-700"
         fill="none"
@@ -93,28 +114,31 @@ const StatusHeaderComponent = ({
       >
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z" />
       </svg>
-
-      {open &&
+      {filterVisible &&
         createPortal(
-          <div className="z-[99999] bg-white border border-gray-200 rounded-md shadow-lg w-48 max-h-60 overflow-y-auto p-1">
-            {statusOptions.map(({ value, label }) => (
-              <button
-                key={value}
-                onClick={() => {
-                  if (selectedStatuses.includes(value)) {
-                    setSelectedStatuses(selectedStatuses.filter((v) => v !== value));
-                  } else {
-                    setSelectedStatuses([...selectedStatuses, value]);
-                  }
-                  setOpen(false);
-                }}
-                className={`block w-full text-left px-4 py-2 text-sm ${
-                  selectedStatuses.includes(value) ? "bg-blue-50 text-blue-700" : "text-gray-700 hover:bg-gray-100"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+          <div
+            ref={dropdownRef}
+            className="z-[99999] bg-white border border-gray-200 rounded-md shadow-lg w-48 max-h-60 overflow-y-auto"
+            style={{
+              top: `${dropdownPos.top}px`,
+              left: `${dropdownPos.left}px`,
+              position: "absolute",
+            }}
+          >
+            <div className="py-1">
+              {statusOptions.map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => handleValueChange(value)}
+                  className={`block w-full text-left px-4 py-2 text-sm ${selectedStatuses.includes(value)
+                      ? "bg-blue-50 text-blue-700"
+                      : "text-gray-700 hover:bg-gray-100"
+                    }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>,
           document.body
         )}
@@ -130,22 +154,23 @@ export default function CandidatesMarketingPage() {
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["active"]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [page] = useState(1);
-  const [limit] = useState(100);
 
   // ---------------- Fetch Data ----------------
   const fetchCandidates = async () => {
-    setLoading(true);
-    setError("");
     try {
-      const res = await api.get(`/candidate/marketing?page=${page}&limit=${limit}`);
-      // api wrapper returns { data: ... } — normalize defensively
-      const body = (res && (res as any).data) ?? res ?? {};
-      const arr = Array.isArray(body) ? body : Array.isArray(body.data) ? body.data : [];
-      setAllCandidates(arr);
+      setLoading(true);
+      const res = await api.get(`/candidate/marketing?page=1&limit=100`);
+      const data = Array.isArray(res.data?.data)
+        ? res.data.data
+        : Array.isArray(res.data?.results)
+          ? res.data.results
+          : Array.isArray(res.data)
+            ? res.data
+            : [];
+      setAllCandidates(data);
     } catch (err: any) {
-      console.error("Failed to load candidates:", err);
-      setError(err?.body?.message || err?.message || "Failed to load candidates.");
+      console.error("Failed to fetch candidates:", err);
+      setError(err.response?.data?.message || "Failed to load candidates.");
       toast.error("Failed to load candidates.");
     } finally {
       setLoading(false);
@@ -157,27 +182,21 @@ export default function CandidatesMarketingPage() {
   }, []);
 
   // ---------------- Filtering ----------------
-
-useEffect(() => {
-  let filtered = [...allCandidates];
-
-  if (selectedStatuses.length > 0) {
-    filtered = filtered.filter((c) =>
-      selectedStatuses.includes(c.status?.toLowerCase())
-    );
-  }
-
-  if (searchTerm.trim() !== "") {
-    const term = searchTerm.toLowerCase();
-    filtered = filtered.filter((c) =>
-      getAllValues(c).some((val) => val.toLowerCase().includes(term))
-    );
-  }
-
-  setFilteredCandidates(filtered);
-}, [allCandidates, searchTerm, selectedStatuses]);
-
-
+  useEffect(() => {
+    let filtered = [...allCandidates];
+    if (selectedStatuses.length > 0) {
+      filtered = filtered.filter((c) =>
+        selectedStatuses.includes(c.status?.toLowerCase())
+      );
+    }
+    if (searchTerm.trim() !== "") {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter((c) =>
+        getAllValues(c).some((val) => val.toLowerCase().includes(term))
+      );
+    }
+    setFilteredCandidates(filtered);
+  }, [allCandidates, searchTerm, selectedStatuses]);
 
   // ---------------- Resume Renderer ----------------
   const ResumeRenderer = (params: any) => (
@@ -194,34 +213,45 @@ useEffect(() => {
       ) : (
         <span className="text-gray-400">N/A</span>
       )}
-
-      <label htmlFor={`fileInput-${params.data.candidate_id}`} className="text-sm cursor-pointer text-blue-600 hover:underline">
+      {/* <label
+        htmlFor={`fileInput-${params.data.candidate_id}`}
+        className="text-blue-600 hover:underline cursor-pointer"
+      >
         Upload
-      </label>
-
+      </label> */}
       <input
         type="file"
         id={`fileInput-${params.data.candidate_id}`}
         className="hidden"
         onChange={async (e) => {
-          const file = (e.target as HTMLInputElement).files?.[0];
+          const file = e.target.files?.[0];
           if (!file) return;
           const formData = new FormData();
           formData.append("resume", file);
           try {
-            // Use api wrapper which will preserve FormData properly
-            const uploadRes = await api.post(`/candidate/marketing/${params.data.candidate_id}/resume`, formData);
-            const body = (uploadRes && (uploadRes as any).data) ?? uploadRes ?? {};
-            const updatedResume = body.candidate_resume ?? body.data?.candidate_resume;
-            // Update lists
+            const res = await axios.post(
+              `${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing/${params.data.candidate_id}/resume`,
+              formData,
+              {
+                headers: {
+                  "Content-Type": "multipart/form-data",
+                  Authorization: `Bearer ${localStorage.getItem("token")}`,
+                },
+              }
+            );
+            const updatedResume = res.data.candidate_resume;
             setFilteredCandidates((prev) =>
               prev.map((row) =>
-                row.candidate_id === params.data.candidate_id ? { ...row, candidate_resume: updatedResume } : row
+                row.candidate_id === params.data.candidate_id
+                  ? { ...row, candidate_resume: updatedResume }
+                  : row
               )
             );
             setAllCandidates((prev) =>
               prev.map((row) =>
-                row.candidate_id === params.data.candidate_id ? { ...row, candidate_resume: updatedResume } : row
+                row.candidate_id === params.data.candidate_id
+                  ? { ...row, candidate_resume: updatedResume }
+                  : row
               )
             );
             toast.success("Resume uploaded successfully!");
@@ -236,10 +266,10 @@ useEffect(() => {
 
   // ---------------- Candidate Name Renderer ----------------
   const CandidateNameRenderer = (params: any) => {
-    const candidateId = params.data?.candidate_id || params.data?.candidate?.id;
-    const candidateName = params.data?.candidate?.full_name || params.value || "N/A";
-    if (!candidateId) {
-      return <span className="text-gray-500">{candidateName}</span>;
+    const candidateId = params.data?.candidate_id;
+    const candidateName = params.data?.candidate?.full_name || params.value;
+    if (!candidateId || !candidateName) {
+      return <span className="text-gray-500">{candidateName || "N/A"}</span>;
     }
     return (
       <Link
@@ -264,9 +294,14 @@ useEffect(() => {
         width: 200,
         editable: true,
         cellRenderer: CandidateNameRenderer,
-        valueGetter: (params) => params.data?.candidate?.full_name ?? "N/A",
+        valueGetter: (params) => params.data.candidate?.full_name || "N/A",
       },
-      { headerName: "Batch", sortable: true, maxWidth: 150, valueGetter: (params) => params.data.candidate?.batch?.batchname || "N/A" },
+      {
+        headerName: "Batch",
+        sortable: true,
+        maxWidth: 150,
+        valueGetter: (params) => params.data.candidate?.batch?.batchname || "N/A",
+      },
       {
         field: "start_date",
         headerName: "Start Date",
@@ -311,7 +346,8 @@ useEffect(() => {
         headerName: "Marketing Manager",
         width: 150,
         editable: false,
-        valueGetter: (params) => params.data?.marketing_manager_obj?.name ?? "N/A",
+        valueGetter: (params) =>
+          params.data.marketing_manager_obj?.name || "N/A",
       },
       {
         field: "email",
@@ -338,7 +374,6 @@ useEffect(() => {
         width: 150,
         editable: true,
       },
-      // { field: "rating", headerName: "Rating", width: 100, editable: true },
       { field: "priority", headerName: "Priority", width: 100, editable: true },
       {
         field: "move_to_placement",
@@ -346,7 +381,9 @@ useEffect(() => {
         width: 190,
         sortable: true,
         filter: "agSetColumnFilter",
-        cellRenderer: (params: any) => <span>{params.value ? "Yes" : "No"}</span>,
+        cellRenderer: (params: any) => (
+          <span>{params.value ? "Yes" : "No"}</span>
+        ),
       },
       {
         field: "notes",
@@ -367,57 +404,104 @@ useEffect(() => {
     [selectedStatuses]
   );
 
-  // ---------------- CRUD Handlers ----------------
-  const handleRowUpdated = async (updatedRow: any) => {
-    // Use candidate_id if available, otherwise fall back to id
-    const id = updatedRow?.candidate_id ?? updatedRow?.id;
-    if (!id) {
-      console.error("Updated row missing candidate_id/id", updatedRow);
-      toast.error("Failed to update candidate: Missing candidate ID.");
+const handleRowUpdated = async (updatedRow: any) => {
+    // Use the marketing record ID instead of candidate_id
+    const marketingId = updatedRow?.id; // This should be the marketing record ID
+    if (!marketingId) {
+      console.error("Updated row missing marketing record ID", updatedRow);
+      toast.error("Failed to update candidate: Missing marketing record ID.");
       return;
     }
     try {
-      const res = await api.put(`/candidate/marketing/${id}`, updatedRow);
-      const body = (res && (res as any).data) ?? res ?? {};
-      const updatedRecord = Array.isArray(body) ? body[0] : (body.data ?? body);
+      console.log("Updating marketing record:", marketingId, updatedRow);
+      
+      const res = await api.put(
+        `/candidate/marketing/${marketingId}`, // Use marketing record ID
+        updatedRow
+      );
+      
+      console.log("Update response:", res.data);
+      const updatedRecord = res.data;
+      
       setFilteredCandidates((prev) =>
         prev.map((row) =>
-          (row.candidate_id ?? row.id) === (updatedRecord.candidate_id ?? updatedRecord.id ?? id)
-            ? { ...row, ...updatedRecord }
-            : row
+          row.id === marketingId ? { ...row, ...updatedRecord } : row
         )
       );
       setAllCandidates((prev) =>
         prev.map((row) =>
-          (row.candidate_id ?? row.id) === (updatedRecord.candidate_id ?? updatedRecord.id ?? id)
-            ? { ...row, ...updatedRecord }
-            : row
+          row.id === marketingId ? { ...row, ...updatedRecord } : row
         )
       );
       toast.success("Candidate updated successfully!");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to update candidate:", err);
-      toast.error("Failed to update candidate.");
-    }
-  };
-
-  const handleRowDeleted = async (candidate_id: number | string) => {
-    try {
-      const id = candidate_id;
-      if (!id) {
-        toast.error("Cannot delete: missing candidate id");
-        return;
+      if (err.status === 401) {
+        toast.error("Session expired. Please login again.");
+      } else {
+        const errorMessage =
+          err.body?.detail ??
+          err.body?.message ??
+          err.message ??
+          "Failed to update candidate.";
+        toast.error(errorMessage);
       }
-      await api.delete(`/candidate/marketing/${id}`);
-      setFilteredCandidates((prev) => prev.filter((row) => (row.candidate_id ?? row.id) !== id));
-      setAllCandidates((prev) => prev.filter((row) => (row.candidate_id ?? row.id) !== id));
-      toast.success("Candidate deleted successfully!");
-    } catch (err) {
-      console.error("Failed to delete candidate:", err);
-      toast.error("Failed to delete candidate.");
     }
   };
 
+const handleRowDeleted = async (id: number | string) => {
+    try {
+      // Use the marketing record ID for deletion
+      await api.delete(`/candidate/marketing/${id}`);
+      
+      // Filter by the correct ID field - try both id and candidate_id
+      setFilteredCandidates((prev) => 
+        prev.filter((row) => row.id !== id && row.candidate_id !== id)
+      );
+      setAllCandidates((prev) => 
+        prev.filter((row) => row.id !== id && row.candidate_id !== id)
+      );
+      
+      toast.success("Marketing candidate deleted successfully!");
+    } catch (err: any) {
+      console.error("Failed to delete marketing candidate:", err);
+      
+      if (err.status === 401) {
+        toast.error("Session expired. Please login again.");
+      } else {
+        const errorMessage =
+          err.body?.detail ??
+          err.body?.message ??
+          err.message ??
+          "Failed to delete marketing candidate.";
+        toast.error(errorMessage);
+      }
+    }
+  };
+// const handleRowDeleted = async (id: number | string) => {
+//     try {
+//       // Use the marketing record ID for deletion
+//       await api.delete(`/candidate/marketing/${id}`);
+      
+//       setFilteredCandidates((prev) => prev.filter((row) => row.id === id));
+//       setAllCandidates((prev) => prev.filter((row) => row.id === id));
+      
+//       toast.success("Marketing candidate deleted successfully!");
+//     } catch (err: any) {
+//       console.error("Failed to delete marketing candidate:", err);
+      
+//       if (err.status === 401) {
+//         toast.error("Session expired. Please login again.");
+//       } else {
+//         const errorMessage =
+//           err.body?.detail ??
+//           err.body?.message ??
+//           err.message ??
+//           "Failed to delete marketing candidate.";
+//         toast.error(errorMessage);
+//       }
+//     }
+//   };
   // ---------------- Render ----------------
   return (
     <div className="space-y-6">
@@ -425,14 +509,22 @@ useEffect(() => {
       {/* Header Section */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Marketing Phase Candidates</h1>
-          <p className="text-gray-600 dark:text-gray-400">Candidates currently in marketing phase</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            Marketing Phase Candidates
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Candidates currently in marketing phase
+          </p>
         </div>
       </div>
-
       {/* Search */}
       <div className="max-w-md">
-        <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">Search Candidates</Label>
+        <Label
+          htmlFor="search"
+          className="text-sm font-medium text-gray-700 dark:text-gray-300"
+        >
+          Search Candidates
+        </Label>
         <div className="relative mt-1">
           <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
           <Input
@@ -445,13 +537,16 @@ useEffect(() => {
           />
         </div>
         {searchTerm && (
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{filteredCandidates.length} candidate(s) found</p>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            {filteredCandidates.length} candidate(s) found
+          </p>
         )}
       </div>
-
       {/* Data Table */}
       {loading ? (
-        <p className="text-center text-sm text-gray-500 dark:text-gray-400">Loading...</p>
+        <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+          Loading...
+        </p>
       ) : error ? (
         <p className="text-center text-red-500">{error}</p>
       ) : (

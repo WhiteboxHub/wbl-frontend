@@ -1,4 +1,5 @@
 
+
 "use client";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
@@ -13,9 +14,9 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { createPortal } from "react-dom";
 import type { AgGridReact as AgGridReactType } from "ag-grid-react";
 import type { GridApi } from "ag-grid-community";
-import { apiFetch } from "@/lib/api";
 import { LeadsHelper, db, Lead as DexieLead } from "@/lib/dexieDB";
 import { useForm } from "react-hook-form";
+import { apiFetch } from "@/lib/api";
 type Lead = DexieLead;
 
 type FormData = {
@@ -60,33 +61,47 @@ const workStatusOptions = [
   "CPT",
 ];
 
-// Simple cache implementation
+const sortLeadsByEntryDate = (leads: Lead[]): Lead[] => {
+  return [...leads].sort((a, b) => {
+    const dateA = new Date(a.entry_date || 0).getTime();
+    const dateB = new Date(b.entry_date || 0).getTime();
+    return dateB - dateA; 
+  });
+};
+
 const useSimpleCache = () => {
   const cacheRef = useRef<{
     data: Lead[];
     timestamp: number;
     searchTerm: string;
     searchBy: string;
+    lastSync: number;
   } | null>(null);
 
   const isCacheValid = async (
     searchTerm: string,
     searchBy: string = "all",
-    maxAge: number = 60000
+    maxAge: number = 300000
   ) => {
+    const localLeads = await db.leads.toArray();
+    
+    if (localLeads.length === 0) {
+      return false;
+    }
+
     if (cacheRef.current) {
       if (cacheRef.current.searchTerm === searchTerm && cacheRef.current.searchBy === searchBy) {
         const age = Date.now() - cacheRef.current.timestamp;
-        if (age < maxAge) return true;
+        if (age < maxAge) {
+          return true;
+        }
       }
     }
 
-    const localLeads = await db.leads.toArray();
-    if (localLeads.length > 0) {
-      return true;
-    }
-
-    return false;
+    const localDataAge = localLeads[0]?.lastSync ? 
+      Date.now() - new Date(localLeads[0].lastSync).getTime() : Infinity;
+    
+    return localDataAge < 60000;
   };
 
   const setCache = (data: Lead[], searchTerm: string, searchBy: string = "all") => {
@@ -95,6 +110,7 @@ const useSimpleCache = () => {
       timestamp: Date.now(),
       searchTerm,
       searchBy,
+      lastSync: Date.now(),
     };
   };
 
@@ -103,26 +119,9 @@ const useSimpleCache = () => {
     cacheRef.current = null;
   };
 
-  return { isCacheValid, setCache, getCache, invalidateCache };
-};
+  const getLastSync = () => cacheRef.current?.lastSync || null;
 
-// Rate limiter to prevent too many API calls
-const useRateLimiter = () => {
-  const lastCallRef = useRef<number>(0);
-  
-  const canMakeCall = (minInterval: number = 3000) => {
-    const now = Date.now();
-    const timeSinceLastCall = now - lastCallRef.current;
-    
-    if (timeSinceLastCall < minInterval) {
-      return false;
-    }
-    
-    lastCallRef.current = now;
-    return true;
-  };
-  
-  return { canMakeCall };
+  return { isCacheValid, setCache, getCache, invalidateCache, getLastSync };
 };
 
 const StatusRenderer = ({ value }: { value?: string }) => {
@@ -452,37 +451,25 @@ export default function LeadsPage() {
   const [totalLeads, setTotalLeads] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [searchBy, setSearchBy] = useState("full_name");  
-  const [newLeadForm, setNewLeadForm] = useState(isNewLead);
+  const [searchBy, setSearchBy] = useState("full_name");
+  const [isModalOpen, setIsModalOpen] = useState(isNewLead);
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [formSaveLoading, setFormSaveLoading] = useState(false);
   const [sortModel, setSortModel] = useState([
     { colId: "entry_date", sort: "desc" as "desc" },
   ]);
   
-
   const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-
-  const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>(
-    []
-  );
-  const gridRef = useRef<InstanceType<typeof AgGridReact> | null>(null);
-const apiEndpoint = "/leads"; // cleaner base path, handled by apiFetch
-
-
   const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
-
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   
   const gridRef = useRef<AgGridReactType<Lead> | null>(null);
   const apiEndpoint = useMemo(() => `${process.env.NEXT_PUBLIC_API_URL}/leads`, []);
-  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true); 
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const cache = useSimpleCache();
-  const rateLimiter = useRateLimiter();
-  const callCountRef = useRef(0);
-
-
+  const isInitialMountRef = useRef(true);
+  const fetchInProgressRef = useRef(false);
 
   const {
     register,
@@ -495,208 +482,136 @@ const apiEndpoint = "/leads"; // cleaner base path, handled by apiFetch
     defaultValues: initialFormData,
   });
 
-  // Enhanced fetchLeads with offline support
-  const fetchLeads = useCallback(async (
-    search?: string,
-    searchBy: string = "all",
-    sort: any[] = [{ colId: "entry_date", sort: "desc" }],
-    forceRefresh = false
-  ) => {
-    callCountRef.current++;
-    console.log('   fetchLeads CALLED - investigating multiple calls');
-    console.log('   Call count:', callCountRef.current);
-    console.log('   search:', search);
-    console.log('   searchBy:', searchBy);
-    console.log('   forceRefresh:', forceRefresh);
-    console.log('   loading state:', loading);
-    console.log('   cache valid?', cache.isCacheValid(search || "", searchBy));
-    console.log('   stack trace:', new Error().stack);
-
-    // NUCLEAR OPTION - Completely block multiple calls
-    if (callCountRef.current > 1) {
-      console.log(' BLOCKING DUPLICATE CALL - Only allowing first call');
-      return;
-    }
-
-    const searchKey = search || "";
-    
-    // STRICT CACHE CHECK - Only proceed if absolutely necessary
-    if (!forceRefresh && cache.isCacheValid(searchKey, searchBy)) {
-      console.log(' STRICT CACHE HIT - Blocking API call');
-      const cachedData = cache.getCache();
-      if (cachedData) {
-        setLeads(cachedData);
-        setFilteredLeads(cachedData);
-        return;
-      }
-    }
-
- const fetchLeads = useCallback(
-  async (
-    search?: string,
-    searchBy: string = "all",
-    sort: any[] = [{ colId: "entry_date", sort: "desc" }]
-  ) => {
+  const loadLeadsFromIndexedDB = useCallback(async (search?: string) => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (search && search.trim()) {
-        params.append("search", search.trim());
-        params.append("search_by", searchBy);
-      }
-      const sortToApply =
-        sort && sort.length > 0
-          ? sort
-          : [{ colId: "entry_date", sort: "desc" }];
-      const sortParam = sortToApply
-        .map((s) => `${s.colId}:${s.sort}`)
-        .join(",");
-      params.append("sort", sortParam);
-
-      const url = `${apiEndpoint}${params.toString() ? `?${params}` : ""}`;
-
-      const data = await apiFetch(url); // ✅ replaces fetch + token
-
-      let leadsData = [];
-      if (Array.isArray(data.data)) leadsData = data.data;
-      else if (Array.isArray(data)) leadsData = data;
-      else throw new Error("Invalid response format");
-
-      setLeads(leadsData);
-    } catch (err) {
-      const error = err instanceof Error ? err.message : "Failed to load leads";
-      setError(error);
-      toast.error(error);
-    } finally {
-      setLoading(false);
-      if (searchInputRef.current) searchInputRef.current.focus();
-    }
-  },
-  [apiEndpoint]
-);
-
-    // RATE LIMITING - Strict enforcement
-    if (!rateLimiter.canMakeCall(5000)) { // 5 seconds between calls
-      console.log(' STRICT RATE LIMIT - Blocking API call');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Load from IndexedDB first
-      const localLeads = await db.leads.toArray();
-      console.log(` IndexedDB has ${localLeads.length} leads`);
+      let localLeads = await db.leads.toArray();
       
-      // Only proceed with API call if necessary
-      if (isOnline && (forceRefresh || !cache.isCacheValid(searchKey, searchBy))) {
-        let url = `${apiEndpoint}`;
-        const params = new URLSearchParams();
-        if (search && search.trim()) {
-          params.append("search", search.trim());
-          params.append("search_by", searchBy);
-        }
-        const sortParam = sort.map((s) => `${s.colId}:${s.sort}`).join(",");
-        params.append("sort", sortParam);
-        
-        if (params.toString()) {
-          url += `?${params.toString()}`;
-        }
-
-
-        
-        const token = localStorage.getItem("token");
-        const res = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+      
+      if (search && search.trim()) {
+        const term = search.trim().toLowerCase();
+        localLeads = localLeads.filter((lead) => {
+          const nameMatch = lead.full_name?.toLowerCase().includes(term);
+          const emailMatch = lead.email?.toLowerCase().includes(term);
+          const phoneMatch = lead.phone?.toLowerCase().includes(term);
+          const idMatch = lead.id?.toString().includes(term);
+          return nameMatch || emailMatch || phoneMatch || idMatch;
         });
-        
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        
-        const data = await res.json();
-        let leadsData: Lead[] = [];
-        if (data.data && Array.isArray(data.data)) {
-          leadsData = data.data;
-        } else if (Array.isArray(data)) {
-          leadsData = data;
-        }
-
-        console.log(` API returned ${leadsData.length} leads - UPDATING CACHE`);
-        
-        setLeads(leadsData);
-        setFilteredLeads(leadsData);
-        cache.setCache(leadsData, searchKey, searchBy);
-        
-        await db.leads.clear();
-        await db.leads.bulkPut(leadsData);
-      } else {
-        console.log(' Using IndexedDB data - NO API CALL');
-        setLeads(localLeads);
-        setFilteredLeads(localLeads);
       }
+
+      const sortedLeads = sortLeadsByEntryDate(localLeads);
+      setLeads(sortedLeads);
+      setFilteredLeads(sortedLeads);
+      
+      
+      
     } catch (err) {
-      console.error(' API Error:', err);
+      console.error('Error loading from IndexedDB:', err);
+      setError('Failed to load local data');
     } finally {
       setLoading(false);
     }
-  }, [apiEndpoint, cache, isOnline, rateLimiter]);
+  }, []);
 
-  // Local search in IndexedDB
-  useEffect(() => {
-    const timeoutId = setTimeout(async () => {
-      const term = searchTerm.trim().toLowerCase();
 
-      if (!term) {
-        const allLeads = await db.leads.toArray();
-        setFilteredLeads(allLeads);
-        setTotalLeads(allLeads.length);
-        return;
+  const syncFromAPI = useCallback(async (forceRefresh = false) => {
+    if (fetchInProgressRef.current) return;
+    
+    fetchInProgressRef.current = true;
+    setLoading(true);
+
+    try {
+      
+      let url = `leads`;
+      const params = new URLSearchParams();
+      const sortParam = sortModel.map((s) => `${s.colId}:${s.sort}`).join(",");
+      params.append("sort", sortParam);
+      
+      if (params.toString()) {
+        url += `?${params.toString()}`;
       }
 
-      const allLeads = await db.leads.toArray();
-      const filtered = allLeads.filter((lead) => {
-        const nameMatch = lead.full_name?.toLowerCase().includes(term);
-        const emailMatch = lead.email?.toLowerCase().includes(term);
-        const phoneMatch = lead.phone?.toLowerCase().includes(term);
-        const idMatch = lead.id?.toString().includes(term);
-        return nameMatch || emailMatch || phoneMatch || idMatch;
-      });
+      const data = await apiFetch(url, { timeout: 10000 });
+      
+      let leadsData: Lead[] = [];
+      if (data.data && Array.isArray(data.data)) {
+        leadsData = data.data;
+      } else if (Array.isArray(data)) {
+        leadsData = data;
+      } else {
+        console.warn('Unexpected API response format:', data);
+        leadsData = [];
+      }
 
-      setFilteredLeads(filtered);
-      setTotalLeads(filtered.length);
-    }, 400);
+      const leadsWithSync = leadsData.map(lead => ({
+        ...lead,
+        lastSync: new Date().toISOString(),
+        synced: true
+      }));
+      
+      await db.leads.clear();
+      await db.leads.bulkPut(leadsWithSync);
 
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm]);
+    
+      const sortedLeadsData = sortLeadsByEntryDate(leadsData);
+      setLeads(sortedLeadsData);
+      setFilteredLeads(sortedLeadsData);
+      
+      toast.success("Data synced from server");
+      
+    } catch (err: any) {
+      console.error('API sync failed:', err);
+      
+      await loadLeadsFromIndexedDB();
+      
+      if (err.name === 'TimeoutError') {
+        toast.warning("Server sync timeout - using local data");
+      } else if (err.name === 'NetworkError') {
+        toast.warning("Cannot connect to server - using local data");
+      } else if (err.status === 401) {
+        toast.error("Session expired - please login again");
+      } else {
+        toast.warning("Sync failed - using local data");
+      }
+    } finally {
+      setLoading(false);
+      fetchInProgressRef.current = false;
+    }
+  }, [sortModel]);
 
-  // Initial data load
+ 
   useEffect(() => {
     const loadInitialData = async () => {
-      callCountRef.current = 0;
+      if (!isInitialMountRef.current) return;
+      isInitialMountRef.current = false;
+
       
       const localLeads = await db.leads.toArray();
-  
       
-      if (localLeads.length > 0) {
-        setLeads(localLeads);
-        setFilteredLeads(localLeads);
+      if (localLeads.length === 0) {
         
-        if (!cache.isCacheValid("", "all")) {
-          setTimeout(() => {
-            fetchLeads("", "all", sortModel, false);
-          }, 3000);
-        }
+        await syncFromAPI(true);
       } else {
-        fetchLeads("", "all", sortModel, true);
+        
+        await loadLeadsFromIndexedDB();
+        syncFromAPI(true).catch(() => {  
+        });
       }
     };
 
     loadInitialData();
-  }, []);
+  }, [loadLeadsFromIndexedDB, syncFromAPI]);
 
+  
+  useEffect(() => {
+    const timeoutId = setTimeout(async () => {
+      await loadLeadsFromIndexedDB(searchTerm);
+    }, 400);
 
-  // Client-side filtering
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, loadLeadsFromIndexedDB]);
+
+ 
   useEffect(() => {
     let filtered = [...leads];  
     
@@ -716,31 +631,20 @@ const apiEndpoint = "/leads"; // cleaner base path, handled by apiFetch
       );
     }
 
-    if (searchTerm.trim() !== "") {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (lead) =>
-          lead.full_name?.toLowerCase().includes(term) ||
-          lead.email?.toLowerCase().includes(term) ||
-          lead.phone?.toLowerCase().includes(term) ||
-          lead.id.toString().includes(term)
-      );
-    }
-    
     setFilteredLeads(filtered);
     setTotalLeads(filtered.length);
-  }, [leads, selectedStatuses, selectedWorkStatuses, searchTerm]);
+  }, [leads, selectedStatuses, selectedWorkStatuses]);
 
-  // Online/offline handling
-  useEffect(() => {
+   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      console.log('Online - syncing changes if any');
+      syncFromAPI(true).catch(() => {
+      });
     };
     
     const handleOffline = () => {
       setIsOnline(false);
-      console.log('Offline - using local data only');
+      toast.warning("You are now offline. Using local data.");
     };
 
     window.addEventListener("online", handleOnline);
@@ -750,131 +654,17 @@ const apiEndpoint = "/leads"; // cleaner base path, handled by apiFetch
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, []);
-
-  // Add this useEffect for drag functionality
-  useEffect(() => {
-    if (!isModalOpen) return; // Only initialize when modal is open
-
-    const textarea = document.querySelector(
-      'textarea[name="notes"]'
-    ) as HTMLTextAreaElement;
-    const dragHandle = document.querySelector(".drag-handle") as HTMLElement;
-
-    if (!textarea || !dragHandle) return;
-
-    let isResizing = false;
-    let startY = 0;
-    let startHeight = 0;
-
-    const startResize = (e: MouseEvent) => {
-      isResizing = true;
-      startY = e.clientY;
-      startHeight = parseInt(
-        document.defaultView?.getComputedStyle(textarea).height || "0",
-        10
-      );
-      e.preventDefault();
-    };
-
-    const resize = (e: MouseEvent) => {
-      if (!isResizing) return;
-      const deltaY = e.clientY - startY;
-      textarea.style.height = `${Math.max(80, startHeight + deltaY)}px`; // Minimum height 80px
-    };
-
-    const stopResize = () => {
-      isResizing = false;
-    };
-
-    dragHandle.addEventListener("mousedown", startResize);
-    document.addEventListener("mousemove", resize);
-    document.addEventListener("mouseup", stopResize);
-
-    return () => {
-      dragHandle.removeEventListener("mousedown", startResize);
-      document.removeEventListener("mousemove", resize);
-      document.removeEventListener("mouseup", stopResize);
-    };
-  }, [isModalOpen]); // Re-initialize when modal opens
-
-  const detectSearchBy = (search: string) => {
-    if (/^\d+$/.test(search)) return "id";
-    if (/^\S+@\S+\.\S+$/.test(search)) return "email";
-    if (/^[\d\s\+\-()]+$/.test(search)) return "phone";
-    return "full_name";
-  };
-
-
-
-  const handleSearch = useCallback((term: string) => {
-    setSearchTerm(term);
-  }, []);
-
-  // Form validation
-  const validateForm = (data: FormData): boolean => {
-    const errors: Record<string, string> = {};
-    
-    if (!data.full_name.trim()) {
-      errors.full_name = "Full name is required";
-    }
-    
-    if (!data.email.trim()) {
-      errors.email = "Email is required";
-    } else if (!/^\S+@\S+\.\S+$/.test(data.email)) {
-      errors.email = "Please enter a valid email";
-    }
-    
-    if (!data.phone.trim()) {
-      errors.phone = "Phone is required";
-    } else if (data.phone.replace(/\D/g, '').length < 10) {
-      errors.phone = "Please enter a valid phone number";
-    }
-    
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleNewLeadFormChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
-  ) => {
-    const { name, value, type } = e.target;
-    if (type === "checkbox") {
-      const checked = (e.target as HTMLInputElement).checked;
-      setFormData((prev) => ({ ...prev, [name]: checked }));
-    } else if (name === "phone" || name === "secondary_phone") {
-      const numericValue = value.replace(/\D/g, "");
-      setFormData((prev) => ({ ...prev, [name]: numericValue }));
-    } else if (name === "address") {
-      const sanitizedValue = value.replace(/[^a-zA-Z0-9, ]/g, "");
-      setFormData((prev) => ({ ...prev, [name]: sanitizedValue }));
-    } else if (name === "full_name") {
-      const sanitizedValue = value.replace(/[^a-zA-Z. ]/g, "");
-      setFormData((prev) => ({ ...prev, [name]: sanitizedValue }));
-    } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
-
-  // Form submission with react-hook-form
+  }, [syncFromAPI]);
 
   const onSubmit = async (data: FormData) => {
     if (!data.full_name.trim() || !data.email.trim() || !data.phone.trim()) {
       toast.error("Full Name, Email, and Phone are required");
       return;
-
     }
 
-
-  const handleNewLeadFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
     setFormSaveLoading(true);
     setFormErrors({});
 
-    if (!validateForm(formData)) {
-      setFormSaveLoading(false);
-      return;
-    }
     try {
       const updatedData = { 
         ...data,
@@ -884,100 +674,40 @@ const apiEndpoint = "/leads"; // cleaner base path, handled by apiFetch
         massemail_email_sent: Boolean(data.massemail_email_sent),
         massemail_unsubscribe: Boolean(data.massemail_unsubscribe),
         entry_date: data.entry_date || new Date().toISOString(),
-        closed_date: data.status === "Closed" ? new Date().toISOString().split("T")[0] : null,
       };
 
-      // Add to local DB first
-      const tempLead: Lead = {
-        ...updatedData,
-        id: Date.now(),
-        synced: !isOnline,
-        _action: "add" as const,
-      } as Lead;
+      const savedLead = await apiFetch("leads", {
+        method: "POST",
+        body: updatedData,
+        timeout: 10000,
+      });
 
-      await db.leads.add(tempLead);
-      setLeads(prev => [tempLead, ...prev]);
-      setFilteredLeads(prev => [tempLead, ...prev]);
+   
+      await db.leads.add({ 
+        ...savedLead, 
+        synced: true,
+        lastSync: new Date().toISOString()
+      });
+
       
-      cache.invalidateCache();
-
-      // Sync with API if online
-      if (isOnline) {
-        const token = localStorage.getItem("token");
-        const response = await fetch(apiEndpoint, {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(updatedData),
-        });
-        
-        if (!response.ok) throw new Error("Failed to create lead");
-        
-        const savedLead = await response.json();
-        
-        await db.leads.delete(tempLead.id);
-        await db.leads.add({ ...savedLead, synced: true, _action: null });
-        
-        setLeads(prev => prev.map(l => l.id === tempLead.id ? savedLead : l));
-        setFilteredLeads(prev => prev.map(l => l.id === tempLead.id ? savedLead : l));
-      }
+      await loadLeadsFromIndexedDB(searchTerm);
 
       toast.success("Lead created successfully!");
       handleCloseModal();
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Failed to create lead";
-      toast.error(errorMessage);
-
-    try {
-      const updatedData = { ...data };
-      if (!updatedData.status || updatedData.status === "") {
-        updatedData.status = "Open";
-      }
-      if (!updatedData.workstatus || updatedData.workstatus === "") {
-        updatedData.workstatus = "Waiting for Status";
-      }
-      if (updatedData.moved_to_candidate) {
-        updatedData.status = "Closed";
-      }
-      const booleanFields = [
-        "moved_to_candidate",
-        "massemail_email_sent",
-        "massemail_unsubscribe",
-      ];
-      booleanFields.forEach((field) => {
-        if (
-          updatedData[field as keyof FormData] === undefined ||
-          updatedData[field as keyof FormData] === null ||
-          updatedData[field as keyof FormData] === ""
-        ) {
-          (updatedData[field as keyof FormData] as boolean) = false;
-        }
-      });
-      const payload = {
-        ...updatedData,
-        entry_date: new Date().toISOString(),
-        closed_date:
-          updatedData.status === "Closed"
-            ? new Date().toISOString().split("T")[0]
-            : null,
-      };
-
-await apiFetch(apiEndpoint, {
-  method: "POST",
-  body: JSON.stringify(payload),
-});
-
-      toast.success("Lead created successfully!");
-      setNewLeadForm(false);
-      setFormData(initialFormData);
-      fetchLeads(searchTerm, searchBy, sortModel);
-
-    } catch (error) {
-      toast.error("Failed to create lead", { position: "top-center" });
-
+    } catch (error: any) {
       console.error("Error creating lead:", error);
+      
+      if (error.name === 'TimeoutError') {
+        toast.error("Server timeout - lead creation failed");
+      } else if (error.name === 'NetworkError') {
+        toast.error("Network error - cannot connect to server");
+      } else if (error.status === 401) {
+        toast.error("Session expired - please login again");
+      } else {
+        toast.error(error.message || "Failed to create lead");
+      }
+    } finally {
+      setFormSaveLoading(false);
     }
   };
 
@@ -995,8 +725,11 @@ await apiFetch(apiEndpoint, {
   const handleRowUpdated = useCallback(
     async (updatedRow: Lead) => {
       setLoadingRowId(updatedRow.id);
+
       try {
         const { id, entry_date, ...payload } = updatedRow;
+
+       
         if (payload.moved_to_candidate && payload.status !== "Closed") {
           payload.status = "Closed";
           payload.closed_date = new Date().toISOString().split("T")[0];
@@ -1004,99 +737,77 @@ await apiFetch(apiEndpoint, {
           payload.status = "Open";
           payload.closed_date = null;
         }
+
         payload.moved_to_candidate = Boolean(payload.moved_to_candidate);
         payload.massemail_unsubscribe = Boolean(payload.massemail_unsubscribe);
         payload.massemail_email_sent = Boolean(payload.massemail_email_sent);
-        await apiFetch(`${apiEndpoint}/${updatedRow.id}`, {
+
+      
+        const updatedLead = await apiFetch(`leads/${updatedRow.id}`, {
           method: "PUT",
-
-          body: JSON.stringify(payload),
+          body: payload,
+          timeout: 10000,
         });
 
-        const updatedLead = { ...updatedRow, ...payload };
-        if (gridRef.current) {
-          gridRef.current.api.applyTransaction({ update: [updatedLead] });
-        }
-        toast.success(
-          payload.moved_to_candidate
-            ? "Lead moved to candidate and marked Closed"
-            : "Lead updated successfully
-        );
+      
+        await db.leads.update(updatedRow.id, { 
+          ...updatedLead,
+          lastSync: new Date().toISOString(),
+          synced: true
+        });
+
+       
+        await loadLeadsFromIndexedDB(searchTerm);
+
         toast.success("Lead updated successfully");
-      } catch (error) {
-        toast.error("Failed to update lead");
-        console.error("Error updating lead:", error);
-      })
-      .finally(() => {
-        setLoadingRowId(null);
-      });
-    } else {
-      setLoadingRowId(null);
-    }
-  }, [apiEndpoint, isOnline, leads, cache]);
-
-  const handleRowDeleted = useCallback(
-    async (id: number) => {
-      try {
-        const response = await fetch(`${apiEndpoint}/${id}`, {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        });
-        if (!response.ok) throw new Error("Failed to delete lead");
-        setLeads((prevLeads) => prevLeads.filter((lead) => lead.id !== id));
-        toast.success("Lead deleted successfully");
-      } catch (error) {
-        toast.error("Failed to delete lead");
-        console.error("Error deleting lead:", error);
-      }
-    },
-    [apiEndpoint]
-  );
-
-  const handleMoveToCandidate = useCallback(
-    async (lead: Lead, moved: boolean) => {
-      setLoadingRowId(lead.id);
-      try {
-        const method = moved ? "DELETE" : "POST";
-        const url = `${apiEndpoint}/${lead.id}/move-to-candidate`;
-        const payload: Partial<Lead> = {
-          moved_to_candidate: !moved,
-          status: !moved ? "Closed" : "Open",
-          closed_date: !moved ? new Date().toISOString().split("T")[0] : null,
-        };
+      } catch (err: any) {
+        console.error("Error updating lead:", err);
         
-        const response = await fetch(url, {
-          method,
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-          body: JSON.stringify(payload),
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.detail || "Failed to move lead to candidate");
-        }
-        
-        const data = await response.json();
-        fetchLeads(searchTerm, searchBy, sortModel);
-        
-        if (moved) {
-          toast.success(`Lead removed from candidate list (Candidate ID: ${data.candidate_id})`);
+        if (err.name === 'TimeoutError') {
+          toast.error("Server timeout - update failed");
+        } else if (err.name === 'NetworkError') {
+          toast.error("Network error - cannot connect to server");
+        } else if (err.status === 401) {
+          toast.error("Session expired - please login again");
         } else {
-          toast.success(`Lead moved to candidate (Candidate ID: ${data.candidate_id}) and status set to Closed`);
+          toast.error(err.message || "Failed to update lead");
         }
-      } catch (error: any) {
-        console.error("Error moving lead to candidate:", error);
-        toast.error(error.message || "Failed to move lead to candidate");
       } finally {
         setLoadingRowId(null);
       }
     },
-    [apiEndpoint, searchTerm, searchBy, sortModel, fetchLeads]
+    [searchTerm, loadLeadsFromIndexedDB]
+  );
+
+
+  const handleRowDeleted = useCallback(
+    async (id: number) => {
+      try {
+        await apiFetch(`leads/${id}`, {
+          method: "DELETE",
+          timeout: 10000,
+        });
+        await db.leads.delete(id);
+
+  
+        await loadLeadsFromIndexedDB(searchTerm);
+
+        toast.success("Lead deleted successfully");
+      } catch (error: any) {
+        console.error("Error deleting lead:", error);
+        
+        if (error.name === 'TimeoutError') {
+          toast.error("Server timeout - delete failed");
+        } else if (error.name === 'NetworkError') {
+          toast.error("Network error - cannot connect to server");
+        } else if (error.status === 401) {
+          toast.error("Session expired - please login again");
+        } else {
+          toast.error(error.message || "Failed to delete lead");
+        }
+      }
+    },
+    [searchTerm, loadLeadsFromIndexedDB]
   );
 
   const formatPhoneNumber = (phoneNumberString: string) => {
@@ -1107,18 +818,6 @@ await apiFetch(apiEndpoint, {
     }
     return `+1 ${phoneNumberString}`;
   };
-
-  useEffect(() => {
-    const handleEsc = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        handleCloseModal();
-      }
-    };
-    window.addEventListener("keydown", handleEsc);
-    return () => {
-      window.removeEventListener("keydown", handleEsc);
-    };
-  }, []);
 
   const columnDefs: ColDef<any, any>[] = useMemo(
     () => [
@@ -1295,12 +994,15 @@ await apiFetch(apiEndpoint, {
 
   if (error) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="text-red-500">{error}</div>
+      <div className="flex flex-col items-center justify-center h-64 p-4">
+        <div className="text-red-500 text-center mb-4">
+          <div className="text-lg font-semibold mb-2">Error</div>
+          <div>{error}</div>
+        </div>
         <Button
           variant="outline"
-          onClick={() => fetchLeads(searchTerm, searchBy, sortModel, true)}
-          className="ml-4"
+          onClick={() => loadLeadsFromIndexedDB()}
+          className="flex items-center"
         >
           <RefreshCw className="mr-2 h-4 w-4" />
           Retry
@@ -1313,27 +1015,12 @@ await apiFetch(apiEndpoint, {
     <div className="space-y-6 p-4">
       <Toaster position="top-center" />
       
-      {/* Online/Offline indicator */}
-      {!isOnline && (
-        <div className="rounded-md bg-yellow-100 p-3 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
-          You are currently offline. Changes will be synced when you reconnect.
-        </div>
-      )}
-      
+
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             Leads Management
           </h1>
-
-          {/* Search input */}
-
-            {!isOnline && (
-              <span className="ml-2 text-yellow-600 dark:text-yellow-400">
-                (Offline Mode)
-              </span>
-            )}
-          </p>
           <div className="mt-2 sm:mt-0 sm:max-w-md">
             <div className="relative">
               <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
@@ -1343,7 +1030,7 @@ await apiFetch(apiEndpoint, {
                 ref={searchInputRef}
                 placeholder="Search by ID, name, email, phone..."
                 value={searchTerm}
-                onChange={(e) => handleSearch(e.target.value)}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 text-sm sm:text-base"
               />
             </div>
@@ -1362,30 +1049,34 @@ await apiFetch(apiEndpoint, {
             <PlusCircle className="mr-2 h-4 w-4" />
             Add New Lead
           </Button>
-          {/* <Button 
-            onClick={() => fetchLeads(searchTerm, searchBy, sortModel, true)} 
+          <Button 
+            onClick={() => syncFromAPI(true)} 
             variant="outline"
             disabled={loading}
           >
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> 
-            {loading ? "Refreshing..." : "Refresh"}
-          </Button> */}
+            {loading ? "Syncing..." : "Sync from Server"}
+          </Button>
         </div>
       </div>
       <div className="flex w-full justify-center">
         <AGGridTable
+          key={`${filteredLeads.length}-${selectedStatuses.join(
+            ","
+          )}-${selectedWorkStatuses.join(",")}`}
           rowData={filteredLeads}
           columnDefs={columnDefs}
-          title={`Leads (${filteredLeads.length})`}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
           loading={loading}
           showFilters={true}
           showSearch={false}
           height="600px"
+          title={`Leads (${filteredLeads.length})`}
         />
       </div>
-      {/* Enhanced Modal from second version */}
+
+      {/* Enhanced Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 p-2 sm:p-4">
           <div className="w-full max-w-sm rounded-xl bg-white shadow-2xl sm:max-w-md sm:rounded-2xl md:max-w-2xl">
@@ -1467,7 +1158,6 @@ await apiFetch(apiEndpoint, {
                           /\D/g,
                           ""
                         );
-
                       }}
                     />
                     {errors.phone && (
@@ -1542,7 +1232,6 @@ await apiFetch(apiEndpoint, {
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                   </div>
-                  {/* Updated Notes section with drag functionality */}
                   <div className="space-y-1 sm:col-span-2">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Notes
@@ -1554,16 +1243,6 @@ await apiFetch(apiEndpoint, {
                         className="w-full resize-none rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                         style={{ minHeight: "60px" }}
                       />
-                      {/* Drag handle in bottom-right corner */}
-                      <div
-                        className="drag-handle absolute bottom-1 right-1 cursor-nwse-resize p-1 text-gray-400 transition-colors hover:text-gray-600"
-                        title="Drag to resize"
-                        style={{ pointerEvents: "auto" }}
-                      >
-                        <div className="flex h-5 w-5 items-center justify-center text-lg font-bold">
-                          ↖
-                        </div>
-                      </div>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 gap-2 pt-1 sm:col-span-2 sm:grid-cols-3">
@@ -1623,4 +1302,3 @@ await apiFetch(apiEndpoint, {
     </div>
   );
 }
-

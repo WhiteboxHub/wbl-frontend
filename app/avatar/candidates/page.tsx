@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
@@ -15,9 +14,8 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 
-// ---- IMPORTANT: correct import for your api helper ----
-import api from "@/lib/api"; // <- points to src/utils/api.js (no .js extension needed)
-console.log("api import check ->", typeof api, api && Object.keys(api || {})); // remove after debugging
+import api from "@/lib/api";
+console.log("api import check ->", typeof api, api && Object.keys(api || {}));
 
 type Candidate = {
   id: number;
@@ -406,10 +404,8 @@ export default function CandidatesPage() {
   );
   const [selectedBatches, setSelectedBatches] = useState<Batch[]>([]);
 
-
   // NOTE: use path only - baseURL handled by api instance
   const apiPath = "/candidates";
-
 
   const {
     register,
@@ -774,13 +770,10 @@ export default function CandidatesPage() {
         headerName: "Move to Prep",
         width: 150,
         sortable: true,
-
-
         filter: "agTextColumnFilter",
         cellRenderer: (params: any) => (
           <span>{params.value ? "Yes" : "No"}</span>
         ),
-
       },
       {
         field: "notes",
@@ -898,14 +891,12 @@ export default function CandidatesPage() {
     const fetchBatches = async () => {
       setBatchesLoading(true);
       try {
-
         const res = await api.get("/batch");
         const rawBatches = res.data?.data ?? res.data;
         const sortedAllBatches = [...(rawBatches || [])].sort(
           (a: Batch, b: Batch) => b.batchid - a.batchid
         );
         setAllBatches(sortedAllBatches);
-
 
         let mlBatchesOnly = sortedAllBatches.filter((batch) => {
           const subject = (batch.subject || "").toLowerCase();
@@ -1009,20 +1000,10 @@ export default function CandidatesPage() {
       !data.phone.trim() ||
       !data.dob
     ) {
-
-      const numericValue = value.replace(/[^0-9]/g, "");
-      setFormData((prev) => ({ ...prev, [name]: numericValue }));
-      return;
-    }
-
-    if (name === "full_name" || name === "emergcontactname") {
-      const nameValue = value.replace(/[^a-zA-Z. ]/g, "");
-      setFormData((prev) => ({ ...prev, [name]: nameValue }));
-
       toast.error("Full Name, Email, Phone, and Date of Birth are required");
-
       return;
     }
+
     try {
       const payload = {
         ...data,
@@ -1037,14 +1018,12 @@ export default function CandidatesPage() {
       const res = await api.post(apiPath, payload);
       const newId = res.data?.id ?? res.data;
       toast.success(`Candidate created successfully${newId ? ` (ID: ${newId})` : ""}`);
-      setNewCandidateForm(false);
-      setFormData(initialFormData);
+      handleCloseModal();
       fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
     } catch (error: any) {
       const message =
         error?.response?.data?.message || error?.message || "Failed to create candidate";
       toast.error("Failed to create candidate: " + message);
-
       console.error("Error creating candidate:", error);
     }
   };
@@ -1068,7 +1047,6 @@ export default function CandidatesPage() {
     async (updatedRow: Candidate) => {
       setLoadingRowId(updatedRow.id);
       try {
-
         const updatedData = { ...updatedRow };
         if (!updatedData.status || updatedData.status === "") {
           updatedData.status = "active";
@@ -1077,13 +1055,34 @@ export default function CandidatesPage() {
 
         await api.put(`${apiPath}/${updatedRow.id}`, payload);
 
-        toast.success("Candidate updated successfully");
+        // Update React state immediately
+        setCandidates(prevCandidates =>
+          prevCandidates.map(candidate =>
+            candidate.id === updatedRow.id ? updatedData : candidate
+          )
+        );
+        setFilteredCandidates(prevFiltered =>
+          prevFiltered.map(candidate =>
+            candidate.id === updatedRow.id ? updatedData : candidate
+          )
+        );
 
+        // Update AG Grid row directly
         if (gridRef.current) {
           const rowNode = gridRef.current.api.getRowNode(updatedRow.id.toString());
-          if (rowNode) rowNode.setData(updatedData);
-
+          if (rowNode) {
+            rowNode.setData(updatedData);
+            gridRef.current.api.redrawRows({ rowNodes: [rowNode] }); // ✅ forces re-render
+            gridRef.current.api.refreshCells({
+              rowNodes: [rowNode],
+              force: true,
+            });
+          } else {
+            // fallback: refresh all rows
+            gridRef.current.api.refreshCells({ force: true });
+          }
         }
+
         toast.success("Candidate updated successfully");
       } catch (error) {
         toast.error("Failed to update candidate");
@@ -1095,69 +1094,24 @@ export default function CandidatesPage() {
     [apiPath]
   );
 
-
-  useEffect(() => {
-    if (!isModalOpen) return; // Only initialize when modal is open
-
-    const textarea = document.querySelector(
-      'textarea[name="notes"]'
-    ) as HTMLTextAreaElement;
-    const dragHandle = document.querySelector(".drag-handle") as HTMLElement;
-
-    if (!textarea || !dragHandle) return;
-
-    let isResizing = false;
-    let startY = 0;
-    let startHeight = 0;
-
-    const startResize = (e: MouseEvent) => {
-      isResizing = true;
-      startY = e.clientY;
-      startHeight = parseInt(
-        document.defaultView?.getComputedStyle(textarea).height || "0",
-        10
-      );
-      e.preventDefault();
-    };
-
-
-    const resize = (e: MouseEvent) => {
-      if (!isResizing) return;
-      const deltaY = e.clientY - startY;
-      textarea.style.height = `${Math.max(60, startHeight + deltaY)}px`; // Minimum height 60px
-    };
-
-    const stopResize = () => {
-      isResizing = false;
-    };
-
-    dragHandle.addEventListener("mousedown", startResize);
-    document.addEventListener("mousemove", resize);
-    document.addEventListener("mouseup", stopResize);
-
-    return () => {
-      dragHandle.removeEventListener("mousedown", startResize);
-      document.removeEventListener("mousemove", resize);
-      document.removeEventListener("mouseup", stopResize);
-    };
-  }, [isModalOpen]); // Re-initialize when modal opens
-
-
   const handleRowDeleted = useCallback(
     async (id: number) => {
       try {
+        await api.delete(`${apiPath}/${id}`);
 
-        const response = await fetch(`${apiEndpoint}/${id}`, {
-          method: "DELETE",
-        });
-        if (!response.ok) throw new Error("Failed to delete candidate");
-        setCandidates((prevCandidates) =>
-          prevCandidates.filter((candidate) => candidate.id !== id)
+        // Update state immediately
+        setCandidates(prevCandidates =>
+          prevCandidates.filter(candidate => candidate.id !== id)
+        );
+        setFilteredCandidates(prevFiltered =>
+          prevFiltered.filter(candidate => candidate.id !== id)
         );
 
+        // Update AG Grid
         if (gridRef.current) {
           gridRef.current.api.applyTransaction({ remove: [{ id }] });
         }
+
         toast.success("Candidate deleted successfully");
       } catch (error) {
         toast.error("Failed to delete candidate");
@@ -1166,7 +1120,6 @@ export default function CandidatesPage() {
     },
     [apiPath]
   );
-
   const handleFilterChanged = useCallback(
     (filterModelFromGrid: any) => {
       setFilterModel(filterModelFromGrid);
@@ -1693,11 +1646,9 @@ export default function CandidatesPage() {
                 </div>
               </form>
             </div>
-
           </div>
         </div>
       )}
     </div>
-    );
   );
 }

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useEffect, useState } from "react";
@@ -5,17 +6,9 @@ import { ColDef } from "ag-grid-community";
 import { AGGridTable } from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-
-import { SearchIcon } from "lucide-react";
+import { SearchIcon, X } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { toast, Toaster } from "sonner";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/admin_ui/dialog";
 import { apiFetch } from "@/lib/api.js";
 import { useForm } from "react-hook-form";
 
@@ -59,6 +52,7 @@ const TYPE_MAPPING = {
   B: "Books",
   N: "Newsletters",
   M: "Materials",
+  A: 'Assignments'
 };
 
 const TYPE_OPTIONS = [
@@ -70,8 +64,8 @@ const TYPE_OPTIONS = [
   { value: "B", label: "Books" },
   { value: "N", label: "Newsletters" },
   { value: "M", label: "Materials" },
+  { value: "A", label: "Assignments" },
 ];
-
 
 export default function CourseMaterialPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -101,9 +95,7 @@ export default function CourseMaterialPage() {
     }
   });
 
-  
   const fetchCourses = async () => {
-
     try {
       const res = await apiFetch("/courses");
       const arr = Array.isArray(res) ? res : res?.data ?? [];
@@ -111,7 +103,6 @@ export default function CourseMaterialPage() {
       setCourses(sortedCourses);
     } catch (e: any) {
       // don't block page — log and show toast optionally
-      console.error("Failed to fetch courses", e);
     }
   };
 
@@ -122,15 +113,13 @@ export default function CourseMaterialPage() {
       const sortedSubjects = (arr || []).slice().sort((a: any, b: any) => b.id - a.id);
       setSubjects(sortedSubjects);
     } catch (e: any) {
-      console.error("Failed to fetch subjects", e);
+      // don't block page
     }
-
   };
 
   const fetchMaterials = async () => {
     setLoading(true);
     try {
-      setLoading(true);
       setError("");
       const res = await apiFetch("/course-materials");
       const arr = Array.isArray(res) ? res : res?.data ?? [];
@@ -147,47 +136,50 @@ export default function CourseMaterialPage() {
     }
   };
 
-  
   useEffect(() => {
-    // fetch in parallel
     fetchMaterials();
     fetchCourses();
     fetchSubjects();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsModalOpen(false);
+      }
+    };
 
+    if (isModalOpen) {
+      document.addEventListener('keydown', handleEscKey);
+      return () => {
+        document.removeEventListener('keydown', handleEscKey);
+      };
+    }
+  }, [isModalOpen]);
 
   const getSubjectDisplayName = (subjectId: number) => {
     if (subjectId === 0) return "Basic Fundamentals";
     const subject = subjects.find((s) => s.id === subjectId);
     return subject ? subject.name : `Subject ID: ${subjectId}`;
+  };
 
- 
-  const getOrphanSubjectIds = () => {
-    const subjectIdsFromMaterials = [...new Set(materials.map((m) => m.subjectid))];
-    return subjectIdsFromMaterials
-      .filter((id) => !subjects.some((subject) => subject.id === id))
-      .sort((a, b) => b - a);
-
+  const getCourseDisplayName = (courseId: number) => {
+    if (courseId === 0) return "Fundamentals";
+    const course = courses.find((c) => c.id === courseId);
+    return course ? course.name : `Course ID: ${courseId}`;
   };
 
   const getTypeDisplayName = (typeCode: string) => {
     return TYPE_MAPPING[typeCode as keyof typeof TYPE_MAPPING] || typeCode;
   };
 
-  
   // Search Filter
   useEffect(() => {
     const lower = searchTerm.trim().toLowerCase();
-    if (!lower) return setFilteredMaterials(materials);
-   
-   if (!lower) {
+    if (!lower) {
       setFilteredMaterials(materials);
       return;
     }
-
-
 
     const filtered = materials.filter((row) => {
       const idStr = row.id?.toString().toLowerCase() || "";
@@ -207,7 +199,6 @@ export default function CourseMaterialPage() {
 
     setFilteredMaterials(filtered);
   }, [searchTerm, materials, subjects, courses]);
-
 
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
     { 
@@ -314,7 +305,6 @@ export default function CourseMaterialPage() {
     },
   ], [subjects, courses]);
 
-  
   // CREATE - Add new material
   const onSubmit = async (data: MaterialFormData) => {
     if (!data.courseid || !data.name.trim()) {
@@ -332,11 +322,7 @@ export default function CourseMaterialPage() {
       sortorder: Number(data.sortorder) || 9999,
     };
 
-    console.log("Creating new material with payload:", payload);
-
     try {
-      const newMaterialData = response.data;
-      console.log("Backend returned:", newMaterialData);
       const res = await apiFetch("/course-materials", { method: "POST", body: payload });
       const created = res && !Array.isArray(res) ? (res.data ?? res) : res;
       const updated = [...materials, created].slice().sort((a, b) => b.id - a.id);
@@ -347,74 +333,14 @@ export default function CourseMaterialPage() {
       setIsModalOpen(false);
       reset();
     } catch (e: any) {
-      console.error(" Create error:", e.response?.data);
-      toast.error(
-        e.response?.data?.detail || "Failed to add Course Material",
-        { position: "top-center" }
-      );
-
       const msg = e?.body || e?.message || "Failed to add Course Material";
       toast.error(typeof msg === "string" ? msg : JSON.stringify(msg), { position: "top-center" });
-
     }
   };
-  
-  // Add this useEffect after your existing useEffects
-useEffect(() => {
-  const handleEscKey = (event: KeyboardEvent) => {
-    if (event.key === 'Escape') {
-      setIsModalOpen(false);
-    }
-  };
-
-  if (isModalOpen) {
-    document.addEventListener('keydown', handleEscKey);
-    return () => {
-      document.removeEventListener('keydown', handleEscKey);
-    };
-  }
-}, [isModalOpen]);
 
   // Update material
   const handleRowUpdated = async (updatedRow: any) => {
     try {
-      const payload = {
-        subjectid: Number(updatedRow.subjectid), 
-        courseid: Number(updatedRow.courseid),    
-        name: updatedRow.name,
-        description: updatedRow.description,
-        type: updatedRow.type,                     
-        link: updatedRow.link,
-        sortorder: Number(updatedRow.sortorder)
-      };
-
-      console.log("Updating material with payload:", payload);
-
-      const response = await axios.put(
-        `${process.env.NEXT_PUBLIC_API_URL}/course-materials/${updatedRow.id}`,
-        payload
-      );
-      
-      const updatedMaterial = response.data;
-      console.log("Backend returned:", updatedMaterial);
-
-      // Update local state with the response from backend
-      const updatedMaterials = materials.map((m) =>
-        m.id === updatedRow.id ? updatedMaterial : m
-      );
-      setMaterials(updatedMaterials);
-      setFilteredMaterials(updatedMaterials);
-      
-      toast.success("Course Material updated successfully", {
-        position: "top-center",
-      });
-    } catch (e: any) {
-      console.error("Update error:", e.response?.data);
-      toast.error(
-        e.response?.data?.detail || "Failed to update Course Material",
-        { position: "top-center" }
-      );
-
       await apiFetch(`/course-materials/${updatedRow.id}`, { method: "PUT", body: updatedRow });
       setMaterials((prev) => prev.map((r) => (r.id === updatedRow.id ? updatedRow : r)));
       setFilteredMaterials((prev) => prev.map((r) => (r.id === updatedRow.id ? updatedRow : r)));
@@ -422,39 +348,19 @@ useEffect(() => {
     } catch (e: any) {
       const msg = e?.body || e?.message || "Failed to update Course Material";
       toast.error(typeof msg === "string" ? msg : JSON.stringify(msg), { position: "top-center" });
-
     }
   };
 
-
+  // Delete material
   const handleRowDeleted = async (id: number) => {
     try {
-
-      console.log("Deleting material with ID:", id);
-      
-      await axios.delete(
-        `${process.env.NEXT_PUBLIC_API_URL}/course-materials/${id}`
-      );
-      
-      console.log("Material deleted successfully");
-      
-      setFilteredMaterials((prev) => prev.filter((r) => r.id !== id));
-
-      await apiFetch(`/course-materials/${id}`, { method: "DELETE" })
+      await apiFetch(`/course-materials/${id}`, { method: "DELETE" });
       setMaterials((prev) => prev.filter((r) => r.id !== id));
       setFilteredMaterials((prev) => prev.filter((r) => r.id !== id));
       toast.success(`Course Material ${id} deleted`, { position: "top-center" });
     } catch (e: any) {
-
-      console.error("Delete error:", e.response?.data);
-      toast.error(
-        e.response?.data?.detail || "Failed to delete Course Material",
-        { position: "top-center" }
-      );
       const msg = e?.body || e?.message || "Failed to delete Course Material";
       toast.error(typeof msg === "string" ? msg : JSON.stringify(msg), { position: "top-center" });
-
-
     }
   };
 
@@ -464,14 +370,6 @@ useEffect(() => {
   return (
     <div className="space-y-6">
       <Toaster position="top-center" />
-
-      
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold">Course Materials</h1>
-          <p>Manage course materials for courses and subjects.</p>
-
 
       {/* Header + Search + Add Button (Responsive Layout) */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -485,20 +383,23 @@ useEffect(() => {
             <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">Search</Label>
             <div className="relative mt-1">
               <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <Input id="search" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search by ID, name, type..." className="w-full pl-10 text-sm sm:text-base" />
+              <Input 
+                id="search" 
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)} 
+                placeholder="Search by ID, name, type..." 
+                className="w-full pl-10 text-sm sm:text-base" 
+              />
             </div>
             {searchTerm && <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{filteredMaterials.length} results found</p>}
           </div>
-
-
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>+ Add Material</Button>
-      </div>
-
 
         {/* Right Section */}
         <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
-          <Button onClick={() => setIsModalOpen(true)} className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700">+ Add Course Material</Button>
+          <Button onClick={() => setIsModalOpen(true)} className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700">
+            + Add Course Material
+          </Button>
         </div>
       </div>
 
@@ -687,6 +588,10 @@ useEffect(() => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
 
       <AGGridTable
         rowData={filteredMaterials}
@@ -696,7 +601,6 @@ useEffect(() => {
           flex: 1,
           resizable: true,
         }}
-
         title={`Course Materials (${filteredMaterials.length})`}
         onRowUpdated={handleRowUpdated}
         onRowDeleted={handleRowDeleted}

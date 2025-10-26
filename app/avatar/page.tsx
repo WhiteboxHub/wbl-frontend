@@ -14,7 +14,7 @@ import {
   PieChart,Pie,Cell,ResponsiveContainer,BarChart,Bar,XAxis,YAxis,Tooltip,CartesianGrid,Legend
 } from "recharts";
 import axios from "axios";
-
+import { apiFetch } from "@/lib/api";
 
 function formatDateFromDB(dateStr: string | null | undefined) {
   if (!dateStr) return "";
@@ -276,33 +276,29 @@ export default function Index() {
   }, []);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [metricsResponse, batchesResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/metrics/all`),
-          fetch(`${API_BASE_URL}/upcoming-batches?limit=3`)
-        ]);
+  const fetchData = async () => {
+    try {
+      setLoading(true);
 
-        if (!metricsResponse.ok || !batchesResponse.ok) {
-          throw new Error('Failed to fetch data');
-        }
+      // Use apiFetch so auth headers and base URL are handled automatically
+      const [metricsData, batchesData] = await Promise.all([
+        apiFetch("/metrics/all"),
+        apiFetch("/upcoming-batches?limit=3")
+      ]);
 
-        const metricsData = await metricsResponse.json();
-        const batchesData = await batchesResponse.json();
+      setMetrics(metricsData);
+      setUpcomingBatches(batchesData);
+    } catch (err: any) {
+      setError(err?.message || "An error occurred");
+      console.error("Error fetching data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        setMetrics(metricsData);
-        setUpcomingBatches(batchesData);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-        console.error('Error fetching data:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  fetchData();
+}, []);
 
-    fetchData();
-  }, []);
 
 
   useEffect(() => {

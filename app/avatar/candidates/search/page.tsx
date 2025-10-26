@@ -1,17 +1,15 @@
-
 "use client";
-
 import React, { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { isTokenExpired } from "@/utils/auth"; 
+import { apiFetch } from "@/lib/api";
 
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon, User, Phone, DollarSign, BookOpen, Briefcase, Mail, Eye, Settings } from "lucide-react";
-
 interface CandidateSuggestion {
   id: number;
   name: string;
@@ -32,7 +30,7 @@ interface CandidateData {
   session_records?: any[];
 }
 
-const StatusRenderer = ({ status }: {status: string }) => {
+const StatusRenderer = ({ status }: { status: string }) => {
   const statusStr = status?.toString().toLowerCase() ?? "";
   const colorMap: Record<string, string> = {
     active: "bg-green-100 text-green-800",
@@ -92,11 +90,52 @@ export default function CandidateSearchPage() {
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateData | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  const [urlParamLoading, setUrlParamLoading] = useState(false);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    basic: true,
+    fee: false,
+    login: false,
+    marketing: false,
+    interviews: false,
+    sessions: false,
+    misc: false
+  });
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
   
   const searchParams = useSearchParams();
   const candidateIdFromUrl = searchParams.get("candidateId");
+
+  useEffect(() => {
+    console.log(" URL Parameters:", {
+      candidateIdFromUrl,
+      fullUrl: window.location.href,
+      searchParams: Object.fromEntries(searchParams.entries())
+    });
+  }, [searchParams, candidateIdFromUrl]);
+
+  useEffect(() => {
+    const loadCandidateFromUrl = async () => {
+      if (candidateIdFromUrl) {
+        console.log("Loading candidate from URL:", candidateIdFromUrl);
+        setUrlParamLoading(true);
+        
+        const candidateId = Number(candidateIdFromUrl);
+        
+        if (!isNaN(candidateId) && candidateId > 0) {
+          // Clear any existing candidate and search term
+          setSelectedCandidate(null);
+          setSearchTerm("");
+          await fetchCandidateById(candidateId);
+        } else {
+          console.error(" Invalid candidate ID from URL:", candidateIdFromUrl);
+        }
+        
+        setUrlParamLoading(false);
+      }
+    };
+
+    loadCandidateFromUrl();
+  }, [candidateIdFromUrl]); 
 
   const toggleSection = (section: string) => {
     setOpenSections(prev => ({
@@ -104,84 +143,68 @@ export default function CandidateSearchPage() {
       [section]: !prev[section]
     }));   
   };
-      const getAuthHeaders = () => {
+
+  const getAuthHeaders = () => {
     const token = localStorage.getItem("token");
-    return token ? { Authorization: `Bearer ${token}` } : {};};
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
 
-useEffect(() => {
-  if (debounceTimeout.current) {
-    clearTimeout(debounceTimeout.current);
-  }
-
-  if (!searchTerm.trim() || searchTerm.trim().length < 2) {
-    setSuggestions([]);
-    setShowSuggestions(false);
-    return;
-  }
-
-  debounceTimeout.current = setTimeout(async () => {
-    try {
-      const token = localStorage.getItem("access_token");
-
-      if (!token || isTokenExpired(token)) {
-        console.error("Token missing or expired");
-        setSuggestions([]);
-        return;
-      }
-
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/candidates/search-names/${encodeURIComponent(searchTerm)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`, 
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (res.ok) {
-        const data = await res.json();
-        setSuggestions(data || []);
-        setShowSuggestions(true);
-      } else {
-        console.error("Search failed:", res.status);
-        setSuggestions([]);
-      }
-    } catch (error) {
-      setSuggestions([]);
-      console.error("Search failed:", error);
+  // Search suggestions
+  useEffect(() => {
+    if (debounceTimeout.current) {
+      clearTimeout(debounceTimeout.current);
     }
-  }, 300);
-}, [searchTerm]);
 
+    if (!searchTerm.trim() || searchTerm.trim().length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
 
+    debounceTimeout.current = setTimeout(async () => {
+      try {
+        const token = localStorage.getItem("access_token");
+
+        if (!token || isTokenExpired(token)) {
+          console.error("Token missing or expired");
+          setSuggestions([]);
+          return;
+        }
+
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/candidates/search-names/${encodeURIComponent(searchTerm)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`, 
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (res.ok) {
+          const data = await res.json();
+          setSuggestions(data || []);
+          setShowSuggestions(true);
+        } else {
+          console.error("Search failed:", res.status);
+          setSuggestions([]);
+        }
+      } catch (error) {
+        setSuggestions([]);
+        console.error("Search failed:", error);
+      }
+    }, 300);
+  }, [searchTerm]);
+
+  // Select candidate from search
   const selectCandidate = async (suggestion: CandidateSuggestion) => {
     setLoading(true);
     setShowSuggestions(false);
     setSearchTerm("");
     try {
+      const data = await apiFetch(`/candidates/details/${suggestion.id}`);
+      const sessionData = await apiFetch(`/candidates/sessions/${suggestion.id}`);
 
-      const res = await fetch(
-  `${process.env.NEXT_PUBLIC_API_URL}/candidates/details/${suggestion.id}`,
-      {
-        headers: {
-          ...getAuthHeaders(),
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-      const data = await res.json();
-    
-      const sessionRes = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/candidates/sessions/${suggestion.id}`,
-      {
-        headers: {
-          ...getAuthHeaders(),
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-      const sessionData = await sessionRes.json();
       setSelectedCandidate({
         ...data,
         session_records: sessionData.sessions || []
@@ -195,51 +218,37 @@ useEffect(() => {
 
   const fetchCandidateById = async (id: number) => {
     setLoading(true);
-    setShowSuggestions(false);
-    setSearchTerm("");
+    console.log(" Fetching candidate data for ID:", id);
+    
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/candidates/details/${id}`,
-        {
-          headers: {
-            ...getAuthHeaders(),
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      const data = await res.json();
-      const sessionRes = await fetch(
-  `${process.env.NEXT_PUBLIC_API_URL}/candidates/sessions/${id}`,
-        {
-          headers: {
-            ...getAuthHeaders(),
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      const sessionData = await sessionRes.json();
+      const [data, sessionData] = await Promise.all([
+        apiFetch(`/candidates/details/${id}`),
+        apiFetch(`/candidates/sessions/${id}`)
+      ]);
+
+      console.log(" Candidate details response:", data);
+      console.log("Session data response:", sessionData);
+
+      if (data.error) {
+        console.error(" API Error in candidate details:", data.error);
+        return;
+      }
+
+      if (sessionData.error) {
+        console.error(" API Error in session data:", sessionData.error);
+      }
+
       setSelectedCandidate({
         ...data,
         session_records: sessionData.sessions || []
       });
+      
     } catch (error) {
-      console.error("Failed to fetch candidate details:", error);
+      console.error(" Failed to fetch candidate details:", error);
     } finally {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (candidateIdFromUrl) {
-      if (
-        !selectedCandidate ||
-        selectedCandidate.candidate_id !== Number(candidateIdFromUrl)
-      ) {
-        fetchCandidateById(Number(candidateIdFromUrl));
-      }
-    }
-  }, [candidateIdFromUrl]);
-
 
   const renderInfoCard = (title: string, icon: React.ReactNode, data: any) => (
     <div className="bg-white dark:bg-black-800 rounded-lg border border-black-200 dark:border-black-700 p-6 shadow-sm">
@@ -248,125 +257,137 @@ useEffect(() => {
         <h4 className="font-semibold text-lg text-black-900 dark:text-black-100">{title}</h4>
       </div>
       
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-1 text-sm">
-          {Object.entries(data).map(([key, value]) => {
-            if (value === null || value === undefined || value === "") return null;
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-1 text-sm">
+        {Object.entries(data).map(([key, value]) => {
+          if (value === null || value === undefined || value === "") return null;
 
-            const displayKey = key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()
-              .split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+          const displayKey = key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim()
+            .split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 
-            let displayValue = value;
+          let displayValue = value;
 
-            if ((key === 'Last Login' && value) || (key === 'Last Modified' && value)) {
-              const date = new Date(value as string | number | Date);
-              displayValue = date.toLocaleString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: true
-              });
+          if ((key === 'Last Login' && value) || (key === 'Last Modified' && value)) {
+            const date = new Date(value as string | number | Date);
+            displayValue = date.toLocaleString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true
+            });
+          }
+          if (key === 'candidate_folder' && value && value.toString().trim() !== '') {
+            const url = value.toString().trim();
+            let finalUrl = url;
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+              finalUrl = 'https://' + url;
             }
-            if (key === 'candidate_folder' && value && value.toString().trim() !== '') {
-              const url = value.toString().trim();
-              let finalUrl = url;
-              if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                finalUrl = 'https://' + url;
-              }
-              displayValue = (
-                <button
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer whitespace-nowrap inline-block min-w-0 max-w-fit"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    window.open(finalUrl, '_blank', 'noopener,noreferrer');
-                  }}
-                >
+            displayValue = (
+              <button
+                className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer whitespace-nowrap inline-block min-w-0 max-w-fit"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  window.open(finalUrl, '_blank', 'noopener,noreferrer');
+                }}
+              >
                 Folder
-                </button>
-              );
-            } else if (key.toLowerCase().includes('linkedin') && value && value.toString().trim() !== '') {
-              const url = value.toString().trim();
-              const finalUrl = url.startsWith('http') ? url : `https://${url}`;
-              displayValue = renderOpenLinkButton(finalUrl, "Open LinkedIn");
-            } else if (key.toLowerCase().includes('github') && value && value.toString().trim() !== '') {
-              const url = value.toString().trim();
-              const finalUrl = url.startsWith('http') ? url : `https://${url}`;
-              displayValue = renderOpenLinkButton(finalUrl, "Open GitHub");
-            } else if (key.toLowerCase().includes('notes') && typeof value === 'string') {
-              
-              const parseHtmlToText = (htmlString: string) => {
-                const doc = new DOMParser().parseFromString(htmlString, 'text/html');
-                return doc.body.innerText || '';
-              };
-              const textOnly = parseHtmlToText(value);
-              displayValue = (
-                <div className="whitespace-pre-wrap text-sm break-words dark:text-black-100 text-black-900">
-                  {textOnly}
-                </div>
-              );
-            }
-            else if (
-              (key.toLowerCase().includes('phone')) &&
-              value &&
-              value.toString().trim() !== ''
-            ) {
-              const phone = value.toString().trim();
+              </button>
+            );
+          } else if (key.toLowerCase().includes('linkedin') && value && value.toString().trim() !== '') {
+            const url = value.toString().trim();
+            const finalUrl = url.startsWith('http') ? url : `https://${url}`;
+            displayValue = renderOpenLinkButton(finalUrl, "Open LinkedIn");
+          } else if (key.toLowerCase().includes('github') && value && value.toString().trim() !== '') {
+            const url = value.toString().trim();
+            const finalUrl = url.startsWith('http') ? url : `https://${url}`;
+            displayValue = renderOpenLinkButton(finalUrl, "Open GitHub");
+          } else if (key.toLowerCase().includes('notes') && typeof value === 'string') {
+            const parseHtmlToText = (htmlString: string) => {
+              const doc = new DOMParser().parseFromString(htmlString, 'text/html');
+              return doc.body.innerText || '';
+            };
+            const textOnly = parseHtmlToText(value);
+            displayValue = (
+              <div className="whitespace-pre-wrap text-sm break-words dark:text-black-100 text-black-900">
+                {textOnly}
+              </div>
+            );
+          }
+          else if (
+            key.toLowerCase().includes('phone') &&
+            value &&
+            value.toString().trim() !== ''
+          ) {
+            const formatUSPhone = (phone: string) => {
+              const digits = phone.replace(/\D/g, '');
+              if (digits.length === 10) {
+                return `+1 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+              } else if (digits.length === 11 && digits.startsWith('1')) {
+                return `+${digits.slice(0, 1)} (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+              } else {
+                return phone;
+              }
+            };
+
+            const phone = value.toString().trim();
+            const formattedPhone = formatUSPhone(phone);
+
+            displayValue = (
+              <a
+                href={`tel:${phone.replace(/\D/g, '')}`}
+                className="text-blue-600 hover:underline font-medium"
+              >
+                {formattedPhone}
+              </a>
+            );
+          }
+
+          else if (value && typeof value === "string") {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (emailRegex.test(value.trim())) {
               displayValue = (
                 <a
-                  href={`tel:${phone.replace(/\s+/g, '')}`}
+                  href={`mailto:${value}`}
                   className="text-blue-600 hover:underline font-medium"
+                  target="_blank"
+                  rel="noopener noreferrer"
                 >
-                  {phone}
+                  {value}
                 </a>
               );
             }
-            else if (value && typeof value === "string") {
-              const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-              if (emailRegex.test(value.trim())) {
-                displayValue = (
-                  <a
-                    href={`mailto:${value}`}
-                    className="text-blue-600 hover:underline font-medium"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {value}
-                  </a>
-                );
-              }
-            }
-            else if (key.toLowerCase().includes('date')) {
-              displayValue = DateFormatter(value);
-            } else if (key === 'status') {
-              displayValue = <StatusRenderer status={value as string} />;
-            }
-            else if (key === "agreement") {
-              displayValue = value === "Y" ? " Yes" : " No";
-            }
-            else if (Array.isArray(value) && value.length > 0 && value.every(v => isPotentialUrl(v))) {
-              displayValue = (
-                <div className="flex flex-wrap gap-1">
-                  {value.map((url: string, idx: number) => (
-                    <span key={url + idx}>{renderOpenLinkButton(url, `Link ${idx + 1}`)}</span>
-                  ))}
-                </div>
-              );
-            }
-            else if (typeof value === "string" && isPotentialUrl(value)) {
-              displayValue = renderOpenLinkButton(value, "Open Link");
-            }
-
-            return (
-              <div key={key} className="flex items-center py-3 border-b border-black-100 dark:border-black-600 last:border-b-0">
-                <span className="text-black-600 dark:text-black-400 font-semibold w-auto flex-shrink-0 mr-3">{displayKey}:</span>
-                <span className="text-black-900 dark:text-black-100 font-medium">{displayValue as React.ReactNode}</span>
+          }
+          else if (key.toLowerCase().includes('date')) {
+            displayValue = DateFormatter(value);
+          } else if (key === 'status') {
+            displayValue = <StatusRenderer status={value as string} />;
+          }
+          else if (key === "agreement") {
+            displayValue = value === "Y" ? " Yes" : " No";
+          }
+          else if (Array.isArray(value) && value.length > 0 && value.every(v => isPotentialUrl(v))) {
+            displayValue = (
+              <div className="flex flex-wrap gap-1">
+                {value.map((url: string, idx: number) => (
+                  <span key={url + idx}>{renderOpenLinkButton(url, `Link ${idx + 1}`)}</span>
+                ))}
               </div>
             );
-          })}
-        </div>
+          }
+          else if (typeof value === "string" && isPotentialUrl(value)) {
+            displayValue = renderOpenLinkButton(value, "Open Link");
+          }
 
+          return (
+            <div key={key} className="flex items-center py-3 border-b border-black-100 dark:border-black-600 last:border-b-0">
+              <span className="text-black-600 dark:text-black-400 font-semibold w-auto flex-shrink-0 mr-3">{displayKey}:</span>
+              <span className="text-black-900 dark:text-black-100 font-medium">{displayValue as React.ReactNode}</span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 
@@ -395,106 +416,104 @@ useEffect(() => {
 
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm table-fixed">
-          <thead>
-            <tr className="border-b border-black-200 dark:border-black-600">
-              {columns.map(column => {
-                const displayColumn = column
-                  .replace(/_/g, ' ')
-                  .replace(/([A-Z])/g, ' $1')
-                  .trim()
-                  .split(' ')
-                  .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                  .join(' ');
+            <thead>
+              <tr className="border-b border-black-200 dark:border-black-600">
+                {columns.map(column => {
+                  const displayColumn = column
+                    .replace(/_/g, ' ')
+                    .replace(/([A-Z])/g, ' $1')
+                    .trim()
+                    .split(' ')
+                    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                    .join(' ');
 
-                return (
-                  <th 
-                    key={column} 
-                    className={`text-left p-2 font-semibold text-black-700 dark:text-black-300 ${
-                      column.toLowerCase().includes('email') ? 'w-48' : 
-                      column === 'recording_link' ? 'w-20' : 
-                      column.toLowerCase().includes('date') ? 'w-24' : 
-                      'w-auto'
-                    }`}
-                  >
-                    {displayColumn}
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
+                  return (
+                    <th 
+                      key={column} 
+                      className={`text-left p-2 font-semibold text-black-700 dark:text-black-300 ${
+                        column.toLowerCase().includes('email') ? 'w-48' : 
+                        column === 'recording_link' ? 'w-20' : 
+                        column.toLowerCase().includes('date') ? 'w-24' : 
+                        'w-auto'
+                      }`}
+                    >
+                      {displayColumn}
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
             <tbody>
               {records.map((record, idx) => (
                 <tr key={idx} className="border-b border-black-100 dark:border-black-700">
-{columns.map(column => {
-  let value = record[column];
-  
-  if (column.toLowerCase().includes('date')) {
-    value = DateFormatter(value);
-  } else if (column === 'Last Modified' && value) {
-    const date = new Date(value as string | number | Date);
-    value = date.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-  } else if (column.toLowerCase().includes('amount') || column.toLowerCase().includes('salary') || column === 'fee_paid') {
-    value = AmountFormatter(value);
-  } else if (column === 'status') {
-    value = <StatusRenderer status={value as string} />;
-  } else if (column === 'feedback') {
-    const feedbackColors = {
-      'Positive': 'bg-green-100 text-green-800',
-      'Negative': 'bg-red-100 text-red-800', 
-      'No Response': 'bg-black-100 text-black-800',
-      'Cancelled': 'bg-orange-100 text-orange-800'
-    };
-    value = <Badge className={feedbackColors[value as keyof typeof feedbackColors] || 'bg-black-100 text-black-800'}>{value}</Badge>;
-  } else if (column === 'recording_link' && value && value.toString().trim() !== '') {
-    const url = value.toString().trim();
-    let finalUrl = url;
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      finalUrl = 'https://' + url;
-    }
-    
-    value = (
-      <button 
-        className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer whitespace-nowrap inline-block min-w-0 max-w-fit"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          window.open(finalUrl, '_blank', 'noopener,noreferrer');
-        }}
-      >
-      Link
-      </button>
-    );
-  }
-  else if (Array.isArray(value) && value.length > 0 && value.every(v => isPotentialUrl(v))) {
-    value = (
-      <div className="flex flex-wrap gap-1">
-        {value.map((url: string, idx: number) => (
-          <span key={url + idx}>{renderOpenLinkButton(url, `Link ${idx + 1}`)}</span>
-        ))}
-      </div>
-    );
-  }
-  else if (typeof value === "string" && isPotentialUrl(value)) {
-    value = renderOpenLinkButton(value, "Open Link");
-  }
+                  {columns.map(column => {
+                    let value = record[column];
+                    
+                    if (column.toLowerCase().includes('date')) {
+                      value = DateFormatter(value);
+                    } else if (column === 'Last Modified' && value) {
+                      const date = new Date(value as string | number | Date);
+                      value = date.toLocaleString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true,
+                      });
+                    } else if (column.toLowerCase().includes('amount') || column.toLowerCase().includes('salary') || column === 'fee_paid') {
+                      value = AmountFormatter(value);
+                    } else if (column === 'status') {
+                      value = <StatusRenderer status={value as string} />;
+                    } else if (column === 'feedback') {
+                      const feedbackColors = {
+                        'Positive': 'bg-green-100 text-green-800',
+                        'Negative': 'bg-red-100 text-red-800', 
+                        'No Response': 'bg-black-100 text-black-800',
+                        'Cancelled': 'bg-orange-100 text-orange-800'
+                      };
+                      value = <Badge className={feedbackColors[value as keyof typeof feedbackColors] || 'bg-black-100 text-black-800'}>{value}</Badge>;
+                    } else if (column === 'recording_link' && value && value.toString().trim() !== '') {
+                      const url = value.toString().trim();
+                      let finalUrl = url;
+                      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                        finalUrl = 'https://' + url;
+                      }
+                      
+                      value = (
+                        <button 
+                          className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer whitespace-nowrap inline-block min-w-0 max-w-fit"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            window.open(finalUrl, '_blank', 'noopener,noreferrer');
+                          }}
+                        >
+                          Link
+                        </button>
+                      );
+                    }
+                    else if (Array.isArray(value) && value.length > 0 && value.every(v => isPotentialUrl(v))) {
+                      value = (
+                        <div className="flex flex-wrap gap-1">
+                          {value.map((url: string, idx: number) => (
+                            <span key={url + idx}>{renderOpenLinkButton(url, `Link ${idx + 1}`)}</span>
+                          ))}
+                        </div>
+                      );
+                    }
+                    else if (typeof value === "string" && isPotentialUrl(value)) {
+                      value = renderOpenLinkButton(value, "Open Link");
+                    }
 
-  return (
-    <td key={column} className="p-2 text-black-900 max-w-xs break-words dark:text-black-100">
-      {column.toLowerCase().includes("notes") && typeof value === "string"
-        ? value.replace(/<[^>]+>/g, '')
-        : value || "—"}
-    </td>
-  );
-})}
-
-
+                    return (
+                      <td key={column} className="p-2 text-black-900 max-w-xs break-words dark:text-black-100">
+                        {column.toLowerCase().includes("notes") && typeof value === "string"
+                          ? value.replace(/<[^>]+>/g, '')
+                          : value || "—"}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>
@@ -587,9 +606,9 @@ useEffect(() => {
       </div>
     );
   };
-  
-    return (
-      <div className="space-y-6">
+
+  return (
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-black-900 dark:text-black-100">
@@ -603,7 +622,7 @@ useEffect(() => {
 
       <div className="max-w-md relative">
         <Label htmlFor="search" className="text-sm font-medium text-black-700 dark:text-black-300">
-          Search by Name
+          
         </Label>
         <div className="relative mt-1">
           <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-black-400" />
@@ -735,7 +754,7 @@ useEffect(() => {
                 <div className="flex items-center gap-2">
                   <Mail className="h-5 w-5 text-black-600 dark:text-black-400" />
                   <span className="font-medium text-black-900 dark:text-black-100">Marketing Info</span>
-                  <Badge variant="secondary">{selectedCandidate.marketing_records.length}</Badge>
+                  <Badge variant="secondary">{selectedCandidate.marketing_records?.length}</Badge>
                 </div>
                 <span className="text-xl font-bold text-black-400">
                   {openSections['marketing'] ? '−' : '+'}
@@ -757,7 +776,7 @@ useEffect(() => {
                 <div className="flex items-center gap-2">
                   <Briefcase className="h-5 w-5 text-black-600 dark:text-black-400" />
                   <span className="font-medium text-black-900 dark:text-black-100">Interview Info</span>
-                  <Badge variant="secondary">{selectedCandidate.interview_records.length}</Badge>
+                  <Badge variant="secondary">{selectedCandidate.interview_records?.length}</Badge>
                 </div>
                 <span className="text-xl font-bold text-black-400">
                   {openSections['interviews'] ? '−' : '+'}
@@ -771,9 +790,9 @@ useEffect(() => {
                     [...selectedCandidate.interview_records].sort((a, b) => {
                       const parseDate = (dateStr: string) => {
                         if (!dateStr) return -Infinity;
-                        return new Date(dateStr).getTime(); // ISO format parsing
+                        return new Date(dateStr).getTime();
                       };
-                      return parseDate(b["interview_date"]) - parseDate(a["interview_date"]); // latest first
+                      return parseDate(b["interview_date"]) - parseDate(a["interview_date"]);
                     })
                   )}
                   {renderTable("Placement Records", <DollarSign className="h-4 w-4" />, selectedCandidate.placement_records)}
@@ -801,7 +820,6 @@ useEffect(() => {
               )}
             </div>
 
-
             {/* Miscellaneous */}
             <div className="accordion-item">
               <button
@@ -818,14 +836,12 @@ useEffect(() => {
               </button>
               {openSections['misc'] && (
                 <div className="px-6 pb-4 space-y-4">
-                  {
-                  renderInfoCard("Additional Information", <Settings className="h-4 w-4" />, {
+                  {renderInfoCard("Additional Information", <Settings className="h-4 w-4" />, {
                     notes: selectedCandidate.miscellaneous?.["Notes"] || "No notes available",
-                    preparation_active: selectedCandidate.miscellaneous?.["Preparation Active"] ? "Yes" : "No",
-                    marketing_active: selectedCandidate.miscellaneous?.["Marketing Active"] ? "Yes" : "No",
-                    placement_active: selectedCandidate.miscellaneous?.["Placement Active"] ? "Yes" : "No",
-                  })
-                  }
+                    preparation_active: selectedCandidate.miscellaneous?.["preparation_active"] === true ? "Yes" : "No",
+                    marketing_active: selectedCandidate.miscellaneous?.["marketing_active"] === true ? "Yes" : "No",
+                    placement_active: selectedCandidate.miscellaneous?.["placement_active"] === true ? "Yes" : "No",
+                  })}
                 </div>
               )}
             </div>

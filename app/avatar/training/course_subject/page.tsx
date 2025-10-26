@@ -9,7 +9,7 @@ import { Button } from "@/components/admin_ui/button";
 
 import { SearchIcon, PlusIcon,X } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/admin_ui/dialog";
+// import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/admin_ui/dialog";
 import { apiFetch } from "@/lib/api.js";
 
 interface CourseSubject {
@@ -303,7 +303,6 @@ useEffect(() => {
             <PlusIcon className="mr-2 h-4 w-4" />
             Add Mapping
           </Button>
-        </div>
       </div>
 
       {/* Add Mapping Modal - Updated with same colors */}
@@ -410,58 +409,6 @@ useEffect(() => {
         onRowDeleted={handleRowDeleted}
         showSearch={false}
       />
-
-
-      <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-sm p-4">
-          <DialogHeader>
-            <DialogTitle>Add Course-Subject Mapping</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="course" className="text-sm font-medium">
-                Course <span className="text-red-500">*</span>
-              </Label>
-              <select id="course" value={selectedCourseName} onChange={(e) => setSelectedCourseName(e.target.value)} className="w-full rounded-md border p-2">
-                <option value="" disabled hidden>
-                  Select course
-                </option>
-                {courses.map((course) => (
-                  <option key={course.id} value={course.name}>
-                    {course.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <Label htmlFor="subject" className="text-sm font-medium">
-                Subject <span className="text-red-500">*</span>
-              </Label>
-              <select id="subject" value={selectedSubjectName} onChange={(e) => setSelectedSubjectName(e.target.value)} className="w-full rounded-md border p-2">
-                <option value="" disabled hidden>
-                  Select subject
-                </option>
-                {subjects.map((subject) => (
-                  <option key={subject.id} value={subject.name}>
-                    {subject.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setShowModal(false); setSelectedCourseName(""); setSelectedSubjectName(""); }} disabled={saving}>
-              Cancel
-            </Button>
-            <Button onClick={handleAddMapping} disabled={saving || !selectedCourseName || !selectedSubjectName}>
-              {saving ? "Adding..." : "Save"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
     </div>
   );
 }

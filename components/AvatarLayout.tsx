@@ -96,12 +96,12 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       icon: UsersIcon,
       children: [
         { title: "List", href: "/avatar/employee" },
-        { title: "Employee Search", href: "/avatar/employee/employeesearch" },
+        { title: "Search", href: "/avatar/employee/employeesearch" },
       ],
     },
     {
       title: "Vendors",
-      href: "/avatar/vendors",
+      href: "/avatar/vendors/daily-contact",
       icon: BuildingIcon,
       children: [
         {

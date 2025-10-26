@@ -8,7 +8,7 @@ import { Label } from "@/components/admin_ui/label";
 
 import { SearchIcon, Plus, X } from "lucide-react";
 import AGGridTable from "@/components/AGGridTable";
-import { apiFetch } from "@/lib/api"; // <<-- centralized helper
+import { apiFetch } from "@/lib/api"; 
 import { useForm } from "react-hook-form";
 
 
@@ -59,22 +59,6 @@ export default function EmployeesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showEmployeeForm, setShowEmployeeForm] = useState(false);
-
-  const blankEmployeeData = {
-    name: "",
-    email: "",
-    phone: "",
-    address: "",
-    state: "",
-    dob: "",
-    startdate: "",
-    enddate: "",
-    instructor: 0,
-    status: 1,
-    notes: "",
-    aadhaar: "",
-  };
-  const [formData, setFormData] = useState(blankEmployeeData);
   const [formSaveLoading, setFormSaveLoading] = useState(false);
 
   // React Hook Form
@@ -184,48 +168,22 @@ export default function EmployeesPage() {
     reset();
   };
 
-  const handleFormChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    // Basic validations kept
-    if (name === "name") {
-      const regex = /^[A-Za-z. ]*$/;
-      if (!regex.test(value)) return;
-    }
-    if (name === "phone" || name === "aadhaar") {
-      const regex = /^[0-9]*$/;
-      if (!regex.test(value)) return;
-    }
-    if (name === "address") {
-      const regex = /^[A-Za-z0-9, ]*$/;
-      if (!regex.test(value)) return;
-    }
-    if (name === "state") {
-      const regex = /^[A-Za-z ]*$/;
-      if (!regex.test(value)) return;
-    }
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleFormSubmit = async (data: EmployeeFormData) => {
     setFormSaveLoading(true);
     try {
       const payload = {
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone || null,
-        address: formData.address || null,
-        state: formData.state || null,
-        dob: formData.dob || null,
-        startdate: formData.startdate || null,
-        enddate: formData.enddate || null,
-        notes: formData.notes || null,
-        status: formData.status ?? null,
-        instructor: formData.instructor ?? null,
-        aadhaar: formData.aadhaar || null,
-
+        name: data.name,
+        email: data.email,
+        phone: data.phone || null,
+        address: data.address || null,
+        state: data.state || null,
+        dob: data.dob || null,
+        startdate: data.startdate || null,
+        enddate: data.enddate || null,
+        notes: data.notes || null,
+        status: data.status ?? null,
+        instructor: data.instructor ?? null,
+        aadhaar: data.aadhaar || null,
       };
 
       const created = await apiFetch("/employees", { method: "POST", body: payload });
@@ -236,11 +194,8 @@ export default function EmployeesPage() {
       setFilteredEmployees((prev) => [newEmployee, ...prev]);
       setEmployees((prev) => [newEmployee, ...prev]);
       handleCloseEmployeeForm();
-
-      setFormData(blankEmployeeData);
     } catch (err) {
       console.error("Failed to add employee:", err);
-
       setError("Failed to add employee");
     } finally {
       setFormSaveLoading(false);
@@ -351,7 +306,6 @@ export default function EmployeesPage() {
     { headerName: "Aadhar Number", field: "aadhaar", editable: true, onCellValueChanged: (params) => handleRowUpdated(params.data) },
   ];
 
-
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -363,7 +317,6 @@ export default function EmployeesPage() {
       window.removeEventListener("keydown", handleEsc);
     };
   }, []);
-
 
   return (
     <div className="space-y-6">
@@ -420,7 +373,7 @@ export default function EmployeesPage() {
               </button>
             </div>
             <form
-              onSubmit={handleSubmit(onSubmit)}
+              onSubmit={handleSubmit(handleFormSubmit)}
               className="grid grid-cols-1 gap-1 md:grid-cols-2"
             >
               {/* Full Name */}

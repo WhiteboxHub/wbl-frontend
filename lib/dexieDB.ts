@@ -1,6 +1,7 @@
 
 import Dexie, { Table } from "dexie";
 import { liveQuery } from "dexie";
+import { S } from "framer-motion/dist/types.d-DsEeKk6G";
 
 export interface Lead {
   id?: number; 
@@ -17,6 +18,7 @@ export interface Lead {
   massemail_unsubscribe?: boolean;
   massemail_email_sent?: boolean;
   synced?: boolean;
+  lastSync?: string;
   isSynced?: boolean;
   _action?: "add" | "update" | "delete" | null;
 }

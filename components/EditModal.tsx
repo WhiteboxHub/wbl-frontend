@@ -6,6 +6,7 @@ import axios from "axios";
 import dynamic from "next/dynamic";
 const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
 import "react-quill/dist/quill.snow.css";
+import { apiFetch } from "@/lib/api";
 
 // Enum options for various fields
 const enumOptions: Record<string, { value: string; label: string }[]> = {
@@ -134,7 +135,6 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "Technical", label: "Technical" },
     { value: "HR", label: "HR" },
     { value: "Prep Call", label: "Prep Call" },
-   
   ],
   feedback: [
     { value: 'Pending', label: 'Pending' },
@@ -158,12 +158,8 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "Implementation Partner", label: "Implementation Partner" },
   ],
   placement_status: [
-    { value: "active", label: "Active" },
-    { value: "inactive", label: "Inactive" },
-  ],
-  preparation_status: [
-    { value: "active", label: "Active" },
-    { value: "inactive", label: "Inactive" },
+    { value: "Active", label: "Active" },
+    { value: "Inactive", label: "Inactive" },
   ],
   employee_status: [
     { value: "1", label: "Active" },
@@ -207,6 +203,7 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
   ],
   candidate_status: [
     { value: "active", label: "Active" },
+    { value: "inactive", label: "Inactive" },
     { value: "discontinued", label: "Discontinued" },
     { value: "break", label: "Break" },
     { value: "closed", label: "Closed" },
@@ -249,6 +246,7 @@ const materialTypeOptions = [
   { value: "B", label: "Books" },
   { value: "N", label: "Newsletters" },
   { value: "M", label: "Materials" },
+  { value: "A", label: "Assignments" },
 ];
 
 interface Batch {
@@ -269,11 +267,11 @@ interface EditModalProps {
 
 // Fields to exclude from the form
 const excludedFields = [
-  "candidate", "instructor1", "instructor2", "instructor3", "id", "sessionid", "vendor_type"
+  "candidate", "instructor1", "instructor2", "instructor3", "id", "sessionid", "vendor_type",
   "last_mod_datetime", "last_modified", "logincount", "googleId",
   "subject_id", "lastmoddatetime", "course_id", "new_subject_id", "instructor_1id",
   "instructor_2id", "instructor_3id", "instructor1_id", "instructor2_id",
-  "instructor3_id", "enddate", "candidate_id", "batch"
+  "instructor3_id", "candidate_id", "batch"
 ];
 
 // Map fields to their respective sections
@@ -322,7 +320,6 @@ const fieldSections: Record<string, string> = {
   candidateid: "Basic Information",
   uname: "Basic Information",
   fullname: "Basic Information",
-  candidate_id: "Basic Information",
   candidate_email: "Basic Information",
   placement_date: "Basic Information",
   leadid: "Basic Information",
@@ -523,13 +520,14 @@ const labelOverrides: Record<string, string> = {
   sessiondate:"Session Date",
   classdate:"Class Date",
   filename:"File Name",
-  startdate:"Start Date"
+  startdate:"Start Date",
+  enddate:"End Date"
 };
 
-// Fields that should be rendered as date inputs
 const dateFields = [
   "orientationdate",
   "start_date",
+  "startdate",
   "enddate",
   "closed_date",
   "entry_date",
@@ -561,7 +559,6 @@ export function EditModal({
     setValue,
     getValues,
   } = useForm();
-
   const [courses, setCourses] = useState<{ id: number; name: string }[]>([]);
   const [subjects, setSubjects] = useState<{ id: number; name: string }[]>([]);
   const [employees, setEmployees] = useState<{ id: number; name: string }[]>([]);
@@ -576,7 +573,7 @@ export function EditModal({
   const isVendorModal = title.toLowerCase().includes("vendor");
   const isCandidateOrEmployee = title.toLowerCase().includes("candidate") || title.toLowerCase().includes("employee");
   const isBatchesModal = title.toLowerCase().includes("batch") && !title.toLowerCase().includes("course");
-  
+
   const isInterviewModal = title.toLowerCase().includes("interview");
   const isMarketingModal = title.toLowerCase().includes("marketing");
   const isPlacementModal = title.toLowerCase().includes("placement");
@@ -592,19 +589,11 @@ export function EditModal({
   useEffect(() => {
     const fetchMlBatches = async () => {
       try {
-        const token = localStorage.getItem("accesstoken");
-        const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/batch`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-
-        const sortedAllBatches = [...res.data].sort(
+        const res = await apiFetch("/batch");
+        const data = res?.data ?? res;
+        const sortedAllBatches = [...data].sort(
           (a: Batch, b: Batch) => b.batchid - a.batchid
         );
-
-        // Filter for ML batches
         let mlBatchesOnly = sortedAllBatches.filter((batch) => {
           const subject = batch.subject?.toLowerCase();
           return (
@@ -614,36 +603,22 @@ export function EditModal({
             subject?.includes("ml")
           );
         });
-
-        // Fallback to courseid = 3 if no ML batches found by subject
         if (mlBatchesOnly.length === 0) {
-          console.log("No ML batches found by subject, trying courseid = 3");
           mlBatchesOnly = sortedAllBatches.filter(
             (batch) => batch.courseid === 3
           );
         }
-
-        // Final fallback to all batches if still no ML batches found
         if (mlBatchesOnly.length === 0) {
-          console.warn(
-            "No ML batches found! Showing all batches in form as fallback"
-          );
           mlBatchesOnly = sortedAllBatches;
         }
-
-        console.log("Filtered ML batches for form:", mlBatchesOnly.length);
         setMlBatches(mlBatchesOnly);
-
-        // If there are batches and the modal is open, set the first batch as default
         if (isOpen && mlBatchesOnly.length > 0 && mlBatchesOnly[0]?.batchid) {
-          setValue('batchid', mlBatchesOnly[0].batchid);
+          setValue("batchid", mlBatchesOnly[0].batchid);
         }
       } catch (error) {
         console.error("Failed to load batches:", error);
       }
     };
-
-    // Only fetch ML batches if we don't have propBatches or if we need ML-specific batches
     if (isOpen && (!propBatches || propBatches.length === 0)) {
       fetchMlBatches();
     } else if (propBatches && propBatches.length > 0) {
@@ -656,17 +631,12 @@ export function EditModal({
           subject?.includes("ml")
         );
       });
-
       if (mlBatchesOnly.length === 0) {
-        mlBatchesOnly = propBatches.filter(
-          (batch) => batch.courseid === 3
-        );
+        mlBatchesOnly = propBatches.filter((batch) => batch.courseid === 3);
       }
-
       if (mlBatchesOnly.length === 0) {
         mlBatchesOnly = propBatches;
       }
-
       setMlBatches(mlBatchesOnly);
     }
   }, [isOpen, propBatches]);
@@ -699,48 +669,57 @@ export function EditModal({
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const token = localStorage.getItem("token");
-        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/courses`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const sortedCourses = res.data.sort((a: any, b: any) => b.id - a.id);
+        const res = await apiFetch("/courses");
+        const data = res?.data ?? res;
+        const sortedCourses = [...data].sort((a: any, b: any) => b.id - a.id);
         let coursesWithOrphans = [...sortedCourses];
-        if (isCourseMaterialModal && !coursesWithOrphans.some(course => course.id === 0)) {
+        if (
+          isCourseMaterialModal &&
+          !coursesWithOrphans.some((course) => course.id === 0)
+        ) {
           coursesWithOrphans.unshift({ id: 0, name: "Fundamentals" });
         }
         setCourses(coursesWithOrphans);
-      } catch (error) {
-        console.error("Failed to fetch courses:", error);
+      } catch (error: any) {
+        console.error(
+          "Failed to fetch courses:",
+          error?.response?.data || error.message || error
+        );
       }
     };
 
     const fetchSubjects = async () => {
       try {
-        const token = localStorage.getItem("token");
-        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/subjects`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const sortedSubjects = res.data.sort((a: any, b: any) => b.id - a.id);
+        const res = await apiFetch("/subjects");
+        const data = res?.data ?? res;
+        const sortedSubjects = [...data].sort((a: any, b: any) => b.id - a.id);
         let subjectsWithOrphans = [...sortedSubjects];
-        if (isCourseMaterialModal && !subjectsWithOrphans.some(subject => subject.id === 0)) {
+        if (
+          isCourseMaterialModal &&
+          !subjectsWithOrphans.some((subject) => subject.id === 0)
+        ) {
           subjectsWithOrphans.unshift({ id: 0, name: "Basic Fundamentals" });
         }
         setSubjects(subjectsWithOrphans);
-      } catch (error) {
-        console.error("Failed to fetch subjects:", error);
+      } catch (error: any) {
+        console.error(
+          "Failed to fetch subjects:",
+          error?.response?.data || error.message || error
+        );
       }
     };
 
     const fetchEmployees = async () => {
       try {
-        const token = localStorage.getItem("token");
-        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/employees`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const activeEmployees = res.data.filter((emp: any) => emp.status === 1);
+        const res = await apiFetch("/employees");
+        const data = res?.data ?? res;
+        const activeEmployees = data.filter((emp: any) => emp.status === 1);
         setEmployees(activeEmployees);
-      } catch (error) {
-        console.error("Failed to fetch employees:", error);
+      } catch (error: any) {
+        console.error(
+          "Failed to fetch employees:",
+          error?.response?.data || error.message || error
+        );
       }
     };
 
@@ -791,11 +770,8 @@ export function EditModal({
     } else if (data.subjectid === 0) {
       flattened.cm_subject = "Basic Fundamentals";
     }
-
-    // Handle specific enum field conversions
     if (data.status) {
       if (isEmployeeModal) {
-        // Convert employee status (0/1) to string for dropdown
         flattened.status = String(data.status);
       } else if (isMarketingModal) {
         flattened.status = data.status;
@@ -807,12 +783,9 @@ export function EditModal({
         flattened.status = data.status;
       }
     }
-
     if (data.instructor && isEmployeeModal) {
       flattened.instructor = String(data.instructor);
     }
-
-    // Handle vendor specific fields
     if (isVendorModal) {
       if (data.linkedin_connected) {
         flattened.linkedin_connected = data.linkedin_connected;
@@ -824,8 +797,6 @@ export function EditModal({
         flattened.intro_call = data.intro_call;
       }
     }
-
-    // Handle date fields formatting
     dateFields.forEach(dateField => {
       if (flattened[dateField] && !isNaN(new Date(flattened[dateField]).getTime())) {
         flattened[dateField] = new Date(flattened[dateField]).toISOString().split('T')[0];
@@ -846,7 +817,7 @@ export function EditModal({
   // Handle form submission
   const onSubmit = (formData: any) => {
     const reconstructedData = { ...formData };
-    
+
     if (isEmployeeModal) {
       if (formData.status) {
         reconstructedData.status = parseInt(formData.status);
@@ -855,7 +826,6 @@ export function EditModal({
         reconstructedData.instructor = parseInt(formData.instructor);
       }
     }
-
     if (isCourseMaterialModal) {
       if (formData.cm_course) {
         const selectedCourse = courses.find(course => course.name === formData.cm_course);
@@ -929,44 +899,34 @@ export function EditModal({
 
   const getEnumOptions = (key: string) => {
     const keyLower = key.toLowerCase();
-    
 
-    // Interview modal  fields
     if (isInterviewModal) {
       if (keyLower === 'company_type') return enumOptions.company_type;
       if (keyLower === 'mode_of_interview') return enumOptions.mode_of_interview;
       if (keyLower === 'type_of_interview') return enumOptions.type_of_interview;
       if (keyLower === 'feedback') return enumOptions.feedback;
     }
-    
-    // Marketing modal fields
+
     if (isMarketingModal && keyLower === 'status') return enumOptions.marketing_status;
     if (isMarketingModal && keyLower === 'priority') {
       return enumOptions.priority;
     }
-    
-    // Placement modal  fields
+
     if (isPlacementModal) {
       if (keyLower === 'type') return enumOptions.placement_type;
       if (keyLower === 'status') return enumOptions.placement_status;
     }
-    
-    // Preparation modal fields
-    if (isPreparationModal && keyLower === 'status') return enumOptions.preparation_status;
-    
-    // Employee modal fields
+
     if (isEmployeeModal) {
       if (keyLower === 'status') return enumOptions.employee_status;
       if (keyLower === 'instructor') return enumOptions.instructor_status;
     }
-    
-    // Lead modal fields
+
     if (isLeadModal) {
       if (keyLower === 'status') return enumOptions.lead_status;
       if (keyLower === 'workstatus') return enumOptions.workstatus;
     }
-    
-    // Vendor modal fields
+
     if (isVendorModal) {
       if (keyLower === 'type' || keyLower === 'vendor_type') return enumOptions.vendor_type;
       if (keyLower === 'status') return enumOptions.vendor_status;
@@ -974,14 +934,12 @@ export function EditModal({
       if (keyLower === 'intro_email_sent') return enumOptions.vendor_intro_email_sent;
       if (keyLower === 'intro_call') return enumOptions.vendor_intro_call;
     }
-    
-    // Candidate modal fields
+
     if (isCandidateModal) {
       if (keyLower === 'status') return enumOptions.candidate_status;
       if (keyLower === 'workstatus') return enumOptions.workstatus;
     }
-    
-   
+
     if (keyLower === 'priority') return undefined;
     return enumOptions[keyLower];
   };
@@ -998,30 +956,17 @@ export function EditModal({
 
   const formValues = watch();
   Object.entries(formData).forEach(([key, value]) => {
-    // Skip excluded fields
     if (excludedFields.includes(key)) return;
-
-    // Skip name field for Candidates and Employees
     if (isCandidateOrEmployee && key.toLowerCase() === "name") return;
-
-    // Skip cm_course and cm_subject for Course-Subject modal
     if (isCourseSubjectModal && ["cm_course", "cm_subject"].includes(key.toLowerCase())) return;
-
-    // Skip course material specific hidden fields
     if (isCourseMaterialModal && ["subjectid", "courseid", "type"].includes(key.toLowerCase())) return;
-
-    // Skip batchid field for Batches modal
     if (isBatchesModal && key.toLowerCase() === "batchid") return;
-
-    // Skip marketing_manager field for Marketing Phase
     if (isMarketingModal && (key === "Marketing Manager obj" || key === "marketing_manager_obj")) return;
-
     const section = fieldSections[key] || "Other";
     if (!sectionedFields[section]) sectionedFields[section] = [];
     sectionedFields[section].push({ key, value });
   });
 
-  //  candidate_full_name to the top
   if (isSpecialModal && sectionedFields["Basic Information"].some(item => item.key === "candidate_full_name")) {
     const basicInfo = sectionedFields["Basic Information"];
     const candidateFieldIndex = basicInfo.findIndex(item => item.key === "candidate_full_name");
@@ -1035,15 +980,15 @@ export function EditModal({
     (section) => sectionedFields[section]?.length > 0 && section !== "Notes"
   );
 
-  const totalFields = visibleSections.reduce((count, section) => 
+  const totalFields = visibleSections.reduce((count, section) =>
     count + sectionedFields[section].length, 0
   );
 
-  let modalWidthClass = "max-w-6xl"; // Default 
+  let modalWidthClass = "max-w-6xl";
   if (totalFields <= 4) {
-    modalWidthClass = "max-w-3xl"; // Small for 2-4 fields
+    modalWidthClass = "max-w-3xl";
   } else if (totalFields <= 8) {
-    modalWidthClass = "max-w-4xl"; // Medium for 5-8 fields
+    modalWidthClass = "max-w-4xl";
   }
 
   const columnCount = Math.min(visibleSections.length, 4);
@@ -1058,7 +1003,6 @@ export function EditModal({
 
   if (!isOpen || !data) return null;
 
-  // Get current form values for dropdowns
   const currentFormValues = watch();
 
   return (
@@ -1069,7 +1013,6 @@ export function EditModal({
             ref={modalRef}
             className={`bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full ${modalWidthClass} max-h-[90vh] overflow-y-auto`}
           >
-            {/* Modal Header */}
             <div className="sticky top-0 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 border-b border-blue-200 flex justify-between items-center">
               <h2 className="text-sm sm:text-base md:text-lg font-semibold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
                 {title} - Edit Details
@@ -1081,7 +1024,6 @@ export function EditModal({
                 <X size={16} className="sm:w-5 sm:h-5" />
               </button>
             </div>
-            {/* Modal Form */}
             <div className="p-3 sm:p-4 md:p-6 bg-white">
               <form onSubmit={handleSubmit(onSubmit)}>
                 <div className={`grid ${gridColsClass} gap-2.5 sm:gap-3 md:gap-5`}>
@@ -1092,8 +1034,6 @@ export function EditModal({
                         <h3 className="text-xs sm:text-sm font-semibold text-blue-700 border-b border-blue-200 pb-1.5 sm:pb-2">
                           {section}
                         </h3>
-
-                        {/* Course Material Specific Dropdowns */}
                         {isCourseMaterialModal && section === "Professional Information" && (
                           <div className="space-y-1 sm:space-y-1.5">
                             <label className="block text-xs sm:text-sm font-bold text-blue-700">
@@ -1116,8 +1056,6 @@ export function EditModal({
                             </select>
                           </div>
                         )}
-
-                        {/* Course-Subject Specific Dropdowns  */}
                         {isCourseSubjectModal && section === "Professional Information" && (
                           <div className="space-y-1 sm:space-y-1.5">
                             <label className="block text-xs sm:text-sm font-bold text-blue-700">
@@ -1140,8 +1078,6 @@ export function EditModal({
                             </select>
                           </div>
                         )}
-
-                        {/* Course Material Dropdowns - cm_subject in Basic Information */}
                         {isCourseMaterialModal && section === "Basic Information" && (
                           <div className="space-y-1 sm:space-y-1.5">
                             <label className="block text-xs sm:text-sm font-bold text-blue-700">
@@ -1164,8 +1100,6 @@ export function EditModal({
                             </select>
                           </div>
                         )}
-
-                        {/* Course-Subject Dropdowns - Subject Name in Basic Information */}
                         {isCourseSubjectModal && section === "Basic Information" && (
                           <div className="space-y-1 sm:space-y-1.5">
                             <label className="block text-xs sm:text-sm font-bold text-blue-700">
@@ -1188,8 +1122,6 @@ export function EditModal({
                             </select>
                           </div>
                         )}
-
-                        {/* Material Type Dropdown  Course Materials */}
                         {isCourseMaterialModal && section === "Basic Information" && (
                           <div className="space-y-1 sm:space-y-1.5">
                             <label className="block text-xs sm:text-sm font-bold text-blue-700">
@@ -1209,7 +1141,6 @@ export function EditModal({
                             </select>
                           </div>
                         )}
-
                         {section === "Professional Information" && title.toLowerCase().includes("preparation") && (
                           <>
                             <div className="space-y-1 sm:space-y-1.5">
@@ -1265,7 +1196,6 @@ export function EditModal({
                             </div>
                           </>
                         )}
-
                         {sectionedFields[section]
                           .filter(
                             ({ key }) =>
@@ -1296,16 +1226,14 @@ export function EditModal({
                             const isIntroEmailSentField = key.toLowerCase() === "intro_email_sent";
                             const isIntroCallField = key.toLowerCase() === "intro_call";
                             const isCandidateFullName = key.toLowerCase() === "candidate_full_name";
+                            const isPrepOrMarketing = isPreparationModal || isMarketingModal;
 
-                            // Skip material_type field for non-course material modals
                             if (isMaterialTypeField && !isCourseMaterialModal) {
                               return null;
                             }
                             if (isInterviewOrMarketing && ["instructor1_name", "instructor2_name", "instructor3_name"].includes(key)) {
                               return null;
                             }
-
-                            // Special handling for candidate_full_name
                             if (isSpecialModal && isCandidateFullName) {
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5">
@@ -1323,10 +1251,27 @@ export function EditModal({
                               );
                             }
 
-                            // Get enum options for the field
-                            const fieldEnumOptions = getEnumOptions(key);
+                            // Special handling for status in Preparation/Marketing modals
+                            if (isStatusField && isPrepOrMarketing) {
+                              const statusValue = formData[key] || "";
+                              const displayValue = statusValue.charAt(0).toUpperCase() + statusValue.slice(1);
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                    {toLabel(key)}
+                                  </label>
+                                  <input
+                                    type="text"
+                                    {...register(key)}
+                                    defaultValue={displayValue}
+                                    readOnly
+                                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
+                                  />
+                                </div>
+                              );
+                            }
 
-                            // Render dropdown for fields with enum options
+                            const fieldEnumOptions = getEnumOptions(key);
                             if (fieldEnumOptions) {
                               const currentValue = currentFormValues[key] || formData[key] || "";
                               return (
@@ -1348,8 +1293,6 @@ export function EditModal({
                                 </div>
                               );
                             }
-
-                            // ONLY show vendor dropdown for vendor modals and type field
                             if (isTypeField && isVendorModal) {
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5">
@@ -1370,8 +1313,6 @@ export function EditModal({
                                 </div>
                               );
                             }
-
-                            // Show vendor-specific status dropdown for vendor modals
                             if (isStatusField && isVendorModal) {
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5">
@@ -1392,8 +1333,6 @@ export function EditModal({
                                 </div>
                               );
                             }
-
-                            // Show  status dropdown for non-vendor modals
                             if (isStatusField && !isVendorModal) {
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5">
@@ -1414,7 +1353,6 @@ export function EditModal({
                                 </div>
                               );
                             }
-
                             if (isBatchField) {
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5">
@@ -1436,7 +1374,6 @@ export function EditModal({
                                 </div>
                               );
                             }
-
                             if (dateFields.includes(key.toLowerCase())) {
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5">
@@ -1452,7 +1389,6 @@ export function EditModal({
                                 </div>
                               );
                             }
-
                             if (enumOptions[key.toLowerCase()]) {
                               const currentValue = currentFormValues[key] || formData[key] || "";
                               return (
@@ -1474,7 +1410,6 @@ export function EditModal({
                                 </div>
                               );
                             }
-
                             if (typeof value === "string" && value.length > 100) {
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5">
@@ -1490,7 +1425,6 @@ export function EditModal({
                                 </div>
                               );
                             }
-
                             return (
                               <div key={key} className="space-y-1 sm:space-y-1.5">
                                 <label className="block text-xs sm:text-sm font-bold text-blue-700">
@@ -1508,7 +1442,6 @@ export function EditModal({
                       </div>
                     ))}
                 </div>
-                {/* Notes Section */}
                 {sectionedFields["Notes"].length > 0 && (
                   <div className="mt-4 sm:mt-6 pt-3 sm:pt-4 border-t border-blue-200">
                     <div className="space-y-6">
@@ -1523,19 +1456,17 @@ export function EditModal({
                               onClick={() => {
                                 const timestamp = `[${new Date().toLocaleString()}]: `;
                                 const newContent = `<p><strong>${timestamp}</strong></p>${currentFormValues.notes || formData.notes || ""}`;
-                                
+
                                 setValue("notes", newContent);
                                 setFormData((prev) => ({
                                   ...prev,
                                   notes: newContent
                                 }));
-                                
-                                // Focus after state update
+
                                 setTimeout(() => {
                                   const quillEditor = document.querySelector('.ql-editor') as HTMLElement;
                                   if (quillEditor) {
                                     quillEditor.focus();
-                                    // Set cursor after timestamp
                                     const range = document.createRange();
                                     const sel = window.getSelection();
                                     const firstP = quillEditor.querySelector('p');
@@ -1548,15 +1479,14 @@ export function EditModal({
                                   }
                                 }, 0);
                               }}
-                              className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white 
-                                        bg-gradient-to-r from-cyan-500 to-blue-500 
-                                        rounded-lg hover:from-cyan-600 hover:to-blue-600 
+                              className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white
+                                        bg-gradient-to-r from-cyan-500 to-blue-500
+                                        rounded-lg hover:from-cyan-600 hover:to-blue-600
                                         transition shadow-md"
                             >
                               + New Entry
                             </button>
                           </div>
-
                           <ReactQuill
                             theme="snow"
                             value={currentFormValues.notes || formData.notes || ""}
@@ -1571,7 +1501,6 @@ export function EditModal({
                     </div>
                   </div>
                 )}
-                {/* Modal Footer - Only Save button */}
                 <div className="flex justify-end mt-3 sm:mt-4 md:mt-6 pt-2 sm:pt-3 md:pt-4 border-t border-blue-200">
                   <button
                     type="submit"

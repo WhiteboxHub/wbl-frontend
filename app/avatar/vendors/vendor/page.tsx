@@ -9,7 +9,7 @@ import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import { createPortal } from "react-dom";
-import { apiFetch } from "@/lib/api.js"; // <-- centralized helper
+import { apiFetch } from "@/lib/api.js";
 
 const AGGridTable = dynamic(() => import("@/components/AGGridTable"), { ssr: false });
 
@@ -456,7 +456,7 @@ export default function VendorPage() {
       cellRenderer: TypeRenderer,
       editable: true,
       cellEditor: SelectEditor,
-      cellEditorParams: { options: ["client","third-party-vendor","implementation-partner","sourcer","contact-from-ip"] },
+      cellEditorParams: { options: ["client", "third-party-vendor", "implementation-partner", "sourcer", "contact-from-ip"] },
       headerComponent: TypeFilterHeaderComponent,
       headerComponentParams: {
         selectedTypes,
@@ -470,7 +470,7 @@ export default function VendorPage() {
       cellRenderer: StatusRenderer,
       editable: true,
       cellEditor: SelectEditor,
-      cellEditorParams: { options: ["active","working","not_useful","do_not_contact","inactive","prospect"] },
+      cellEditorParams: { options: ["active", "working", "not_useful", "do_not_contact", "inactive", "prospect"] },
       headerComponent: StatusFilterHeaderComponent,
       headerComponentParams: {
         selectedStatuses,
@@ -590,3 +590,4 @@ export default function VendorPage() {
     </div>
   );
 }
+

@@ -185,7 +185,6 @@ useEffect(() => {
 
             + Add CourseContent
           </Button>
-        </div>
       </div>
 
       {/* Add Course Content Modal - Updated with same colors */}

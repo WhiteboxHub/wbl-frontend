@@ -1,4 +1,3 @@
-// app/avatar/candidates/interviews/page.tsx (or wherever you keep it)
 "use client";
 import Link from "next/link";
 import "@/styles/admin.css";
@@ -10,15 +9,13 @@ import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon, PlusIcon, X } from "lucide-react";
 import { ColDef } from "ag-grid-community";
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { toast, Toaster } from "sonner";
-
-import api from "@/lib/api"; // <-- thin wrapper around your apiFetch (see src/utils/api.ts)
-
-import { createPortal } from "react-dom";
 import { useForm } from "react-hook-form";
+import api from "@/lib/api";
+import { createPortal } from "react-dom";
 
-// Generic Filter Component
+// --- Generic Filter Component ---
 interface FilterOption {
   value: string;
   label: string;
@@ -125,64 +122,44 @@ const FilterHeaderComponent = ({
   );
 };
 
-// Mode Renderer
+// --- Renderers ---
 const ModeRenderer = (params: any) => {
   const value = (params.value || "").toString().toLowerCase();
   let badgeClass = "bg-gray-100 text-gray-800";
-  if (value === "virtual") {
-    badgeClass = "bg-blue-100 text-blue-800";
-  } else if (value === "in person") {
-    badgeClass = "bg-green-100 text-green-800";
-  } else if (value === "phone") {
-    badgeClass = "bg-yellow-100 text-yellow-800";
-  } else if (value === "assessment") {
-    badgeClass = "bg-purple-100 text-purple-800";
-  } else if (value === "ai interview") {
-    badgeClass = "bg-indigo-50 text-indigo-800";
-  }
+  if (value === "virtual") badgeClass = "bg-blue-100 text-blue-800";
+  else if (value === "in person") badgeClass = "bg-green-100 text-green-800";
+  else if (value === "phone") badgeClass = "bg-yellow-100 text-yellow-800";
+  else if (value === "assessment") badgeClass = "bg-purple-100 text-purple-800";
+  else if (value === "ai interview") badgeClass = "bg-indigo-50 text-indigo-800";
   return <Badge className={badgeClass}>{params.value}</Badge>;
 };
 
-// Type Renderer
 const TypeRenderer = (params: any) => {
   const value = (params.value || "").toString().toLowerCase();
   let badgeClass = "bg-gray-100 text-gray-800";
-  if (value === "technical") {
-    badgeClass = "bg-indigo-100 text-indigo-800";
-  } else if (value === "hr") {
-    badgeClass = "bg-pink-100 text-pink-800";
-  } else if (value === "recruiter call") {
-    badgeClass = "bg-cyan-100 text-cyan-800";
-  } else if (value === "prep call") {
-    badgeClass = "bg-teal-100 text-teal-800";
-  } else if (value === "assessment") {
-    badgeClass = "bg-purple-100 text-purple-800";
-  }
+  if (value === "technical") badgeClass = "bg-indigo-100 text-indigo-800";
+  else if (value === "hr") badgeClass = "bg-pink-100 text-pink-800";
+  else if (value === "recruiter call") badgeClass = "bg-cyan-100 text-cyan-800";
+  else if (value === "prep call") badgeClass = "bg-teal-100 text-teal-800";
+  else if (value === "assessment") badgeClass = "bg-purple-100 text-purple-800";
   return <Badge className={badgeClass}>{params.value}</Badge>;
 };
 
-// Company Type Renderer
 const CompanyTypeRenderer = (params: any) => {
   const value = params.value || "";
-  const valueLower = value.toLowerCase(); // for badge color logic
-
+  const valueLower = value.toLowerCase();
   let badgeClass = "bg-gray-100 text-gray-800";
   if (valueLower === "client") badgeClass = "bg-blue-100 text-blue-800";
   else if (valueLower === "third-party-vendor") badgeClass = "bg-orange-100 text-orange-800";
   else if (valueLower === "implementation-partner") badgeClass = "bg-green-100 text-green-800";
   else if (valueLower === "sourcer") badgeClass = "bg-red-100 text-red-800";
-
-  // Display text with first letters capitalized
   const displayText = value
     .split(/[- ]/)
     .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
-
   return <Badge className={badgeClass}>{displayText}</Badge>;
 };
 
-
-// Status Renderer
 const StatusRenderer = (params: any) => {
   const v = (params.value || "").toString().toLowerCase();
   const classes =
@@ -194,7 +171,6 @@ const StatusRenderer = (params: any) => {
   return <Badge className={classes}>{params.value}</Badge>;
 };
 
-// Feedback Renderer
 const FeedbackRenderer = (params: any) => {
   const value = (params.value || "").toString().toLowerCase();
   if (!value || value === "no response" || value === "pending")
@@ -206,45 +182,33 @@ const FeedbackRenderer = (params: any) => {
   return <Badge className="bg-gray-100 text-gray-800">{params.value}</Badge>;
 };
 
-// Link Renderer
 const LinkRenderer = (params: any) => {
-  const value = params.value;
-  if (!value) return <span className="text-gray-500">Not Available</span>;
-  const links = value
-    .split(/[,​\s]+/)
-    .map((link: string) => link.trim())
-    .filter((link: string) => link.length > 0);
+  const raw = params.value;
+  if (!raw) return <span className="text-gray-500">Not Available</span>;
+  const links = String(raw)
+    .split(/[\s,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
   if (links.length === 0) return <span className="text-gray-500">Not Available</span>;
-  const formatLink = (link: string) => {
-    if (!/^https?:\/\//i.test(link)) {
-      return `https://${link}`;
-    }
-    return link;
-  };
   return (
     <div className="flex flex-col space-y-1">
-      {links.map((link: string, idx: number) => (
-        <a
-          key={idx}
-          href={formatLink(link)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-600 underline hover:text-blue-800"
-        >
-          Click here
-        </a>
-      ))}
+      {links.map((link: string, idx: number) => {
+        let href = link;
+        if (!/^https?:\/\//i.test(href)) href = `https://${href}`;
+        return (
+          <a key={idx} href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">
+            Click here
+          </a>
+        );
+      })}
     </div>
   );
 };
 
-// Candidate Name Renderer
 const CandidateNameRenderer = (params: any) => {
-  const candidateId = params.data?.candidate_id;
-  const candidateName = params.value;
-  if (!candidateId || !candidateName) {
-    return <span className="text-gray-500">{candidateName || "N/A"}</span>;
-  }
+  const candidateId = params.data?.candidate_id || params.data?.candidate?.id;
+  const candidateName = params.data?.candidate?.full_name || params.value || "N/A";
+  if (!candidateId) return <span className="text-gray-500">{candidateName}</span>;
   return (
     <Link
       href={`/avatar/candidates/search?candidateId=${candidateId}`}
@@ -257,8 +221,7 @@ const CandidateNameRenderer = (params: any) => {
   );
 };
 
-
-// Form Data Type
+// --- Form Data Type ---
 type InterviewFormData = {
   candidate_id: string;
   candidate_name?: string;
@@ -303,24 +266,18 @@ export default function CandidatesInterviews() {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(50);
   const [total, setTotal] = useState(0);
-
   const [showAddForm, setShowAddForm] = useState(false);
-
-  // Candidate Marketing state
-
   const [candidates, setCandidates] = useState<any[]>([]);
   const [selectedModes, setSelectedModes] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [selectedCompanyTypes, setSelectedCompanyTypes] = useState<string[]>([]);
 
-  // React Hook Form
   const {
     register,
     handleSubmit,
     reset,
     formState: { errors },
     setValue,
-    watch,
   } = useForm<InterviewFormData>({
     defaultValues: initialFormData,
   });
@@ -347,40 +304,28 @@ export default function CandidatesInterviews() {
     { value: "Prep Call", label: "Prep Call" },
   ];
 
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem("token");
-    return { Authorization: `Bearer ${token}` };
-  };
-
-
-  // Fetch interviews (uses api wrapper that delegates to apiFetch)
-  const fetchInterviews = useCallback(
-    async (pageNum: number, perPageNum: number) => {
-      setLoading(true);
-      setError("");
-      try {
-        // call api.get which returns { data: ... } as implemented in the wrapper
-        const res = await api.get(`/interviews?page=${pageNum}&per_page=${perPageNum}`);
-        const body = res?.data ?? res;
-        const items = Array.isArray(body) ? body : body.data ?? [];
-        setInterviews(items);
-        setTotal(body.total ?? items.length);
-      } catch (err: any) {
-        console.error("Failed to load interviews:", err);
-        setError("Failed to load interviews.");
-        toast.error("Failed to load interviews.");
-      } finally {
-        setLoading(false);
-      }
-    },
-    []
-  );
+  const fetchInterviews = useCallback(async (pageNum: number, perPageNum: number) => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await api.get(`/interviews?page=${pageNum}&per_page=${perPageNum}`);
+      const body = res?.data ?? res;
+      const items = Array.isArray(body) ? body : body.data ?? [];
+      setInterviews(items);
+      setTotal(body.total ?? items.length);
+    } catch (err: any) {
+      console.error("Failed to load interviews:", err);
+      setError("Failed to load interviews.");
+      toast.error("Failed to load interviews.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchInterviews(page, perPage);
   }, [fetchInterviews, page, perPage]);
 
-  // When add form opens, fetch candidate marketing list
   useEffect(() => {
     if (!showAddForm) return;
     let mounted = true;
@@ -400,52 +345,35 @@ export default function CandidatesInterviews() {
     return () => { mounted = false; };
   }, [showAddForm]);
 
-
-  // Add drag resize functionality for notes textarea
   useEffect(() => {
     if (!showAddForm) return;
-
-    const textarea = document.querySelector(
-      'textarea[id="notes"]'
-    ) as HTMLTextAreaElement;
+    const textarea = document.querySelector('textarea[id="notes"]') as HTMLTextAreaElement;
     const dragHandle = document.querySelector(".drag-handle") as HTMLElement;
-
     if (!textarea || !dragHandle) return;
-
     let isResizing = false;
     let startY = 0;
     let startHeight = 0;
-
     const startResize = (e: MouseEvent) => {
       isResizing = true;
       startY = e.clientY;
-      startHeight = parseInt(
-        document.defaultView?.getComputedStyle(textarea).height || "0",
-        10
-      );
+      startHeight = parseInt(document.defaultView?.getComputedStyle(textarea).height || "0", 10);
       e.preventDefault();
     };
-
     const resize = (e: MouseEvent) => {
       if (!isResizing) return;
       const deltaY = e.clientY - startY;
-      textarea.style.height = `${Math.max(60, startHeight + deltaY)}px`; // Minimum height 60px
+      textarea.style.height = `${Math.max(60, startHeight + deltaY)}px`;
     };
-
-    const stopResize = () => {
-      isResizing = false;
-    };
-
+    const stopResize = () => { isResizing = false; };
     dragHandle.addEventListener("mousedown", startResize);
     document.addEventListener("mousemove", resize);
     document.addEventListener("mouseup", stopResize);
-
     return () => {
       dragHandle.removeEventListener("mousedown", startResize);
       document.removeEventListener("mousemove", resize);
       document.removeEventListener("mouseup", stopResize);
     };
-  }, [showAddForm]); // Re-initialize when modal opens/closes
+  }, [showAddForm]);
 
   const filterData = useCallback(() => {
     let filtered = [...interviews];
@@ -455,7 +383,6 @@ export default function CandidatesInterviews() {
         i.mode_of_interview && lowerSelectedModes.includes(i.mode_of_interview.toLowerCase())
       );
     }
-
     if (selectedTypes.length > 0) {
       const lowerSelectedTypes = selectedTypes.map(v => v.toLowerCase());
       filtered = filtered.filter(i =>
@@ -479,176 +406,30 @@ export default function CandidatesInterviews() {
     return filtered;
   }, [interviews, searchTerm, selectedModes, selectedTypes, selectedCompanyTypes]);
 
+  const filteredInterviews = filterData();
 
-  const filteredInterviews = filterData(searchTerm);
-
-  // Cell renderers
-  const StatusRenderer = (params: any) => {
-    const v = (params.value || "").toString().toLowerCase();
-    const classes =
-      v === "cleared"
-        ? "bg-green-100 text-green-800"
-        : v === "rejected"
-        ? "bg-red-100 text-red-800"
-        : "bg-gray-100 text-gray-800";
-    const label = params.value ?? "N/A";
-    return <Badge className={classes}>{label}</Badge>;
-  };
-
-  const FeedbackRenderer = (params: any) => {
-    const value = (params.value || "").toString().toLowerCase();
-    if (!value || value === "no response")
-      return <Badge className="bg-gray-100 text-gray-800">Pending</Badge>;
-    if (value === "positive")
-      return <Badge className="bg-green-300 text-green-800">Positive</Badge>;
-    if (value === "failure" || value === "negative")
-      return <Badge className="bg-red-100 text-red-800">Failure</Badge>;
-    return <Badge className="bg-gray-100 text-gray-800">{params.value}</Badge>;
-  };
-
-  const LinkRenderer = (params: any) => {
-    const raw = params.value;
-    if (!raw) return <span className="text-gray-500">Not Available</span>;
-
-    // normalize and split links (commas/spaces/newlines)
-    const links = String(raw)
-      .split(/[\s,]+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    if (links.length === 0) return <span className="text-gray-500">Not Available</span>;
-
-    return (
-      <div className="flex flex-col space-y-1">
-        {links.map((link: string, idx: number) => {
-          let href = link;
-          if (!/^https?:\/\//i.test(href)) href = `https://${href}`;
-          return (
-            <a key={idx} href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline hover:text-blue-800">
-              Click here
-            </a>
-          );
-        })}
-      </div>
-    );
-  };
-
-  const CandidateNameRenderer = (params: any) => {
-    const candidateId = params.data?.candidate_id || params.data?.candidate?.id;
-    const candidateName = params.data?.candidate?.full_name || params.value || "N/A";
-    if (!candidateId) return <span className="text-gray-500">{candidateName}</span>;
-    return (
-      <Link
-        href={`/avatar/candidates/search?candidateId=${candidateId}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-black-600 hover:text-blue-800 font-medium cursor-pointer"
-      >
-        {candidateName}
-      </Link>
-    );
-  };
-
-  // Column definitions
-  const columnDefs = useMemo<ColDef[]>(
-    () => [
-      { field: "id", headerName: "ID", pinned: "left", width: 80 },
-      {
-        field: "candidate.full_name",
-        headerName: "Full Name",
-        cellRenderer: CandidateNameRenderer,
-        sortable: true,
-        width: 200,
-        editable: false,
-      },
-      { field: "company", headerName: "Company", sortable: true, width: 160, editable: true },
-      { field: "mode_of_interview", headerName: "Mode", width: 120, editable: true },
-      {
-        field: "type_of_interview",
-        headerName: "Type",
-        width: 150,
-        editable: true,
-        filter: "agSetColumnFilter",
-        filterParams: {
-          values: ["Technical", "Phone Call", "Virtual", "Assessment", "Recruiter Call", "HR Round", "In Person", "Prep Call"],
-        },
-
-        cellRenderer: TypeRenderer,
-      },
-      {
-        field: "company_type",
-        headerName: "Company Type",
-        width: 170,
-        editable: true,
-        headerComponent: FilterHeaderComponent,
-        headerComponentParams: {
-          columnName: "Company Type",
-          options: companyTypeOptions,
-          selectedValues: selectedCompanyTypes,
-          setSelectedValues: setSelectedCompanyTypes,
-        },
-        cellRenderer: CompanyTypeRenderer,
-
-      },
-      { field: "company_type", headerName: "Company Type", sortable: true, width: 150, editable: true },
-      { field: "interview_date", headerName: "Date", width: 120, editable: true },
-
-      { field: "recording_link", headerName: "Recording", cellRenderer: LinkRenderer, width: 120, editable: true },
-      { field: "transcript", headerName: "Transcript", cellRenderer: LinkRenderer, width: 120, editable: true },
-      { field: "backup_recording_url", headerName: "Backup Recording", cellRenderer: LinkRenderer, width: 140, editable: true },
-      { field: "job_posting_url", headerName: "Job Posting URL", cellRenderer: LinkRenderer, width: 140, editable: true },
-      { field: "instructor1_name", headerName: "Instructor 1", width: 150 },
-      { field: "instructor2_name", headerName: "Instructor 2", width: 150 },
-      { field: "instructor3_name", headerName: "Instructor 3", width: 150 },
-      { field: "feedback", headerName: "Feedback", cellRenderer: FeedbackRenderer, width: 120, editable: true },
-
-      {
-        field: "notes",
-        headerName: "Notes",
-        width: 300,
-        sortable: true,
-        cellRenderer: (params: any) =>
-          params.value ? <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: params.value }} /> : "",
-      },
-    ],
-
-    [selectedModes, selectedTypes, selectedCompanyTypes]
-
-  );
-
-  // Update row handler (PUT)
   const handleRowUpdated = async (updatedRow: any) => {
     try {
-
       const payload = { ...updatedRow };
-
-      // Ensure we map front-end field names to the expected API fields
       if (updatedRow.backup_recording_url === undefined && (updatedRow as any).backup_url) {
         payload.backup_recording_url = (updatedRow as any).backup_url;
       }
       if (updatedRow.job_posting_url === undefined && (updatedRow as any).url) {
         payload.job_posting_url = (updatedRow as any).url;
       }
-
       if (updatedRow.id) {
-        await axios.put(
-          `${process.env.NEXT_PUBLIC_API_URL}/interviews/${updatedRow.id}`,
-          payload,
-          { headers: getAuthHeaders() }
-        );
+        await api.put(`/interviews/${updatedRow.id}`, payload);
         setInterviews((prev) =>
           prev.map((row) => (row.id === updatedRow.id ? { ...row, ...updatedRow } : row))
         );
-        toast.success('Interview updated successfully!');
+        toast.success("Interview updated successfully!");
       }
-
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to update interview:", err);
-      toast.error("Failed to update interview.");
+      toast.error(err.response?.data?.message || "Failed to update interview.");
     }
   };
 
-  // Delete row handler (DELETE)
   const handleRowDeleted = async (interviewId: number) => {
     try {
       if (!interviewId) {
@@ -664,17 +445,12 @@ export default function CandidatesInterviews() {
     }
   };
 
-
-  // Form submission with react-hook-form
   const onSubmit = async (data: InterviewFormData) => {
     if (!data.candidate_id || !data.company.trim()) {
-
       toast.error("Candidate and Company are required!");
       return;
     }
-
     try {
-
       const payload: any = {
         candidate_id: Number(data.candidate_id),
         company: data.company,
@@ -691,40 +467,24 @@ export default function CandidatesInterviews() {
         job_posting_url: data.job_posting_url || null,
         feedback: data.feedback || null,
       };
-
-      const res = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/interviews`,
-        payload,
-        { headers: getAuthHeaders() }
-      );
-
-      // API may return the created interview as res.data
+      const res = await api.post(`/interviews`, payload);
       setInterviews((prev) => [res.data, ...prev]);
       setShowAddForm(false);
       reset();
       toast.success('Interview added successfully!');
-
     } catch (err: any) {
       console.error("Failed to add interview:", err?.body ?? err);
       toast.error("Failed to add interview. Make sure all fields are valid.");
     }
   };
 
-  const handleOpenModal = () => {
-    setShowAddForm(true);
-  };
+  const handleOpenModal = () => { setShowAddForm(true); };
+  const handleCloseModal = () => { setShowAddForm(false); reset(initialFormData); };
 
-  const handleCloseModal = () => {
-    setShowAddForm(false);
-    reset(initialFormData);
-  };
-
-  // Handle candidate selection
   const handleCandidateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedCandidate = candidates.find(
       (m) => m.candidate.id.toString() === e.target.value
     );
-
     if (selectedCandidate) {
       setValue("candidate_id", selectedCandidate.candidate.id.toString());
       setValue("candidate_name", selectedCandidate.candidate.full_name);
@@ -736,15 +496,84 @@ export default function CandidatesInterviews() {
 
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        handleCloseModal();
-      }
+      if (event.key === "Escape") handleCloseModal();
     };
     window.addEventListener("keydown", handleEsc);
-    return () => {
-      window.removeEventListener("keydown", handleEsc);
-    };
+    return () => window.removeEventListener("keydown", handleEsc);
   }, []);
+
+const columnDefs = useMemo<ColDef[]>(() => [
+  { field: "id", headerName: "ID", pinned: "left", width: 80 },
+  {
+    field: "candidate.full_name",
+    headerName: "Full Name",
+    cellRenderer: CandidateNameRenderer,
+    sortable: true,
+    width: 200,
+    editable: false,
+  },
+  { field: "company", headerName: "Company", sortable: true, width: 160, editable: true },
+  {
+    field: "mode_of_interview",
+    headerName: "Mode",
+    width: 120,
+    editable: true,
+    cellRenderer: ModeRenderer,
+    headerComponent: FilterHeaderComponent,
+    headerComponentParams: {
+      columnName: "Mode",
+      options: modeOfInterviewOptions,
+      selectedValues: selectedModes,
+      setSelectedValues: setSelectedModes,
+    },
+  },
+  {
+    field: "type_of_interview",
+    headerName: "Type",
+    width: 150,
+    editable: true,
+    headerComponent: FilterHeaderComponent,
+    headerComponentParams: {
+      columnName: "Type",
+      options: typeOfInterviewOptions,
+      selectedValues: selectedTypes,
+      setSelectedValues: setSelectedTypes,
+    },
+    cellRenderer: TypeRenderer,
+  },
+  {
+    field: "company_type",
+    headerName: "Company Type",
+    width: 170,
+    editable: true,
+    headerComponent: FilterHeaderComponent,
+    headerComponentParams: {
+      columnName: "Company Type",
+      options: companyTypeOptions,
+      selectedValues: selectedCompanyTypes,
+      setSelectedValues: setSelectedCompanyTypes,
+    },
+    cellRenderer: CompanyTypeRenderer,
+  },
+  { field: "interview_date", headerName: "Date", width: 120, editable: true },
+  { field: "recording_link", headerName: "Recording", cellRenderer: LinkRenderer, width: 120, editable: true },
+  { field: "transcript", headerName: "Transcript", cellRenderer: LinkRenderer, width: 120, editable: true },
+  { field: "backup_recording_url", headerName: "Backup Recording", cellRenderer: LinkRenderer, width: 140, editable: true },
+  { field: "job_posting_url", headerName: "Job Posting URL", cellRenderer: LinkRenderer, width: 140, editable: true },
+  { field: "instructor1_name", headerName: "Instructor 1", width: 150 },
+  { field: "instructor2_name", headerName: "Instructor 2", width: 150 },
+  { field: "instructor3_name", headerName: "Instructor 3", width: 150 },
+  { field: "feedback", headerName: "Feedback", cellRenderer: FeedbackRenderer, width: 120, editable: true },
+  {
+    field: "notes",
+    headerName: "Notes",
+    width: 300,
+    sortable: true,
+    cellRenderer: (params: any) =>
+      params.value ? <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: params.value }} /> : "",
+  },
+], [selectedModes, selectedTypes, selectedCompanyTypes]);
+
 
   return (
     <div className="space-y-6 p-4">
@@ -758,7 +587,6 @@ export default function CandidatesInterviews() {
           <PlusIcon className="h-4 w-4 mr-2" /> Add Interview
         </Button>
       </div>
-
       <div className="max-w-md">
         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">Search</Label>
         <div className="relative mt-1">
@@ -766,7 +594,6 @@ export default function CandidatesInterviews() {
           <Input id="search" type="text" value={searchTerm} placeholder="Search..." onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
         </div>
       </div>
-
       {loading ? (
         <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-8">Loading...</p>
       ) : error ? (
@@ -786,13 +613,9 @@ export default function CandidatesInterviews() {
           </div>
         </div>
       )}
-
-
-      {/* Add Interview Modal with React Hook Form */}
       {showAddForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 p-4">
           <div className="w-full max-w-2xl rounded-xl bg-white shadow-2xl dark:bg-gray-800 max-h-[95vh] overflow-y-auto">
-            {/* Header */}
             <div className="sticky top-0 flex items-center justify-between border-b border-blue-200 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 py-3">
               <h2 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-lg font-semibold text-transparent">
                 Add Interview
@@ -804,12 +627,9 @@ export default function CandidatesInterviews() {
                 <X size={20} />
               </button>
             </div>
-
-            {/* Form */}
             <div className="p-4">
               <form onSubmit={handleSubmit(onSubmit)}>
                 <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                  {/* Candidate Dropdown */}
                   <div className="space-y-2">
                     <Label htmlFor="candidate_id" className="text-sm font-bold text-blue-700">
                       Candidate Name <span className="text-red-700">*</span>
@@ -831,8 +651,6 @@ export default function CandidatesInterviews() {
                       <p className="mt-1 text-xs text-red-600">{errors.candidate_id.message}</p>
                     )}
                   </div>
-
-                  {/* Company */}
                   <div className="space-y-2">
                     <Label htmlFor="company" className="text-sm font-bold text-blue-700">
                       Company <span className="text-red-700">*</span>
@@ -840,7 +658,7 @@ export default function CandidatesInterviews() {
                     <input
                       type="text"
                       id="company"
-                      {...register("company", { 
+                      {...register("company", {
                         required: "Company is required",
                         maxLength: {
                           value: 200,
@@ -854,8 +672,6 @@ export default function CandidatesInterviews() {
                       <p className="mt-1 text-xs text-red-600">{errors.company.message}</p>
                     )}
                   </div>
-
-                  {/* Company Type */}
                   <div className="space-y-2">
                     <Label htmlFor="company_type" className="text-sm font-bold text-blue-700">
                       Company Type
@@ -872,8 +688,6 @@ export default function CandidatesInterviews() {
                       <option value="sourcer">Sourcer</option>
                     </select>
                   </div>
-
-                  {/* Interview Date */}
                   <div className="space-y-2">
                     <Label htmlFor="interview_date" className="text-sm font-bold text-blue-700">
                       Interview Date
@@ -885,8 +699,6 @@ export default function CandidatesInterviews() {
                       className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
                     />
                   </div>
-
-                  {/* Mode of Interview */}
                   <div className="space-y-2">
                     <Label htmlFor="mode_of_interview" className="text-sm font-bold text-blue-700">
                       Mode of Interview
@@ -904,8 +716,6 @@ export default function CandidatesInterviews() {
                       <option value="AI Interview">AI Interview</option>
                     </select>
                   </div>
-
-                  {/* Type of Interview */}
                   <div className="space-y-2">
                     <Label htmlFor="type_of_interview" className="text-sm font-bold text-blue-700">
                       Type of Interview
@@ -922,8 +732,6 @@ export default function CandidatesInterviews() {
                       <option value="Prep Call">Prep Call</option>
                     </select>
                   </div>
-
-                  {/* Interviewer Emails */}
                   <div className="space-y-2">
                     <Label htmlFor="interviewer_emails" className="text-sm font-bold text-blue-700">
                       Interviewer Emails
@@ -936,8 +744,6 @@ export default function CandidatesInterviews() {
                       className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
                     />
                   </div>
-
-                  {/* Interviewer Contact */}
                   <div className="space-y-2">
                     <Label htmlFor="interviewer_contact" className="text-sm font-bold text-blue-700">
                       Interviewer Contact
@@ -950,8 +756,6 @@ export default function CandidatesInterviews() {
                       className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
                     />
                   </div>
-
-                  {/* Interviewer LinkedIn */}
                   <div className="space-y-2">
                     <Label htmlFor="interviewer_linkedin" className="text-sm font-bold text-blue-700">
                       Interviewer LinkedIn
@@ -964,8 +768,6 @@ export default function CandidatesInterviews() {
                       className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
                     />
                   </div>
-
-                  {/* Recording Link */}
                   <div className="space-y-2">
                     <Label htmlFor="recording_link" className="text-sm font-bold text-blue-700">
                       Recording Link
@@ -978,8 +780,6 @@ export default function CandidatesInterviews() {
                       className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
                     />
                   </div>
-
-                  {/* Backup Recording URL */}
                   <div className="space-y-2">
                     <Label htmlFor="backup_recording_url" className="text-sm font-bold text-blue-700">
                       Backup Recording URL
@@ -992,8 +792,6 @@ export default function CandidatesInterviews() {
                       className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
                     />
                   </div>
-
-                  {/* Job Posting URL */}
                   <div className="space-y-2">
                     <Label htmlFor="job_posting_url" className="text-sm font-bold text-blue-700">
                       Job Posting URL
@@ -1006,8 +804,6 @@ export default function CandidatesInterviews() {
                       className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
                     />
                   </div>
-
-                  {/* Notes with Drag to Resize */}
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="notes" className="text-sm font-bold text-blue-700">
                       Notes
@@ -1019,7 +815,6 @@ export default function CandidatesInterviews() {
                         placeholder="Enter notes..."
                         className="min-h-[60px] w-full resize-none rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
                       />
-                      {/* Drag handle in bottom-right corner */}
                       <div
                         className="drag-handle absolute bottom-1 right-1 cursor-nwse-resize p-1 text-gray-400 transition-colors hover:text-gray-600"
                         title="Drag to resize"
@@ -1032,8 +827,6 @@ export default function CandidatesInterviews() {
                     </div>
                   </div>
                 </div>
-
-                {/* Footer */}
                 <div className="mt-6 flex justify-end gap-3 border-t border-blue-200 pt-4">
                   <button
                     type="button"
@@ -1050,7 +843,6 @@ export default function CandidatesInterviews() {
                   </button>
                 </div>
               </form>
-
             </div>
           </div>
         </div>
