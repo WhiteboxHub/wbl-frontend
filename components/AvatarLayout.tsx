@@ -97,6 +97,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       children: [
         { title: "List", href: "/avatar/employee" },
         { title: "Search", href: "/avatar/employee/employeesearch" },
+        { title: "Internal Documents", href: "/avatar/employee/internal_documents" },
       ],
     },
     {
