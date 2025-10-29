@@ -1,5 +1,4 @@
-
-
+// whiteboxLearning-wbl\app\avatar\leads\page.tsx
 "use client";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
@@ -445,6 +444,7 @@ export default function LeadsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isNewLead = searchParams.get("newlead") === "true";
+  const [isModalOpen, setIsModalOpen] = useState(isNewLead);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -452,7 +452,6 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchBy, setSearchBy] = useState("full_name");
-  const [isModalOpen, setIsModalOpen] = useState(isNewLead);
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [formSaveLoading, setFormSaveLoading] = useState(false);
   const [sortModel, setSortModel] = useState([

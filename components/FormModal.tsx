@@ -1,254 +1,24 @@
-// whiteboxLearning-wbl\components\EditModal.tsx
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { X } from "lucide-react";
-import axios from "axios";
 import dynamic from "next/dynamic";
 const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
 import "react-quill/dist/quill.snow.css";
 import { apiFetch } from "@/lib/api";
 
-// Enum options for various fields
-export const enumOptions: Record<string, { value: string; label: string }[]> = {
-  move_to_prep: [
-    { value: "false", label: "No" },
-    { value: "true", label: "Yes" },
-  ],
-  move_to_mrkt: [
-    { value: "false", label: "No" },
-    { value: "true", label: "Yes" },
-  ],
-  move_to_placement: [
-    { value: "false", label: "No" },
-    { value: "true", label: "Yes" },
-  ],
-  linkedin_connected: [
-    { value: "no", label: "No" },
-    { value: "yes", label: "Yes" },
-  ],
-  intro_email_sent: [
-    { value: "no", label: "No" },
-    { value: "yes", label: "Yes" },
-  ],
-  intro_call: [
-    { value: "no", label: "No" },
-    { value: "yes", label: "Yes" },
-  ],
-  moved_to_vendor: [
-    { value: "true", label: "Yes" },
-    { value: "false", label: "No" },
-  ],
-  moved_to_candidate: [
-    { value: "false", label: "No" },
-    { value: "true", label: "Yes" },
-  ],
-  massemail_email_sent: [
-    { value: "false", label: "No" },
-    { value: "true", label: "Yes" },
-  ],
-  mass_email_sent: [
-    { value: "false", label: "No" },
-    { value: "true", label: "Yes" },
-  ],
-  massemail_unsubscribe: [
-    { value: "false", label: "No" },
-    { value: "true", label: "Yes" },
-  ],
-  agreement: [
-    { value: "false", label: "No" },
-    { value: "true", label: "Yes" },
-  ],
-  priority: [
-    { value: "", label: "Select" },
-    { value: "1", label: "1" },
-    { value: "2", label: "2" },
-    { value: "3", label: "3" },
-    { value: "4", label: "4" },
-    { value: "5", label: "5" },
-  ],
-  rating: [
-    { value: "", label: "Select Rating" },
-    { value: "Good", label: "Good" },
-    { value: "Very Good", label: "Very Good" },
-    { value: "Average", label: "Average" },
-    { value: "Poor", label: "Poor" },
-    { value: "Need to Improve", label: "Need to Improve" },
-  ],
-  tech_rating: [
-    { value: "", label: "Select Rating" },
-    { value: "Good", label: "Good" },
-    { value: "Very Good", label: "Very Good" },
-    { value: "Average", label: "Average" },
-    { value: "Poor", label: "Poor" },
-    { value: "Need to Improve", label: "Need to Improve" },
-  ],
-  communication: [
-    { value: "", label: "Select" },
-    { value: "Very Good", label: "Very Good" },
-    { value: "Average", label: "Average" },
-    { value: "Good", label: "Good" },
-    { value: "Need to Improve", label: "Need to Improve" },
-    { value: "Poor", label: "Poor" },
-  ],
-  work_status: [
-    { value: "waiting for status", label: "Waiting for Status" },
-    { value: "citizen", label: "Citizen" },
-    { value: "f1", label: "F1" },
-    { value: "other", label: "Other" },
-    { value: "permanent resident", label: "Permanent Resident" },
-    { value: "h4", label: "H4" },
-    { value: "ead", label: "EAD" },
-    { value: "green card", label: "Green Card" },
-    { value: "h1b", label: "H1B" },
-  ],
-  workstatus: [
-    { value: "waiting for status", label: "Waiting for Status" },
-    { value: "citizen", label: "Citizen" },
-    { value: "f1", label: "F1" },
-    { value: "other", label: "Other" },
-    { value: "permanent resident", label: "Permanent Resident" },
-    { value: "h4", label: "H4" },
-    { value: "ead", label: "EAD" },
-    { value: "green card", label: "Green Card" },
-    { value: "h1b", label: "H1B" },
-  ],
-  visa_status: [
-    { value: "waiting for status", label: "Waiting for Status" },
-    { value: "citizen", label: "Citizen" },
-    { value: "f1", label: "F1" },
-    { value: "other", label: "Other" },
-    { value: "permanent resident", label: "Permanent Resident" },
-    { value: "h4", label: "H4" },
-    { value: "ead", label: "EAD" },
-    { value: "green card", label: "Green Card" },
-    { value: "h1b", label: "H1B" },
-  ],
-  mode_of_interview: [
-    { value: "Virtual", label: "Virtual" },
-    { value: "In Person", label: "In Person" },
-    { value: "Phone", label: "Phone" },
-    { value: "Assessment", label: "Assessment" },
-    { value: "AI Interview", label: "AI Interview" },
-  ],
-  type_of_interview: [
-    { value: "Recruiter Call", label: "Recruiter Call" },
-    { value: "Technical", label: "Technical" },
-    { value: "HR", label: "HR" },
-    { value: "Prep Call", label: "Prep Call" },
-  ],
-  feedback: [
-    { value: 'Pending', label: 'Pending' },
-    { value: 'Positive', label: 'Positive' },
-    { value: 'Negative', label: 'Negative' },
-  ],
-  company_type: [
-    { value: "client", label: "Client" },
-    { value: "third-party-vendor", label: "Third Party Vendor" },
-    { value: "implementation-partner", label: "Implementation Partner" },
-    { value: "sourcer", label: "Sourcer" },
-  ],
-  marketing_status: [
-    { value: "active", label: "Active" },
-    { value: "inactive", label: "Inactive" },
-  ],
-  placement_type: [
-    { value: "Company", label: "Company" },
-    { value: "Client", label: "Client" },
-    { value: "Vendor", label: "Vendor" },
-    { value: "Implementation Partner", label: "Implementation Partner" },
-  ],
-  placement_status: [
-    { value: "Active", label: "Active" },
-    { value: "Inactive", label: "Inactive" },
-  ],
-  employee_status: [
-    { value: "1", label: "Active" },
-    { value: "0", label: "Inactive" },
-  ],
-  instructor_status: [
-    { value: "1", label: "Yes" },
-    { value: "0", label: "No" },
-  ],
-  lead_status: [
-    { value: "Open", label: "Open" },
-    { value: "Closed", label: "Closed" },
-    { value: "Future", label: "Future" },
-  ],
-  vendor_type: [
-    { value: "client", label: "Client" },
-    { value: "third-party-vendor", label: "Third Party Vendor" },
-    { value: "implementation-partner", label: "Implementation Partner" },
-    { value: "sourcer", label: "Sourcer" },
-    { value: "contact-from-ip", label: "Contact from IP" },
-  ],
-  vendor_status: [
-    { value: "active", label: "Active" },
-    { value: "working", label: "Working" },
-    { value: "not_useful", label: "Not Useful" },
-    { value: "do_not_contact", label: "Do Not Contact" },
-    { value: "inactive", label: "Inactive" },
-    { value: "prospect", label: "Prospect" },
-  ],
-  vendor_linkedin_connected: [
-    { value: "YES", label: "Yes" },
-    { value: "NO", label: "No" },
-  ],
-  vendor_intro_email_sent: [
-    { value: "YES", label: "Yes" },
-    { value: "NO", label: "No" },
-  ],
-  vendor_intro_call: [
-    { value: "YES", label: "Yes" },
-    { value: "NO", label: "No" },
-  ],
-  candidate_status: [
-    { value: "active", label: "Active" },
-    { value: "inactive", label: "Inactive" },
-    { value: "discontinued", label: "Discontinued" },
-    { value: "break", label: "Break" },
-    { value: "closed", label: "Closed" },
-  ],
-};
-
-// Vendor type options
-export const vendorTypeOptions = [
-  { value: "Client", label: "Client" },
-  { value: "third-party-vendor", label: "Third Party Vendor" },
-  { value: "implementation-partner", label: "Implementation Partner" },
-  { value: "sourcer", label: "Sourcer" },
-  { value: "contact-from-ip", label: "Contact from IP" },
-];
-
-// Vendor status options
-export const vendorStatuses = [
-  { value: "active", label: "Active" },
-  { value: "working", label: "Working" },
-  { value: "not_useful", label: "Not Useful" },
-  { value: "do_not_contact", label: "Do Not Contact" },
-  { value: "inactive", label: "Inactive" },
-  { value: "prospect", label: "Prospect" },
-];
-
-export const genericStatusOptions = [
-  { value: "active", label: "Active" },
-  { value: "inactive", label: "Inactive" },
-  { value: "break", label: "Break" },
-  { value: "discontinued", label: "Discontinued" },
-  { value: "closed", label: "Closed" },
-];
-
-export const materialTypeOptions = [
-  { value: "P", label: "Presentations" },
-  { value: "C", label: "Cheatsheets" },
-  { value: "D", label: "Diagrams" },
-  { value: "S", label: "Softwares" },
-  { value: "I", label: "Installations" },
-  { value: "B", label: "Books" },
-  { value: "N", label: "Newsletters" },
-  { value: "M", label: "Materials" },
-  { value: "A", label: "Assignments" },
-];
+// Import the existing configurations from EditModal
+import { 
+  enumOptions, 
+  vendorTypeOptions, 
+  vendorStatuses, 
+  genericStatusOptions, 
+  materialTypeOptions,
+  fieldSections,
+  labelOverrides,
+  dateFields,
+  excludedFields
+} from "./EditModal";
 
 interface Batch {
   batchid: number;
@@ -257,300 +27,160 @@ interface Batch {
   courseid?: number;
 }
 
-interface EditModalProps {
+interface FormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  data: Record<string, any>;
+  data?: Record<string, any>; // Optional for add mode
   title: string;
   onSave: (updatedData: Record<string, any>) => void;
-  batches: Batch[];
+  batches?: Batch[];
+  mode: 'add' | 'edit';
+  entityType: 'vendor' | 'candidate' | 'lead' | 'employee' | 'interview' | 'marketing' | 'placement' | 'preparation' | 'course-material' | 'course-subject' | 'batch';
 }
 
-// Fields to exclude from the form
-export const excludedFields = [
-  "candidate", "instructor1", "instructor2", "instructor3", "id", "sessionid", "vendor_type",
-  "last_mod_datetime", "last_modified", "logincount", "googleId",
-  "subject_id", "lastmoddatetime", "course_id", "new_subject_id", "instructor_1id",
-  "instructor_2id", "instructor_3id", "instructor1_id", "instructor2_id",
-  "instructor3_id", "candidate_id", "batch"
-];
-
-// Map fields to their respective sections
-export const fieldSections: Record<string, string> = {
-  candidate_full_name: "Basic Information",
-  instructor1_name: "Professional Information",
-  instructor2_name: "Professional Information",
-  instructor3_name: "Professional Information",
-  interviewer_emails: "Contact Information",
-  interviewer_contact: "Contact Information",
-  interviewer_linkedin: "Contact Information",
-  id: "Basic Information",
-  alias: "Basic Information",
-  Fundamentals: "Basic Information",
-  AIML: "Basic Information",
-  full_name: "Basic Information",
-  email: "Basic Information",
-  phone: "Basic Information",
-  status: "Basic Information",
-  batchid: "Contact Information",
-  batch: "Basic Information",
-  start_date: "Professional Information",
-  batchname: "Basic Information",
-  target_date_of_marketing: "Basic Information",
-  move_to_prep: "Basic Information",
-  move_to_mrkt:"Basic Information",
-  move_to_placement: "Basic Information",
-  linkedin_id: "Contact Information",
-  enrolled_date: "Professional Information",
-  startdate: "Professional Information",
-  type: "Professional Information",
-  company_name: "Professional Information",
-  linkedin_connected: "Professional Information",
-  intro_email_sent: "Professional Information",
-  intro_call: "Professional Information",
-  recording_link: "Professional Information",
-  moved_to_vendor: "Professional Information",
-  phone_number: "Basic Information",
-  secondary_phone: "Contact Information",
-  last_mod_datetime: "Contact Information",
-  location: "Contact Information",
-  agreement: "Professional Information",
-  subject_id: "Basic Information",
-  subjectid: "Professional Information",
-  courseid: "Professional Information",
-  candidateid: "Basic Information",
-  uname: "Basic Information",
-  fullname: "Basic Information",
-  candidate_email: "Basic Information",
-  placement_date: "Basic Information",
-  leadid: "Basic Information",
-  name: "Basic Information",
-  enddate: "Professional Information",
-  candidate_name: "Basic Information",
-  candidate_role: "Basic Information",
-  google_voice_number: "Professional Information",
-  dob: "Basic Information",
-  contact: "Basic Information",
-  password: "Professional Information",
-  secondaryemail: "Contact Information",
-  ssn: "Professional Information",
-  priority: "Basic Information",
-  source: "Basic Information",
-  subject: "Basic Information",
-  title: "Basic Information",
-  enrolleddate: "Basic Information",
-  orientationdate: "Basic Information",
-  promissory: "Basic Information",
-  lastlogin: "Professional Information",
-  logincount: "Professional Information",
-  course: "Professional Information",
-  registereddate: "Basic Information",
-  company: "Professional Information",
-  linkedin: "Contact Information",
-  github: "Contact Information",
-  resume: "Contact Information",
-  client_id: "Professional Information",
-  client_name: "Professional Information",
-  interview_time: "Professional Information",
-  vendor_or_client_name: "Professional Information",
-  vendor_or_client_contact: "Professional Information",
-  marketing_email_address: "Professional Information",
-  interview_date: "Professional Information",
-  interview_mode: "Professional Information",
-  visa_status: "Professional Information",
-  workstatus: "Basic Information",
-  message: "Professional Information",
-  education: "Professional Information",
-  workexperience: "Professional Information",
-  faq: "Professional Information",
-  callsmade: "Professional Information",
-  fee_paid: "Professional Information",
-  feedue: "Professional Information",
-  salary0: "Professional Information",
-  salary6: "Professional Information",
-  salary12: "Professional Information",
-  instructor: "Professional Information",
-  second_instructor: "Professional Information",
-  marketing_startdate: "Professional Information",
-  recruiterassesment: "Professional Information",
-  statuschangedate: "Professional Information",
-  aadhaar: "Basic Information",
-  job_posting_url: "Basic Information",
-  feedback: "Basic Information",
-  entry_date: "Professional Information",
-  closed_date: "Professional Information",
-  closed: "Professional Information",
-  massemail_email_sent: "Contact Information",
-  massemail_unsubscribe: "Contact Information",
-  moved_to_candidate: "Contact Information",
-  link: "Professional Information",
-  videoid: "Professional Information",
-  address: "Professional Information",
-  candidate_folder: "Professional Information",
-  city: "Contact Information",
-  state: "Contact Information",
-  country: "Contact Information",
-  zip: "Contact Information",
-  emergcontactname: "Emergency Contact",
-  emergcontactemail: "Emergency Contact",
-  emergcontactphone: "Emergency Contact",
-  emergcontactaddrs: "Emergency Contact",
-  spousename: "Emergency Contact",
-  spousephone: "Emergency Contact",
-  spouseemail: "Emergency Contact",
-  spouseoccupationinfo: "Emergency Contact",
-  notes: "Notes",
-  course_name: "Professional Information",
-  subject_name: "Basic Information",
-  employee_name: "Basic Information",
-  secondaryphone: "Contact Information",
-  secondary_email: "Contact Information",
-  cm_course: "Professional Information",
-  cm_subject: "Basic Information",
-  material_type: "Basic Information",
-  transcript: "Professional Information",
+// Default form data templates for different entity types
+const defaultFormData: Record<string, Record<string, any>> = {
+  vendor: {
+    full_name: "",
+    email: "",
+    phone_number: "",
+    secondary_phone: "",
+    linkedin_id: "",
+    type: "client",
+    status: "active",
+    company_name: "",
+    city: "",
+    postal_code: "",
+    address: "",
+    country: "",
+    location: "",
+    linkedin_connected: "NO",
+    intro_email_sent: "NO",
+    intro_call: "NO",
+  },
+  candidate: {
+    full_name: "",
+    email: "",
+    phone: "",
+    dob: "",
+    enrolled_date: new Date().toISOString().split("T")[0],
+    status: "active",
+    workstatus: "waiting for status",
+    agreement: "false",
+    fee_paid: 0,
+    batchid: "",
+    priority: "",
+    source: "",
+    linkedin: "",
+    github: "",
+    resume: "",
+    education: "",
+    workexperience: "",
+    notes: "",
+  },
+  lead: {
+    full_name: "",
+    email: "",
+    phone: "",
+    status: "Open",
+    workstatus: "waiting for status",
+    entry_date: new Date().toISOString().split("T")[0],
+    moved_to_candidate: false,
+    massemail_email_sent: false,
+    massemail_unsubscribe: false,
+    notes: "",
+  },
+  employee: {
+    full_name: "",
+    email: "",
+    phone_number: "",
+    status: "1",
+    instructor: "0",
+    notes: "",
+  },
+  interview: {
+    candidate_id: "",
+    candidate_name: "",
+    company: "",
+    company_type: "client",
+    interviewer_emails: "",
+    interviewer_contact: "",
+    interviewer_linkedin: "",
+    interview_date: "",
+    mode_of_interview: "Virtual",
+    type_of_interview: "Recruiter Call",
+    notes: "",
+    recording_link: "",
+    backup_recording_url: "",
+    job_posting_url: "",
+    feedback: "Pending",
+  },
+  marketing: {
+    candidate_full_name: "",
+    status: "active",
+    priority: "",
+    target_date_of_marketing: "",
+    move_to_prep: "false",
+    move_to_mrkt: "false",
+    move_to_placement: "false",
+    linkedin_connected: "no",
+    intro_email_sent: "no",
+    intro_call: "no",
+    notes: "",
+  },
+  placement: {
+    candidate_full_name: "",
+    status: "Active",
+    type: "Company",
+    placement_date: "",
+    vendor_or_client_name: "",
+    vendor_or_client_contact: "",
+    marketing_email_address: "",
+    notes: "",
+  },
+  preparation: {
+    candidate_full_name: "",
+    status: "active",
+    instructor1_id: "",
+    instructor2_id: "",
+    instructor3_id: "",
+    start_date: "",
+    end_date: "",
+    notes: "",
+  },
+  "course-material": {
+    filename: "",
+    material_type: "",
+    cm_course: "",
+    cm_subject: "",
+    link: "",
+    notes: "",
+  },
+  "course-subject": {
+    course_name: "",
+    subject_name: "",
+    notes: "",
+  },
+  batch: {
+    batchname: "",
+    subject: "",
+    courseid: "",
+    startdate: "",
+    enddate: "",
+    notes: "",
+  },
 };
 
-// Override field labels for better readability
-export const labelOverrides: Record<string, string> = {
-  candidate_full_name: "Candidate Full Name",
-  instructor1_name: "Instructor 1 Name",
-  instructor2_name: "Instructor 2 Name",
-  instructor3_name: "Instructor 3 Name",
-  id: "ID",
-  subject_id: "Subject ID",
-  subjectid: "Subject ID",
-  new_subject_id: "New Subject ID",
-  sessionid: "ID",
-  courseid: "Course ID",
-  course_id: "Course ID",
-  candidateid: "Candidate ID",
-  batchid: "Batch",
-  candidate_id: "Candidate ID",
-  candidate_email: "Candidate Email",
-  uname: "Email",
-  fullname: "Full Name",
-  candidate_name: "Candidate Name",
-  candidate_role: "Candidate Role",
-  google_voice_number: "Google Voice Number",
-  dob: "Date of Birth",
-  contact: "Contact",
-  password: "Password",
-  secondaryemail: "Secondary Email",
-  ssn: "SSN",
-  priority: "Priority",
-  source: "Source",
-  subject: "Subject",
-  title: "Title",
-  enrolleddate: "Enrolled Date",
-  resume_url: "Resume URL",
-  orientationdate: "Orientation Date",
-  promissory: "Promissory",
-  lastlogin: "Last Login",
-  logincount: "Login Count",
-  course: "Course",
-  registereddate: "Registered Date",
-  company: "Company",
-  linkedin: "LinkedIn",
-  github: "GitHub",
-  resume: "Resume",
-  client_id: "Client ID",
-  client_name: "Client Name",
-  interview_time: "Interview Time",
-  vendor_or_client_name: "Vendor/Client Name",
-  vendor_or_client_contact: "Vendor/Client Contact",
-  marketing_email_address: "Marketing Email Address",
-  interview_date: "Interview Date",
-  interview_mode: "Interview Mode",
-  visa_status: "Visa Status",
-  workstatus: "Work Status",
-  message: "Message",
-  education: "Education",
-  workexperience: "Work Experience",
-  faq: "FAQ",
-  callsmade: "Calls Made",
-  fee_paid: "Fee Paid",
-  feedue: "Fee Due",
-  salary0: "Salary (0 months)",
-  salary6: "Salary (6 months)",
-  salary12: "Salary (12 months)",
-  instructor: "Instructor",
-  second_instructor: "Second Instructor",
-  marketing_startdate: "Marketing Start Date",
-  recruiterassesment: "Recruiter Assessment",
-  statuschangedate: "Status Change Date",
-  move_to_mrkt: "Move to Marketing",
-  aadhaar: "Aadhaar",
-  job_posting_url: "Job Posting URL",
-  feedback: "Feedback",
-  entry_date: "Entry Date",
-  closed_date: "Closed Date",
-  closed: "Closed",
-  massemail_email_sent: "Mass Email Sent",
-  massemail_unsubscribe: "Mass Email Unsubscribe",
-  moved_to_candidate: "Moved to Candidate",
-  link: "Link",
-  videoid: "Video ID",
-  address: "Address",
-  candidate_folder: "Candidate Folder",
-  city: "City",
-  state: "State",
-  country: "Country",
-  zip: "ZIP",
-  emergcontactname: "Emergency Contact Name",
-  emergcontactemail: "Emergency Contact Email",
-  emergcontactphone: "Emergency Contact Phone",
-  emergcontactaddrs: "Emergency Contact Address",
-  secondaryphone:"Secondary Phone",
-  spousename: "Spouse Name",
-  spousephone: "Spouse Phone",
-  spouseemail: "Spouse Email",
-  spouseoccupationinfo: "Spouse Occupation Info",
-  notes: "Notes",
-  course_name: "Course Name",
-  subject_name: "Subject Name",
-  recording_link: "Recording Link",
-  transcript: "Transcript",
-  backup_url: "Backup URL",
-  cm_course: "Course Name",
-  cm_subject: "Subject Name",
-  company_type: "Company Type",
-  mode_of_interview: "Mode of Interview",
-  type_of_interview: "Type of Interview",
-  material_type: "Material Type",
-  sessiondate:"Session Date",
-  classdate:"Class Date",
-  filename:"File Name",
-  startdate:"Start Date",
-  enddate:"End Date"
-};
-
-export const dateFields = [
-  "orientationdate",
-  "start_date",
-  "startdate",
-  "enddate",
-  "closed_date",
-  "entry_date",
-  "created_at",
-  "dob",
-  "classdate",
-  "sessiondate",
-  "enrolled_date",
-  "interview_date",
-  "placement_date",
-  "marketing_start_date",
-  "target_date_of_marketing",
-];
-
-export function EditModal({
+export function FormModal({
   isOpen,
   onClose,
   data,
   title,
   onSave,
   batches: propBatches,
-}: EditModalProps) {
+  mode,
+  entityType,
+}: FormModalProps) {
   const {
     register,
     handleSubmit,
@@ -560,6 +190,7 @@ export function EditModal({
     setValue,
     getValues,
   } = useForm();
+  
   const [courses, setCourses] = useState<{ id: number; name: string }[]>([]);
   const [subjects, setSubjects] = useState<{ id: number; name: string }[]>([]);
   const [employees, setEmployees] = useState<{ id: number; name: string }[]>([]);
@@ -568,20 +199,19 @@ export function EditModal({
   const [mlBatches, setMlBatches] = useState<Batch[]>([]);
   const modalRef = useRef<HTMLDivElement>(null);
 
-  // Detect the modal context
-  const isCourseMaterialModal = title.toLowerCase().includes("course material") || title.toLowerCase().includes("material");
-  const isCourseSubjectModal = title.toLowerCase().includes("course-subject") || title.toLowerCase().includes("course subject");
-  const isVendorModal = title.toLowerCase().includes("vendor");
-  const isCandidateOrEmployee = title.toLowerCase().includes("candidate") || title.toLowerCase().includes("employee");
-  const isBatchesModal = title.toLowerCase().includes("batch") && !title.toLowerCase().includes("course");
-
-  const isInterviewModal = title.toLowerCase().includes("interview");
-  const isMarketingModal = title.toLowerCase().includes("marketing");
-  const isPlacementModal = title.toLowerCase().includes("placement");
-  const isPreparationModal = title.toLowerCase().includes("preparation");
-  const isEmployeeModal = title.toLowerCase().includes("employee");
-  const isLeadModal = title.toLowerCase().includes("lead");
-  const isCandidateModal = title.toLowerCase().includes("candidate") && !isPreparationModal;
+  // Detect the modal context based on entityType
+  const isCourseMaterialModal = entityType === 'course-material';
+  const isCourseSubjectModal = entityType === 'course-subject';
+  const isVendorModal = entityType === 'vendor';
+  const isCandidateOrEmployee = entityType === 'candidate' || entityType === 'employee';
+  const isBatchesModal = entityType === 'batch';
+  const isInterviewModal = entityType === 'interview';
+  const isMarketingModal = entityType === 'marketing';
+  const isPlacementModal = entityType === 'placement';
+  const isPreparationModal = entityType === 'preparation';
+  const isEmployeeModal = entityType === 'employee';
+  const isLeadModal = entityType === 'lead';
+  const isCandidateModal = entityType === 'candidate' && !isPreparationModal;
 
   // modal for candidate_full_name first and read-only
   const isSpecialModal = isInterviewModal || isMarketingModal || isPlacementModal || isPreparationModal;
@@ -808,12 +438,16 @@ export function EditModal({
 
   // Reset form data when the modal opens
   useEffect(() => {
-    if (data && isOpen) {
+    if (mode === 'edit' && data && isOpen) {
       const flattenedData = flattenData(data);
       setFormData(flattenedData);
       reset(flattenedData);
+    } else if (mode === 'add' && isOpen) {
+      const defaultData = defaultFormData[entityType] || {};
+      setFormData(defaultData);
+      reset(defaultData);
     }
-  }, [data, isOpen, reset]);
+  }, [data, isOpen, reset, mode, entityType]);
 
   // Handle form submission
   const onSubmit = (formData: any) => {
@@ -860,27 +494,27 @@ export function EditModal({
     }
     if (formData.candidate_full_name) {
       reconstructedData.candidate = {
-        ...data.candidate,
+        ...data?.candidate,
         full_name: formData.candidate_full_name,
       };
     }
     if (formData.instructor1_name) {
       reconstructedData.instructor1 = {
-        ...data.instructor1,
+        ...data?.instructor1,
         name: formData.instructor1_name,
         id: formData.instructor1_id,
       };
     }
     if (formData.instructor2_name) {
       reconstructedData.instructor2 = {
-        ...data.instructor2,
+        ...data?.instructor2,
         name: formData.instructor2_name,
         id: formData.instructor2_id,
       };
     }
     if (formData.instructor3_name) {
       reconstructedData.instructor3 = {
-        ...data.instructor3,
+        ...data?.instructor3,
         name: formData.instructor3_name,
         id: formData.instructor3_id,
       };
@@ -1002,7 +636,7 @@ export function EditModal({
 
   const isInterviewOrMarketing = title.toLowerCase().includes("interview") || title.toLowerCase().includes("marketing");
 
-  if (!isOpen || !data) return null;
+  if (!isOpen) return null;
 
   const currentFormValues = watch();
 
@@ -1016,7 +650,7 @@ export function EditModal({
           >
             <div className="sticky top-0 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 border-b border-blue-200 flex justify-between items-center">
               <h2 className="text-sm sm:text-base md:text-lg font-semibold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-                {title} - Edit Details
+                {title} - {mode === 'add' ? 'Add New' : 'Edit Details'}
               </h2>
               <button
                 onClick={onClose}
@@ -1507,7 +1141,7 @@ export function EditModal({
                     type="submit"
                     className="px-3 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg hover:from-cyan-600 hover:to-blue-600 transition shadow-md"
                   >
-                    Save Changes
+                    {mode === 'add' ? 'Add New' : 'Save Changes'}
                   </button>
                 </div>
               </form>

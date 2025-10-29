@@ -11,6 +11,7 @@ import {
 import { AgGridReact } from "ag-grid-react";
 import { useMemo, useCallback, useRef, useState, useEffect } from "react";
 import { Button } from "@/components/admin_ui/button";
+import { Plus } from "lucide-react";
 import {
   EyeIcon,
   EditIcon,
@@ -174,9 +175,7 @@ export function AGGridTable({
     }
   }, []);
 
-  const onColumnMoved = useCallback((event: ColumnMovedEvent) => {
-
-  }, []);
+  const onColumnMoved = useCallback((event: ColumnMovedEvent) => {}, []);
 
   // Returns the currently displayed (filtered and sorted) rows
   const getDisplayedRows = useCallback((): RowData[] => {
@@ -197,13 +196,17 @@ export function AGGridTable({
       const selectedRow = selectedRowData[0];
       const displayedRows = getDisplayedRows();
       // Find the index of the selected row within the CURRENTLY DISPLAYED rows (after filters/sorts)
-      const index = displayedRows.findIndex(row => {
+      const index = displayedRows.findIndex((row) => {
         // Try to match by various ID fields
         if (selectedRow.id && row.id) return selectedRow.id === row.id;
-        if (selectedRow.sessionid && row.sessionid) return selectedRow.sessionid === row.sessionid;
-        if (selectedRow.leadid && row.leadid) return selectedRow.leadid === row.leadid;
-        if (selectedRow.candidateid && row.candidateid) return selectedRow.candidateid === row.candidateid;
-        if (selectedRow.batchid && row.batchid) return selectedRow.batchid === row.batchid;
+        if (selectedRow.sessionid && row.sessionid)
+          return selectedRow.sessionid === row.sessionid;
+        if (selectedRow.leadid && row.leadid)
+          return selectedRow.leadid === row.leadid;
+        if (selectedRow.candidateid && row.candidateid)
+          return selectedRow.candidateid === row.candidateid;
+        if (selectedRow.batchid && row.batchid)
+          return selectedRow.batchid === row.batchid;
         // Fallback to comparing all properties
         return JSON.stringify(selectedRow) === JSON.stringify(row);
       });
@@ -212,12 +215,15 @@ export function AGGridTable({
     }
   }, [selectedRowData, getDisplayedRows]);
 
-  const handleViewNavigation = useCallback((newIndex: number) => {
-    const displayedRows = getDisplayedRows();
-    if (displayedRows && newIndex >= 0 && newIndex < displayedRows.length) {
-      setCurrentViewIndex(newIndex);
-    }
-  }, [getDisplayedRows]);
+  const handleViewNavigation = useCallback(
+    (newIndex: number) => {
+      const displayedRows = getDisplayedRows();
+      if (displayedRows && newIndex >= 0 && newIndex < displayedRows.length) {
+        setCurrentViewIndex(newIndex);
+      }
+    },
+    [getDisplayedRows]
+  );
 
   const handleEdit = useCallback(() => {
     if (selectedRowData && selectedRowData.length > 0) {
@@ -247,12 +253,11 @@ export function AGGridTable({
     }
   }, [deleteConfirmData, onRowDeleted]);
 
-
-  const handleSave = useCallback((updatedData: RowData) => {
-  
-    if (gridRef.current) {
-      gridRef.current.api.applyTransaction({ update: [updatedData] });
-    }
+  const handleSave = useCallback(
+    (updatedData: RowData) => {
+      if (gridRef.current) {
+        gridRef.current.api.applyTransaction({ update: [updatedData] });
+      }
 
       if (onRowUpdated) onRowUpdated(updatedData);
 
@@ -262,11 +267,11 @@ export function AGGridTable({
     [onRowUpdated]
   );
 
-  const onCellValueChanged = useCallback((event: CellValueChangedEvent) => {
- 
-    if (gridRef.current) {
-      gridRef.current.api.applyTransaction({ update: [event.data] });
-    }
+  const onCellValueChanged = useCallback(
+    (event: CellValueChangedEvent) => {
+      if (gridRef.current) {
+        gridRef.current.api.applyTransaction({ update: [event.data] });
+      }
 
       if (onRowUpdated) onRowUpdated(event.data);
     },
@@ -297,6 +302,14 @@ export function AGGridTable({
     return `${params.value.toLocaleString()}`;
   }, []);
 
+  // const AGGridTable = () => {
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  const handleAdd = () => {
+    // your logic here
+    setIsAddModalOpen(true);
+  };
+
   return (
     <div className="mx-auto w-full max-w-7xl flex-row-reverse space-y-4">
       <div className="flex items-center justify-end justify-between">
@@ -306,6 +319,16 @@ export function AGGridTable({
           </h3>
         )}
         <div className="ml-auto flex items-center  space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleAdd}
+            className="flex h-8 w-8 items-center justify-center p-0 font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400"
+            title="Add New"
+          >
+            +
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
