@@ -1,48 +1,53 @@
-'use client';
+"use client";
 
 import { usePathname } from "next/navigation";
+import { SessionProvider } from "next-auth/react";
+import { Providers } from "@/app/providers";
+import { AuthProvider } from "@/utils/AuthContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ScrollToTop from "@/components/ScrollToTop";
 import Sidebar from "@/components/Sidebar";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import ReferralNotificationButton from "@/components/ReferralNotificationButton";
+import { useState, useEffect } from "react";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isViewSection = pathname.startsWith("/view");
+  const isAvatarSection = pathname.startsWith("/avatar");
+  const [isOpen, setIsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  const [holdLoad, setHoldLoad] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [hasMounted, setHasMounted] = useState(false);
-
-  const toggleSidebar = useCallback(() => {
-    setSidebarOpen((prev) => !prev);
-  }, []);
-
-
-  
+  // Handle mounting to prevent hydration issues
   useEffect(() => {
-    const timer = setTimeout(() => setHoldLoad(true), 600);
-
-    return () => clearTimeout(timer);
+    setMounted(true);
   }, []);
 
-  useEffect(() => {
-    setHasMounted(true);
-  }, []);
+  // Prevent flash by showing nothing until mounted
+  if (!mounted) {
+    return null;
+  }
 
-  if (!hasMounted) return null;
-
-  return holdLoad ? (
-    <>
-      {!isViewSection && <Header />}
-      {!isViewSection && (
-        <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
-      )}
-      {/* <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} /> */}
-      <main className="w-full">{children}</main>
-      {!isViewSection && <Footer />}
-      {!isViewSection && <ScrollToTop />}
-    </>
-  ) : null;
+  return (
+    <SessionProvider>
+      <AuthProvider>
+        <Providers>
+          {isAvatarSection ? (
+            <>{children}</>
+          ) : (
+            <>
+              <Header />
+              <Sidebar
+                isOpen={isOpen}
+                toggleSidebar={() => setIsOpen(!isOpen)}
+              />
+              <main className="w-full">{children}</main>
+              <Footer />
+              <ScrollToTop />
+              <ReferralNotificationButton />
+            </>
+          )}
+        </Providers>
+      </AuthProvider>
+    </SessionProvider>
+  );
 }

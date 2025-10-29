@@ -1,14 +1,34 @@
 /* index.css */
 
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap");
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* Prevent FOUC - Apply default theme styles immediately */
 @layer base {
+  /* Default light theme colors */
+  html {
+    color-scheme: light;
+    background-color: white;
+  }
+
+  /* Dark theme colors - applied via class */
+  html.dark {
+    color-scheme: dark;
+    background-color: #121723;
+  }
+
   body {
     font-family: "Inter", sans-serif;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+}
+
+/* Prevent theme flash by hiding until JS loads */
+@media (prefers-color-scheme: dark) {
+  html:not(.dark):not(.light) {
+    color-scheme: dark;
+    background-color: #121723;
   }
 }
 
@@ -157,7 +177,9 @@
 /* admin.css */
 
 @layer base {
+  /* Improved CSS variables for instant theme application */
   :root {
+    color-scheme: light;
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
 
@@ -198,7 +220,8 @@
     --sidebar-ring: 262 83% 58%;
   }
 
-  .dark {
+    .dark {
+    color-scheme: dark;
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
 
