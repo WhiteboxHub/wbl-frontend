@@ -507,7 +507,6 @@ export default function AuthUsersPage() {
           return;
         }
       } else {
-        // Password wasn't changed - REMOVE IT COMPLETELY from payload
         delete dataToSend.passwd;
         // console.log("Password not changed, removing from update");
       }
@@ -528,8 +527,6 @@ export default function AuthUsersPage() {
       }
 
       const updatedUser = await response.json();
-      
-      // Update local state
       setUsers((prev) =>
         prev.map((user) => (user.id === updatedRow.id ? updatedUser : user))
       );
