@@ -14,10 +14,8 @@ import {
   DialogFooter,
 } from "@/components/admin_ui/dialog";
 import { SearchIcon, X } from "lucide-react";
-
 import { toast, Toaster } from "sonner";
-
-import { apiFetch } from "@/lib/api.js"; // <-- use your api wrapper
+import { apiFetch } from "@/lib/api.js";
 
 export default function CoursePage() {
   const [searchTerm, setSearchTerm] = useState("");
