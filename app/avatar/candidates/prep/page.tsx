@@ -11,7 +11,7 @@ import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { toast, Toaster } from "sonner";
-import api from "@/lib/api"; 
+import api from "@/lib/api";
 
 const StatusRenderer = (params: any) => {
   const status = (params?.value || "").toString().toLowerCase();
@@ -139,7 +139,7 @@ export default function CandidatesPrepPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredCandidates, setFilteredCandidates] = useState<any[]>([]);
   const [allCandidates, setAllCandidates] = useState<any[]>([]);
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["active"]); // Default to Active (lowercase)
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["active"]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [instructors, setInstructors] = useState<any[]>([]);
@@ -198,7 +198,6 @@ export default function CandidatesPrepPage() {
 
   useEffect(() => {
     let filtered = [...allCandidates];
-
     const selectedLower = selectedStatuses.map((s) => s.toLowerCase());
 
     if (selectedLower.length > 0) {
@@ -206,12 +205,26 @@ export default function CandidatesPrepPage() {
         selectedLower.includes((c?.status || "").toString().toLowerCase())
       );
     }
-    if ((searchTerm || "").trim() !== "") {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter((c) =>
-        getAllValues(c).some((val) => val.toLowerCase().includes(term))
-      );
+
+    const term = (searchTerm || "").trim().toLowerCase();
+
+    if (term !== "") {
+      // If numeric, only search by ID fields
+      if (/^\d+$/.test(term)) {
+        filtered = filtered.filter(
+          (c) =>
+            String(c.id || "").toLowerCase() === term ||
+            String(c.candidate_id || "").toLowerCase() === term
+        );
+      } else {
+        // Text search across all fields
+        filtered = filtered.filter((c) =>
+          getAllValues(c).some((val) => val.toLowerCase().includes(term))
+        );
+      }
     }
+
+    // Sort active first
     filtered.sort((a, b) => {
       const aStatus = (a?.status || "").toString().toLowerCase();
       const bStatus = (b?.status || "").toString().toLowerCase();
@@ -225,26 +238,26 @@ export default function CandidatesPrepPage() {
     setFilteredCandidates(filtered);
   }, [allCandidates, searchTerm, selectedStatuses]);
 
-const CandidateNameRenderer = (params: any) => {
-  const candidateId = params?.data?.candidate_id || params?.data?.candidate?.id || params?.data?.id;
-  const candidateName = params?.data?.candidate?.full_name || params?.data?.candidate_name || params?.value || "";
-  
-  if (!candidateId || !candidateName) {
-    return <span className="text-gray-500">{candidateName || "N/A"}</span>;
-  }
-  
-  return (
-<Link
-  href={`/avatar/candidates/search?candidateId=${candidateId}`}
-  target="_blank"
-  rel="noopener noreferrer"
-  className="text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer"
->
-  {candidateName}
-</Link>
+  const CandidateNameRenderer = (params: any) => {
+    const candidateId = params?.data?.candidate_id || params?.data?.candidate?.id || params?.data?.id;
+    const candidateName = params?.data?.candidate?.full_name || params?.data?.candidate_name || params?.value || "";
 
-  );
-};
+    if (!candidateId || !candidateName) {
+      return <span className="text-gray-500">{candidateName || "N/A"}</span>;
+    }
+
+    return (
+      <Link
+        href={`/avatar/candidates/search?candidateId=${candidateId}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer"
+      >
+        {candidateName}
+      </Link>
+    );
+  };
+
   const LinkCellRenderer = (params: any) => {
     let url = params.value;
     if (!url) return <span className="text-gray-500">N/A</span>;
@@ -263,95 +276,86 @@ const CandidateNameRenderer = (params: any) => {
     );
   };
 
-
-
-const columnDefs: ColDef[] = useMemo<ColDef[]>(() => {
-  return [
-    { field: "id", headerName: "ID", pinned: "left", width: 80 },
-
-    { 
-      field: "candidate_name", 
-      headerName: "Candidate Name", 
-      cellRenderer: CandidateNameRenderer, 
-      sortable: true, 
-      minWidth: 150, 
-      editable: false,
-      valueGetter: (params) => params.data?.candidate?.full_name || "N/A"
-    },
-    { 
-      field: "batch_name",
-      headerName: "Batch", 
-      sortable: true, 
-      maxWidth: 150,
-      valueGetter: (params) => params.data.candidate?.batch?.batchname || "N/A"
-    },
-
-    { field: "start_date", headerName: "Start Date", sortable: true, maxWidth: 130 },
-    {
-      field: "status",
-      headerName: "Status",
-      cellRenderer: StatusRenderer,
-      maxWidth: 150,
-      headerComponent: StatusHeaderComponent,
-      headerComponentParams: { selectedStatuses, setSelectedStatuses },
-    },
-    { 
-      field: "instructor1_name",
-      headerName: "Instructor 1", 
-      minWidth: 150,
-      valueGetter: (params) => params.data?.instructor1?.name || "N/A"
-    },
-    { 
-      field: "instructor2_name",
-      headerName: "Instructor 2", 
-      minWidth: 150,
-      valueGetter: (params) => params.data?.instructor2?.name || "N/A"
-    },
-    { 
-      field: "instructor3_name",
-      headerName: "Instructor 3", 
-      minWidth: 150,
-      valueGetter: (params) => params.data?.instructor3?.name || "N/A"
-    },
-    { field: "rating", headerName: "Rating", minWidth: 100 },
-    { field: "tech_rating", headerName: "Tech Rating", minWidth: 120 },
-    { field: "communication", headerName: "Communication", minWidth: 120 },
-    { field: "years_of_experience", headerName: "Experience (Years)", minWidth: 140 },
-    { field: "topics_finished", headerName: "Topics Finished", minWidth: 150 },
-    { field: "current_topics", headerName: "Current Topics", minWidth: 150 },
-    { field: "linkedin", headerName: "LinkedIn", minWidth: 150, cellRenderer: LinkCellRenderer },
-    { field: "github", headerName: "GitHub", minWidth: 150, cellRenderer: LinkCellRenderer },
-    { field: "resume", headerName: "Resume", minWidth: 150, cellRenderer: LinkCellRenderer },
-    { field: "target_date_of_marketing", headerName: "Target Marketing Date", minWidth: 160 },
-    {
-      field: "move_to_mrkt",
-      headerName: "Move to Marketing",
-      width: 150,
-      sortable: true,
-      filter: 'agSetColumnFilter',
-      cellRenderer: (params: any) => <span>{params.value ? "Yes" : "No"}</span>,
-    },
-    {
-      field: "notes",
-      headerName: "Notes",
-      minWidth: 100,
-      editable: true,
-      cellRenderer: (params: any) => {
-        if (!params.value) return "";
-        return (
-          <div
-            className="prose prose-sm max-w-none dark:prose-invert"
-            dangerouslySetInnerHTML={{ __html: params.value }}
-          />
-        );
+  const columnDefs: ColDef[] = useMemo<ColDef[]>(() => {
+    return [
+      { field: "id", headerName: "ID", pinned: "left", width: 80 },
+      {
+        field: "candidate_name",
+        headerName: "Candidate Name",
+        cellRenderer: CandidateNameRenderer,
+        sortable: true,
+        minWidth: 150,
+        editable: false,
+        valueGetter: (params) => params.data?.candidate?.full_name || "N/A",
       },
-    },
-  ];
-}, [selectedStatuses]); 
+      {
+        field: "batch_name",
+        headerName: "Batch",
+        sortable: true,
+        maxWidth: 150,
+        valueGetter: (params) => params.data.candidate?.batch?.batchname || "N/A",
+      },
+      { field: "start_date", headerName: "Start Date", sortable: true, maxWidth: 130 },
+      {
+        field: "status",
+        headerName: "Status",
+        cellRenderer: StatusRenderer,
+        maxWidth: 150,
+        headerComponent: StatusHeaderComponent,
+        headerComponentParams: { selectedStatuses, setSelectedStatuses },
+      },
+      {
+        field: "instructor1_name",
+        headerName: "Instructor 1",
+        minWidth: 150,
+        valueGetter: (params) => params.data?.instructor1?.name || "N/A",
+      },
+      {
+        field: "instructor2_name",
+        headerName: "Instructor 2",
+        minWidth: 150,
+        valueGetter: (params) => params.data?.instructor2?.name || "N/A",
+      },
+      {
+        field: "instructor3_name",
+        headerName: "Instructor 3",
+        minWidth: 150,
+        valueGetter: (params) => params.data?.instructor3?.name || "N/A",
+      },
+      { field: "rating", headerName: "Rating", minWidth: 120 },
+      { field: "communication", headerName: "Communication", minWidth: 120 },
+      { field: "years_of_experience", headerName: "Experience (Years)", minWidth: 140 },
+      { field: "linkedin_id", headerName: "LinkedIn", minWidth: 150, cellRenderer: LinkCellRenderer },
+      { field: "github_url", headerName: "GitHub", minWidth: 150, cellRenderer: LinkCellRenderer },
+      { field: "resume_url", headerName: "Resume", minWidth: 150, cellRenderer: LinkCellRenderer },
+      { field: "target_date", headerName: "Target Date", minWidth: 150 },
+      {
+        field: "move_to_mrkt",
+        headerName: "Move to Marketing",
+        width: 150,
+        sortable: true,
+        filter: "agSetColumnFilter",
+        cellRenderer: (params: any) => <span>{params.value ? "Yes" : "No"}</span>,
+      },
+      {
+        field: "notes",
+        headerName: "Notes",
+        minWidth: 100,
+        editable: true,
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          return (
+            <div
+              className="prose prose-sm max-w-none dark:prose-invert"
+              dangerouslySetInnerHTML={{ __html: params.value }}
+            />
+          );
+        },
+      },
+    ];
+  }, [selectedStatuses]);
 
-
-
-const handleRowUpdated = async (updatedRow: any) => {
+  const handleRowUpdated = async (updatedRow: any) => {
     try {
       const prepId = updatedRow?.id;
       if (!prepId) {
@@ -359,66 +363,56 @@ const handleRowUpdated = async (updatedRow: any) => {
         toast.error("Failed to update: Missing preparation ID");
         return;
       }
-      
+
       console.log("Updating preparation record:", prepId, updatedRow);
-      
+
       const payload = {
         ...updatedRow,
         instructor1_id: updatedRow.instructor1_id || null,
         instructor2_id: updatedRow.instructor2_id || null,
         instructor3_id: updatedRow.instructor3_id || null,
       };
-      
-      Object.keys(payload).forEach(key => {
-        if (payload[key] === '' || payload[key] === undefined) {
+
+      Object.keys(payload).forEach((key) => {
+        if (payload[key] === "" || payload[key] === undefined) {
           payload[key] = null;
         }
       });
-      
+
       const response = await api.put(`/candidate_preparation/${prepId}`, payload);
-      
       const updatedRecord = response?.data || payload;
-      
-      setFilteredCandidates((prev) => 
-        prev.map((row) => row.id === prepId ? { ...updatedRecord } : row)
+
+      setFilteredCandidates((prev) =>
+        prev.map((row) => (row.id === prepId ? { ...updatedRecord } : row))
       );
-      setAllCandidates((prev) => 
-        prev.map((row) => row.id === prepId ? { ...updatedRecord } : row)
+      setAllCandidates((prev) =>
+        prev.map((row) => (row.id === prepId ? { ...updatedRecord } : row))
       );
-      
+
       toast.success("Candidate preparation updated successfully!");
     } catch (err: any) {
       console.error("Failed to update:", err);
-      const errorMessage = err.body?.detail || err.body?.message || err.message || "Failed to update candidate preparation.";
+      const errorMessage =
+        err.body?.detail || err.body?.message || err.message || "Failed to update candidate preparation.";
       toast.error(errorMessage);
     }
   };
-  
-  
-const handleRowDeleted = async (id: number | string) => {
-  try {
-    const previousFiltered = [...filteredCandidates];
-    const previousAll = [...allCandidates];
-    
-    setFilteredCandidates((prev) => prev.filter((row) => row.id != id));
-    setAllCandidates((prev) => prev.filter((row) => row.id != id));
-    
-    await api.delete(`/candidate_preparation/${id}`);
-    
-    toast.success("Candidate preparation deleted successfully!");
-  } catch (err: any) {
-    console.error("Failed to delete candidate preparation:", err);
-    
-    
-    const errorMessage =
-      err.body?.detail ??
-      err.body?.message ??
-      err.message ??
-      "Failed to delete candidate preparation.";
-    toast.error(errorMessage);
-  }
-};
-  
+
+  const handleRowDeleted = async (id: number | string) => {
+    try {
+      setFilteredCandidates((prev) => prev.filter((row) => row.id != id));
+      setAllCandidates((prev) => prev.filter((row) => row.id != id));
+
+      await api.delete(`/candidate_preparation/${id}`);
+      toast.success("Candidate preparation deleted successfully!");
+    } catch (err: any) {
+      console.error("Failed to delete candidate preparation:", err);
+      const errorMessage =
+        err.body?.detail ?? err.body?.message ?? err.message ?? "Failed to delete candidate preparation.";
+      toast.error(errorMessage);
+    }
+  };
+
   return (
     <div className="space-y-6 p-4">
       <Toaster position="top-center" richColors />
@@ -470,4 +464,3 @@ const handleRowDeleted = async (id: number | string) => {
     </div>
   );
 }
-
