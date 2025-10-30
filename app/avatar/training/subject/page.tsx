@@ -146,7 +146,7 @@ useEffect(() => {
           <h1 className="text-2xl font-bold">Subjects</h1>
           <p>Manage all subjects here.</p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>+ Add Subject</Button>
+        {/* <Button onClick={() => setIsModalOpen(true)}>+ Add Subject</Button> */}
       </div>
 
       {/* Search bar */}

@@ -200,9 +200,9 @@ useEffect(() => {
           <h1 className="text-2xl font-bold">Batches</h1>
           <p>Manage batches</p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>
+        {/* <Button onClick={() => setIsModalOpen(true)}>
           <PlusIcon className="h-4 w-4 mr-2" /> Add Batch
-        </Button>
+        </Button> */}
       </div>
 
       <div className="max-w-md">

@@ -583,9 +583,9 @@ const columnDefs = useMemo<ColDef[]>(() => [
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Interviews</h1>
           <p className="text-gray-600 dark:text-gray-400">Candidates scheduled for interviews</p>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white flex items-center" onClick={handleOpenModal}>
+        {/* <Button className="bg-blue-600 hover:bg-blue-700 text-white flex items-center" onClick={handleOpenModal}>
           <PlusIcon className="h-4 w-4 mr-2" /> Add Interview
-        </Button>
+        </Button> */}
       </div>
       <div className="max-w-md">
         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">Search</Label>

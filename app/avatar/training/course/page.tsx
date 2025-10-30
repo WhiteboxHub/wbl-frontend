@@ -194,7 +194,7 @@ useEffect(() => {
           <h1 className="text-2xl font-bold">Courses</h1>
           <p>Manage all courses here.</p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>+ Add Course</Button>
+        {/* <Button onClick={() => setIsModalOpen(true)}>+ Add Course</Button> */}
       </div>
 
       {/* Search bar */}

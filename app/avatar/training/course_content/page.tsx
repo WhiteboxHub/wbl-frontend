@@ -181,10 +181,10 @@ useEffect(() => {
         </div>
 
           {/* Add Button */}
-          <Button className="w-full sm:w-auto" onClick={() => setIsModalOpen(true)}>
+          {/* <Button className="w-full sm:w-auto" onClick={() => setIsModalOpen(true)}>
 
             + Add CourseContent
-          </Button>
+          </Button> */}
       </div>
 
       {/* Add Course Content Modal - Updated with same colors */}

@@ -1210,13 +1210,13 @@ export default function CandidatesPage() {
           </div>
         </div>
         <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
-          <Button
+          {/* <Button
             onClick={handleOpenModal}
             className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700"
           >
             <PlusCircle className="mr-2 h-4 w-4" />
             Add New Candidate
-          </Button>
+          </Button> */}
         </div>
       </div>
       <div className="flex w-full justify-center">

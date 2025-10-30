@@ -394,9 +394,9 @@ export default function CourseMaterialPage() {
 
         {/* Right Section */}
         <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
-          <Button onClick={() => setIsModalOpen(true)} className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700">
+          {/* <Button onClick={() => setIsModalOpen(true)} className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700">
             + Add Course Material
-          </Button>
+          </Button> */}
         </div>
       </div>
 

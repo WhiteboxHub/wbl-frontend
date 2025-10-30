@@ -296,11 +296,11 @@ useEffect(() => {
           </div>
         </div>
 
-          <Button className="w-full sm:w-auto" size="sm" onClick={() => setShowModal(true)}>
+          {/* <Button className="w-full sm:w-auto" size="sm" onClick={() => setShowModal(true)}>
 
             <PlusIcon className="mr-2 h-4 w-4" />
             Add Mapping
-          </Button>
+          </Button> */}
       </div>
 
       {/* Add Mapping Modal - Updated with same colors */}
