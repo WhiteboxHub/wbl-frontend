@@ -1,5 +1,4 @@
 "use client";
-
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable";
@@ -9,25 +8,8 @@ import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect } from "react";
-import axios from "axios";
 import { toast, Toaster } from "sonner";
-
-/* 🔹 Token Helpers */
-const ACCESS_TOKEN_KEYS = ["access_token", "token", "accesstoken"];
-
-function getStoredToken(): string | null {
-  for (const key of ACCESS_TOKEN_KEYS) {
-    const val = typeof window !== "undefined" ? localStorage.getItem(key) : null;
-    if (val) return val;
-  }
-  return null;
-}
-
-function getAuthHeaders() {
-  const token = getStoredToken();
-  if (!token) return {};
-  return { Authorization: `Bearer ${token}` };
-}
+import api, { smartUpdate } from "@/lib/api";
 
 export default function SessionsPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -35,7 +17,7 @@ export default function SessionsPage() {
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  /* 🔸 Debounce search input */
+  // Debounce search input
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(searchTerm);
@@ -43,33 +25,26 @@ export default function SessionsPage() {
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  /* 🔸 Fetch Sessions with Authorization header */
+  // Fetch sessions using lib/api.js
   const fetchSessions = async () => {
     try {
       setLoading(true);
-      const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
-      const url = new URL(`${base}/session`);
-
-      if (debouncedSearch.trim()) {
-        url.searchParams.append("search_title", debouncedSearch.trim());
-      }
-
-      const headers = { ...getAuthHeaders(), "Content-Type": "application/json" };
-      const res = await axios.get(url.toString(), { headers });
-
-      const data = Array.isArray(res.data)
-        ? res.data
-        : Array.isArray(res.data?.data)
-        ? res.data.data
+      const params = debouncedSearch.trim()
+        ? { search_title: debouncedSearch.trim() }
+        : {};
+      const { data } = await api.get("/session", { params });
+      const sessionsData = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.data)
+        ? data.data
         : [];
-
-      setSessions(data);
-    } catch (err: any) {
-      console.error("Failed to fetch sessions:", err?.response?.data ?? err?.message ?? err);
-      if (err?.response?.status === 401) {
+      setSessions(sessionsData);
+    } catch (err) {
+      console.error("Failed to fetch sessions:", err);
+      if (err.status === 401) {
         toast.error("Not authorized — please login again.");
       } else {
-        toast.error("Failed to fetch sessions.");
+        toast.error(err.message || "Failed to fetch sessions.");
       }
       setSessions([]);
     } finally {
@@ -77,11 +52,22 @@ export default function SessionsPage() {
     }
   };
 
-  useEffect(() => {
-    fetchSessions();
-  }, [debouncedSearch]);
+useEffect(() => {
+  fetchSessions();
+}, []); // fetch all sessions only once
 
-  /* 🔸 Column definitions */
+// Derived filtered list
+const filteredSessions = useMemo(() => {
+  const term = debouncedSearch.toLowerCase();
+  if (!term) return sessions;
+  return sessions.filter(
+    (s) =>
+      s.title?.toLowerCase().includes(term) ||
+      String(s.sessionid).includes(term)
+  );
+}, [debouncedSearch, sessions]);
+
+  // Column definitions for AG Grid
   const columnDefs: ColDef[] = useMemo<ColDef[]>(
     () => [
       { field: "sessionid", headerName: "ID", width: 120, pinned: "left" },
@@ -121,12 +107,9 @@ export default function SessionsPage() {
     []
   );
 
-  /* 🔸 PUT request on row update */
+  // PUT request on row update using smartUpdate
   const handleRowUpdated = async (updatedRow: any) => {
     try {
-      const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
-      const headers = { ...getAuthHeaders(), "Content-Type": "application/json" };
-
       const payload = {
         title: updatedRow.title,
         link: updatedRow.link,
@@ -136,51 +119,47 @@ export default function SessionsPage() {
         subject_id: updatedRow.subject_id,
         subject: updatedRow.subject,
       };
-
-      await axios.put(`${base}/session/${updatedRow.sessionid}`, payload, { headers });
-
+      const updatedSession = await smartUpdate(
+        "session",
+        updatedRow.sessionid,
+        payload
+      );
       setSessions((prev) =>
         prev.map((row) =>
-          row.sessionid === updatedRow.sessionid ? { ...row, ...payload } : row
+          row.sessionid === updatedRow.sessionid ? updatedSession : row
         )
       );
-
       toast.success("Session updated successfully.");
-    } catch (err: any) {
-      console.error("Failed to update session:", err?.response?.data ?? err?.message ?? err);
-      if (err?.response?.status === 401) {
+    } catch (err) {
+      console.error("Failed to update session:", err);
+      if (err.status === 401) {
         toast.error("Not authorized — please login again.");
       } else {
-        toast.error("Failed to update session.");
+        toast.error(err.message || "Failed to update session.");
       }
     }
   };
 
-  /* 🔸 DELETE request on row deletion */
+  // DELETE request on row deletion
   const handleRowDeleted = async (id: number | string) => {
     try {
-      const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
-      const headers = { ...getAuthHeaders(), "Content-Type": "application/json" };
-
-      await axios.delete(`${base}/session/${id}`, { headers });
-
+      await api.delete(`/session/${id}`);
       setSessions((prev) => prev.filter((row) => row.sessionid !== id));
       toast.success(`Session ${id} deleted.`);
-    } catch (err: any) {
-      console.error("Failed to delete session:", err?.response?.data ?? err?.message ?? err);
-      if (err?.response?.status === 401) {
+    } catch (err) {
+      console.error("Failed to delete session:", err);
+      if (err.status === 401) {
         toast.error("Not authorized — please login again.");
       } else {
-        toast.error("Failed to delete session.");
+        toast.error(err.message || "Failed to delete session.");
       }
     }
   };
 
-  /* 🔸 UI render */
+  // UI render
   return (
     <div className="space-y-6">
       <Toaster position="top-center" richColors />
-
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -194,7 +173,6 @@ export default function SessionsPage() {
           Add Session
         </Button>
       </div>
-
       {/* Search Input */}
       <div className="max-w-md">
         <Label
@@ -215,7 +193,6 @@ export default function SessionsPage() {
           />
         </div>
       </div>
-
       {/* AG Grid Table */}
       {loading ? (
         <p className="text-center mt-8">Loading...</p>
@@ -223,9 +200,14 @@ export default function SessionsPage() {
         <p className="text-center mt-8 text-gray-500">No sessions found.</p>
       ) : (
         <AGGridTable
-          rowData={sessions}
+          rowData={filteredSessions}
           columnDefs={columnDefs}
-          title={`Sessions (${sessions.length})`}
+          // title={`Sessions (${sessions.length})`}
+          title={
+            debouncedSearch
+              ? `Sessions (${filteredSessions.length})`
+              : `Sessions (${sessions.length})`
+          }
           height="600px"
           showSearch={false}
           onRowUpdated={handleRowUpdated}

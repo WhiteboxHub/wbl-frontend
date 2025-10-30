@@ -102,7 +102,6 @@ export default function CourseMaterialPage() {
       const sortedCourses = (arr || []).slice().sort((a: any, b: any) => b.id - a.id);
       setCourses(sortedCourses);
     } catch (e: any) {
-      // don't block page — log and show toast optionally
     }
   };
 
@@ -113,7 +112,6 @@ export default function CourseMaterialPage() {
       const sortedSubjects = (arr || []).slice().sort((a: any, b: any) => b.id - a.id);
       setSubjects(sortedSubjects);
     } catch (e: any) {
-      // don't block page
     }
   };
 
@@ -305,7 +303,6 @@ export default function CourseMaterialPage() {
     },
   ], [subjects, courses]);
 
-  // CREATE - Add new material
   const onSubmit = async (data: MaterialFormData) => {
     if (!data.courseid || !data.name.trim()) {
       toast.error("Course Name and Material Name are required");

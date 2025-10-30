@@ -10,11 +10,11 @@ import { SearchIcon, PlusIcon, Eye, EyeOff, CheckCircle, XCircle } from "lucide-
 import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect } from "react";
 import { toast, Toaster } from "sonner";
+import api, { smartUpdate } from "@/lib/api";
 
-// Authentication helper
+// Authentication helper (now redundant, but kept for reference)
 const getAuthToken = (): string | null => {
   if (typeof window === "undefined") return null;
-  
   const tokenKeys = ["access_token", "token", "auth_token", "AuthorizationToken"];
   for (const key of tokenKeys) {
     const token = localStorage.getItem(key);
@@ -23,42 +23,15 @@ const getAuthToken = (): string | null => {
   return null;
 };
 
-const getAuthHeaders = () => {
-  const token = getAuthToken();
-  if (!token) {
-    console.warn("No authentication token found");
-    return {};
-  }
-  return { 
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json"
-  };
-};
-
 // Password validation that matches backend exactly
 const validatePasswordStrength = (password: string): { isValid: boolean; errors: string[] } => {
   const errors: string[] = [];
-  
-  if (password.length < 8) {
-    errors.push("Password must be at least 8 characters long.");
-  }
-  if (!/[A-Z]/.test(password)) {
-    errors.push("Password must include at least one uppercase letter.");
-  }
-  if (!/[a-z]/.test(password)) {
-    errors.push("Password must include at least one lowercase letter.");
-  }
-  if (!/\d/.test(password)) {
-    errors.push("Password must include at least one number.");
-  }
-  if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-    errors.push("Password must include at least one special character.");
-  }
-  
-  return {
-    isValid: errors.length === 0,
-    errors
-  };
+  if (password.length < 8) errors.push("Password must be at least 8 characters long.");
+  if (!/[A-Z]/.test(password)) errors.push("Password must include at least one uppercase letter.");
+  if (!/[a-z]/.test(password)) errors.push("Password must include at least one lowercase letter.");
+  if (!/\d/.test(password)) errors.push("Password must include at least one number.");
+  if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) errors.push("Password must include at least one special character.");
+  return { isValid: errors.length === 0, errors };
 };
 
 // Password Strength Indicator Component
@@ -70,21 +43,14 @@ const PasswordStrengthIndicator = ({ password }: { password: string }) => {
     { test: (p: string) => /\d/.test(p), text: "One number" },
     { test: (p: string) => /[!@#$%^&*(),.?":{}|<>]/.test(p), text: "One special character" },
   ];
-
   return (
     <div className="mt-2 space-y-1">
       {requirements.map((req, index) => {
         const isMet = req.test(password);
         return (
           <div key={index} className="flex items-center gap-2 text-sm">
-            {isMet ? (
-              <CheckCircle className="h-4 w-4 text-green-500" />
-            ) : (
-              <XCircle className="h-4 w-4 text-gray-400" />
-            )}
-            <span className={isMet ? "text-green-600" : "text-gray-500"}>
-              {req.text}
-            </span>
+            {isMet ? <CheckCircle className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-gray-400" />}
+            <span className={isMet ? "text-green-600" : "text-gray-500"}>{req.text}</span>
           </div>
         );
       })}
@@ -97,16 +63,13 @@ const PasswordEditor = ({ value, onValueChange, onFocus, onBlur }: any) => {
   const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState(value === "********" ? "" : value);
   const [showStrength, setShowStrength] = useState(false);
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newPassword = e.target.value;
     setPassword(newPassword);
     onValueChange(newPassword);
     setShowStrength(newPassword.length > 0);
   };
-
   const validation = validatePasswordStrength(password);
-
   return (
     <div className="p-2 space-y-2">
       <div className="relative">
@@ -120,15 +83,7 @@ const PasswordEditor = ({ value, onValueChange, onFocus, onBlur }: any) => {
           placeholder="Enter new password"
           autoComplete="new-password"
         />
-        {/* <button
-          type="button"
-          onClick={() => setShowPassword(!showPassword)}
-          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-        >
-          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-        </button> */}
       </div>
-      
       {showStrength && (
         <div className="border rounded-md p-3 bg-gray-50">
           <PasswordStrengthIndicator password={password} />
@@ -136,9 +91,7 @@ const PasswordEditor = ({ value, onValueChange, onFocus, onBlur }: any) => {
             <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
               <p className="text-sm text-red-600 font-medium">Password requirements not met:</p>
               <ul className="text-sm text-red-600 mt-1 list-disc list-inside">
-                {validation.errors.map((error, index) => (
-                  <li key={index}>{error}</li>
-                ))}
+                {validation.errors.map((error, index) => <li key={index}>{error}</li>)}
               </ul>
             </div>
           )}
@@ -161,9 +114,7 @@ export default function AuthUsersPage() {
 
   // Debounce search
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearch(searchTerm);
-    }, 500);
+    const handler = setTimeout(() => setDebouncedSearch(searchTerm), 500);
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
@@ -171,63 +122,22 @@ export default function AuthUsersPage() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      
-      const token = getAuthToken();
-      if (!token) {
-        toast.error("No authentication token found. Please login again.");
-        setUsers([]);
-        return;
-      }
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users`, {
-        method: "GET",
-        headers: getAuthHeaders(),
-        credentials: "include"
-      });
-
-      console.log("Response status:", response.status);
-      
-      if (!response.ok) {
-        if (response.status === 401) {
-          toast.error("Authentication failed. Please login again.");
-        } else if (response.status === 403) {
-          toast.error("You don't have permission to access users.");
-        } else {
-          toast.error(`Failed to fetch users: ${response.status} ${response.statusText}`);
-        }
-        setUsers([]);
-        return;
-      }
-
-      const data = await response.json();
-      console.log("Users data received:", data);
-      
+      const { data } = await api.get("/users");
       let usersArray = [];
-      if (Array.isArray(data)) {
-        usersArray = data;
-      } else if (data && Array.isArray(data.users)) {
-        usersArray = data.users;
-      } else if (data && Array.isArray(data.data)) {
-        usersArray = data.data;
-      } else {
-        console.warn("Unexpected response format:", data);
-        usersArray = [];
-      }
-      
+      if (Array.isArray(data)) usersArray = data;
+      else if (data?.users) usersArray = data.users;
+      else if (data?.data) usersArray = data.data;
       setUsers(usersArray);
-      
     } catch (err) {
       console.error("Failed to fetch users:", err);
-      toast.error("Failed to fetch users. Check console for details.");
+      toast.error(err.message || "Failed to fetch users");
       setUsers([]);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+  useEffect(() => { fetchUsers(); }, []);
 
   // Filtered users (searching locally)
   const filteredUsers = users.filter((u) => {
@@ -244,12 +154,9 @@ export default function AuthUsersPage() {
   // Status Renderer
   const StatusRenderer = (params: any) => {
     const v = params.value?.toLowerCase() ?? "";
-    const classes =
-      v === "active"
-        ? "bg-green-100 text-green-800"
-        : v === "inactive"
-        ? "bg-red-100 text-red-800"
-        : "bg-gray-100 text-gray-800";
+    const classes = v === "active" ? "bg-green-100 text-green-800" :
+                    v === "inactive" ? "bg-red-100 text-red-800" :
+                    "bg-gray-100 text-gray-800";
     return <Badge className={classes}>{params.value?.toUpperCase()}</Badge>;
   };
 
@@ -261,11 +168,10 @@ export default function AuthUsersPage() {
       USER: "bg-gray-100 text-gray-800",
       MANAGER: "bg-emerald-100 text-emerald-800",
     };
-    return (
-      <Badge className={map[role] ?? "bg-gray-200 text-gray-700"}>{role}</Badge>
-    );
+    return <Badge className={map[role] ?? "bg-gray-200 text-gray-700"}>{role}</Badge>;
   };
 
+  // Visa Status Renderer
   const VisaStatusRenderer = (params: any) => {
     const visa = params.value ?? "";
     const map: Record<string, string> = {
@@ -277,272 +183,129 @@ export default function AuthUsersPage() {
       F1: "bg-pink-100 text-pink-800",
       "Waiting for Status": "bg-orange-100 text-orange-800",
     };
-    return (
-      <Badge className={map[visa] ?? "bg-gray-200 text-gray-700"}>{visa}</Badge>
-    );
+    return <Badge className={map[visa] ?? "bg-gray-200 text-gray-700"}>{visa}</Badge>;
   };
 
-
+  // Password Renderer
   const PasswordRenderer = (params: any) => {
     const [showPassword, setShowPassword] = useState(false);
-    
-    // If it's the masked value or empty, show asterisks
     if (!params.value || params.value === "********") {
-      return (
-        <div className="flex items-center gap-2">
-          <span>********</span>
-
-        </div>
-      );
+      return <div className="flex items-center gap-2"><span>********</span></div>;
     }
-    
     return (
       <div className="flex items-center gap-2">
         <span>{showPassword ? params.value : "********"}</span>
- 
       </div>
     );
   };
 
+  // Column Definitions
+  const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
+    { field: "id", headerName: "ID", width: 100, pinned: "left" },
+    {
+      field: "uname",
+      headerName: "Email",
+      width: 250,
+      editable: true,
+      cellRenderer: (params: any) => (
+        <a href={`mailto:${params.value}`} className="text-blue-600 underline hover:text-blue-800" onClick={(e) => e.stopPropagation()}>
+          {params.value}
+        </a>
+      ),
+      cellEditor: 'agTextCellEditor',
+    },
+    {
+      field: "passwd",
+      headerName: "Password",
+      width: 140,
+      editable: true,
+      cellRenderer: PasswordRenderer,
+      cellEditor: PasswordEditor,
+      valueFormatter: () => "********",
+      valueGetter: (params) => params.data.passwd === "********" ? "" : params.data.passwd,
+      valueSetter: (params) => {
+        if (params.newValue && params.newValue.trim() !== "" && params.newValue !== "********") {
+          params.data.passwd = params.newValue;
+        } else {
+          params.data.passwd = params.oldValue;
+        }
+        return true;
+      },
+    },
+    {
+      field: "phone",
+      headerName: "Phone",
+      width: 150,
+      editable: true,
+      cellRenderer: (params: any) => (
+        <a href={`tel:${params.value}`} className="text-blue-600 underline hover:text-blue-800">
+          {params.value}
+        </a>
+      ),
+      cellEditor: 'agTextCellEditor',
+    },
+    { field: "fullname", headerName: "Full Name", width: 180, editable: true, cellEditor: 'agTextCellEditor' },
+    { field: "status", headerName: "Status", width: 150, editable: true, cellRenderer: StatusRenderer, cellEditor: 'agTextCellEditor' },
+    { field: "visa_status", headerName: "Visa Status", width: 160, editable: true, cellRenderer: VisaStatusRenderer, cellEditor: 'agTextCellEditor' },
+    { field: "address", headerName: "Address", width: 200, editable: true, cellEditor: 'agTextCellEditor' },
+    { field: "state", headerName: "State", width: 140, editable: true, cellEditor: 'agTextCellEditor' },
+    { field: "zip", headerName: "Zip Code", width: 120, editable: true, cellEditor: 'agTextCellEditor' },
+    { field: "city", headerName: "City", width: 140, editable: true, cellEditor: 'agTextCellEditor' },
+    { field: "country", headerName: "Country", width: 140, editable: true, cellEditor: 'agTextCellEditor' },
+    {
+      field: "registereddate",
+      headerName: "Registered Date",
+      width: 180,
+      valueFormatter: (params) => params.value ? new Date(params.value).toLocaleDateString() : "",
+    },
+    { field: "googleId", headerName: "Google ID", width: 220, editable: false },
+    { field: "team", headerName: "Team", width: 180, editable: true, cellEditor: 'agTextCellEditor' },
+    { field: "message", headerName: "Message", width: 250, editable: true, cellEditor: 'agTextCellEditor' },
+    {
+      field: "enddate",
+      headerName: "End Date",
+      width: 150,
+      valueFormatter: (params) => params.value ? new Date(params.value).toLocaleDateString() : "",
+      editable: true,
+      cellEditor: 'agTextCellEditor',
+    },
+    { field: "role", headerName: "Role", width: 150, editable: true, cellRenderer: RoleRenderer, cellEditor: 'agTextCellEditor' },
+    {
+      field: "notes",
+      headerName: "Notes",
+      width: 300,
+      sortable: true,
+      editable: true,
+      cellRenderer: (params: any) => (
+        <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: params.value }} />
+      ),
+      cellEditor: 'agTextCellEditor',
+    },
+  ], []);
 
-  const columnDefs: ColDef[] = useMemo<ColDef[]>(
-    () => [
-      { field: "id", headerName: "ID", width: 100, pinned: "left" },
-      {
-        field: "uname",
-        headerName: "Email",
-        width: 250,
-        editable: true,
-        cellRenderer: (params: any) => {
-          if (!params.value) return "";
-          return (
-            <a
-              href={`mailto:${params.value}`}
-              className="text-blue-600 underline hover:text-blue-800"
-              onClick={(event) => event.stopPropagation()}
-            >
-              {params.value}
-            </a>
-          );
-        },
-        cellEditor: 'agTextCellEditor', 
-      },
-      {
-        field: "passwd",
-        headerName: "Password",
-        width: 140,
-        editable: true,
-        cellRenderer: PasswordRenderer,
-        cellEditor: PasswordEditor,
-        valueFormatter: () => "********",
-        valueGetter: (params) => {
-          return params.data.passwd === "********" ? "" : params.data.passwd;
-        },
-        valueSetter: (params) => {
-          if (params.newValue && params.newValue.trim() !== "" && params.newValue !== "********") {
-            params.data.passwd = params.newValue;
-          } else {
-            params.data.passwd = params.oldValue;
-          }
-          return true;
-        },
-      },
-      {
-        field: "phone",
-        headerName: "Phone",
-        width: 150,
-        editable: true,
-        cellRenderer: (params: any) => {
-          if (!params.value) return "";
-          return (
-            <a
-              href={`tel:${params.value}`}
-              className="text-blue-600 underline hover:text-blue-800"
-            >
-              {params.value}
-            </a>
-          );
-        },
-        cellEditor: 'agTextCellEditor',
-      },
-      { 
-        field: "fullname", 
-        headerName: "Full Name", 
-        width: 180, 
-        editable: true,
-        cellEditor: 'agTextCellEditor',
-      },
-      {
-        field: "status",
-        headerName: "Status",
-        width: 150,
-        editable: true,
-        cellRenderer: StatusRenderer,
-        cellEditor: 'agTextCellEditor',
-      },
-      {
-        field: "visa_status",
-        headerName: "Visa Status",
-        width: 160,
-        editable: true,
-        cellRenderer: VisaStatusRenderer,
-        cellEditor: 'agTextCellEditor',
-      },
-      { 
-        field: "address", 
-        headerName: "Address", 
-        width: 200, 
-        editable: true,
-        cellEditor: 'agTextCellEditor',
-      },
-      { 
-        field: "state", 
-        headerName: "State", 
-        width: 140, 
-        editable: true,
-        cellEditor: 'agTextCellEditor',
-      },
-      { 
-        field: "zip", 
-        headerName: "Zip Code", 
-        width: 120, 
-        editable: true,
-        cellEditor: 'agTextCellEditor',
-      },
-      { 
-        field: "city", 
-        headerName: "City", 
-        width: 140, 
-        editable: true,
-        cellEditor: 'agTextCellEditor',
-      },
-      { 
-        field: "country", 
-        headerName: "Country", 
-        width: 140, 
-        editable: true,
-        cellEditor: 'agTextCellEditor',
-      },
-      {
-        field: "registereddate",
-        headerName: "Registered Date",
-        width: 180,
-        valueFormatter: (params) =>
-          params.value ? new Date(params.value).toLocaleDateString() : "",
-      },
-      { field: "googleId", headerName: "Google ID", width: 220, editable: false },
-      { 
-        field: "team", 
-        headerName: "Team", 
-        width: 180, 
-        editable: true,
-        cellEditor: 'agTextCellEditor', // Use default editor
-      },
-      { 
-        field: "message", 
-        headerName: "Message", 
-        width: 250, 
-        editable: true,
-        cellEditor: 'agTextCellEditor', 
-      },
-      {
-        field: "enddate",
-        headerName: "End Date",
-        width: 150,
-        valueFormatter: (params) =>
-          params.value ? new Date(params.value).toLocaleDateString() : "",
-        editable: true,
-        cellEditor: 'agTextCellEditor',
-      },
-      {
-        field: "role",
-        headerName: "Role",
-        width: 150,
-        editable: true,
-        cellRenderer: RoleRenderer,
-        cellEditor: 'agTextCellEditor',
-      },
-      {
-        field: "notes",
-        headerName: "Notes",
-        width: 300,
-        sortable: true,
-        editable: true,
-        cellRenderer: (params: any) => {
-          if (!params.value) return "";
-          return (
-            <div
-              className="prose prose-sm max-w-none dark:prose-invert"
-              dangerouslySetInnerHTML={{ __html: params.value }}
-            />
-          );
-        },
-        cellEditor: 'agTextCellEditor', // Use default editor
-      },
-    ],
-    []
-  );
-
-  // PUT request on row update - COMPLETELY FIXED
+  // PUT request on row update
   const handleRowUpdated = async (updatedRow: any) => {
     try {
-      const token = getAuthToken();
-      if (!token) {
-        toast.error("No authentication token found. Please login again.");
-        return;
-      }
-
       const dataToSend = { ...updatedRow };
       const originalUser = users.find(u => u.id === updatedRow.id);
-      
-      if (dataToSend.passwd && 
-          dataToSend.passwd !== "********" && 
-          dataToSend.passwd !== originalUser?.passwd) {
-        
-        // console.log("Password was changed, validating...");
+      if (dataToSend.passwd && dataToSend.passwd !== "********" && dataToSend.passwd !== originalUser?.passwd) {
         const validation = validatePasswordStrength(dataToSend.passwd);
         if (!validation.isValid) {
-          toast.error(`${validation.errors[0]}`);
-          fetchUsers(); 
+          toast.error(validation.errors[0]);
+          fetchUsers();
           return;
         }
       } else {
-        // Password wasn't changed - REMOVE IT COMPLETELY from payload
         delete dataToSend.passwd;
-        // console.log("Password not changed, removing from update");
       }
       delete dataToSend.googleId;
       delete dataToSend.registereddate;
-
-      console.log("Sending update data:", dataToSend);
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/${updatedRow.id}`, {
-        method: "PUT",
-        headers: getAuthHeaders(),
-        body: JSON.stringify(dataToSend),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
-      }
-
-      const updatedUser = await response.json();
-      
-      // Update local state
-      setUsers((prev) =>
-        prev.map((user) => (user.id === updatedRow.id ? updatedUser : user))
-      );
-
+      const updatedUser = await smartUpdate("user", updatedRow.id, dataToSend);
+      setUsers((prev) => prev.map((user) => (user.id === updatedRow.id ? updatedUser : user)));
       toast.success("User updated successfully");
-    } catch (err: any) {
+    } catch (err) {
       console.error("Failed to update user:", err);
-      
-      if (err.message?.includes("Password must include")) {
-        toast.error(`${err.message}`);
-      } else {
-        toast.error(err.message || "Failed to update user");
-      }
+      toast.error(err.message || "Failed to update user");
       fetchUsers();
     }
   };
@@ -550,24 +313,10 @@ export default function AuthUsersPage() {
   // DELETE request on row deletion
   const handleRowDeleted = async (id: number | string) => {
     try {
-      const token = getAuthToken();
-      if (!token) {
-        toast.error("No authentication token found. Please login again.");
-        return;
-      }
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/${id}`, {
-        method: "DELETE",
-        headers: getAuthHeaders(),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
+      await api.delete(`/user/${id}`);
       setUsers((prev) => prev.filter((user) => user.id !== id));
       toast.success("User deleted successfully");
-    } catch (err: any) {
+    } catch (err) {
       console.error("Failed to delete user:", err);
       toast.error(err.message || "Failed to delete user");
     }
@@ -581,32 +330,20 @@ export default function AuthUsersPage() {
   return (
     <div className="space-y-6">
       <Toaster position="top-center" richColors />
-
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Auth Users
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Manage application authentication users
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Auth Users</h1>
+          <p className="text-gray-600 dark:text-gray-400">Manage application authentication users</p>
         </div>
-        <Button 
-          className="bg-whitebox-600 hover:bg-whitebox-700 text-white"
-          onClick={handleAddUser}
-        >
+        <Button className="bg-whitebox-600 hover:bg-whitebox-700 text-white" onClick={handleAddUser}>
           <PlusIcon className="h-4 w-4 mr-2" />
           Add User
         </Button>
       </div>
-
       {/* Search Input */}
       <div className="max-w-md">
-        <Label
-          htmlFor="search"
-          className="text-sm font-medium text-gray-700 dark:text-gray-300"
-        >
+        <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
           Search by Name, Email or ID
         </Label>
         <div className="relative mt-1">
@@ -621,7 +358,6 @@ export default function AuthUsersPage() {
           />
         </div>
       </div>
-
       {/* AG Grid Table */}
       {loading ? (
         <div className="flex justify-center items-center mt-8">
@@ -631,9 +367,7 @@ export default function AuthUsersPage() {
       ) : filteredUsers.length === 0 ? (
         <div className="text-center mt-8 p-8 border-2 border-dashed border-gray-300 rounded-lg">
           <p className="text-gray-500 text-lg">No users found</p>
-          {users.length === 0 && (
-            <p className="text-gray-400 mt-2">Unable to load users from server</p>
-          )}
+          {users.length === 0 && <p className="text-gray-400 mt-2">Unable to load users from server</p>}
         </div>
       ) : (
         <AGGridTable
