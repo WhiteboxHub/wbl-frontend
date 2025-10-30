@@ -20,7 +20,7 @@ import {
 
 import { toast, Toaster } from "sonner";
 
-import { apiFetch } from "@/lib/api.js"; // <- matches your src/utils/api.js
+import { apiFetch } from "@/lib/api.js";
 
 export default function BatchPage() {
   const [searchTerm, setSearchTerm] = useState("");

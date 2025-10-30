@@ -6,7 +6,6 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { Button } from "@/components/admin_ui/button";
-
 import { SearchIcon, PlusIcon,X } from "lucide-react";
 import { toast, Toaster } from "sonner";
 // import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/admin_ui/dialog";
@@ -142,7 +141,6 @@ useEffect(() => {
     fetchCourseSubjects();
     fetchCourses();
     fetchSubjects();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshing]);
 
   useEffect(() => {
