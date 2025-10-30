@@ -164,6 +164,17 @@ interface VendorMetrics{
     week_extracted: number;
 }
 
+interface EmailExtraction {
+    candidate_name: string;
+    source_email: string;
+    emails_read_today: number;
+    emails_extracted_today: number;
+    emails_extracted_week: number;
+}
+interface BatchClasses {
+  batchname: string;
+  classes_count: number;
+}
 // Hook for animated counters
 function useCounter(target: number, duration = 1000) {
   const [count, setCount] = useState(0);
@@ -200,6 +211,7 @@ export default function Index() {
   const [leadMetrics, setLeadMetrics] = useState<LeadMetrics | null>(null);
   const [activeTab, setActiveTab] = useState("batch");
   const [vendorMetrics, setVendorMetrics] = useState<VendorMetrics | null>(null);
+  const [emailReads, setEmailReads] = useState<EmailExtraction[]>([]);
 
   useEffect(() => {
     const fetchInterviewPerformance = async () => {
@@ -279,8 +291,6 @@ export default function Index() {
   const fetchData = async () => {
     try {
       setLoading(true);
-
-      // Use apiFetch so auth headers and base URL are handled automatically
       const [metricsData, batchesData] = await Promise.all([
         apiFetch("/metrics/all"),
         apiFetch("/upcoming-batches?limit=3")
@@ -335,6 +345,48 @@ export default function Index() {
     };
     fetchVendorMetrics();
   }, []);
+    
+  useEffect(() => {
+  const fetchEmailReads = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) return;
+
+      const res = await axios.get(`${API_BASE_URL}/EmailExtraction`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      setEmailReads(res.data);
+    } catch (error) {
+      console.error("Error fetching email reads:", error);
+    }
+  };
+
+  fetchEmailReads();
+}, []);
+
+useEffect(() => {
+  const fetchBatchClasses = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) return;
+
+      const res = await axios.get(`${API_BASE_URL}/batches/latest/classes`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      setBatchClasses(res.data);
+    } catch (error) {
+      console.error("Error fetching batch classes:", error);
+    }
+  };
+
+  fetchBatchClasses();
+}, []);
 
 
   // Animated counters
@@ -362,6 +414,9 @@ export default function Index() {
   const totalvendors = useCounter(vendorMetrics?.total_vendors || 0);
   const todayextracted = useCounter(vendorMetrics?.today_extracted || 0);
   const weekextracted = useCounter(vendorMetrics?.week_extracted || 0);
+  const [batchClasses, setBatchClasses] = useState<BatchClasses[]>([]);
+
+
 
   // Calculate derived metrics
   const averageFeePerCandidate = metrics ? Math.round((metrics.financial_metrics.total_fee_current_batch / Math.max(1, metrics.batch_metrics.enrolled_candidates_current))) : 0;
@@ -399,8 +454,8 @@ export default function Index() {
           <TabsTrigger value="batch" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800">Batch</TabsTrigger>
           <TabsTrigger value="leads" className="data-[state=active]:bg-teal-100 data-[state=active]:text-teal-800">Leads</TabsTrigger>
           <TabsTrigger value="preparation" className="data-[state=active]:bg-pink-100 data-[state=active]:text-pink-800">Preparation</TabsTrigger>
-          <TabsTrigger value="interview" className="data-[state=active]:bg-orange-100 data-[state=active]:text-orange-800">Interview</TabsTrigger>
           <TabsTrigger value="marketing" className="data-[state=active]:bg-pink-100 data-[state=active]:text-pink-800">Marketing</TabsTrigger>
+          <TabsTrigger value="interview" className="data-[state=active]:bg-orange-100 data-[state=active]:text-orange-800">Interview</TabsTrigger>
           <TabsTrigger value="placement" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-800">Placement</TabsTrigger> 
           <TabsTrigger value="employee" className="data-[state=active]:bg-pink-100 data-[state=active]:text-pink-800">Employee</TabsTrigger>
           <TabsTrigger value="vendor" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800">Vendor</TabsTrigger>
@@ -434,7 +489,7 @@ export default function Index() {
               icon={<CalendarPlus className="size-4" />}
               variant="purple"
             />
-            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-1  border-b border-purple-300">
+            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-1 border-b border-purple-300">
               <CardHeader className="p-3 pb-1">
                 <div className="flex items-center justify-between border-b border-purple-200 pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Upcoming Batch Start Dates</CardTitle>
@@ -445,7 +500,7 @@ export default function Index() {
                 <ul className="divide-y rounded-md border">
                   {upcomingBatches.map((batch) => (
                     <li key={batch.name} className="flex items-center justify-between p-2">
-                      <span className="text-sm font-medium  border-b border-purple-200">{batch.name}</span>
+                      <span className="text-sm font-medium border-b border-purple-200">{batch.name}</span>
                       <span className="text-xs text-muted-foreground">
                         {formatDateFromDB(batch.startdate)}
                       </span>
@@ -515,6 +570,34 @@ export default function Index() {
                     </div>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-1 border-b border-purple-300">
+              <CardTitle className="text-sm font-semibold text-purple-700 flex items-center gap-1 p-2">
+                <Layers3 className="size-4 text-purple-500" />
+                Classes Count
+              </CardTitle>
+              <CardContent className="p-2">
+                <table className="w-full border border-gray-300 rounded-md text-xs">
+                  <thead className="bg-purple-50">
+                    <tr>
+                      <th className="text-left px-2 py-1 font-bold text-gray-700 border-b w-2/3">
+                        Batch Name
+                      </th>
+                      <th className="text-left px-2 py-1 font-bold text-gray-700 border-b w-1/3">
+                        Classes
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {batchClasses.map((b) => (
+                      <tr key={b.batchname} className="hover:bg-purple-50">
+                        <td className="px-2 py-1 border-b">{b.batchname}</td>
+                        <td className="px-2 py-1 border-b text-center">{b.classes_count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </CardContent>
             </Card>
           </div>
@@ -915,6 +998,43 @@ export default function Index() {
             <EnhancedMetricCard title="Total Vendors" value={vendorMetrics?.total_vendors || 0} icon={<Layers3 className="size-4" />} variant="purple"/>
             <EnhancedMetricCard title="Extracted Today" value={vendorMetrics?.today_extracted || 0} icon={<CalendarDays className="size-4" />} variant="purple"/>
             <EnhancedMetricCard title="Extracted This Week" value={vendorMetrics?.week_extracted || 0} icon={<TrendingUp className="size-4" />} variant="purple"/>
+            <Card className="sm:col-span-2 lg:col-span-4 border border-purple-200">
+              <CardHeader className="pb-2">
+                <CardTitle>Vendor Email Analytics</CardTitle>
+              </CardHeader>
+              <CardContent className="p-3 pt-0">
+                {loading ? (
+                  <p className="text-center text-gray-300">Loading...</p>
+                ) : emailReads.length > 0 ? (
+                  <div className="overflow-x-auto">
+                  <table className="w-full text-sm border border-collapse">
+                    <thead className="bg-purple-50">
+                      <tr>
+                        <th className="px-1.5 py-1 text-left w-[10%]">Candidate</th>
+                        <th className="px-1.5 py-1 text-center w-[80%]">Source Email</th>
+                        <th className="px-1.5 py-1 text-center w-[80%]">EmailReads</th>
+                        <th className="px-1.5 py-1 text-center w-[80%]">DailyEmailsExtracted</th>
+                        <th className="px-1.5 py-1 text-center w-[80%]">WeeklyEmailsExtracted</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {emailReads.map((c, i) => (
+                        <tr key={i} className="border-t hover:bg-purple-50/40">
+                          <td className="px-1.5 py-0.5 truncate">{c.candidate_name}</td>
+                          <td className="px-1.5 py-0.5 text-center text--600">{c.source_email}</td>
+                          <td className="px-1.5 py-0.5 text-center text-green-600">{c.emails_read_today}</td>
+                          <td className="px-1.5 py-0.5 text-center text-green-600">{c.emails_extracted_today}</td>
+                          <td className="px-1.5 py-0.5 text-center text-green-600">{c.emails_extracted_week}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-500">No email reads found</p>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
       </Tabs>

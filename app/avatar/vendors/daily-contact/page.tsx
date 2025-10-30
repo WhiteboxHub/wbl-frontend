@@ -6,10 +6,8 @@ import React, {
   useRef,
   useCallback,
 } from "react";
-
 import api, { apiFetch, API_BASE_URL } from "@/lib/api";
 import axios from "axios";
-
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { Badge } from "@/components/admin_ui/badge";
@@ -38,8 +36,13 @@ const MovedToVendorRenderer = ({ value }: { value?: boolean }) => {
   return <Badge className={badgeClass}>{status}</Badge>;
 };
 
-const DateFormatter = ({ value }: { value?: string | Date | null }) =>
-  value ? new Date(value).toLocaleDateString() : "-";
+// const DateFormatter = ({ value }: { value?: string | Date | null }) =>
+//   value ? new Date(value).toLocaleDateString() : "-";
+
+function formatDateFromDB(dateStr: string | null | undefined) {
+  if (!dateStr) return "";
+  return dateStr.slice(0, 10); 
+}
 
 const EmailRenderer = ({ value }: { value?: string }) => {
   if (!value) return null;
@@ -319,7 +322,7 @@ export default function VendorContactsGrid() {
         field: "extraction_date",
         headerName: "Extraction Date",
         width: 150,
-        valueFormatter: DateFormatter,
+        valueFormatter: "formatDateFromDB",
         editable: true,
       },
       {
@@ -351,7 +354,7 @@ export default function VendorContactsGrid() {
         field: "created_at",
         headerName: "Created At",
         width: 180,
-        valueFormatter: DateFormatter,
+        valueFormatter: "formatDateFromDB",
       },
       {
         field: "internal_linkedin_id",

@@ -407,7 +407,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     if (lowerKey === "status") return <Badge className={getStatusColor(value)}>{value}</Badge>;
     if (["visa_status", "workstatus"].includes(lowerKey)) return <Badge className={getVisaColor(value)}>{value}</Badge>;
     if (["feepaid", "feedue", "salary0", "salary6", "salary12"].includes(lowerKey)) return <p>${Number(value).toLocaleString()}</p>;
-    if (lowerKey.includes("rating")) return <p>{value} ⭐</p>;
+    if (lowerKey.includes("rating")) return <p>{value} </p>;
     if (["notes", "task"].includes(lowerKey)) return <div dangerouslySetInnerHTML={{ __html: value }} />;
     
     // Handle URL fields
