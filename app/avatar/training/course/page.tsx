@@ -75,7 +75,6 @@ export default function CoursePage() {
       const sortedCourses = (arr || []).slice().sort((a: any, b: any) => b.id - a.id);
       setCourses(sortedCourses);
       setFilteredCourses(sortedCourses);
-      toast.success("Fetched courses successfully.");
     } catch (e: any) {
       const msg = e?.body || e?.message || "Failed to fetch courses";
       setError(typeof msg === "string" ? msg : JSON.stringify(msg));

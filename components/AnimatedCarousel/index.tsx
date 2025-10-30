@@ -3,14 +3,14 @@
 import { IconArrowLeft, IconArrowRight } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useEffect, useState } from "react";
-import ml1 from "public/images/Carousel/machine-learning-training-bayarea.jpeg";
-import GenAI from "public/images/Carousel/generative-ai-pleasanton-course.jpg";
-import DL1 from "public/images/Carousel/deep-learning-bootcamp-usa.jpg";
-import DL2 from "public/images/Carousel/deep-learning-certification-program.jpg";
-import DL3 from "public/images/Carousel/deep-learning-job-support.jpg";
-import ml3 from "public/images/Carousel/ml-job-prep-support.jpeg";
-import ds1 from "public/images/Carousel/data-science-training-usa.jpg";
-import ds2 from "public/images/Carousel/data-science-career-path.jpg";
+import ml1 from "@/public/images/Carousel/machine-learning-training-bayarea.jpeg";
+import GenAI from "@/public/images/Carousel/generative-ai-pleasanton-course.jpg";
+import DL1 from "@/public/images/Carousel/deep-learning-bootcamp-usa.jpg";
+import DL2 from "@/public/images/Carousel/deep-learning-certification-program.jpg";
+import DL3 from "@/public/images/Carousel/deep-learning-job-support.jpg";
+import ml3 from "@/public/images/Carousel/ml-job-prep-support.jpeg";
+import ds1 from "@/public/images/Carousel/data-science-training-usa.jpg";
+import ds2 from "@/public/images/Carousel/data-science-career-path.jpg";
 
 type CarouselItem = {
   quote: string;
@@ -21,49 +21,57 @@ type CarouselItem = {
 
 const carouselData: CarouselItem[] = [
   {
-    quote: "Master machine learning algorithms and predictive analytics with hands-on projects. Build real-world ML solutions.",
+    quote:
+      "Master machine learning algorithms and predictive analytics with hands-on projects. Build real-world ML solutions.",
     name: "Machine Learning Mastery",
     designation: "Advanced ML Training Program",
     src: ml1,
   },
   {
-    quote: "Dive deep into neural networks, computer vision, and natural language processing. Learn cutting-edge deep learning techniques.",
+    quote:
+      "Dive deep into neural networks, computer vision, and natural language processing. Learn cutting-edge deep learning techniques.",
     name: "Deep Learning Bootcamp",
     designation: "Neural Networks & AI Systems",
     src: DL1,
   },
   {
-    quote: "Explore the future of AI with generative models, large language models, and prompt engineering. Create innovative AI applications.",
+    quote:
+      "Explore the future of AI with generative models, large language models, and prompt engineering. Create innovative AI applications.",
     name: "Generative AI Excellence",
     designation: "Next-Gen AI Development",
     src: GenAI,
   },
   {
-    quote: "Transform data into actionable insights with comprehensive data science training. Learn Python, R, SQL, and advanced analytics.",
+    quote:
+      "Transform data into actionable insights with comprehensive data science training. Learn Python, R, SQL, and advanced analytics.",
     name: "Data Science Career Path",
     designation: "Analytics & Business Intelligence",
     src: ds2,
   },
   {
-    quote: "Get job-ready with personalized ML career coaching, resume optimization, and interview preparation. Land your dream role.",
+    quote:
+      "Get job-ready with personalized ML career coaching, resume optimization, and interview preparation. Land your dream role.",
     name: "ML Job Preparation",
     designation: "Career Support & Placement",
     src: ml3,
   },
   {
-    quote: "Gain industry-recognized AIML expertise. Validate your skills in machine learning, natural language processing, and intelligent system deployment.",
+    quote:
+      "Gain industry-recognized AIML expertise. Validate your skills in machine learning, natural language processing, and intelligent system deployment.",
     name: "AIML",
     designation: "Artificial Intelligence & Machine Learning",
     src: DL2,
   },
   {
-    quote: "Comprehensive job support including portfolio development, technical interviews, and industry networking. Transition successfully into AI careers.",
+    quote:
+      "Comprehensive job support including portfolio development, technical interviews, and industry networking. Transition successfully into AI careers.",
     name: "Deep Learning Job Support",
     designation: "Career Transition Program",
     src: DL3,
   },
   {
-    quote: "Complete data science training covering statistics, machine learning, data visualization, and big data technologies. Build end-to-end solutions.",
+    quote:
+      "Complete data science training covering statistics, machine learning, data visualization, and big data technologies. Build end-to-end solutions.",
     name: "Data Science Training",
     designation: "Full-Stack Data Solutions",
     src: ds1,
@@ -126,7 +134,7 @@ export const AnimatedCarousel = ({
             </div>
           </div>
           <div className="flex flex-col py-4 text-center">
-            <div className="h-48 flex flex-col justify-start">
+            <div className="flex h-48 flex-col justify-start">
               <div>
                 <h3 className="text-2xl font-bold text-black dark:text-white">
                   {carouselData[0].name}
@@ -134,12 +142,12 @@ export const AnimatedCarousel = ({
                 <p className="text-sm text-gray-500 dark:text-neutral-500">
                   {carouselData[0].designation}
                 </p>
-                <p className="mt-8 text-lg text-gray-500 dark:text-neutral-300 line-clamp-2 leading-relaxed">
+                <p className="mt-8 line-clamp-2 text-lg leading-relaxed text-gray-500 dark:text-neutral-300">
                   {carouselData[0].quote}
                 </p>
               </div>
             </div>
-            
+
             <div className="mt-8 flex flex-col items-center">
               <button
                 onClick={onWatchDemo}
@@ -159,17 +167,17 @@ export const AnimatedCarousel = ({
                   />
                 </svg>
               </button>
-              
+
               <div className="flex justify-center gap-4 pt-4">
                 <button
                   onClick={handlePrev}
-                  className="group/button flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 dark:hover:bg-neutral-700 transition-colors"
+                  className="group/button flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 transition-colors hover:bg-gray-200 dark:bg-neutral-800 dark:hover:bg-neutral-700"
                 >
                   <IconArrowLeft className="h-6 w-6 text-black transition-transform duration-300 group-hover/button:rotate-12 dark:text-neutral-400" />
                 </button>
                 <button
                   onClick={handleNext}
-                  className="group/button flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 dark:hover:bg-neutral-700 transition-colors"
+                  className="group/button flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 transition-colors hover:bg-gray-200 dark:bg-neutral-800 dark:hover:bg-neutral-700"
                 >
                   <IconArrowRight className="h-6 w-6 text-black transition-transform duration-300 group-hover/button:-rotate-12 dark:text-neutral-400" />
                 </button>
@@ -189,7 +197,7 @@ export const AnimatedCarousel = ({
             <AnimatePresence>
               {carouselData.map((item, index) => (
                 <motion.div
-                  key={item.src}
+                  key={`carousel-${index}`}
                   initial={{
                     opacity: 0,
                     scale: 0.9,
@@ -231,9 +239,10 @@ export const AnimatedCarousel = ({
             </AnimatePresence>
           </div>
         </div>
+
+
         <div className="flex flex-col py-4 text-center">
-          {/* Fixed height container for text content */}
-          <div className="h-48 flex flex-col justify-start">
+          <div className="flex h-48 flex-col justify-start">
             <motion.div
               key={active}
               initial={{
@@ -259,7 +268,7 @@ export const AnimatedCarousel = ({
               <p className="text-sm text-gray-500 dark:text-neutral-500">
                 {carouselData[active].designation}
               </p>
-              <motion.p className="mt-8 text-lg text-gray-500 dark:text-neutral-300 line-clamp-2 leading-relaxed">
+              <motion.p className="mt-8 line-clamp-2 text-lg leading-relaxed text-gray-500 dark:text-neutral-300">
                 {carouselData[active].quote.split(" ").map((word, index) => (
                   <motion.span
                     key={index}
@@ -286,8 +295,8 @@ export const AnimatedCarousel = ({
               </motion.p>
             </motion.div>
           </div>
-          
-          {/* Fixed Watch Demo Class Button and Navigation Arrows */}
+
+
           <div className="mt-8 flex flex-col items-center">
             <button
               onClick={onWatchDemo}
@@ -307,18 +316,18 @@ export const AnimatedCarousel = ({
                 />
               </svg>
             </button>
-            
-            {/* Navigation arrows directly below button */}
+
+
             <div className="flex justify-center gap-4 pt-4">
               <button
                 onClick={handlePrev}
-                className="group/button flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 dark:hover:bg-neutral-700 transition-colors"
+                className="group/button flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 transition-colors hover:bg-gray-200 dark:bg-neutral-800 dark:hover:bg-neutral-700"
               >
                 <IconArrowLeft className="h-6 w-6 text-black transition-transform duration-300 group-hover/button:rotate-12 dark:text-neutral-400" />
               </button>
               <button
                 onClick={handleNext}
-                className="group/button flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 dark:hover:bg-neutral-700 transition-colors"
+                className="group/button flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 transition-colors hover:bg-gray-200 dark:bg-neutral-800 dark:hover:bg-neutral-700"
               >
                 <IconArrowRight className="h-6 w-6 text-black transition-transform duration-300 group-hover/button:-rotate-12 dark:text-neutral-400" />
               </button>

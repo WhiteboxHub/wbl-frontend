@@ -4,28 +4,44 @@ import { usePathname } from "next/navigation";
 import { SessionProvider } from "next-auth/react";
 import { Providers } from "@/app/providers";
 import { AuthProvider } from "@/utils/AuthContext";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import ScrollToTop from "@/components/ScrollToTop";
-import Sidebar from "@/components/Sidebar";
-import ReferralNotificationButton from "@/components/ReferralNotificationButton";
-import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
+import { useState, Suspense } from "react";
 
-export default function ClientLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const isAvatarSection = pathname.startsWith("/avatar");
-  const [isOpen, setIsOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
+const Header = dynamic(() => import("@/components/Header"), {
+  ssr: true,
+});
 
-  // Handle mounting to prevent hydration issues
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+const Footer = dynamic(() => import("@/components/Footer"), {
+  ssr: true,
+});
 
-  // Prevent flash by showing nothing until mounted
-  if (!mounted) {
-    return null;
+const ScrollToTop = dynamic(() => import("@/components/ScrollToTop"), {
+  ssr: false,
+  loading: () => null,
+});
+
+const Sidebar = dynamic(() => import("@/components/Sidebar"), {
+  ssr: false,
+  loading: () => null,
+});
+
+const ReferralNotificationButton = dynamic(
+  () => import("@/components/ReferralNotificationButton"),
+  {
+    ssr: false,
+    loading: () => null,
   }
+);
+
+export default function ClientLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const pathname = usePathname();
+  const isAvatarSection = pathname?.startsWith("/avatar");
+  const [isOpen, setIsOpen] = useState(false);
+  
 
   return (
     <SessionProvider>
@@ -36,14 +52,18 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           ) : (
             <>
               <Header />
-              <Sidebar
-                isOpen={isOpen}
-                toggleSidebar={() => setIsOpen(!isOpen)}
-              />
+              <Suspense fallback={null}>
+                <Sidebar
+                  isOpen={isOpen}
+                  toggleSidebar={() => setIsOpen(!isOpen)}
+                />
+              </Suspense>
               <main className="w-full">{children}</main>
               <Footer />
-              <ScrollToTop />
-              <ReferralNotificationButton />
+              <Suspense fallback={null}>
+                <ScrollToTop />
+                <ReferralNotificationButton />
+              </Suspense>
             </>
           )}
         </Providers>
