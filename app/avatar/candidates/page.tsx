@@ -842,10 +842,13 @@ export default function CandidatesPage() {
           url += `&filters=${encodeURIComponent(JSON.stringify(filters))}`;
         }
 
+        // Use api (fetch wrapper) - it returns { data: <body> }
         const res = await api.get(url);
+        // server might return { data: [...] } or an array directly
         const payload = res.data;
         const dataArray = payload?.data ?? payload;
         if (!Array.isArray(dataArray)) {
+          // defensive fallback
           setCandidates([]);
           console.warn("Unexpected candidates response", payload);
         } else {
@@ -1069,12 +1072,13 @@ export default function CandidatesPage() {
           const rowNode = gridRef.current.api.getRowNode(updatedRow.id.toString());
           if (rowNode) {
             rowNode.setData(updatedData);
-            gridRef.current.api.redrawRows({ rowNodes: [rowNode] }); 
+            gridRef.current.api.redrawRows({ rowNodes: [rowNode] }); // ✅ forces re-render
             gridRef.current.api.refreshCells({
               rowNodes: [rowNode],
               force: true,
             });
           } else {
+            // fallback: refresh all rows
             gridRef.current.api.refreshCells({ force: true });
           }
         }

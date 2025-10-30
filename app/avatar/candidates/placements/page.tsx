@@ -13,7 +13,7 @@ import { SearchIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useState, useEffect, useMemo } from "react";
 import { toast, Toaster } from "sonner";
-import api from "@/lib/api"; 
+import api from "@/lib/api"; // <-- wrapper from src/utils/api.ts
 
 interface Placement {
   id?: number;
@@ -170,12 +170,6 @@ export default function CandidatesPlacements() {
               minWidth: 150,
               editable: true,
             },
-            // {
-            //   field: "priority",
-            //   headerName: "Priority",
-            //   minWidth: 90,
-            //   editable: true,
-            // },
 
           ];
           setColumnDefs(cols);

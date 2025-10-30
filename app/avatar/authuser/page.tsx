@@ -300,26 +300,9 @@ export default function AuthUsersPage() {
       }
       delete dataToSend.googleId;
       delete dataToSend.registereddate;
-
-
-      console.log("Sending update data:", dataToSend);
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/${updatedRow.id}`, {
-        method: "PUT",
-        headers: getAuthHeaders(),
-        body: JSON.stringify(dataToSend),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
-      }
-
-      const updatedUser = await response.json();
-      setUsers((prev) =>
-        prev.map((user) => (user.id === updatedRow.id ? updatedUser : user))
-      );
-
+      
+      const updatedUser = await smartUpdate("user", updatedRow.id, dataToSend);
+      setUsers((prev) => prev.map((user) => (user.id === updatedRow.id ? updatedUser : user)));
       toast.success("User updated successfully");
     } catch (err) {
       console.error("Failed to update user:", err);

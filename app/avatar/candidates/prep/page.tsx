@@ -259,11 +259,13 @@ export default function CandidatesPrepPage() {
   };
 
   const LinkCellRenderer = (params: any) => {
-    let url = params.value;
+    let url = (params.value || "").trim(); 
+
     if (!url) return <span className="text-gray-500">N/A</span>;
     if (!/^https?:\/\//i.test(url)) {
       url = `https://${url}`;
     }
+
     return (
       <a
         href={url}
@@ -274,6 +276,16 @@ export default function CandidatesPrepPage() {
         Click Here
       </a>
     );
+  };
+
+
+  const formatEnumValue = (value: string) => {
+    if (!value) return "N/A";
+    return value
+      .toString()
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
   };
 
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => {
@@ -322,11 +334,21 @@ export default function CandidatesPrepPage() {
         minWidth: 150,
         valueGetter: (params) => params.data?.instructor3?.name || "N/A",
       },
-      { field: "rating", headerName: "Rating", minWidth: 120 },
-      { field: "communication", headerName: "Communication", minWidth: 120 },
+      { field: "rating", headerName: "Rating", minWidth: 120, valueFormatter: (params) => formatEnumValue(params.value) },
+      { field: "communication", headerName: "Communication", minWidth: 120, valueFormatter: (params) => formatEnumValue(params.value) },
       { field: "years_of_experience", headerName: "Experience (Years)", minWidth: 140 },
-      { field: "linkedin_id", headerName: "LinkedIn", minWidth: 150, cellRenderer: LinkCellRenderer },
-      { field: "github_url", headerName: "GitHub", minWidth: 150, cellRenderer: LinkCellRenderer },
+      {
+        headerName: "LinkedIn",
+        minWidth: 150,
+        valueGetter: (params) => params.data?.candidate?.linkedin_id || null,
+        cellRenderer: LinkCellRenderer,
+      },
+      {
+        field: "github_url",
+        headerName: "GitHub",
+        minWidth: 150,
+        cellRenderer: LinkCellRenderer,
+      },
       { field: "resume_url", headerName: "Resume", minWidth: 150, cellRenderer: LinkCellRenderer },
       { field: "target_date", headerName: "Target Date", minWidth: 150 },
       {
