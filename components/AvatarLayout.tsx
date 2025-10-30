@@ -109,6 +109,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
           href: "/avatar/vendors/daily-contact",
         },
         { title: "Vendor", href: "/avatar/vendors/vendor" },
+        { title: "email-tracking-log", href: "/avatar/vendors/email-tracking-log" }
       ],
     },
   ];
