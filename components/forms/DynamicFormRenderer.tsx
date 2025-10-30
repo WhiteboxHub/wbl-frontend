@@ -51,9 +51,45 @@ export function DynamicFormRenderer({
   const ctx = detectContext(title || entity || "", entity);
   const { courses, subjects, employees, mlBatches } = useFormMeta({ isOpen: true, propBatches: externalLists?.batches as any });
 
-  const formInitial = mode === "edit" && initialData ? flattenData(initialData, ctx) : (initialData || {});
+  let formInitial = mode === "edit" && initialData ? flattenData(initialData, ctx) : (initialData || {});
+  // Ensure special-context fields exist in add mode
+  if ((ctx === "preparation" || ctx === "interview" || ctx === "marketing") && !("candidate_full_name" in formInitial)) {
+    formInitial = { candidate_full_name: "", ...formInitial };
+  }
+  if (ctx === "preparation") {
+    formInitial = {
+      instructor1_id: formInitial.instructor1_id ?? "",
+      instructor2_id: formInitial.instructor2_id ?? "",
+      instructor3_id: formInitial.instructor3_id ?? "",
+      ...formInitial,
+    };
+  }
+  if (mode === "add" && ctx === "candidate") {
+    // Ensure commonly required candidate fields exist for add form
+    const ensureKeys: string[] = [
+      ["full_name", "fullname", "name"].find((k) => k in formInitial) || "full_name",
+      ["email", "candidate_email", "secondaryemail", "secondary_email"].find((k) => k in formInitial) || "email",
+      ["phone_number", "phone", "contact"].find((k) => k in formInitial) || "phone_number",
+      "dob",
+      "batchid",
+    ].filter(Boolean) as string[];
+    const additions: Record<string, any> = {};
+    ensureKeys.forEach((k) => {
+      if (!(k in formInitial)) additions[k] = "";
+    });
+    formInitial = { ...additions, ...formInitial };
+  }
+  if (mode === "add" && ctx === "batch") {
+    // Ensure batch form has default courseid and a subject selector
+    if (formInitial.courseid === undefined || formInitial.courseid === "") {
+      formInitial.courseid = 3;
+    }
+    if (formInitial.subjectid === undefined) {
+      formInitial.subjectid = "";
+    }
+  }
 
-  const { register, handleSubmit, watch, setValue } = useForm({ defaultValues: formInitial });
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({ defaultValues: formInitial });
   const currentValues = watch();
 
   const toLabel = (key: string) => {
@@ -63,6 +99,10 @@ export function DynamicFormRenderer({
       .replace(/([a-z])([A-Z])/g, "$1 $2")
       .replace(/_/g, " ")
       .replace(/\b\w/g, (l) => l.toUpperCase());
+  };
+  const displayLabel = (key: string) => {
+    if (isBatchContext && key.toLowerCase() === "batchname") return "Batch Name (YYYY-MM)";
+    return toLabel(key);
   };
 
   const isInterview = ctx === "interview";
@@ -74,8 +114,61 @@ export function DynamicFormRenderer({
   const isVendor = ctx === "vendor";
   const isCourseMaterial = ctx === "course-material";
   const isCourseSubject = ctx === "course-subject";
+  const isSubjectSimple = ctx === "subject";
+  const isBatchContext = ctx === "batch";
   const isCandidate = ctx === "candidate" && !isPreparation;
   const isSpecial = isInterview || isMarketing || isPlacement || isPreparation;
+
+  // Determine required fields for ADD lead form
+  const requiredKeys = new Set<string>();
+  if (mode === "add" && isLead) {
+    // Find matching keys present in initial data
+    const nameKey = ["full_name", "fullname", "name"].find((k) => k in formInitial);
+    const emailKey = ["email", "candidate_email", "secondaryemail", "secondary_email"].find((k) => k in formInitial);
+    const phoneKey = ["phone_number", "phone", "contact"].find((k) => k in formInitial);
+    if (nameKey) requiredKeys.add(nameKey);
+    if (emailKey) requiredKeys.add(emailKey);
+    if (phoneKey) requiredKeys.add(phoneKey);
+  }
+  if (mode === "add" && isCandidate) {
+    const nameKey = ["full_name", "fullname", "name"].find((k) => k in formInitial);
+    const emailKey = ["email", "candidate_email", "secondaryemail", "secondary_email"].find((k) => k in formInitial);
+    const phoneKey = ["phone_number", "phone", "contact"].find((k) => k in formInitial);
+    const dobKey = ["dob", "date_of_birth"].find((k) => k in formInitial);
+    const batchKey = ["batchid"].find((k) => k in formInitial);
+    if (nameKey) requiredKeys.add(nameKey);
+    if (emailKey) requiredKeys.add(emailKey);
+    if (phoneKey) requiredKeys.add(phoneKey);
+    if (dobKey) requiredKeys.add(dobKey);
+    if (batchKey) requiredKeys.add(batchKey);
+  }
+  // Ensure Employee add form shows/validates key fields
+  if (mode === "add" && isEmployee) {
+    // Ensure presence (non-blocking if they already exist)
+    const ensureKeys: string[] = [
+      ["full_name", "fullname", "name"].find((k) => k in formInitial) || "full_name",
+      ["email", "uname"].find((k) => k in formInitial) || "email",
+      "status",
+      "instructor",
+    ];
+    const additions: Record<string, any> = {};
+    ensureKeys.forEach((k) => {
+      if (!(k in formInitial)) additions[k] = "";
+    });
+    formInitial = { ...additions, ...formInitial };
+  }
+  if (mode === "add" && isEmployee) {
+    const nameKey = ["full_name", "fullname", "name"].find((k) => k in formInitial);
+    const emailKey = ["email", "uname"].find((k) => k in formInitial);
+    const statusKey = ["status"].find((k) => k in formInitial);
+    const instructorKey = ["instructor"].find((k) => k in formInitial);
+    if (nameKey) requiredKeys.add(nameKey);
+    if (emailKey) requiredKeys.add(emailKey);
+    if (statusKey) requiredKeys.add(statusKey);
+    if (instructorKey) requiredKeys.add(instructorKey);
+  }
+
+  const isRequired = (key: string) => requiredKeys.has(key);
 
   const sectioned: Record<string, { key: string; value: any }[]> = {
     "Basic Information": [],
@@ -110,7 +203,12 @@ export function DynamicFormRenderer({
     }
   }
 
-  const visibleSections = Object.keys(sectioned).filter((s) => sectioned[s]?.length > 0 && s !== "Notes");
+  const visibleSections = Object.keys(sectioned).filter((s) => {
+    if (!sectioned[s] || sectioned[s].length === 0) return false;
+    if (s === "Notes") return false;
+    if (isBatchContext && mode === "add" && s === "Contact Information") return false;
+    return true;
+  });
   const totalFields = visibleSections.reduce((acc, s) => acc + sectioned[s].length, 0);
   let modalWidthClass = "max-w-6xl";
   if (totalFields <= 4) modalWidthClass = "max-w-3xl";
@@ -265,14 +363,72 @@ export function DynamicFormRenderer({
               </div>
             )}
 
+            {section === "Professional Information" && isPreparation && (
+              <>
+                <div className="space-y-1 sm:space-y-1.5">
+                  <label className="block text-xs sm:text-sm font-bold text-blue-700">Instructor 1</label>
+                  <select
+                    {...(register as any)("instructor1_id")}
+                    value={currentValues.instructor1_id || formInitial.instructor1_id || ""}
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                  >
+                    <option value="">Select Instructor</option>
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id as any}>{emp.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1 sm:space-y-1.5">
+                  <label className="block text-xs sm:text-sm font-bold text-blue-700">Instructor 2</label>
+                  <select
+                    {...(register as any)("instructor2_id")}
+                    value={currentValues.instructor2_id || formInitial.instructor2_id || ""}
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                  >
+                    <option value="">Select Instructor</option>
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id as any}>{emp.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1 sm:space-y-1.5">
+                  <label className="block text-xs sm:text-sm font-bold text-blue-700">Instructor 3</label>
+                  <select
+                    {...(register as any)("instructor3_id")}
+                    value={currentValues.instructor3_id || formInitial.instructor3_id || ""}
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                  >
+                    <option value="">Select Instructor</option>
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id as any}>{emp.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
+
             {sectioned[section]
               .filter(({ key }) => !["instructor1_name","instructor2_name","instructor3_name","instructor1_id","instructor2_id","instructor3_id",...(isCourseMaterial? ["cm_course","cm_subject","material_type"]:[]),...(isCourseSubject? ["course_name","subject_name"]:[])].includes(key))
+              .filter(({ key }) => {
+                if (isSubjectSimple && mode === "add") {
+                  const k = key.toLowerCase();
+                  const allowed = ["name", "description", "desc", "subject_name"]; 
+                  return allowed.includes(k);
+                }
+                return true;
+              })
               .map(({ key, value }) => {
                 const k = key.toLowerCase();
                 const isStatus = k === "status";
                 const isBatch = k === "batchid";
                 const isMaterialType = k === "material_type";
                 const isCandidateFull = k === "candidate_full_name";
+                const isSubjectId = k === "subjectid";
+                const isCourseId = k === "courseid";
+                // Batch page: remove duplicate Subject from Professional Information
+                if (isBatchContext && section === "Professional Information" && (k === "subject" || k === "subjectid")) {
+                  return null;
+                }
 
                 if (options?.hiddenKeys?.includes(key)) return null;
                 if (isMaterialType && !isCourseMaterial) return null;
@@ -280,8 +436,16 @@ export function DynamicFormRenderer({
                 if (isSpecial && isCandidateFull) {
                   return (
                     <div key={key} className="space-y-1 sm:space-y-1.5">
-                      <label className="block text-xs sm:text-sm font-bold text-blue-700">{toLabel(key)}</label>
-                      <input type="text" {...(register as any)(key)} defaultValue={formInitial[key] || ""} readOnly className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm" />
+                      <label className="block text-xs sm:text-sm font-bold text-blue-700">{displayLabel(key)}{isRequired(key) ? <span className="text-red-500"> *</span> : null}</label>
+                      <input
+                        type="text"
+                        {...(register as any)(key, isRequired(key) ? { required: `${toLabel(key)} is required` } : undefined)}
+                        defaultValue={formInitial[key] || ""}
+                        readOnly={mode === "edit"}
+                        aria-invalid={errors[key] ? "true" : "false"}
+                        required={isRequired(key)}
+                        className={`w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border ${errors[key] ? 'border-red-400' : 'border-blue-200'} rounded-lg ${mode === "edit" ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : ''} shadow-sm`}
+                      />
                     </div>
                   );
                 }
@@ -290,8 +454,8 @@ export function DynamicFormRenderer({
                   const statusValue = formInitial[key] || "";
                   const displayValue = statusValue ? statusValue.charAt(0).toUpperCase() + statusValue.slice(1) : "";
                   return (
-                    <div key={key} className="space-y-1 sm:space-y-1.5">
-                      <label className="block text-xs sm:text-sm font-bold text-blue-700">{toLabel(key)}</label>
+                  <div key={key} className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">{displayLabel(key)}</label>
                       <input type="text" {...(register as any)(key)} defaultValue={displayValue} readOnly className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm" />
                     </div>
                   );
@@ -302,7 +466,7 @@ export function DynamicFormRenderer({
                   const cur = currentValues[key] || formInitial[key] || "";
                   return (
                     <div key={key} className="space-y-1 sm:space-y-1.5">
-                      <label className="block text-xs sm:text-sm font-bold text-blue-700">{toLabel(key)}</label>
+                      <label className="block text-xs sm:text-sm font-bold text-blue-700">{displayLabel(key)}{isRequired(key) ? <span className="text-red-500"> *</span> : null}</label>
                       <select {...(register as any)(key)} value={cur} className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm">
                         {enumOpts.map((opt) => (
                           <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -312,11 +476,52 @@ export function DynamicFormRenderer({
                   );
                 }
 
+                // Batch context: render existing Subject/SubjectId field with fixed options (QA, UI, ML)
+                if (isBatchContext && (k === "subject" || k === "subjectid")) {
+                  const subjectOptions = [
+                    { value: "QA", label: "QA" },
+                    { value: "UI", label: "UI" },
+                    { value: "ML", label: "ML" },
+                  ];
+                  const current = currentValues[key] || formInitial[key] || "";
+                  return (
+                    <div key={key} className="space-y-1 sm:space-y-1.5">
+                      <label className="block text-xs sm:text-sm font-bold text-blue-700">Subject</label>
+                      <select
+                        {...(register as any)(key)}
+                        value={current}
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                      >
+                        <option value="">Select subject</option>
+                        {subjectOptions.map((opt) => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                }
+
+                // Batch context: Course ID fixed to 3, read-only
+                if (isBatchContext && isCourseId) {
+                  return (
+                    <div key={key} className="space-y-1 sm:space-y-1.5">
+                      <label className="block text-xs sm:text-sm font-bold text-blue-700">Course ID</label>
+                      <input
+                        type="number"
+                        {...(register as any)("courseid")}
+                        defaultValue={formInitial.courseid ?? 3}
+                        readOnly
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
+                      />
+                    </div>
+                  );
+                }
+
                 if (isStatus && isVendor) {
                   return (
                     <div key={key} className="space-y-1 sm:space-y-1.5">
-                      <label className="block text-xs sm:text-sm font-bold text-blue-700">{toLabel(key)}</label>
-                      <select {...(register as any)(key)} value={currentValues[key] || formInitial[key] || ""} className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm">
+                      <label className="block text-xs sm:text-sm font-bold text-blue-700">{displayLabel(key)}{isRequired(key) ? <span className="text-red-500"> *</span> : null}</label>
+                      <select {...(register as any)(key, isRequired(key) ? { required: `${toLabel(key)} is required` } : undefined)} value={currentValues[key] || formInitial[key] || ""} className={`w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border ${errors[key] ? 'border-red-400' : 'border-blue-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm`} required={isRequired(key)}>
                         {vendorStatuses.map((opt) => (
                           <option key={opt.value} value={opt.value}>{opt.label}</option>
                         ))}
@@ -326,10 +531,13 @@ export function DynamicFormRenderer({
                 }
 
                 if (isBatch) {
+                  if (isBatchContext) {
+                    return null; // Hide Batch selector on Batch page forms
+                  }
                   return (
                     <div key={key} className="space-y-1 sm:space-y-1.5">
-                      <label className="block text-xs sm:text-sm font-bold text-blue-700">{toLabel(key)}</label>
-                      <select {...(register as any)("batchid")} value={currentValues.batchid || formInitial.batchid || ""} className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm">
+                      <label className="block text-xs sm:text-sm font-bold text-blue-700">{displayLabel(key)}{isRequired(key) ? <span className="text-red-500"> *</span> : null}</label>
+                      <select {...(register as any)("batchid", isRequired(key) ? { required: `${toLabel(key)} is required` } : undefined)} value={currentValues.batchid || formInitial.batchid || ""} className={`w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border ${errors[key] ? 'border-red-400' : 'border-blue-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm`} required={isRequired(key)}>
                         <option value="">Select a batch (optional)</option>
                         {mlBatches.map((b) => (
                           <option key={b.batchid} value={b.batchid}>{b.batchname}</option>
@@ -342,8 +550,14 @@ export function DynamicFormRenderer({
                 if (dateFields.includes(k)) {
                   return (
                     <div key={key} className="space-y-1 sm:space-y-1.5">
-                      <label className="block text-xs sm:text-sm font-bold text-blue-700">{toLabel(key)}</label>
-                      <input type="date" {...(register as any)(key)} defaultValue={formInitial[key] || ""} className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm" />
+                      <label className="block text-xs sm:text-sm font-bold text-blue-700">{displayLabel(key)}{isRequired(key) ? <span className="text-red-500"> *</span> : null}</label>
+                      <input
+                        type="date"
+                        {...(register as any)(key, isRequired(key) ? { required: `${toLabel(key)} is required` } : undefined)}
+                        defaultValue={formInitial[key] || ""}
+                        required={isRequired(key)}
+                        className={`w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border ${errors[key] ? 'border-red-400' : 'border-blue-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm`}
+                      />
                     </div>
                   );
                 }
@@ -351,8 +565,8 @@ export function DynamicFormRenderer({
                 if (typeof value === "string" && value.length > 100) {
                   return (
                     <div key={key} className="space-y-1 sm:space-y-1.5">
-                      <label className="block text-xs sm:text-sm font-bold text-blue-700">{toLabel(key)}</label>
-                      <textarea {...(register as any)(key)} defaultValue={formInitial[key] || ""} rows={3} className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm resize-none" />
+                      <label className="block text-xs sm:text-sm font-bold text-blue-700">{toLabel(key)}{isRequired(key) ? <span className="text-red-500"> *</span> : null}</label>
+                      <textarea {...(register as any)(key, isRequired(key) ? { required: `${toLabel(key)} is required` } : undefined)} defaultValue={formInitial[key] || ""} rows={3} className={`w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border ${errors[key] ? 'border-red-400' : 'border-blue-200'} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm resize-none`} required={isRequired(key)} />
                     </div>
                   );
                 }
@@ -360,8 +574,8 @@ export function DynamicFormRenderer({
                 const readOnly = options?.readOnlyKeys?.includes(key);
                 return (
                   <div key={key} className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">{toLabel(key)}</label>
-                    <input type="text" {...(register as any)(key)} defaultValue={formInitial[key] || ""} readOnly={!!readOnly} className={`w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg ${readOnly? 'bg-gray-100 text-gray-600 cursor-not-allowed':'hover:border-blue-300'} focus:outline-none focus:ring-2 focus:ring-blue-400 transition shadow-sm`} />
+                    <label className="block text-xs sm:text-sm font-bold text-blue-700">{displayLabel(key)}{isRequired(key) ? <span className="text-red-500"> *</span> : null}</label>
+                    <input type="text" {...(register as any)(key, isRequired(key) ? { required: `${toLabel(key)} is required` } : undefined)} defaultValue={formInitial[key] || ""} readOnly={!!readOnly} aria-invalid={errors[key] ? "true" : "false"} required={isRequired(key)} className={`w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border ${errors[key] ? 'border-red-400' : 'border-blue-200'} rounded-lg ${readOnly? 'bg-gray-100 text-gray-600 cursor-not-allowed':'hover:border-blue-300'} focus:outline-none focus:ring-2 focus:ring-blue-400 transition shadow-sm`} />
                   </div>
                 );
               })}

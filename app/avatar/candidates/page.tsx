@@ -1229,6 +1229,50 @@ export default function CandidatesPage() {
           rowData={loading ? undefined : filteredCandidates}
           title={`Candidates (${filteredCandidates.length})`}
           columnDefs={columnDefs}
+          onRowAdded={async (newRow: any) => {
+            try {
+              const payload = {
+                full_name: newRow.full_name || newRow.fullname || newRow.name || "",
+                email: newRow.email || newRow.candidate_email || newRow.secondaryemail || newRow.secondary_email || "",
+                phone: newRow.phone || newRow.phone_number || newRow.contact || "",
+                dob: newRow.dob || newRow.date_of_birth || null,
+                batchid: Number(newRow.batchid) || 0,
+                status: newRow.status || "active",
+                workstatus: newRow.workstatus || "Waiting for Status",
+                enrolled_date: newRow.enrolled_date || new Date().toISOString().split("T")[0],
+                education: newRow.education || "",
+                workexperience: newRow.workexperience || "",
+                ssn: newRow.ssn || "",
+                agreement: newRow.agreement || "N",
+                secondaryemail: newRow.secondaryemail || newRow.secondary_email || "",
+                secondaryphone: newRow.secondaryphone || newRow.secondary_phone || "",
+                address: newRow.address || "",
+                linkedin_id: newRow.linkedin_id || newRow.linkedin || "",
+                emergcontactname: newRow.emergcontactname || "",
+                emergcontactemail: newRow.emergcontactemail || "",
+                emergcontactphone: newRow.emergcontactphone || "",
+                emergcontactaddrs: newRow.emergcontactaddrs || "",
+                fee_paid: Number(newRow.fee_paid) || 0,
+                github_link: newRow.github_link || newRow.github || "",
+                candidate_folder: newRow.candidate_folder || "",
+                notes: newRow.notes || "",
+              };
+
+              if (!payload.full_name || !payload.email || !payload.phone || !payload.dob || !payload.batchid) {
+                toast.error("Full Name, Email, Phone, Date of Birth, and Batch are required");
+                return;
+              }
+
+              const res = await api.post(apiPath, payload);
+              const created = res.data;
+              toast.success("Candidate created successfully");
+              await fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
+            } catch (err: any) {
+              const message = err?.response?.data?.message || err?.message || "Failed to create candidate";
+              toast.error(message);
+              console.error("Error creating candidate via grid add:", err);
+            }
+          }}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
           showFilters={true}

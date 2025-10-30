@@ -61,6 +61,7 @@ interface AGGridTableProps {
   onRowUpdated?: (data: any) => void;
   onRowAdded?: (data: any) => void;
   onRowDeleted?: (id: string | number) => void;
+  onAddClick?: () => void;
   title?: string;
   showSearch?: boolean;
   showFilters?: boolean;
@@ -90,6 +91,7 @@ export function AGGridTable({
   onRowUpdated,
   onRowAdded,
   onRowDeleted,
+  onAddClick,
   overlayNoRowsTemplate = "No rows to show",
   title,
   showSearch = true,
@@ -326,7 +328,10 @@ export function AGGridTable({
   }, [rowData, initialColumnDefs]);
 
   const handleAdd = () => {
-    // your logic here
+    if (onAddClick) {
+      onAddClick();
+      return;
+    }
     setIsAddModalOpen(true);
   };
 
@@ -522,7 +527,7 @@ export function AGGridTable({
           batches={batches}
         />
       )}
-      {isAddModalOpen && (
+      {isAddModalOpen && !onAddClick && (
         <DynamicFormModal
           isOpen={true}
           onClose={() => setIsAddModalOpen(false)}

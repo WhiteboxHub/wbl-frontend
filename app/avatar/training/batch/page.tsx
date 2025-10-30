@@ -366,6 +366,33 @@ useEffect(() => {
           title={`Batches (${batches.length})`}
           height="600px"
           showSearch={false}
+          onRowAdded={async (newRow: any) => {
+            try {
+              const subject = newRow.subject || "ML";
+              let courseid = "3";
+              if (subject === "QA") courseid = "1";
+              else if (subject === "UI") courseid = "2";
+              else if (subject === "ML") courseid = "3";
+
+              const payload = {
+                batchname: newRow.batchname || "",
+                orientationdate: newRow.orientationdate || "",
+                subject,
+                startdate: newRow.startdate || "",
+                enddate: newRow.enddate || "",
+                courseid,
+              };
+
+              if (!payload.batchname) { toast.error("Batch Name is required"); return; }
+
+              const res = await apiFetch(`/batch`, { method: "POST", body: payload });
+              const created = res && !Array.isArray(res) ? (res.data ?? res) : res;
+              setBatches((prev) => [...prev, created]);
+              toast.success("Batch created successfully");
+            } catch (err: any) {
+              toast.error(err?.message || err?.body || "Failed to create batch");
+            }
+          }}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
         />

@@ -1065,6 +1065,46 @@ export default function LeadsPage() {
           )}-${selectedWorkStatuses.join(",")}`}
           rowData={filteredLeads}
           columnDefs={columnDefs}
+          onRowAdded={async (newRow: any) => {
+            try {
+              const payload = {
+                full_name: newRow.full_name || newRow.fullname || newRow.name || "",
+                email: newRow.email || newRow.candidate_email || newRow.secondary_email || "",
+                phone: newRow.phone || newRow.phone_number || newRow.contact || "",
+                workstatus: newRow.workstatus || "Waiting for Status",
+                address: newRow.address || "",
+                secondary_email: newRow.secondary_email || "",
+                secondary_phone: newRow.secondary_phone || "",
+                status: newRow.status || "Open",
+                moved_to_candidate: Boolean(newRow.moved_to_candidate),
+                notes: newRow.notes || "",
+                entry_date: newRow.entry_date || new Date().toISOString(),
+                massemail_unsubscribe: Boolean(newRow.massemail_unsubscribe),
+                massemail_email_sent: Boolean(newRow.massemail_email_sent),
+              };
+
+              const savedLead = await apiFetch("leads", {
+                method: "POST",
+                body: payload,
+                timeout: 10000,
+              });
+
+              await db.leads.add({
+                ...savedLead,
+                synced: true,
+                lastSync: new Date().toISOString(),
+              });
+
+              await loadLeadsFromIndexedDB(searchTerm);
+              toast.success("Lead created successfully");
+            } catch (err: any) {
+              console.error("Error creating lead via grid add:", err);
+              if (err.name === 'TimeoutError') toast.error("Server timeout - lead creation failed");
+              else if (err.name === 'NetworkError') toast.error("Network error - cannot connect to server");
+              else if (err.status === 401) toast.error("Session expired - please login again");
+              else toast.error(err.message || "Failed to create lead");
+            }
+          }}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
           loading={loading}

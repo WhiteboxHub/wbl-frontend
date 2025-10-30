@@ -18,7 +18,9 @@ export function detectContext(title: string, explicit?: EntityContext): EntityCo
   if (explicit) return explicit;
   const t = (title || "").toLowerCase();
   if (t.includes("course-subject") || t.includes("course subject")) return "course-subject";
+  if (t.includes("subject")) return "subject";
   if (t.includes("course material") || t.includes("material")) return "course-material";
+  if (t.includes("course")) return "course";
   if (t.includes("interview")) return "interview";
   if (t.includes("marketing")) return "marketing";
   if (t.includes("placement")) return "placement";

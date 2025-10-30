@@ -703,6 +703,35 @@ export default function EmployeesPage() {
             title={`Employees (${filteredEmployees.length})`}
             height="70vh"
             loading={loading}
+            onRowAdded={async (newRow: any) => {
+              try {
+                const payload = {
+                  name: newRow.full_name || newRow.name || "",
+                  email: newRow.email || null,
+                  phone: newRow.phone || null,
+                  address: newRow.address || null,
+                  dob: newRow.dob || null,
+                  startdate: newRow.startdate || null,
+                  enddate: newRow.enddate || null,
+                  instructor: newRow.instructor ?? null,
+                  notes: newRow.notes || null,
+                  state: newRow.state || null,
+                  aadhaar: newRow.aadhaar || null,
+                  status: newRow.status ?? null,
+                };
+                if (!payload.name || !payload.email || payload.status == null || payload.instructor == null) {
+                  setError("Full Name, Email, Status and Instructor are required");
+                  return;
+                }
+                const created = await apiFetch("/employees", { method: "POST", body: payload });
+                const newEmployee = { ...created, full_name: created.name ?? payload.name };
+                setFilteredEmployees((prev) => [newEmployee, ...prev]);
+                setEmployees((prev) => [newEmployee, ...prev]);
+              } catch (err:any) {
+                console.error("Failed to add employee via grid +:", err);
+                setError(err?.message || "Failed to add employee");
+              }
+            }}
             onRowUpdated={handleRowUpdated}
             onRowDeleted={handleRowDeleted}
             showFilters={false}
