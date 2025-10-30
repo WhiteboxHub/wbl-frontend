@@ -12,6 +12,23 @@ const Footer = () => {
     address
   )}`;
 
+  useEffect(() => {
+    const sitesealElement = document.getElementById("siteseal");
+    const script = document.createElement("script");
+    script.src =
+      "https://seal.godaddy.com/getSeal?sealID=v3KT7oJ1lPBg9VtkckOTfJJAwgbvIXY1mAuP0Qzb9OBFhXLj5FvNJFdMjtjF";
+    script.async = true;
+
+    if (sitesealElement) {
+      sitesealElement.appendChild(script);
+    }
+
+    return () => {
+      if (sitesealElement && script.parentNode === sitesealElement) {
+        sitesealElement.removeChild(script);
+      }
+    };
+  }, []);
 
   return (
     <>
@@ -132,6 +149,7 @@ const Footer = () => {
           </div>
         </div>
 
+        {/* Copyrights note */}
 
         <div className="flex h-10 items-center bg-gray-300 py-10 dark:bg-primary/10">
           <div className="container flex">
@@ -143,6 +161,9 @@ const Footer = () => {
                 </div>
               </Link>{" "}
               All rights reserved.
+            </div>
+            <div className="hidden sm:flex sm:w-1/2 sm:justify-end">
+              <div className="" id="siteseal"></div>
             </div>
           </div>
         </div>
@@ -221,9 +242,7 @@ const Footer = () => {
             </defs>
           </svg>
         </div>
-
-        
-        <div className="absolute bottom-24 left-0 z-[-1]">
+        <div className="absolute left-0 bottom-24 z-[-1]">
           <svg
             width="79"
             height="94"

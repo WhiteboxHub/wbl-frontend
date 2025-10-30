@@ -1570,10 +1570,9 @@ const normalizeCommunicationValue = (value: string): string => {
                                   }
                                 }, 0);
                               }}
-                              className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white
-                                        bg-gradient-to-r from-cyan-500 to-blue-500
-                                        rounded-lg hover:from-cyan-600 hover:to-blue-600
-                                        transition shadow-md"
+                              className="px-2 sm:px-2 py-1 sm:py-1 text-sm sm:text-sm font-medium text-black hover:text-blue-800 hover:underline
+                                        
+                                         "
                             >
                               + New Entry
                             </button>

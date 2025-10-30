@@ -124,6 +124,7 @@ export default function CourseMaterialPage() {
       const sortedMaterials = (arr || []).slice().sort((a: any, b: any) => b.id - a.id);
       setMaterials(sortedMaterials);
       setFilteredMaterials(sortedMaterials);
+      toast.success("Course Materials fetched successfully", { position: "top-center" });
     } catch (e: any) {
       const msg = e?.body || e?.message || "Failed to fetch Course Materials";
       setError(typeof msg === "string" ? msg : JSON.stringify(msg));

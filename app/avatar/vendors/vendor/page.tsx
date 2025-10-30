@@ -11,9 +11,7 @@ import { SearchIcon } from "lucide-react";
 import { createPortal } from "react-dom";
 import { apiFetch } from "@/lib/api.js";
 
-const AGGridTable = dynamic(() => import("@/components/AGGridTable"), {
-  ssr: false,
-});
+const AGGridTable = dynamic(() => import("@/components/AGGridTable"), { ssr: false });
 
 const BadgeRenderer = (params: any, map: Record<string, string>) => {
   const value = params?.value?.toString() || "None";
@@ -56,8 +54,7 @@ const YesNoRenderer = (params: any) => {
 const SelectEditor = (props: any) => {
   const { value, options } = props;
   const [current, setCurrent] = useState(value);
-  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) =>
-    setCurrent(e.target.value);
+  const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => setCurrent(e.target.value);
   useEffect(() => {
     props.api.addEventListener("cellEditingStopped", () => {
       props.api.stopEditing();
@@ -79,35 +76,17 @@ const SelectEditor = (props: any) => {
   );
 };
 
-const DateFormatter = (params: any) =>
-  params.value ? new Date(params.value).toLocaleDateString() : "";
+const DateFormatter = (params: any) => (params.value ? new Date(params.value).toLocaleDateString() : "");
 const PhoneRenderer = (params: any) =>
-  params.value ? (
-    <a href={`tel:${params.value}`} className="text-blue-600 hover:underline">
-      {params.value}
-    </a>
-  ) : (
-    ""
-  );
+  params.value ? <a href={`tel:${params.value}`} className="text-blue-600 hover:underline">{params.value}</a> : "";
 const EmailRenderer = (params: any) =>
-  params.value ? (
-    <a
-      href={`mailto:${params.value}`}
-      className="text-blue-600 hover:underline"
-    >
-      {params.value}
-    </a>
-  ) : (
-    ""
-  );
+  params.value ? <a href={`mailto:${params.value}`} className="text-blue-600 hover:underline">{params.value}</a> : "";
 
 const StatusFilterHeaderComponent = (props: any) => {
   const { selectedStatuses, setSelectedStatuses } = props;
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>(
-    { top: 0, left: 0 }
-  );
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const [filterVisible, setFilterVisible] = useState(false);
 
   const toggleFilter = (e: React.MouseEvent) => {
@@ -122,10 +101,7 @@ const StatusFilterHeaderComponent = (props: any) => {
     setFilterVisible((v) => !v);
   };
 
-  const handleStatusChange = (
-    status: string,
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleStatusChange = (status: string, e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
     setSelectedStatuses((prev: string[]) => {
       const isSelected = prev.includes(status);
@@ -140,22 +116,14 @@ const StatusFilterHeaderComponent = (props: any) => {
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
     if (e.target.checked) {
-      setSelectedStatuses([
-        "active",
-        "working",
-        "not_useful",
-        "do_not_contact",
-        "inactive",
-        "prospect",
-      ]);
+      setSelectedStatuses(["active", "working", "not_useful", "do_not_contact", "inactive", "prospect"]);
     } else {
       setSelectedStatuses([]);
     }
   };
 
   const isAllSelected = selectedStatuses.length === 6;
-  const isIndeterminate =
-    selectedStatuses.length > 0 && selectedStatuses.length < 6;
+  const isIndeterminate = selectedStatuses.length > 0 && selectedStatuses.length < 6;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -180,15 +148,15 @@ const StatusFilterHeaderComponent = (props: any) => {
   }, [filterVisible]);
 
   return (
-    <div className="relative flex w-full items-center">
+    <div className="relative flex items-center w-full">
       <span className="mr-2 flex-grow">Status</span>
       <div
         ref={filterButtonRef}
-        className="flex cursor-pointer items-center gap-1 rounded p-1 hover:bg-gray-100 dark:hover:bg-gray-700"
+        className="flex items-center gap-1 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-1 rounded"
         onClick={toggleFilter}
       >
         {selectedStatuses.length > 0 && (
-          <span className="min-w-[20px] rounded-full bg-blue-500 px-2 py-0.5 text-center text-xs text-white">
+          <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-0.5 min-w-[20px] text-center">
             {selectedStatuses.length}
           </span>
         )}
@@ -212,24 +180,22 @@ const StatusFilterHeaderComponent = (props: any) => {
         createPortal(
           <div
             ref={dropdownRef}
-            className="pointer-events-auto fixed flex w-56 flex-col space-y-2 rounded-lg border bg-white p-3 text-sm shadow-xl dark:border-gray-600 dark:bg-gray-800"
+            className="fixed bg-white border rounded-lg shadow-xl p-3 flex flex-col space-y-2 w-56 pointer-events-auto dark:bg-gray-800 dark:border-gray-600 text-sm"
             style={{
               top: dropdownPos.top + 5,
               left: dropdownPos.left,
               zIndex: 99999,
-              maxHeight: "300px",
-              overflowY: "auto",
+              maxHeight: '300px',
+              overflowY: 'auto'
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-2 border-b pb-2">
-              <label className="flex cursor-pointer items-center rounded px-2 py-1 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700">
+            <div className="border-b pb-2 mb-2">
+              <label className="flex items-center px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded font-medium text-sm">
                 <input
                   type="checkbox"
                   checked={isAllSelected}
-                  ref={(el) => {
-                    if (el) el.indeterminate = isIndeterminate;
-                  }}
+                  ref={(el) => { if (el) el.indeterminate = isIndeterminate; }}
                   onChange={handleSelectAll}
                   className="mr-3"
                   onClick={(e) => e.stopPropagation()}
@@ -237,17 +203,10 @@ const StatusFilterHeaderComponent = (props: any) => {
                 Select All
               </label>
             </div>
-            {[
-              "active",
-              "working",
-              "not_useful",
-              "do_not_contact",
-              "inactive",
-              "prospect",
-            ].map((status) => (
+            {["active", "working", "not_useful", "do_not_contact", "inactive", "prospect"].map((status) => (
               <label
                 key={status}
-                className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700"
+                className="flex items-center px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded"
               >
                 <input
                   type="checkbox"
@@ -260,13 +219,13 @@ const StatusFilterHeaderComponent = (props: any) => {
               </label>
             ))}
             {selectedStatuses.length > 0 && (
-              <div className="mt-2 border-t pt-2">
+              <div className="border-t pt-2 mt-2">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setSelectedStatuses([]);
                   }}
-                  className="w-full py-1 text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                  className="w-full text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 py-1"
                 >
                   Clear All
                 </button>
@@ -284,9 +243,7 @@ const TypeFilterHeaderComponent = (props: any) => {
   const { selectedTypes, setSelectedTypes } = props;
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>(
-    { top: 0, left: 0 }
-  );
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const [filterVisible, setFilterVisible] = useState(false);
 
   const toggleFilter = (e: React.MouseEvent) => {
@@ -301,10 +258,7 @@ const TypeFilterHeaderComponent = (props: any) => {
     setFilterVisible((v) => !v);
   };
 
-  const handleTypeChange = (
-    type: string,
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleTypeChange = (type: string, e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
     setSelectedTypes((prev: string[]) => {
       const isSelected = prev.includes(type);
@@ -319,13 +273,7 @@ const TypeFilterHeaderComponent = (props: any) => {
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.stopPropagation();
     if (e.target.checked) {
-      setSelectedTypes([
-        "client",
-        "implementation-partner",
-        "third-party-vendor",
-        "sourcer",
-        "contact-from-ip",
-      ]);
+      setSelectedTypes(["client", "implementation-partner", "third-party-vendor", "sourcer", "contact-from-ip"]);
     } else {
       setSelectedTypes([]);
     }
@@ -357,16 +305,16 @@ const TypeFilterHeaderComponent = (props: any) => {
   }, [filterVisible]);
 
   return (
-    <div className="relative flex w-full items-center">
+    <div className="relative flex items-center w-full">
       <span className="mr-2 flex-grow">Type</span>
 
       <div
         ref={filterButtonRef}
-        className="flex cursor-pointer items-center gap-1 rounded p-1 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+        className="flex items-center gap-1 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 p-1 rounded text-sm"
         onClick={toggleFilter}
       >
         {selectedTypes.length > 0 && (
-          <span className="min-w-[20px] rounded-full bg-green-500 px-2 py-0.5 text-center text-xs text-white">
+          <span className="bg-green-500 text-white text-xs rounded-full px-2 py-0.5 min-w-[20px] text-center">
             {selectedTypes.length}
           </span>
         )}
@@ -390,24 +338,22 @@ const TypeFilterHeaderComponent = (props: any) => {
         createPortal(
           <div
             ref={dropdownRef}
-            className="pointer-events-auto fixed flex w-56 flex-col space-y-2 rounded-lg border bg-white p-3 text-sm shadow-xl dark:border-gray-600 dark:bg-gray-800"
+            className="fixed bg-white border rounded-lg shadow-xl p-3 flex flex-col space-y-2 w-56 pointer-events-auto dark:bg-gray-800 dark:border-gray-600 text-sm"
             style={{
               top: dropdownPos.top + 5,
               left: dropdownPos.left,
               zIndex: 99999,
-              maxHeight: "300px",
-              overflowY: "auto",
+              maxHeight: '300px',
+              overflowY: 'auto'
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-2 border-b pb-2">
-              <label className="flex cursor-pointer items-center rounded px-2 py-1 font-medium hover:bg-gray-100 dark:hover:bg-gray-700">
+            <div className="border-b pb-2 mb-2">
+              <label className="flex items-center px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded font-medium">
                 <input
                   type="checkbox"
                   checked={isAllSelected}
-                  ref={(el) => {
-                    if (el) el.indeterminate = isIndeterminate;
-                  }}
+                  ref={(el) => { if (el) el.indeterminate = isIndeterminate; }}
                   onChange={handleSelectAll}
                   className="mr-3"
                   onClick={(e) => e.stopPropagation()}
@@ -415,16 +361,10 @@ const TypeFilterHeaderComponent = (props: any) => {
                 Select All
               </label>
             </div>
-            {[
-              "client",
-              "implementation-partner",
-              "third-party-vendor",
-              "sourcer",
-              "contact-from-ip",
-            ].map((type) => (
+            {["client", "implementation-partner", "third-party-vendor", "sourcer", "contact-from-ip"].map((type) => (
               <label
                 key={type}
-                className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700"
+                className="flex items-center px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer rounded"
               >
                 <input
                   type="checkbox"
@@ -437,13 +377,13 @@ const TypeFilterHeaderComponent = (props: any) => {
               </label>
             ))}
             {selectedTypes.length > 0 && (
-              <div className="mt-2 border-t pt-2">
+              <div className="border-t pt-2 mt-2">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setSelectedTypes([]);
                   }}
-                  className="w-full py-1 text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                  className="w-full text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 py-1"
                 >
                   Clear All
                 </button>
@@ -486,14 +426,10 @@ export default function VendorPage() {
   useEffect(() => {
     let filtered = vendors;
     if (selectedStatuses.length > 0) {
-      filtered = filtered.filter((v) =>
-        selectedStatuses.includes(v.status?.toLowerCase())
-      );
+      filtered = filtered.filter((v) => selectedStatuses.includes(v.status?.toLowerCase()));
     }
     if (selectedTypes.length > 0) {
-      filtered = filtered.filter((v) =>
-        selectedTypes.includes(v.type?.toLowerCase())
-      );
+      filtered = filtered.filter((v) => selectedTypes.includes(v.type?.toLowerCase()));
     }
     if (searchTerm.trim()) {
       filtered = filtered.filter(
@@ -506,172 +442,95 @@ export default function VendorPage() {
     setFilteredVendors(filtered);
   }, [vendors, searchTerm, selectedStatuses, selectedTypes]);
 
-  const columnDefs: ColDef[] = React.useMemo(
-    () => [
-      {
-        field: "id",
-        headerName: "ID",
-        width: 80,
-        pinned: "left",
-        editable: false,
+  const columnDefs: ColDef[] = React.useMemo(() => [
+    { field: "id", headerName: "ID", width: 80, pinned: "left", editable: false },
+    { field: "full_name", headerName: "Full Name", width: 180, editable: true },
+    { field: "phone_number", headerName: "Phone", width: 150, editable: true, cellRenderer: PhoneRenderer },
+    { field: "secondary_phone", headerName: "Alt Phone", width: 150, editable: true, cellRenderer: PhoneRenderer, hide: true },
+    { field: "email", headerName: "Email", width: 200, editable: true, cellRenderer: EmailRenderer },
+    { field: "linkedin_id", headerName: "LinkedIn ID", width: 180, editable: true },
+    {
+      field: "type",
+      headerName: "Type",
+      width: 150,
+      cellRenderer: TypeRenderer,
+      editable: true,
+      cellEditor: SelectEditor,
+      cellEditorParams: { options: ["client", "third-party-vendor", "implementation-partner", "sourcer", "contact-from-ip"] },
+      headerComponent: TypeFilterHeaderComponent,
+      headerComponentParams: {
+        selectedTypes,
+        setSelectedTypes
+      }
+    },
+    {
+      field: "status",
+      headerName: "Status",
+      width: 150,
+      cellRenderer: StatusRenderer,
+      editable: true,
+      cellEditor: SelectEditor,
+      cellEditorParams: { options: ["active", "working", "not_useful", "do_not_contact", "inactive", "prospect"] },
+      headerComponent: StatusFilterHeaderComponent,
+      headerComponentParams: {
+        selectedStatuses,
+        setSelectedStatuses
+      }
+    },
+    { field: "company_name", headerName: "Company Name", width: 180, editable: true },
+    { field: "city", headerName: "City", width: 140, editable: true },
+    { field: "postal_code", headerName: "Postal Code", width: 140, editable: true },
+    { field: "address", headerName: "Address", width: 200, editable: true },
+    { field: "country", headerName: "Country", width: 150, editable: true },
+    { field: "location", headerName: "Location", width: 180, editable: true },
+    {
+      field: "linkedin_connected",
+      headerName: "LinkedIn Connected",
+      width: 180,
+      cellRenderer: YesNoRenderer,
+      editable: true,
+      cellEditor: SelectEditor,
+      cellEditorParams: { options: ["YES", "NO"] },
+    },
+    {
+      field: "intro_email_sent",
+      headerName: "Intro Email Sent",
+      width: 180,
+      cellRenderer: YesNoRenderer,
+      editable: true,
+      cellEditor: SelectEditor,
+      cellEditorParams: { options: ["YES", "NO"] },
+    },
+    {
+      field: "intro_call",
+      headerName: "Intro Call",
+      width: 150,
+      cellRenderer: YesNoRenderer,
+      editable: true,
+      cellEditor: SelectEditor,
+      cellEditorParams: { options: ["YES", "NO"] },
+    },
+    { field: "created_at", headerName: "Created At", width: 180, valueFormatter: DateFormatter, editable: false },
+    {
+      field: "notes",
+      headerName: "Notes",
+      width: 300,
+      sortable: true,
+      cellRenderer: (params: any) => {
+        if (!params.value) return "";
+        return (
+          <div
+            className="prose prose-sm max-w-none dark:prose-invert"
+            dangerouslySetInnerHTML={{ __html: params.value }}
+          />
+        );
       },
-      {
-        field: "full_name",
-        headerName: "Full Name",
-        width: 180,
-        editable: true,
-      },
-      {
-        field: "phone_number",
-        headerName: "Phone",
-        width: 150,
-        editable: true,
-        cellRenderer: PhoneRenderer,
-      },
-      {
-        field: "secondary_phone",
-        headerName: "Alt Phone",
-        width: 150,
-        editable: true,
-        cellRenderer: PhoneRenderer,
-        hide: true,
-      },
-      {
-        field: "email",
-        headerName: "Email",
-        width: 200,
-        editable: true,
-        cellRenderer: EmailRenderer,
-      },
-      {
-        field: "linkedin_id",
-        headerName: "LinkedIn ID",
-        width: 180,
-        editable: true,
-      },
-      {
-        field: "type",
-        headerName: "Type",
-        width: 150,
-        cellRenderer: TypeRenderer,
-        editable: true,
-        cellEditor: SelectEditor,
-        cellEditorParams: {
-          options: [
-            "client",
-            "third-party-vendor",
-            "implementation-partner",
-            "sourcer",
-            "contact-from-ip",
-          ],
-        },
-        headerComponent: TypeFilterHeaderComponent,
-        headerComponentParams: {
-          selectedTypes,
-          setSelectedTypes,
-        },
-      },
-      {
-        field: "status",
-        headerName: "Status",
-        width: 150,
-        cellRenderer: StatusRenderer,
-        editable: true,
-        cellEditor: SelectEditor,
-        cellEditorParams: {
-          options: [
-            "active",
-            "working",
-            "not_useful",
-            "do_not_contact",
-            "inactive",
-            "prospect",
-          ],
-        },
-        headerComponent: StatusFilterHeaderComponent,
-        headerComponentParams: {
-          selectedStatuses,
-          setSelectedStatuses,
-        },
-      },
-      {
-        field: "company_name",
-        headerName: "Company Name",
-        width: 180,
-        editable: true,
-      },
-      { field: "city", headerName: "City", width: 140, editable: true },
-      {
-        field: "postal_code",
-        headerName: "Postal Code",
-        width: 140,
-        editable: true,
-      },
-      { field: "address", headerName: "Address", width: 200, editable: true },
-      { field: "country", headerName: "Country", width: 150, editable: true },
-      { field: "location", headerName: "Location", width: 180, editable: true },
-      {
-        field: "linkedin_connected",
-        headerName: "LinkedIn Connected",
-        width: 180,
-        cellRenderer: YesNoRenderer,
-        editable: true,
-        cellEditor: SelectEditor,
-        cellEditorParams: { options: ["YES", "NO"] },
-      },
-      {
-        field: "intro_email_sent",
-        headerName: "Intro Email Sent",
-        width: 180,
-        cellRenderer: YesNoRenderer,
-        editable: true,
-        cellEditor: SelectEditor,
-        cellEditorParams: { options: ["YES", "NO"] },
-      },
-      {
-        field: "intro_call",
-        headerName: "Intro Call",
-        width: 150,
-        cellRenderer: YesNoRenderer,
-        editable: true,
-        cellEditor: SelectEditor,
-        cellEditorParams: { options: ["YES", "NO"] },
-      },
-      {
-        field: "created_at",
-        headerName: "Created At",
-        width: 180,
-        valueFormatter: DateFormatter,
-        editable: false,
-      },
-      {
-        field: "notes",
-        headerName: "Notes",
-        width: 300,
-        sortable: true,
-        cellRenderer: (params: any) => {
-          if (!params.value) return "";
-          return (
-            <div
-              className="prose prose-sm dark:prose-invert max-w-none"
-              dangerouslySetInnerHTML={{ __html: params.value }}
-            />
-          );
-        },
-      },
-      {
-        field: "linkedin_internal_id",
-        headerName: "LinkedIn Internal ID",
-        width: 200,
-        editable: true,
-      },
-    ],
-    [selectedStatuses, selectedTypes]
-  );
+    },
+    { field: "linkedin_internal_id", headerName: "LinkedIn Internal ID", width: 200, editable: true },
+  ], [selectedStatuses, selectedTypes]);
 
   const handleRowUpdated = async (updatedRow: any) => {
-    const normalizeYesNo = (val: any) =>
-      !val ? "NO" : val.toString().toUpperCase();
+    const normalizeYesNo = (val: any) => (!val ? "NO" : val.toString().toUpperCase());
     const payload = {
       ...updatedRow,
       email: updatedRow.email?.trim() === "" ? null : updatedRow.email,
@@ -680,13 +539,8 @@ export default function VendorPage() {
       intro_call: normalizeYesNo(updatedRow.intro_call),
     };
     try {
-      await apiFetch(`/vendors/${updatedRow.id}`, {
-        method: "PUT",
-        body: payload,
-      });
-      setFilteredVendors((prev) =>
-        prev.map((row) => (row.id === updatedRow.id ? payload : row))
-      );
+      await apiFetch(`/vendors/${updatedRow.id}`, { method: "PUT", body: payload });
+      setFilteredVendors((prev) => prev.map((row) => (row.id === updatedRow.id ? payload : row)));
     } catch (error: any) {
       console.error("Update failed", error);
     }
@@ -701,8 +555,8 @@ export default function VendorPage() {
     }
   };
 
-  if (loading) return <p className="mt-8 text-center">Loading...</p>;
-  if (error) return <p className="mt-8 text-center text-red-600">{error}</p>;
+  if (loading) return <p className="text-center mt-8">Loading...</p>;
+  if (error) return <p className="text-center mt-8 text-red-600">{error}</p>;
 
   return (
     <div className="space-y-6">
@@ -724,9 +578,7 @@ export default function VendorPage() {
       </div>
 
       <AGGridTable
-        key={`${filteredVendors.length}-${selectedStatuses.join(
-          ","
-        )}-${selectedTypes.join(",")}`} // fixed key
+        key={`${filteredVendors.length}-${selectedStatuses.join(",")}-${selectedTypes.join(",")}`} // fixed key
         rowData={filteredVendors}
         columnDefs={columnDefs}
         title={`All Vendors (${filteredVendors.length})`}
@@ -738,3 +590,4 @@ export default function VendorPage() {
     </div>
   );
 }
+

@@ -30,6 +30,7 @@ export default function SubjectPage() {
       const sortedSubjects = (arr || []).slice().sort((a: any, b: any) => b.id - a.id);
       setSubjects(sortedSubjects);
       setFilteredSubjects(sortedSubjects);
+      toast.success("Subjects loaded successfully.");
     } catch (e: any) {
       const msg = e?.body || e?.message || "Failed to load subjects";
       setError(typeof msg === "string" ? msg : JSON.stringify(msg));

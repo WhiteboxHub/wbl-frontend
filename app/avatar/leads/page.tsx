@@ -557,8 +557,6 @@ export default function LeadsPage() {
       setLeads(sortedLeadsData);
       setFilteredLeads(sortedLeadsData);
       
-      toast.success("Data synced from server");
-      
     } catch (err: any) {
       console.error('API sync failed:', err);
       
@@ -1048,14 +1046,6 @@ export default function LeadsPage() {
           >
             <PlusCircle className="mr-2 h-4 w-4" />
             Add New Lead
-          </Button>
-          <Button 
-            onClick={() => syncFromAPI(true)} 
-            variant="outline"
-            disabled={loading}
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> 
-            {loading ? "Syncing..." : "Sync from Server"}
           </Button>
         </div>
       </div>
