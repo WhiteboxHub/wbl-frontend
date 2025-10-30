@@ -300,6 +300,7 @@ export default function AuthUsersPage() {
       }
       delete dataToSend.googleId;
       delete dataToSend.registereddate;
+      
       const updatedUser = await smartUpdate("user", updatedRow.id, dataToSend);
       setUsers((prev) => prev.map((user) => (user.id === updatedRow.id ? updatedUser : user)));
       toast.success("User updated successfully");

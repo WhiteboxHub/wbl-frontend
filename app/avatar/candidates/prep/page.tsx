@@ -279,7 +279,6 @@ export default function CandidatesPrepPage() {
   };
 
 
-
   const formatEnumValue = (value: string) => {
     if (!value) return "N/A";
     return value
