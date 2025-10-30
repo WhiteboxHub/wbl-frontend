@@ -171,7 +171,10 @@ interface EmailExtraction {
     emails_extracted_today: number;
     emails_extracted_week: number;
 }
-
+interface BatchClasses {
+  batchname: string;
+  classes_count: number;
+}
 // Hook for animated counters
 function useCounter(target: number, duration = 1000) {
   const [count, setCount] = useState(0);
@@ -364,6 +367,28 @@ export default function Index() {
   fetchEmailReads();
 }, []);
 
+useEffect(() => {
+  const fetchBatchClasses = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) return;
+
+      const res = await axios.get(`${API_BASE_URL}/batches/latest/classes`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      setBatchClasses(res.data);
+    } catch (error) {
+      console.error("Error fetching batch classes:", error);
+    }
+  };
+
+  fetchBatchClasses();
+}, []);
+
+
   // Animated counters
   const enrolledCandidates = useCounter(metrics?.batch_metrics?.enrolled_candidates_current || 0);
   const totalCandidates = useCounter(metrics?.batch_metrics?.total_candidates || 0);
@@ -389,6 +414,9 @@ export default function Index() {
   const totalvendors = useCounter(vendorMetrics?.total_vendors || 0);
   const todayextracted = useCounter(vendorMetrics?.today_extracted || 0);
   const weekextracted = useCounter(vendorMetrics?.week_extracted || 0);
+  const [batchClasses, setBatchClasses] = useState<BatchClasses[]>([]);
+
+
 
   // Calculate derived metrics
   const averageFeePerCandidate = metrics ? Math.round((metrics.financial_metrics.total_fee_current_batch / Math.max(1, metrics.batch_metrics.enrolled_candidates_current))) : 0;
@@ -461,7 +489,7 @@ export default function Index() {
               icon={<CalendarPlus className="size-4" />}
               variant="purple"
             />
-            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-1  border-b border-purple-300">
+            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-1 border-b border-purple-300">
               <CardHeader className="p-3 pb-1">
                 <div className="flex items-center justify-between border-b border-purple-200 pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Upcoming Batch Start Dates</CardTitle>
@@ -472,7 +500,7 @@ export default function Index() {
                 <ul className="divide-y rounded-md border">
                   {upcomingBatches.map((batch) => (
                     <li key={batch.name} className="flex items-center justify-between p-2">
-                      <span className="text-sm font-medium  border-b border-purple-200">{batch.name}</span>
+                      <span className="text-sm font-medium border-b border-purple-200">{batch.name}</span>
                       <span className="text-xs text-muted-foreground">
                         {formatDateFromDB(batch.startdate)}
                       </span>
@@ -542,6 +570,34 @@ export default function Index() {
                     </div>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-1 border-b border-purple-300">
+              <CardTitle className="text-sm font-semibold text-purple-700 flex items-center gap-1 p-2">
+                <Layers3 className="size-4 text-purple-500" />
+                Classes Count
+              </CardTitle>
+              <CardContent className="p-2">
+                <table className="w-full border border-gray-300 rounded-md text-xs">
+                  <thead className="bg-purple-50">
+                    <tr>
+                      <th className="text-left px-2 py-1 font-bold text-gray-700 border-b w-2/3">
+                        Batch Name
+                      </th>
+                      <th className="text-left px-2 py-1 font-bold text-gray-700 border-b w-1/3">
+                        Classes
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {batchClasses.map((b) => (
+                      <tr key={b.batchname} className="hover:bg-purple-50">
+                        <td className="px-2 py-1 border-b">{b.batchname}</td>
+                        <td className="px-2 py-1 border-b text-center">{b.classes_count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </CardContent>
             </Card>
           </div>
