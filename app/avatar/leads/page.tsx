@@ -877,6 +877,7 @@ export default function LeadsPage() {
         headerName: "Entry Date",
         width: 180,
         sortable: true,
+        filter: "agDateColumnFilter",
         valueFormatter: ({ value }: ValueFormatterParams) =>
           value
             ? new Date(value).toLocaleString("en-US", {
@@ -930,6 +931,7 @@ export default function LeadsPage() {
         headerName: "Closed Date",
         width: 150,
         sortable: true,
+        filter: "agDateColumnFilter",
         valueFormatter: ({ value }: ValueFormatterParams) =>
           value
             ? new Date(value).toLocaleDateString("en-IN", {
@@ -1071,8 +1073,10 @@ export default function LeadsPage() {
           loading={loading}
           showFilters={true}
           showSearch={false}
+          
           height="600px"
           title={`Leads (${filteredLeads.length})`}
+          
         />
       </div>
 
