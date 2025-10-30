@@ -72,7 +72,7 @@ const fieldSections: Record<string, string> = {
   enddate: "Professional Information",
   candidate_name: "Basic Information",
   candidate_role: "Basic Information",
-  google_voice_number: "Professional Information",
+  google_voice_number: "Contact Information",
   dob: "Basic Information",
   contact: "Basic Information",
   password: "Professional Information",
@@ -90,9 +90,11 @@ const fieldSections: Record<string, string> = {
   course: "Professional Information",
   registereddate: "Professional Information",
   company: "Professional Information",
-  linkedin: "Contact Information",
-  github: "Contact Information",
+  // linkedin: "Contact Information",
+  github_url: "Contact Information",
+  github_link: "Contact Information",
   resume: "Contact Information",
+  resume_url: "Contact Information",
   client_id: "Professional Information",
   client_name: "Professional Information",
   interview_time: "Professional Information",
@@ -168,9 +170,9 @@ const workVisaStatusOptions = [
 
 const labelOverrides: Record<string, string> = {
   candidate_full_name: "Candidate Full Name",
-  instructor1_name: "Instructor 1 Name",
-  instructor2_name: "Instructor 2 Name",
-  instructor3_name: "Instructor 3 Name",
+  instructor1_name: "Instructor 1 ",
+  instructor2_name: "Instructor 2",
+  instructor3_name: "Instructor 3",
   id: "ID",
   subject_id: "Subject ID",
   subjectid: "Subject ID",
@@ -191,6 +193,9 @@ const labelOverrides: Record<string, string> = {
   batchname: "Batch Name",
   secondaryphone: "Secondary Phone",
   email: "Email",
+  resume_url: "Resume URL",
+  linkedin_id: "Linkedin ID",
+  github_url: "GitHub URL",
   videoid: "Video ID",
   secondaryemail: "Secondary Email",
   classdate: "Class Date",
@@ -404,14 +409,18 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       if (!isNaN(date.getTime())) return <p>{date.toISOString().split("T")[0]}</p>;
     }
     
-    if (lowerKey === "status") return <Badge className={getStatusColor(value)}>{value}</Badge>;
+    // if (lowerKey === "status") return <Badge className={getStatusColor(value)}>{value}</Badge>;
+    if (lowerKey === "status") {
+      const displayValue = String(value).toUpperCase();
+      return <Badge className={getStatusColor(value)}>{displayValue}</Badge>;
+    }
     if (["visa_status", "workstatus"].includes(lowerKey)) return <Badge className={getVisaColor(value)}>{value}</Badge>;
     if (["feepaid", "feedue", "salary0", "salary6", "salary12"].includes(lowerKey)) return <p>${Number(value).toLocaleString()}</p>;
     if (lowerKey.includes("rating")) return <p>{value} </p>;
     if (["notes", "task"].includes(lowerKey)) return <div dangerouslySetInnerHTML={{ __html: value }} />;
     
     // Handle URL fields
-    if (["recording_link", "transcript", "job_posting_url", "resume_url", "backup_recording_url", "linkedin", "github", "resume", "interviewer_linkedin", "url", "candidate_resume", "backup_url", "link"].includes(lowerKey)) {
+    if (["recording_link", "transcript", "job_posting_url", "resume_url", "backup_recording_url", "linkedin", "github_url","github_link","linkedin_id", "resume", "interviewer_linkedin", "url", "candidate_resume", "backup_url", "link"].includes(lowerKey)) {
       return (
         <a
           href={value}
@@ -451,19 +460,23 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     return <p className="break-words">{String(value)}</p>;
   };
 
-  const flattenData = (data: Record<string, any>) => {
-    const flattened: Record<string, any> = { ...data };
-    if (data.candidate) flattened.candidate_full_name = data.candidate.full_name;
-    if (data.instructor1) flattened.instructor1_name = data.instructor1.name;
-    if (data.instructor2) flattened.instructor2_name = data.instructor2.name;
-    if (data.instructor3) flattened.instructor3_name = data.instructor3.name;
+const flattenData = (data: Record<string, any>) => {
+  const flattened: Record<string, any> = { ...data };
+  if (data.candidate) flattened.candidate_full_name = data.candidate.full_name;
 
+  flattened.instructor1_id = data.instructor1?.id || data.instructor1_id || "";
+  flattened.instructor1_name = data.instructor1?.name || data.instructor1_name || "";
+  flattened.instructor2_id = data.instructor2?.id || data.instructor2_id || "";
+  flattened.instructor2_name = data.instructor2?.name || data.instructor2_name || "";
+  flattened.instructor3_id = data.instructor3?.id || data.instructor3_id || "";
+  flattened.instructor3_name = data.instructor3?.name || data.instructor3_name || "";
     if (data.course) {
       flattened.cm_course = data.course.name || data.course.course_name;
     }
     if (data.subject) {
       flattened.cm_subject = data.subject.name || data.subject.subject_name;
     }
+  flattened.linkedin_id = data.candidate?.linkedin_id || data.linkedin_id || "";
     
     const typeMap: Record<string, string> = {
       'P': 'Presentations',

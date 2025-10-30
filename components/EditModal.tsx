@@ -35,8 +35,8 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "yes", label: "Yes" },
   ],
   moved_to_vendor: [
-    { value: "true", label: "Yes" },
     { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
   ],
   moved_to_candidate: [
     { value: "false", label: "No" },
@@ -283,12 +283,12 @@ const fieldSections: Record<string, string> = {
   status: "Basic Information",
   batchid: "Contact Information",
   batch: "Basic Information",
-  start_date: "Professional Information",
+  start_date: "Basic Information",
   batchname: "Basic Information",
   target_date_of_marketing: "Basic Information",
   move_to_prep: "Basic Information",
   move_to_mrkt:"Basic Information",
-  move_to_placement: "Basic Information",
+  // move_to_placement: "Basic Information",
   linkedin_id: "Contact Information",
   enrolled_date: "Professional Information",
   startdate: "Professional Information",
@@ -317,7 +317,7 @@ const fieldSections: Record<string, string> = {
   enddate: "Professional Information",
   candidate_name: "Basic Information",
   candidate_role: "Basic Information",
-  google_voice_number: "Professional Information",
+  google_voice_number: "Contact Information",
   dob: "Basic Information",
   contact: "Basic Information",
   password: "Professional Information",
@@ -337,7 +337,9 @@ const fieldSections: Record<string, string> = {
   company: "Professional Information",
   linkedin: "Contact Information",
   github: "Contact Information",
+  github_url: "Contact Information",
   resume: "Contact Information",
+  resume_url: "Contact Information",
   client_id: "Professional Information",
   client_name: "Professional Information",
   interview_time: "Professional Information",
@@ -441,7 +443,9 @@ const labelOverrides: Record<string, string> = {
   registereddate: "Registered Date",
   company: "Company",
   linkedin: "LinkedIn",
+  linkedin_id: "LinkedIn ID",
   github: "GitHub",
+  github_url: "GitHub URL",
   resume: "Resume",
   client_id: "Client ID",
   client_name: "Client Name",
@@ -518,6 +522,7 @@ const dateFields = [
   "orientationdate",
   "start_date",
   "startdate",
+  "target_date",
   "enddate",
   "closed_date",
   "entry_date",
@@ -717,83 +722,94 @@ export function EditModal({
     fetchSubjects();
     fetchEmployees();
   }, [isCourseMaterialModal]);
-
-  // Flatten nested data for the form
+  
   const flattenData = (data: Record<string, any>) => {
     const flattened: Record<string, any> = { ...data };
-    if (data.candidate) flattened.candidate_full_name = data.candidate.full_name;
-    if (data.instructor1) {
-      flattened.instructor1_name = data.instructor1.name;
-      flattened.instructor1_id = data.instructor1.id;
+  if (data.candidate) flattened.candidate_full_name = data.candidate.full_name;
+  flattened.instructor1_id = data.instructor1?.id || data.instructor1_id || "";
+  flattened.instructor1_name = data.instructor1?.name || data.instructor1_name || "";
+  flattened.instructor2_id = data.instructor2?.id || data.instructor2_id || "";
+  flattened.instructor2_name = data.instructor2?.name || data.instructor2_name || "";
+  flattened.instructor3_id = data.instructor3?.id || data.instructor3_id || "";
+  flattened.instructor3_name = data.instructor3?.name || data.instructor3_name || "";
+  if (data.visa_status) {
+    flattened.visa_status = String(data.visa_status).toLowerCase();
+  }
+  if (data.workstatus) {
+    flattened.workstatus = String(data.workstatus).toLowerCase();
+  }
+  if (data.work_status) {
+    flattened.work_status = String(data.work_status).toLowerCase();
+  }
+  if (data.type) {
+    flattened.material_type = data.type;
+  }
+  if (data.rating) {
+    const ratingValue = String(data.rating).trim();
+    const normalizedRating = normalizeRatingValue(ratingValue);
+    flattened.rating = normalizedRating;
+  }
+
+  if (data.communication) {
+    const communicationValue = String(data.communication).trim();
+    const normalizedCommunication = normalizeCommunicationValue(communicationValue);
+    flattened.communication = normalizedCommunication;
+  }
+  flattened.linkedin_id = data.candidate?.linkedin_id || data.linkedin_id || "";
+  if (data.github_link) {
+    flattened.github_link = data.github_link;
+  } else if (data.github) {
+    flattened.github_link = data.github;
+  }
+  else if ('github_link' in data) {
+    flattened.github_link = data.github_link;
+  }
+  if (data.cm_course) {
+    flattened.cm_course = data.cm_course;
+  } else if (data.course_name) {
+    flattened.cm_course = data.course_name;
+  } else if (data.courseid === 0) {
+    flattened.cm_course = "Fundamentals";
+  }
+  if (data.cm_subject) {
+    flattened.cm_subject = data.cm_subject;
+  } else if (data.subject_name) {
+    flattened.cm_subject = data.subject_name;
+  } else if (data.subjectid === 0) {
+    flattened.cm_subject = "Basic Fundamentals";
+  }
+  dateFields.forEach(dateField => {
+    if (flattened[dateField] && !isNaN(new Date(flattened[dateField]).getTime())) {
+      flattened[dateField] = new Date(flattened[dateField]).toISOString().split('T')[0];
     }
-    if (data.instructor2) {
-      flattened.instructor2_name = data.instructor2.name;
-      flattened.instructor2_id = data.instructor2.id;
-    }
-    if (data.instructor3) {
-      flattened.instructor3_name = data.instructor3.name;
-      flattened.instructor3_id = data.instructor3.id;
-    }
-    if (data.visa_status) {
-      flattened.visa_status = String(data.visa_status).toLowerCase();
-    }
-    if (data.workstatus) {
-      flattened.workstatus = String(data.workstatus).toLowerCase();
-    }
-    if (data.work_status) {
-      flattened.work_status = String(data.work_status).toLowerCase();
-    }
-    if (data.type) {
-      flattened.material_type = data.type;
-    }
-    if (data.cm_course) {
-      flattened.cm_course = data.cm_course;
-    } else if (data.course_name) {
-      flattened.cm_course = data.course_name;
-    } else if (data.courseid === 0) {
-      flattened.cm_course = "Fundamentals";
-    }
-    if (data.cm_subject) {
-      flattened.cm_subject = data.cm_subject;
-    } else if (data.subject_name) {
-      flattened.cm_subject = data.subject_name;
-    } else if (data.subjectid === 0) {
-      flattened.cm_subject = "Basic Fundamentals";
-    }
-    if (data.status) {
-      if (isEmployeeModal) {
-        flattened.status = String(data.status);
-      } else if (isMarketingModal) {
-        flattened.status = data.status;
-      } else if (isPlacementModal) {
-        flattened.status = data.status;
-      } else if (isPreparationModal) {
-        flattened.status = data.status;
-      } else if (isCandidateModal) {
-        flattened.status = data.status;
-      }
-    }
-    if (data.instructor && isEmployeeModal) {
-      flattened.instructor = String(data.instructor);
-    }
-    if (isVendorModal) {
-      if (data.linkedin_connected) {
-        flattened.linkedin_connected = data.linkedin_connected;
-      }
-      if (data.intro_email_sent) {
-        flattened.intro_email_sent = data.intro_email_sent;
-      }
-      if (data.intro_call) {
-        flattened.intro_call = data.intro_call;
-      }
-    }
-    dateFields.forEach(dateField => {
-      if (flattened[dateField] && !isNaN(new Date(flattened[dateField]).getTime())) {
-        flattened[dateField] = new Date(flattened[dateField]).toISOString().split('T')[0];
-      }
-    });
-    return flattened;
+  });
+  
+  return flattened;
+};
+
+const normalizeRatingValue = (value: string): string => {
+  const ratingMap: Record<string, string> = {
+    'good': 'Good',
+    'very good': 'Very Good',
+    'average': 'Average',
+    'need to improve': 'Need to Improve',
   };
+  
+  const normalized = value.toLowerCase().trim();
+  return ratingMap[normalized] || value;
+};
+
+const normalizeCommunicationValue = (value: string): string => {
+  const communicationMap: Record<string, string> = {
+    'good': 'Good',
+    'very good': 'Very Good',
+    'average': 'Average',
+    'need to improve': 'Need to Improve',
+  };
+  
+  const normalized = value.toLowerCase().trim();
+  return communicationMap[normalized] || value; 
+};
 
   // Reset form data when the modal opens
   useEffect(() => {
@@ -1131,61 +1147,97 @@ export function EditModal({
                             </select>
                           </div>
                         )}
-                        {section === "Professional Information" && title.toLowerCase().includes("preparation") && (
+
+                        {section === "Professional Information" && (
                           <>
-                            <div className="space-y-1 sm:space-y-1.5">
-                              <label className="block text-xs sm:text-sm font-bold text-blue-700">
-                                Instructor 1
-                              </label>
-                              <select
-                                {...register("instructor1_id")}
-                                value={currentFormValues.instructor1_id || formData.instructor1_id || ""}
-                                className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
-                              >
-                                <option value="">Select Instructor</option>
-                                {employees.map((emp) => (
-                                  <option key={emp.id} value={emp.id}>
-                                    {emp.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                            <div className="space-y-1 sm:space-y-1.5">
-                              <label className="block text-xs sm:text-sm font-bold text-blue-700">
-                                Instructor 2
-                              </label>
-                              <select
-                                {...register("instructor2_id")}
-                                value={currentFormValues.instructor2_id || formData.instructor2_id || ""}
-                                className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
-                              >
-                                <option value="">Select Instructor</option>
-                                {employees.map((emp) => (
-                                  <option key={emp.id} value={emp.id}>
-                                    {emp.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                            <div className="space-y-1 sm:space-y-1.5">
-                              <label className="block text-xs sm:text-sm font-bold text-blue-700">
-                                Instructor 3
-                              </label>
-                              <select
-                                {...register("instructor3_id")}
-                                value={currentFormValues.instructor3_id || formData.instructor3_id || ""}
-                                className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
-                              >
-                                <option value="">Select Instructor</option>
-                                {employees.map((emp) => (
-                                  <option key={emp.id} value={emp.id}>
-                                    {emp.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
+                            {(isPreparationModal || isMarketingModal) && (
+                              <>
+                                {/* Instructor 1 */}
+                                <div className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                    Instructor 1
+                                  </label>
+                                  {isMarketingModal ? (
+                                    <input
+                                      type="text"
+                                      value={data.instructor1?.name || formData.instructor1_name || ""}
+                                      readOnly
+                                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
+                                    />
+                                  ) : (
+                                    <select
+                                      {...register("instructor1_id")}
+                                      value={currentFormValues.instructor1_id || formData.instructor1_id || ""}
+                                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                                    >
+                                      <option value="">Select Instructor</option>
+                                      {employees.map((emp) => (
+                                        <option key={emp.id} value={emp.id}>
+                                          {emp.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  )}
+                                </div>
+                                {/* Instructor 2 */}
+                                <div className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                    Instructor 2
+                                  </label>
+                                  {isMarketingModal ? (
+                                    <input
+                                      type="text"
+                                      value={data.instructor2?.name || formData.instructor2_name || ""}
+                                      readOnly
+                                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
+                                    />
+                                  ) : (
+                                    <select
+                                      {...register("instructor2_id")}
+                                      value={currentFormValues.instructor2_id || formData.instructor2_id || ""}
+                                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                                    >
+                                      <option value="">Select Instructor</option>
+                                      {employees.map((emp) => (
+                                        <option key={emp.id} value={emp.id}>
+                                          {emp.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  )}
+                                </div>
+                                {/* Instructor 3 */}
+                                <div className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                    Instructor 3
+                                  </label>
+                                  {isMarketingModal ? (
+                                    <input
+                                      type="text"
+                                      value={data.instructor3?.name || formData.instructor3_name || ""}
+                                      readOnly
+                                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
+                                    />
+                                  ) : (
+                                    <select
+                                      {...register("instructor3_id")}
+                                      value={currentFormValues.instructor3_id || formData.instructor3_id || ""}
+                                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                                    >
+                                      <option value="">Select Instructor</option>
+                                      {employees.map((emp) => (
+                                        <option key={emp.id} value={emp.id}>
+                                          {emp.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  )}
+                                </div>
+                              </>
+                            )}
                           </>
                         )}
+
                         {sectionedFields[section]
                           .filter(
                             ({ key }) =>
@@ -1241,25 +1293,74 @@ export function EditModal({
                               );
                             }
 
-                            // Special handling for status in Preparation/Marketing modals
-                            if (isStatusField && isPrepOrMarketing) {
-                              const statusValue = formData[key] || "";
-                              const displayValue = statusValue.charAt(0).toUpperCase() + statusValue.slice(1);
+                            if (isSpecialModal && (key === "linkedin_id")) {
+                              let url = (formData?.[key] || formData?.candidate?.[key] || "").trim();
+
+                              if (!url) {
+                                return (
+                                  <div key={key} className="space-y-1 sm:space-y-1.5">
+                                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                      {toLabel(key)}
+                                    </label>
+                                    <div className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-400 shadow-sm">
+                                      N/A
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              if (!/^https?:\/\//i.test(url)) {
+                                url = `https://${url}`;
+                              }
+
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5">
                                   <label className="block text-xs sm:text-sm font-bold text-blue-700">
                                     {toLabel(key)}
                                   </label>
-                                  <input
-                                    type="text"
-                                    {...register(key)}
-                                    defaultValue={displayValue}
-                                    readOnly
-                                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
-                                  />
+                                  <a
+                                    href={url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="block w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-blue-600 hover:text-blue-800 hover:underline cursor-pointer shadow-sm"
+                                  >
+                                    Click Here
+                                  </a>
                                 </div>
                               );
                             }
+
+                            // Special handling for status in Preparation/Marketing modals
+                            if (isStatusField && isPrepOrMarketing) {
+                              const statusValue = formData[key] || "";
+                              const displayValue = statusValue.toUpperCase();
+                              const normalized = statusValue.toLowerCase();
+                              const isActive = normalized === "active";
+
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                    {toLabel(key)}
+                                  </label>
+                                  <div
+                                    className={`w-full px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm rounded-lg border border-blue-200 bg-white shadow-sm`}
+                                  >
+                                    <span
+                                      className={`font-semibold px-2.5 py-1 rounded-full ${
+                                        isActive
+                                          ? "text-green-700 bg-green-100"
+                                          : "text-red-800 bg-red-100"
+                                      }`}
+                                    >
+                                      {displayValue}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            }
+
+
+
 
                             const fieldEnumOptions = getEnumOptions(key);
                             if (fieldEnumOptions) {

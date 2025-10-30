@@ -170,12 +170,6 @@ export default function CandidatesPlacements() {
               minWidth: 150,
               editable: true,
             },
-            // {
-            //   field: "priority",
-            //   headerName: "Priority",
-            //   minWidth: 90,
-            //   editable: true,
-            // },
 
           ];
           setColumnDefs(cols);
