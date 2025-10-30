@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { ViewModal } from "./ViewModal";
 import { EditModal } from "@/components/EditModal";
+import { DynamicFormModal } from "@/components/forms/DynamicFormModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
@@ -58,6 +59,7 @@ interface AGGridTableProps {
   defaultColDef?: ColDef;
   onRowClicked?: (data: any) => void;
   onRowUpdated?: (data: any) => void;
+  onRowAdded?: (data: any) => void;
   onRowDeleted?: (id: string | number) => void;
   title?: string;
   showSearch?: boolean;
@@ -86,6 +88,7 @@ export function AGGridTable({
   loading = false,
   onRowClicked,
   onRowUpdated,
+  onRowAdded,
   onRowDeleted,
   overlayNoRowsTemplate = "No rows to show",
   title,
@@ -304,11 +307,37 @@ export function AGGridTable({
 
   // const AGGridTable = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const addInitialData = useMemo(() => {
+    if (rowData && rowData.length > 0) {
+      const sample = rowData[0];
+      const blank: Record<string, any> = {};
+      Object.keys(sample).forEach((k) => {
+        const v = (sample as any)[k];
+        // initialize strings to "", numbers to "", booleans to "false" for select compatibility
+        if (typeof v === "boolean") blank[k] = "";
+        else if (typeof v === "number") blank[k] = "";
+        else blank[k] = "";
+      });
+      return blank;
+    }
+    // fallback: build from column defs
+    const fields = initialColumnDefs.map((c) => c.field).filter(Boolean) as string[];
+    return fields.reduce((acc: any, f: string) => { acc[f] = ""; return acc; }, {});
+  }, [rowData, initialColumnDefs]);
 
   const handleAdd = () => {
     // your logic here
     setIsAddModalOpen(true);
   };
+
+  const handleAddSave = useCallback((newData: RowData) => {
+    if (gridRef.current) {
+      gridRef.current.api.applyTransaction({ add: [newData] });
+    }
+    if (onRowAdded) onRowAdded(newData);
+    else if (onRowUpdated) onRowUpdated(newData);
+    setIsAddModalOpen(false);
+  }, [onRowAdded, onRowUpdated]);
 
   return (
     <div className="mx-auto w-full max-w-7xl flex-row-reverse space-y-4">
@@ -491,6 +520,18 @@ export function AGGridTable({
           data={editData}
           title={title || "Record"}
           batches={batches}
+        />
+      )}
+      {isAddModalOpen && (
+        <DynamicFormModal
+          isOpen={true}
+          onClose={() => setIsAddModalOpen(false)}
+          title={(title ? `${title}` : "Record") + " - Add"}
+          mode="add"
+          entity={undefined}
+          initialData={addInitialData}
+          onSubmit={handleAddSave}
+          externalLists={{ batches }}
         />
       )}
       {deleteConfirmData && (
