@@ -34,6 +34,7 @@ export default function CourseContentPage() {
 
       setContents(sortedContents);
       setFilteredContents(sortedContents);
+      toast.success("Course Content fetched successfully", { position: "top-center" });
     } catch (e: any) {
       const msg = e?.body || e?.message || "Failed to fetch Course Content";
       setError(typeof msg === "string" ? msg : JSON.stringify(msg));

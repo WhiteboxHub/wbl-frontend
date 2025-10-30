@@ -145,6 +145,7 @@ useEffect(() => {
     try {
       await apiFetch(`/batch/${updatedRow.batchid}`, { method: "PUT", body: updatedRow });
       setBatches((prev) => prev.map((r) => (r.batchid === updatedRow.batchid ? updatedRow : r)));
+      toast.success("Batch updated successfully");
     } catch (err: any) {
       toast.error(err?.message || err?.body || "Failed to update batch");
     }

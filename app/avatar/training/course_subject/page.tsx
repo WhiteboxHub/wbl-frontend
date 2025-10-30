@@ -82,6 +82,7 @@ export default function CourseSubjectPage() {
       }));
       setCourseSubjects(dataWithId);
       setFilteredCourseSubjects(dataWithId);
+      toast.success("Course-subject mappings loaded successfully!");
     } catch (e: any) {
       const errorMsg = getErrorMessage(e);
       setError(errorMsg);
