@@ -3,6 +3,7 @@ import React from "react";
 import dynamic from "next/dynamic";
 import { useForm } from "react-hook-form";
 import { useFormMeta } from "@/hooks/useFormMeta";
+import { apiFetch } from "@/lib/api";
 import {
   enumOptions,
   vendorStatuses,
@@ -50,6 +51,7 @@ export function DynamicFormRenderer({
 }: DynamicFormRendererProps) {
   const ctx = detectContext(title || entity || "", entity);
   const { courses, subjects, employees, mlBatches } = useFormMeta({ isOpen: true, propBatches: externalLists?.batches as any });
+  const [interviewCandidates, setInterviewCandidates] = React.useState<{ id: number; full_name: string }[]>([]);
 
   let formInitial = mode === "edit" && initialData ? flattenData(initialData, ctx) : (initialData || {});
   // Ensure special-context fields exist in add mode
@@ -79,6 +81,26 @@ export function DynamicFormRenderer({
     });
     formInitial = { ...additions, ...formInitial };
   }
+  // Load candidate names for Interview add form, mirroring existing page behavior
+  React.useEffect(() => {
+    let mounted = true;
+    const loadCandidates = async () => {
+      try {
+        if (!(ctx === "interview" && mode === "add")) return;
+        const res = await apiFetch("/candidate/marketing?page=1&limit=200");
+        const body = (res as any)?.data ?? res;
+        const arr = Array.isArray(body) ? body : body?.data ?? [];
+        const active = (arr || []).filter((m: any) => (m?.status || "").toString().toLowerCase() === "active" && !!m.candidate);
+        const mapped = active.map((m: any) => ({ id: m.candidate.id, full_name: m.candidate.full_name }));
+        if (!mounted) return;
+        setInterviewCandidates(mapped);
+      } catch (e) {
+        // silent fail; fallback to free text
+      }
+    };
+    loadCandidates();
+    return () => { mounted = false; };
+  }, [ctx, mode]);
   if (mode === "add" && ctx === "batch") {
     // Ensure batch form has default courseid and a subject selector
     if (formInitial.courseid === undefined || formInitial.courseid === "") {
@@ -425,6 +447,34 @@ export function DynamicFormRenderer({
                 const isCandidateFull = k === "candidate_full_name";
                 const isSubjectId = k === "subjectid";
                 const isCourseId = k === "courseid";
+                const isCandidateId = k === "candidate_id";
+                // Interview add: Candidate dropdown populated like custom page
+                if (ctx === "interview" && mode === "add" && (isCandidateFull || isCandidateId)) {
+                  // Avoid rendering duplicate second field
+                  if (isCandidateId) return null;
+                  const currentId = currentValues.candidate_id || formInitial.candidate_id || "";
+                  return (
+                    <div key={key} className="space-y-1 sm:space-y-1.5">
+                      <label className="block text-xs sm:text-sm font-bold text-blue-700">Candidate Name<span className="text-red-500"> *</span></label>
+                      <select
+                        {...(register as any)("candidate_id", { required: "Candidate is required" })}
+                        value={currentId}
+                        onChange={(e) => {
+                          const selId = e.target.value;
+                          const cand = interviewCandidates.find(c => c.id.toString() === selId);
+                          setValue("candidate_id", selId);
+                          if (cand) setValue("candidate_full_name", cand.full_name);
+                        }}
+                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                      >
+                        <option value="">Select Candidate</option>
+                        {interviewCandidates.map((c) => (
+                          <option key={c.id} value={c.id}>{c.full_name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                }
                 // Batch page: remove duplicate Subject from Professional Information
                 if (isBatchContext && section === "Professional Information" && (k === "subject" || k === "subjectid")) {
                   return null;
