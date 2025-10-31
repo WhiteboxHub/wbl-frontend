@@ -670,12 +670,18 @@ export default function CandidatesPage() {
         filter: "agTextColumnFilter",
         cellRenderer: (params: any) => {
           if (!params.value) return "";
+          const url = params.value.trim();
+          const href =
+            url.startsWith("http://") || url.startsWith("https://")
+              ? url
+              : `https://linkedin.com/in/${url}`;
+
           return (
             <a
-              href={`https://linkedin.com/in/${params.value}`}
+              href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 underline hover:text-purple-800"
+              className="text-blue-600 underline hover:text-purple-800 text-sm sm:text-base font-medium"
             >
               {params.value}
             </a>
