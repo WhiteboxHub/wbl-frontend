@@ -98,7 +98,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       children: [
         { title: "List", href: "/avatar/employee" },
         { title: "Search", href: "/avatar/employee/employeesearch" },
-        { title: "Internal Documents", href: "/avatar/employee/internal_documents" },
+        // { title: "Internal Documents", href: "/avatar/employee/internal_documents" },
       ],
     },
     {
@@ -111,7 +111,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
           href: "/avatar/vendors/daily-contact",
         },
         { title: "Vendor", href: "/avatar/vendors/vendor" },
-        { title: "email-tracking-log", href: "/avatar/vendors/email-tracking-log" }
+        { title: "Email Activity Log", href: "/avatar/vendors/email-tracking-log" }
       ],
     },
   ];

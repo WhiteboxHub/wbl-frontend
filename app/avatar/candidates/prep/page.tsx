@@ -356,7 +356,8 @@ export default function CandidatesPrepPage() {
         headerName: "Move to Marketing",
         width: 150,
         sortable: true,
-        filter: "agSetColumnFilter",
+        filter : "agTextColumnFilter",
+        // filter: "agSetColumnFilter",
         cellRenderer: (params: any) => <span>{params.value ? "Yes" : "No"}</span>,
       },
       {
