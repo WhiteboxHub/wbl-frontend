@@ -306,7 +306,6 @@ const fieldSections: Record<string, string> = {
   batch: "Basic Information",
   start_date: "Basic Information",
   batchname: "Basic Information",
-  target_date_of_marketing: "Basic Information",
   move_to_prep: "Basic Information",
   move_to_mrkt:"Basic Information",
   linkedin_id: "Contact Information",
@@ -317,7 +316,7 @@ const fieldSections: Record<string, string> = {
   linkedin_connected: "Professional Information",
   intro_email_sent: "Professional Information",
   intro_call: "Professional Information",
-  recording_link: "Professional Information",
+  // recording_link: "Professional Information",
   moved_to_vendor: "Professional Information",
   phone_number: "Basic Information",
   secondary_phone: "Contact Information",
@@ -354,7 +353,8 @@ const fieldSections: Record<string, string> = {
   logincount: "Professional Information",
   course: "Professional Information",
   registereddate: "Basic Information",
-  company: "Professional Information",
+  company: "Basic Information",
+  company_type: "Professional Information",
   linkedin: "Contact Information",
   github: "Contact Information",
   github_url: "Contact Information",
@@ -366,7 +366,7 @@ const fieldSections: Record<string, string> = {
   vendor_or_client_name: "Professional Information",
   vendor_or_client_contact: "Professional Information",
   marketing_email_address: "Professional Information",
-  interview_date: "Professional Information",
+  interview_date: "Basic Information",
   interview_mode: "Professional Information",
   visa_status: "Professional Information",
   workstatus: "Basic Information",
@@ -419,7 +419,7 @@ const fieldSections: Record<string, string> = {
   cm_course: "Professional Information",
   cm_subject: "Basic Information",
   material_type: "Basic Information",
-  transcript: "Professional Information",
+  // transcript: "Professional Information",
 };
 
 // Override field labels for better readability
@@ -554,7 +554,6 @@ const dateFields = [
   "interview_date",
   "placement_date",
   "marketing_start_date",
-  "target_date_of_marketing",
 ];
 
 export function EditModal({
