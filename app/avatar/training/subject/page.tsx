@@ -146,7 +146,7 @@ useEffect(() => {
           <h1 className="text-2xl font-bold">Subjects</h1>
           <p>Manage all subjects here.</p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>+ Add Subject</Button>
+        {/* <Button onClick={() => setIsModalOpen(true)}>+ Add Subject</Button> */}
       </div>
 
       {/* Search bar */}
@@ -250,6 +250,24 @@ useEffect(() => {
         columnDefs={columnDefs}
         title={`Subjects (${filteredSubjects.length})`}
         height="calc(70vh)"
+        onRowAdded={async (newRow: any) => {
+          try {
+            const payload = {
+              name: newRow.name || newRow.subject_name || "",
+              description: newRow.description || newRow.desc || "",
+            };
+            if (!payload.name) { toast.error("Name is required"); return; }
+            const res = await apiFetch("/subjects", { method: "POST", body: payload });
+            const created = Array.isArray(res) ? res : (res?.data ?? res);
+            const updated = [created, ...subjects].slice().sort((a:any,b:any)=>b.id-a.id);
+            setSubjects(updated);
+            setFilteredSubjects(updated);
+            toast.success("Subject created");
+          } catch (e:any) {
+            const msg = e?.body || e?.message || "Failed to create subject";
+            toast.error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+          }
+        }}
         onRowUpdated={handleRowUpdated}
         onRowDeleted={handleRowDeleted}
         showSearch={false}
