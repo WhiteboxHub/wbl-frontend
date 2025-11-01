@@ -586,7 +586,9 @@ export default function CandidatesPage() {
         headerName: "Enrolled Date",
         width: 150,
         sortable: true,
-        filter:"agDateColumnFilter",
+
+        filter: "agDateColumnFilter",
+
         valueFormatter: ({ value }: ValueFormatterParams) => formatDate(value),
       },
       {
@@ -679,6 +681,7 @@ export default function CandidatesPage() {
           return (
             <a
               href={href}
+
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-600 underline hover:text-purple-800 text-sm sm:text-base font-medium"
@@ -694,7 +697,8 @@ export default function CandidatesPage() {
         width: 150,
         sortable: true,
         editable: true,
-        filter:"agDateColumnFilter",
+        filter: "agDateColumnFilter",
+
         valueFormatter: ({ value }: ValueFormatterParams) => formatDate(value),
         valueParser: (params) => {
           if (!params.newValue) return null;

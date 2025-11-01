@@ -874,7 +874,9 @@ export default function LeadsPage() {
         headerName: "Entry Date",
         width: 180,
         sortable: true,
-        filter:"agDateColumnFilter",
+
+        filter: "agDateColumnFilter",
+
         valueFormatter: ({ value }: ValueFormatterParams) =>
           value
             ? new Date(value).toLocaleString("en-US", {
@@ -928,7 +930,9 @@ export default function LeadsPage() {
         headerName: "Closed Date",
         width: 150,
         sortable: true,
-        filter:"agDateColumnFilter",
+        filter: "agDateColumnFilter",
+
+
         valueFormatter: ({ value }: ValueFormatterParams) =>
           value
             ? new Date(value).toLocaleDateString("en-IN", {
@@ -1041,23 +1045,7 @@ export default function LeadsPage() {
           </div>
         </div>
         <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
-          {/* <Button
-            onClick={handleOpenModal}
-            className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700"
-          >
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add New Lead
-
-          </Button> */}
-          {/* <Button 
-            onClick={() => syncFromAPI(true)} 
-            variant="outline"
-            disabled={loading}
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> 
-            {loading ? "Syncing..." : "Sync from Server"}
-
-          </Button> */}
+         
         </div>
       </div>
       <div className="flex w-full justify-center">
@@ -1112,8 +1100,10 @@ export default function LeadsPage() {
           loading={loading}
           showFilters={true}
           showSearch={false}
+          
           height="600px"
           title={`Leads (${filteredLeads.length})`}
+          
         />
       </div>
 
