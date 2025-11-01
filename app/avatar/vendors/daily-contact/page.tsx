@@ -1,4 +1,3 @@
-
 "use client";
 import React, {
   useEffect,
@@ -17,11 +16,10 @@ import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { Button } from "@/components/admin_ui/button";
-import { SearchIcon, UserPlus } from "lucide-react";
+import { SearchIcon, Trash2 } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import dynamic from "next/dynamic";
 import { toast, Toaster } from "sonner";
-
 
 const AGGridTable = dynamic(() => import("@/components/AGGridTable"), {
   ssr: false,
@@ -102,7 +100,6 @@ export default function VendorContactsGrid() {
     };
 
     try {
-
       if (api?.get) {
         for (const ep of endpointsToTry) {
           try {
@@ -119,7 +116,6 @@ export default function VendorContactsGrid() {
         }
       }
 
-
       if (typeof apiFetch === "function") {
         for (const ep of endpointsToTry) {
           try {
@@ -135,7 +131,6 @@ export default function VendorContactsGrid() {
           }
         }
 
-
         try {
           console.log("[fetchContacts] trying apiFetch with credentials", endpointsToTry[0]);
           const body = await apiFetch(endpointsToTry[0], { credentials: "include", useCookies: true });
@@ -148,7 +143,6 @@ export default function VendorContactsGrid() {
           console.warn("[fetchContacts] apiFetch(creds) failed", err);
         }
       }
-
 
       for (const ep of endpointsToTry) {
         const full = base ? `${base}${ep.startsWith("/") ? "" : "/"}${ep}` : ep;
@@ -205,7 +199,7 @@ export default function VendorContactsGrid() {
 
   const handleRowUpdated = async (updatedData: any) => {
     try {
-      await apiFetch(`/vendor_contact/${updatedData.id}`, {
+      await apiFetch(`/vendor_contact_extracts/${updatedData.id}`, {
         method: "PUT",
         body: updatedData,
       });
@@ -218,7 +212,7 @@ export default function VendorContactsGrid() {
 
   const handleRowDeleted = async (contactId: number | string) => {
     try {
-      await apiFetch(`/vendor_contact/${contactId}`, {
+      await apiFetch(`/vendor_contact_extracts/${contactId}`, {
         method: "DELETE",
       });
       toast.success("Contact deleted successfully");
@@ -228,10 +222,9 @@ export default function VendorContactsGrid() {
     }
   };
 
-  const handleDeleteMovedContacts = async () => {
+  const handleBulkDeleteMovedContacts = async () => {
     setDeleting(true);
     try {
-      // Filter contacts that have "Yes" in moved_to_vendor column
       const contactsToDelete = contacts.filter((c) => c.moved_to_vendor === true);
       
       if (!contactsToDelete.length) {
@@ -239,40 +232,40 @@ export default function VendorContactsGrid() {
         return;
       }
 
-      // Confirmation dialog
       const confirmed = window.confirm(
         `Are you sure you want to delete ${contactsToDelete.length} contacts that have been moved to vendor? This action cannot be undone.`
       );
       
       if (!confirmed) {
+        setDeleting(false);
         return;
       }
 
-      let deleted = 0, failed = 0;
+      const contactIds = contactsToDelete.map(c => c.id);
       
-      // Delete only contacts with moved_to_vendor = true
-      for (const c of contactsToDelete) {
-        try {
-          await apiFetch(`/vendor_contact/${c.id}`, {
-            method: "DELETE",
-          });
-          deleted++;
-        } catch (e: any) {
-          console.error(`Failed to delete contact ${c.id}:`, e);
-          failed++;
+      console.log("Attempting bulk delete for contacts with IDs:", contactIds);
+
+      try {
+       
+        const response = await apiFetch(`/vendor_contact_extracts/bulk-delete/moved`, {
+          method: "DELETE",
+        });
+
+
+        if (response) {
+          toast.success(`Successfully deleted ${contactsToDelete.length} contacts that were moved to vendor`);
+          // Remove deleted contacts from local state immediately
+          setContacts(prevContacts => prevContacts.filter(contact => !contactIds.includes(contact.id)));
+          setFilteredContacts(prevContacts => prevContacts.filter(contact => !contactIds.includes(contact.id)));
+          return;
         }
+      } catch (error: any) {
+        console.error("Bulk delete failed:", error);
+        toast.error("Bulk delete failed - please check if the bulk delete endpoint exists");
       }
 
-      if (deleted > 0) {
-        toast.success(`Successfully deleted ${deleted} contacts that were moved to vendor${failed ? `, ${failed} failed` : ""}`);
-      }
-      
-      if (failed > 0) {
-        toast.error(`${failed} contacts failed to delete`);
-      }
-
-      await fetchContacts(); // Refresh the list
     } catch (err: any) {
+      console.error("Bulk delete failed completely:", err);
       toast.error(err?.response?.data?.detail || err?.message || "Failed to delete contacts");
     } finally {
       setDeleting(false);
@@ -281,7 +274,6 @@ export default function VendorContactsGrid() {
 
   useEffect(() => {
     fetchContacts();
-    // setIsLoading(true);
   }, [fetchContacts]);
 
   const columnDefs: ColDef[] = useMemo<ColDef[]>(
@@ -378,27 +370,24 @@ export default function VendorContactsGrid() {
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
               Vendor Contact Extracts
             </h1>
-
           </div>
 
-          {/* Button */}
+          {/* Bulk Delete Button */}
           <div className="sm:w-auto">
             <Button
-              onClick={handleDeleteMovedContacts}
+              onClick={handleBulkDeleteMovedContacts}
               disabled={deleting}
-              className="w-full bg-blue-600 text-white hover:bg-blue-700 sm:w-auto"
+              className="w-full bg-red-600 text-white hover:bg-red-700 sm:w-auto"
             >
-              <UserPlus className="mr-2 h-4 w-4" />
+              <Trash2 className="mr-2 h-4 w-4" />
               {deleting ? "Deleting..." : "Delete"}
             </Button>
           </div>
         </div>
 
-        {/* Search + Button — responsive layout */}
+        {/* Search */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          {/* Search box */}
           <div className="w-full sm:max-w-md">
-
             <div className="relative mt-1">
               <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
               <Input
