@@ -234,7 +234,7 @@ export default function VendorContactsGrid() {
   const handleDeleteMovedContacts = async () => {
     setDeleting(true);
     try {
-      // Filter contacts that have "Yes" in moved_to_vendor column
+  
       const contactsToDelete = contacts.filter((c) => c.moved_to_vendor === true);
       
       if (!contactsToDelete.length) {
@@ -242,7 +242,6 @@ export default function VendorContactsGrid() {
         return;
       }
 
-      // Confirmation dialog
       const confirmed = window.confirm(
         `Are you sure you want to delete ${contactsToDelete.length} contacts that have been moved to vendor? This action cannot be undone.`
       );
@@ -253,7 +252,7 @@ export default function VendorContactsGrid() {
 
       let deleted = 0, failed = 0;
       
-      // Delete only contacts with moved_to_vendor = true
+      
       for (const c of contactsToDelete) {
         try {
           await apiFetch(`/vendor_contact/${c.id}`, {
@@ -314,7 +313,9 @@ export default function VendorContactsGrid() {
         field: "extraction_date",
         headerName: "Extraction Date",
         width: 150,
-        valueFormatter: "formatDateFromDB",
+        filter:"agDateColumnFilter",
+        //valueFormatter: "formatDateFromDB",
+        valueFormatter: (params) => formatDateFromDB(params.value),
         editable: true,
       },
       {
@@ -346,7 +347,9 @@ export default function VendorContactsGrid() {
         field: "created_at",
         headerName: "Created At",
         width: 180,
-        valueFormatter: "formatDateFromDB",
+        filter:"agDateColumnFilter",
+        //valueFormatter: "formatDateFromDB",
+        valueFormatter: (params) => formatDateFromDB(params.value),
       },
       {
         field: "internal_linkedin_id",
@@ -386,14 +389,14 @@ export default function VendorContactsGrid() {
 
           {/* Button */}
           <div className="sm:w-auto">
-            <Button
+            {/* <Button
               onClick={handleDeleteMovedContacts}
               disabled={deleting}
               className="w-full bg-blue-600 text-white hover:bg-blue-700 sm:w-auto"
             >
               <UserPlus className="mr-2 h-4 w-4" />
               {deleting ? "Deleting..." : "Delete"}
-            </Button>
+            </Button> */}
           </div>
         </div>
 

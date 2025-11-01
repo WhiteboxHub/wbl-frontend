@@ -189,8 +189,8 @@ export const AnimatedCarousel = ({
             <AnimatePresence>
               {carouselData.map((item, index) => (
                 <motion.div
-                  key={item.src}
-                  initial={{
+                  key={item.name + index}
+                   initial={{
                     opacity: 0,
                     scale: 0.9,
                     z: -100,

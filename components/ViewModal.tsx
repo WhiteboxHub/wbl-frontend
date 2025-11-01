@@ -1,3 +1,4 @@
+
 "use client";
 import { useForm } from "react-hook-form";
 import { useEffect, useRef } from "react";
@@ -83,6 +84,7 @@ const fieldSections: Record<string, string> = {
   subject: "Basic Information",
   title: "Basic Information",
   enrolleddate: "Basic Information",
+  emails_read : "Basic Information",
   orientationdate: "Basic Information",
   promissory: "Basic Information",
   lastlogin: "Professional Information",
@@ -90,7 +92,7 @@ const fieldSections: Record<string, string> = {
   course: "Professional Information",
   registereddate: "Professional Information",
   company: "Professional Information",
-  // linkedin: "Contact Information",
+  linkedin: "Contact Information",
   github_url: "Contact Information",
   github_link: "Contact Information",
   resume: "Contact Information",
@@ -168,11 +170,19 @@ const workVisaStatusOptions = [
   { value: "h1b", label: "H1B" },
 ];
 
+const ratingLabelMap: Record<string, string> = {
+  "excellent": "Excellent",
+  "very good": "Very Good",
+  "good": "Good",
+  "average": "Average",
+  "need to improve": "Need to Improve",
+};
+
 const labelOverrides: Record<string, string> = {
   candidate_full_name: "Candidate Full Name",
-  instructor1_name: "Instructor 1 ",
-  instructor2_name: "Instructor 2",
-  instructor3_name: "Instructor 3",
+  instructor1_name: "Instructor 1 Name",
+  instructor2_name: "Instructor 2 Name",
+  instructor3_name: "Instructor 3 Name",
   id: "ID",
   subject_id: "Subject ID",
   subjectid: "Subject ID",
@@ -254,6 +264,23 @@ const dateFields = [
 
 const courseMaterialHiddenFields = ["subjectid", "courseid", "type"];
 
+// Field visibility configuration
+const fieldVisibility: Record<string, string[]> = {
+  instructor: ['preparation', 'interview', 'marketing'],
+  linkedin: ['preparation', 'interview', 'marketing', 'candidate', 'vendor', 'client', 'placement']
+};
+
+// Helper functions for field visibility
+const shouldShowInstructorFields = (title: string): boolean => {
+  const lowerTitle = title.toLowerCase();
+  return fieldVisibility.instructor.some(modal => lowerTitle.includes(modal));
+};
+
+const shouldShowLinkedInField = (title: string): boolean => {
+  const lowerTitle = title.toLowerCase();
+  return fieldVisibility.linkedin.some(modal => lowerTitle.includes(modal));
+};
+
 // Title-specific exclusions
 const getTitleSpecificExclusions = (title: string): string[] => {
   const lowerTitle = title.toLowerCase();
@@ -263,12 +290,18 @@ const getTitleSpecificExclusions = (title: string): string[] => {
   if (lowerTitle.includes('batch')) {
     exclusions.push('cm_subject', 'subject_name');
   }
+    if (lowerTitle.includes('leads')) {
+    exclusions.push('synced', 'lastSync');
+  }
   
   // class recordings
   if (lowerTitle.includes('recording') || lowerTitle.includes('class recording')) {
     exclusions.push('material_type', 'cm_subject', 'subject_name');
   }
-  
+
+  if (lowerTitle.includes('marketing')){
+    exclusions.push('marketing_manager_obj')
+  }
   // sessions
   if (lowerTitle.includes('session') && !lowerTitle.includes('submission')) {
     exclusions.push('material_type', 'cm_subject', 'subject_name');
@@ -396,6 +429,12 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
         const displayValue = instructorMap[value] || value;
         return <Badge className={value === '1' || value === 'true' || value === 'yes' ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>{displayValue}</Badge>;
       }
+    }
+
+    if (lowerKey.includes("rating") || lowerKey.includes("communication")) {
+      const normalizedValue = String(value).toLowerCase();
+      const displayValue = ratingLabelMap[normalizedValue] || value;
+      return <p>{displayValue}</p>;
     }
     
     if (typeof value === "object" && value !== null) {
@@ -530,12 +569,31 @@ const flattenData = (data: Record<string, any>) => {
 
   const titleExclusions = getTitleSpecificExclusions(title);
 
+  // Field visibility for current modal
+  const showInstructorFields = shouldShowInstructorFields(title);
+  const showLinkedInField = shouldShowLinkedInField(title);
 
   const allFields: { key: string; value: any; section: string }[] = [];
   
   Object.entries(flattenedData).forEach(([key, value]) => {
     // Skip excluded fields
     if (excludedFields.includes(key)) return;
+    
+    // MODAL-SPECIFIC FIELD FILTERING
+    const instructorFields = [
+      'instructor1_name', 'instructor2_name', 'instructor3_name',
+      'instructor1_id', 'instructor2_id', 'instructor3_id'
+    ];
+    
+    // Hide instructor fields in non-relevant modals
+    if (!showInstructorFields && instructorFields.includes(key)) {
+      return;
+    }
+    
+    // Hide LinkedIn in non-relevant modals
+    if (!showLinkedInField && key === 'linkedin_id') {
+      return;
+    }
     
     if (isCourseMaterial && courseMaterialHiddenFields.includes(key)) return;
     

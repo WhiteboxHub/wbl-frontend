@@ -874,6 +874,7 @@ export default function LeadsPage() {
         headerName: "Entry Date",
         width: 180,
         sortable: true,
+        filter:"agDateColumnFilter",
         valueFormatter: ({ value }: ValueFormatterParams) =>
           value
             ? new Date(value).toLocaleString("en-US", {
@@ -927,6 +928,7 @@ export default function LeadsPage() {
         headerName: "Closed Date",
         width: 150,
         sortable: true,
+        filter:"agDateColumnFilter",
         valueFormatter: ({ value }: ValueFormatterParams) =>
           value
             ? new Date(value).toLocaleDateString("en-IN", {
@@ -1047,7 +1049,7 @@ export default function LeadsPage() {
             Add New Lead
 
           </Button> */}
-          <Button 
+          {/* <Button 
             onClick={() => syncFromAPI(true)} 
             variant="outline"
             disabled={loading}
@@ -1055,7 +1057,7 @@ export default function LeadsPage() {
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> 
             {loading ? "Syncing..." : "Sync from Server"}
 
-          </Button>
+          </Button> */}
         </div>
       </div>
       <div className="flex w-full justify-center">

@@ -510,7 +510,7 @@ export default function VendorPage() {
       cellEditor: SelectEditor,
       cellEditorParams: { options: ["YES", "NO"] },
     },
-    { field: "created_at", headerName: "Created At", width: 180, valueFormatter: DateFormatter, editable: false },
+    { field: "created_at", headerName: "Created At", width: 180, valueFormatter: DateFormatter, filter:"agDateColumnFilter", editable: false },
     {
       field: "notes",
       headerName: "Notes",

@@ -408,7 +408,7 @@ const LinkCellRenderer = (params: any) => {
         headerName: "Move to Placement",
         width: 190,
         sortable: true,
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
         cellRenderer: (params: any) => (
           <span>{params.value ? "Yes" : "No"}</span>
         ),

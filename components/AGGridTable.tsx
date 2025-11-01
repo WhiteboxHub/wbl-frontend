@@ -357,7 +357,7 @@ export function AGGridTable({
             variant="outline"
             size="sm"
             onClick={handleAdd}
-            className="flex h-8 w-8 items-center justify-center p-0 font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400"
+            className="flex h-8 w-8 items-center justify-center p-0 font-bold text-green-600 hover:text-blue-700 dark:text-green-400"
             title="Add New"
           >
             +

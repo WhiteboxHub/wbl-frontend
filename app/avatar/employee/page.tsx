@@ -288,9 +288,9 @@ export default function EmployeesPage() {
     },
     { headerName: "Address", field: "address", editable: true, onCellValueChanged: (params) => handleRowUpdated(params.data) },
     { headerName: "State", field: "state", editable: true, onCellValueChanged: (params) => handleRowUpdated(params.data) },
-    { headerName: "DOB", field: "dob", valueFormatter: DateFormatter, editable: true, onCellValueChanged: (params) => handleRowUpdated(params.data) },
-    { headerName: "Start Date", field: "startdate", valueFormatter: DateFormatter, editable: true, onCellValueChanged: (params) => handleRowUpdated(params.data) },
-    { headerName: "End Date", field: "enddate", valueFormatter: DateFormatter, editable: true, onCellValueChanged: (params) => handleRowUpdated(params.data) },
+    { headerName: "DOB", field: "dob", valueFormatter: DateFormatter, editable: true, filter:"agDateColumnFilter", onCellValueChanged: (params) => handleRowUpdated(params.data) },
+    { headerName: "Start Date", field: "startdate", valueFormatter: DateFormatter, editable: true,filter:"agDateColumnFilter", onCellValueChanged: (params) => handleRowUpdated(params.data) },
+    { headerName: "End Date", field: "enddate", valueFormatter: DateFormatter, editable: true,filter:"agDateColumnFilter", onCellValueChanged: (params) => handleRowUpdated(params.data) },
     { headerName: "Instructor", field: "instructor", editable: true, onCellValueChanged: (params) => handleRowUpdated(params.data) },
     { headerName: "Status", field: "status", editable: true, onCellValueChanged: (params) => handleRowUpdated(params.data) },
     {

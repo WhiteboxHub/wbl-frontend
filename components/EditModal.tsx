@@ -1,4 +1,4 @@
-// whiteboxLearning-wbl\components\EditModal.tsx
+
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
@@ -8,22 +8,6 @@ import dynamic from "next/dynamic";
 const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
 import "react-quill/dist/quill.snow.css";
 import { apiFetch } from "@/lib/api";
-import {
-  enumOptions,
-  vendorTypeOptions,
-  vendorStatuses,
-  genericStatusOptions,
-  materialTypeOptions,
-  excludedFields,
-  fieldSections,
-  labelOverrides,
-  dateFields,
-  type Batch,
-} from "@/lib/formConfig";
-import { flattenData } from "@/lib/formDataTransforms";
-
-// Shared config & types imported from lib/formConfig
-
 
 // Enum options for various fields
 const enumOptions: Record<string, { value: string; label: string }[]> = {
@@ -85,15 +69,17 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
   ],
   rating: [
     { value: "", label: "Select Rating" },
-    { value: "Good", label: "Good" },
+    { value: "Excellent", label: "Excellent" },
     { value: "Very Good", label: "Very Good" },
+    { value: "Good", label: "Good" },
     { value: "Average", label: "Average" },
     { value: "Need to Improve", label: "Need to Improve" },
   ],
   communication: [
     { value: "", label: "Select" },
-    { value: "Good", label: "Good" },
+    { value: "Excellent", label: "Excellent" },
     { value: "Very Good", label: "Very Good" },
+    { value: "Good", label: "Good" },
     { value: "Average", label: "Average" },
     { value: "Need to Improve", label: "Need to Improve" },
   ],
@@ -263,7 +249,6 @@ interface Batch {
   courseid?: number;
 }
 
-
 interface EditModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -272,9 +257,6 @@ interface EditModalProps {
   onSave: (updatedData: Record<string, any>) => void;
   batches: Batch[];
 }
-
-
-// Shared sections, labels, enums, and date fields imported from lib/formConfig
 
 // Fields to exclude from the form
 const excludedFields = [
@@ -285,6 +267,23 @@ const excludedFields = [
   "instructor3_id", "candidate_id", "batch"
 ];
 
+// Field visibility configuration
+const fieldVisibility: Record<string, string[]> = {
+  instructor: ['preparation', 'interview', 'marketing'],
+  linkedin: ['preparation', 'interview', 'marketing', 'candidate', 'vendor', 'client', 'placement']
+};
+
+// Helper functions for field visibility
+const shouldShowInstructorFields = (title: string): boolean => {
+  const lowerTitle = title.toLowerCase();
+  return fieldVisibility.instructor.some(modal => lowerTitle.includes(modal));
+};
+
+const shouldShowLinkedInField = (title: string): boolean => {
+  const lowerTitle = title.toLowerCase();
+  return fieldVisibility.linkedin.some(modal => lowerTitle.includes(modal));
+};
+
 // Map fields to their respective sections
 const fieldSections: Record<string, string> = {
   candidate_full_name: "Basic Information",
@@ -294,6 +293,7 @@ const fieldSections: Record<string, string> = {
   interviewer_emails: "Contact Information",
   interviewer_contact: "Contact Information",
   interviewer_linkedin: "Contact Information",
+  emails_read : "Basic Information",
   id: "Basic Information",
   alias: "Basic Information",
   Fundamentals: "Basic Information",
@@ -309,7 +309,6 @@ const fieldSections: Record<string, string> = {
   target_date_of_marketing: "Basic Information",
   move_to_prep: "Basic Information",
   move_to_mrkt:"Basic Information",
-  // move_to_placement: "Basic Information",
   linkedin_id: "Contact Information",
   enrolled_date: "Professional Information",
   startdate: "Professional Information",
@@ -598,6 +597,10 @@ export function EditModal({
   const isLeadModal = title.toLowerCase().includes("lead");
   const isCandidateModal = title.toLowerCase().includes("candidate") && !isPreparationModal;
 
+  // Field visibility for current modal
+  const showInstructorFields = shouldShowInstructorFields(title);
+  const showLinkedInField = shouldShowLinkedInField(title);
+
   // modal for candidate_full_name first and read-only
   const isSpecialModal = isInterviewModal || isMarketingModal || isPlacementModal || isPreparationModal;
 
@@ -743,10 +746,6 @@ export function EditModal({
     fetchSubjects();
     fetchEmployees();
   }, [isCourseMaterialModal]);
-
-
-  // Flatten nested data for the form (shared util)
-
   
   const flattenData = (data: Record<string, any>) => {
     const flattened: Record<string, any> = { ...data };
@@ -814,8 +813,9 @@ export function EditModal({
 
 const normalizeRatingValue = (value: string): string => {
   const ratingMap: Record<string, string> = {
-    'good': 'Good',
+    'excellent': 'Excellent',
     'very good': 'Very Good',
+    'good': 'Good',
     'average': 'Average',
     'need to improve': 'Need to Improve',
   };
@@ -826,8 +826,9 @@ const normalizeRatingValue = (value: string): string => {
 
 const normalizeCommunicationValue = (value: string): string => {
   const communicationMap: Record<string, string> = {
-    'good': 'Good',
+    'excellent': 'Excellent',
     'very good': 'Very Good',
+    'good': 'Good',
     'average': 'Average',
     'need to improve': 'Need to Improve',
   };
@@ -836,30 +837,10 @@ const normalizeCommunicationValue = (value: string): string => {
   return communicationMap[normalized] || value; 
 };
 
-
   // Reset form data when the modal opens
   useEffect(() => {
     if (data && isOpen) {
-      const ctxForFlatten = isCourseSubjectModal
-        ? "course-subject"
-        : isCourseMaterialModal
-        ? "course-material"
-        : isInterviewModal
-        ? "interview"
-        : isMarketingModal
-        ? "marketing"
-        : isPlacementModal
-        ? "placement"
-        : isPreparationModal
-        ? "preparation"
-        : isEmployeeModal
-        ? "employee"
-        : isVendorModal
-        ? "vendor"
-        : isLeadModal
-        ? "lead"
-        : "candidate";
-      const flattenedData = flattenData(data, ctxForFlatten);
+      const flattenedData = flattenData(data);
       setFormData(flattenedData);
       reset(flattenedData);
     }
@@ -914,25 +895,25 @@ const normalizeCommunicationValue = (value: string): string => {
         full_name: formData.candidate_full_name,
       };
     }
-    if (formData.instructor1_name) {
+    if (formData.instructor1_id && showInstructorFields) {
       reconstructedData.instructor1 = {
         ...data.instructor1,
         name: formData.instructor1_name,
-        id: formData.instructor1_id,
+        id: parseInt(formData.instructor1_id),
       };
     }
-    if (formData.instructor2_name) {
+    if (formData.instructor2_id && showInstructorFields) {
       reconstructedData.instructor2 = {
         ...data.instructor2,
         name: formData.instructor2_name,
-        id: formData.instructor2_id,
+        id: parseInt(formData.instructor2_id),
       };
     }
-    if (formData.instructor3_name) {
+    if (formData.instructor3_id && showInstructorFields) {
       reconstructedData.instructor3 = {
         ...data.instructor3,
         name: formData.instructor3_name,
-        id: formData.instructor3_id,
+        id: parseInt(formData.instructor3_id),
       };
     }
     onSave(reconstructedData);
@@ -995,7 +976,7 @@ const normalizeCommunicationValue = (value: string): string => {
     return enumOptions[keyLower];
   };
 
-  // Organize fields into sections
+  // Organize fields into sections with modal-specific filtering
   const sectionedFields: Record<string, { key: string; value: any }[]> = {
     "Basic Information": [],
     "Professional Information": [],
@@ -1007,12 +988,32 @@ const normalizeCommunicationValue = (value: string): string => {
 
   const formValues = watch();
   Object.entries(formData).forEach(([key, value]) => {
+    // Skip excluded fields
     if (excludedFields.includes(key)) return;
+    
+    // MODAL-SPECIFIC FIELD FILTERING
+    const instructorFields = [
+      'instructor1_name', 'instructor2_name', 'instructor3_name',
+      'instructor1_id', 'instructor2_id', 'instructor3_id'
+    ];
+    
+    // Hide instructor fields in non-relevant modals
+    if (!showInstructorFields && instructorFields.includes(key)) {
+      return;
+    }
+    
+    // Hide LinkedIn in non-relevant modals
+    if (!showLinkedInField && key === 'linkedin_id') {
+      return;
+    }
+    
+    // Existing filters
     if (isCandidateOrEmployee && key.toLowerCase() === "name") return;
     if (isCourseSubjectModal && ["cm_course", "cm_subject"].includes(key.toLowerCase())) return;
     if (isCourseMaterialModal && ["subjectid", "courseid", "type"].includes(key.toLowerCase())) return;
     if (isBatchesModal && key.toLowerCase() === "batchid") return;
     if (isMarketingModal && (key === "Marketing Manager obj" || key === "marketing_manager_obj")) return;
+    
     const section = fieldSections[key] || "Other";
     if (!sectionedFields[section]) sectionedFields[section] = [];
     sectionedFields[section].push({ key, value });
@@ -1049,8 +1050,6 @@ const normalizeCommunicationValue = (value: string): string => {
     3: "sm:grid-cols-2 md:grid-cols-3",
     4: "sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4",
   }[columnCount] || "sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4";
-
-  const isInterviewOrMarketing = title.toLowerCase().includes("interview") || title.toLowerCase().includes("marketing");
 
   if (!isOpen || !data) return null;
 
@@ -1192,97 +1191,94 @@ const normalizeCommunicationValue = (value: string): string => {
                             </select>
                           </div>
                         )}
-
-                        {section === "Professional Information" && (
+                      
+                        {section === "Professional Information" && showInstructorFields && (
                           <>
-                            {(isPreparationModal || isMarketingModal) && (
-                              <>
-                                {/* Instructor 1 */}
-                                <div className="space-y-1 sm:space-y-1.5">
-                                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
-                                    Instructor 1
-                                  </label>
-                                  {isMarketingModal ? (
-                                    <input
-                                      type="text"
-                                      value={data.instructor1?.name || formData.instructor1_name || ""}
-                                      readOnly
-                                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
-                                    />
-                                  ) : (
-                                    <select
-                                      {...register("instructor1_id")}
-                                      value={currentFormValues.instructor1_id || formData.instructor1_id || ""}
-                                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
-                                    >
-                                      <option value="">Select Instructor</option>
-                                      {employees.map((emp) => (
-                                        <option key={emp.id} value={emp.id}>
-                                          {emp.name}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  )}
-                                </div>
-                                {/* Instructor 2 */}
-                                <div className="space-y-1 sm:space-y-1.5">
-                                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
-                                    Instructor 2
-                                  </label>
-                                  {isMarketingModal ? (
-                                    <input
-                                      type="text"
-                                      value={data.instructor2?.name || formData.instructor2_name || ""}
-                                      readOnly
-                                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
-                                    />
-                                  ) : (
-                                    <select
-                                      {...register("instructor2_id")}
-                                      value={currentFormValues.instructor2_id || formData.instructor2_id || ""}
-                                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
-                                    >
-                                      <option value="">Select Instructor</option>
-                                      {employees.map((emp) => (
-                                        <option key={emp.id} value={emp.id}>
-                                          {emp.name}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  )}
-                                </div>
-                                {/* Instructor 3 */}
-                                <div className="space-y-1 sm:space-y-1.5">
-                                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
-                                    Instructor 3
-                                  </label>
-                                  {isMarketingModal ? (
-                                    <input
-                                      type="text"
-                                      value={data.instructor3?.name || formData.instructor3_name || ""}
-                                      readOnly
-                                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
-                                    />
-                                  ) : (
-                                    <select
-                                      {...register("instructor3_id")}
-                                      value={currentFormValues.instructor3_id || formData.instructor3_id || ""}
-                                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
-                                    >
-                                      <option value="">Select Instructor</option>
-                                      {employees.map((emp) => (
-                                        <option key={emp.id} value={emp.id}>
-                                          {emp.name}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  )}
-                                </div>
-                              </>
-                            )}
+                            {/* Instructor 1 */}
+                            <div className="space-y-1 sm:space-y-1.5">
+                              <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                Instructor 1
+                              </label>
+                              {(isMarketingModal || isInterviewModal) ? (
+                                <input
+                                  type="text"
+                                  value={data.instructor1?.name || formData.instructor1_name || ""}
+                                  readOnly
+                                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
+                                />
+                              ) : (
+                                <select
+                                  {...register("instructor1_id")}
+                                  value={currentFormValues.instructor1_id || formData.instructor1_id || ""}
+                                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                                >
+                                  <option value="">Select Instructor</option>
+                                  {employees.map((emp) => (
+                                    <option key={emp.id} value={emp.id}>
+                                      {emp.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                            </div>
+                            
+                            {/* Instructor 2 */}
+                            <div className="space-y-1 sm:space-y-1.5">
+                              <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                Instructor 2
+                              </label>
+                              {(isMarketingModal || isInterviewModal) ? (
+                                <input
+                                  type="text"
+                                  value={data.instructor2?.name || formData.instructor2_name || ""}
+                                  readOnly
+                                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
+                                />
+                              ) : (
+                                <select
+                                  {...register("instructor2_id")}
+                                  value={currentFormValues.instructor2_id || formData.instructor2_id || ""}
+                                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                                >
+                                  <option value="">Select Instructor</option>
+                                  {employees.map((emp) => (
+                                    <option key={emp.id} value={emp.id}>
+                                      {emp.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                            </div>
+                            
+                            {/* Instructor 3 */}
+                            <div className="space-y-1 sm:space-y-1.5">
+                              <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                Instructor 3
+                              </label>
+                              {(isMarketingModal || isInterviewModal) ? (
+                                <input
+                                  type="text"
+                                  value={data.instructor3?.name || formData.instructor3_name || ""}
+                                  readOnly
+                                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
+                                />
+                              ) : (
+                                <select
+                                  {...register("instructor3_id")}
+                                  value={currentFormValues.instructor3_id || formData.instructor3_id || ""}
+                                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                                >
+                                  <option value="">Select Instructor</option>
+                                  {employees.map((emp) => (
+                                    <option key={emp.id} value={emp.id}>
+                                      {emp.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                            </div>
                           </>
                         )}
-
                         {sectionedFields[section]
                           .filter(
                             ({ key }) =>
@@ -1313,14 +1309,14 @@ const normalizeCommunicationValue = (value: string): string => {
                             const isIntroEmailSentField = key.toLowerCase() === "intro_email_sent";
                             const isIntroCallField = key.toLowerCase() === "intro_call";
                             const isCandidateFullName = key.toLowerCase() === "candidate_full_name";
+                            const isLinkedInField = key.toLowerCase() === "linkedin_id";
                             const isPrepOrMarketing = isPreparationModal || isMarketingModal;
 
                             if (isMaterialTypeField && !isCourseMaterialModal) {
                               return null;
                             }
-                            if (isInterviewOrMarketing && ["instructor1_name", "instructor2_name", "instructor3_name"].includes(key)) {
-                              return null;
-                            }
+
+                            // Special handling for candidate_full_name in special modals
                             if (isSpecialModal && isCandidateFullName) {
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5">
@@ -1338,7 +1334,8 @@ const normalizeCommunicationValue = (value: string): string => {
                               );
                             }
 
-                            if (isSpecialModal && (key === "linkedin_id")) {
+                            // Special handling for LinkedIn ID in special modals (read-only)
+                            if (isSpecialModal && isLinkedInField) {
                               let url = (formData?.[key] || formData?.candidate?.[key] || "").trim();
 
                               if (!url) {
@@ -1403,9 +1400,6 @@ const normalizeCommunicationValue = (value: string): string => {
                                 </div>
                               );
                             }
-
-
-
 
                             const fieldEnumOptions = getEnumOptions(key);
                             if (fieldEnumOptions) {
@@ -1615,9 +1609,7 @@ const normalizeCommunicationValue = (value: string): string => {
                                   }
                                 }, 0);
                               }}
-                              className="px-2 sm:px-2 py-1 sm:py-1 text-sm sm:text-sm font-medium text-black hover:text-blue-800 hover:underline
-                                        
-                                         "
+                              className="px-2 sm:px-2 py-1 sm:py-1 text-sm sm:text-sm font-medium text-black hover:text-blue-800 hover:underline"
                             >
                               + New Entry
                             </button>
