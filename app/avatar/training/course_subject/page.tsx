@@ -296,11 +296,11 @@ useEffect(() => {
           </div>
         </div>
 
-          <Button className="w-full sm:w-auto" size="sm" onClick={() => setShowModal(true)}>
+          {/* <Button className="w-full sm:w-auto" size="sm" onClick={() => setShowModal(true)}>
 
             <PlusIcon className="mr-2 h-4 w-4" />
             Add Mapping
-          </Button>
+          </Button> */}
       </div>
 
       {/* Add Mapping Modal - Updated with same colors */}
@@ -404,6 +404,25 @@ useEffect(() => {
         columnDefs={columnDefs}
         title={`Course-Subject (${filteredCourseSubjects.length} results)`}
         height="calc(70vh - 100px)"
+        onRowAdded={async (newRow: any) => {
+          try {
+            const courseName = newRow.course_name || "";
+            const subjectName = newRow.subject_name || "";
+            const course = courses.find(c => c.name === courseName);
+            const subject = subjects.find(s => s.name === subjectName);
+            if (!course || !subject) { toast.error("Select valid Course and Subject"); return; }
+            const payload = { course_id: course.id, subject_id: subject.id };
+            const res = await apiFetch("/course-subjects", { method: "POST", body: payload });
+            const created = Array.isArray(res) ? res : (res?.data ?? res);
+            const withId = { ...created, id: `${created.course_id}-${created.subject_id}` };
+            const updated = [withId, ...courseSubjects];
+            setCourseSubjects(updated);
+            setFilteredCourseSubjects(updated);
+            toast.success("Mapping created");
+          } catch (e:any) {
+            toast.error(getErrorMessage(e));
+          }
+        }}
         onRowDeleted={handleRowDeleted}
         showSearch={false}
       />

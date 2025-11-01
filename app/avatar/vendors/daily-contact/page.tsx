@@ -1,3 +1,4 @@
+
 "use client";
 import React, {
   useEffect,
@@ -36,8 +37,13 @@ const MovedToVendorRenderer = ({ value }: { value?: boolean }) => {
   return <Badge className={badgeClass}>{status}</Badge>;
 };
 
-const DateFormatter = ({ value }: { value?: string | Date | null }) =>
-  value ? new Date(value).toLocaleDateString() : "-";
+// const DateFormatter = ({ value }: { value?: string | Date | null }) =>
+//   value ? new Date(value).toLocaleDateString() : "-";
+
+function formatDateFromDB(dateStr: string | null | undefined) {
+  if (!dateStr) return "";
+  return dateStr.slice(0, 10); 
+}
 
 const EmailRenderer = ({ value }: { value?: string }) => {
   if (!value) return null;
@@ -70,7 +76,7 @@ export default function VendorContactsGrid() {
   const [filteredContacts, setFilteredContacts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [movingToVendor, setMovingToVendor] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const apiEndpoint = useMemo(
     () => `${process.env.NEXT_PUBLIC_API_URL}/vendor_contact_extracts`,
@@ -225,63 +231,53 @@ export default function VendorContactsGrid() {
     }
   };
 
-  const handleMoveAllToVendor = async () => {
-    setMovingToVendor(true);
+  const handleDeleteMovedContacts = async () => {
+    setDeleting(true);
     try {
-      const toMove = contacts.filter((c) => !c.moved_to_vendor);
-      if (!toMove.length) {
-        toast.info("No contacts to move");
+  
+      const contactsToDelete = contacts.filter((c) => c.moved_to_vendor === true);
+      
+      if (!contactsToDelete.length) {
+        toast.info("No contacts with 'Yes' in Moved To Vendor to delete");
         return;
       }
 
-      let inserted = 0, skipped = 0, failed = 0;
-      for (const c of toMove) {
-        const payload: any = {
-          full_name: c.full_name || c.company_name || c.email || "Unknown",
-          email: c.email || undefined,
-          phone_number: c.phone || undefined,
-        };
+      const confirmed = window.confirm(
+        `Are you sure you want to delete ${contactsToDelete.length} contacts that have been moved to vendor? This action cannot be undone.`
+      );
+      
+      if (!confirmed) {
+        return;
+      }
+
+      let deleted = 0, failed = 0;
+      
+      
+      for (const c of contactsToDelete) {
         try {
-
-          await apiFetch("/vendors", { method: "POST", body: payload });
-
-
           await apiFetch(`/vendor_contact/${c.id}`, {
-            method: "PUT",
-            body: { moved_to_vendor: true },
+            method: "DELETE",
           });
-          inserted++;
+          deleted++;
         } catch (e: any) {
-          const d = (e?.body || "").toString().toLowerCase();
-          if (d.includes("email already exists")) {
-            skipped++;
-            try {
-              await apiFetch(`/vendor_contact/${c.id}`, {
-                method: "PUT",
-                body: { moved_to_vendor: true },
-              });
-            } catch { }
-          } else {
-            failed++;
-          }
+          console.error(`Failed to delete contact ${c.id}:`, e);
+          failed++;
         }
       }
 
-      if (inserted) {
-        toast.success(`Moved ${inserted} contacts${skipped ? `, ${skipped} skipped` : ""}${failed ? `, ${failed} failed` : ""}`);
-      } else if (skipped && !failed) {
-        toast.info(`${skipped} contacts already existed; marked as moved`);
-      } else if (failed) {
-        toast.error("Failed to move contacts");
-      } else {
-        toast.info("No contacts to move");
+      if (deleted > 0) {
+        toast.success(`Successfully deleted ${deleted} contacts that were moved to vendor${failed ? `, ${failed} failed` : ""}`);
+      }
+      
+      if (failed > 0) {
+        toast.error(`${failed} contacts failed to delete`);
       }
 
-      await fetchContacts();
+      await fetchContacts(); // Refresh the list
     } catch (err: any) {
-      toast.error(err?.response?.data?.detail || err?.message || "Failed to move contacts to vendor");
+      toast.error(err?.response?.data?.detail || err?.message || "Failed to delete contacts");
     } finally {
-      setMovingToVendor(false);
+      setDeleting(false);
     }
   };
 
@@ -317,7 +313,9 @@ export default function VendorContactsGrid() {
         field: "extraction_date",
         headerName: "Extraction Date",
         width: 150,
-        valueFormatter: DateFormatter,
+        filter:"agDateColumnFilter",
+        //valueFormatter: "formatDateFromDB",
+        valueFormatter: (params) => formatDateFromDB(params.value),
         editable: true,
       },
       {
@@ -349,7 +347,9 @@ export default function VendorContactsGrid() {
         field: "created_at",
         headerName: "Created At",
         width: 180,
-        valueFormatter: DateFormatter,
+        filter:"agDateColumnFilter",
+        //valueFormatter: "formatDateFromDB",
+        valueFormatter: (params) => formatDateFromDB(params.value),
       },
       {
         field: "internal_linkedin_id",
@@ -389,14 +389,14 @@ export default function VendorContactsGrid() {
 
           {/* Button */}
           <div className="sm:w-auto">
-            <Button
-              onClick={handleMoveAllToVendor}
-              disabled={movingToVendor}
+            {/* <Button
+              onClick={handleDeleteMovedContacts}
+              disabled={deleting}
               className="w-full bg-blue-600 text-white hover:bg-blue-700 sm:w-auto"
             >
               <UserPlus className="mr-2 h-4 w-4" />
-              {movingToVendor ? "Moving..." : "Move All to Vendor"}
-            </Button>
+              {deleting ? "Deleting..." : "Delete"}
+            </Button> */}
           </div>
         </div>
 

@@ -1,8 +1,6 @@
-
-// export default CourseContent;
 import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
-import { apiFetch, API_BASE_URL } from "@/lib/api"; // adjust import if needed
+import { apiFetch, API_BASE_URL } from "@/lib/api";
 import CourseContentTable from "@/components/Common/CourseContentTable";
 import { toast } from "sonner";
 
@@ -12,6 +10,20 @@ const CourseContent = () => {
 
   const fetchCourseContent = useCallback(async () => {
     setLoading(true);
+
+    const token = typeof window !== "undefined"
+      ? localStorage.getItem("access_token") || localStorage.getItem("token") || localStorage.getItem("auth_token")
+      : null;
+
+    if (!token) {
+      toast.error("Please log in to access course content");
+    
+      if (typeof window !== "undefined") {
+        window.location.href = "/login";
+      }
+      setLoading(false);
+      return;
+    }
 
     const base = (process.env.NEXT_PUBLIC_API_URL || API_BASE_URL || "").replace(/\/$/, "");
     const endpointsToTry = ["/course-content", "/course-content?limit=100"];
@@ -27,42 +39,46 @@ const CourseContent = () => {
     };
 
     try {
-      // 1) Try apiFetch first
-      if (typeof apiFetch === "function") {
-        for (const ep of endpointsToTry) {
-          try {
-            const body = await apiFetch(ep, { credentials: "include", useCookies: true });
-            setSubjects(normalize(body));
-            return;
-          } catch (err) {
-            console.warn("[fetchCourseContent] apiFetch failed for", ep, err);
-          }
-        }
-      }
-
-      // 2) Fallback to Axios with token
       for (const ep of endpointsToTry) {
         try {
           const fullUrl = base + (ep.startsWith("/") ? ep : `/${ep}`);
-          const token =
-            typeof window !== "undefined"
-              ? localStorage.getItem("access_token") || localStorage.getItem("token") || localStorage.getItem("auth_token")
-              : null;
+          
+          const response = await fetch(fullUrl, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            credentials: 'include',
+          });
 
-          const headers: any = { Accept: "application/json" };
-          if (token) headers.Authorization = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+          if (response.status === 403) {
+            toast.error("Access forbidden - insufficient permissions");
+            continue;
+          }
 
-          const res = await axios.get(fullUrl, { headers, withCredentials: true });
-          setSubjects(normalize(res.data));
-          return;
-        } catch (err: any) {
-          console.warn("[fetchCourseContent] Axios failed for", ep, err?.response?.status ?? err?.message ?? err);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const data = await response.json();
+          const normalizedData = normalize(data);
+          setSubjects(normalizedData);
+          
+          if (normalizedData.length > 0) {
+            return;
+          }
+        } catch (err) {
+          console.warn(`Failed for endpoint ${ep}:`, err);
+          continue;
         }
       }
 
-      toast.error("Failed to load course content — check console/network for details.");
+      toast.error("Unable to load course content. Please check your permissions.");
+      
     } catch (err: any) {
-      console.error("[fetchCourseContent] unexpected", err);
+      console.error("[fetchCourseContent] unexpected error:", err);
       toast.error(err?.message || "Failed to load course content");
     } finally {
       setLoading(false);
@@ -73,6 +89,7 @@ const CourseContent = () => {
     fetchCourseContent();
   }, [fetchCourseContent]);
 
+ 
   if (loading) {
     return (
       <div className="text-md mt-32 mb-4 flex justify-center text-center font-medium text-black dark:text-white sm:text-2xl">

@@ -1,5 +1,4 @@
-
-
+// whiteboxLearning-wbl\app\avatar\leads\page.tsx
 "use client";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
@@ -445,6 +444,7 @@ export default function LeadsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isNewLead = searchParams.get("newlead") === "true";
+  const [isModalOpen, setIsModalOpen] = useState(isNewLead);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -452,7 +452,6 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchBy, setSearchBy] = useState("full_name");
-  const [isModalOpen, setIsModalOpen] = useState(isNewLead);
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [formSaveLoading, setFormSaveLoading] = useState(false);
   const [sortModel, setSortModel] = useState([
@@ -556,8 +555,6 @@ export default function LeadsPage() {
       const sortedLeadsData = sortLeadsByEntryDate(leadsData);
       setLeads(sortedLeadsData);
       setFilteredLeads(sortedLeadsData);
-      
-      toast.success("Data synced from server");
       
     } catch (err: any) {
       console.error('API sync failed:', err);
@@ -877,7 +874,9 @@ export default function LeadsPage() {
         headerName: "Entry Date",
         width: 180,
         sortable: true,
+
         filter: "agDateColumnFilter",
+
         valueFormatter: ({ value }: ValueFormatterParams) =>
           value
             ? new Date(value).toLocaleString("en-US", {
@@ -932,6 +931,8 @@ export default function LeadsPage() {
         width: 150,
         sortable: true,
         filter: "agDateColumnFilter",
+
+
         valueFormatter: ({ value }: ValueFormatterParams) =>
           value
             ? new Date(value).toLocaleDateString("en-IN", {
@@ -1044,21 +1045,7 @@ export default function LeadsPage() {
           </div>
         </div>
         <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
-          <Button
-            onClick={handleOpenModal}
-            className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700"
-          >
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add New Lead
-          </Button>
-          <Button 
-            onClick={() => syncFromAPI(true)} 
-            variant="outline"
-            disabled={loading}
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> 
-            {loading ? "Syncing..." : "Sync from Server"}
-          </Button>
+         
         </div>
       </div>
       <div className="flex w-full justify-center">
@@ -1068,6 +1055,46 @@ export default function LeadsPage() {
           )}-${selectedWorkStatuses.join(",")}`}
           rowData={filteredLeads}
           columnDefs={columnDefs}
+          onRowAdded={async (newRow: any) => {
+            try {
+              const payload = {
+                full_name: newRow.full_name || newRow.fullname || newRow.name || "",
+                email: newRow.email || newRow.candidate_email || newRow.secondary_email || "",
+                phone: newRow.phone || newRow.phone_number || newRow.contact || "",
+                workstatus: newRow.workstatus || "Waiting for Status",
+                address: newRow.address || "",
+                secondary_email: newRow.secondary_email || "",
+                secondary_phone: newRow.secondary_phone || "",
+                status: newRow.status || "Open",
+                moved_to_candidate: Boolean(newRow.moved_to_candidate),
+                notes: newRow.notes || "",
+                entry_date: newRow.entry_date || new Date().toISOString(),
+                massemail_unsubscribe: Boolean(newRow.massemail_unsubscribe),
+                massemail_email_sent: Boolean(newRow.massemail_email_sent),
+              };
+
+              const savedLead = await apiFetch("leads", {
+                method: "POST",
+                body: payload,
+                timeout: 10000,
+              });
+
+              await db.leads.add({
+                ...savedLead,
+                synced: true,
+                lastSync: new Date().toISOString(),
+              });
+
+              await loadLeadsFromIndexedDB(searchTerm);
+              toast.success("Lead created successfully");
+            } catch (err: any) {
+              console.error("Error creating lead via grid add:", err);
+              if (err.name === 'TimeoutError') toast.error("Server timeout - lead creation failed");
+              else if (err.name === 'NetworkError') toast.error("Network error - cannot connect to server");
+              else if (err.status === 401) toast.error("Session expired - please login again");
+              else toast.error(err.message || "Failed to create lead");
+            }
+          }}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
           loading={loading}

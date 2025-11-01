@@ -181,10 +181,10 @@ useEffect(() => {
         </div>
 
           {/* Add Button */}
-          <Button className="w-full sm:w-auto" onClick={() => setIsModalOpen(true)}>
+          {/* <Button className="w-full sm:w-auto" onClick={() => setIsModalOpen(true)}>
 
             + Add CourseContent
-          </Button>
+          </Button> */}
       </div>
 
       {/* Add Course Content Modal - Updated with same colors */}
@@ -309,6 +309,26 @@ useEffect(() => {
         columnDefs={columnDefs}
         title={`Course Contents (${filteredContents.length})`}
         height="calc(70vh)"
+        onRowAdded={async (newRow: any) => {
+          try {
+            const payload = {
+              Fundamentals: newRow.Fundamentals || "",
+              AIML: newRow.AIML || "",
+              UI: newRow.UI || "",
+              QE: newRow.QE || "",
+            };
+            if (!payload.AIML) { toast.error("AIML is required"); return; }
+            const res = await apiFetch("/course-contents", { method: "POST", body: payload });
+            const created = Array.isArray(res) ? res : (res?.data ?? res);
+            const updated = [created, ...contents].slice().sort((a:any,b:any)=>b.id-a.id);
+            setContents(updated);
+            setFilteredContents(updated);
+            toast.success("Course Content created");
+          } catch (e:any) {
+            const msg = e?.body || e?.message || "Failed to create Course Content";
+            toast.error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+          }
+        }}
         onRowUpdated={handleRowUpdated}
         onRowDeleted={handleRowDeleted}
         showSearch={false}

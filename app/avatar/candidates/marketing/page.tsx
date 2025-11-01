@@ -181,6 +181,28 @@ export default function CandidatesMarketingPage() {
     fetchCandidates();
   }, []);
 
+
+
+const LinkCellRenderer = (params: any) => {
+  let url = (params.value || "").trim(); 
+
+    if (!url) return <span className="text-gray-500">N/A</span>;
+    if (!/^https?:\/\//i.test(url)) {
+      url = `https://${url}`;
+    }
+
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-600 hover:underline"
+      >
+        Click Here
+      </a>
+    );
+  };
+
   // ---------------- Filtering ----------------
   useEffect(() => {
     let filtered = [...allCandidates];
@@ -336,6 +358,12 @@ export default function CandidatesMarketingPage() {
         editable: false,
       },
       {
+        headerName: "LinkedIn",
+        minWidth: 150,
+        valueGetter: (params) => params.data?.candidate?.linkedin_id || null,
+        cellRenderer: LinkCellRenderer,
+      },
+      {
         field: "resume_url",
         headerName: "Resume",
         width: 200,
@@ -380,7 +408,7 @@ export default function CandidatesMarketingPage() {
         headerName: "Move to Placement",
         width: 190,
         sortable: true,
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
         cellRenderer: (params: any) => (
           <span>{params.value ? "Yes" : "No"}</span>
         ),

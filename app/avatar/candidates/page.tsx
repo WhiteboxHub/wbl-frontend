@@ -586,7 +586,9 @@ export default function CandidatesPage() {
         headerName: "Enrolled Date",
         width: 150,
         sortable: true,
+
         filter: "agDateColumnFilter",
+
         valueFormatter: ({ value }: ValueFormatterParams) => formatDate(value),
       },
       {
@@ -670,12 +672,19 @@ export default function CandidatesPage() {
         filter: "agTextColumnFilter",
         cellRenderer: (params: any) => {
           if (!params.value) return "";
+          const url = params.value.trim();
+          const href =
+            url.startsWith("http://") || url.startsWith("https://")
+              ? url
+              : `https://linkedin.com/in/${url}`;
+
           return (
             <a
-              // href={`https://linkedin.com/in/${params.value}`}
+              href={href}
+
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 underline hover:text-purple-800"
+              className="text-blue-600 underline hover:text-purple-800 text-sm sm:text-base font-medium"
             >
               {params.value}
             </a>
@@ -689,6 +698,7 @@ export default function CandidatesPage() {
         sortable: true,
         editable: true,
         filter: "agDateColumnFilter",
+
         valueFormatter: ({ value }: ValueFormatterParams) => formatDate(value),
         valueParser: (params) => {
           if (!params.newValue) return null;
@@ -1210,13 +1220,13 @@ export default function CandidatesPage() {
           </div>
         </div>
         <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
-          <Button
+          {/* <Button
             onClick={handleOpenModal}
             className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700"
           >
             <PlusCircle className="mr-2 h-4 w-4" />
             Add New Candidate
-          </Button>
+          </Button> */}
         </div>
       </div>
       <div className="flex w-full justify-center">
@@ -1229,6 +1239,50 @@ export default function CandidatesPage() {
           rowData={loading ? undefined : filteredCandidates}
           title={`Candidates (${filteredCandidates.length})`}
           columnDefs={columnDefs}
+          onRowAdded={async (newRow: any) => {
+            try {
+              const payload = {
+                full_name: newRow.full_name || newRow.fullname || newRow.name || "",
+                email: newRow.email || newRow.candidate_email || newRow.secondaryemail || newRow.secondary_email || "",
+                phone: newRow.phone || newRow.phone_number || newRow.contact || "",
+                dob: newRow.dob || newRow.date_of_birth || null,
+                batchid: Number(newRow.batchid) || 0,
+                status: newRow.status || "active",
+                workstatus: newRow.workstatus || "Waiting for Status",
+                enrolled_date: newRow.enrolled_date || new Date().toISOString().split("T")[0],
+                education: newRow.education || "",
+                workexperience: newRow.workexperience || "",
+                ssn: newRow.ssn || "",
+                agreement: newRow.agreement || "N",
+                secondaryemail: newRow.secondaryemail || newRow.secondary_email || "",
+                secondaryphone: newRow.secondaryphone || newRow.secondary_phone || "",
+                address: newRow.address || "",
+                linkedin_id: newRow.linkedin_id || newRow.linkedin || "",
+                emergcontactname: newRow.emergcontactname || "",
+                emergcontactemail: newRow.emergcontactemail || "",
+                emergcontactphone: newRow.emergcontactphone || "",
+                emergcontactaddrs: newRow.emergcontactaddrs || "",
+                fee_paid: Number(newRow.fee_paid) || 0,
+                github_link: newRow.github_link || newRow.github || "",
+                candidate_folder: newRow.candidate_folder || "",
+                notes: newRow.notes || "",
+              };
+
+              if (!payload.full_name || !payload.email || !payload.phone || !payload.dob || !payload.batchid) {
+                toast.error("Full Name, Email, Phone, Date of Birth, and Batch are required");
+                return;
+              }
+
+              const res = await api.post(apiPath, payload);
+              const created = res.data;
+              toast.success("Candidate created successfully");
+              await fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
+            } catch (err: any) {
+              const message = err?.response?.data?.message || err?.message || "Failed to create candidate";
+              toast.error(message);
+              console.error("Error creating candidate via grid add:", err);
+            }
+          }}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
           showFilters={true}
