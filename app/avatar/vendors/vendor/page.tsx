@@ -586,6 +586,37 @@ export default function VendorPage() {
         onRowUpdated={handleRowUpdated}
         onRowDeleted={handleRowDeleted}
         showSearch={false}
+        onRowAdded={async (newRow: any) => {
+          try {
+            const payload = {
+              full_name: newRow.full_name || newRow.name || "",
+              phone_number: newRow.phone_number || newRow.phone || null,
+              secondary_phone: newRow.secondary_phone || null,
+              email: newRow.email || null,
+              linkedin_id: newRow.linkedin_id || newRow.linkedin || null,
+              type: newRow.type || newRow.vendor_type || "client",
+              status: newRow.status || "active",
+              company_name: newRow.company_name || newRow.company || null,
+              city: newRow.city || null,
+              postal_code: newRow.postal_code || null,
+              address: newRow.address || null,
+              country: newRow.country || null,
+              location: newRow.location || null,
+              linkedin_connected: (newRow.linkedin_connected || "NO").toString().toUpperCase(),
+              intro_email_sent: (newRow.intro_email_sent || "NO").toString().toUpperCase(),
+              intro_call: (newRow.intro_call || "NO").toString().toUpperCase(),
+              notes: newRow.notes || null,
+              linkedin_internal_id: newRow.linkedin_internal_id || null,
+            };
+            if (!payload.full_name) { console.warn('Vendor name required'); return; }
+            const res = await apiFetch("/vendors", { method: "POST", body: payload });
+            const created = Array.isArray(res) ? res : (res?.data ?? res);
+            setVendors((prev) => [created, ...prev]);
+            setFilteredVendors((prev) => [created, ...prev]);
+          } catch (e:any) {
+            console.error('Failed to create vendor', e);
+          }
+        }}
       />
     </div>
   );
