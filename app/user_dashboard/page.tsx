@@ -1,864 +1,1599 @@
 
+// // "use client";
+// // import React, { useState, useEffect } from "react";
+// // import { User, Phone, Mail, Activity, Clock } from "lucide-react";
+
+
+// // interface UserProfile {
+// //   uname: string;        // email
+// //   full_name: string;
+// //   phone: string;
+// //   login_count: number;
+// // }
+
+// // export default function UserDashboard() {
+// //   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+// //   const [loading, setLoading] = useState(false);
+
+// //   useEffect(() => {
+// //     loadUserProfile();
+// //   }, []);
+
+// //   const loadUserProfile = async () => {
+// //     try {
+// //       setLoading(true);
+
+// //       const token = localStorage.getItem("access_token");
+// //       if (!token) {
+// //         throw new Error("No token found. Please log in.");
+// //       }
+
+// //       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user_dashboard`, {
+// //         headers: {
+// //           Authorization: `Bearer ${token}`,
+// //         },
+// //       });
+
+// //       if (!res.ok) {
+// //         throw new Error("Failed to fetch user dashboard");
+// //       }
+
+// //       const data = await res.json();
+// //       setUserProfile(data);
+// //     } catch (error) {
+// //       console.error(error);
+// //       setUserProfile(null);
+// //     } finally {
+// //       setLoading(false);
+// //     }
+// //   };
+
+// //   if (loading) {
+// //     return (
+// //       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+// //         <div className="text-center">
+// //           <div className="relative mb-6">
+// //           </div>
+// //           <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-2">Loading Profile</h2>
+// //           <div className="flex items-center justify-center space-x-1">
+// //             <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+// //             <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+// //             <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+// //           </div>
+// //         </div>
+// //       </div>
+// //     );
+// //   }
+
+// //   if (!userProfile) {
+// //     return (
+// //       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+// //         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-lg p-8 text-center max-w-md">
+// //           <div className="w-16 h-16 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center mx-auto mb-6">
+// //             <User className="h-8 w-8 text-red-500 dark:text-red-400" />
+// //           </div>
+// //           <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3">Connection Failed</h3>
+// //           <p className="text-gray-600 dark:text-gray-400 mb-6">Unable to retrieve your profile data. Please check your connection and try again.</p>
+// //           <button
+// //             onClick={loadUserProfile}
+// //             className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 transform hover:scale-105 font-semibold"
+// //           >
+// //             Retry Connection
+// //           </button>
+// //         </div>
+// //       </div>
+// //     );
+// //   };
+
+// //   const getFirstName = (fullName: string) => {
+// //     return fullName.split(' ')[0];
+// //   };
+
+// //   return (
+// //     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pt-24">
+      
+// //       <div className="max-w-4xl mx-auto px-6 py-8">
+        
+// //         <div className="mb-8">
+// //           <div className="flex items-center space-x-4 mb-6">
+// //             <div className="relative">
+// //               <div className="w-16 h-16 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center text-white text-xl font-bold shadow-lg">
+// //                 {getFirstName(userProfile.full_name).charAt(0)}
+// //               </div>
+// //               <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-white dark:border-gray-900 flex items-center justify-center">
+// //                 <div className="w-2 h-2 bg-white dark:bg-gray-900 rounded-full"></div>
+// //               </div>
+// //             </div>
+// //             <div>
+// //               <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Hello, {getFirstName(userProfile.full_name)}!</h2>
+// //               <p className="text-gray-600 dark:text-gray-400">Here's your account overview</p>
+// //               <div className="flex items-center space-x-2 mt-1">
+// //                 <Clock className="h-3 w-3 text-blue-500" />
+// //                 <span className="text-xs text-blue-500">Last updated: Just now</span>
+// //               </div>
+// //             </div>
+// //           </div>
+// //         </div>
+
+        
+// //         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl shadow-lg p-8">
+// //           <div className="mb-8">
+// //             <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Profile Details</h2>
+// //             <p className="text-gray-600 dark:text-gray-400">Complete information overview</p>
+// //           </div>
+
+// //           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+           
+// //             <div className="space-y-6">
+// //               <div className="flex items-center space-x-4 p-6 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-100 dark:border-gray-600 hover:shadow-md transition-all duration-300">
+// //                 <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-xl flex items-center justify-center">
+// //                   <User className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+// //                 </div>
+// //                 <div className="flex-1">
+// //                   <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Full Name</p>
+// //                   <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{userProfile.full_name}</p>
+// //                 </div>
+// //               </div>
+
+// //               <div className="flex items-center space-x-4 p-6 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-100 dark:border-gray-600 hover:shadow-md transition-all duration-300">
+// //                 <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-xl flex items-center justify-center">
+// //                   <Mail className="h-6 w-6 text-green-600 dark:text-green-400" />
+// //                 </div>
+// //                 <div className="flex-1">
+// //                   <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Email Address</p>
+// //                   <p className="text-lg font-bold text-green-600 dark:text-green-400 break-all">{userProfile.uname}</p>
+// //                 </div>
+// //               </div>
+// //             </div>
+
+            
+// //             <div className="space-y-6">
+// //               <div className="flex items-center space-x-4 p-6 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-100 dark:border-gray-600 hover:shadow-md transition-all duration-300">
+// //                 <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-xl flex items-center justify-center">
+// //                   <Phone className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+// //                 </div>
+// //                 <div className="flex-1">
+// //                   <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Phone Number</p>
+// //                   <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{userProfile.phone}</p>
+// //                 </div>
+// //               </div>
+
+// //               <div className="flex items-center space-x-4 p-6 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-100 dark:border-gray-600 hover:shadow-md transition-all duration-300">
+// //                 <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-xl flex items-center justify-center">
+// //                   <Activity className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+// //                 </div>
+// //                 <div className="flex-1">
+// //                   <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Total Login Count</p>
+// //                   <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">{userProfile.login_count}</p>
+// //                 </div>
+// //               </div>
+// //             </div>
+// //           </div>
+// //         </div>
+// //       </div>
+// //     </div>
+// //   );
+  
+// // }
+
+
+
+// // app/candidate/dashboard/page.tsx
 // "use client";
 // import React, { useState, useEffect } from "react";
-// import { User, Phone, Mail, Activity, Clock } from "lucide-react";
+// import { 
+//   User, 
+//   Phone, 
+//   Mail, 
+//   Activity, 
+//   Clock, 
+//   BookOpen, 
+//   Target, 
+//   Briefcase,
+//   TrendingUp,
+//   Calendar,
+//   FileText,
+//   Users,
+//   Award,
+//   BarChart3
+// } from "lucide-react";
 
-
-// interface UserProfile {
-//   uname: string;        // email
+// interface CandidateProfile {
+//   id: number;
 //   full_name: string;
+//   email: string;
 //   phone: string;
-//   login_count: number;
+//   status: string;
+//   enrolled_date: string;
+//   batch_name: string;
 // }
 
-// export default function UserDashboard() {
-//   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-//   const [loading, setLoading] = useState(false);
+// interface DashboardData {
+//   candidate: CandidateProfile;
+//   phase_summary: {
+//     enrolled: {
+//       days_enrolled: number;
+//       batch: string;
+//       fee_status: string;
+//     };
+//     preparation: {
+//       status: string;
+//       duration_days: number;
+//       rating: string;
+//       communication_rating: string;
+//     };
+//     marketing: {
+//       status: string;
+//       days_in_marketing: number;
+//       total_interviews: number;
+//       positive_feedback: number;
+//       priority: number;
+//     };
+//     placement: {
+//       status: string;
+//       company: string;
+//       salary: number;
+//       placement_date: string;
+//     };
+//   };
+//   recent_interviews: Array<{
+//     id: number;
+//     company: string;
+//     interview_date: string;
+//     type: string;
+//     feedback: string;
+//     mode: string;
+//   }>;
+//   statistics: {
+//     days_in_system: number;
+//     days_in_preparation: number;
+//     days_in_marketing: number;
+//     interview_conversion_rate: number;
+//     average_response_time: number;
+//   };
+//   alerts: Array<{
+//     type: string;
+//     message: string;
+//   }>;
+// }
+
+// interface TabConfig {
+//   id: string;
+//   label: string;
+//   icon: React.ReactNode;
+// }
+
+// export default function CandidateDashboard() {
+//   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+//   const [loading, setLoading] = useState(true);
+//   const [activeTab, setActiveTab] = useState("overview");
+
+//   const tabs: TabConfig[] = [
+//     { id: "overview", label: "Overview", icon: <BarChart3 className="w-4 h-4" /> },
+//     { id: "preparation", label: "Preparation", icon: <BookOpen className="w-4 h-4" /> },
+//     { id: "marketing", label: "Marketing", icon: <Target className="w-4 h-4" /> },
+//     { id: "placement", label: "Placement", icon: <Briefcase className="w-4 h-4" /> },
+//     { id: "interviews", label: "Interviews", icon: <Calendar className="w-4 h-4" /> },
+//     { id: "documents", label: "Documents", icon: <FileText className="w-4 h-4" /> },
+//   ];
 
 //   useEffect(() => {
-//     loadUserProfile();
+//     loadDashboardData();
 //   }, []);
 
-//   const loadUserProfile = async () => {
+//   const loadDashboardData = async () => {
 //     try {
 //       setLoading(true);
-
 //       const token = localStorage.getItem("access_token");
 //       if (!token) {
 //         throw new Error("No token found. Please log in.");
 //       }
 
-//       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user_dashboard`, {
-//         headers: {
-//           Authorization: `Bearer ${token}`,
-//         },
-//       });
+//       // Get candidate ID from user context or API
+//       const candidateId = await getCandidateId(token);
+      
+//       const res = await fetch(
+//         `${process.env.NEXT_PUBLIC_API_URL}/api/candidates/${candidateId}/dashboard/overview`,
+//         {
+//           headers: {
+//             Authorization: `Bearer ${token}`,
+//           },
+//         }
+//       );
 
 //       if (!res.ok) {
-//         throw new Error("Failed to fetch user dashboard");
+//         throw new Error("Failed to fetch dashboard data");
 //       }
 
 //       const data = await res.json();
-//       setUserProfile(data);
+//       setDashboardData(data);
 //     } catch (error) {
 //       console.error(error);
-//       setUserProfile(null);
+//       setDashboardData(null);
 //     } finally {
 //       setLoading(false);
 //     }
 //   };
 
+//   const getCandidateId = async (token: string): Promise<number> => {
+//     // This should be implemented based on your auth system
+//     // For now, return a default or get from user profile
+//     return 1; // Replace with actual candidate ID logic
+//   };
+
 //   if (loading) {
-//     return (
-//       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-//         <div className="text-center">
-//           <div className="relative mb-6">
-//           </div>
-//           <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-2">Loading Profile</h2>
-//           <div className="flex items-center justify-center space-x-1">
-//             <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
-//             <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-//             <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-//           </div>
-//         </div>
-//       </div>
-//     );
+//     return <LoadingSpinner />;
 //   }
 
-//   if (!userProfile) {
-//     return (
-//       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-//         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-lg p-8 text-center max-w-md">
-//           <div className="w-16 h-16 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center mx-auto mb-6">
-//             <User className="h-8 w-8 text-red-500 dark:text-red-400" />
-//           </div>
-//           <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3">Connection Failed</h3>
-//           <p className="text-gray-600 dark:text-gray-400 mb-6">Unable to retrieve your profile data. Please check your connection and try again.</p>
-//           <button
-//             onClick={loadUserProfile}
-//             className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 transform hover:scale-105 font-semibold"
-//           >
-//             Retry Connection
-//           </button>
-//         </div>
-//       </div>
-//     );
-//   };
+//   if (!dashboardData) {
+//     return <ErrorState onRetry={loadDashboardData} />;
+//   }
 
 //   const getFirstName = (fullName: string) => {
 //     return fullName.split(' ')[0];
 //   };
 
+//   const getStatusColor = (status: string) => {
+//     switch (status?.toLowerCase()) {
+//       case 'active': return 'bg-green-500';
+//       case 'completed': return 'bg-blue-500';
+//       case 'pending': return 'bg-yellow-500';
+//       default: return 'bg-gray-500';
+//     }
+//   };
+
 //   return (
 //     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pt-24">
-      
-//       <div className="max-w-4xl mx-auto px-6 py-8">
+//       <div className="max-w-7xl mx-auto px-6 py-8">
+//         {/* Header Section */}
+//         <DashboardHeader 
+//           candidate={dashboardData.candidate}
+//           getFirstName={getFirstName}
+//         />
         
-//         <div className="mb-8">
-//           <div className="flex items-center space-x-4 mb-6">
-//             <div className="relative">
-//               <div className="w-16 h-16 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center text-white text-xl font-bold shadow-lg">
-//                 {getFirstName(userProfile.full_name).charAt(0)}
-//               </div>
-//               <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-white dark:border-gray-900 flex items-center justify-center">
-//                 <div className="w-2 h-2 bg-white dark:bg-gray-900 rounded-full"></div>
-//               </div>
-//             </div>
-//             <div>
-//               <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Hello, {getFirstName(userProfile.full_name)}!</h2>
-//               <p className="text-gray-600 dark:text-gray-400">Here's your account overview</p>
-//               <div className="flex items-center space-x-2 mt-1">
-//                 <Clock className="h-3 w-3 text-blue-500" />
-//                 <span className="text-xs text-blue-500">Last updated: Just now</span>
-//               </div>
-//             </div>
-//           </div>
+//         {/* Summary Cards */}
+//         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+//           <SummaryCard
+//             title="Days Enrolled"
+//             value={dashboardData.phase_summary.enrolled.days_enrolled.toString()}
+//             subtitle="In System"
+//             icon={<Clock className="w-6 h-6" />}
+//             color="blue"
+//           />
+//           <SummaryCard
+//             title="Interviews"
+//             value={dashboardData.phase_summary.marketing.total_interviews.toString()}
+//             subtitle="Total Conducted"
+//             icon={<Calendar className="w-6 h-6" />}
+//             color="green"
+//           />
+//           <SummaryCard
+//             title="Success Rate"
+//             value={`${dashboardData.statistics.interview_conversion_rate}%`}
+//             subtitle="Positive Feedback"
+//             icon={<TrendingUp className="w-6 h-6" />}
+//             color="purple"
+//           />
+//           <SummaryCard
+//             title="Current Phase"
+//             value={getCurrentPhase(dashboardData.phase_summary)}
+//             subtitle="Status"
+//             icon={<Activity className="w-6 h-6" />}
+//             color="orange"
+//           />
 //         </div>
 
-        
-//         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl shadow-lg p-8">
-//           <div className="mb-8">
-//             <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Profile Details</h2>
-//             <p className="text-gray-600 dark:text-gray-400">Complete information overview</p>
+//         {/* Progress Tracker */}
+//         <ProgressTracker phaseSummary={dashboardData.phase_summary} />
+
+//         {/* Main Content with Tabs */}
+//         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl shadow-lg overflow-hidden">
+//           {/* Tab Navigation */}
+//           <div className="border-b border-gray-200 dark:border-gray-700">
+//             <div className="flex overflow-x-auto">
+//               {tabs.map((tab) => (
+//                 <button
+//                   key={tab.id}
+//                   onClick={() => setActiveTab(tab.id)}
+//                   className={`flex items-center space-x-2 px-6 py-4 border-b-2 font-medium text-sm transition-all duration-200 ${
+//                     activeTab === tab.id
+//                       ? "border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20"
+//                       : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+//                   }`}
+//                 >
+//                   {tab.icon}
+//                   <span>{tab.label}</span>
+//                 </button>
+//               ))}
+//             </div>
 //           </div>
 
-//           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-           
-//             <div className="space-y-6">
-//               <div className="flex items-center space-x-4 p-6 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-100 dark:border-gray-600 hover:shadow-md transition-all duration-300">
-//                 <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-xl flex items-center justify-center">
-//                   <User className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-//                 </div>
-//                 <div className="flex-1">
-//                   <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Full Name</p>
-//                   <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{userProfile.full_name}</p>
-//                 </div>
-//               </div>
-
-//               <div className="flex items-center space-x-4 p-6 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-100 dark:border-gray-600 hover:shadow-md transition-all duration-300">
-//                 <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-xl flex items-center justify-center">
-//                   <Mail className="h-6 w-6 text-green-600 dark:text-green-400" />
-//                 </div>
-//                 <div className="flex-1">
-//                   <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Email Address</p>
-//                   <p className="text-lg font-bold text-green-600 dark:text-green-400 break-all">{userProfile.uname}</p>
-//                 </div>
-//               </div>
-//             </div>
-
-            
-//             <div className="space-y-6">
-//               <div className="flex items-center space-x-4 p-6 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-100 dark:border-gray-600 hover:shadow-md transition-all duration-300">
-//                 <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-xl flex items-center justify-center">
-//                   <Phone className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-//                 </div>
-//                 <div className="flex-1">
-//                   <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Phone Number</p>
-//                   <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{userProfile.phone}</p>
-//                 </div>
-//               </div>
-
-//               <div className="flex items-center space-x-4 p-6 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-100 dark:border-gray-600 hover:shadow-md transition-all duration-300">
-//                 <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-xl flex items-center justify-center">
-//                   <Activity className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-//                 </div>
-//                 <div className="flex-1">
-//                   <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1">Total Login Count</p>
-//                   <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">{userProfile.login_count}</p>
-//                 </div>
-//               </div>
-//             </div>
+//           {/* Tab Content */}
+//           <div className="p-6">
+//             {activeTab === "overview" && (
+//               <OverviewTab 
+//                 data={dashboardData}
+//                 getStatusColor={getStatusColor}
+//               />
+//             )}
+//             {activeTab === "preparation" && (
+//               <PreparationTab candidateId={dashboardData.candidate.id} />
+//             )}
+//             {activeTab === "marketing" && (
+//               <MarketingTab candidateId={dashboardData.candidate.id} />
+//             )}
+//             {activeTab === "placement" && (
+//               <PlacementTab candidateId={dashboardData.candidate.id} />
+//             )}
+//             {activeTab === "interviews" && (
+//               <InterviewsTab candidateId={dashboardData.candidate.id} />
+//             )}
+//             {activeTab === "documents" && (
+//               <DocumentsTab candidateId={dashboardData.candidate.id} />
+//             )}
 //           </div>
 //         </div>
 //       </div>
 //     </div>
 //   );
-  
 // }
 
+// // Header Component
+// const DashboardHeader = ({ candidate, getFirstName }: { candidate: CandidateProfile; getFirstName: (name: string) => string }) => (
+//   <div className="mb-8">
+//     <div className="flex items-center space-x-4 mb-6">
+//       <div className="relative">
+//         <div className="w-16 h-16 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center text-white text-xl font-bold shadow-lg">
+//           {getFirstName(candidate.full_name).charAt(0)}
+//         </div>
+//         <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-white dark:border-gray-900 flex items-center justify-center">
+//           <div className="w-2 h-2 bg-white dark:bg-gray-900 rounded-full"></div>
+//         </div>
+//       </div>
+//       <div>
+//         <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+//           Welcome back, {getFirstName(candidate.full_name)}!
+//         </h2>
+//         <p className="text-gray-600 dark:text-gray-400">
+//           {candidate.batch_name} • Enrolled {candidate.enrolled_date}
+//         </p>
+//         <div className="flex items-center space-x-2 mt-1">
+//           <Clock className="h-3 w-3 text-blue-500" />
+//           <span className="text-xs text-blue-500">Last updated: Just now</span>
+//         </div>
+//       </div>
+//     </div>
+//   </div>
+// );
+
+// // Summary Card Component
+// const SummaryCard = ({ 
+//   title, 
+//   value, 
+//   subtitle, 
+//   icon, 
+//   color 
+// }: { 
+//   title: string;
+//   value: string;
+//   subtitle: string;
+//   icon: React.ReactNode;
+//   color: string;
+// }) => {
+//   const colorClasses = {
+//     blue: "bg-blue-500",
+//     green: "bg-green-500",
+//     purple: "bg-purple-500",
+//     orange: "bg-orange-500",
+//   };
+
+//   return (
+//     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-300">
+//       <div className="flex items-center justify-between">
+//         <div>
+//           <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+//             {title}
+//           </p>
+//           <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+//             {value}
+//           </p>
+//           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+//             {subtitle}
+//           </p>
+//         </div>
+//         <div className={`p-3 rounded-xl ${colorClasses[color]} bg-opacity-10`}>
+//           <div className={`text-${color}-600 dark:text-${color}-400`}>
+//             {icon}
+//           </div>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
+
+// // Progress Tracker Component
+// const ProgressTracker = ({ phaseSummary }: { phaseSummary: DashboardData['phase_summary'] }) => {
+//   const phases = [
+//     { name: "Enrolled", status: "completed", data: phaseSummary.enrolled },
+//     { name: "Preparation", status: phaseSummary.preparation.status, data: phaseSummary.preparation },
+//     { name: "Marketing", status: phaseSummary.marketing.status, data: phaseSummary.marketing },
+//     { name: "Placement", status: phaseSummary.placement.status, data: phaseSummary.placement },
+//   ];
+
+//   return (
+//     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 mb-8">
+//       <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+//         Candidate Journey
+//       </h3>
+//       <div className="flex items-center justify-between">
+//         {phases.map((phase, index) => (
+//           <React.Fragment key={phase.name}>
+//             <div className="flex flex-col items-center">
+//               <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+//                 phase.status === 'completed' ? 'bg-green-500 text-white' :
+//                 phase.status === 'active' ? 'bg-blue-500 text-white' :
+//                 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400'
+//               }`}>
+//                 {index + 1}
+//               </div>
+//               <span className="text-sm font-medium mt-2 text-gray-900 dark:text-gray-100">
+//                 {phase.name}
+//               </span>
+//               <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+//                 {phase.data.days_in_marketing || phase.data.days_enrolled || 0} days
+//               </span>
+//             </div>
+//             {index < phases.length - 1 && (
+//               <div className="flex-1 h-1 bg-gray-200 dark:bg-gray-700 mx-2">
+//                 <div className={`h-full ${
+//                   phases[index + 1].status !== 'upcoming' ? 'bg-green-500' : 'bg-gray-300'
+//                 }`}></div>
+//               </div>
+//             )}
+//           </React.Fragment>
+//         ))}
+//       </div>
+//     </div>
+//   );
+// };
+
+// // Overview Tab Component
+// const OverviewTab = ({ data, getStatusColor }: { data: DashboardData; getStatusColor: (status: string) => string }) => (
+//   <div className="space-y-6">
+//     {/* Alerts Section */}
+//     {data.alerts.length > 0 && (
+//       <div className="space-y-3">
+//         {data.alerts.map((alert, index) => (
+//           <div
+//             key={index}
+//             className={`p-4 rounded-xl border ${
+//               alert.type === 'error' 
+//                 ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' 
+//                 : alert.type === 'warning'
+//                 ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+//                 : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
+//             }`}
+//           >
+//             <div className="flex items-center space-x-3">
+//               <div className={`w-3 h-3 rounded-full ${
+//                 alert.type === 'error' ? 'bg-red-500' :
+//                 alert.type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500'
+//               }`}></div>
+//               <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+//                 {alert.message}
+//               </p>
+//             </div>
+//           </div>
+//         ))}
+//       </div>
+//     )}
+
+//     {/* Recent Interviews */}
+//     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+//       <div className="bg-gray-50 dark:bg-gray-700 rounded-2xl p-6">
+//         <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+//           Recent Interviews
+//         </h4>
+//         <div className="space-y-3">
+//           {data.recent_interviews.map((interview) => (
+//             <div
+//               key={interview.id}
+//               className="flex items-center justify-between p-3 bg-white dark:bg-gray-600 rounded-xl border border-gray-200 dark:border-gray-500"
+//             >
+//               <div>
+//                 <p className="font-medium text-gray-900 dark:text-gray-100">
+//                   {interview.company}
+//                 </p>
+//                 <p className="text-sm text-gray-500 dark:text-gray-400">
+//                   {new Date(interview.interview_date).toLocaleDateString()} • {interview.type}
+//                 </p>
+//               </div>
+//               <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+//                 interview.feedback === 'Positive' 
+//                   ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+//                   : interview.feedback === 'Negative'
+//                   ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+//                   : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+//               }`}>
+//                 {interview.feedback || 'Pending'}
+//               </span>
+//             </div>
+//           ))}
+//         </div>
+//       </div>
+
+//       {/* Statistics */}
+//       <div className="bg-gray-50 dark:bg-gray-700 rounded-2xl p-6">
+//         <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+//           Performance Metrics
+//         </h4>
+//         <div className="space-y-4">
+//           <MetricItem
+//             label="Days in System"
+//             value={data.statistics.days_in_system.toString()}
+//           />
+//           <MetricItem
+//             label="Interview Conversion Rate"
+//             value={`${data.statistics.interview_conversion_rate}%`}
+//           />
+//           <MetricItem
+//             label="Average Response Time"
+//             value={data.statistics.average_response_time ? `${data.statistics.average_response_time} days` : 'N/A'}
+//           />
+//           <MetricItem
+//             label="Positive Feedback"
+//             value={data.phase_summary.marketing.positive_feedback.toString()}
+//           />
+//         </div>
+//       </div>
+//     </div>
+//   </div>
+// );
+
+// // Metric Item Component
+// const MetricItem = ({ label, value }: { label: string; value: string }) => (
+//   <div className="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-600 last:border-0">
+//     <span className="text-sm text-gray-600 dark:text-gray-400">{label}</span>
+//     <span className="font-semibold text-gray-900 dark:text-gray-100">{value}</span>
+//   </div>
+// );
+
+// // Loading Spinner Component
+// const LoadingSpinner = () => (
+//   <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+//     <div className="text-center">
+//       <div className="relative mb-6">
+//         <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+//       </div>
+//       <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-2">
+//         Loading Dashboard
+//       </h2>
+//       <div className="flex items-center justify-center space-x-1">
+//         <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+//         <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+//         <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+//       </div>
+//     </div>
+//   </div>
+// );
+
+// // Error State Component
+// const ErrorState = ({ onRetry }: { onRetry: () => void }) => (
+//   <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+//     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-lg p-8 text-center max-w-md">
+//       <div className="w-16 h-16 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center mx-auto mb-6">
+//         <User className="h-8 w-8 text-red-500 dark:text-red-400" />
+//       </div>
+//       <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3">
+//         Connection Failed
+//       </h3>
+//       <p className="text-gray-600 dark:text-gray-400 mb-6">
+//         Unable to retrieve dashboard data. Please check your connection and try again.
+//       </p>
+//       <button
+//         onClick={onRetry}
+//         className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 transform hover:scale-105 font-semibold"
+//       >
+//         Retry Connection
+//       </button>
+//     </div>
+//   </div>
+// );
+
+// // Helper function to get current phase
+// const getCurrentPhase = (phaseSummary: DashboardData['phase_summary']) => {
+//   if (phaseSummary.placement.status === 'Active') return 'Placement';
+//   if (phaseSummary.marketing.status === 'active') return 'Marketing';
+//   if (phaseSummary.preparation.status === 'active') return 'Preparation';
+//   return 'Enrolled';
+// };
+
+// // Placeholder components for other tabs (to be implemented)
+// const PreparationTab = ({ candidateId }: { candidateId: number }) => (
+//   <div className="text-center py-8">
+//     <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+//     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+//       Preparation Details
+//     </h3>
+//     <p className="text-gray-500 dark:text-gray-400">
+//       Preparation phase information will be displayed here.
+//     </p>
+//   </div>
+// );
+
+// const MarketingTab = ({ candidateId }: { candidateId: number }) => (
+//   <div className="text-center py-8">
+//     <Target className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+//     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+//       Marketing Details
+//     </h3>
+//     <p className="text-gray-500 dark:text-gray-400">
+//       Marketing phase information will be displayed here.
+//     </p>
+//   </div>
+// );
+
+// const PlacementTab = ({ candidateId }: { candidateId: number }) => (
+//   <div className="text-center py-8">
+//     <Briefcase className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+//     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+//       Placement Details
+//     </h3>
+//     <p className="text-gray-500 dark:text-gray-400">
+//       Placement information will be displayed here.
+//     </p>
+//   </div>
+// );
+
+// const InterviewsTab = ({ candidateId }: { candidateId: number }) => (
+//   <div className="text-center py-8">
+//     <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+//     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+//       Interview History
+//     </h3>
+//     <p className="text-gray-500 dark:text-gray-400">
+//       Complete interview history will be displayed here.
+//     </p>
+//   </div>
+// );
+
+// const DocumentsTab = ({ candidateId }: { candidateId: number }) => (
+//   <div className="text-center py-8">
+//     <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+//     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+//       Documents & Resources
+//     </h3>
+//     <p className="text-gray-500 dark:text-gray-400">
+//       Candidate documents and resources will be displayed here.
+//     </p>
+//   </div>
+// );
 
 
+// app/candidate/dashboard/page.tsx
 "use client";
+import React, { useState, useEffect } from "react";
+import { 
+  User, 
+  Phone, 
+  Mail, 
+  Activity, 
+  Clock, 
+  BookOpen, 
+  Target, 
+  Briefcase,
+  TrendingUp,
+  Calendar,
+  FileText,
+  Users,
+  Award,
+  BarChart3,
+  AlertTriangle,
+  CheckCircle,
+  PlayCircle
+} from "lucide-react";
 
-import React, { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { format, parseISO } from "date-fns";
-
-/**
- * Candidate Dashboard (Stylish Modern + Horizontal Tabs)
- * Place this file at: app/dashboard/page.tsx
- *
- * Requirements:
- * - NEXT_PUBLIC_API_BASE_URL must be set in environment
- * - Auth token stored in localStorage as "token"
- * - (Optional) user role in localStorage as "userRole"
- */
-
-/* ----------------------------- Types ------------------------------ */
-type CandidateBasicInfo = {
+// Types based on your backend response structure
+interface CandidateBasicInfo {
   id: number;
   full_name: string;
   email: string;
   phone: string;
   status: string;
-  batch_name: string;
+  work_status?: string;
+  education?: string;
+  linkedin_id?: string;
+  github_link?: string;
   enrolled_date: string;
-};
+  batch_id: number;
+  batch_name: string;
+}
 
-type PhaseMetrics = {
-  enrolled?: { days_since: number; batch_name?: string };
-  preparation?: { duration_days: number; rating: number };
-  marketing?: { duration_days: number; total_interviews: number; success_rate: number };
-  placement?: { company: string; days_since: number };
-};
+interface JourneyPhase {
+  completed: boolean;
+  active: boolean;
+  date?: string;
+  start_date?: string;
+  duration_days?: number;
+  status?: string;
+  company?: string;
+  position?: string;
+  days_since?: number;
+}
 
-type InterviewStats = { total: number; positive: number; success_rate: number };
+interface PhaseMetrics {
+  enrolled: {
+    date: string;
+    batch_name: string;
+    status: string;
+  };
+  preparation?: {
+    status: string;
+    start_date: string;
+    duration_days: number;
+    rating: string;
+    communication: string;
+  };
+  marketing?: {
+    status: string;
+    start_date: string;
+    duration_days: number;
+    total_interviews: number;
+    positive_interviews: number;
+    success_rate: number;
+  };
+  placement?: {
+    company: string;
+    position: string;
+    placement_date: string;
+    base_salary: number;
+  };
+}
 
-type RecentInterview = { company: string; interview_date: string; feedback: string };
+interface TeamMember {
+  id: number;
+  name: string;
+  email?: string;
+  phone?: string;
+  role: string;
+}
 
-type Alert = { type: string; message: string };
+interface TeamInfo {
+  preparation: {
+    instructors: TeamMember[];
+  };
+  marketing: {
+    manager?: TeamMember;
+  };
+}
 
-type DashboardResponse = {
+interface InterviewStats {
+  total: number;
+  positive: number;
+  pending: number;
+  negative: number;
+  success_rate: number;
+}
+
+interface InterviewSummary {
+  id: number;
+  company: string;
+  interview_date: string;
+  type_of_interview: string;
+  feedback: string;
+}
+
+interface Alert {
+  type: string;
+  phase: string;
+  message: string;
+}
+
+interface DashboardData {
   basic_info: CandidateBasicInfo;
+  journey: {
+    enrolled: JourneyPhase;
+    preparation: JourneyPhase;
+    marketing: JourneyPhase;
+    placement: JourneyPhase;
+  };
   phase_metrics: PhaseMetrics;
+  team_info: TeamInfo;
   interview_stats: InterviewStats;
-  recent_interviews: RecentInterview[];
+  recent_interviews: InterviewSummary[];
   alerts: Alert[];
-};
+  
+}
 
-/* ----------------------------- Helpers ---------------------------- */
-const formatShortDate = (iso?: string) => {
-  if (!iso) return "-";
-  try {
-    return format(parseISO(iso), "MMM dd, yyyy");
-  } catch {
-    return iso;
+interface TabConfig {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+}
+
+export default function CandidateDashboard() {
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("overview");
+
+  const tabs: TabConfig[] = [
+    { id: "overview", label: "Overview", icon: <BarChart3 className="w-4 h-4" /> },
+    { id: "preparation", label: "Preparation", icon: <BookOpen className="w-4 h-4" /> },
+    { id: "marketing", label: "Marketing", icon: <Target className="w-4 h-4" /> },
+    { id: "placement", label: "Placement", icon: <Briefcase className="w-4 h-4" /> },
+    { id: "interviews", label: "Interviews", icon: <Calendar className="w-4 h-4" /> },
+  ];
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        throw new Error("No token found. Please log in.");
+      }
+
+      // Get candidate ID from the current user
+      const candidateId = await getCandidateId(token);
+      
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/candidates/${candidateId}/dashboard/overview`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error(`Failed to fetch dashboard data: ${res.statusText}`);
+      }
+
+      const data = await res.json();
+      setDashboardData(data);
+    } catch (error) {
+      console.error("Dashboard loading error:", error);
+      setDashboardData(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getCandidateId = async (token: string): Promise<number> => {
+    // In a real implementation, you might get this from user context or decode JWT
+    // For now, we'll assume the first API call returns the candidate ID in the response
+    // You may need to adjust this based on your auth system
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user_dashboard`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const userData = await response.json();
+      return userData.candidate_id || 1; // Fallback to 1 if not found
+    } catch {
+      return 1; // Fallback for demo
+    }
+  };
+
+  if (loading) {
+    return <LoadingSpinner />;
   }
-};
 
-const apiFetch = async (url: string) => {
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(url, { headers });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`API error ${res.status}: ${text || res.statusText}`);
+  if (!dashboardData) {
+    return <ErrorState onRetry={loadDashboardData} />;
   }
-  return res.json();
-};
 
-/* ----------------------- Small Reusable UI ------------------------ */
-const LoadingSpinner: React.FC<{ size?: number }> = ({ size = 48 }) => (
-  <div className="flex items-center justify-center p-6">
-    <div style={{ width: size, height: size }} className="animate-spin rounded-full border-t-4 border-b-4 border-blue-500" />
+  const getFirstName = (fullName: string) => {
+    return fullName.split(' ')[0];
+  };
+
+  const getPhaseProgress = () => {
+    const phases = [
+      { name: "enrolled", data: dashboardData.journey.enrolled },
+      { name: "preparation", data: dashboardData.journey.preparation },
+      { name: "marketing", data: dashboardData.journey.marketing },
+      { name: "placement", data: dashboardData.journey.placement },
+    ];
+    
+    const completedPhases = phases.filter(phase => 
+      phase.data.completed || phase.data.active
+    ).length;
+    
+    return (completedPhases / phases.length) * 100;
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pt-24">
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Header Section */}
+        <DashboardHeader 
+          candidate={dashboardData.basic_info}
+          getFirstName={getFirstName}
+          progress={getPhaseProgress()}
+        />
+        
+        {/* Alert Banner */}
+        <AlertBanner alerts={dashboardData.alerts} />
+        
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <SummaryCard
+            title="Days Enrolled"
+            value={dashboardData.journey.enrolled.days_since?.toString() || "0"}
+            subtitle="In System"
+            icon={<Clock className="w-6 h-6" />}
+            color="blue"
+          />
+          <SummaryCard
+            title="Total Interviews"
+            value={dashboardData.interview_stats.total.toString()}
+            subtitle="Completed"
+            icon={<Calendar className="w-6 h-6" />}
+            color="green"
+          />
+          <SummaryCard
+            title="Success Rate"
+            value={`${dashboardData.interview_stats.success_rate}%`}
+            subtitle="Positive Feedback"
+            icon={<TrendingUp className="w-6 h-6" />}
+            color="purple"
+          />
+          <SummaryCard
+            title="Current Phase"
+            value={getCurrentPhase(dashboardData.journey)}
+            subtitle="Status"
+            icon={<Activity className="w-6 h-6" />}
+            color="orange"
+          />
+        </div>
+
+        {/* Progress Tracker */}
+        <JourneyProgress journey={dashboardData.journey} />
+
+        {/* Main Content with Tabs */}
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl shadow-lg overflow-hidden">
+          {/* Tab Navigation */}
+          <div className="border-b border-gray-200 dark:border-gray-700">
+            <div className="flex overflow-x-auto">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center space-x-2 px-6 py-4 border-b-2 font-medium text-sm transition-all duration-200 whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? "border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20"
+                      : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                  }`}
+                >
+                  {tab.icon}
+                  <span>{tab.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Tab Content */}
+          <div className="p-6">
+            {activeTab === "overview" && (
+              <OverviewTab 
+                data={dashboardData}
+                onDataUpdate={loadDashboardData}
+              />
+            )}
+            {activeTab === "preparation" && (
+              <PreparationTab 
+                candidateId={dashboardData.basic_info.id}
+                onDataUpdate={loadDashboardData}
+              />
+            )}
+            {activeTab === "marketing" && (
+              <MarketingTab 
+                candidateId={dashboardData.basic_info.id}
+                onDataUpdate={loadDashboardData}
+              />
+            )}
+            {activeTab === "placement" && (
+              <PlacementTab 
+                candidateId={dashboardData.basic_info.id}
+                onDataUpdate={loadDashboardData}
+              />
+            )}
+            {activeTab === "interviews" && (
+              <InterviewsTab 
+                candidateId={dashboardData.basic_info.id}
+                onDataUpdate={loadDashboardData}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Header Component
+const DashboardHeader = ({ 
+  candidate, 
+  getFirstName, 
+  progress 
+}: { 
+  candidate: CandidateBasicInfo; 
+  getFirstName: (name: string) => string;
+  progress: number;
+}) => (
+  <div className="mb-8">
+    <div className="flex items-start justify-between">
+      <div className="flex items-center space-x-4">
+        <div className="relative">
+          <div className="w-16 h-16 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center text-white text-xl font-bold shadow-lg">
+            {getFirstName(candidate.full_name).charAt(0)}
+          </div>
+          <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-white dark:border-gray-900 flex items-center justify-center">
+            <div className="w-2 h-2 bg-white dark:bg-gray-900 rounded-full"></div>
+          </div>
+        </div>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            Welcome back, {getFirstName(candidate.full_name)}!
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400">
+            {candidate.batch_name} • Enrolled {new Date(candidate.enrolled_date).toLocaleDateString()}
+          </p>
+          <div className="flex items-center space-x-2 mt-1">
+            <Clock className="h-3 w-3 text-blue-500" />
+            <span className="text-xs text-blue-500">Last updated: Just now</span>
+          </div>
+        </div>
+      </div>
+      <div className="text-right">
+        <div className="flex items-center space-x-2 mb-2">
+          <div className="w-32 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+            <div 
+              className="bg-green-500 h-2 rounded-full transition-all duration-500"
+              style={{ width: `${progress}%` }}
+            ></div>
+          </div>
+          <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+            {Math.round(progress)}%
+          </span>
+        </div>
+        <p className="text-xs text-gray-500 dark:text-gray-400">Program Progress</p>
+      </div>
+    </div>
   </div>
 );
 
-const Card: React.FC<{ children?: React.ReactNode; className?: string }> = ({ children, className = "" }) => (
-  <div className={`bg-white rounded-xl shadow-md overflow-hidden ${className}`}>{children}</div>
-);
+// Alert Banner Component
+const AlertBanner = ({ alerts }: { alerts: Alert[] }) => {
+  if (alerts.length === 0) return null;
 
-const StatusPill: React.FC<{ label: string; kind?: "info" | "success" | "warning" | "neutral" }> = ({ label, kind = "neutral" }) => {
-  const map: Record<string, string> = {
-    info: "bg-blue-100 text-blue-800",
-    success: "bg-green-100 text-green-800",
-    warning: "bg-yellow-50 text-yellow-800",
-    neutral: "bg-gray-100 text-gray-800",
-  };
-  return <span className={`inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium ${map[kind]}`}>{label}</span>;
-};
-
-/* -------------------------- Tabs Component ------------------------ */
-const TAB_IDS = ["overview", "preparation", "marketing", "placement", "interviews", "team", "statistics"] as const;
-type TabId = (typeof TAB_IDS)[number];
-
-const Tabs: React.FC<{ active: TabId; setActive: (t: TabId) => void }> = ({ active, setActive }) => {
-  const tabs = [
-    { id: "overview", label: "Overview" },
-    { id: "preparation", label: "Preparation" },
-    { id: "marketing", label: "Marketing" },
-    { id: "placement", label: "Placement" },
-    { id: "interviews", label: "Interviews" },
-    { id: "team", label: "Team" },
-    { id: "statistics", label: "Stats" },
-  ];
-
+  const criticalAlerts = alerts.filter(alert => alert.type === 'warning');
+  
   return (
-    <div className="border-b border-gray-200">
-      <nav className="-mb-px flex space-x-6 overflow-x-auto px-4 sm:px-6 lg:px-0">
-        {tabs.map((t) => {
-          const isActive = t.id === active;
-          return (
-            <button
-              key={t.id}
-              onClick={() => setActive(t.id as TabId)}
-              className={`py-3 px-1 text-sm font-medium whitespace-nowrap ${
-                isActive ? "border-b-2 border-indigo-600 text-indigo-600" : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              {t.label}
-            </button>
-          );
-        })}
-      </nav>
+    <div className="mb-6 space-y-3">
+      {criticalAlerts.map((alert, index) => (
+        <div
+          key={index}
+          className="flex items-center space-x-3 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl"
+        >
+          <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+              {alert.message}
+            </p>
+            <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+              Phase: {alert.phase}
+            </p>
+          </div>
+        </div>
+      ))}
     </div>
   );
 };
 
-/* ------------------------- Main Component ------------------------- */
-export default function CandidateDashboardPage({ searchParams }: { searchParams?: { id?: string } }) {
-  const router = useRouter();
-  const candidateId = searchParams?.id ?? (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("id") : null);
+// Summary Card Component
+const SummaryCard = ({ 
+  title, 
+  value, 
+  subtitle, 
+  icon, 
+  color 
+}: { 
+  title: string;
+  value: string;
+  subtitle: string;
+  icon: React.ReactNode;
+  color: string;
+}) => {
+  const colorClasses = {
+    blue: "text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/20",
+    green: "text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/20",
+    purple: "text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/20",
+    orange: "text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/20",
+  };
 
-  // role & auth guard (basic client-side)
-  useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    const userRole = typeof window !== "undefined" ? localStorage.getItem("userRole") : null;
-    if (!token) {
-      router.replace("/login");
-    } else if (userRole && userRole !== "candidate") {
-      // If you want stricter behavior, change this
-      // Allow admins to view candidate dashboards for debugging? Here we redirect them
-      // router.replace("/admin_dashboard");
-    }
-  }, [router]);
-
-  const [activeTab, setActiveTab] = useState<TabId>("overview");
-
-  // overview state
-  const [overview, setOverview] = useState<DashboardResponse | null>(null);
-  const [overviewLoading, setOverviewLoading] = useState(true);
-  const [overviewError, setOverviewError] = useState<string | null>(null);
-
-  // per-tab caches/loading/errors
-  const [preparationData, setPreparationData] = useState<any | null>(null);
-  const [marketingData, setMarketingData] = useState<any | null>(null);
-  const [placementData, setPlacementData] = useState<any | null>(null);
-  const [interviewsData, setInterviewsData] = useState<any[] | null>(null);
-  const [teamData, setTeamData] = useState<any | null>(null);
-  const [statisticsData, setStatisticsData] = useState<any | null>(null);
-
-  const [tabLoading, setTabLoading] = useState(false);
-  const [tabError, setTabError] = useState<string | null>(null);
-
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "";
-
-  /* ------------------ Load Overview on mount ------------------ */
-  useEffect(() => {
-    if (!candidateId) {
-      setOverviewError("No candidate id provided");
-      setOverviewLoading(false);
-      return;
-    }
-
-    let mounted = true;
-    setOverviewLoading(true);
-    apiFetch(`${base}/candidates/${candidateId}/dashboard/overview`)
-      .then((data) => {
-        if (!mounted) return;
-        setOverview(data);
-        setOverviewError(null);
-      })
-      .catch((err) => {
-        if (!mounted) return;
-        setOverviewError(err.message || "Failed to load overview");
-      })
-      .finally(() => {
-        if (!mounted) return;
-        setOverviewLoading(false);
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, [candidateId, base]);
-
-  /* ------------------ Lazy load per-tab content ------------------ */
-  useEffect(() => {
-    if (!candidateId) return;
-
-    async function loadTab(t: TabId) {
-      setTabLoading(true);
-      setTabError(null);
-      try {
-        switch (t) {
-          case "preparation": {
-            if (!preparationData) {
-              const d = await apiFetch(`${base}/candidates/${candidateId}/preparation`);
-              setPreparationData(d);
-            }
-            break;
-          }
-          case "marketing": {
-            if (!marketingData) {
-              const d = await apiFetch(`${base}/candidates/${candidateId}/marketing`);
-              setMarketingData(d);
-            }
-            break;
-          }
-          case "placement": {
-            if (!placementData) {
-              const d = await apiFetch(`${base}/candidates/${candidateId}/placement`);
-              setPlacementData(d);
-            }
-            break;
-          }
-          case "interviews": {
-            if (!interviewsData) {
-              const d = await apiFetch(`${base}/candidates/${candidateId}/interviews?limit=100`);
-              setInterviewsData(d);
-            }
-            break;
-          }
-          case "team": {
-            if (!teamData) {
-              const d = await apiFetch(`${base}/candidates/${candidateId}/team`);
-              setTeamData(d);
-            }
-            break;
-          }
-          case "statistics": {
-            if (!statisticsData) {
-              const d = await apiFetch(`${base}/candidates/${candidateId}/statistics`);
-              setStatisticsData(d);
-            }
-            break;
-          }
-          default:
-            break;
-        }
-      } catch (err: any) {
-        setTabError(err.message || "Failed to load tab data");
-      } finally {
-        setTabLoading(false);
-      }
-    }
-
-    // load overview is separate; only lazy-load the selected tab if not "overview"
-    if (activeTab !== "overview") {
-      loadTab(activeTab);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, candidateId, base]);
-
-  /* -------------------- Memo derived values -------------------- */
-  const overviewMemo = useMemo(() => overview, [overview]);
-
-  /* ----------------------- Render helpers ---------------------- */
-  if (overviewLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner />
-      </div>
-    );
-  }
-
-  if (overviewError) {
-    return (
-      <main className="max-w-4xl mx-auto p-4">
-        <Card>
-          <div className="p-6">
-            <h3 className="text-lg font-semibold text-red-700">Failed to load dashboard</h3>
-            <p className="mt-2 text-sm text-gray-600">Reason: {overviewError}</p>
-            <div className="mt-4">
-              <button
-                onClick={() => location.reload()}
-                className="rounded-md bg-indigo-600 text-white px-4 py-2 text-sm"
-              >
-                Retry
-              </button>
-            </div>
-          </div>
-        </Card>
-      </main>
-    );
-  }
-
-  if (!overviewMemo) {
-    return (
-      <main className="max-w-4xl mx-auto p-4">
-        <p>No overview available for this candidate.</p>
-      </main>
-    );
-  }
-
-  const { basic_info, phase_metrics, interview_stats, recent_interviews, alerts } = overviewMemo;
-
-  /* --------------------------- JSX ----------------------------- */
   return (
-    <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-12 pt-24">
-      {/* Header area - hero card */}
-      <div className="bg-gradient-to-r from-indigo-50 to-white rounded-2xl p-6 shadow-sm mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-20 h-20 rounded-xl bg-gradient-to-tr from-indigo-400 to-purple-400 flex items-center justify-center text-white text-2xl font-bold">
-            {basic_info.full_name.split(" ").map((s) => s[0]).slice(0, 2).join("")}
-          </div>
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900">{basic_info.full_name}</h1>
-            <p className="text-sm text-gray-600">{basic_info.email} • {basic_info.phone}</p>
-            <div className="mt-2 flex gap-2 items-center">
-              <StatusPill label={`Status: ${basic_info.status}`} kind={basic_info.status?.toLowerCase() === "active" ? "success" : "info"} />
-              <StatusPill label={`Batch: ${basic_info.batch_name}`} kind="neutral" />
-              <StatusPill label={`Enrolled: ${formatShortDate(basic_info.enrolled_date)}`} kind="info" />
-            </div>
-          </div>
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all duration-300">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
+            {title}
+          </p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            {value}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            {subtitle}
+          </p>
         </div>
-
-        <div className="flex gap-2 items-center">
-          <button
-            onClick={() => router.push(`/candidates/${basic_info.id}/edit`)}
-            className="rounded-md bg-white border border-gray-200 px-4 py-2 text-sm font-medium shadow-sm hover:shadow"
-          >
-            Edit Candidate
-          </button>
-          <button
-            onClick={() => location.reload()}
-            className="rounded-md bg-indigo-600 text-white px-4 py-2 text-sm font-medium"
-          >
-            Refresh
-          </button>
+        <div className={`p-3 rounded-xl ${colorClasses[color]}`}>
+          {icon}
         </div>
       </div>
+    </div>
+  );
+};
 
-      {/* Tabs */}
-      <Tabs active={activeTab} setActive={setActiveTab} />
+// Journey Progress Component
+const JourneyProgress = ({ journey }: { journey: DashboardData['journey'] }) => {
+  const phases = [
+    { 
+      name: "Enrolled", 
+      key: "enrolled" as const,
+      icon: <CheckCircle className="w-5 h-5" />,
+      description: "Candidate registration completed"
+    },
+    { 
+      name: "Preparation", 
+      key: "preparation" as const,
+      icon: <BookOpen className="w-5 h-5" />,
+      description: "Technical training & skill development"
+    },
+    { 
+      name: "Marketing", 
+      key: "marketing" as const,
+      icon: <Target className="w-5 h-5" />,
+      description: "Interview scheduling & client engagement"
+    },
+    { 
+      name: "Placement", 
+      key: "placement" as const,
+      icon: <Briefcase className="w-5 h-5" />,
+      description: "Job placement & onboarding"
+    },
+  ];
 
-      {/* Tab content grid */}
-      <div className="mt-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Main content area (left 3 cols) */}
-        <div className="lg:col-span-3 space-y-6">
-          {/* Overview Tab content (cards + interviews) */}
-          {activeTab === "overview" && (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Preparation */}
-                <Card>
-                  <div className="p-6">
-                    <div className="flex items-center">
-                      <div className="mr-4 w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center text-xl">🧠</div>
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900">Preparation</h3>
-                        <p className="mt-1 text-sm text-gray-500">
-                          {phase_metrics.preparation ? `${phase_metrics.preparation.duration_days} days` : "Not started"}
-                        </p>
-                        {phase_metrics.preparation && (
-                          <p className="mt-2 text-sm font-semibold text-gray-700">Rating: {phase_metrics.preparation.rating}/5</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
+  return (
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 mb-8">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6">
+        Candidate Journey
+      </h3>
+      <div className="space-y-4">
+        {phases.map((phase, index) => {
+          const phaseData = journey[phase.key];
+          const isCompleted = phaseData.completed;
+          const isActive = phaseData.active;
+          const isUpcoming = !isCompleted && !isActive;
 
-                {/* Marketing */}
-                <Card>
-                  <div className="p-6">
-                    <div className="flex items-center">
-                      <div className="mr-4 w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center text-xl">📣</div>
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900">Marketing</h3>
-                        <p className="mt-1 text-sm text-gray-500">
-                          {phase_metrics.marketing ? `${phase_metrics.marketing.duration_days} days` : "Not started"}
-                        </p>
-                        {phase_metrics.marketing && (
-                          <div className="mt-2 text-sm text-gray-700">
-                            <span className="font-semibold mr-2">{phase_metrics.marketing.success_rate}%</span>
-                            <span className="text-gray-500">success • {phase_metrics.marketing.total_interviews} interviews</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-
-                {/* Placement */}
-                <Card>
-                  <div className="p-6">
-                    <div className="flex items-center">
-                      <div className="mr-4 w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center text-xl">💼</div>
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900">Placement</h3>
-                        <p className="mt-1 text-sm text-gray-500">
-                          {phase_metrics.placement ? `${phase_metrics.placement.days_since} days since` : "Not placed"}
-                        </p>
-                        {phase_metrics.placement && <p className="mt-2 text-sm font-semibold">{phase_metrics.placement.company}</p>}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
+          return (
+            <div key={phase.name} className="flex items-start space-x-4">
+              <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+                isCompleted 
+                  ? 'bg-green-500 text-white' 
+                  : isActive 
+                  ? 'bg-blue-500 text-white animate-pulse' 
+                  : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400'
+              }`}>
+                {isCompleted ? <CheckCircle className="w-5 h-5" /> : phase.icon}
               </div>
-
-              {/* Interview performance */}
-              <Card>
-                <div className="p-6">
-                  <h3 className="text-lg font-medium text-gray-900">Interview Performance</h3>
-                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 rounded-lg bg-blue-500 flex items-center justify-center text-white text-2xl font-semibold">
-                        {interview_stats.positive}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">Positive Feedback</p>
-                        <p className="text-sm text-gray-500">
-                          {interview_stats.total > 0 ? `${((interview_stats.positive / interview_stats.total) * 100).toFixed(1)}%` : "0%"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-2xl font-semibold text-gray-700">
-                        {interview_stats.total}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">Total Interviews</p>
-                        <p className="text-sm text-gray-500">{interview_stats.success_rate}% success rate</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-
-              {/* Recent Interviews */}
-              <Card>
-                <div className="p-6">
-                  <h3 className="text-lg font-medium text-gray-900">Recent Interviews</h3>
-                  <div className="mt-4 space-y-3">
-                    {recent_interviews.length === 0 ? (
-                      <p className="text-sm text-gray-500 italic">No interviews found</p>
-                    ) : (
-                      recent_interviews.map((iv, i) => (
-                        <div
-                          key={i}
-                          className={`flex items-center p-3 rounded-lg ${
-                            iv.feedback === "Positive" ? "bg-green-50" : iv.feedback === "Negative" ? "bg-red-50" : "bg-yellow-50"
-                          }`}
-                        >
-                          <div className="w-12 h-12 rounded-md bg-gray-200 flex items-center justify-center">{iv.company?.slice(0, 1)}</div>
-                          <div className="ml-3 flex-1">
-                            <div className="flex justify-between">
-                              <h4 className="text-sm font-medium text-gray-900">{iv.company}</h4>
-                              <p className="text-sm text-gray-500">{format(new Date(iv.interview_date), "MMM dd")}</p>
-                            </div>
-                            <p className="text-sm text-gray-600 mt-1">{iv.feedback}</p>
-                          </div>
-                        </div>
-                      ))
+              
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <h4 className={`text-lg font-medium ${
+                    isActive 
+                      ? 'text-blue-600 dark:text-blue-400' 
+                      : isCompleted
+                      ? 'text-green-600 dark:text-green-400'
+                      : 'text-gray-500 dark:text-gray-400'
+                  }`}>
+                    {phase.name}
+                  </h4>
+                  <div className="flex items-center space-x-2">
+                    {phaseData.duration_days && (
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        {phaseData.duration_days} days
+                      </span>
+                    )}
+                    {isActive && (
+                      <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 text-xs rounded-full font-medium">
+                        Active
+                      </span>
+                    )}
+                    {isCompleted && (
+                      <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-400 text-xs rounded-full font-medium">
+                        Completed
+                      </span>
                     )}
                   </div>
                 </div>
-              </Card>
-            </>
-          )}
-
-          {/* Preparation Tab */}
-          {activeTab === "preparation" && (
-            <div>
-              {tabLoading ? (
-                <LoadingSpinner />
-              ) : tabError ? (
-                <p className="text-red-600">{tabError}</p>
-              ) : (
-                <Card>
-                  <div className="p-6">
-                    <h3 className="text-lg font-medium">Preparation Details</h3>
-                    <pre className="mt-4 text-sm text-gray-700 whitespace-pre-wrap">{JSON.stringify(preparationData ?? { message: "No preparation record" }, null, 2)}</pre>
-                  </div>
-                </Card>
-              )}
-            </div>
-          )}
-
-          {/* Marketing Tab */}
-          {activeTab === "marketing" && (
-            <div>
-              {tabLoading ? (
-                <LoadingSpinner />
-              ) : tabError ? (
-                <p className="text-red-600">{tabError}</p>
-              ) : (
-                <Card>
-                  <div className="p-6">
-                    <h3 className="text-lg font-medium">Marketing Details</h3>
-                    <pre className="mt-4 text-sm text-gray-700 whitespace-pre-wrap">{JSON.stringify(marketingData ?? { message: "No marketing record" }, null, 2)}</pre>
-                  </div>
-                </Card>
-              )}
-            </div>
-          )}
-
-          {/* Placement Tab */}
-          {activeTab === "placement" && (
-            <div>
-              {tabLoading ? (
-                <LoadingSpinner />
-              ) : tabError ? (
-                <p className="text-red-600">{tabError}</p>
-              ) : (
-                <Card>
-                  <div className="p-6">
-                    <h3 className="text-lg font-medium">Placement Details</h3>
-                    <pre className="mt-4 text-sm text-gray-700 whitespace-pre-wrap">{JSON.stringify(placementData ?? { message: "No placement record" }, null, 2)}</pre>
-                  </div>
-                </Card>
-              )}
-            </div>
-          )}
-
-          {/* Interviews Tab */}
-          {activeTab === "interviews" && (
-            <div>
-              {tabLoading ? (
-                <LoadingSpinner />
-              ) : tabError ? (
-                <p className="text-red-600">{tabError}</p>
-              ) : (
-                <Card>
-                  <div className="p-6">
-                    <h3 className="text-lg font-medium">Interviews</h3>
-                    <div className="mt-4">
-                      {Array.isArray(interviewsData) && interviewsData.length > 0 ? (
-                        <ul className="space-y-3">
-                          {interviewsData.map((iv, i) => (
-                            <li key={i} className="p-3 border border-gray-100 rounded-lg">
-                              <div className="flex justify-between">
-                                <div>
-                                  <div className="text-sm font-semibold">{iv.company}</div>
-                                  <div className="text-xs text-gray-500">{formatShortDate(iv.interview_date)}</div>
-                                </div>
-                                <div className="text-sm text-gray-600">{iv.feedback}</div>
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-sm text-gray-500 italic">No interviews found</p>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              )}
-            </div>
-          )}
-
-          {/* Team Tab */}
-          {activeTab === "team" && (
-            <div>
-              {tabLoading ? (
-                <LoadingSpinner />
-              ) : tabError ? (
-                <p className="text-red-600">{tabError}</p>
-              ) : (
-                <Card>
-                  <div className="p-6">
-                    <h3 className="text-lg font-medium">Team Members</h3>
-                    <pre className="mt-4 text-sm text-gray-700 whitespace-pre-wrap">{JSON.stringify(teamData ?? { message: "No team assigned" }, null, 2)}</pre>
-                  </div>
-                </Card>
-              )}
-            </div>
-          )}
-
-          {/* Statistics Tab */}
-          {activeTab === "statistics" && (
-            <div>
-              {tabLoading ? (
-                <LoadingSpinner />
-              ) : tabError ? (
-                <p className="text-red-600">{tabError}</p>
-              ) : (
-                <Card>
-                  <div className="p-6">
-                    <h3 className="text-lg font-medium">Statistics</h3>
-                    <pre className="mt-4 text-sm text-gray-700 whitespace-pre-wrap">{JSON.stringify(statisticsData ?? { message: "No stats" }, null, 2)}</pre>
-                  </div>
-                </Card>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Right column */}
-        <aside className="lg:col-span-1 space-y-6">
-          {/* Journey */}
-          <Card>
-            <div className="p-6">
-              <h4 className="text-md font-medium text-gray-900">Journey Progress</h4>
-              <ol className="mt-4 space-y-4">
-                <li className="flex items-start gap-3">
-                  <div className="h-8 w-8 rounded-full bg-indigo-600 text-white flex items-center justify-center">1</div>
-                  <div>
-                    <p className="text-sm font-medium">Enrolled</p>
-                    <p className="text-sm text-gray-500">{formatShortDate(basic_info.enrolled_date)}</p>
-                  </div>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="h-8 w-8 rounded-full border-2 border-indigo-300 text-indigo-600 flex items-center justify-center">2</div>
-                  <div>
-                    <p className="text-sm font-medium">Preparation</p>
-                    <p className="text-sm text-gray-500">{phase_metrics.preparation ? `Active for ${phase_metrics.preparation.duration_days} days` : "Not started"}</p>
-                  </div>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="h-8 w-8 rounded-full border-2 border-indigo-300 text-indigo-600 flex items-center justify-center">3</div>
-                  <div>
-                    <p className="text-sm font-medium">Marketing</p>
-                    <p className="text-sm text-gray-500">{phase_metrics.marketing ? `Active for ${phase_metrics.marketing.duration_days} days` : "Not started"}</p>
-                  </div>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="h-8 w-8 rounded-full border-2 border-indigo-300 text-indigo-600 flex items-center justify-center">4</div>
-                  <div>
-                    <p className="text-sm font-medium">Placement</p>
-                    <p className="text-sm text-gray-500">{phase_metrics.placement ? `${phase_metrics.placement.days_since} days since placement` : "Not placed"}</p>
-                  </div>
-                </li>
-              </ol>
-            </div>
-          </Card>
-
-          {/* Alerts */}
-          <Card>
-            <div className="p-6">
-              <h4 className="text-md font-medium text-gray-900">Alerts & Notifications</h4>
-              <div className="mt-4 space-y-3">
-                {alerts && alerts.length > 0 ? (
-                  alerts.map((a, i) => (
-                    <div key={i} className={`p-3 rounded-md ${a.type === "warning" ? "bg-yellow-50 border-l-4 border-yellow-400" : "bg-blue-50 border-l-4 border-blue-400"}`}>
-                      <p className="text-sm text-gray-900">{a.message}</p>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-gray-500 italic">No active alerts</p>
+                
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  {phase.description}
+                </p>
+                
+                {phaseData.start_date && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    Started: {new Date(phaseData.start_date).toLocaleDateString()}
+                  </p>
+                )}
+                {phaseData.date && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                    Date: {new Date(phaseData.date).toLocaleDateString()}
+                  </p>
+                )}
+                {phaseData.company && (
+                  <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">
+                    {phaseData.company} • {phaseData.position}
+                  </p>
                 )}
               </div>
             </div>
-          </Card>
-
-          {/* Quick actions */}
-          <Card>
-            <div className="p-4 flex flex-col gap-3">
-              <button
-                onClick={() => setActiveTab("preparation")}
-                className="w-full py-2 rounded-md bg-indigo-600 text-white text-sm font-medium"
-              >
-                Move to Preparation
-              </button>
-              <button
-                onClick={() => setActiveTab("marketing")}
-                className="w-full py-2 rounded-md border border-gray-200 text-sm"
-              >
-                Move to Marketing
-              </button>
-              <button
-                onClick={() => setActiveTab("placement")}
-                className="w-full py-2 rounded-md border border-gray-200 text-sm"
-              >
-                Move to Placement
-              </button>
-            </div>
-          </Card>
-        </aside>
+          );
+        })}
       </div>
-    </main>
+    </div>
   );
-}
+};
+
+// Overview Tab Component
+const OverviewTab = ({ data, onDataUpdate }: { data: DashboardData; onDataUpdate: () => void }) => (
+  <div className="space-y-6">
+    {/* Team Information */}
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Preparation Team */}
+      <div className="bg-gray-50 dark:bg-gray-700 rounded-2xl p-6">
+        <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
+          <Users className="w-5 h-5 mr-2" />
+          Preparation Team
+        </h4>
+        <div className="space-y-3">
+          {data.team_info.preparation.instructors.map((instructor, index) => (
+            <div key={instructor.id} className="flex items-center space-x-3 p-3 bg-white dark:bg-gray-600 rounded-xl">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                {instructor.name.split(' ').map(n => n[0]).join('')}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                  {instructor.name}
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                  {instructor.role}
+                </p>
+              </div>
+            </div>
+          ))}
+          {data.team_info.preparation.instructors.length === 0 && (
+            <p className="text-gray-500 dark:text-gray-400 text-center py-4">
+              No instructors assigned yet
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Marketing Team */}
+      <div className="bg-gray-50 dark:bg-gray-700 rounded-2xl p-6">
+        <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
+          <Target className="w-5 h-5 mr-2" />
+          Marketing Team
+        </h4>
+        <div className="space-y-3">
+          {data.team_info.marketing.manager ? (
+            <div className="flex items-center space-x-3 p-3 bg-white dark:bg-gray-600 rounded-xl">
+              <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-teal-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                {data.team_info.marketing.manager.name.split(' ').map(n => n[0]).join('')}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                  {data.team_info.marketing.manager.name}
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                  Marketing Manager
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-gray-500 dark:text-gray-400 text-center py-4">
+              No marketing manager assigned yet
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+
+    {/* Recent Interviews */}
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6">
+      <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
+        <Calendar className="w-5 h-5 mr-2" />
+        Recent Interviews
+      </h4>
+      <div className="space-y-3">
+        {data.recent_interviews.map((interview) => (
+          <div
+            key={interview.id}
+            className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 hover:shadow-md transition-all duration-200"
+          >
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                {interview.company}
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {new Date(interview.interview_date).toLocaleDateString()} • {interview.type_of_interview}
+              </p>
+            </div>
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+              interview.feedback === 'Positive' 
+                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                : interview.feedback === 'Negative'
+                ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+            }`}>
+              {interview.feedback || 'Pending'}
+            </span>
+          </div>
+        ))}
+        {data.recent_interviews.length === 0 && (
+          <p className="text-gray-500 dark:text-gray-400 text-center py-8">
+            No interviews scheduled yet
+          </p>
+        )}
+      </div>
+    </div>
+
+    {/* Interview Statistics */}
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <StatCard
+        label="Total Interviews"
+        value={data.interview_stats.total}
+        color="blue"
+      />
+      <StatCard
+        label="Positive"
+        value={data.interview_stats.positive}
+        color="green"
+      />
+      <StatCard
+        label="Pending"
+        value={data.interview_stats.pending}
+        color="yellow"
+      />
+      <StatCard
+        label="Success Rate"
+        value={`${data.interview_stats.success_rate}%`}
+        color="purple"
+      />
+    </div>
+  </div>
+);
+
+// Stat Card Component
+const StatCard = ({ label, value, color }: { label: string; value: string | number; color: string }) => {
+  const colorClasses = {
+    blue: "border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20",
+    green: "border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20",
+    yellow: "border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20",
+    purple: "border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/20",
+  };
+
+  return (
+    <div className={`border rounded-2xl p-4 text-center ${colorClasses[color]}`}>
+      <div className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+        {value}
+      </div>
+      <div className="text-sm text-gray-600 dark:text-gray-400">
+        {label}
+      </div>
+    </div>
+  );
+};
+
+// Loading Spinner Component
+const LoadingSpinner = () => (
+  <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+    <div className="text-center">
+      <div className="relative mb-6">
+        <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+      </div>
+      <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-2">
+        Loading Dashboard
+      </h2>
+      <div className="flex items-center justify-center space-x-1">
+        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+        <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+      </div>
+    </div>
+  </div>
+);
+
+// Error State Component
+const ErrorState = ({ onRetry }: { onRetry: () => void }) => (
+  <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-lg p-8 text-center max-w-md">
+      <div className="w-16 h-16 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center mx-auto mb-6">
+        <User className="h-8 w-8 text-red-500 dark:text-red-400" />
+      </div>
+      <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3">
+        Connection Failed
+      </h3>
+      <p className="text-gray-600 dark:text-gray-400 mb-6">
+        Unable to retrieve dashboard data. Please check your connection and try again.
+      </p>
+      <button
+        onClick={onRetry}
+        className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 transform hover:scale-105 font-semibold"
+      >
+        Retry Connection
+      </button>
+    </div>
+  </div>
+);
+
+// Helper function to get current phase
+const getCurrentPhase = (journey: DashboardData['journey']) => {
+  if (journey.placement.active) return 'Placement';
+  if (journey.marketing.active) return 'Marketing';
+  if (journey.preparation.active) return 'Preparation';
+  return 'Enrolled';
+};
+
+// Placeholder components for other tabs (implement based on your API endpoints)
+const PreparationTab = ({ candidateId, onDataUpdate }: { candidateId: number; onDataUpdate: () => void }) => (
+  <div className="text-center py-8">
+    <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+      Preparation Details
+    </h3>
+    <p className="text-gray-500 dark:text-gray-400">
+      Preparation phase information will be displayed here.
+    </p>
+  </div>
+);
+
+const MarketingTab = ({ candidateId, onDataUpdate }: { candidateId: number; onDataUpdate: () => void }) => (
+  <div className="text-center py-8">
+    <Target className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+      Marketing Details
+    </h3>
+    <p className="text-gray-500 dark:text-gray-400">
+      Marketing phase information will be displayed here.
+    </p>
+  </div>
+);
+
+const PlacementTab = ({ candidateId, onDataUpdate }: { candidateId: number; onDataUpdate: () => void }) => (
+  <div className="text-center py-8">
+    <Briefcase className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+      Placement Details
+    </h3>
+    <p className="text-gray-500 dark:text-gray-400">
+      Placement information will be displayed here.
+    </p>
+  </div>
+);
+
+const InterviewsTab = ({ candidateId, onDataUpdate }: { candidateId: number; onDataUpdate: () => void }) => (
+  <div className="text-center py-8">
+    <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+      Interview History
+    </h3>
+    <p className="text-gray-500 dark:text-gray-400">
+      Complete interview history will be displayed here.
+    </p>
+  </div>
+);

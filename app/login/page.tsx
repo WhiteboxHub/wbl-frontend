@@ -482,7 +482,7 @@
 // };
 // export default SigninPage;
 
-// // frntend\app\login\page.tsx
+// // frntend\app\\page.tsx
 // "use client";
 // import Link from "next/link";
 // import UserDashboard from "@/app/user_dashboard/page";
@@ -1341,12 +1341,13 @@ const SigninPage = () => {
         setResponseStatus("success");
         login(data.access_token); 
 
-        const role = getUserTeamRole(); 
+        // Get role after storing token
+        const role = getUserTeamRole(data.access_token); 
         if (role === "admin") {
-          // router.push("/avatar");
-          router.push('/');
-        } else {
           router.push("/");
+        } else {
+          // Redirect candidates to dashboard
+          router.push("/dashboard");
         }
       } else {
         setResponseStatus("error");
