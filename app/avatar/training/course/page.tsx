@@ -194,7 +194,7 @@ useEffect(() => {
           <h1 className="text-2xl font-bold">Courses</h1>
           <p>Manage all courses here.</p>
         </div>
-        <Button onClick={() => setIsModalOpen(true)}>+ Add Course</Button>
+        {/* <Button onClick={() => setIsModalOpen(true)}>+ Add Course</Button> */}
       </div>
 
       {/* Search bar */}
@@ -340,6 +340,26 @@ useEffect(() => {
         columnDefs={columnDefs}
         title={`Courses (${filteredCourses.length})`}
         height="calc(70vh)"
+        onRowAdded={async (newRow: any) => {
+          try {
+            const payload = {
+              name: newRow.name || "",
+              alias: newRow.alias || "",
+              description: newRow.description || "",
+              syllabus: newRow.syllabus || "",
+            };
+            if (!payload.name) { toast.error("Name is required"); return; }
+            const res = await apiFetch("/courses", { method: "POST", body: payload });
+            const created = Array.isArray(res) ? res : (res?.data ?? res);
+            const updated = [created, ...courses].slice().sort((a:any,b:any)=>b.id-a.id);
+            setCourses(updated);
+            setFilteredCourses(updated);
+            toast.success("Course created");
+          } catch (e:any) {
+            const msg = e?.body || e?.message || "Failed to create course";
+            toast.error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+          }
+        }}
         onRowUpdated={handleRowUpdated}
         onRowDeleted={handleRowDeleted}
         showSearch={false}

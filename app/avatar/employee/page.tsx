@@ -288,9 +288,9 @@ export default function EmployeesPage() {
     },
     { headerName: "Address", field: "address", editable: true, onCellValueChanged: (params) => handleRowUpdated(params.data) },
     { headerName: "State", field: "state", editable: true, onCellValueChanged: (params) => handleRowUpdated(params.data) },
-    { headerName: "DOB", field: "dob", valueFormatter: DateFormatter, editable: true, onCellValueChanged: (params) => handleRowUpdated(params.data) },
-    { headerName: "Start Date", field: "startdate", valueFormatter: DateFormatter, editable: true, onCellValueChanged: (params) => handleRowUpdated(params.data) },
-    { headerName: "End Date", field: "enddate", valueFormatter: DateFormatter, editable: true, onCellValueChanged: (params) => handleRowUpdated(params.data) },
+    { headerName: "DOB", field: "dob", valueFormatter: DateFormatter, editable: true, filter:"agDateColumnFilter", onCellValueChanged: (params) => handleRowUpdated(params.data) },
+    { headerName: "Start Date", field: "startdate", valueFormatter: DateFormatter, editable: true,filter:"agDateColumnFilter", onCellValueChanged: (params) => handleRowUpdated(params.data) },
+    { headerName: "End Date", field: "enddate", valueFormatter: DateFormatter, editable: true,filter:"agDateColumnFilter", onCellValueChanged: (params) => handleRowUpdated(params.data) },
     { headerName: "Instructor", field: "instructor", editable: true, onCellValueChanged: (params) => handleRowUpdated(params.data) },
     { headerName: "Status", field: "status", editable: true, onCellValueChanged: (params) => handleRowUpdated(params.data) },
     {
@@ -343,9 +343,9 @@ export default function EmployeesPage() {
         </div>
 
         <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
-          <button onClick={handleOpenEmployeeForm} className="flex items-center whitespace-nowrap rounded-lg bg-green-600 px-3 py-2 text-white hover:bg-green-700">
+          {/* <button onClick={handleOpenEmployeeForm} className="flex items-center whitespace-nowrap rounded-lg bg-green-600 px-3 py-2 text-white hover:bg-green-700">
             <Plus className="mr-2 h-4 w-4" /> Add Employee
-          </button>
+          </button> */}
         </div>
       </div>
 
@@ -703,6 +703,35 @@ export default function EmployeesPage() {
             title={`Employees (${filteredEmployees.length})`}
             height="70vh"
             loading={loading}
+            onRowAdded={async (newRow: any) => {
+              try {
+                const payload = {
+                  name: newRow.full_name || newRow.name || "",
+                  email: newRow.email || null,
+                  phone: newRow.phone || null,
+                  address: newRow.address || null,
+                  dob: newRow.dob || null,
+                  startdate: newRow.startdate || null,
+                  enddate: newRow.enddate || null,
+                  instructor: newRow.instructor ?? null,
+                  notes: newRow.notes || null,
+                  state: newRow.state || null,
+                  aadhaar: newRow.aadhaar || null,
+                  status: newRow.status ?? null,
+                };
+                if (!payload.name || !payload.email || payload.status == null || payload.instructor == null) {
+                  setError("Full Name, Email, Status and Instructor are required");
+                  return;
+                }
+                const created = await apiFetch("/employees", { method: "POST", body: payload });
+                const newEmployee = { ...created, full_name: created.name ?? payload.name };
+                setFilteredEmployees((prev) => [newEmployee, ...prev]);
+                setEmployees((prev) => [newEmployee, ...prev]);
+              } catch (err:any) {
+                console.error("Failed to add employee via grid +:", err);
+                setError(err?.message || "Failed to add employee");
+              }
+            }}
             onRowUpdated={handleRowUpdated}
             onRowDeleted={handleRowDeleted}
             showFilters={false}

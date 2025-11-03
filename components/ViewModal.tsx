@@ -1,3 +1,4 @@
+
 "use client";
 import { useForm } from "react-hook-form";
 import { useEffect, useRef } from "react";
@@ -49,6 +50,7 @@ const fieldSections: Record<string, string> = {
   startdate: "Professional Information",
   type: "Professional Information",
   company_name: "Professional Information",
+  company_type: "Professional Information",
   linkedin_connected: "Professional Information",
   intro_email_sent: "Professional Information",
   intro_call: "Professional Information",
@@ -72,7 +74,7 @@ const fieldSections: Record<string, string> = {
   enddate: "Professional Information",
   candidate_name: "Basic Information",
   candidate_role: "Basic Information",
-  google_voice_number: "Professional Information",
+  google_voice_number: "Contact Information",
   dob: "Basic Information",
   contact: "Basic Information",
   password: "Professional Information",
@@ -83,23 +85,26 @@ const fieldSections: Record<string, string> = {
   subject: "Basic Information",
   title: "Basic Information",
   enrolleddate: "Basic Information",
+  emails_read : "Basic Information",
   orientationdate: "Basic Information",
   promissory: "Basic Information",
   lastlogin: "Professional Information",
   logincount: "Professional Information",
   course: "Professional Information",
   registereddate: "Professional Information",
-  company: "Professional Information",
+  company: "Basic Information",
   linkedin: "Contact Information",
-  github: "Contact Information",
+  github_url: "Contact Information",
+  github_link: "Contact Information",
   resume: "Contact Information",
+  resume_url: "Contact Information",
   client_id: "Professional Information",
   client_name: "Professional Information",
   interview_time: "Professional Information",
   vendor_or_client_name: "Professional Information",
   vendor_or_client_contact: "Professional Information",
   marketing_email_address: "Professional Information",
-  interview_date: "Professional Information",
+  interview_date: "Basic Information",
   interview_mode: "Professional Information",
   visa_status: "Professional Information",
   workstatus: "Basic Information",
@@ -166,6 +171,14 @@ const workVisaStatusOptions = [
   { value: "h1b", label: "H1B" },
 ];
 
+const ratingLabelMap: Record<string, string> = {
+  "excellent": "Excellent",
+  "very good": "Very Good",
+  "good": "Good",
+  "average": "Average",
+  "need to improve": "Need to Improve",
+};
+
 const labelOverrides: Record<string, string> = {
   candidate_full_name: "Candidate Full Name",
   instructor1_name: "Instructor 1 Name",
@@ -191,6 +204,9 @@ const labelOverrides: Record<string, string> = {
   batchname: "Batch Name",
   secondaryphone: "Secondary Phone",
   email: "Email",
+  resume_url: "Resume URL",
+  linkedin_id: "Linkedin ID",
+  github_url: "GitHub URL",
   videoid: "Video ID",
   secondaryemail: "Secondary Email",
   classdate: "Class Date",
@@ -249,6 +265,23 @@ const dateFields = [
 
 const courseMaterialHiddenFields = ["subjectid", "courseid", "type"];
 
+// Field visibility configuration
+const fieldVisibility: Record<string, string[]> = {
+  instructor: ['preparation', 'interview', 'marketing'],
+  linkedin: ['preparation', 'interview', 'marketing', 'candidate', 'vendor', 'client', 'placement']
+};
+
+// Helper functions for field visibility
+const shouldShowInstructorFields = (title: string): boolean => {
+  const lowerTitle = title.toLowerCase();
+  return fieldVisibility.instructor.some(modal => lowerTitle.includes(modal));
+};
+
+const shouldShowLinkedInField = (title: string): boolean => {
+  const lowerTitle = title.toLowerCase();
+  return fieldVisibility.linkedin.some(modal => lowerTitle.includes(modal));
+};
+
 // Title-specific exclusions
 const getTitleSpecificExclusions = (title: string): string[] => {
   const lowerTitle = title.toLowerCase();
@@ -258,12 +291,18 @@ const getTitleSpecificExclusions = (title: string): string[] => {
   if (lowerTitle.includes('batch')) {
     exclusions.push('cm_subject', 'subject_name');
   }
+    if (lowerTitle.includes('leads')) {
+    exclusions.push('synced', 'lastSync');
+  }
   
   // class recordings
   if (lowerTitle.includes('recording') || lowerTitle.includes('class recording')) {
     exclusions.push('material_type', 'cm_subject', 'subject_name');
   }
-  
+
+  if (lowerTitle.includes('marketing')){
+    exclusions.push('marketing_manager_obj')
+  }
   // sessions
   if (lowerTitle.includes('session') && !lowerTitle.includes('submission')) {
     exclusions.push('material_type', 'cm_subject', 'subject_name');
@@ -392,6 +431,12 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
         return <Badge className={value === '1' || value === 'true' || value === 'yes' ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>{displayValue}</Badge>;
       }
     }
+
+    if (lowerKey.includes("rating") || lowerKey.includes("communication")) {
+      const normalizedValue = String(value).toLowerCase();
+      const displayValue = ratingLabelMap[normalizedValue] || value;
+      return <p>{displayValue}</p>;
+    }
     
     if (typeof value === "object" && value !== null) {
       if (key.includes("candidate") && value.full_name) return <p>{value.full_name}</p>;
@@ -404,14 +449,18 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       if (!isNaN(date.getTime())) return <p>{date.toISOString().split("T")[0]}</p>;
     }
     
-    if (lowerKey === "status") return <Badge className={getStatusColor(value)}>{value}</Badge>;
+    // if (lowerKey === "status") return <Badge className={getStatusColor(value)}>{value}</Badge>;
+    if (lowerKey === "status") {
+      const displayValue = String(value).toUpperCase();
+      return <Badge className={getStatusColor(value)}>{displayValue}</Badge>;
+    }
     if (["visa_status", "workstatus"].includes(lowerKey)) return <Badge className={getVisaColor(value)}>{value}</Badge>;
     if (["feepaid", "feedue", "salary0", "salary6", "salary12"].includes(lowerKey)) return <p>${Number(value).toLocaleString()}</p>;
     if (lowerKey.includes("rating")) return <p>{value} </p>;
     if (["notes", "task"].includes(lowerKey)) return <div dangerouslySetInnerHTML={{ __html: value }} />;
     
     // Handle URL fields
-    if (["recording_link", "transcript", "job_posting_url", "resume_url", "backup_recording_url", "linkedin", "github", "resume", "interviewer_linkedin", "url", "candidate_resume", "backup_url", "link"].includes(lowerKey)) {
+    if (["recording_link", "transcript", "job_posting_url", "resume_url", "backup_recording_url", "linkedin", "github_url","github_link","linkedin_id", "resume", "interviewer_linkedin", "url", "candidate_resume", "backup_url", "link"].includes(lowerKey)) {
       return (
         <a
           href={value}
@@ -451,19 +500,23 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     return <p className="break-words">{String(value)}</p>;
   };
 
-  const flattenData = (data: Record<string, any>) => {
-    const flattened: Record<string, any> = { ...data };
-    if (data.candidate) flattened.candidate_full_name = data.candidate.full_name;
-    if (data.instructor1) flattened.instructor1_name = data.instructor1.name;
-    if (data.instructor2) flattened.instructor2_name = data.instructor2.name;
-    if (data.instructor3) flattened.instructor3_name = data.instructor3.name;
+const flattenData = (data: Record<string, any>) => {
+  const flattened: Record<string, any> = { ...data };
+  if (data.candidate) flattened.candidate_full_name = data.candidate.full_name;
 
+  flattened.instructor1_id = data.instructor1?.id || data.instructor1_id || "";
+  flattened.instructor1_name = data.instructor1?.name || data.instructor1_name || "";
+  flattened.instructor2_id = data.instructor2?.id || data.instructor2_id || "";
+  flattened.instructor2_name = data.instructor2?.name || data.instructor2_name || "";
+  flattened.instructor3_id = data.instructor3?.id || data.instructor3_id || "";
+  flattened.instructor3_name = data.instructor3?.name || data.instructor3_name || "";
     if (data.course) {
       flattened.cm_course = data.course.name || data.course.course_name;
     }
     if (data.subject) {
       flattened.cm_subject = data.subject.name || data.subject.subject_name;
     }
+  flattened.linkedin_id = data.candidate?.linkedin_id || data.linkedin_id || "";
     
     const typeMap: Record<string, string> = {
       'P': 'Presentations',
@@ -517,12 +570,31 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
 
   const titleExclusions = getTitleSpecificExclusions(title);
 
+  // Field visibility for current modal
+  const showInstructorFields = shouldShowInstructorFields(title);
+  const showLinkedInField = shouldShowLinkedInField(title);
 
   const allFields: { key: string; value: any; section: string }[] = [];
   
   Object.entries(flattenedData).forEach(([key, value]) => {
     // Skip excluded fields
     if (excludedFields.includes(key)) return;
+    
+    // MODAL-SPECIFIC FIELD FILTERING
+    const instructorFields = [
+      'instructor1_name', 'instructor2_name', 'instructor3_name',
+      'instructor1_id', 'instructor2_id', 'instructor3_id'
+    ];
+    
+    // Hide instructor fields in non-relevant modals
+    if (!showInstructorFields && instructorFields.includes(key)) {
+      return;
+    }
+    
+    // Hide LinkedIn in non-relevant modals
+    if (!showLinkedInField && key === 'linkedin_id') {
+      return;
+    }
     
     if (isCourseMaterial && courseMaterialHiddenFields.includes(key)) return;
     
