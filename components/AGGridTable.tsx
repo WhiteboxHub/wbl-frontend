@@ -21,7 +21,6 @@ import {
 } from "lucide-react";
 import { ViewModal } from "./ViewModal";
 import { EditModal } from "@/components/EditModal";
-import { DynamicFormModal } from "@/components/forms/DynamicFormModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
@@ -323,8 +322,13 @@ export function AGGridTable({
       return blank;
     }
     // fallback: build from column defs
-    const fields = initialColumnDefs.map((c) => c.field).filter(Boolean) as string[];
-    return fields.reduce((acc: any, f: string) => { acc[f] = ""; return acc; }, {});
+    const fields = initialColumnDefs
+      .map((c) => c.field)
+      .filter(Boolean) as string[];
+    return fields.reduce((acc: any, f: string) => {
+      acc[f] = "";
+      return acc;
+    }, {});
   }, [rowData, initialColumnDefs]);
 
   const handleAdd = () => {
@@ -335,14 +339,17 @@ export function AGGridTable({
     setIsAddModalOpen(true);
   };
 
-  const handleAddSave = useCallback((newData: RowData) => {
-    if (gridRef.current) {
-      gridRef.current.api.applyTransaction({ add: [newData] });
-    }
-    if (onRowAdded) onRowAdded(newData);
-    else if (onRowUpdated) onRowUpdated(newData);
-    setIsAddModalOpen(false);
-  }, [onRowAdded, onRowUpdated]);
+  const handleAddSave = useCallback(
+    (newData: RowData) => {
+      if (gridRef.current) {
+        gridRef.current.api.applyTransaction({ add: [newData] });
+      }
+      if (onRowAdded) onRowAdded(newData);
+      else if (onRowUpdated) onRowUpdated(newData);
+      setIsAddModalOpen(false);
+    },
+    [onRowAdded, onRowUpdated]
+  );
 
   return (
     <div className="mx-auto w-full max-w-7xl flex-row-reverse space-y-4">
@@ -507,6 +514,18 @@ export function AGGridTable({
         </div>
       </ColumnVisibilityModal>
 
+      {isAddModalOpen && (
+        <EditModal
+          isOpen={true}
+          onClose={() => setIsAddModalOpen(false)}
+          onSave={handleAddSave}
+          data={addInitialData}
+          title={title || "Record"}
+          batches={batches}
+          isAddMode={true} // Add this line
+        />
+      )}
+
       {viewData && (
         <ViewModal
           isOpen={true}
@@ -527,18 +546,7 @@ export function AGGridTable({
           batches={batches}
         />
       )}
-      {isAddModalOpen && !onAddClick && (
-        <DynamicFormModal
-          isOpen={true}
-          onClose={() => setIsAddModalOpen(false)}
-          title={(title ? `${title}` : "Record") + " - Add"}
-          mode="add"
-          entity={undefined}
-          initialData={addInitialData}
-          onSubmit={handleAddSave}
-          externalLists={{ batches }}
-        />
-      )}
+
       {deleteConfirmData && (
         <ConfirmDialog
           isOpen={true}
