@@ -157,7 +157,14 @@ const WorkStatusRenderer = ({ value }: { value?: string }) => {
     </Badge>
   );
 };
-
+const toPascalCase = (str: string): string => {
+  if (!str) return str;
+  return str
+    .trim()
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
 const CandidateNameRenderer = (params: any) => {
   const candidateId = params.data?.id;
   const candidateName = params.value;
@@ -1003,6 +1010,29 @@ export default function CandidatesPage() {
     return "full_name";
   };
 
+  // const onSubmit = async (data: FormData) => {
+  //   if (
+  //     !data.full_name.trim() ||
+  //     !data.email.trim() ||
+  //     !data.phone.trim() ||
+  //     !data.dob
+  //   ) {
+  //     toast.error("Full Name, Email, Phone, and Date of Birth are required");
+  //     return;
+  //   }
+
+  //   try {
+  //     const payload = {
+  //       ...data,
+  //       enrolled_date:
+  //         data.enrolled_date || new Date().toISOString().split("T")[0],
+  //       status: data.status || "active",
+  //       workstatus: data.workstatus || "Waiting for Status",
+  //       agreement: data.agreement || "N",
+  //       fee_paid: data.fee_paid || 0,
+  //     };
+
+
   const onSubmit = async (data: FormData) => {
     if (
       !data.full_name.trim() ||
@@ -1017,6 +1047,10 @@ export default function CandidatesPage() {
     try {
       const payload = {
         ...data,
+        full_name: toPascalCase(data.full_name),
+        phone: formatPhoneNumber(data.phone),
+        secondaryphone: data.secondaryphone ? formatPhoneNumber(data.secondaryphone) : "",
+        emergcontactphone: data.emergcontactphone ? formatPhoneNumber(data.emergcontactphone) : "",
         enrolled_date:
           data.enrolled_date || new Date().toISOString().split("T")[0],
         status: data.status || "active",
@@ -1024,6 +1058,7 @@ export default function CandidatesPage() {
         agreement: data.agreement || "N",
         fee_paid: data.fee_paid || 0,
       };
+
 
       const res = await api.post(apiPath, payload);
       const newId = res.data?.id ?? res.data;
@@ -1057,7 +1092,14 @@ export default function CandidatesPage() {
     async (updatedRow: Candidate) => {
       setLoadingRowId(updatedRow.id);
       try {
-        const updatedData = { ...updatedRow };
+        const updatedData = {
+          ...updatedRow,
+          full_name: updatedRow.full_name ? toPascalCase(updatedRow.full_name) : updatedRow.full_name,  // ✅ Add this
+          phone: updatedRow.phone ? formatPhoneNumber(updatedRow.phone) : updatedRow.phone,  // ✅ Add this
+          secondaryphone: updatedRow.secondaryphone ? formatPhoneNumber(updatedRow.secondaryphone) : updatedRow.secondaryphone,  // ✅ Add this
+          emergcontactphone: updatedRow.emergcontactphone ? formatPhoneNumber(updatedRow.emergcontactphone) : updatedRow.emergcontactphone,  // ✅ Add this
+          enrolled_date: updatedRow.enrolled_date || new Date().toISOString().split("T")[0],  // ✅ Add default date
+        };
         if (!updatedData.status || updatedData.status === "") {
           updatedData.status = "active";
         }
@@ -1242,9 +1284,9 @@ export default function CandidatesPage() {
           onRowAdded={async (newRow: any) => {
             try {
               const payload = {
-                full_name: newRow.full_name || newRow.fullname || newRow.name || "",
+                full_name: toPascalCase(newRow.full_name || newRow.fullname || newRow.name || ""),
                 email: newRow.email || newRow.candidate_email || newRow.secondaryemail || newRow.secondary_email || "",
-                phone: newRow.phone || newRow.phone_number || newRow.contact || "",
+                phone: newRow.phone ? formatPhoneNumber(newRow.phone) : (newRow.phone_number ? formatPhoneNumber(newRow.phone_number) : (newRow.contact ? formatPhoneNumber(newRow.contact) : "")),
                 dob: newRow.dob || newRow.date_of_birth || null,
                 batchid: Number(newRow.batchid) || 0,
                 status: newRow.status || "active",
@@ -1255,12 +1297,12 @@ export default function CandidatesPage() {
                 ssn: newRow.ssn || "",
                 agreement: newRow.agreement || "N",
                 secondaryemail: newRow.secondaryemail || newRow.secondary_email || "",
-                secondaryphone: newRow.secondaryphone || newRow.secondary_phone || "",
+                secondaryphone: newRow.secondaryphone ? formatPhoneNumber(newRow.secondaryphone) : (newRow.secondary_phone ? formatPhoneNumber(newRow.secondary_phone) : ""),
                 address: newRow.address || "",
                 linkedin_id: newRow.linkedin_id || newRow.linkedin || "",
                 emergcontactname: newRow.emergcontactname || "",
                 emergcontactemail: newRow.emergcontactemail || "",
-                emergcontactphone: newRow.emergcontactphone || "",
+                emergcontactphone: newRow.emergcontactphone ? formatPhoneNumber(newRow.emergcontactphone) : "",
                 emergcontactaddrs: newRow.emergcontactaddrs || "",
                 fee_paid: Number(newRow.fee_paid) || 0,
                 github_link: newRow.github_link || newRow.github || "",

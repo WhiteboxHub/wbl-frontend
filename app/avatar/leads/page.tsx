@@ -981,7 +981,7 @@ export default function LeadsPage() {
       },
       {
         field: "moved_to_candidate",
-        headerName: "Moved to Candidate",
+        headerName: "Move to Candidate",
         width: 180,
         editable: true,
         sortable: true,
