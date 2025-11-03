@@ -304,6 +304,55 @@ export default function CandidatesInterviews() {
     { value: "Prep Call", label: "Prep Call" },
   ];
 
+
+const EmailRenderer = (params: any) => {
+  const value = params.value;
+  if (!value) return <span className="text-gray-500">No Email</span>;
+
+  const emails = String(value)
+    .split(/[\s,]+/)
+    .map((e) => e.trim())
+    .filter(Boolean);
+
+  return (
+    <div className="flex flex-col space-y-1">
+      {emails.map((email: string, idx: number) => (
+        <a
+          key={idx}
+          href={`mailto:${email}`}
+          className="text-blue-600 underline hover:text-blue-800"
+        >
+          {email}
+        </a>
+      ))}
+    </div>
+  );
+};
+
+const PhoneRenderer = (params: any) => {
+  const value = params.value;
+  if (!value) return <span className="text-gray-500">No Phone</span>;
+
+  const phones = String(value)
+    .split(/[\s,]+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  return (
+    <div className="flex flex-col space-y-1">
+      {phones.map((phone: string, idx: number) => (
+        <a
+          key={idx}
+          href={`tel:${phone.replace(/[^+\d]/g, "")}`}
+          className="text-blue-600 underline hover:text-blue-800"
+        >
+          {phone}
+        </a>
+      ))}
+    </div>
+  );
+};
+
   const fetchInterviews = useCallback(async (pageNum: number, perPageNum: number) => {
     setLoading(true);
     setError("");
@@ -556,6 +605,9 @@ const columnDefs = useMemo<ColDef[]>(() => [
     cellRenderer: CompanyTypeRenderer,
   },
   { field: "interview_date", headerName: "Date", width: 120, editable: true },
+  { field: "interviewer_emails", headerName: "Interviewer Email",cellRenderer: EmailRenderer,  width: 190, editable: true },
+  { field: "interviewer_contact", headerName: "Interviewer Phone", cellRenderer: PhoneRenderer,  width: 190, editable: true },
+  { field: "interviewer_linkedin", headerName: "Interviewer Linkedin",cellRenderer: LinkRenderer, width: 190, editable: true },
   { field: "recording_link", headerName: "Recording", cellRenderer: LinkRenderer, width: 120, editable: true },
   { field: "transcript", headerName: "Transcript", cellRenderer: LinkRenderer, width: 120, editable: true },
   { field: "backup_recording_url", headerName: "Backup Recording", cellRenderer: LinkRenderer, width: 140, editable: true },
