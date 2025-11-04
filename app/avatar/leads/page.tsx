@@ -5,7 +5,7 @@ import { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon, PlusCircle, RefreshCw, X } from "lucide-react";
+import { SearchIcon, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { toast, Toaster } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -708,11 +708,6 @@ export default function LeadsPage() {
     }
   };
 
-  const handleOpenModal = () => {
-    router.push("/avatar/leads?newlead=true");
-    setIsModalOpen(true);
-  };
-
   const handleCloseModal = () => {
     router.push("/avatar/leads");
     setIsModalOpen(false);
@@ -1044,9 +1039,6 @@ export default function LeadsPage() {
             )}
           </div>
         </div>
-        <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
-         
-        </div>
       </div>
       <div className="flex w-full justify-center">
         <AGGridTable
@@ -1106,230 +1098,6 @@ export default function LeadsPage() {
           
         />
       </div>
-
-      {/* Enhanced Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 p-2 sm:p-4">
-          <div className="w-full max-w-sm rounded-xl bg-white shadow-2xl sm:max-w-md sm:rounded-2xl md:max-w-2xl">
-            <div className="sticky top-0 flex items-center justify-between border-b border-blue-200 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 py-2 sm:px-4 sm:py-2 md:px-6">
-              <h2 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-sm font-semibold text-transparent sm:text-base md:text-lg">
-                Add New Lead
-              </h2>
-              <button
-                onClick={handleCloseModal}
-                className="rounded-lg p-1 text-blue-400 transition hover:bg-blue-100 hover:text-blue-600"
-              >
-                <X size={16} className="sm:h-5 sm:w-5" />
-              </button>
-            </div>
-            <div className="bg-white p-3 sm:p-4 md:p-5">
-              <form onSubmit={handleSubmit(onSubmit)}>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 md:gap-4">
-                  <div className="space-y-1">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                      Full Name <span className="text-red-700">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      {...register("full_name", {
-                        required: "Full name is required",
-                        maxLength: {
-                          value: 100,
-                          message: "Full name cannot exceed 100 characters",
-                        },
-                      })}
-                      placeholder="Enter full name"
-                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                    />
-                    {errors.full_name && (
-                      <p className="mt-1 text-xs text-red-600">
-                        {errors.full_name.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                      Email <span className="text-red-700">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      {...register("email", {
-                        required: "Email is required",
-                        pattern: {
-                          value: /^\S+@\S+\.\S+$/,
-                          message: "Invalid email address",
-                        },
-                      })}
-                      placeholder="Enter email"
-                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                    />
-                    {errors.email && (
-                      <p className="mt-1 text-xs text-red-600">
-                        {errors.email.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                      Phone <span className="text-red-700">*</span>
-                    </label>
-                    <input
-                      type="tel"
-                      {...register("phone", {
-                        required: "Phone is required",
-                        pattern: {
-                          value: /^\d+$/,
-                          message: "Phone must contain only numbers",
-                        },
-                      })}
-                      placeholder="Enter phone number"
-                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                      onInput={(e) => {
-                        e.currentTarget.value = e.currentTarget.value.replace(
-                          /\D/g,
-                          ""
-                        );
-                      }}
-                    />
-                    {errors.phone && (
-                      <p className="mt-1 text-xs text-red-600">
-                        {errors.phone.message}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                      Status
-                    </label>
-                    <select
-                      {...register("status")}
-                      className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                    >
-                      {statusOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                      Work Status
-                    </label>
-                    <select
-                      {...register("workstatus")}
-                      className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                    >
-                      {workStatusOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                      Secondary Email
-                    </label>
-                    <input
-                      type="email"
-                      {...register("secondary_email")}
-                      placeholder="Enter secondary email"
-                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                      Secondary Phone
-                    </label>
-                    <input
-                      type="tel"
-                      {...register("secondary_phone")}
-                      placeholder="Enter secondary phone"
-                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                      onInput={(e) => {
-                        e.currentTarget.value = e.currentTarget.value.replace(/\D/g, "");
-                      }}
-                    />
-                  </div>
-                  <div className="space-y-1 sm:col-span-2">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                      Address
-                    </label>
-                    <input
-                      type="text"
-                      {...register("address")}
-                      placeholder="Enter address"
-                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1 sm:col-span-2">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                      Notes
-                    </label>
-                    <div className="relative">
-                      <textarea
-                        {...register("notes")}
-                        placeholder="Enter notes..."
-                        className="w-full resize-none rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                        style={{ minHeight: "60px" }}
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 gap-2 pt-1 sm:col-span-2 sm:grid-cols-3">
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        {...register("moved_to_candidate")}
-                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-xs text-gray-700 sm:text-sm">
-                        Moved to Candidate
-                      </span>
-                    </label>
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        {...register("massemail_unsubscribe")}
-                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-xs text-gray-700 sm:text-sm">
-                        Mass Email Unsubscribe
-                      </span>
-                    </label>
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        {...register("massemail_email_sent")}
-                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-xs text-gray-700 sm:text-sm">
-                        Mass Email Sent
-                      </span>
-                    </label>
-                  </div>
-                </div>
-                <div className="mt-3 flex justify-end gap-2 border-t border-blue-200 pt-2 sm:mt-3 sm:gap-3 sm:pt-2 md:mt-4 md:pt-3">
-                  <button
-                    type="button"
-                    onClick={handleCloseModal}
-                    className="rounded-lg border border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-700 transition hover:bg-blue-50 sm:px-4 sm:py-2 sm:text-sm"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 px-3 py-1.5 text-xs font-medium text-white shadow-md transition hover:from-cyan-600 hover:to-blue-600 disabled:opacity-50 sm:px-5 sm:py-2 sm:text-sm"
-                  >
-                    {isSubmitting ? "Saving..." : "Save Lead"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

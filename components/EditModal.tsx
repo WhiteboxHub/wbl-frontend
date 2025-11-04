@@ -221,6 +221,40 @@ const vendorStatuses = [
   { value: "prospect", label: "Prospect" },
 ];
 
+// Required fields configuration - only for create mode
+const requiredFieldsConfig: Record<string, string[]> = {
+  leads: ["Phone", "Email", "Full Name"],
+  candidate: ["Phone", "Email", "Full Name", "Date of Birth", "Batch"],
+  interviews: ["Candidate Name", "Company", "Interview Date", "Company Type", "Mode of Interview", "Type of Interview"],
+  authuser: ["Phone", "Email", "Full Name", "Registered Date", "Passwd"],
+  employee: ["Email", "Full Name"],
+};
+
+// Helper function to check if a field is required based on modal type and mode
+const isFieldRequired = (fieldName: string, modalType: string, isAddMode: boolean): boolean => {
+  if (!isAddMode) return false; // Never show * in edit mode
+  
+  const modalKey = modalType.toLowerCase();
+  const fieldConfigMap: Record<string, string[]> = {};
+  
+  // Map modal types to required fields
+  Object.entries(requiredFieldsConfig).forEach(([key, fields]) => {
+    fields.forEach(field => {
+      const normalizedField = field.toLowerCase().replace(/\s+/g, '');
+      fieldConfigMap[normalizedField] = fieldConfigMap[normalizedField] || [];
+      fieldConfigMap[normalizedField].push(key);
+    });
+  });
+  
+  const normalizedFieldName = fieldName.toLowerCase().replace(/\s+/g, '');
+  
+  // Check if this field is required for the current modal type
+  const requiredForModals = fieldConfigMap[normalizedFieldName];
+  if (!requiredForModals) return false;
+  
+  return requiredForModals.some(modal => modalKey.includes(modal));
+};
+
 const genericStatusOptions = [
   { value: "active", label: "Active" },
   { value: "inactive", label: "Inactive" },
@@ -1589,6 +1623,7 @@ export function EditModal({
                                 >
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                   </label>
                                   <select
                                     {...register(key)}
@@ -1641,6 +1676,7 @@ export function EditModal({
                                 >
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                   </label>
                                   <input
                                     type="text"
@@ -1666,6 +1702,7 @@ export function EditModal({
                                 >
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                   </label>
                                   <input
                                     type="text"
@@ -1694,6 +1731,7 @@ export function EditModal({
                                   >
                                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                       {toLabel(key)}
+                                      {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                     </label>
                                     <div className="w-full rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-400 shadow-sm sm:px-3 sm:py-2 sm:text-sm">
                                       N/A
@@ -1713,6 +1751,7 @@ export function EditModal({
                                 >
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                   </label>
                                   <a
                                     href={url}
@@ -1744,6 +1783,7 @@ export function EditModal({
                                 >
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                   </label>
                                   <div
                                     className={`w-full rounded-lg border border-blue-200 bg-white px-2 py-1 text-xs shadow-sm sm:px-3 sm:py-2 sm:text-sm`}
@@ -1773,6 +1813,7 @@ export function EditModal({
                                 >
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                   </label>
                                   <select
                                     {...register(key)}
@@ -1796,6 +1837,7 @@ export function EditModal({
                                 >
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                   </label>
                                   <select
                                     {...register(key)}
@@ -1823,6 +1865,7 @@ export function EditModal({
                                 >
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                   </label>
                                   <select
                                     {...register(key)}
@@ -1850,6 +1893,7 @@ export function EditModal({
                                 >
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                   </label>
                                   <select
                                     {...register(key)}
@@ -1877,6 +1921,7 @@ export function EditModal({
                                 >
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                   </label>
                                   <select
                                     {...register("batchid")}
@@ -1909,6 +1954,7 @@ export function EditModal({
                                 >
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                   </label>
                                   <input
                                     type="date"
@@ -1929,6 +1975,7 @@ export function EditModal({
                                 >
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                   </label>
                                   <select
                                     {...register(key)}
@@ -1960,6 +2007,7 @@ export function EditModal({
                                 >
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                   </label>
                                   <textarea
                                     {...register(key)}
@@ -1977,6 +2025,7 @@ export function EditModal({
                               >
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                   {toLabel(key)}
+                                  {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                 </label>
                                 <input
                                   type="text"
@@ -1998,6 +2047,7 @@ export function EditModal({
                           <div className="flex items-center justify-between">
                             <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                               {toLabel(key)}
+                              {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                             </label>
                             <button
                               type="button"
