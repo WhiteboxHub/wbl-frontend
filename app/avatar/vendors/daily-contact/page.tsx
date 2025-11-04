@@ -219,6 +219,31 @@ export default function VendorContactsGrid() {
     }
   };
 
+  const handleRowAdded = async (newContact: any) => {
+  try {
+    console.log("CREATING NEW VENDOR CONTACT:", newContact);
+    
+    // Send POST request to create new vendor contact
+    const response = await apiFetch("/vendor_contact", {
+      method: "POST",
+      body: JSON.stringify(newContact),
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    
+    console.log("VENDOR CONTACT CREATED:", response);
+    
+    // Refresh the contacts list
+    fetchContacts();
+    
+    toast.success("Vendor contact created successfully");
+  } catch (err: any) {
+    console.error("FAILED TO CREATE VENDOR CONTACT:", err);
+    toast.error(err?.message || "Failed to create vendor contact");
+  }
+};
+
   const handleRowDeleted = async (contactId: number | string) => {
     try {
       await apiFetch(`/vendor_contact/${contactId}`, {
@@ -430,6 +455,7 @@ export default function VendorContactsGrid() {
             height="600px"
             title={`Vendor Contacts (${filteredContacts.length})`}
             showSearch={false}
+            onRowAdded={handleRowAdded} 
             onRowUpdated={handleRowUpdated}
             onRowDeleted={handleRowDeleted}
           />

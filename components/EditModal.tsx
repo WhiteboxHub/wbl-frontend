@@ -582,6 +582,8 @@ const dateFields = [
   "interview_date",
   "placement_date",
   "marketing_start_date",
+  "registereddate",
+  "extraction_date",
 ];
 
 export function EditModal({
@@ -640,7 +642,8 @@ export function EditModal({
     title.toLowerCase().includes("candidate") && !isPreparationModal;
 
   // Field visibility for current modal
-  const showInstructorFields = shouldShowInstructorFields(title) && !(isInterviewModal && isAddMode);
+  const showInstructorFields =
+    shouldShowInstructorFields(title) && !(isInterviewModal && isAddMode);
   const showLinkedInField = shouldShowLinkedInField(title);
 
   // modal for candidate_full_name first and read-only
@@ -771,12 +774,6 @@ export function EditModal({
         const data = res?.data ?? res;
         const sortedCourses = [...data].sort((a: any, b: any) => b.id - a.id);
         let coursesWithOrphans = [...sortedCourses];
-        if (
-          isCourseMaterialModal &&
-          !coursesWithOrphans.some((course) => course.id === 0)
-        ) {
-          coursesWithOrphans.unshift({ id: 0, name: "Fundamentals" });
-        }
         setCourses(coursesWithOrphans);
       } catch (error: any) {
         console.error(
@@ -792,12 +789,6 @@ export function EditModal({
         const data = res?.data ?? res;
         const sortedSubjects = [...data].sort((a: any, b: any) => b.id - a.id);
         let subjectsWithOrphans = [...sortedSubjects];
-        if (
-          isCourseMaterialModal &&
-          !subjectsWithOrphans.some((subject) => subject.id === 0)
-        ) {
-          subjectsWithOrphans.unshift({ id: 0, name: "Basic Fundamentals" });
-        }
         setSubjects(subjectsWithOrphans);
       } catch (error: any) {
         console.error(
@@ -1218,6 +1209,30 @@ export function EditModal({
                         <h3 className="border-b border-blue-200 pb-1.5 text-xs font-semibold text-blue-700 sm:pb-2 sm:text-sm">
                           {section}
                         </h3>
+                        {/* Add Candidate Input Field for Preparation and Marketing in Add Mode */}
+                        {section === "Basic Information" &&
+                          (isPreparationModal || isMarketingModal) &&
+                          isAddMode && (
+                            <div className="space-y-1 sm:space-y-1.5">
+                              <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                Candidate Name{" "}
+                                <span className="text-red-700">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                {...register("candidate_full_name", {
+                                  required: "Candidate name is required",
+                                })}
+                                className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                placeholder="Enter candidate name"
+                              />
+                              {errors.candidate_full_name && (
+                                <p className="mt-1 text-xs text-red-600">
+                                  {errors.candidate_full_name.message as string}
+                                </p>
+                              )}
+                            </div>
+                          )}
                         {/* Add Candidate Dropdown in Basic Information section for Interview Add Mode */}
                         {section === "Basic Information" &&
                           isInterviewModal &&
@@ -1397,7 +1412,8 @@ export function EditModal({
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                   Instructor 1
                                 </label>
-                                {isMarketingModal || isInterviewModal ? (
+                                {/* {isMarketingModal || isInterviewModal ? ( */}
+                                {isInterviewModal ? (
                                   <input
                                     type="text"
                                     value={
@@ -1433,7 +1449,8 @@ export function EditModal({
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                   Instructor 2
                                 </label>
-                                {isMarketingModal || isInterviewModal ? (
+                                {/* {isMarketingModal || isInterviewModal ? ( */}
+                                {isInterviewModal ? (
                                   <input
                                     type="text"
                                     value={
@@ -1469,7 +1486,8 @@ export function EditModal({
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                   Instructor 3
                                 </label>
-                                {isMarketingModal || isInterviewModal ? (
+                                {/* {isMarketingModal || isInterviewModal ? ( */}
+                                {isInterviewModal ? (
                                   <input
                                     type="text"
                                     value={
@@ -1553,9 +1571,90 @@ export function EditModal({
                               key.toLowerCase() === "linkedin_id";
                             const isPrepOrMarketing =
                               isPreparationModal || isMarketingModal;
+                            const isSubjectField =
+                              key.toLowerCase() === "subject";
+                            const isCourseIdField =
+                              key.toLowerCase() === "courseid";
 
                             if (isMaterialTypeField && !isCourseMaterialModal) {
                               return null;
+                            }
+
+                            // ADD THIS CONDITION FOR SUBJECT FIELD (right here)
+                            if (isSubjectField && isBatchesModal) {
+                              return (
+                                <div
+                                  key={key}
+                                  className="space-y-1 sm:space-y-1.5"
+                                >
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    {toLabel(key)}
+                                  </label>
+                                  <select
+                                    {...register(key)}
+                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                    onChange={(e) => {
+                                      const selectedSubject = e.target.value;
+                                      let courseid = "3"; // default ML
+                                      if (selectedSubject === "QA")
+                                        courseid = "1";
+                                      else if (selectedSubject === "UI")
+                                        courseid = "2";
+                                      else if (selectedSubject === "ML")
+                                        courseid = "3";
+
+                                      setValue(key, selectedSubject);
+                                      setValue("courseid", courseid);
+                                      setFormData((prev) => ({
+                                        ...prev,
+                                        [key]: selectedSubject,
+                                        courseid,
+                                      }));
+                                    }}
+                                  >
+                                    <option value="">Select Subject</option>
+                                    <option value="ML">ML</option>
+                                    <option value="QA">QA</option>
+                                    <option value="UI">UI</option>
+                                  </select>
+                                </div>
+                              );
+                            }
+                            // ADD THIS CONDITION FOR COURSEID FIELD (right here)
+                            if (isCourseIdField && isBatchesModal) {
+                              const currentSubject =
+                                currentFormValues.subject ||
+                                formData.subject ||
+                                "ML";
+                              let defaultCourseId = "3"; // default for ML
+                              if (currentSubject === "QA")
+                                defaultCourseId = "1";
+                              else if (currentSubject === "UI")
+                                defaultCourseId = "2";
+                              else if (currentSubject === "ML")
+                                defaultCourseId = "3";
+
+                              return (
+                                <div
+                                  key={key}
+                                  className="space-y-1 sm:space-y-1.5"
+                                >
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    {toLabel(key)}
+                                  </label>
+                                  <input
+                                    type="text"
+                                    {...register(key)}
+                                    value={
+                                      currentFormValues.courseid ||
+                                      formData.courseid ||
+                                      defaultCourseId
+                                    }
+                                    readOnly
+                                    className="w-full rounded-lg border border-blue-200 bg-gray-50 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
+                                  />
+                                </div>
+                              );
                             }
 
                             // Special handling for candidate_full_name in special modals
@@ -1628,7 +1727,11 @@ export function EditModal({
                             }
 
                             // Special handling for status in Preparation/Marketing modals
-                            if (isStatusField && isPrepOrMarketing) {
+                            if (
+                              isStatusField &&
+                              isPrepOrMarketing &&
+                              !isAddMode
+                            ) {
                               const statusValue = formData[key] || "";
                               const displayValue = statusValue.toUpperCase();
                               const normalized = statusValue.toLowerCase();
@@ -1784,6 +1887,7 @@ export function EditModal({
                                     }
                                     className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
+                                     placeholder="YYYY-MM"
                                     <option value="">Select a batch</option>
                                     {mlBatches.map((batch) => (
                                       <option
