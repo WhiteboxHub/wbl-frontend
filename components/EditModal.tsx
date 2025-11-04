@@ -580,7 +580,7 @@ export function EditModal({
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [mlBatches, setMlBatches] = useState<Batch[]>([]);
   const modalRef = useRef<HTMLDivElement>(null);
-
+  const [shouldDisableBold, setShouldDisableBold] = useState(false);
   // Detect the modal context
   const isCourseMaterialModal = title.toLowerCase().includes("course material") || title.toLowerCase().includes("material");
   const isCourseSubjectModal = title.toLowerCase().includes("course-subject") || title.toLowerCase().includes("course subject");
@@ -1584,7 +1584,8 @@ const normalizeCommunicationValue = (value: string): string => {
                               type="button"
                               onClick={() => {
                                 const timestamp = `[${new Date().toLocaleString()}]: `;
-                                const newContent = `<p><strong>${timestamp}</strong></p>${currentFormValues.notes || formData.notes || ""}`;
+                                const existingContent = currentFormValues.notes || formData.notes || "";
+                                const newContent = `<p><strong>${timestamp}</strong></p><p><br></p>${existingContent}`;
 
                                 setValue("notes", newContent);
                                 setFormData((prev) => ({
@@ -1592,23 +1593,29 @@ const normalizeCommunicationValue = (value: string): string => {
                                   notes: newContent
                                 }));
 
+                                setShouldDisableBold(true);
+
                                 setTimeout(() => {
-                                  const quillEditor = document.querySelector('.ql-editor') as HTMLElement;
-                                  if (quillEditor) {
-                                    quillEditor.focus();
-                                    const range = document.createRange();
-                                    const sel = window.getSelection();
-                                    const firstP = quillEditor.querySelector('p');
-                                    if (firstP && firstP.firstChild) {
-                                      range.setStart(firstP, 1);
-                                      range.collapse(true);
-                                      sel?.removeAllRanges();
-                                      sel?.addRange(range);
+                                  const editor = document.querySelector('.ql-editor') as any;
+                                  if (editor && editor.parentElement) {
+                                    const quill = (editor.parentElement as any).__quill;
+                                    if (quill) {
+                                      quill.focus();
+                                      
+                                     const timestampLength = timestamp.length;
+                                      
+                                     quill.setSelection(timestampLength, 0);
+                                      
+                                     quill.format('bold', false);
+                                      setShouldDisableBold(false);
                                     }
                                   }
-                                }, 0);
+                                }, 150);
                               }}
-                              className="px-2 sm:px-2 py-1 sm:py-1 text-sm sm:text-sm font-medium text-black hover:text-blue-800 hover:underline"
+                              className="px-2 sm:px-2 py-1sm:py-1 text-xs sm:text-sm font-medium text-black hover 
+                              
+                                        
+                                         "
                             >
                               + New Entry
                             </button>
@@ -1619,6 +1626,21 @@ const normalizeCommunicationValue = (value: string): string => {
                             onChange={(content) => {
                               setValue("notes", content);
                               setFormData((prev) => ({ ...prev, notes: content }));
+                              if (shouldDisableBold) {
+                                setShouldDisableBold(false);
+                              }
+                            }}
+                            onChangeSelection={(range) => {
+                              if (shouldDisableBold && range && range.length === 0) {
+                                const editor = document.querySelector('.ql-editor') as any;
+                                if (editor && editor.parentElement) {
+                                  const quill = (editor.parentElement as any).__quill;
+                                  if (quill) {
+                                    quill.format('bold', false);
+                                    setShouldDisableBold(false);
+                                  }
+                                }
+                              }
                             }}
                             className="bg-white dark:bg-gray-800"
                           />
