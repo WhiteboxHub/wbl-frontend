@@ -1,5 +1,4 @@
 "use client";
-
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { Badge } from "@/components/admin_ui/badge";
@@ -1082,7 +1081,7 @@ export default function CandidatesPage() {
           const rowNode = gridRef.current.api.getRowNode(updatedRow.id.toString());
           if (rowNode) {
             rowNode.setData(updatedData);
-            gridRef.current.api.redrawRows({ rowNodes: [rowNode] }); // ✅ forces re-render
+            gridRef.current.api.redrawRows({ rowNodes: [rowNode] });
             gridRef.current.api.refreshCells({
               rowNodes: [rowNode],
               force: true,

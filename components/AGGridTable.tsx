@@ -314,7 +314,6 @@ export function AGGridTable({
       const blank: Record<string, any> = {};
       Object.keys(sample).forEach((k) => {
         const v = (sample as any)[k];
-        // initialize strings to "", numbers to "", booleans to "false" for select compatibility
         if (typeof v === "boolean") blank[k] = "";
         else if (typeof v === "number") blank[k] = "";
         else blank[k] = "";
