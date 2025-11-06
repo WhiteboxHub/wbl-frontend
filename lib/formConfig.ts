@@ -239,7 +239,8 @@ export const excludedFields = [
   "last_mod_datetime", "last_modified", "logincount", "googleId",
   "subject_id", "lastmoddatetime", "course_id", "new_subject_id", "instructor_1id",
   "instructor_2id", "instructor_3id", "instructor1_id", "instructor2_id",
-  "instructor3_id", "candidate_id", "batch"
+  "instructor3_id", "candidate_id", "batch",
+  "machineId", "lastModified", "synced", "lastSync", "version", "_action"
 ];
 
 export const fieldSections: Record<string, string> = {
