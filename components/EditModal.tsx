@@ -227,7 +227,7 @@ const requiredFieldsConfig: Record<string, string[]> = {
   candidate: ["Phone", "Email", "Full Name", "Date of Birth", "Batch"],
   interviews: ["Candidate Name", "Company", "Interview Date", "Company Type", "Mode of Interview", "Type of Interview"],
   authuser: ["Phone", "Email", "Full Name", "Registered Date", "Passwd"],
-  employee: ["Email", "Full Name"],
+  employee: ["Email", "Full Name","Phone","Date of Birth","Aadhaar"],
 };
 
 // Helper function to check if a field is required based on modal type and mode
@@ -294,45 +294,17 @@ interface EditModalProps {
 
 // Fields to exclude from the form
 const excludedFields = [
-  "candidate",
-  "instructor1",
-  "instructor2",
-  "instructor3",
-  "id",
-  "sessionid",
-  "vendor_type",
-  "last_mod_datetime",
-  "last_modified",
-  "logincount",
-  "googleId",
-  "subject_id",
-  "lastmoddatetime",
-  "course_id",
-  "new_subject_id",
-  "instructor_1id",
-  "instructor_2id",
-  "instructor_3id",
-  "instructor1_id",
-  "instructor2_id",
-  "instructor3_id",
-  "candidate_id",
-  "batch",
-  "lastSync",
-  "synced",
+  "candidate", "instructor1", "instructor2", "instructor3", "id", "sessionid", 
+  "vendor_type", "last_mod_datetime", "last_modified", "logincount", "googleId", 
+  "subject_id", "lastmoddatetime", "course_id", "new_subject_id", "instructor_1id", 
+  "instructor_2id", "instructor_3id", "instructor1_id", "instructor2_id", 
+  "instructor3_id", "candidate_id", "batch", "lastSync", "synced",
 ];
 
 // Field visibility configuration
 const fieldVisibility: Record<string, string[]> = {
   instructor: ["preparation", "interview", "marketing"],
-  linkedin: [
-    "preparation",
-    "interview",
-    "marketing",
-    "candidate",
-    "vendor",
-    "client",
-    "placement",
-  ],
+  linkedin: ["preparation", "interview", "marketing", "candidate", "vendor", "client", "placement"],
 };
 
 // Helper functions for field visibility
