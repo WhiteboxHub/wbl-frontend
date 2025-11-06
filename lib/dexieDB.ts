@@ -14,8 +14,8 @@ export interface Lead {
   closed_date?: string;
   moved_to_candidate?: boolean;
   notes?: string;
-  secondary_email?:String;
-  secondary_phone?:String;
+  secondary_email?:string;
+  secondary_phone?:string;
   massemail_subscribe?: boolean;
   massemail_unsubscribe?: boolean;
   massemail_email_sent?: boolean;
