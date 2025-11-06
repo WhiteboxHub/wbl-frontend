@@ -15,8 +15,20 @@ const AGGridTable = dynamic(() => import("@/components/AGGridTable"), {
   ssr: false,
 });
 
-const DateFormatter = (params: any) =>
-  params.value ? new Date(params.value).toLocaleDateString() : "";
+// Helper function to format dates from database
+const formatDateFromDB = (dateStr: string | null | undefined) => {
+  if (!dateStr) return "";
+  // Extract YYYY-MM-DD from database date string
+  return dateStr.slice(0, 10);
+};
+
+const DateFormatter = (params: any) => {
+  if (!params.value) return "";
+  const dateStr = formatDateFromDB(params.value);
+  if (!dateStr) return "";
+  // Display in YYYY/MM/DD format
+  return dateStr.replace(/-/g, "/");
+};
 
 const DateTimeFormatter = (params: any) =>
   params.value
@@ -117,6 +129,12 @@ export default function EmailActivityLogPage() {
         editable: true,
       },
       {
+        field: "total_extracted",
+        headerName: "Extracted Vendor Emails",
+        width: 210,
+        editable: false,
+      },
+      {
         field: "last_updated",
         headerName: "Last Updated",
         width: 180,
@@ -126,7 +144,7 @@ export default function EmailActivityLogPage() {
       {
         field: "candidate_marketing_id",
         headerName: "Marketing ID",
-        width: 130,
+        width: 145,
         editable: false,
       },
     ],
@@ -173,14 +191,7 @@ export default function EmailActivityLogPage() {
             Email Activity Log
           </h1>
         </div>
-        <Button
-          onClick={fetchLogs}
-          disabled={loading}
-          className="bg-blue-600 text-white hover:bg-blue-700"
-        >
-          <RefreshCw className="mr-2 h-4 w-4" />
-          {loading ? "Loading..." : "Refresh"}
-        </Button>
+        
       </div>
 
       <div className="max-w-md">
