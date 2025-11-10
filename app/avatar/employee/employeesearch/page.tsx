@@ -283,11 +283,8 @@ export default function EmployeeSearchPage() {
         Search employees by name, ID, or email to view details
       </p>
 
-      {/* 🔍 Search bar */}
+      {/* Search bar */}
       <div className="max-w-md relative">
-        <Label htmlFor="search" className="text-sm font-medium text-black-700 dark:text-black-300">
-          Search by Name, ID, or Email
-        </Label>
         <div className="relative mt-1">
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-black-400" />
           <Input

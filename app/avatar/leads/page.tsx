@@ -1,23 +1,32 @@
 
 "use client";
-import { useMemo, useState, useCallback, useEffect, useRef } from "react";
-import { ColDef, ValueFormatterParams } from "ag-grid-community";
-import { Badge } from "@/components/admin_ui/badge";
-import { Input } from "@/components/admin_ui/input";
-import { Label } from "@/components/admin_ui/label";
-import { SearchIcon, PlusCircle, RefreshCw, X } from "lucide-react";
-import { Button } from "@/components/admin_ui/button";
-import { toast, Toaster } from "sonner";
-import { useRouter, useSearchParams } from "next/navigation";
-import { AGGridTable } from "@/components/AGGridTable";
-import { createPortal } from "react-dom";
-import type { AgGridReact as AgGridReactType } from "ag-grid-react";
-import type { GridApi } from "ag-grid-community";
-import { LeadsHelper, db, Lead as DexieLead } from "@/lib/dexieDB";
-import { useForm } from "react-hook-form";
-import { apiFetch } from "@/lib/api";
-type Lead = DexieLead;
 
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { AGGridTable } from "@/components/AGGridTable";
+import { Input } from "@/components/admin_ui/input";
+import { Badge } from "@/components/admin_ui/badge";
+import { SearchIcon, RefreshCw, AlertTriangle, X } from "lucide-react";
+import { toast, Toaster } from "sonner";
+import { appDB, Lead } from "@/lib/dexieDB";
+import api from "@/lib/api";
+import { ColDef, ValueFormatterParams } from "ag-grid-community";
+import { useRouter, useSearchParams } from "next/navigation";
+import { createPortal } from "react-dom";
+import { useForm } from "react-hook-form";
+
+// Status and Work Status Options
+const statusOptions = ["Open", "Closed", "Future"];
+const workStatusOptions = [
+  "Waiting for Status",
+  "H1B",
+  "H4 EAD",
+  "Permanent Resident",
+  "Citizen",
+  "OPT",
+  "CPT",
+];
+
+// Form Data Type
 type FormData = {
   full_name: string;
   email: string;
@@ -48,6 +57,17 @@ const initialFormData: FormData = {
   secondary_email: "",
   secondary_phone: "",
 };
+
+
+// Get machine ID for multi-system identification
+const getMachineId = (): string => {
+  if (typeof window === 'undefined') return 'server';
+  let machineId = localStorage.getItem('leadsMachineId');
+  if (!machineId) {
+    machineId = `machine_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem('leadsMachineId', machineId);
+  }
+  return machineId;
 
 const statusOptions = ["Open", "Closed", "Future"];
 const workStatusOptions = [
@@ -122,63 +142,19 @@ const sortLeadsByEntryDate = (leads: Lead[]): Lead[] => {
     const dateB = new Date(b.entry_date || 0).getTime();
     return dateB - dateA; 
   });
+
 };
 
-const useSimpleCache = () => {
-  const cacheRef = useRef<{
-    data: Lead[];
-    timestamp: number;
-    searchTerm: string;
-    searchBy: string;
-    lastSync: number;
-  } | null>(null);
-
-  const isCacheValid = async (
-    searchTerm: string,
-    searchBy: string = "all",
-    maxAge: number = 300000
-  ) => {
-    const localLeads = await db.leads.toArray();
-    
-    if (localLeads.length === 0) {
-      return false;
-    }
-
-    if (cacheRef.current) {
-      if (cacheRef.current.searchTerm === searchTerm && cacheRef.current.searchBy === searchBy) {
-        const age = Date.now() - cacheRef.current.timestamp;
-        if (age < maxAge) {
-          return true;
-        }
-      }
-    }
-
-    const localDataAge = localLeads[0]?.lastSync ? 
-      Date.now() - new Date(localLeads[0].lastSync).getTime() : Infinity;
-    
-    return localDataAge < 60000;
-  };
-
-  const setCache = (data: Lead[], searchTerm: string, searchBy: string = "all") => {
-    cacheRef.current = {
-      data,
-      timestamp: Date.now(),
-      searchTerm,
-      searchBy,
-      lastSync: Date.now(),
-    };
-  };
-
-  const getCache = () => cacheRef.current?.data || null;
-  const invalidateCache = () => {
-    cacheRef.current = null;
-  };
-
-  const getLastSync = () => cacheRef.current?.lastSync || null;
-
-  return { isCacheValid, setCache, getCache, invalidateCache, getLastSync };
+// Enhanced Lead type with sync fields
+type EnhancedLead = Lead & {
+  lastSync?: string;
+  lastModified?: string;
+  synced?: boolean;
+  machineId?: string;
+  _action?: 'add' | 'update' | 'delete' | null;
 };
 
+// Renderer Components
 const StatusRenderer = ({ value }: { value?: string }) => {
   const status = value?.toLowerCase() || "";
   const variantMap: Record<string, string> = {
@@ -213,16 +189,12 @@ const WorkStatusRenderer = ({ value }: { value?: string }) => {
   );
 };
 
+// Filter Header Components (same as before)
 const StatusFilterHeaderComponent = (props: any) => {
   const { selectedStatuses, setSelectedStatuses } = props;
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>(
-    {
-      top: 0,
-      left: 0,
-    }
-  );
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const [filterVisible, setFilterVisible] = useState(false);
 
   const toggleFilter = (e: React.MouseEvent) => {
@@ -357,12 +329,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
   const { selectedWorkStatuses, setSelectedWorkStatuses } = props;
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>(
-    {
-      top: 0,
-      left: 0,
-    }
-  );
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const [filterVisible, setFilterVisible] = useState(false);
 
   const toggleFilter = (e: React.MouseEvent) => {
@@ -390,8 +357,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
   };
 
   const isAllSelected = selectedWorkStatuses.length === workStatusOptions.length;
-  const isIndeterminate =
-    selectedWorkStatuses.length > 0 && selectedWorkStatuses.length < workStatusOptions.length;
+  const isIndeterminate = selectedWorkStatuses.length > 0 && selectedWorkStatuses.length < workStatusOptions.length;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -495,35 +461,33 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
   );
 };
 
+// Sort function
+const sortLeadsByEntryDate = (leads: EnhancedLead[]): EnhancedLead[] => {
+  return [...leads].sort((a, b) => {
+    const dateA = new Date(a.entry_date || 0).getTime();
+    const dateB = new Date(b.entry_date || 0).getTime();
+    return dateB - dateA;
+  });
+};
+
 export default function LeadsPage() {
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [leads, setLeads] = useState<EnhancedLead[]>([]);
+  const [filteredLeads, setFilteredLeads] = useState<EnhancedLead[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [online, setOnline] = useState(true);
+  const [search, setSearch] = useState("");
+  const [totalLeads, setTotalLeads] = useState(0);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
+  
+  // Modal state
   const router = useRouter();
   const searchParams = useSearchParams();
   const isNewLead = searchParams.get("newlead") === "true";
   const [isModalOpen, setIsModalOpen] = useState(isNewLead);
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [totalLeads, setTotalLeads] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [searchBy, setSearchBy] = useState("full_name");
-  const [formData, setFormData] = useState<FormData>(initialFormData);
   const [formSaveLoading, setFormSaveLoading] = useState(false);
-  const [sortModel, setSortModel] = useState([
-    { colId: "entry_date", sort: "desc" as "desc" },
-  ]);
-  
-  const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-  const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  
-  const gridRef = useRef<AgGridReactType<Lead> | null>(null);
-  const apiEndpoint = useMemo(() => `${process.env.NEXT_PUBLIC_API_URL}/leads`, []);
-  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
-  const cache = useSimpleCache();
-  const isInitialMountRef = useRef(true);
+
+  const machineId = useRef<string>(getMachineId()).current;
   const fetchInProgressRef = useRef(false);
 
   const {
@@ -531,11 +495,11 @@ export default function LeadsPage() {
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-    setValue,
-    watch,
   } = useForm<FormData>({
     defaultValues: initialFormData,
   });
+
+
 
   const fullNameValue = watch("full_name");
 
@@ -550,134 +514,236 @@ export default function LeadsPage() {
 
   const loadLeadsFromIndexedDB = useCallback(async (search?: string) => {
     setLoading(true);
+
     try {
-      let localLeads = await db.leads.toArray();
+      const cached = await appDB.loadLeads();
+      let filteredCached = cached as EnhancedLead[];
       
-      
-      if (search && search.trim()) {
-        const term = search.trim().toLowerCase();
-        localLeads = localLeads.filter((lead) => {
-          const nameMatch = lead.full_name?.toLowerCase().includes(term);
-          const emailMatch = lead.email?.toLowerCase().includes(term);
-          const phoneMatch = lead.phone?.toLowerCase().includes(term);
-          const idMatch = lead.id?.toString().includes(term);
-          return nameMatch || emailMatch || phoneMatch || idMatch;
-        });
+      if (searchTerm && searchTerm.trim()) {
+        const term = searchTerm.trim().toLowerCase();
+        filteredCached = cached.filter(
+          (lead) =>
+            lead.full_name?.toLowerCase().includes(term) ||
+            lead.email?.toLowerCase().includes(term) ||
+            lead.phone?.toLowerCase().includes(term) ||
+            lead.id?.toString().includes(term)
+        ) as EnhancedLead[];
       }
 
-      const sortedLeads = sortLeadsByEntryDate(localLeads);
+      const sortedLeads = sortLeadsByEntryDate(filteredCached);
       setLeads(sortedLeads);
       setFilteredLeads(sortedLeads);
+      setTotalLeads(sortedLeads.length);
       
-      
-      
+      if (cached?.length) {
+        console.log("[LeadsPage] Loaded cached leads:", cached.length);
+      } else {
+        console.warn("[LeadsPage] No cached leads found");
+      }
     } catch (err) {
-      console.error('Error loading from IndexedDB:', err);
-      setError('Failed to load local data');
-    } finally {
-      setLoading(false);
+      console.error("[LeadsPage] Failed to load cached data:", err);
+      toast.error("Failed to load local data");
     }
   }, []);
 
+  // ---- Push local changes to server ----
+  const pushLocalChangesToServer = useCallback(async () => {
+    try {
+      const allLeads = await appDB.loadLeads();
+      const unsyncedLeads = allLeads.filter(lead => 
+        !(lead as EnhancedLead).synced || (lead as EnhancedLead)._action
+      ) as EnhancedLead[];
+      
+      for (const lead of unsyncedLeads) {
+        try {
+          if (lead._action === 'add' || !lead.id) {
+            // New lead - create on server
+            const { id, lastSync, lastModified, synced, _action, machineId: mid, ...payload } = lead;
+            const response = await api.post("/leads", payload);
+            const savedLead = response.data;
+            
+            // Update local record with server ID and mark as synced
+            await appDB.leads.update(lead.id!, {
+              ...savedLead,
+              lastSync: new Date().toISOString(),
+              lastModified: new Date().toISOString(),
+              synced: true,
+              _action: null,
+              machineId: machineId
+            } as any);
+          } else if (lead._action === 'update') {
+            // Updated lead - update on server
+            const { id, lastSync, lastModified, synced, _action, machineId: leadMachineId, ...payload } = lead;
+            await api.put(`/leads/${lead.id}`, payload);
+            
+            // Mark as synced
+            await appDB.leads.update(lead.id!, {
+              lastSync: new Date().toISOString(),
+              lastModified: new Date().toISOString(),
+              synced: true,
+              _action: null
+            } as any);
+          } else if (lead._action === 'delete' && lead.id) {
+            // Deleted lead - delete from server
+            try {
+              await api.delete(`/leads/${lead.id}`);
+              await appDB.leads.delete(lead.id);
+            } catch (e) {
+              // If delete fails on server, keep local record but remove delete marker
+              await appDB.leads.update(lead.id, {
+                _action: null,
+                synced: true
+              } as any);
+            }
+          }
+        } catch (error) {
+          console.error(`Failed to sync lead ${lead.id}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error('Error pushing local changes:', error);
+    }
+  }, [machineId]);
 
-  const syncFromAPI = useCallback(async (forceRefresh = false) => {
+  // ---- Sync from backend with conflict resolution ----
+  const syncFromServer = useCallback(async (forceRefresh: boolean = false) => {
     if (fetchInProgressRef.current) return;
     
     fetchInProgressRef.current = true;
     setLoading(true);
 
     try {
-      
-      let url = `leads`;
+      // Get local leads to determine last sync time
+      const localLeads = await appDB.loadLeads() as EnhancedLead[];
+      const lastSyncTime = localLeads.length > 0 
+        ? new Date(Math.max(...localLeads.map(lead => new Date(lead.lastSync || 0).getTime()))).toISOString()
+        : '1970-01-01T00:00:00.000Z';
+
+      let url = "/leads";
       const params = new URLSearchParams();
-      const sortParam = sortModel.map((s) => `${s.colId}:${s.sort}`).join(",");
-      params.append("sort", sortParam);
+      
+      // Only get leads modified after our last sync (unless force refresh)
+      if (!forceRefresh) {
+        params.append('modified_after', lastSyncTime);
+      }
       
       if (params.toString()) {
         url += `?${params.toString()}`;
       }
 
-      const data = await apiFetch(url, { timeout: 10000 });
-      
-      let leadsData: Lead[] = [];
-      if (data.data && Array.isArray(data.data)) {
-        leadsData = data.data;
-      } else if (Array.isArray(data)) {
-        leadsData = data;
-      } else {
-        console.warn('Unexpected API response format:', data);
-        leadsData = [];
-      }
+      const response = await api.get(url);
+      const { data } = response;
+      const leadsData = data?.data || data;
 
-      const leadsWithSync = leadsData.map(lead => ({
-        ...lead,
-        lastSync: new Date().toISOString(),
-        synced: true
-      }));
-      
-      await db.leads.clear();
-      await db.leads.bulkPut(leadsWithSync);
+      if (Array.isArray(leadsData)) {
+        console.log("[LeadsPage] Syncing leads:", leadsData.length);
+        
+        const now = new Date().toISOString();
+        
+        for (const serverLead of leadsData) {
+          if (!serverLead.id) continue;
+          
+          const existingLead = await appDB.leads.get(serverLead.id) as EnhancedLead;
+          
+          if (existingLead) {
+            // Conflict resolution: Use the most recently modified version
+            const serverTime = new Date(serverLead.lastModified || serverLead.entry_date || 0).getTime();
+            const localTime = new Date(existingLead.lastModified || existingLead.entry_date || 0).getTime();
+            
+            if (serverTime > localTime || existingLead.synced) {
+              // Server version is newer or local version is already synced
+              await appDB.leads.update(serverLead.id, {
+                ...(serverLead as any),
+                lastSync: now,
+                synced: true,
+                lastModified: serverTime > localTime ? (serverLead.lastModified || serverLead.entry_date) : existingLead.lastModified,
+                machineId: machineId
+              } as any);
+            }
+            // If local version is newer and not synced, keep local version (it will be pushed later)
+          } else {
+            // New lead from server
+            await appDB.leads.add({
+              ...(serverLead as any),
+              lastSync: now,
+              synced: true,
+              lastModified: serverLead.lastModified || serverLead.entry_date || now,
+              machineId: machineId
+            } as any);
+          }
+        }
 
-    
-      const sortedLeadsData = sortLeadsByEntryDate(leadsData);
-      setLeads(sortedLeadsData);
-      setFilteredLeads(sortedLeadsData);
-      
-    } catch (err: any) {
-      console.error('API sync failed:', err);
-      
-      await loadLeadsFromIndexedDB();
-      
-      if (err.name === 'TimeoutError') {
-        toast.warning("Server sync timeout - using local data");
-      } else if (err.name === 'NetworkError') {
-        toast.warning("Cannot connect to server - using local data");
-      } else if (err.status === 401) {
-        toast.error("Session expired - please login again");
+        // Push any local unsynced changes to server
+        await pushLocalChangesToServer();
+
+        await loadCachedLeads(search);
       } else {
-        toast.warning("Sync failed - using local data");
+        toast.error("Invalid response format from server");
       }
+    } catch (err) {
+      console.error("[LeadsPage] Sync failed:", err);
+      toast.error("Failed to sync leads from server");
+      // Still load local data even if sync fails
+      await loadCachedLeads(search);
     } finally {
       setLoading(false);
       fetchInProgressRef.current = false;
     }
-  }, [sortModel]);
+  }, [search, loadCachedLeads, pushLocalChangesToServer, machineId]);
 
- 
-  useEffect(() => {
-    const loadInitialData = async () => {
-      if (!isInitialMountRef.current) return;
-      isInitialMountRef.current = false;
 
-      
-      const localLeads = await db.leads.toArray();
-      
-      if (localLeads.length === 0) {
-        
-        await syncFromAPI(true);
-      } else {
-        
-        await loadLeadsFromIndexedDB();
-        syncFromAPI(true).catch(() => {  
-        });
-      }
-    };
+useEffect(() => {
+  const init = async () => {
+    await loadCachedLeads();
+    
+    // Add sessionStorage gate for throttled sync
+    const gateKey = 'leadsSectionLastSyncedAt';
+    const lastSynced = sessionStorage.getItem(gateKey);
+    const now = Date.now();
+    const FiveMinutes = 5 * 60 * 1000;
+    const shouldSync = !lastSynced || now - Number(lastSynced) > FiveMinutes;
 
-    loadInitialData();
-  }, [loadLeadsFromIndexedDB, syncFromAPI]);
+    if (navigator.onLine && shouldSync) {
+      await syncFromServer(true); // Force refresh only if gate allows
+      sessionStorage.setItem(gateKey, String(now));
+    } else {
+      setLoading(false);
+    }
+  };
 
-  
+  init();
+
+  const handleOnline = () => {
+    setOnline(true);
+    toast.success("Back online!");
+    // REMOVED: await syncFromServer(); - No auto-sync on online event
+  };
+
+  const handleOffline = () => {
+    setOnline(false);
+    toast.warning("You are offline. Using cached leads.");
+  };
+
+  window.addEventListener("online", handleOnline);
+  window.addEventListener("offline", handleOffline);
+  return () => {
+    window.removeEventListener("online", handleOnline);
+    window.removeEventListener("offline", handleOffline);
+  };
+}, [loadCachedLeads]);
+
+  // ---- Search effect ----
   useEffect(() => {
     const timeoutId = setTimeout(async () => {
-      await loadLeadsFromIndexedDB(searchTerm);
+      await loadCachedLeads(search);
     }, 400);
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, loadLeadsFromIndexedDB]);
+  }, [search, loadCachedLeads]);
 
- 
+  // ---- Filter leads by status and work status ----
   useEffect(() => {
-    let filtered = [...leads];  
+    let filtered = [...leads];
     
     if (selectedStatuses.length > 0) {
       filtered = filtered.filter((lead) =>
@@ -699,27 +765,8 @@ export default function LeadsPage() {
     setTotalLeads(filtered.length);
   }, [leads, selectedStatuses, selectedWorkStatuses]);
 
-   useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true);
-      syncFromAPI(true).catch(() => {
-      });
-    };
-    
-    const handleOffline = () => {
-      setIsOnline(false);
-      toast.warning("You are now offline. Using local data.");
-    };
 
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, [syncFromAPI]);
-
+  // ---- Create Lead ----
   const onSubmit = async (data: FormData) => {
     if (!data.full_name.trim() || !data.email.trim() || !data.phone.trim()) {
       toast.error("Full Name, Email, and Phone are required");
@@ -727,7 +774,6 @@ export default function LeadsPage() {
     }
 
     setFormSaveLoading(true);
-    setFormErrors({});
 
     try {
       const updatedData = { 
@@ -743,45 +789,127 @@ export default function LeadsPage() {
         entry_date: data.entry_date || new Date().toISOString(),
       };
 
-      const savedLead = await apiFetch("leads", {
-        method: "POST",
-        body: updatedData,
-        timeout: 10000,
-      });
+      if (online) {
+        // Online: Create on server first
+        const response = await api.post("/leads", updatedData);
+        const savedLead = response.data;
 
-   
-      await db.leads.add({ 
-        ...savedLead, 
-        synced: true,
-        lastSync: new Date().toISOString()
-      });
+        // Add to local DB as synced
+        await appDB.leads.add({
+          ...savedLead,
+          lastSync: new Date().toISOString(),
+          lastModified: new Date().toISOString(),
+          synced: true,
+          machineId: machineId
+        } as any);
+      } else {
+        // Offline: Add to local DB with sync marker
+        await appDB.leads.add({
+          ...updatedData,
+          lastSync: new Date().toISOString(),
+          lastModified: new Date().toISOString(),
+          synced: false,
+          _action: 'add',
+          machineId: machineId
+        } as any);
+        toast.info("Lead saved locally. Will sync when online.");
+      }
 
-      
-      await loadLeadsFromIndexedDB(searchTerm);
-
+      await loadCachedLeads(search);
       toast.success("Lead created successfully!");
       handleCloseModal();
     } catch (error: any) {
       console.error("Error creating lead:", error);
-      
-      if (error.name === 'TimeoutError') {
-        toast.error("Server timeout - lead creation failed");
-      } else if (error.name === 'NetworkError') {
-        toast.error("Network error - cannot connect to server");
-      } else if (error.status === 401) {
-        toast.error("Session expired - please login again");
-      } else {
-        toast.error(error.message || "Failed to create lead");
-      }
+      toast.error(error.message || "Failed to create lead");
     } finally {
       setFormSaveLoading(false);
     }
   };
 
-  const handleOpenModal = () => {
-    router.push("/avatar/leads?newlead=true");
-    setIsModalOpen(true);
-  };
+  // ---- Update Lead ----
+  const handleRowUpdated = useCallback(
+    async (updatedRow: EnhancedLead) => {
+      if (!updatedRow.id) return;
+
+      try {
+        const payload = { ...updatedRow };
+        if (payload.moved_to_candidate && payload.status !== "Closed") {
+          payload.status = "Closed";
+          payload.closed_date = new Date().toISOString().split("T")[0];
+        } else if (!payload.moved_to_candidate && payload.status === "Closed") {
+          payload.status = "Open";
+          payload.closed_date = null;
+        }
+
+        processedPayload.moved_to_candidate = Boolean(processedPayload.moved_to_candidate);
+        processedPayload.massemail_unsubscribe = Boolean(processedPayload.massemail_unsubscribe);
+        processedPayload.massemail_email_sent = Boolean(processedPayload.massemail_email_sent);
+
+
+        if (online) {
+          // Online: Update on server
+          await api.put(`/leads/${updatedRow.id}`, payload);
+          
+          // Update local DB as synced
+          await appDB.leads.update(updatedRow.id, {
+            ...payload,
+            lastSync: new Date().toISOString(),
+            lastModified: new Date().toISOString(),
+            synced: true,
+            _action: null
+          } as any);
+        } else {
+          // Offline: Update local DB with sync marker
+          await appDB.leads.update(updatedRow.id, {
+            ...payload,
+            lastModified: new Date().toISOString(),
+            synced: false,
+            _action: 'update'
+          } as any);
+          toast.info("Update saved locally. Will sync when online.");
+        }
+
+
+
+        await loadCachedLeads(search);
+        toast.success("Lead updated successfully");
+      } catch (err: any) {
+        console.error("Error updating lead:", err);
+        toast.error(err.message || "Failed to update lead");
+      }
+    },
+    [search, loadCachedLeads, online]
+  );
+
+  // ---- Delete Lead ----
+  const handleRowDeleted = useCallback(
+    async (id: number) => {
+      try {
+        if (online) {
+          // Online: Delete from server
+          await api.delete(`/leads/${id}`);
+          await appDB.leads.delete(id);
+        } else {
+          // Offline: Mark for deletion
+          await appDB.leads.update(id, {
+            _action: 'delete',
+            synced: false,
+            lastModified: new Date().toISOString()
+          } as any);
+          toast.info("Delete marked locally. Will sync when online.");
+        }
+
+        await loadCachedLeads(search);
+        toast.success("Lead deleted successfully");
+      } catch (error: any) {
+        console.error("Error deleting lead:", error);
+        toast.error(error.message || "Failed to delete lead");
+      }
+    },
+    [search, loadCachedLeads, online]
+  );
+
+
 
   const handleCloseModal = () => {
     router.push("/avatar/leads");
@@ -789,99 +917,18 @@ export default function LeadsPage() {
     reset();
   };
 
-  const handleRowUpdated = useCallback(
-    async (updatedRow: Lead) => {
-      setLoadingRowId(updatedRow.id);
+  // ---- AG Grid Columns ----
+  // Format phone number
+  const formatPhoneNumber = (phoneNumberString: string) => {
+    const cleaned = ("" + phoneNumberString).replace(/\D/g, "");
+    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
+    if (match) {
+      return `+1 (${match[1]}) ${match[2]}-${match[3]}`;
+    }
+    return `+1 ${phoneNumberString}`;
+  };
 
-      try {
-        const { id, entry_date, ...payload } = updatedRow;
-
-        const processedPayload = {
-          ...payload,
-          full_name: payload.full_name ? toPascalCase(payload.full_name) : payload.full_name,
-          phone: payload.phone ? cleanPhoneNumber(payload.phone) : payload.phone,
-          secondary_phone: payload.secondary_phone ? cleanPhoneNumber(payload.secondary_phone) : payload.secondary_phone,
-        };
-       
-        if (processedPayload.moved_to_candidate && processedPayload.status !== "Closed") {
-          processedPayload.status = "Closed";
-          processedPayload.closed_date = new Date().toISOString().split("T")[0];
-        } else if (!processedPayload.moved_to_candidate && processedPayload.status === "Closed") {
-          processedPayload.status = "Open";
-          processedPayload.closed_date = null;
-        }
-
-        processedPayload.moved_to_candidate = Boolean(processedPayload.moved_to_candidate);
-        processedPayload.massemail_unsubscribe = Boolean(processedPayload.massemail_unsubscribe);
-        processedPayload.massemail_email_sent = Boolean(processedPayload.massemail_email_sent);
-
-      
-        const updatedLead = await apiFetch(`leads/${updatedRow.id}`, {
-          method: "PUT",
-          body: processedPayload,
-          timeout: 10000,
-        });
-
-      
-        await db.leads.update(updatedRow.id, { 
-          ...updatedLead,
-          lastSync: new Date().toISOString(),
-          synced: true
-        });
-
-       
-        await loadLeadsFromIndexedDB(searchTerm);
-
-        toast.success("Lead updated successfully");
-      } catch (err: any) {
-        console.error("Error updating lead:", err);
-        
-        if (err.name === 'TimeoutError') {
-          toast.error("Server timeout - update failed");
-        } else if (err.name === 'NetworkError') {
-          toast.error("Network error - cannot connect to server");
-        } else if (err.status === 401) {
-          toast.error("Session expired - please login again");
-        } else {
-          toast.error(err.message || "Failed to update lead");
-        }
-      } finally {
-        setLoadingRowId(null);
-      }
-    },
-    [searchTerm, loadLeadsFromIndexedDB]
-  );
-
-
-  const handleRowDeleted = useCallback(
-    async (id: number) => {
-      try {
-        await apiFetch(`leads/${id}`, {
-          method: "DELETE",
-          timeout: 10000,
-        });
-        await db.leads.delete(id);
-
-  
-        await loadLeadsFromIndexedDB(searchTerm);
-
-        toast.success("Lead deleted successfully");
-      } catch (error: any) {
-        console.error("Error deleting lead:", error);
-        
-        if (error.name === 'TimeoutError') {
-          toast.error("Server timeout - delete failed");
-        } else if (error.name === 'NetworkError') {
-          toast.error("Network error - cannot connect to server");
-        } else if (error.status === 401) {
-          toast.error("Session expired - please login again");
-        } else {
-          toast.error(error.message || "Failed to delete lead");
-        }
-      }
-    },
-    [searchTerm, loadLeadsFromIndexedDB]
-  );
+  // Column definitions (same as before)
 
   const columnDefs: ColDef<any, any>[] = useMemo(
     () => [
@@ -917,10 +964,9 @@ export default function LeadsPage() {
           const formattedPhone = formatPhoneNumber(params.value);
           const cleanPhone = cleanPhoneNumber(params.value);
           return (
-            <a
-              href={`tel:+${cleanPhone}`}
-              className="text-blue-600 underline hover:text-blue-800"
-            >
+
+            <a href={`tel:${params.value}`} className="text-blue-600 underline hover:text-blue-800">
+
               {formattedPhone}
             </a>
           );
@@ -950,9 +996,7 @@ export default function LeadsPage() {
         headerName: "Entry Date",
         width: 180,
         sortable: true,
-
         filter: "agDateColumnFilter",
-
         valueFormatter: ({ value }: ValueFormatterParams) =>
           value
             ? new Date(value).toLocaleString("en-US", {
@@ -1033,8 +1077,6 @@ export default function LeadsPage() {
         width: 150,
         sortable: true,
         filter: "agDateColumnFilter",
-
-
         valueFormatter: ({ value }: ValueFormatterParams) =>
           value
             ? new Date(value).toLocaleDateString("en-IN", {
@@ -1050,10 +1092,7 @@ export default function LeadsPage() {
         cellRenderer: (params: any) => {
           if (!params.value) return "";
           return (
-            <div
-              className="prose prose-sm dark:prose-invert max-w-none"
-              dangerouslySetInnerHTML={{ __html: params.value }}
-            />
+            <div className="prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: params.value }} />
           );
         },
       },
@@ -1064,9 +1103,7 @@ export default function LeadsPage() {
         editable: true,
         sortable: true,
         valueGetter: (params) =>
-          params.data.massemail_unsubscribe !== undefined
-            ? params.data.massemail_unsubscribe
-            : false,
+          params.data.massemail_unsubscribe !== undefined ? params.data.massemail_unsubscribe : false,
         valueFormatter: ({ value }) => (value ? "True" : "False"),
       },
       {
@@ -1076,9 +1113,7 @@ export default function LeadsPage() {
         editable: true,
         sortable: true,
         valueGetter: (params) =>
-          params.data.massemail_email_sent !== undefined
-            ? params.data.massemail_email_sent
-            : false,
+          params.data.massemail_email_sent !== undefined ? params.data.massemail_email_sent : false,
         valueFormatter: ({ value }) => (value ? "True" : "False"),
       },
       {
@@ -1088,43 +1123,22 @@ export default function LeadsPage() {
         editable: true,
         sortable: true,
         valueGetter: (params) =>
-          params.data.moved_to_candidate !== undefined
-            ? params.data.moved_to_candidate
-            : false,
+          params.data.moved_to_candidate !== undefined ? params.data.moved_to_candidate : false,
         valueFormatter: ({ value }) => (value ? "True" : "False"),
       },
     ],
     [selectedStatuses, selectedWorkStatuses]
   );
 
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 p-4">
-        <div className="text-red-500 text-center mb-4">
-          <div className="text-lg font-semibold mb-2">Error</div>
-          <div>{error}</div>
-        </div>
-        <Button
-          variant="outline"
-          onClick={() => loadLeadsFromIndexedDB()}
-          className="flex items-center"
-        >
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Retry
-        </Button>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6 p-4">
-      <Toaster position="top-center" />
+      <Toaster position="top-right" richColors />
       
-
+      {/* Header Section */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Leads Management
+            Leads Management {!online && "(Offline)"}
           </h1>
           <div className="mt-2 sm:mt-0 sm:max-w-md">
             <div className="relative">
@@ -1132,32 +1146,37 @@ export default function LeadsPage() {
               <Input
                 id="search"
                 type="text"
-                ref={searchInputRef}
                 placeholder="Search by ID, name, email, phone..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-10 text-sm sm:text-base"
               />
             </div>
-            {searchTerm && (
+            {search && (
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                 {filteredLeads.length} leads found
               </p>
             )}
           </div>
         </div>
+        
         <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
-          <Button onClick={handleOpenModal} className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add New Lead
-          </Button>
+
+          {!online && (
+            <div className="flex items-center text-yellow-600 text-sm">
+              <AlertTriangle className="h-4 w-4 mr-1" />
+              Offline
+            </div>
+          )}
+
+
         </div>
       </div>
-      <div className="flex w-full justify-center">
+
+      {/* AG Grid Table */}
+     
         <AGGridTable
-          key={`${filteredLeads.length}-${selectedStatuses.join(
-            ","
-          )}-${selectedWorkStatuses.join(",")}`}
+          key={`${filteredLeads.length}-${selectedStatuses.join(",")}-${selectedWorkStatuses.join(",")}`}
           rowData={filteredLeads}
           columnDefs={columnDefs}
           onRowAdded={async (newRow: any) => {
@@ -1178,26 +1197,34 @@ export default function LeadsPage() {
                 massemail_email_sent: Boolean(newRow.massemail_email_sent),
               };
 
-              const savedLead = await apiFetch("leads", {
-                method: "POST",
-                body: payload,
-                timeout: 10000,
-              });
+              if (online) {
+                const response = await api.post("/leads", payload);
+                const savedLead = response.data;
 
-              await db.leads.add({
-                ...savedLead,
-                synced: true,
-                lastSync: new Date().toISOString(),
-              });
+                await appDB.leads.add({
+                  ...savedLead,
+                  lastSync: new Date().toISOString(),
+                  lastModified: new Date().toISOString(),
+                  synced: true,
+                  machineId: machineId
+                } as any);
+              } else {
+                await appDB.leads.add({
+                  ...payload,
+                  lastSync: new Date().toISOString(),
+                  lastModified: new Date().toISOString(),
+                  synced: false,
+                  _action: 'add',
+                  machineId: machineId
+                } as any);
+                toast.info("Lead saved locally. Will sync when online.");
+              }
 
-              await loadLeadsFromIndexedDB(searchTerm);
+              await loadCachedLeads(search);
               toast.success("Lead created successfully");
             } catch (err: any) {
               console.error("Error creating lead via grid add:", err);
-              if (err.name === 'TimeoutError') toast.error("Server timeout - lead creation failed");
-              else if (err.name === 'NetworkError') toast.error("Network error - cannot connect to server");
-              else if (err.status === 401) toast.error("Session expired - please login again");
-              else toast.error(err.message || "Failed to create lead");
+              toast.error(err.message || "Failed to create lead");
             }
           }}
           onRowUpdated={handleRowUpdated}
@@ -1205,12 +1232,10 @@ export default function LeadsPage() {
           loading={loading}
           showFilters={true}
           showSearch={false}
-          
           height="600px"
           title={`Leads (${filteredLeads.length})`}
-          
         />
-      </div>
+
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 p-2 sm:p-4">
@@ -1229,6 +1254,7 @@ export default function LeadsPage() {
             <div className="bg-white p-3 sm:p-4 md:p-5">
               <form onSubmit={handleSubmit(onSubmit)}>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 md:gap-4">
+                  {/* Form fields remain the same as previous version */}
                   <div className="space-y-1">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                       Full Name <span className="text-red-700">*</span>
@@ -1289,6 +1315,11 @@ export default function LeadsPage() {
                       onInput={handlePhoneInput}
                       placeholder="(555) 123-4567"
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+
+                      onInput={(e) => {
+                        e.currentTarget.value = e.currentTarget.value.replace(/\D/g, "");
+                      }}
+
                     />
                     {errors.phone && (
                       <p className="mt-1 text-xs text-red-600">

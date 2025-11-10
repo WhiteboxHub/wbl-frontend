@@ -19,7 +19,8 @@ const excludedFields = [
   "vendor_type", "last_mod_datetime", "last_modified", "logincount", "googleId",
   "subject_id", "lastmoddatetime", "course_id", "new_subject_id", "instructor_1id",
   "instructor_2id", "instructor_3id", "instructor1_id", "instructor2_id",
-  "instructor3_id", "enddate", "candidate_id", "batch"
+  "instructor3_id", "enddate", "candidate_id", "batch",
+  "machineId", "lastModified", "synced", "lastSync", "version", "_action"
 ];
 
 const fieldSections: Record<string, string> = {
@@ -292,7 +293,7 @@ const getTitleSpecificExclusions = (title: string): string[] => {
     exclusions.push('cm_subject', 'subject_name');
   }
     if (lowerTitle.includes('leads')) {
-    exclusions.push('synced', 'lastSync');
+    exclusions.push('synced', 'lastSync', 'machineId', 'lastModified', 'version', '_action');
   }
   
   // class recordings

@@ -1130,4 +1130,3 @@ function formatUSD(amount: number) {
     maximumFractionDigits: 0,
   }).format(amount);
 }
-
