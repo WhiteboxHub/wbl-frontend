@@ -200,6 +200,20 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "break", label: "Break" },
     { value: "closed", label: "Closed" },
   ],
+  activity_type: [
+    { value: "extraction", label: "extraction" },
+    { value: "connection", label: "connection" },
+  ],
+  status: [
+    { value: "success", label: "Success" },
+    { value: "failed", label: "Failed" },
+  ],
+   linkedin_status: [
+    { value: "idle", label: "Idle" },
+    { value: "running", label: "Running" },
+    { value: "error", label: "Error" },
+    { value: "completed", label: "Completed" },
+  ],
 };
 
 // Vendor type options
