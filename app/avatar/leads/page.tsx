@@ -58,6 +58,7 @@ const initialFormData: FormData = {
   secondary_phone: "",
 };
 
+
 // Get machine ID for multi-system identification
 const getMachineId = (): string => {
   if (typeof window === 'undefined') return 'server';
@@ -67,6 +68,81 @@ const getMachineId = (): string => {
     localStorage.setItem('leadsMachineId', machineId);
   }
   return machineId;
+
+const statusOptions = ["Open", "Closed", "Future"];
+const workStatusOptions = [
+  "Waiting for Status",
+  "H1B",
+  "H4 EAD",
+  "Permanent Resident",
+  "Citizen",
+  "OPT",
+  "CPT",
+];
+
+const cleanPhoneNumber = (phoneNumberString: string): string => {
+  if (!phoneNumberString) return "";
+  return ("" + phoneNumberString).replace(/\D/g, "");
+};
+
+const formatPhoneNumber = (phoneNumberString: string): string => {
+  if (!phoneNumberString) return "";
+
+  const cleaned = cleanPhoneNumber(phoneNumberString);
+
+  if (cleaned.length === 11 && cleaned.startsWith("1")) {
+    const match = cleaned.match(/^1(\d{3})(\d{3})(\d{4})$/);
+    if (match) {
+      return `+1 (${match[1]}) ${match[2]}-${match[3]}`;
+    }
+  }
+
+  if (cleaned.length === 10) {
+    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
+    if (match) {
+      return `+1 (${match[1]}) ${match[2]}-${match[3]}`;
+    }
+  }
+
+ 
+  return phoneNumberString;
+};
+
+const formatPhoneInput = (value: string): string => {
+  const cleaned = value.replace(/\D/g, "");
+  
+  if (cleaned.length === 0) return "";
+  if (cleaned.length <= 3) return `(${cleaned}`;
+  if (cleaned.length <= 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
+  if (cleaned.length <= 10) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
+ 
+  return `+1 (${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
+};
+
+const handlePhoneInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const formatted = formatPhoneInput(e.target.value);
+  e.target.value = formatted;
+};
+
+const toPascalCase = (str: string): string => {
+  if (!str) return str;
+  return str
+    .trim()
+    .split(/\s+/)
+    .map((word) => {
+      if (word.length === 0) return word;
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(" ");
+};
+
+const sortLeadsByEntryDate = (leads: Lead[]): Lead[] => {
+  return [...leads].sort((a, b) => {
+    const dateA = new Date(a.entry_date || 0).getTime();
+    const dateB = new Date(b.entry_date || 0).getTime();
+    return dateB - dateA; 
+  });
+
 };
 
 // Enhanced Lead type with sync fields
@@ -423,8 +499,22 @@ export default function LeadsPage() {
     defaultValues: initialFormData,
   });
 
-  // ---- Load cached leads ----
-  const loadCachedLeads = useCallback(async (searchTerm?: string) => {
+
+
+  const fullNameValue = watch("full_name");
+
+  useEffect(() => {
+    if (fullNameValue) {
+      const pascalCased = toPascalCase(fullNameValue);
+      if (fullNameValue !== pascalCased) {
+        setValue("full_name", pascalCased, { shouldValidate: true });
+      }
+    }
+  }, [fullNameValue, setValue]);
+
+  const loadLeadsFromIndexedDB = useCallback(async (search?: string) => {
+    setLoading(true);
+
     try {
       const cached = await appDB.loadLeads();
       let filteredCached = cached as EnhancedLead[];
@@ -675,14 +765,6 @@ useEffect(() => {
     setTotalLeads(filtered.length);
   }, [leads, selectedStatuses, selectedWorkStatuses]);
 
-  // ---- Refresh manually ----
-  // const handleManualSync = async () => {
-  //   if (!navigator.onLine) {
-  //     toast.warning("You are offline. Cannot sync now.");
-  //     return;
-  //   }
-  //   await syncFromServer(true); // Force refresh on manual sync
-  // };
 
   // ---- Create Lead ----
   const onSubmit = async (data: FormData) => {
@@ -696,6 +778,9 @@ useEffect(() => {
     try {
       const updatedData = { 
         ...data,
+        full_name: toPascalCase(data.full_name),
+        phone: cleanPhoneNumber(data.phone),
+        secondary_phone: data.secondary_phone ? cleanPhoneNumber(data.secondary_phone) : "",
         status: data.status || "Open",
         workstatus: data.workstatus || "Waiting for Status",
         moved_to_candidate: Boolean(data.moved_to_candidate),
@@ -756,9 +841,10 @@ useEffect(() => {
           payload.closed_date = null;
         }
 
-        payload.moved_to_candidate = Boolean(payload.moved_to_candidate);
-        payload.massemail_unsubscribe = Boolean(payload.massemail_unsubscribe);
-        payload.massemail_email_sent = Boolean(payload.massemail_email_sent);
+        processedPayload.moved_to_candidate = Boolean(processedPayload.moved_to_candidate);
+        processedPayload.massemail_unsubscribe = Boolean(processedPayload.massemail_unsubscribe);
+        processedPayload.massemail_email_sent = Boolean(processedPayload.massemail_email_sent);
+
 
         if (online) {
           // Online: Update on server
@@ -782,6 +868,8 @@ useEffect(() => {
           } as any);
           toast.info("Update saved locally. Will sync when online.");
         }
+
+
 
         await loadCachedLeads(search);
         toast.success("Lead updated successfully");
@@ -821,11 +909,7 @@ useEffect(() => {
     [search, loadCachedLeads, online]
   );
 
-  // ---- Modal handlers ----
-  // const handleOpenModal = () => {
-  //   router.push("/avatar/leads?newlead=true");
-  //   setIsModalOpen(true);
-  // };
+
 
   const handleCloseModal = () => {
     router.push("/avatar/leads");
@@ -845,6 +929,7 @@ useEffect(() => {
   };
 
   // Column definitions (same as before)
+
   const columnDefs: ColDef<any, any>[] = useMemo(
     () => [
       {
@@ -859,6 +944,10 @@ useEffect(() => {
         headerName: "Full Name",
         width: 180,
         sortable: true,
+        valueGetter: (params) => {
+          const name = params.data?.full_name;
+          return name ? toPascalCase(name) : "";
+        },
       },
       {
         field: "phone",
@@ -866,11 +955,18 @@ useEffect(() => {
         width: 150,
         editable: true,
         sortable: true,
+        valueFormatter: (params: ValueFormatterParams) => {
+          if (!params.value) return "";
+          return formatPhoneNumber(params.value);
+        },
         cellRenderer: (params: any) => {
           if (!params.value) return "";
           const formattedPhone = formatPhoneNumber(params.value);
+          const cleanPhone = cleanPhoneNumber(params.value);
           return (
+
             <a href={`tel:${params.value}`} className="text-blue-600 underline hover:text-blue-800">
+
               {formattedPhone}
             </a>
           );
@@ -936,12 +1032,38 @@ useEffect(() => {
         headerName: "Secondary Email",
         width: 220,
         sortable: true,
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          return (
+            <a
+              href={`mailto:${params.value}`}
+              className="text-blue-600 underline hover:text-purple-800"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {params.value}
+            </a>
+          );
+        },
       },
       {
         field: "secondary_phone",
         headerName: "Secondary Phone",
         width: 150,
         sortable: true,
+        valueFormatter: (params: ValueFormatterParams) => {
+          if (!params.value) return "";
+          return formatPhoneNumber(params.value);
+        },
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          const formattedPhone = formatPhoneNumber(params.value);
+          const cleanPhone = cleanPhoneNumber(params.value);
+          return (
+            <a href={`tel:+${cleanPhone}`} className="text-blue-600 underline hover:text-purple-800">
+              {formattedPhone}
+            </a>
+          );
+        },
       },
       {
         field: "address",
@@ -1039,12 +1161,15 @@ useEffect(() => {
         </div>
         
         <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
+
           {!online && (
             <div className="flex items-center text-yellow-600 text-sm">
               <AlertTriangle className="h-4 w-4 mr-1" />
               Offline
             </div>
           )}
+
+
         </div>
       </div>
 
@@ -1057,13 +1182,13 @@ useEffect(() => {
           onRowAdded={async (newRow: any) => {
             try {
               const payload = {
-                full_name: newRow.full_name || newRow.fullname || newRow.name || "",
+                full_name: toPascalCase(newRow.full_name || newRow.fullname || newRow.name || ""),
                 email: newRow.email || newRow.candidate_email || newRow.secondary_email || "",
-                phone: newRow.phone || newRow.phone_number || newRow.contact || "",
+                phone: cleanPhoneNumber(newRow.phone || newRow.phone_number || newRow.contact || ""),
                 workstatus: newRow.workstatus || "Waiting for Status",
                 address: newRow.address || "",
                 secondary_email: newRow.secondary_email || "",
-                secondary_phone: newRow.secondary_phone || "",
+                secondary_phone: cleanPhoneNumber(newRow.secondary_phone || ""),
                 status: newRow.status || "Open",
                 moved_to_candidate: Boolean(newRow.moved_to_candidate),
                 notes: newRow.notes || "",
@@ -1111,7 +1236,7 @@ useEffect(() => {
           title={`Leads (${filteredLeads.length})`}
         />
 
-      {/* Add Lead Modal (same as before) */}
+
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 p-2 sm:p-4">
           <div className="w-full max-w-sm rounded-xl bg-white shadow-2xl sm:max-w-md sm:rounded-2xl md:max-w-2xl">
@@ -1182,16 +1307,19 @@ useEffect(() => {
                       type="tel"
                       {...register("phone", {
                         required: "Phone is required",
-                        pattern: {
-                          value: /^\d+$/,
-                          message: "Phone must contain only numbers",
-                        },
+                        validate: (value) => {
+                          const cleaned = cleanPhoneNumber(value);
+                          return cleaned.length >= 10 || "Phone number must be at least 10 digits";
+                        }
                       })}
-                      placeholder="Enter phone number"
+                      onInput={handlePhoneInput}
+                      placeholder="(555) 123-4567"
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+
                       onInput={(e) => {
                         e.currentTarget.value = e.currentTarget.value.replace(/\D/g, "");
                       }}
+
                     />
                     {errors.phone && (
                       <p className="mt-1 text-xs text-red-600">
@@ -1247,11 +1375,9 @@ useEffect(() => {
                     <input
                       type="tel"
                       {...register("secondary_phone")}
-                      placeholder="Enter secondary phone"
+                      onInput={handlePhoneInput}
+                      placeholder="(555) 123-4567"
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                      onInput={(e) => {
-                        e.currentTarget.value = e.currentTarget.value.replace(/\D/g, "");
-                      }}
                     />
                   </div>
                   <div className="space-y-1 sm:col-span-2">

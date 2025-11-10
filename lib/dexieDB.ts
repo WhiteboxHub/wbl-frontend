@@ -11,6 +11,7 @@ export interface Lead {
   full_name?: string;
   email?: string;
   phone?: string;
+
   lastSync?: string;
   lastModified?: string;
   synced?: boolean;
