@@ -580,14 +580,14 @@ export function EditModal({
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [mlBatches, setMlBatches] = useState<Batch[]>([]);
   const modalRef = useRef<HTMLDivElement>(null);
-
+  const [shouldDisableBold, setShouldDisableBold] = useState(false);
   // Detect the modal context
   const isCourseMaterialModal = title.toLowerCase().includes("course material") || title.toLowerCase().includes("material");
   const isCourseSubjectModal = title.toLowerCase().includes("course-subject") || title.toLowerCase().includes("course subject");
   const isVendorModal = title.toLowerCase().includes("vendor");
   const isCandidateOrEmployee = title.toLowerCase().includes("candidate") || title.toLowerCase().includes("employee");
   const isBatchesModal = title.toLowerCase().includes("batch") && !title.toLowerCase().includes("course");
-
+  const isEmailActivityLogsModal = title.toLowerCase().includes("email activity log") || title.toLowerCase().includes("emailactivitylog");
   const isInterviewModal = title.toLowerCase().includes("interview");
   const isMarketingModal = title.toLowerCase().includes("marketing");
   const isPlacementModal = title.toLowerCase().includes("placement");
@@ -595,13 +595,11 @@ export function EditModal({
   const isEmployeeModal = title.toLowerCase().includes("employee");
   const isLeadModal = title.toLowerCase().includes("lead");
   const isCandidateModal = title.toLowerCase().includes("candidate") && !isPreparationModal;
-
-  // Field visibility for current modal
   const showInstructorFields = shouldShowInstructorFields(title);
   const showLinkedInField = shouldShowLinkedInField(title);
 
   // modal for candidate_full_name first and read-only
-  const isSpecialModal = isInterviewModal || isMarketingModal || isPlacementModal || isPreparationModal;
+  const isSpecialModal = isInterviewModal || isMarketingModal || isPlacementModal || isPreparationModal || isEmailActivityLogsModal ;
 
   // Fetch ML batches
   useEffect(() => {
@@ -1315,6 +1313,40 @@ const normalizeCommunicationValue = (value: string): string => {
                               return null;
                             }
 
+                            // Make all fields read-only in EmailActivityLog modal
+                            if (isEmailActivityLogsModal) {
+                              // Handle date fields specially
+                              if (dateFields.includes(key.toLowerCase())) {
+                                return (
+                                  <div key={key} className="space-y-1 sm:space-y-1.5">
+                                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                      {toLabel(key)}
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={formData[key] || ""}
+                                      readOnly
+                                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
+                                    />
+                                  </div>
+                                );
+                              }
+                              // Handle all other fields
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                    {toLabel(key)}
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={formData[key] || ""}
+                                    readOnly
+                                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
+                                  />
+                                </div>
+                              );
+                            }
+
                             // Special handling for candidate_full_name in special modals
                             if (isSpecialModal && isCandidateFullName) {
                               return (
@@ -1584,7 +1616,8 @@ const normalizeCommunicationValue = (value: string): string => {
                               type="button"
                               onClick={() => {
                                 const timestamp = `[${new Date().toLocaleString()}]: `;
-                                const newContent = `<p><strong>${timestamp}</strong></p>${currentFormValues.notes || formData.notes || ""}`;
+                                const existingContent = currentFormValues.notes || formData.notes || "";
+                                const newContent = `<p><strong>${timestamp}</strong></p><p><br></p>${existingContent}`;
 
                                 setValue("notes", newContent);
                                 setFormData((prev) => ({
@@ -1592,23 +1625,29 @@ const normalizeCommunicationValue = (value: string): string => {
                                   notes: newContent
                                 }));
 
+                                setShouldDisableBold(true);
+
                                 setTimeout(() => {
-                                  const quillEditor = document.querySelector('.ql-editor') as HTMLElement;
-                                  if (quillEditor) {
-                                    quillEditor.focus();
-                                    const range = document.createRange();
-                                    const sel = window.getSelection();
-                                    const firstP = quillEditor.querySelector('p');
-                                    if (firstP && firstP.firstChild) {
-                                      range.setStart(firstP, 1);
-                                      range.collapse(true);
-                                      sel?.removeAllRanges();
-                                      sel?.addRange(range);
+                                  const editor = document.querySelector('.ql-editor') as any;
+                                  if (editor && editor.parentElement) {
+                                    const quill = (editor.parentElement as any).__quill;
+                                    if (quill) {
+                                      quill.focus();
+                                      
+                                     const timestampLength = timestamp.length;
+                                      
+                                     quill.setSelection(timestampLength, 0);
+                                      
+                                     quill.format('bold', false);
+                                      setShouldDisableBold(false);
                                     }
                                   }
-                                }, 0);
+                                }, 150);
                               }}
-                              className="px-2 sm:px-2 py-1 sm:py-1 text-sm sm:text-sm font-medium text-black hover:text-blue-800 hover:underline"
+                              className="px-2 sm:px-2 py-1sm:py-1 text-xs sm:text-sm font-medium text-black hover 
+                              
+                                        
+                                         "
                             >
                               + New Entry
                             </button>
@@ -1619,6 +1658,21 @@ const normalizeCommunicationValue = (value: string): string => {
                             onChange={(content) => {
                               setValue("notes", content);
                               setFormData((prev) => ({ ...prev, notes: content }));
+                              if (shouldDisableBold) {
+                                setShouldDisableBold(false);
+                              }
+                            }}
+                            onChangeSelection={(range) => {
+                              if (shouldDisableBold && range && range.length === 0) {
+                                const editor = document.querySelector('.ql-editor') as any;
+                                if (editor && editor.parentElement) {
+                                  const quill = (editor.parentElement as any).__quill;
+                                  if (quill) {
+                                    quill.format('bold', false);
+                                    setShouldDisableBold(false);
+                                  }
+                                }
+                              }
                             }}
                             className="bg-white dark:bg-gray-800"
                           />
@@ -1628,12 +1682,14 @@ const normalizeCommunicationValue = (value: string): string => {
                   </div>
                 )}
                 <div className="flex justify-end mt-3 sm:mt-4 md:mt-6 pt-2 sm:pt-3 md:pt-4 border-t border-blue-200">
-                  <button
-                    type="submit"
-                    className="px-3 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg hover:from-cyan-600 hover:to-blue-600 transition shadow-md"
-                  >
-                    Save Changes
-                  </button>
+                  {!isEmailActivityLogsModal && (
+                    <button
+                      type="submit"
+                      className="px-3 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg hover:from-cyan-600 hover:to-blue-600 transition shadow-md"
+                    >
+                      Save Changes
+                    </button>
+                  )}
                 </div>
               </form>
             </div>
