@@ -272,20 +272,20 @@ const fetchLogs = useCallback(async () => {
         width: 80, 
         pinned: "left" 
       },
-      {
-        field: "candidate_name",
-        headerName: "Candidate",
-        width: 180,
-        flex: 0,
-        cellRenderer: ({ value }: { value?: string }) => (
-          <div className="flex items-center gap-2">
-            <span>{value || "-"}</span>
-          </div>
-        )
-      },
+      // {
+      //   field: "candidate_name",
+      //   headerName: "Candidate Name",
+      //   width: 180,
+      //   flex: 0,
+      //   cellRenderer: ({ value }: { value?: string }) => (
+      //     <div className="flex items-center gap-2">
+      //       <span>{value || "-"}</span>
+      //     </div>
+      //   )
+      // },
       {
         field: "full_name",
-        headerName: "LinkedIn Name",
+        headerName: "Full Name",
         width: 180,
         flex: 0
       },

@@ -93,17 +93,17 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "green card", label: "Green Card" },
     { value: "h1b", label: "H1B" },
   ],
-  workstatus: [
-    { value: "waiting for status", label: "Waiting for Status" },
-    { value: "citizen", label: "Citizen" },
-    { value: "f1", label: "F1" },
-    { value: "other", label: "Other" },
-    { value: "permanent resident", label: "Permanent Resident" },
-    { value: "h4", label: "H4" },
-    { value: "ead", label: "EAD" },
-    { value: "green card", label: "Green Card" },
-    { value: "h1b", label: "H1B" },
-  ],
+  // workstatus: [
+  //   { value: "waiting for status", label: "Waiting for Status" },
+  //   { value: "citizen", label: "Citizen" },
+  //   { value: "f1", label: "F1" },
+  //   { value: "other", label: "Other" },
+  //   { value: "permanent resident", label: "Permanent Resident" },
+  //   { value: "h4", label: "H4" },
+  //   { value: "ead", label: "EAD" },
+  //   { value: "green card", label: "Green Card" },
+  //   { value: "h1b", label: "H1B" },
+  // ],
   visa_status: [
     { value: "waiting for status", label: "Waiting for Status" },
     { value: "citizen", label: "Citizen" },
@@ -660,6 +660,9 @@ export function EditModal({
   const isLeadModal = title.toLowerCase().includes("lead");
   const isCandidateModal =
     title.toLowerCase().includes("candidate") && !isPreparationModal;
+  
+  // ADD THIS LINE - LinkedIn Activity Log detection
+const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity");
 
   // Field visibility for current modal
   const showInstructorFields =
@@ -1052,6 +1055,10 @@ export function EditModal({
       if (keyLower === "feedback") return enumOptions.feedback;
     }
 
+    if (keyLower === "work_status" || keyLower === "workstatus") {
+    return enumOptions.work_status;
+  }
+
     if (isMarketingModal && keyLower === "status")
       return enumOptions.marketing_status;
     if (isMarketingModal && keyLower === "priority") {
@@ -1127,6 +1134,11 @@ export function EditModal({
     if (!showLinkedInField && key === "linkedin_id") {
       return;
     }
+
+    // ADD THIS - Hide Candidate Name for LinkedIn Activity Log
+  if (isLinkedInActivityModal && key.toLowerCase() === "candidate_name") {
+    return;
+  }
 
     // Existing filters
     if (isCandidateOrEmployee && key.toLowerCase() === "name") return;
@@ -1702,7 +1714,7 @@ export function EditModal({
                             }
 
                             // Special handling for LinkedIn ID in special modals (read-only)
-                            if (isSpecialModal && isLinkedInField) {
+                            if (isSpecialModal && isLinkedInField && !isAddMode) {
                               let url = (
                                 formData?.[key] ||
                                 formData?.candidate?.[key] ||
