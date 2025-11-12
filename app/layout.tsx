@@ -15,6 +15,7 @@ import "ag-grid-community/styles/ag-theme-alpine.css";
 import NewEvent from "@/components/NewEvent";
 import ReferralNotificationButton from "@/components/ReferralNotificationButton";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
+import Chatbot from "@/components/Chatbot";
 
 export default function RootLayout({
   children,
@@ -75,6 +76,7 @@ export default function RootLayout({
                   <Footer />
                   <ScrollToTop />
                   <ReferralNotificationButton />
+                  <Chatbot /> {/* ✅ Add this line */}
                 </>
               )}
             </Providers>
