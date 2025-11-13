@@ -311,6 +311,45 @@ export default function AuthUsersPage() {
     }
   };
 
+  // POST request to create new user
+const handleRowAdded = async (newUser: any) => {
+  try {
+    console.log("CREATING NEW USER:", newUser);
+    
+    // Remove empty password field if it exists
+    const dataToSend = { ...newUser };
+    if (dataToSend.passwd === "" || dataToSend.passwd === "********") {
+      delete dataToSend.passwd;
+    }
+    
+    // Validate password if provided
+    if (dataToSend.passwd) {
+      const validation = validatePasswordStrength(dataToSend.passwd);
+      if (!validation.isValid) {
+        toast.error(validation.errors[0]);
+        return;
+      }
+    }
+    
+    // Remove fields that shouldn't be sent for new user
+    delete dataToSend.id;
+    delete dataToSend.googleId;
+    
+    // Send POST request to create new user
+    const response = await api.post("/user", dataToSend);
+    
+    console.log("USER CREATED:", response);
+    
+    // Refresh the users list
+    fetchUsers();
+    
+    toast.success("User created successfully");
+  } catch (err: any) {
+    console.error("FAILED TO CREATE USER:", err);
+    toast.error(err.message || "Failed to create user");
+  }
+};
+
   // DELETE request on row deletion
   const handleRowDeleted = async (id: number | string) => {
     try {
@@ -325,7 +364,8 @@ export default function AuthUsersPage() {
 
   // Handle add user
   const handleAddUser = () => {
-    toast.info("Add user functionality to be implemented");
+    // toast.info("Add user functionality to be implemented");
+    toast.info("Click the + button in the table to add a new user");
   };
 
   return (
@@ -377,6 +417,7 @@ export default function AuthUsersPage() {
           title={`Users (${filteredUsers.length})`}
           height="600px"
           showSearch={false}
+          onRowAdded={handleRowAdded} 
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
         />

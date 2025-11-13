@@ -111,6 +111,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
           href: "/avatar/vendors/daily-contact",
         },
         { title: "Vendor", href: "/avatar/vendors/vendor" },
+         { title: "Linkedin Activity Log", href: "/avatar/vendors/linkedin_activity_log" },
         { title: "Email Activity Log", href: "/avatar/vendors/email-tracking-log" }
       ],
     },
