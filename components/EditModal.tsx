@@ -643,12 +643,9 @@ export function EditModal({
     title.toLowerCase().includes("course-subject") ||
     title.toLowerCase().includes("course subject");
   const isVendorModal = title.toLowerCase().includes("vendor");
-  const isCandidateOrEmployee =
-    title.toLowerCase().includes("candidate") ||
-    title.toLowerCase().includes("employee");
-  const isBatchesModal =
-    title.toLowerCase().includes("batch") &&
-    !title.toLowerCase().includes("course");
+  const isCandidateOrEmployee = title.toLowerCase().includes("candidate") || title.toLowerCase().includes("employee");
+  const isBatchesModal = title.toLowerCase().includes("batch") && !title.toLowerCase().includes("course");
+  const isEmailActivityLogsModal = title.toLowerCase().includes("email activity log") || title.toLowerCase().includes("emailactivitylog"); 
   const isInterviewModal = title.toLowerCase().includes("interview");
   const isMarketingModal = title.toLowerCase().includes("marketing");
   const isPlacementModal = title.toLowerCase().includes("placement");
