@@ -388,6 +388,36 @@ const LinkCellRenderer = (params: any) => {
       { field: "password", headerName: "Password", width: 150, editable: true },
       { field: "linkedin_username", headerName: "Linkedin Username", width: 190, editable: true },
       { field: "linkedin_passwd", headerName: "Linkedin Password", width: 190, editable: true },
+       {
+      field: "linkedin_last_run",
+      headerName: "LinkedIn Last Run",
+      width: 180,
+      sortable: true,
+      valueFormatter: (params) => {
+        if (!params.value) return "N/A";
+        return new Date(params.value).toLocaleString();
+      },
+    },
+    {
+      field: "linkedin_status",
+      headerName: "LinkedIn Status",
+      width: 180,
+      sortable: true,
+      cellRenderer: (params) => {
+        const status = params.value?.toLowerCase();
+        let badgeClass = "bg-gray-100 text-gray-800";
+        if (status === "idle") badgeClass = "bg-blue-100 text-blue-800";
+        else if (status === "running") badgeClass = "bg-yellow-100 text-yellow-800";
+        else if (status === "completed") badgeClass = "bg-green-100 text-green-800";
+        else if (status === "error") badgeClass = "bg-red-100 text-red-800";
+        
+        return (
+          <Badge className={badgeClass}>
+            {params.value?.charAt(0).toUpperCase() + params.value?.slice(1) || "N/A"}
+          </Badge>
+        );
+      },
+    },
       {
         field: "google_voice_number",
         headerName: "Google Voice Number",
