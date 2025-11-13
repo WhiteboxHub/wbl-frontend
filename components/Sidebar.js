@@ -66,6 +66,27 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     }
   }, [isAuthenticated, hasCheckedLogin, setSidebarOpen]);
 
+
+    // Close sidebar when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        sidebarRef.current && 
+        !sidebarRef.current.contains(event.target) &&
+        toggleBtnRef.current && 
+        !toggleBtnRef.current.contains(event.target) &&
+        sidebarOpen
+      ) {
+        setSidebarOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [sidebarOpen, setSidebarOpen]);
+
   // Persist sidebar state
   useEffect(() => {
     if (typeof window !== "undefined" && isAuthenticated) {
