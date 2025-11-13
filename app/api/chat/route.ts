@@ -1,24 +1,51 @@
-// ✅ wbl-frontend/app/api/chat/route.ts
+// wbl-frontend/app/api/chat/route.ts
+import { NextResponse } from "next/server";
+
 export async function POST(request: Request) {
   try {
-    // Read incoming message from Chatbot.tsx
     const body = await request.json();
 
-    // Forward to your FastAPI backend
-    const backendResponse = await fetch("http://127.0.0.1:8000/api/chat", {
+    // Base URL from Kubernetes env (frontend.yaml)
+    // Fallback to in-cluster backend-service
+    const backendBase =
+      process.env.NEXT_PUBLIC_API_URL || "http://backend-service";
+
+    // Clean trailing slash and append path
+    const backendUrl = `${backendBase.replace(/\/$/, "")}/api/chat`;
+
+    const backendResponse = await fetch(backendUrl, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body), // Re-send as valid JSON
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
     });
 
-    const data = await backendResponse.json();
+    // Backend responded with error: forward details
+    if (!backendResponse.ok) {
+      const errorText = await backendResponse.text().catch(() => "");
+      console.error(
+        "❌ Backend error:",
+        backendResponse.status,
+        errorText || "(no details)"
+      );
 
-    // Return the backend's response to your Chatbot
-    return Response.json(data);
+      return NextResponse.json(
+        {
+          reply: "⚠️ Backend returned an error.",
+          status: backendResponse.status,
+          backendMessage: errorText,
+        },
+        { status: 502 }
+      );
+    }
+
+    // Backend returned success
+    const data = await backendResponse.json();
+    return NextResponse.json(data);
   } catch (error) {
-    console.error("Proxy error:", error);
-    return Response.json({ reply: "⚠️ Error connecting to backend." }, { status: 500 });
+    console.error("❌ Proxy error:", error);
+    return NextResponse.json(
+      { reply: "⚠️ Could not connect to backend." },
+      { status: 500 }
+    );
   }
 }

@@ -13,10 +13,16 @@ RUN npm install
 # Copy the rest of the application code to the working directory
 COPY . .
 
-# Always build the Next.js app to ensure the .next directory exists
+# ---------------------------------------
+# Add support for build-time public env
+# ---------------------------------------
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
+# Build the Next.js app (env applied at build time)
 RUN npm run build || { echo 'Build failed'; exit 1; }
 
-# Set environment variable to control which .env file to use
+# (Optional) keep your old behavior for local development
 COPY .env .env
 
 # Expose port 3000 to the outside world
