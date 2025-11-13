@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useMemo, useEffect, useState } from "react";
@@ -6,8 +5,7 @@ import { ColDef } from "ag-grid-community";
 import { AGGridTable } from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon, X } from "lucide-react";
-import { Button } from "@/components/admin_ui/button";
+import { SearchIcon } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { apiFetch } from "@/lib/api.js";
 import { useForm } from "react-hook-form";
@@ -73,7 +71,6 @@ export default function CourseMaterialPage() {
   const [filteredMaterials, setFilteredMaterials] = useState<CourseMaterial[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
 
@@ -139,21 +136,6 @@ export default function CourseMaterialPage() {
     fetchCourses();
     fetchSubjects();
   }, []);
-
-  useEffect(() => {
-    const handleEscKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsModalOpen(false);
-      }
-    };
-
-    if (isModalOpen) {
-      document.addEventListener('keydown', handleEscKey);
-      return () => {
-        document.removeEventListener('keydown', handleEscKey);
-      };
-    }
-  }, [isModalOpen]);
 
   const getSubjectDisplayName = (subjectId: number) => {
     if (subjectId === 0) return "Basic Fundamentals";
@@ -303,38 +285,6 @@ export default function CourseMaterialPage() {
     },
   ], [subjects, courses]);
 
-  const onSubmit = async (data: MaterialFormData) => {
-    if (!data.courseid || !data.name.trim()) {
-      toast.error("Course Name and Material Name are required");
-      return;
-    }
-
-    const payload = {
-      subjectid: Number(data.subjectid) || 0,
-      courseid: Number(data.courseid) || 0,
-      name: data.name,
-      description: data.description,
-      type: data.type,
-      link: data.link,
-      sortorder: Number(data.sortorder) || 9999,
-    };
-
-    try {
-      const res = await apiFetch("/course-materials", { method: "POST", body: payload });
-      const created = res && !Array.isArray(res) ? (res.data ?? res) : res;
-      const updated = [...materials, created].slice().sort((a, b) => b.id - a.id);
-
-      setMaterials(updated);
-      setFilteredMaterials(updated);
-      toast.success("Course Material added successfully", { position: "top-center" });
-      setIsModalOpen(false);
-      reset();
-    } catch (e: any) {
-      const msg = e?.body || e?.message || "Failed to add Course Material";
-      toast.error(typeof msg === "string" ? msg : JSON.stringify(msg), { position: "top-center" });
-    }
-  };
-
   // Update material
   const handleRowUpdated = async (updatedRow: any) => {
     try {
@@ -391,204 +341,7 @@ export default function CourseMaterialPage() {
             {searchTerm && <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{filteredMaterials.length} results found</p>}
           </div>
         </div>
-
-        {/* Right Section */}
-        <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
-          {/* <Button onClick={() => setIsModalOpen(true)} className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700">
-            + Add Course Material
-          </Button> */}
-        </div>
       </div>
-
-      {/* Add Material Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center p-2 sm:p-4 z-50">
-          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-sm sm:max-w-md md:max-w-2xl max-h-[95vh] overflow-y-auto">
-            {/* Modal Header */}
-            <div className="sticky top-0 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 md:py-5 border-b border-blue-200 flex justify-between items-center">
-              <h2 className="text-sm sm:text-base md:text-lg font-semibold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-                Add Course Material
-              </h2>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="text-blue-400 hover:text-blue-600 hover:bg-blue-100 p-1 rounded-lg transition"
-              >
-                <X size={16} className="sm:w-5 sm:h-5" />
-              </button>
-            </div>
-
-            {/* Modal Form */}
-            <div className="p-3 sm:p-4 md:p-6 bg-white">
-              <form onSubmit={handleSubmit(onSubmit)}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 md:gap-5">
-                  
-                  {/* Course Dropdown */}
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
-                      Course <span className="text-red-700">*</span>
-                    </label>
-                    {courses.length === 0 ? (
-                      <p className="text-gray-500 text-xs">Loading courses...</p>
-                    ) : (
-                      <select
-                        {...register("courseid", { required: "Course is required" })}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
-                      >
-                        <option value="">Select a course</option>
-                        {courses.map((course) => (
-                          <option key={course.id} value={course.id}>
-                            {course.name}
-                          </option>
-                        ))}
-                        <option value="0">Fundamentals</option>
-                      </select>
-                    )}
-                    {errors.courseid && (
-                      <p className="text-red-600 text-xs mt-1">{errors.courseid.message}</p>
-                    )}
-                  </div>
-
-                  {/* Type Dropdown */}
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
-                      Type <span className="text-red-700">*</span>
-                    </label>
-                    <select
-                      {...register("type", { required: "Type is required" })}
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
-                    >
-                      {TYPE_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.type && (
-                      <p className="text-red-600 text-xs mt-1">{errors.type.message}</p>
-                    )}
-                  </div>
-
-                  {/* Material Name */}
-                  <div className="sm:col-span-2 space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
-                      Material Name <span className="text-red-700">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      {...register("name", { 
-                        required: "Material name is required",
-                        maxLength: {
-                          value: 250,
-                          message: "Material name cannot exceed 250 characters"
-                        }
-                      })}
-                      placeholder="Enter material name"
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
-                    />
-                    {errors.name && (
-                      <p className="text-red-600 text-xs mt-1">{errors.name.message}</p>
-                    )}
-                  </div>
-
-                  {/* Subject Dropdown */}
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
-                      Subject
-                    </label>
-                    {subjects.length === 0 ? (
-                      <p className="text-gray-500 text-xs">Loading subjects...</p>
-                    ) : (
-                      <select
-                        {...register("subjectid")}
-                        className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
-                      >
-                        <option value="0">Basic Fundamentals</option>
-                        {subjects.map((subject) => (
-                          <option key={subject.id} value={subject.id}>
-                            {subject.name}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-
-                  {/* Sort Order */}
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
-                      Sort Order
-                    </label>
-                    <input
-                      type="number"
-                      {...register("sortorder")}
-                      placeholder="9999"
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
-                    />
-                  </div>
-
-                  {/* Link */}
-                  <div className="sm:col-span-2 space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
-                      Link
-                    </label>
-                    <input
-                      type="url"
-                      {...register("link", {
-                        maxLength: {
-                          value: 500,
-                          message: "Link cannot exceed 500 characters"
-                        }
-                      })}
-                      placeholder="https://example.com"
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm"
-                    />
-                    {errors.link && (
-                      <p className="text-red-600 text-xs mt-1">{errors.link.message}</p>
-                    )}
-                  </div>
-
-                  {/* Description */}
-                  <div className="sm:col-span-2 space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
-                      Description
-                    </label>
-                    <textarea
-                      {...register("description", {
-                        maxLength: {
-                          value: 1000,
-                          message: "Description cannot exceed 1000 characters"
-                        }
-                      })}
-                      placeholder="Enter description..."
-                      rows={2}
-                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 hover:border-blue-300 transition shadow-sm resize-none"
-                    />
-                    {errors.description && (
-                      <p className="text-red-600 text-xs mt-1">{errors.description.message}</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Modal Footer */}
-                <div className="flex justify-end gap-2 sm:gap-3 mt-3 sm:mt-4 md:mt-6 pt-2 sm:pt-3 md:pt-4 border-t border-blue-200">
-                  <button
-                    type="button"
-                    onClick={() => setIsModalOpen(false)}
-                    className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-blue-700 border border-blue-300 rounded-lg hover:bg-blue-50 transition"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-3 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg hover:from-cyan-600 hover:to-blue-600 transition shadow-md"
-                  >
-                    Save
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
 
       <AGGridTable
         rowData={filteredMaterials}

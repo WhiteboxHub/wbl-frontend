@@ -43,6 +43,12 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     return `${month}-${day}-${year}`;
   };
 
+    // Helper to extract first name from full name
+  const getFirstName = (fullName) => {
+    if (!fullName || fullName === "Unknown Candidate") return "Unknown";
+    return fullName.split(' ')[0]; // Get only the first word
+  };
+
   // Auto-open on first login
   useEffect(() => {
     if (typeof window !== "undefined" && isAuthenticated && !hasCheckedLogin) {
@@ -66,23 +72,6 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       localStorage.setItem("sidebarOpen", sidebarOpen.toString());
     }
   }, [sidebarOpen, isAuthenticated]);
-
-  // Close sidebar on outside click
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (
-        sidebarRef.current &&
-        !sidebarRef.current.contains(event.target) &&
-        toggleBtnRef.current &&
-        !toggleBtnRef.current.contains(event.target)
-      ) {
-        setSidebarOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [setSidebarOpen]);
 
   // Fetch placements + interviews with Authorization header
   useEffect(() => {
@@ -213,8 +202,11 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                     {interviewsData.slice(0, 10).map((interview) => (
                       <div key={interview.id} className={`${isDark ? "bg-gray-800/40" : "bg-white/20"} p-3 rounded-lg ${isDark ? "hover:bg-gray-700/40" : "hover:bg-white/30"} transition-all cursor-pointer backdrop-blur-sm mb-3`}>
                         <div className="flex justify-between">
-                          <h4 className={`font-semibold ${isDark ? "text-gray-100" : "text-gray-800"}`}>
+                          {/* <h4 className={`font-semibold ${isDark ? "text-gray-100" : "text-gray-800"}`}>
                             {getCandidateName(interview)}
+                          </h4> */}
+                          <h4 className={`font-semibold ${isDark ? "text-gray-100" : "text-gray-800"}`}>
+                          {getFirstName(getCandidateName(interview))}
                           </h4>
                           <span className="text-sm font-semibold whitespace-nowrap">
                             {formatDateUS(interview.interview_date)}
@@ -241,7 +233,10 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                     {placementsData.map((placement) => (
                       <div key={placement.id} className={`${isDark ? "bg-gray-800/40" : "bg-white/20"} p-3 rounded-lg ${isDark ? "hover:bg-gray-700/40" : "hover:bg-white/30"} transition-all cursor-pointer backdrop-blur-sm mb-3`}>
                         <div className="flex justify-between">
-                          <h4 className={`font-semibold ${isDark ? "text-gray-100" : "text-gray-800"}`}>{placement.candidate_name}</h4>
+                          {/* <h4 className={`font-semibold ${isDark ? "text-gray-100" : "text-gray-800"}`}>{placement.candidate_name}</h4> */}
+                          <h4 className={`font-semibold ${isDark ? "text-gray-100" : "text-gray-800"}`}>
+                          {getFirstName(placement.candidate_name)}
+                          </h4>
                           <span className="text-sm font-semibold whitespace-nowrap">{formatDateUS(placement.placement_date)}</span>
                         </div>
                         <p className="text-blue-500 font-semibold">{placement.company}</p>
