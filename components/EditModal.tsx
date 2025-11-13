@@ -385,6 +385,7 @@ const fieldSections: Record<string, string> = {
   candidate_name: "Basic Information",
   candidate_role: "Basic Information",
   google_voice_number: "Contact Information",
+  linkedin_premium_end_date: "Professional Information",
   dob: "Basic Information",
   contact: "Basic Information",
   password: "Professional Information",
@@ -492,6 +493,7 @@ const labelOverrides: Record<string, string> = {
   candidate_name: "Candidate Name",
   candidate_role: "Candidate Role",
   google_voice_number: "Google Voice Number",
+  linkedin_premium_end_date: "LinkedIn Premium End Date",
   dob: "Date of Birth",
   contact: "Contact",
   password: "Password",
@@ -604,6 +606,7 @@ const dateFields = [
   "marketing_start_date",
   "registereddate",
   "extraction_date",
+  "linkedin_premium_end_date",
 ];
 
 export function EditModal({
@@ -668,7 +671,8 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
     isInterviewModal ||
     isMarketingModal ||
     isPlacementModal ||
-    isPreparationModal;
+    isPreparationModal ||
+    isEmailActivityLogsModal;
 
   // Add this useEffect - place it with the other useEffect hooks
   useEffect(() => {
@@ -1053,6 +1057,7 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
     return enumOptions.work_status;
   }
 
+
     if (isMarketingModal && keyLower === "status")
       return enumOptions.marketing_status;
     if (isMarketingModal && keyLower === "priority") {
@@ -1129,10 +1134,12 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
       return;
     }
 
+
     // ADD THIS - Hide Candidate Name for LinkedIn Activity Log
   if (isLinkedInActivityModal && key.toLowerCase() === "candidate_name") {
     return;
   }
+
 
     // Existing filters
     if (isCandidateOrEmployee && key.toLowerCase() === "name") return;
@@ -1213,6 +1220,7 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
           >
             <div className="sticky top-0 flex items-center justify-between border-b border-blue-200 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 py-2 sm:px-4 sm:py-2.5 md:px-6">
               <h2 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-sm font-semibold text-transparent sm:text-base md:text-lg">
+
                 {isAddMode ? `Add New ${title}` : `${title} - Edit Details`}
               </h2>
               <button
@@ -1224,7 +1232,9 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
             </div>
             <div className="bg-white p-3 sm:p-4 md:p-6">
               <form onSubmit={handleSubmit(onSubmit)}>
+
                 {/* Add this in the form section - place it right after the opening <form> tag */}
+
                 <div
                   className={`grid ${gridColsClass} gap-2.5 sm:gap-3 md:gap-5`}
                 >
@@ -1376,6 +1386,7 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                             </div>
                           )}
                         {isCourseSubjectModal &&
+
                           section === "Basic Information" && (
                             <div className="space-y-1 sm:space-y-1.5">
                               <label className="block text-xs font-bold text-blue-700 sm:text-sm">
@@ -1438,8 +1449,7 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                   Instructor 1
                                 </label>
-                                {/* {isMarketingModal || isInterviewModal ? ( */}
-                                {isInterviewModal ? (
+                                {isMarketingModal || isInterviewModal ? (
                                   <input
                                     type="text"
                                     value={
@@ -1475,8 +1485,7 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                   Instructor 2
                                 </label>
-                                {/* {isMarketingModal || isInterviewModal ? ( */}
-                                {isInterviewModal ? (
+                                {isMarketingModal || isInterviewModal ? (
                                   <input
                                     type="text"
                                     value={
@@ -1512,8 +1521,7 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                   Instructor 3
                                 </label>
-                                {/* {isMarketingModal || isInterviewModal ? ( */}
-                                {isInterviewModal ? (
+                                {isMarketingModal || isInterviewModal ? (
                                   <input
                                     type="text"
                                     value={
@@ -1687,31 +1695,36 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                               // Handle date fields specially
                               if (dateFields.includes(key.toLowerCase())) {
                                 return (
-                                  <div key={key} className="space-y-1 sm:space-y-1.5">
-                                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                  <div
+                                    key={key}
+                                    className="space-y-1 sm:space-y-1.5"
+                                  >
+                                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                       {toLabel(key)}
                                     </label>
                                     <input
                                       type="text"
                                       value={formData[key] || ""}
                                       readOnly
-                                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
+                                      className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
                                     />
                                   </div>
                                 );
                               }
                               // Handle all other fields
                               return (
-                                <div key={key} className="space-y-1 sm:space-y-1.5">
-                                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                <div
+                                  key={key}
+                                  className="space-y-1 sm:space-y-1.5"
+                                >
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
                                   </label>
                                   <input
                                     type="text"
                                     value={formData[key] || ""}
                                     readOnly
-                                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
-
+                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
                                   />
                                 </div>
                               );
@@ -1740,6 +1753,7 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                             }
 
                             // Special handling for LinkedIn ID in special modals (read-only)
+
                             if (isSpecialModal && isLinkedInField && !isAddMode) {
                               let url = (
                                 formData?.[key] ||
@@ -1956,8 +1970,9 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                                     }
                                     className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
-                                     placeholder="YYYY-MM"
-                                    <option value="">Select a batch</option>
+                                    <option value="">
+                                      Select a batch (optional)
+                                    </option>
                                     {mlBatches.map((batch) => (
                                       <option
                                         key={batch.batchid}
@@ -2077,13 +2092,10 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                               type="button"
                               onClick={() => {
                                 const timestamp = `[${new Date().toLocaleString()}]: `;
-                                const newContent = `<p><strong>${timestamp}</strong></p>${
+                                const existingContent =
                                   currentFormValues.notes ||
                                   formData.notes ||
-                                  ""
-                                }`;
-
-                                const existingContent = currentFormValues.notes || formData.notes || "";
+                                  "";
                                 const newContent = `<p><strong>${timestamp}</strong></p><p><br></p>${existingContent}`;
 
 
@@ -2113,15 +2125,16 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
 
                                   const editor = document.querySelector('.ql-editor') as any;
                                   if (editor && editor.parentElement) {
-                                    const quill = (editor.parentElement as any).__quill;
+                                    const quill = (editor.parentElement as any)
+                                      .__quill;
                                     if (quill) {
                                       quill.focus();
-                                      
-                                     const timestampLength = timestamp.length;
-                                      
-                                     quill.setSelection(timestampLength, 0);
-                                      
-                                     quill.format('bold', false);
+
+                                      const timestampLength = timestamp.length;
+
+                                      quill.setSelection(timestampLength, 0);
+
+                                      quill.format("bold", false);
                                       setShouldDisableBold(false);
 
                                     }
@@ -2129,8 +2142,8 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                                 }, 150);
                               }}
 
-                              className="px-2 py-1 text-sm font-medium text-black hover:text-blue-800 hover:underline sm:px-2 sm:py-1 sm:text-sm"
-                              className="px-2 sm:px-2 py-1sm:py-1 text-xs sm:text-sm font-medium text-black hover                               
+
+                              className="px-2 sm:px-2 py-1 sm:py-1 text-xs sm:text-sm font-medium text-black hover:text-blue-800 hover:underline"
                             >
                               + New Entry
                             </button>
@@ -2153,12 +2166,19 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                               }
                             }}
                             onChangeSelection={(range) => {
-                              if (shouldDisableBold && range && range.length === 0) {
-                                const editor = document.querySelector('.ql-editor') as any;
+                              if (
+                                shouldDisableBold &&
+                                range &&
+                                range.length === 0
+                              ) {
+                                const editor = document.querySelector(
+                                  ".ql-editor"
+                                ) as any;
                                 if (editor && editor.parentElement) {
-                                  const quill = (editor.parentElement as any).__quill;
+                                  const quill = (editor.parentElement as any)
+                                    .__quill;
                                   if (quill) {
-                                    quill.format('bold', false);
+                                    quill.format("bold", false);
                                     setShouldDisableBold(false);
                                   }
                                 }
@@ -2174,18 +2194,10 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                 )}
 
                 <div className="mt-3 flex justify-end border-t border-blue-200 pt-2 sm:mt-4 sm:pt-3 md:mt-6 md:pt-4">
-                  <button
-                    type="submit"
-                    className="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 px-3 py-1.5 text-xs font-medium text-white shadow-md transition hover:from-cyan-600 hover:to-blue-600 sm:px-5 sm:py-2 sm:text-sm"
-                  >
-                    {isAddMode ? "Create" : "Save Changes"}
-                  </button>
-
-                <div className="flex justify-end mt-3 sm:mt-4 md:mt-6 pt-2 sm:pt-3 md:pt-4 border-t border-blue-200">
                   {!isEmailActivityLogsModal && (
                     <button
                       type="submit"
-                      className="px-3 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg hover:from-cyan-600 hover:to-blue-600 transition shadow-md"
+                      className="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 px-3 py-1.5 text-xs font-medium text-white shadow-md transition hover:from-cyan-600 hover:to-blue-600 sm:px-5 sm:py-2 sm:text-sm"
                     >
                       Save Changes
                     </button>

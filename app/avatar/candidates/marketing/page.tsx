@@ -6,20 +6,22 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon } from "lucide-react";
+import { SearchIcon, CalendarIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { createPortal } from "react-dom";
 import { toast, Toaster } from "sonner";
-import  api, { smartUpdate }  from "@/lib/api";
-
+import api, { smartUpdate } from "@/lib/api";
+import { format } from "date-fns";
 
 const StatusRenderer = (params: any) => {
   const status = params.value?.toLowerCase();
-  let badgeClass = "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300";
+  let badgeClass =
+    "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300";
   if (status === "active") {
-    badgeClass = "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+    badgeClass =
+      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
   } else if (status === "inactive") {
     badgeClass = "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
   }
@@ -54,7 +56,9 @@ const StatusHeaderComponent = ({
 }: StatusHeaderProps) => {
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>(
+    { top: 0, left: 0 }
+  );
   const [filterVisible, setFilterVisible] = useState(false);
 
   const toggleFilter = () => {
@@ -100,7 +104,7 @@ const StatusHeaderComponent = ({
   ];
 
   return (
-    <div className="relative flex items-center w-full" ref={filterButtonRef}>
+    <div className="relative flex w-full items-center" ref={filterButtonRef}>
       <span className="mr-2">Status</span>
       <svg
         onClick={toggleFilter}
@@ -110,13 +114,18 @@ const StatusHeaderComponent = ({
         viewBox="0 0 24 24"
         stroke="currentColor"
       >
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z"
+        />
       </svg>
       {filterVisible &&
         createPortal(
           <div
             ref={dropdownRef}
-            className="z-[99999] bg-white border border-gray-200 rounded-md shadow-lg w-48 max-h-60 overflow-y-auto"
+            className="z-[99999] max-h-60 w-48 overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg"
             style={{
               top: `${dropdownPos.top}px`,
               left: `${dropdownPos.left}px`,
@@ -128,10 +137,11 @@ const StatusHeaderComponent = ({
                 <button
                   key={value}
                   onClick={() => handleValueChange(value)}
-                  className={`block w-full text-left px-4 py-2 text-sm ${selectedStatuses.includes(value)
+                  className={`block w-full px-4 py-2 text-left text-sm ${
+                    selectedStatuses.includes(value)
                       ? "bg-blue-50 text-blue-700"
                       : "text-gray-700 hover:bg-gray-100"
-                    }`}
+                  }`}
                 >
                   {label}
                 </button>
@@ -148,7 +158,9 @@ export default function CandidatesMarketingPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredCandidates, setFilteredCandidates] = useState<any[]>([]);
   const [allCandidates, setAllCandidates] = useState<any[]>([]);
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["active"]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([
+    "active",
+  ]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -159,10 +171,10 @@ export default function CandidatesMarketingPage() {
       const data = Array.isArray(res.data?.data)
         ? res.data.data
         : Array.isArray(res.data?.results)
-          ? res.data.results
-          : Array.isArray(res.data)
-            ? res.data
-            : [];
+        ? res.data.results
+        : Array.isArray(res.data)
+        ? res.data
+        : [];
       setAllCandidates(data);
     } catch (err: any) {
       console.error("Failed to fetch candidates:", err);
@@ -177,10 +189,8 @@ export default function CandidatesMarketingPage() {
     fetchCandidates();
   }, []);
 
-
-
-const LinkCellRenderer = (params: any) => {
-  let url = (params.value || "").trim(); 
+  const LinkCellRenderer = (params: any) => {
+    let url = (params.value || "").trim();
 
     if (!url) return <span className="text-gray-500">N/A</span>;
     if (!/^https?:\/\//i.test(url)) {
@@ -215,7 +225,6 @@ const LinkCellRenderer = (params: any) => {
     }
     setFilteredCandidates(filtered);
   }, [allCandidates, searchTerm, selectedStatuses]);
-
 
   const ResumeRenderer = (params: any) => (
     <div className="flex items-center space-x-2">
@@ -276,7 +285,6 @@ const LinkCellRenderer = (params: any) => {
     </div>
   );
 
-
   const CandidateNameRenderer = (params: any) => {
     const candidateId = params.data?.candidate_id;
     const candidateName = params.data?.candidate?.full_name || params.value;
@@ -288,14 +296,13 @@ const LinkCellRenderer = (params: any) => {
         href={`/avatar/candidates/search?candidateId=${candidateId}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer"
+        className="cursor-pointer font-medium text-blue-600 underline hover:text-blue-800"
       >
         {candidateName}
       </Link>
     );
   };
 
-  
   const columnDefs: ColDef[] = useMemo(
     () => [
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
@@ -312,7 +319,8 @@ const LinkCellRenderer = (params: any) => {
         headerName: "Batch",
         sortable: true,
         maxWidth: 150,
-        valueGetter: (params) => params.data.candidate?.batch?.batchname || "N/A",
+        valueGetter: (params) =>
+          params.data.candidate?.batch?.batchname || "N/A",
       },
       {
         field: "start_date",
@@ -386,38 +394,30 @@ const LinkCellRenderer = (params: any) => {
         },
       },
       { field: "password", headerName: "Password", width: 150, editable: true },
-      { field: "linkedin_username", headerName: "Linkedin Username", width: 190, editable: true },
-      { field: "linkedin_passwd", headerName: "Linkedin Password", width: 190, editable: true },
-       {
-      field: "linkedin_last_run",
-      headerName: "LinkedIn Last Run",
-      width: 180,
-      sortable: true,
-      valueFormatter: (params) => {
-        if (!params.value) return "N/A";
-        return new Date(params.value).toLocaleString();
+      {
+        field: "linkedin_username",
+        headerName: "Linkedin Username",
+        width: 190,
+        editable: true,
       },
-    },
-    {
-      field: "linkedin_status",
-      headerName: "LinkedIn Status",
-      width: 180,
-      sortable: true,
-      cellRenderer: (params) => {
-        const status = params.value?.toLowerCase();
-        let badgeClass = "bg-gray-100 text-gray-800";
-        if (status === "idle") badgeClass = "bg-blue-100 text-blue-800";
-        else if (status === "running") badgeClass = "bg-yellow-100 text-yellow-800";
-        else if (status === "completed") badgeClass = "bg-green-100 text-green-800";
-        else if (status === "error") badgeClass = "bg-red-100 text-red-800";
-        
-        return (
-          <Badge className={badgeClass}>
-            {params.value?.charAt(0).toUpperCase() + params.value?.slice(1) || "N/A"}
-          </Badge>
-        );
+      {
+        field: "linkedin_passwd",
+        headerName: "Linkedin Password",
+        width: 190,
+        editable: true,
       },
-    },
+      {
+        field: "linkedin_premium_end_date",
+        headerName: "LinkedIn Premium End Date",
+        width: 200,
+        sortable: true,
+        filter: true,
+        editable: false,
+        valueFormatter: (params) => {
+          if (!params.value) return "Not Set";
+          return format(new Date(params.value), "yyyy-MM-dd");
+        },
+      },
       {
         field: "google_voice_number",
         headerName: "Google Voice Number",
@@ -443,7 +443,7 @@ const LinkCellRenderer = (params: any) => {
           if (!params.value) return "";
           return (
             <div
-              className="prose prose-sm max-w-none dark:prose-invert"
+              className="prose prose-sm dark:prose-invert max-w-none"
               dangerouslySetInnerHTML={{ __html: params.value }}
             />
           );
@@ -453,64 +453,67 @@ const LinkCellRenderer = (params: any) => {
     [selectedStatuses]
   );
 
-const handleRowUpdated = async (updatedRow: any) => {
-  const marketingId = updatedRow?.id;
-  if (!marketingId) {
-    toast.error("Failed to update candidate: Missing marketing record ID.");
-    return;
-  }
-  const payload = { ...updatedRow };
-  Object.keys(payload).forEach((key) => {
-    if (payload[key] === "") {
-      payload[key] = null;
+  const handleRowUpdated = async (updatedRow: any) => {
+    const marketingId = updatedRow?.id;
+    if (!marketingId) {
+      toast.error("Failed to update candidate: Missing marketing record ID.");
+      return;
     }
-  });
+    const payload = { ...updatedRow };
+    Object.keys(payload).forEach((key) => {
+      if (payload[key] === "") {
+        payload[key] = null;
+      }
+    });
 
-  try {
-    const res = await api.put(`/candidate/marketing/${marketingId}`, payload);
+    try {
+      const res = await api.put(`/candidate/marketing/${marketingId}`, payload);
 
-    const updatedRecord = res.data;
+      const updatedRecord = res.data;
 
-    setFilteredCandidates((prev) =>
-      prev.map((row) => (row.id === marketingId ? { ...row, ...updatedRecord } : row))
-    );
-    setAllCandidates((prev) =>
-      prev.map((row) => (row.id === marketingId ? { ...row, ...updatedRecord } : row))
-    );
+      setFilteredCandidates((prev) =>
+        prev.map((row) =>
+          row.id === marketingId ? { ...row, ...updatedRecord } : row
+        )
+      );
+      setAllCandidates((prev) =>
+        prev.map((row) =>
+          row.id === marketingId ? { ...row, ...updatedRecord } : row
+        )
+      );
 
-    toast.success("Candidate updated successfully!");
-  } catch (err: any) {
-    console.error("Failed to update candidate:", err);
+      toast.success("Candidate updated successfully!");
+    } catch (err: any) {
+      console.error("Failed to update candidate:", err);
 
-    let message = "Failed to update candidate.";
+      let message = "Failed to update candidate.";
 
-    if (Array.isArray(err?.body?.detail)) {
-      message = err.body.detail.map((e: any) => e.msg).join(", ");
-    } else if (err?.body?.message) {
-      message = err.body.message;
-    } else if (err?.message) {
-      message = err.message;
+      if (Array.isArray(err?.body?.detail)) {
+        message = err.body.detail.map((e: any) => e.msg).join(", ");
+      } else if (err?.body?.message) {
+        message = err.body.message;
+      } else if (err?.message) {
+        message = err.message;
+      }
+
+      toast.error(message);
     }
+  };
 
-    toast.error(message);
-  }
-};
-
-
-const handleRowDeleted = async (id: number | string) => {
+  const handleRowDeleted = async (id: number | string) => {
     try {
       await api.delete(`/candidate/marketing/${id}`);
-      setFilteredCandidates((prev) => 
+      setFilteredCandidates((prev) =>
         prev.filter((row) => row.id !== id && row.candidate_id !== id)
       );
-      setAllCandidates((prev) => 
+      setAllCandidates((prev) =>
         prev.filter((row) => row.id !== id && row.candidate_id !== id)
       );
-      
+
       toast.success("Marketing candidate deleted successfully!");
     } catch (err: any) {
       console.error("Failed to delete marketing candidate:", err);
-      
+
       if (err.status === 401) {
         toast.error("Session expired. Please login again.");
       } else {
@@ -528,7 +531,7 @@ const handleRowDeleted = async (id: number | string) => {
     <div className="space-y-6">
       <Toaster richColors position="top-center" />
       {/* Header Section */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             Marketing Phase Candidates
