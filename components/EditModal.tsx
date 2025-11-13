@@ -633,10 +633,8 @@ export function EditModal({
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [mlBatches, setMlBatches] = useState<Batch[]>([]);
   const modalRef = useRef<HTMLDivElement>(null);
-
   // Add this state near the other useState declarations
   const [marketingCandidates, setMarketingCandidates] = useState<any[]>([]);
-
   // Detect the modal context
   const isCourseMaterialModal =
     title.toLowerCase().includes("course material") ||
@@ -651,7 +649,6 @@ export function EditModal({
   const isBatchesModal =
     title.toLowerCase().includes("batch") &&
     !title.toLowerCase().includes("course");
-
   const isInterviewModal = title.toLowerCase().includes("interview");
   const isMarketingModal = title.toLowerCase().includes("marketing");
   const isPlacementModal = title.toLowerCase().includes("placement");
@@ -1612,6 +1609,7 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                               return null;
                             }
 
+
                             // ADD THIS CONDITION FOR SUBJECT FIELD (right here)
                             if (isSubjectField && isBatchesModal) {
                               return (
@@ -1686,6 +1684,37 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                                     }
                                     readOnly
                                     className="w-full rounded-lg border border-blue-200 bg-gray-50 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
+
+                            // Make all fields read-only in EmailActivityLog modal
+                            if (isEmailActivityLogsModal) {
+                              // Handle date fields specially
+                              if (dateFields.includes(key.toLowerCase())) {
+                                return (
+                                  <div key={key} className="space-y-1 sm:space-y-1.5">
+                                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                      {toLabel(key)}
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={formData[key] || ""}
+                                      readOnly
+                                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
+                                    />
+                                  </div>
+                                );
+                              }
+                              // Handle all other fields
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                    {toLabel(key)}
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={formData[key] || ""}
+                                    readOnly
+                                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
+
                                   />
                                 </div>
                               );
@@ -2057,11 +2086,17 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                                   ""
                                 }`;
 
+                                const existingContent = currentFormValues.notes || formData.notes || "";
+                                const newContent = `<p><strong>${timestamp}</strong></p><p><br></p>${existingContent}`;
+
+
                                 setValue("notes", newContent);
                                 setFormData((prev) => ({
                                   ...prev,
                                   notes: newContent,
                                 }));
+
+                                setShouldDisableBold(true);
 
                                 setTimeout(() => {
                                   const quillEditor = document.querySelector(
@@ -2078,11 +2113,27 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                                       range.collapse(true);
                                       sel?.removeAllRanges();
                                       sel?.addRange(range);
+
+                                  const editor = document.querySelector('.ql-editor') as any;
+                                  if (editor && editor.parentElement) {
+                                    const quill = (editor.parentElement as any).__quill;
+                                    if (quill) {
+                                      quill.focus();
+                                      
+                                     const timestampLength = timestamp.length;
+                                      
+                                     quill.setSelection(timestampLength, 0);
+                                      
+                                     quill.format('bold', false);
+                                      setShouldDisableBold(false);
+
                                     }
                                   }
-                                }, 0);
+                                }, 150);
                               }}
+
                               className="px-2 py-1 text-sm font-medium text-black hover:text-blue-800 hover:underline sm:px-2 sm:py-1 sm:text-sm"
+                              className="px-2 sm:px-2 py-1sm:py-1 text-xs sm:text-sm font-medium text-black hover                               
                             >
                               + New Entry
                             </button>
@@ -2098,6 +2149,24 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                                 ...prev,
                                 notes: content,
                               }));
+
+                              setFormData((prev) => ({ ...prev, notes: content }));
+                              if (shouldDisableBold) {
+                                setShouldDisableBold(false);
+                              }
+                            }}
+                            onChangeSelection={(range) => {
+                              if (shouldDisableBold && range && range.length === 0) {
+                                const editor = document.querySelector('.ql-editor') as any;
+                                if (editor && editor.parentElement) {
+                                  const quill = (editor.parentElement as any).__quill;
+                                  if (quill) {
+                                    quill.format('bold', false);
+                                    setShouldDisableBold(false);
+                                  }
+                                }
+                              }
+
                             }}
                             className="bg-white dark:bg-gray-800"
                           />
@@ -2106,6 +2175,7 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                     </div>
                   </div>
                 )}
+
                 <div className="mt-3 flex justify-end border-t border-blue-200 pt-2 sm:mt-4 sm:pt-3 md:mt-6 md:pt-4">
                   <button
                     type="submit"
@@ -2113,6 +2183,17 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                   >
                     {isAddMode ? "Create" : "Save Changes"}
                   </button>
+
+                <div className="flex justify-end mt-3 sm:mt-4 md:mt-6 pt-2 sm:pt-3 md:pt-4 border-t border-blue-200">
+                  {!isEmailActivityLogsModal && (
+                    <button
+                      type="submit"
+                      className="px-3 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg hover:from-cyan-600 hover:to-blue-600 transition shadow-md"
+                    >
+                      Save Changes
+                    </button>
+                  )}
+
                 </div>
               </form>
             </div>

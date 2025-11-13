@@ -19,6 +19,7 @@ import {
   DownloadIcon,
   SettingsIcon,
 } from "lucide-react";
+import { MutableRefObject } from "react";
 import { ViewModal } from "./ViewModal";
 import { EditModal } from "@/components/EditModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -80,6 +81,7 @@ interface RowData {
   fullName?: string;
   company?: string;
   [key: string]: any;
+  
 }
 
 export function AGGridTable({

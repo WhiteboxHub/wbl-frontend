@@ -1,4 +1,4 @@
-// whiteboxLearning-wbl\app\avatar\leads\page.tsx
+
 "use client";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
@@ -59,6 +59,62 @@ const workStatusOptions = [
   "OPT",
   "CPT",
 ];
+
+const cleanPhoneNumber = (phoneNumberString: string): string => {
+  if (!phoneNumberString) return "";
+  return ("" + phoneNumberString).replace(/\D/g, "");
+};
+
+const formatPhoneNumber = (phoneNumberString: string): string => {
+  if (!phoneNumberString) return "";
+
+  const cleaned = cleanPhoneNumber(phoneNumberString);
+
+  if (cleaned.length === 11 && cleaned.startsWith("1")) {
+    const match = cleaned.match(/^1(\d{3})(\d{3})(\d{4})$/);
+    if (match) {
+      return `+1 (${match[1]}) ${match[2]}-${match[3]}`;
+    }
+  }
+
+  if (cleaned.length === 10) {
+    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
+    if (match) {
+      return `+1 (${match[1]}) ${match[2]}-${match[3]}`;
+    }
+  }
+
+ 
+  return phoneNumberString;
+};
+
+const formatPhoneInput = (value: string): string => {
+  const cleaned = value.replace(/\D/g, "");
+  
+  if (cleaned.length === 0) return "";
+  if (cleaned.length <= 3) return `(${cleaned}`;
+  if (cleaned.length <= 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
+  if (cleaned.length <= 10) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
+ 
+  return `+1 (${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
+};
+
+const handlePhoneInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const formatted = formatPhoneInput(e.target.value);
+  e.target.value = formatted;
+};
+
+const toPascalCase = (str: string): string => {
+  if (!str) return str;
+  return str
+    .trim()
+    .split(/\s+/)
+    .map((word) => {
+      if (word.length === 0) return word;
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(" ");
+};
 
 const sortLeadsByEntryDate = (leads: Lead[]): Lead[] => {
   return [...leads].sort((a, b) => {
@@ -481,6 +537,17 @@ export default function LeadsPage() {
     defaultValues: initialFormData,
   });
 
+  const fullNameValue = watch("full_name");
+
+  useEffect(() => {
+    if (fullNameValue) {
+      const pascalCased = toPascalCase(fullNameValue);
+      if (fullNameValue !== pascalCased) {
+        setValue("full_name", pascalCased, { shouldValidate: true });
+      }
+    }
+  }, [fullNameValue, setValue]);
+
   const loadLeadsFromIndexedDB = useCallback(async (search?: string) => {
     setLoading(true);
     try {
@@ -665,6 +732,9 @@ export default function LeadsPage() {
     try {
       const updatedData = { 
         ...data,
+        full_name: toPascalCase(data.full_name),
+        phone: cleanPhoneNumber(data.phone),
+        secondary_phone: data.secondary_phone ? cleanPhoneNumber(data.secondary_phone) : "",
         status: data.status || "Open",
         workstatus: data.workstatus || "Waiting for Status",
         moved_to_candidate: Boolean(data.moved_to_candidate),
@@ -721,23 +791,29 @@ export default function LeadsPage() {
       try {
         const { id, entry_date, ...payload } = updatedRow;
 
+        const processedPayload = {
+          ...payload,
+          full_name: payload.full_name ? toPascalCase(payload.full_name) : payload.full_name,
+          phone: payload.phone ? cleanPhoneNumber(payload.phone) : payload.phone,
+          secondary_phone: payload.secondary_phone ? cleanPhoneNumber(payload.secondary_phone) : payload.secondary_phone,
+        };
        
-        if (payload.moved_to_candidate && payload.status !== "Closed") {
-          payload.status = "Closed";
-          payload.closed_date = new Date().toISOString().split("T")[0];
-        } else if (!payload.moved_to_candidate && payload.status === "Closed") {
-          payload.status = "Open";
-          payload.closed_date = null;
+        if (processedPayload.moved_to_candidate && processedPayload.status !== "Closed") {
+          processedPayload.status = "Closed";
+          processedPayload.closed_date = new Date().toISOString().split("T")[0];
+        } else if (!processedPayload.moved_to_candidate && processedPayload.status === "Closed") {
+          processedPayload.status = "Open";
+          processedPayload.closed_date = null;
         }
 
-        payload.moved_to_candidate = Boolean(payload.moved_to_candidate);
-        payload.massemail_unsubscribe = Boolean(payload.massemail_unsubscribe);
-        payload.massemail_email_sent = Boolean(payload.massemail_email_sent);
+        processedPayload.moved_to_candidate = Boolean(processedPayload.moved_to_candidate);
+        processedPayload.massemail_unsubscribe = Boolean(processedPayload.massemail_unsubscribe);
+        processedPayload.massemail_email_sent = Boolean(processedPayload.massemail_email_sent);
 
       
         const updatedLead = await apiFetch(`leads/${updatedRow.id}`, {
           method: "PUT",
-          body: payload,
+          body: processedPayload,
           timeout: 10000,
         });
 
@@ -802,15 +878,6 @@ export default function LeadsPage() {
     [searchTerm, loadLeadsFromIndexedDB]
   );
 
-  const formatPhoneNumber = (phoneNumberString: string) => {
-    const cleaned = ("" + phoneNumberString).replace(/\D/g, "");
-    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
-    if (match) {
-      return `+1 (${match[1]}) ${match[2]}-${match[3]}`;
-    }
-    return `+1 ${phoneNumberString}`;
-  };
-
   const columnDefs: ColDef<any, any>[] = useMemo(
     () => [
       {
@@ -825,6 +892,10 @@ export default function LeadsPage() {
         headerName: "Full Name",
         width: 180,
         sortable: true,
+        valueGetter: (params) => {
+          const name = params.data?.full_name;
+          return name ? toPascalCase(name) : "";
+        },
       },
       {
         field: "phone",
@@ -832,12 +903,17 @@ export default function LeadsPage() {
         width: 150,
         editable: true,
         sortable: true,
+        valueFormatter: (params: ValueFormatterParams) => {
+          if (!params.value) return "";
+          return formatPhoneNumber(params.value);
+        },
         cellRenderer: (params: any) => {
           if (!params.value) return "";
           const formattedPhone = formatPhoneNumber(params.value);
+          const cleanPhone = cleanPhoneNumber(params.value);
           return (
             <a
-              href={`tel:${params.value}`}
+              href={`tel:+${cleanPhone}`}
               className="text-blue-600 underline hover:text-blue-800"
             >
               {formattedPhone}
@@ -907,12 +983,38 @@ export default function LeadsPage() {
         headerName: "Secondary Email",
         width: 220,
         sortable: true,
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          return (
+            <a
+              href={`mailto:${params.value}`}
+              className="text-blue-600 underline hover:text-purple-800"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {params.value}
+            </a>
+          );
+        },
       },
       {
         field: "secondary_phone",
         headerName: "Secondary Phone",
         width: 150,
         sortable: true,
+        valueFormatter: (params: ValueFormatterParams) => {
+          if (!params.value) return "";
+          return formatPhoneNumber(params.value);
+        },
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          const formattedPhone = formatPhoneNumber(params.value);
+          const cleanPhone = cleanPhoneNumber(params.value);
+          return (
+            <a href={`tel:+${cleanPhone}`} className="text-blue-600 underline hover:text-purple-800">
+              {formattedPhone}
+            </a>
+          );
+        },
       },
       {
         field: "address",
@@ -1050,13 +1152,13 @@ export default function LeadsPage() {
           onRowAdded={async (newRow: any) => {
             try {
               const payload = {
-                full_name: newRow.full_name || newRow.fullname || newRow.name || "",
+                full_name: toPascalCase(newRow.full_name || newRow.fullname || newRow.name || ""),
                 email: newRow.email || newRow.candidate_email || newRow.secondary_email || "",
-                phone: newRow.phone || newRow.phone_number || newRow.contact || "",
+                phone: cleanPhoneNumber(newRow.phone || newRow.phone_number || newRow.contact || ""),
                 workstatus: newRow.workstatus || "Waiting for Status",
                 address: newRow.address || "",
                 secondary_email: newRow.secondary_email || "",
-                secondary_phone: newRow.secondary_phone || "",
+                secondary_phone: cleanPhoneNumber(newRow.secondary_phone || ""),
                 status: newRow.status || "Open",
                 moved_to_candidate: Boolean(newRow.moved_to_candidate),
                 notes: newRow.notes || "",
@@ -1098,6 +1200,7 @@ export default function LeadsPage() {
           
         />
       </div>
+
     </div>
   );
 }
