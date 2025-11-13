@@ -1,11 +1,9 @@
-
-// /WhiteboxHub/whiteboxLearning-wbl/app/avatar/page.tsx
 "use client";
 import { useEffect, useState } from "react";
 import {
   Users,Layers3,CalendarDays,GraduationCap,UserPlus,CalendarPlus,PieChart as PieChartIcon,Wallet,Banknote,TrendingUp,Briefcase,Award,CheckCircle2,Clock,Mic,BarChart2,
   ClipboardList,XCircle,Target,CakeIcon,PiggyBank,Handshake,Trophy,NotebookIcon,Pen,PencilOff,
-  PenIcon,
+  PenIcon, ChevronDown,
 } from "lucide-react";
 import { EnhancedMetricCard } from "@/components/EnhancedMetricCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin_ui/card";
@@ -164,6 +162,17 @@ interface VendorMetrics{
     week_extracted: number;
 }
 
+interface EmailExtraction {
+    candidate_name: string;
+    source_email: string;
+    emails_read_today: number;
+    emails_extracted_today: number;
+    emails_extracted_week: number;
+}
+interface BatchClasses {
+  batchname: string;
+  classes_count: number;
+}
 // Hook for animated counters
 function useCounter(target: number, duration = 1000) {
   const [count, setCount] = useState(0);
@@ -200,6 +209,29 @@ export default function Index() {
   const [leadMetrics, setLeadMetrics] = useState<LeadMetrics | null>(null);
   const [activeTab, setActiveTab] = useState("batch");
   const [vendorMetrics, setVendorMetrics] = useState<VendorMetrics | null>(null);
+  const [emailReads, setEmailReads] = useState<EmailExtraction[]>([]);
+  const [isMobileDropdownOpen, setIsMobileDropdownOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (isMobileDropdownOpen && !target.closest('.mobile-dropdown')) {
+        setIsMobileDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isMobileDropdownOpen]);
 
   useEffect(() => {
     const fetchInterviewPerformance = async () => {
@@ -279,8 +311,6 @@ export default function Index() {
   const fetchData = async () => {
     try {
       setLoading(true);
-
-      // Use apiFetch so auth headers and base URL are handled automatically
       const [metricsData, batchesData] = await Promise.all([
         apiFetch("/metrics/all"),
         apiFetch("/upcoming-batches?limit=3")
@@ -335,6 +365,48 @@ export default function Index() {
     };
     fetchVendorMetrics();
   }, []);
+    
+  useEffect(() => {
+  const fetchEmailReads = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) return;
+
+      const res = await axios.get(`${API_BASE_URL}/EmailExtraction`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      setEmailReads(res.data);
+    } catch (error) {
+      console.error("Error fetching email reads:", error);
+    }
+  };
+
+  fetchEmailReads();
+}, []);
+
+useEffect(() => {
+  const fetchBatchClasses = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) return;
+
+      const res = await axios.get(`${API_BASE_URL}/batches/latest/classes`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      setBatchClasses(res.data);
+    } catch (error) {
+      console.error("Error fetching batch classes:", error);
+    }
+  };
+
+  fetchBatchClasses();
+}, []);
 
 
   // Animated counters
@@ -362,6 +434,9 @@ export default function Index() {
   const totalvendors = useCounter(vendorMetrics?.total_vendors || 0);
   const todayextracted = useCounter(vendorMetrics?.today_extracted || 0);
   const weekextracted = useCounter(vendorMetrics?.week_extracted || 0);
+  const [batchClasses, setBatchClasses] = useState<BatchClasses[]>([]);
+
+
 
   // Calculate derived metrics
   const averageFeePerCandidate = metrics ? Math.round((metrics.financial_metrics.total_fee_current_batch / Math.max(1, metrics.batch_metrics.enrolled_candidates_current))) : 0;
@@ -392,23 +467,83 @@ export default function Index() {
     );
   }
 
-  return (
-    <div className="mx-auto max-w-screen-2xl space-y-6 p-4">
-      <Tabs defaultValue="batch" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="border-2 border-gray-200 rounded-xl bg-gradient-to-br from-blue-50/50 via-white to-purple-50/50 p-2 shadow-sm">          
-          <TabsTrigger value="batch" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800">Batch</TabsTrigger>
-          <TabsTrigger value="leads" className="data-[state=active]:bg-teal-100 data-[state=active]:text-teal-800">Leads</TabsTrigger>
-          <TabsTrigger value="preparation" className="data-[state=active]:bg-pink-100 data-[state=active]:text-pink-800">Preparation</TabsTrigger>
-          <TabsTrigger value="interview" className="data-[state=active]:bg-orange-100 data-[state=active]:text-orange-800">Interview</TabsTrigger>
-          <TabsTrigger value="marketing" className="data-[state=active]:bg-pink-100 data-[state=active]:text-pink-800">Marketing</TabsTrigger>
-          <TabsTrigger value="placement" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-800">Placement</TabsTrigger> 
-          <TabsTrigger value="employee" className="data-[state=active]:bg-pink-100 data-[state=active]:text-pink-800">Employee</TabsTrigger>
-          <TabsTrigger value="vendor" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800">Vendor</TabsTrigger>
-          <TabsTrigger value="finance" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-800">Finance</TabsTrigger>
-        </TabsList>
+  // Tab labels for mobile dropdown
+  const tabLabels = {
+    batch: "Batch & Enrollment",
+    leads: "Leads",
+    preparation: "Preparation",
+    marketing: "Marketing",
+    interview: "Interview",
+    placement: "Placement",
+    employee: "Employee",
+    vendor: "Vendor",
+    finance: "Finance"
+  };
 
-        {/* 1. Batch & Enrollment */}
-        <TabsContent value="batch">
+  const currentTabLabel = tabLabels[activeTab as keyof typeof tabLabels] || "Select Tab";
+
+  return (
+<div className="mx-auto max-w-screen-2xl space-y-6 p-4">
+  <Tabs defaultValue="batch" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+    {isMobile && (
+      <div className="mobile-dropdown">
+        <div className="relative mb-4 w-full">
+          <button
+            onClick={() => setIsMobileDropdownOpen(!isMobileDropdownOpen)}
+            className="w-full flex items-center justify-between p-3 bg-white border-2 border-gray-200 rounded-xl shadow-sm touch-manipulation"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
+          >
+            <span className="font-semibold text-gray-700 text-sm">{currentTabLabel}</span>
+            <ChevronDown 
+              className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${
+                isMobileDropdownOpen ? 'rotate-180' : ''
+              }`} 
+            />
+          </button>
+          
+          {isMobileDropdownOpen && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white border-2 border-gray-200 rounded-xl shadow-lg z-50 max-h-64 overflow-y-auto">
+              {Object.entries(tabLabels).map(([value, label]) => (
+                <button
+                  key={value}
+                  onClick={() => {
+                    setActiveTab(value);
+                    setIsMobileDropdownOpen(false);
+                  }}
+                  className={`w-full text-left px-4 py-3 border-b border-gray-100 last:border-b-0 active:bg-gray-50 touch-manipulation ${
+                    activeTab === value 
+                      ? 'bg-blue-50 text-blue-700 font-semibold border-blue-100' 
+                      : 'text-gray-700'
+                  }`}
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
+                >
+                  <div className="flex items-center">
+                    <span className="text-sm">{label}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+
+    {!isMobile && (
+      <TabsList className="border-2 border-gray-200 rounded-xl bg-gradient-to-br from-blue-50/50 via-white to-purple-50/50 p-2 shadow-sm">        
+        <TabsTrigger value="batch" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800">Batch</TabsTrigger>
+        <TabsTrigger value="leads" className="data-[state=active]:bg-teal-100 data-[state=active]:text-teal-800">Leads</TabsTrigger>
+        <TabsTrigger value="preparation" className="data-[state=active]:bg-pink-100 data-[state=active]:text-pink-800">Preparation</TabsTrigger>
+        <TabsTrigger value="marketing" className="data-[state=active]:bg-pink-100 data-[state=active]:text-pink-800">Marketing</TabsTrigger>
+        <TabsTrigger value="interview" className="data-[state=active]:bg-orange-100 data-[state=active]:text-orange-800">Interview</TabsTrigger>
+        <TabsTrigger value="placement" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-800">Placement</TabsTrigger> 
+        <TabsTrigger value="employee" className="data-[state=active]:bg-pink-100 data-[state=active]:text-pink-800">Employee</TabsTrigger>
+        <TabsTrigger value="vendor" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800">Vendor</TabsTrigger>
+        <TabsTrigger value="finance" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-800">Finance</TabsTrigger>
+      </TabsList>
+    )}
+
+     
+        <TabsContent value="batch" className="mt-0">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             <EnhancedMetricCard
               title="Current Active Batch"
@@ -434,7 +569,7 @@ export default function Index() {
               icon={<CalendarPlus className="size-4" />}
               variant="purple"
             />
-            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-1  border-b border-purple-300">
+            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-1 border-b border-purple-300">
               <CardHeader className="p-3 pb-1">
                 <div className="flex items-center justify-between border-b border-purple-200 pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Upcoming Batch Start Dates</CardTitle>
@@ -445,7 +580,7 @@ export default function Index() {
                 <ul className="divide-y rounded-md border">
                   {upcomingBatches.map((batch) => (
                     <li key={batch.name} className="flex items-center justify-between p-2">
-                      <span className="text-sm font-medium  border-b border-purple-200">{batch.name}</span>
+                      <span className="text-sm font-medium border-b border-purple-200">{batch.name}</span>
                       <span className="text-xs text-muted-foreground">
                         {formatDateFromDB(batch.startdate)}
                       </span>
@@ -467,9 +602,8 @@ export default function Index() {
                 </div>
               </CardHeader>
               <CardContent className="p-3 pt-0">
-                <div className="flex flex-col sm:flex-row gap-4">
-                  {/* Chart */}
-                  <div className="h-40 flex-1">
+                <div className="flex flex-col sm:flex-row gap-4 items-center">
+                  <div className="h-48 w-48 mx-auto sm:mx-0 sm:flex-1">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
@@ -480,11 +614,10 @@ export default function Index() {
                           ]}
                           cx="50%"
                           cy="50%"
-                          innerRadius={28}
-                          outerRadius={52}
-                          paddingAngle={3}
+                          innerRadius={isMobile ? 35 : 28}
+                          outerRadius={isMobile ? 65 : 52}
+                          paddingAngle={2}
                           dataKey="value"
-                          nameKey="name"
                         >
                           {[
                             { name: "Active", value: metrics?.batch_metrics.candidate_status_breakdown.active || 0, color: "#4f46e5" },
@@ -494,26 +627,58 @@ export default function Index() {
                             <Cell key={`cell-${index}`} fill={entry.color} />
                           ))}
                         </Pie>
-                        <Tooltip />
+                        <Tooltip 
+                          formatter={(value: number) => [`${value} candidates`, 'Count']}
+                        />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
 
-                  {/* Legend */}
-                  <div className="flex flex-col justify-center gap-2">
-                    <div className="flex items-center gap-2">
+               
+                  <div className="flex flex-col justify-center gap-3 w-full sm:w-auto">
+                    <div className="flex items-center gap-2 justify-center sm:justify-start">
                       <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#4f46e5" }}></span>
-                      <span className="text-sm">Active</span>
+                      <span className="text-sm">Active: {metrics?.batch_metrics.candidate_status_breakdown.active || 0}</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 justify-center sm:justify-start">
                       <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#f59e0b" }}></span>
-                      <span className="text-sm">Break</span>
+                      <span className="text-sm">Break: {metrics?.batch_metrics.candidate_status_breakdown.break || 0}</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 justify-center sm:justify-start">
                       <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#ef4444" }}></span>
-                      <span className="text-sm">Discontinued</span>
+                      <span className="text-sm">Discontinued: {metrics?.batch_metrics.candidate_status_breakdown.discontinued || 0}</span>
                     </div>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-1 border-b border-purple-300">
+              <CardTitle className="text-sm font-semibold text-purple-700 flex items-center gap-1 p-2">
+                <Layers3 className="size-4 text-purple-500" />
+                Classes Count
+              </CardTitle>
+              <CardContent className="p-2">
+                <div className="overflow-x-auto">
+                  <table className="w-full border border-gray-300 rounded-md text-xs">
+                    <thead className="bg-purple-50">
+                      <tr>
+                        <th className="text-left px-2 py-1 font-bold text-gray-700 border-b w-2/3">
+                          Batch Name
+                        </th>
+                        <th className="text-left px-2 py-1 font-bold text-gray-700 border-b w-1/3">
+                          Classes
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {batchClasses.map((b) => (
+                        <tr key={b.batchname} className="hover:bg-purple-50">
+                          <td className="px-2 py-1 border-b">{b.batchname}</td>
+                          <td className="px-2 py-1 border-b text-center">{b.classes_count}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </CardContent>
             </Card>
@@ -521,7 +686,7 @@ export default function Index() {
         </TabsContent>
 
         {/* 2. Financial */}
-        <TabsContent value="finance">
+        <TabsContent value="finance" className="mt-0">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             <EnhancedMetricCard
               title="Total Fee in Current Batch"
@@ -555,7 +720,7 @@ export default function Index() {
             </CardHeader>
             <CardContent className="p-3 pt-0">
               {metrics?.financial_metrics.top_batches_fee?.length > 0 ? (
-                <div className="h-64">
+                <div className="h-64 min-h-[256px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={metrics.financial_metrics.top_batches_fee.slice(0, 5).map((batch) => {
@@ -590,7 +755,7 @@ export default function Index() {
         </TabsContent>
 
         {/* 3. Placement */}
-        <TabsContent value="placement">
+        <TabsContent value="placement" className="mt-0">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             <EnhancedMetricCard title="Total Placements (All Time)" value={totalPlacements} icon={<Briefcase className="size-4" />} variant="blue" />
             <EnhancedMetricCard title={`Placements (${currentYear})`} value={placementsYear} icon={<Award className="size-4" />} variant="blue" />
@@ -606,13 +771,13 @@ export default function Index() {
                   </div>
                 </CardHeader>
                 <CardContent className="p-3 pt-0">
-                  <div className="flex items-center justify-between p-2 bg-violet-50 rounded-md">
-                    <div>
-                      <div className="font-medium">{metrics.placement_metrics.last_placement.candidate_name}</div>
-                      <div className="text-sm text-muted-foreground">{metrics.placement_metrics.last_placement.position}</div>
+                  <div className="flex flex-col sm:flex-row items-center justify-between p-2 bg-violet-50 rounded-md gap-2">
+                    <div className="text-center sm:text-left">
+                      <div className="font-medium text-sm">{metrics.placement_metrics.last_placement.candidate_name}</div>
+                      <div className="text-xs text-muted-foreground">{metrics.placement_metrics.last_placement.position}</div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-medium">{metrics.placement_metrics.last_placement.company}</div>
+                    <div className="text-center sm:text-right">
+                      <div className="font-medium text-sm">{metrics.placement_metrics.last_placement.company}</div>
                       <div className="text-xs text-muted-foreground">
                         {formatDateWithMonth(metrics.placement_metrics.last_placement.placement_date)}
                       </div>
@@ -625,7 +790,7 @@ export default function Index() {
         </TabsContent>
 
         {/* 4. Interview */}
-        <TabsContent value="interview">
+        <TabsContent value="interview" className="mt-0">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             <EnhancedMetricCard title="Upcoming Interviews (Next 7 Days)" value={upcomingInterviews} icon={<CalendarDays className="size-4" />} variant="orange" />
             <EnhancedMetricCard title="Total Interviews Scheduled" value={totalInterviews} icon={<ClipboardList className="size-4" />} variant="orange" />
@@ -641,9 +806,8 @@ export default function Index() {
                 </div>
               </CardHeader>
               <CardContent className="p-3 pt-0">
-                <div className="flex flex-col sm:flex-row gap-4">
-                  {/* Chart */}
-                  <div className="h-40 flex-1">
+                <div className="flex flex-col sm:flex-row gap-4 items-center">
+                  <div className="h-48 w-48 mx-auto sm:mx-0 sm:flex-1">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
@@ -654,11 +818,10 @@ export default function Index() {
                           ]}
                           cx="50%"
                           cy="50%"
-                          innerRadius={28}
-                          outerRadius={52}
-                          paddingAngle={3}
+                          innerRadius={isMobile ? 35 : 28}
+                          outerRadius={isMobile ? 65 : 52}
+                          paddingAngle={2}
                           dataKey="value"
-                          nameKey="name"
                         >
                           {[
                             { name: "Positive", value: metrics?.interview_metrics.feedback_breakdown.Positive || 0, color: "#22c55e" },
@@ -668,24 +831,26 @@ export default function Index() {
                             <Cell key={`cell-f-${index}`} fill={entry.color} />
                           ))}
                         </Pie>
-                        <Tooltip />
+                        <Tooltip 
+                          formatter={(value: number) => [`${value} interviews`, 'Count']}
+                        />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
 
-                  {/* Legend */}
-                  <div className="flex flex-col justify-center gap-2">
-                    <div className="flex items-center gap-2">
+             
+                  <div className="flex flex-col justify-center gap-3 w-full sm:w-auto">
+                    <div className="flex items-center gap-2 justify-center sm:justify-start">
                       <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#22c55e" }}></span>
-                      <span className="text-sm">Positive</span>
+                      <span className="text-sm">Positive: {metrics?.interview_metrics.feedback_breakdown.Positive || 0}</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 justify-center sm:justify-start">
                       <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#ef4444" }}></span>
-                      <span className="text-sm">Negative</span>
+                      <span className="text-sm">Negative: {metrics?.interview_metrics.feedback_breakdown.Negative || 0}</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 justify-center sm:justify-start">
                       <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#6b7280" }}></span>
-                      <span className="text-sm">No Response</span>
+                      <span className="text-sm">No Response: {metrics?.interview_metrics.feedback_breakdown.No_Response || 0}</span>
                     </div>
                   </div>
                 </div>
@@ -739,14 +904,14 @@ export default function Index() {
         </TabsContent>
 
         {/* Marketing */}
-        <TabsContent value="marketing">
+        <TabsContent value="marketing" className="mt-0">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             <EnhancedMetricCard title="Active Marketing Candidates" value={metrics?.interview_metrics.marketing_candidates || 0} icon={<Mic className="size-4" />} variant="default" />
           </div>
         </TabsContent>
 
-        {/*  Lead metrics */}
-        <TabsContent value="leads">
+    
+        <TabsContent value="leads" className="mt-0">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
               <EnhancedMetricCard title="Total Leads" value={totalLeads} icon={<Users className="size-4" />} variant="teal" />
               <EnhancedMetricCard title="Leads In This Month" value={leadsThisMonth} icon={<CalendarDays className="size-4" />} variant="teal" />
@@ -760,12 +925,12 @@ export default function Index() {
                     </div>
                   </CardHeader>
                   <CardContent className="p-3 pt-0">
-                    <div className="flex items-center justify-between p-2 bg-sky-50 rounded-md">
-                      <div>
-                        <div className="font-medium">{leadMetrics.latest_lead.full_name}</div>
+                    <div className="flex flex-col sm:flex-row items-center justify-between p-2 bg-sky-50 rounded-md gap-2">
+                      <div className="text-center sm:text-left">
+                        <div className="font-medium text-sm">{leadMetrics.latest_lead.full_name}</div>
                         <div className="text-sm text-muted-foreground">{leadMetrics.latest_lead.email}</div>
                       </div>
-                      <div className="text-right">
+                      <div className="text-center sm:text-right">
                         <div className="text-xs text-muted-foreground">{leadMetrics.latest_lead.phone}</div>
                         <div className="text-xs text-muted-foreground">
                           {formatDateFromDB(leadMetrics.latest_lead.entry_date)}
@@ -775,71 +940,70 @@ export default function Index() {
                   </CardContent>
                 </Card>
               )}
-            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-teal-300">
-              <CardHeader className="p-3 pb-1">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-semibold text-muted-foreground border-b border-teal-200">
-                    Leads Status Breakdown
-                  </CardTitle>
-                  <PieChartIcon className="size-4 text-teal-600" />
+          <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-teal-300">
+            <CardHeader className="p-3 pb-1">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold text-muted-foreground border-b border-teal-200">
+                  Leads Status Breakdown
+                </CardTitle>
+                <PieChartIcon className="size-4 text-teal-600" />
+              </div>
+            </CardHeader>
+            <CardContent className="p-3 pt-0">
+              <div className="flex flex-col sm:flex-row gap-4 items-center">
+                <div className="h-48 w-48 mx-auto sm:mx-0 sm:flex-1">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { name: "Open", value: open_leads || 0, color: "#11bfebff" },
+                          { name: "Closed", value: closed_leads || 0, color: "#0bf50bff" },
+                          { name: "Future", value: future_leads || 0, color: "#e7c500ff" },
+                        ]}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={isMobile ? 35 : 28}
+                        outerRadius={isMobile ? 65 : 52}
+                        paddingAngle={2}
+                        dataKey="value"
+                      >
+                        {[
+                          { name: "Open", value: open_leads || 0, color: "#11bfebff" },
+                          { name: "Closed", value: closed_leads || 0, color: "#0bf50bff" },
+                          { name: "Future", value: future_leads || 0, color: "#e7c500ff" },
+                        ].map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        formatter={(value: number) => [`${value} leads`, 'Count']}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
                 </div>
-              </CardHeader>
-              <CardContent className="p-3 pt-0">
-                <div className="flex flex-col sm:flex-row gap-4">
-                  {/* Chart */}
-                  <div className="h-40 flex-1">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={[
-                            { name: "Open", value: open_leads || 0, color: "#11bfebff" },
-                            { name: "Closed", value: closed_leads || 0, color: "#0bf50bff" },
-                            { name: "Future", value: future_leads || 0, color: "#e7c500ff" },
-                          ]}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={28}
-                          outerRadius={52}
-                          paddingAngle={3}
-                          dataKey="value"
-                          nameKey="name"
-                        >
-                          {[
-                            { name: "Open", value: open_leads || 0, color: "#11bfebff" },
-                            { name: "Closed", value: closed_leads || 0, color: "#0bf50bff" },
-                            { name: "Future", value: future_leads || 0, color: "#e7c500ff" },
-                          ].map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
+
+                <div className="flex flex-col justify-center gap-3 w-full sm:w-auto">
+                  <div className="flex items-center gap-2 justify-center sm:justify-start">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#11bfebff" }}></span>
+                    <span className="text-sm">Open: {open_leads}</span>
                   </div>
-                  {/* Legend */}
-                  <div className="flex flex-col justify-center gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor:  "#11bfebff" }}></span>
-                      <span className="text-sm">Open</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#0bf50bff" }}></span>
-                      <span className="text-sm">Closed</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#e7c500ff" }}></span>
-                      <span className="text-sm">Future</span>
-                    </div>
+                  <div className="flex items-center gap-2 justify-center sm:justify-start">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#0bf50bff" }}></span>
+                    <span className="text-sm">Closed: {closed_leads}</span>
+                  </div>
+                  <div className="flex items-center gap-2 justify-center sm:justify-start">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#e7c500ff" }}></span>
+                    <span className="text-sm">Future: {future_leads}</span>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </CardContent>
+          </Card>
           </div>
         </TabsContent>
         {/* 6. Employee metrics */}
-        <TabsContent value="employee">
+        <TabsContent value="employee" className="mt-0">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-            {/* Employee Birthdays */}
             <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-red-200">
               <CardHeader className="p-3 pb-1">
                 <div className="flex items-center justify-between">
@@ -887,7 +1051,7 @@ export default function Index() {
           </div>
         </TabsContent>
         {/* 7.Preparation */}
-        <TabsContent value="preparation">
+        <TabsContent value="preparation" className="mt-0">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             <EnhancedMetricCard
               title="Total Preparation Candidates"
@@ -910,11 +1074,48 @@ export default function Index() {
           </div>
         </TabsContent>
         {/* 8.Vendors */}
-        <TabsContent value="vendor">
+        <TabsContent value="vendor" className="mt-0">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             <EnhancedMetricCard title="Total Vendors" value={vendorMetrics?.total_vendors || 0} icon={<Layers3 className="size-4" />} variant="purple"/>
             <EnhancedMetricCard title="Extracted Today" value={vendorMetrics?.today_extracted || 0} icon={<CalendarDays className="size-4" />} variant="purple"/>
             <EnhancedMetricCard title="Extracted This Week" value={vendorMetrics?.week_extracted || 0} icon={<TrendingUp className="size-4" />} variant="purple"/>
+            <Card className="sm:col-span-2 lg:col-span-4 border border-purple-200">
+              <CardHeader className="pb-2">
+                <CardTitle>Vendor Email Analytics</CardTitle>
+              </CardHeader>
+              <CardContent className="p-3 pt-0">
+                {loading ? (
+                  <p className="text-center text-gray-300">Loading...</p>
+                ) : emailReads.length > 0 ? (
+                  <div className="overflow-x-auto">
+                  <table className="w-full text-sm border border-collapse">
+                    <thead className="bg-purple-50">
+                      <tr>
+                        <th className="px-1.5 py-1 text-left w-[10%]">Candidate</th>
+                        <th className="px-1.5 py-1 text-center w-[80%]">Source Email</th>
+                        <th className="px-1.5 py-1 text-center w-[80%]">EmailReads</th>
+                        <th className="px-1.5 py-1 text-center w-[80%]">DailyEmailsExtracted</th>
+                        <th className="px-1.5 py-1 text-center w-[80%]">WeeklyEmailsExtracted</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {emailReads.map((c, i) => (
+                        <tr key={i} className="border-t hover:bg-purple-50/40">
+                          <td className="px-1.5 py-0.5 truncate">{c.candidate_name}</td>
+                          <td className="px-1.5 py-0.5 text-center text--600">{c.source_email}</td>
+                          <td className="px-1.5 py-0.5 text-center text-green-600">{c.emails_read_today}</td>
+                          <td className="px-1.5 py-0.5 text-center text-green-600">{c.emails_extracted_today}</td>
+                          <td className="px-1.5 py-0.5 text-center text-green-600">{c.emails_extracted_week}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-500">No email reads found</p>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
       </Tabs>
@@ -929,6 +1130,4 @@ function formatUSD(amount: number) {
     maximumFractionDigits: 0,
   }).format(amount);
 }
-
-
 

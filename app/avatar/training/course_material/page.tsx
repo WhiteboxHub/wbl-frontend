@@ -102,7 +102,6 @@ export default function CourseMaterialPage() {
       const sortedCourses = (arr || []).slice().sort((a: any, b: any) => b.id - a.id);
       setCourses(sortedCourses);
     } catch (e: any) {
-      // don't block page — log and show toast optionally
     }
   };
 
@@ -113,7 +112,6 @@ export default function CourseMaterialPage() {
       const sortedSubjects = (arr || []).slice().sort((a: any, b: any) => b.id - a.id);
       setSubjects(sortedSubjects);
     } catch (e: any) {
-      // don't block page
     }
   };
 
@@ -305,7 +303,6 @@ export default function CourseMaterialPage() {
     },
   ], [subjects, courses]);
 
-  // CREATE - Add new material
   const onSubmit = async (data: MaterialFormData) => {
     if (!data.courseid || !data.name.trim()) {
       toast.error("Course Name and Material Name are required");
@@ -397,9 +394,9 @@ export default function CourseMaterialPage() {
 
         {/* Right Section */}
         <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
-          <Button onClick={() => setIsModalOpen(true)} className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700">
+          {/* <Button onClick={() => setIsModalOpen(true)} className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700">
             + Add Course Material
-          </Button>
+          </Button> */}
         </div>
       </div>
 
@@ -602,6 +599,48 @@ export default function CourseMaterialPage() {
           resizable: true,
         }}
         title={`Course Materials (${filteredMaterials.length})`}
+        onRowAdded={async (newRow: any) => {
+          try {
+            // Accept either IDs or names coming from dynamic add form
+            let courseid = newRow.courseid || 0;
+            let subjectid = newRow.subjectid ?? 0;
+            const name = newRow.name || newRow.filename || "";
+            const type = newRow.type || newRow.material_type || "";
+            const description = newRow.description || "";
+            const link = newRow.link || "";
+            const sortorder = Number(newRow.sortorder || 9999);
+
+            // If names provided (from dynamic form), map names to IDs
+            const cmCourse = newRow.cm_course as string | undefined;
+            const cmSubject = newRow.cm_subject as string | undefined;
+            if (!courseid && cmCourse) {
+              const course = courses.find(c => c.name === cmCourse);
+              if (course) courseid = course.id;
+              if (cmCourse === 'Fundamentals') courseid = 0;
+            }
+            if (subjectid === undefined && cmSubject) {
+              const subject = subjects.find(s => s.name === cmSubject);
+              if (subject) subjectid = subject.id as any;
+              if (cmSubject === 'Basic Fundamentals') subjectid = 0 as any;
+            }
+
+            if (!courseid || !name || !type) {
+              toast.error("Course, Material Name and Type are required");
+              return;
+            }
+
+            const payload = { courseid: Number(courseid), subjectid: Number(subjectid||0), name, description, type, link, sortorder };
+            const res = await apiFetch("/course-materials", { method: "POST", body: payload });
+            const created = Array.isArray(res) ? res : (res?.data ?? res);
+            const updated = [created, ...materials].slice().sort((a:any,b:any)=>b.id-a.id);
+            setMaterials(updated);
+            setFilteredMaterials(updated);
+            toast.success("Course Material created", { position: 'top-center' });
+          } catch (e:any) {
+            const msg = e?.body || e?.message || "Failed to create Course Material";
+            toast.error(typeof msg === 'string' ? msg : JSON.stringify(msg), { position: 'top-center' });
+          }
+        }}
         onRowUpdated={handleRowUpdated}
         onRowDeleted={handleRowDeleted}
       />

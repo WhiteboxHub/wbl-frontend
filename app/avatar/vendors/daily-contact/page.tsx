@@ -6,10 +6,7 @@ import React, {
   useRef,
   useCallback,
 } from "react";
-
 import api, { apiFetch, API_BASE_URL } from "@/lib/api";
-import axios from "axios";
-
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { Badge } from "@/components/admin_ui/badge";
@@ -37,8 +34,10 @@ const MovedToVendorRenderer = ({ value }: { value?: boolean }) => {
   return <Badge className={badgeClass}>{status}</Badge>;
 };
 
-const DateFormatter = ({ value }: { value?: string | Date | null }) =>
-  value ? new Date(value).toLocaleDateString() : "-";
+function formatDateFromDB(dateStr: string | null | undefined) {
+  if (!dateStr) return "";
+  return dateStr.slice(0, 10);
+}
 
 const EmailRenderer = ({ value }: { value?: string }) => {
   if (!value) return null;
@@ -70,114 +69,74 @@ export default function VendorContactsGrid() {
   const [contacts, setContacts] = useState<any[]>([]);
   const [filteredContacts, setFilteredContacts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
 
-  const apiEndpoint = useMemo(
-    () => `${process.env.NEXT_PUBLIC_API_URL}/vendor_contact_extracts`,
-    []
-  );
-
+  //  SIMPLIFIED: Single fetch function
   const fetchContacts = useCallback(async () => {
     setLoading(true);
-    console.log("[fetchContacts] API_BASE_URL =", typeof window !== "undefined" ? (window as any).process?.env?.NEXT_PUBLIC_API_URL : API_BASE_URL);
-    const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
-    const endpointsToTry = [
-      "/vendor_contact_extracts",
-      "/vendor_contact_extracts/",
-      "/vendor_contact_extracts?limit=100",
-      "/vendor_contact_extracts/?limit=100",
-    ];
-
-    const normalize = (b: any) => {
-      if (!b) return [];
-      if (Array.isArray(b)) return b;
-      if (Array.isArray(b.data)) return b.data;
-      if (Array.isArray(b.results)) return b.results;
-      for (const k of Object.keys(b || {})) if (Array.isArray(b[k])) return b[k];
-      if (typeof b === "object") return [b];
-      return [];
-    };
 
     try {
-      if (api?.get) {
-        for (const ep of endpointsToTry) {
-          try {
-            console.log("[fetchContacts] trying api.get", ep);
-            const resp = await api.get(ep);
-            console.log("[fetchContacts] api.get response:", resp);
-            const arr = normalize(resp?.data);
-            setContacts(arr);
-            setFilteredContacts(arr);
-            return;
-          } catch (err: any) {
-            console.warn("[fetchContacts] api.get failed for", ep, err?.status ?? err?.message ?? err);
-          }
-        }
-      }
-
+      // Try using the apiFetch utility first
       if (typeof apiFetch === "function") {
-        for (const ep of endpointsToTry) {
-          try {
-            console.log("[fetchContacts] trying apiFetch", ep);
-            const body = await apiFetch(ep);
-            console.log("[fetchContacts] apiFetch body:", body);
-            const arr = normalize(body);
-            setContacts(arr);
-            setFilteredContacts(arr);
-            return;
-          } catch (err: any) {
-            console.warn("[fetchContacts] apiFetch failed for", ep, err?.status ?? err?.message ?? err);
-          }
-        }
+        console.log("[fetchContacts] Using apiFetch");
+        const data = await apiFetch("/vendor_contact_extracts");
+        console.log("[fetchContacts] Response:", data);
 
-        try {
-          console.log("[fetchContacts] trying apiFetch with credentials", endpointsToTry[0]);
-          const body = await apiFetch(endpointsToTry[0], { credentials: "include", useCookies: true });
-          console.log("[fetchContacts] apiFetch(creds) body:", body);
-          const arr = normalize(body);
-          setContacts(arr);
-          setFilteredContacts(arr);
-          return;
-        } catch (err: any) {
-          console.warn("[fetchContacts] apiFetch(creds) failed", err);
-        }
+        // Normalize response
+        const contactsList = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.data)
+          ? data.data
+          : Array.isArray(data?.results)
+          ? data.results
+          : [];
+
+        setContacts(contactsList);
+        setFilteredContacts(contactsList);
+        return;
       }
 
-      for (const ep of endpointsToTry) {
-        const full = base ? `${base}${ep.startsWith("/") ? "" : "/"}${ep}` : ep;
-        try {
-          console.log("[fetchContacts] trying axios GET", full);
-          const token =
-            typeof window !== "undefined"
-              ? localStorage.getItem("access_token") || localStorage.getItem("token") || localStorage.getItem("auth_token")
-              : null;
-          const headers: any = { Accept: "application/json" };
-          if (token) headers.Authorization = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
-          const res = await axios.get(full, { headers, withCredentials: true });
-          console.log("[fetchContacts] axios res status", res.status, "data:", res.data);
-          const arr = normalize(res.data);
-          setContacts(arr);
-          setFilteredContacts(arr);
-          return;
-        } catch (err: any) {
-          console.warn("[fetchContacts] axios failed for", full, err?.response?.status ?? err?.message ?? err);
-        }
+      // Fallback to api.get if available
+      if (api?.get) {
+        console.log("[fetchContacts] Using api.get");
+        const response = await api.get("/vendor_contact_extracts");
+        console.log("[fetchContacts] Response:", response);
+
+        const contactsList = Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response?.data?.data)
+          ? response.data.data
+          : [];
+
+        setContacts(contactsList);
+        setFilteredContacts(contactsList);
+        return;
       }
 
-      toast.error("Failed to load contacts — check console/network for details.");
+      // If no API utilities available, show error
+      toast.error("API client not configured properly");
     } catch (err: any) {
-      console.error("[fetchContacts] unexpected", err);
-      toast.error(err?.message || "Failed to load contacts");
+      console.error("[fetchContacts] Error:", err);
+      
+      // Handle authentication errors
+      if (err?.response?.status === 401 || err?.status === 401) {
+        toast.error("Session expired. Please log in again.");
+        // Optional: Redirect to login
+        // window.location.href = '/login';
+      } else {
+        toast.error(err?.message || "Failed to load contacts");
+      }
     } finally {
       setLoading(false);
     }
-  }, [apiEndpoint]);
-  
+  }, []);
+
+  // Search filter effect
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (!searchTerm.trim()) setFilteredContacts(contacts);
-      else {
+      if (!searchTerm.trim()) {
+        setFilteredContacts(contacts);
+      } else {
         const term = searchTerm.toLowerCase();
         setFilteredContacts(
           contacts.filter(
@@ -197,7 +156,8 @@ export default function VendorContactsGrid() {
     return () => clearTimeout(timer);
   }, [searchTerm, contacts]);
 
-  const handleRowUpdated = async (updatedData: any) => {
+  //  SIMPLIFIED: Update handler
+  const handleRowUpdated = useCallback(async (updatedData: any) => {
     try {
       await apiFetch(`/vendor_contact_extracts/${updatedData.id}`, {
         method: "PUT",
@@ -206,11 +166,13 @@ export default function VendorContactsGrid() {
       toast.success("Contact updated successfully");
       fetchContacts();
     } catch (err: any) {
+      console.error("Update error:", err);
       toast.error(err?.message || "Failed to update contact");
     }
-  };
+  }, [fetchContacts]);
 
-  const handleRowDeleted = async (contactId: number | string) => {
+  //  SIMPLIFIED: Delete handler
+  const handleRowDeleted = useCallback(async (contactId: number | string) => {
     try {
       await apiFetch(`/vendor_contact_extracts/${contactId}`, {
         method: "DELETE",
@@ -218,64 +180,71 @@ export default function VendorContactsGrid() {
       toast.success("Contact deleted successfully");
       fetchContacts();
     } catch (err: any) {
+      console.error("Delete error:", err);
       toast.error(err?.message || "Failed to delete contact");
     }
-  };
+  }, [fetchContacts]);
 
-  const handleBulkDeleteMovedContacts = async () => {
+  // ✨ SIMPLIFIED: Bulk delete handler
+  const handleDeleteMovedContacts = useCallback(async () => {
+    const contactsToDelete = contacts.filter((c) => c.moved_to_vendor === true);
+
+    if (!contactsToDelete.length) {
+      toast.info("No contacts with 'Yes' in Moved To Vendor to delete");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${contactsToDelete.length} contacts that have been moved to vendor? This action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
     setDeleting(true);
+
     try {
-      const contactsToDelete = contacts.filter((c) => c.moved_to_vendor === true);
-      
-      if (!contactsToDelete.length) {
-        toast.info("No contacts with 'Yes' in Moved To Vendor to delete");
-        return;
-      }
+      let deleted = 0;
+      let failed = 0;
 
-      const confirmed = window.confirm(
-        `Are you sure you want to delete ${contactsToDelete.length} contacts that have been moved to vendor? This action cannot be undone.`
-      );
-      
-      if (!confirmed) {
-        setDeleting(false);
-        return;
-      }
-
-      const contactIds = contactsToDelete.map(c => c.id);
-      
-      console.log("Attempting bulk delete for contacts with IDs:", contactIds);
-
-      try {
-       
-        const response = await apiFetch(`/vendor_contact_extracts/bulk-delete/moved`, {
-          method: "DELETE",
-        });
-
-
-        if (response) {
-          toast.success(`Successfully deleted ${contactsToDelete.length} contacts that were moved to vendor`);
-          // Remove deleted contacts from local state immediately
-          setContacts(prevContacts => prevContacts.filter(contact => !contactIds.includes(contact.id)));
-          setFilteredContacts(prevContacts => prevContacts.filter(contact => !contactIds.includes(contact.id)));
-          return;
+      for (const contact of contactsToDelete) {
+        try {
+          await apiFetch(`/vendor_contact/${contact.id}`, {
+            method: "DELETE",
+          });
+          deleted++;
+        } catch (e: any) {
+          console.error(`Failed to delete contact ${contact.id}:`, e);
+          failed++;
         }
-      } catch (error: any) {
-        console.error("Bulk delete failed:", error);
-        toast.error("Bulk delete failed - please check if the bulk delete endpoint exists");
       }
 
+      if (deleted > 0) {
+        toast.success(
+          `Successfully deleted ${deleted} contact${deleted > 1 ? "s" : ""}${
+            failed ? `, ${failed} failed` : ""
+          }`
+        );
+      }
+
+      if (failed > 0) {
+        toast.error(`${failed} contact${failed > 1 ? "s" : ""} failed to delete`);
+      }
+
+      await fetchContacts();
     } catch (err: any) {
-      console.error("Bulk delete failed completely:", err);
-      toast.error(err?.response?.data?.detail || err?.message || "Failed to delete contacts");
+      console.error("Bulk delete error:", err);
+      toast.error(err?.message || "Failed to delete contacts");
     } finally {
       setDeleting(false);
     }
-  };
+  }, [contacts, fetchContacts]);
 
+  // Initial fetch
   useEffect(() => {
     fetchContacts();
   }, [fetchContacts]);
 
+  // Column definitions
   const columnDefs: ColDef[] = useMemo<ColDef[]>(
     () => [
       { field: "id", headerName: "ID", width: 100, pinned: "left" },
@@ -303,7 +272,8 @@ export default function VendorContactsGrid() {
         field: "extraction_date",
         headerName: "Extraction Date",
         width: 150,
-        valueFormatter: DateFormatter,
+        filter: "agDateColumnFilter",
+        valueFormatter: (params) => formatDateFromDB(params.value),
         editable: true,
       },
       {
@@ -330,12 +300,18 @@ export default function VendorContactsGrid() {
         width: 200,
         editable: true,
       },
-      { field: "location", headerName: "Location", width: 150, editable: true },
+      {
+        field: "location",
+        headerName: "Location",
+        width: 150,
+        editable: true,
+      },
       {
         field: "created_at",
         headerName: "Created At",
         width: 180,
-        valueFormatter: DateFormatter,
+        filter: "agDateColumnFilter",
+        valueFormatter: (params) => formatDateFromDB(params.value),
       },
       {
         field: "internal_linkedin_id",
@@ -372,20 +348,20 @@ export default function VendorContactsGrid() {
             </h1>
           </div>
 
-          {/* Bulk Delete Button */}
-          <div className="sm:w-auto">
+          {/* Optional Bulk Delete Button */}
+          {/* <div className="sm:w-auto">
             <Button
               onClick={handleBulkDeleteMovedContacts}
               disabled={deleting}
               className="w-full bg-red-600 text-white hover:bg-red-700 sm:w-auto"
             >
-              <Trash2 className="mr-2 h-4 w-4" />
-              {deleting ? "Deleting..." : "Delete"}
+              <UserPlus className="mr-2 h-4 w-4" />
+              {deleting ? "Deleting..." : "Delete Moved Contacts"}
             </Button>
-          </div>
+          </div> */}
         </div>
 
-        {/* Search */}
+        {/* Search Box */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="w-full sm:max-w-md">
             <div className="relative mt-1">
@@ -403,6 +379,7 @@ export default function VendorContactsGrid() {
         </div>
       </div>
 
+      {/* Grid */}
       <div className="flex w-full justify-center">
         <div className="w-full max-w-7xl">
           <AGGridTable

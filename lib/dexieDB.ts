@@ -1,7 +1,6 @@
 
 import Dexie, { Table } from "dexie";
 import { liveQuery } from "dexie";
-import { S } from "framer-motion/dist/types.d-DsEeKk6G";
 
 export interface Lead {
   id?: number; 
@@ -15,6 +14,9 @@ export interface Lead {
   closed_date?: string;
   moved_to_candidate?: boolean;
   notes?: string;
+  secondary_email?:string;
+  secondary_phone?:string;
+  massemail_subscribe?: boolean;
   massemail_unsubscribe?: boolean;
   massemail_email_sent?: boolean;
   synced?: boolean;
@@ -31,7 +33,7 @@ export class LeadsDB extends Dexie {
     super("LeadsDatabase");
     this.version(1).stores({
       leads:
-        "id, full_name, email, phone, status, workstatus, address, entry_date, closed_date, notes, moved_to_candidate, massemail_unsubscribe, massemail_email_sent, synced, isSynced, _action",
+        "id, full_name, email, phone, status, workstatus, address, entry_date, closed_date, notes, secondary_email,secondary_phone, moved_to_candidate, massemail_unsubscribe, massemail_email_sent, synced, isSynced, _action",
     });
   }
 }

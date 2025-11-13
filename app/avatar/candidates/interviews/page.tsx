@@ -304,6 +304,55 @@ export default function CandidatesInterviews() {
     { value: "Prep Call", label: "Prep Call" },
   ];
 
+
+const EmailRenderer = (params: any) => {
+  const value = params.value;
+  if (!value) return <span className="text-gray-500">No Email</span>;
+
+  const emails = String(value)
+    .split(/[\s,]+/)
+    .map((e) => e.trim())
+    .filter(Boolean);
+
+  return (
+    <div className="flex flex-col space-y-1">
+      {emails.map((email: string, idx: number) => (
+        <a
+          key={idx}
+          href={`mailto:${email}`}
+          className="text-blue-600 underline hover:text-blue-800"
+        >
+          {email}
+        </a>
+      ))}
+    </div>
+  );
+};
+
+const PhoneRenderer = (params: any) => {
+  const value = params.value;
+  if (!value) return <span className="text-gray-500">No Phone</span>;
+
+  const phones = String(value)
+    .split(/[\s,]+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  return (
+    <div className="flex flex-col space-y-1">
+      {phones.map((phone: string, idx: number) => (
+        <a
+          key={idx}
+          href={`tel:${phone.replace(/[^+\d]/g, "")}`}
+          className="text-blue-600 underline hover:text-blue-800"
+        >
+          {phone}
+        </a>
+      ))}
+    </div>
+  );
+};
+
   const fetchInterviews = useCallback(async (pageNum: number, perPageNum: number) => {
     setLoading(true);
     setError("");
@@ -556,6 +605,9 @@ const columnDefs = useMemo<ColDef[]>(() => [
     cellRenderer: CompanyTypeRenderer,
   },
   { field: "interview_date", headerName: "Date", width: 120, editable: true },
+  { field: "interviewer_emails", headerName: "Interviewer Email",cellRenderer: EmailRenderer,  width: 190, editable: true },
+  { field: "interviewer_contact", headerName: "Interviewer Phone", cellRenderer: PhoneRenderer,  width: 190, editable: true },
+  { field: "interviewer_linkedin", headerName: "Interviewer Linkedin",cellRenderer: LinkRenderer, width: 190, editable: true },
   { field: "recording_link", headerName: "Recording", cellRenderer: LinkRenderer, width: 120, editable: true },
   { field: "transcript", headerName: "Transcript", cellRenderer: LinkRenderer, width: 120, editable: true },
   { field: "backup_recording_url", headerName: "Backup Recording", cellRenderer: LinkRenderer, width: 140, editable: true },
@@ -583,9 +635,9 @@ const columnDefs = useMemo<ColDef[]>(() => [
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Interviews</h1>
           <p className="text-gray-600 dark:text-gray-400">Candidates scheduled for interviews</p>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white flex items-center" onClick={handleOpenModal}>
+        {/* <Button className="bg-blue-600 hover:bg-blue-700 text-white flex items-center" onClick={handleOpenModal}>
           <PlusIcon className="h-4 w-4 mr-2" /> Add Interview
-        </Button>
+        </Button> */}
       </div>
       <div className="max-w-md">
         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">Search</Label>
@@ -607,6 +659,37 @@ const columnDefs = useMemo<ColDef[]>(() => [
               title={`Interviews (${filteredInterviews.length})`}
               height="500px"
               showSearch={false}
+              onRowAdded={async (newRow: any) => {
+                try {
+                  const payload: any = {
+                    candidate_id: newRow.candidate_id ? Number(newRow.candidate_id) : undefined,
+                    company: newRow.company || "",
+                    company_type: newRow.company_type || null,
+                    interviewer_emails: newRow.interviewer_emails || null,
+                    interviewer_contact: newRow.interviewer_contact || null,
+                    interviewer_linkedin: newRow.interviewer_linkedin || null,
+                    interview_date: newRow.interview_date || null,
+                    mode_of_interview: newRow.mode_of_interview || null,
+                    type_of_interview: newRow.type_of_interview || null,
+                    notes: newRow.notes || null,
+                    recording_link: newRow.recording_link || null,
+                    backup_recording_url: newRow.backup_recording_url || (newRow.backup_url || null),
+                    job_posting_url: newRow.job_posting_url || (newRow.url || null),
+                    feedback: newRow.feedback || null,
+                  };
+                  if (!payload.candidate_id || !payload.company) {
+                    toast.error("Candidate and Company are required!");
+                    return;
+                  }
+                  const res = await api.post(`/interviews`, payload);
+                  const created = res?.data ?? res;
+                  setInterviews((prev) => [created, ...prev]);
+                  toast.success("Interview added successfully!");
+                } catch (err: any) {
+                  console.error("Failed to add interview via + form:", err);
+                  toast.error("Failed to add interview. Make sure all fields are valid.");
+                }
+              }}
               onRowUpdated={handleRowUpdated}
               onRowDeleted={handleRowDeleted}
             />

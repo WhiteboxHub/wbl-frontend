@@ -1,5 +1,4 @@
 
-
 "use client";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
@@ -60,6 +59,62 @@ const workStatusOptions = [
   "OPT",
   "CPT",
 ];
+
+const cleanPhoneNumber = (phoneNumberString: string): string => {
+  if (!phoneNumberString) return "";
+  return ("" + phoneNumberString).replace(/\D/g, "");
+};
+
+const formatPhoneNumber = (phoneNumberString: string): string => {
+  if (!phoneNumberString) return "";
+
+  const cleaned = cleanPhoneNumber(phoneNumberString);
+
+  if (cleaned.length === 11 && cleaned.startsWith("1")) {
+    const match = cleaned.match(/^1(\d{3})(\d{3})(\d{4})$/);
+    if (match) {
+      return `+1 (${match[1]}) ${match[2]}-${match[3]}`;
+    }
+  }
+
+  if (cleaned.length === 10) {
+    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
+    if (match) {
+      return `+1 (${match[1]}) ${match[2]}-${match[3]}`;
+    }
+  }
+
+ 
+  return phoneNumberString;
+};
+
+const formatPhoneInput = (value: string): string => {
+  const cleaned = value.replace(/\D/g, "");
+  
+  if (cleaned.length === 0) return "";
+  if (cleaned.length <= 3) return `(${cleaned}`;
+  if (cleaned.length <= 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
+  if (cleaned.length <= 10) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
+ 
+  return `+1 (${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
+};
+
+const handlePhoneInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const formatted = formatPhoneInput(e.target.value);
+  e.target.value = formatted;
+};
+
+const toPascalCase = (str: string): string => {
+  if (!str) return str;
+  return str
+    .trim()
+    .split(/\s+/)
+    .map((word) => {
+      if (word.length === 0) return word;
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(" ");
+};
 
 const sortLeadsByEntryDate = (leads: Lead[]): Lead[] => {
   return [...leads].sort((a, b) => {
@@ -445,6 +500,7 @@ export default function LeadsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isNewLead = searchParams.get("newlead") === "true";
+  const [isModalOpen, setIsModalOpen] = useState(isNewLead);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -452,7 +508,6 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchBy, setSearchBy] = useState("full_name");
-  const [isModalOpen, setIsModalOpen] = useState(isNewLead);
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [formSaveLoading, setFormSaveLoading] = useState(false);
   const [sortModel, setSortModel] = useState([
@@ -481,6 +536,17 @@ export default function LeadsPage() {
   } = useForm<FormData>({
     defaultValues: initialFormData,
   });
+
+  const fullNameValue = watch("full_name");
+
+  useEffect(() => {
+    if (fullNameValue) {
+      const pascalCased = toPascalCase(fullNameValue);
+      if (fullNameValue !== pascalCased) {
+        setValue("full_name", pascalCased, { shouldValidate: true });
+      }
+    }
+  }, [fullNameValue, setValue]);
 
   const loadLeadsFromIndexedDB = useCallback(async (search?: string) => {
     setLoading(true);
@@ -556,8 +622,6 @@ export default function LeadsPage() {
       const sortedLeadsData = sortLeadsByEntryDate(leadsData);
       setLeads(sortedLeadsData);
       setFilteredLeads(sortedLeadsData);
-      
-      toast.success("Data synced from server");
       
     } catch (err: any) {
       console.error('API sync failed:', err);
@@ -668,6 +732,9 @@ export default function LeadsPage() {
     try {
       const updatedData = { 
         ...data,
+        full_name: toPascalCase(data.full_name),
+        phone: cleanPhoneNumber(data.phone),
+        secondary_phone: data.secondary_phone ? cleanPhoneNumber(data.secondary_phone) : "",
         status: data.status || "Open",
         workstatus: data.workstatus || "Waiting for Status",
         moved_to_candidate: Boolean(data.moved_to_candidate),
@@ -729,23 +796,29 @@ export default function LeadsPage() {
       try {
         const { id, entry_date, ...payload } = updatedRow;
 
+        const processedPayload = {
+          ...payload,
+          full_name: payload.full_name ? toPascalCase(payload.full_name) : payload.full_name,
+          phone: payload.phone ? cleanPhoneNumber(payload.phone) : payload.phone,
+          secondary_phone: payload.secondary_phone ? cleanPhoneNumber(payload.secondary_phone) : payload.secondary_phone,
+        };
        
-        if (payload.moved_to_candidate && payload.status !== "Closed") {
-          payload.status = "Closed";
-          payload.closed_date = new Date().toISOString().split("T")[0];
-        } else if (!payload.moved_to_candidate && payload.status === "Closed") {
-          payload.status = "Open";
-          payload.closed_date = null;
+        if (processedPayload.moved_to_candidate && processedPayload.status !== "Closed") {
+          processedPayload.status = "Closed";
+          processedPayload.closed_date = new Date().toISOString().split("T")[0];
+        } else if (!processedPayload.moved_to_candidate && processedPayload.status === "Closed") {
+          processedPayload.status = "Open";
+          processedPayload.closed_date = null;
         }
 
-        payload.moved_to_candidate = Boolean(payload.moved_to_candidate);
-        payload.massemail_unsubscribe = Boolean(payload.massemail_unsubscribe);
-        payload.massemail_email_sent = Boolean(payload.massemail_email_sent);
+        processedPayload.moved_to_candidate = Boolean(processedPayload.moved_to_candidate);
+        processedPayload.massemail_unsubscribe = Boolean(processedPayload.massemail_unsubscribe);
+        processedPayload.massemail_email_sent = Boolean(processedPayload.massemail_email_sent);
 
       
         const updatedLead = await apiFetch(`leads/${updatedRow.id}`, {
           method: "PUT",
-          body: payload,
+          body: processedPayload,
           timeout: 10000,
         });
 
@@ -810,15 +883,6 @@ export default function LeadsPage() {
     [searchTerm, loadLeadsFromIndexedDB]
   );
 
-  const formatPhoneNumber = (phoneNumberString: string) => {
-    const cleaned = ("" + phoneNumberString).replace(/\D/g, "");
-    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
-    if (match) {
-      return `+1 (${match[1]}) ${match[2]}-${match[3]}`;
-    }
-    return `+1 ${phoneNumberString}`;
-  };
-
   const columnDefs: ColDef<any, any>[] = useMemo(
     () => [
       {
@@ -833,6 +897,10 @@ export default function LeadsPage() {
         headerName: "Full Name",
         width: 180,
         sortable: true,
+        valueGetter: (params) => {
+          const name = params.data?.full_name;
+          return name ? toPascalCase(name) : "";
+        },
       },
       {
         field: "phone",
@@ -840,12 +908,17 @@ export default function LeadsPage() {
         width: 150,
         editable: true,
         sortable: true,
+        valueFormatter: (params: ValueFormatterParams) => {
+          if (!params.value) return "";
+          return formatPhoneNumber(params.value);
+        },
         cellRenderer: (params: any) => {
           if (!params.value) return "";
           const formattedPhone = formatPhoneNumber(params.value);
+          const cleanPhone = cleanPhoneNumber(params.value);
           return (
             <a
-              href={`tel:${params.value}`}
+              href={`tel:+${cleanPhone}`}
               className="text-blue-600 underline hover:text-blue-800"
             >
               {formattedPhone}
@@ -877,6 +950,9 @@ export default function LeadsPage() {
         headerName: "Entry Date",
         width: 180,
         sortable: true,
+
+        filter: "agDateColumnFilter",
+
         valueFormatter: ({ value }: ValueFormatterParams) =>
           value
             ? new Date(value).toLocaleString("en-US", {
@@ -912,12 +988,38 @@ export default function LeadsPage() {
         headerName: "Secondary Email",
         width: 220,
         sortable: true,
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          return (
+            <a
+              href={`mailto:${params.value}`}
+              className="text-blue-600 underline hover:text-purple-800"
+              onClick={(event) => event.stopPropagation()}
+            >
+              {params.value}
+            </a>
+          );
+        },
       },
       {
         field: "secondary_phone",
         headerName: "Secondary Phone",
         width: 150,
         sortable: true,
+        valueFormatter: (params: ValueFormatterParams) => {
+          if (!params.value) return "";
+          return formatPhoneNumber(params.value);
+        },
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          const formattedPhone = formatPhoneNumber(params.value);
+          const cleanPhone = cleanPhoneNumber(params.value);
+          return (
+            <a href={`tel:+${cleanPhone}`} className="text-blue-600 underline hover:text-purple-800">
+              {formattedPhone}
+            </a>
+          );
+        },
       },
       {
         field: "address",
@@ -930,6 +1032,9 @@ export default function LeadsPage() {
         headerName: "Closed Date",
         width: 150,
         sortable: true,
+        filter: "agDateColumnFilter",
+
+
         valueFormatter: ({ value }: ValueFormatterParams) =>
           value
             ? new Date(value).toLocaleDateString("en-IN", {
@@ -1042,20 +1147,9 @@ export default function LeadsPage() {
           </div>
         </div>
         <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
-          <Button
-            onClick={handleOpenModal}
-            className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700"
-          >
+          <Button onClick={handleOpenModal} className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700">
             <PlusCircle className="mr-2 h-4 w-4" />
             Add New Lead
-          </Button>
-          <Button 
-            onClick={() => syncFromAPI(true)} 
-            variant="outline"
-            disabled={loading}
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> 
-            {loading ? "Syncing..." : "Sync from Server"}
           </Button>
         </div>
       </div>
@@ -1066,17 +1160,58 @@ export default function LeadsPage() {
           )}-${selectedWorkStatuses.join(",")}`}
           rowData={filteredLeads}
           columnDefs={columnDefs}
+          onRowAdded={async (newRow: any) => {
+            try {
+              const payload = {
+                full_name: toPascalCase(newRow.full_name || newRow.fullname || newRow.name || ""),
+                email: newRow.email || newRow.candidate_email || newRow.secondary_email || "",
+                phone: cleanPhoneNumber(newRow.phone || newRow.phone_number || newRow.contact || ""),
+                workstatus: newRow.workstatus || "Waiting for Status",
+                address: newRow.address || "",
+                secondary_email: newRow.secondary_email || "",
+                secondary_phone: cleanPhoneNumber(newRow.secondary_phone || ""),
+                status: newRow.status || "Open",
+                moved_to_candidate: Boolean(newRow.moved_to_candidate),
+                notes: newRow.notes || "",
+                entry_date: newRow.entry_date || new Date().toISOString(),
+                massemail_unsubscribe: Boolean(newRow.massemail_unsubscribe),
+                massemail_email_sent: Boolean(newRow.massemail_email_sent),
+              };
+
+              const savedLead = await apiFetch("leads", {
+                method: "POST",
+                body: payload,
+                timeout: 10000,
+              });
+
+              await db.leads.add({
+                ...savedLead,
+                synced: true,
+                lastSync: new Date().toISOString(),
+              });
+
+              await loadLeadsFromIndexedDB(searchTerm);
+              toast.success("Lead created successfully");
+            } catch (err: any) {
+              console.error("Error creating lead via grid add:", err);
+              if (err.name === 'TimeoutError') toast.error("Server timeout - lead creation failed");
+              else if (err.name === 'NetworkError') toast.error("Network error - cannot connect to server");
+              else if (err.status === 401) toast.error("Session expired - please login again");
+              else toast.error(err.message || "Failed to create lead");
+            }
+          }}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
           loading={loading}
           showFilters={true}
           showSearch={false}
+          
           height="600px"
           title={`Leads (${filteredLeads.length})`}
+          
         />
       </div>
 
-      {/* Enhanced Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 p-2 sm:p-4">
           <div className="w-full max-w-sm rounded-xl bg-white shadow-2xl sm:max-w-md sm:rounded-2xl md:max-w-2xl">
@@ -1146,19 +1281,14 @@ export default function LeadsPage() {
                       type="tel"
                       {...register("phone", {
                         required: "Phone is required",
-                        pattern: {
-                          value: /^\d+$/,
-                          message: "Phone must contain only numbers",
-                        },
+                        validate: (value) => {
+                          const cleaned = cleanPhoneNumber(value);
+                          return cleaned.length >= 10 || "Phone number must be at least 10 digits";
+                        }
                       })}
-                      placeholder="Enter phone number"
+                      onInput={handlePhoneInput}
+                      placeholder="(555) 123-4567"
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                      onInput={(e) => {
-                        e.currentTarget.value = e.currentTarget.value.replace(
-                          /\D/g,
-                          ""
-                        );
-                      }}
                     />
                     {errors.phone && (
                       <p className="mt-1 text-xs text-red-600">
@@ -1214,11 +1344,9 @@ export default function LeadsPage() {
                     <input
                       type="tel"
                       {...register("secondary_phone")}
-                      placeholder="Enter secondary phone"
+                      onInput={handlePhoneInput}
+                      placeholder="(555) 123-4567"
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                      onInput={(e) => {
-                        e.currentTarget.value = e.currentTarget.value.replace(/\D/g, "");
-                      }}
                     />
                   </div>
                   <div className="space-y-1 sm:col-span-2">

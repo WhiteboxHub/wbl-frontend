@@ -1,3 +1,4 @@
+
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
@@ -35,8 +36,8 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "yes", label: "Yes" },
   ],
   moved_to_vendor: [
-    { value: "true", label: "Yes" },
     { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
   ],
   moved_to_candidate: [
     { value: "false", label: "No" },
@@ -68,27 +69,19 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
   ],
   rating: [
     { value: "", label: "Select Rating" },
-    { value: "Good", label: "Good" },
+    { value: "Excellent", label: "Excellent" },
     { value: "Very Good", label: "Very Good" },
-    { value: "Average", label: "Average" },
-    { value: "Poor", label: "Poor" },
-    { value: "Need to Improve", label: "Need to Improve" },
-  ],
-  tech_rating: [
-    { value: "", label: "Select Rating" },
     { value: "Good", label: "Good" },
-    { value: "Very Good", label: "Very Good" },
     { value: "Average", label: "Average" },
-    { value: "Poor", label: "Poor" },
     { value: "Need to Improve", label: "Need to Improve" },
   ],
   communication: [
     { value: "", label: "Select" },
+    { value: "Excellent", label: "Excellent" },
     { value: "Very Good", label: "Very Good" },
-    { value: "Average", label: "Average" },
     { value: "Good", label: "Good" },
+    { value: "Average", label: "Average" },
     { value: "Need to Improve", label: "Need to Improve" },
-    { value: "Poor", label: "Poor" },
   ],
   work_status: [
     { value: "waiting for status", label: "Waiting for Status" },
@@ -271,8 +264,25 @@ const excludedFields = [
   "last_mod_datetime", "last_modified", "logincount", "googleId",
   "subject_id", "lastmoddatetime", "course_id", "new_subject_id", "instructor_1id",
   "instructor_2id", "instructor_3id", "instructor1_id", "instructor2_id",
-  "instructor3_id", "candidate_id", "batch"
+  "instructor3_id", "candidate_id", "batch","lastSync","synced"
 ];
+
+// Field visibility configuration
+const fieldVisibility: Record<string, string[]> = {
+  instructor: ['preparation', 'interview', 'marketing'],
+  linkedin: ['preparation', 'interview', 'marketing', 'candidate', 'vendor', 'client', 'placement']
+};
+
+// Helper functions for field visibility
+const shouldShowInstructorFields = (title: string): boolean => {
+  const lowerTitle = title.toLowerCase();
+  return fieldVisibility.instructor.some(modal => lowerTitle.includes(modal));
+};
+
+const shouldShowLinkedInField = (title: string): boolean => {
+  const lowerTitle = title.toLowerCase();
+  return fieldVisibility.linkedin.some(modal => lowerTitle.includes(modal));
+};
 
 // Map fields to their respective sections
 const fieldSections: Record<string, string> = {
@@ -283,6 +293,7 @@ const fieldSections: Record<string, string> = {
   interviewer_emails: "Contact Information",
   interviewer_contact: "Contact Information",
   interviewer_linkedin: "Contact Information",
+  emails_read : "Basic Information",
   id: "Basic Information",
   alias: "Basic Information",
   Fundamentals: "Basic Information",
@@ -293,12 +304,10 @@ const fieldSections: Record<string, string> = {
   status: "Basic Information",
   batchid: "Contact Information",
   batch: "Basic Information",
-  start_date: "Professional Information",
+  start_date: "Basic Information",
   batchname: "Basic Information",
-  target_date_of_marketing: "Basic Information",
   move_to_prep: "Basic Information",
   move_to_mrkt:"Basic Information",
-  move_to_placement: "Basic Information",
   linkedin_id: "Contact Information",
   enrolled_date: "Professional Information",
   startdate: "Professional Information",
@@ -307,7 +316,7 @@ const fieldSections: Record<string, string> = {
   linkedin_connected: "Professional Information",
   intro_email_sent: "Professional Information",
   intro_call: "Professional Information",
-  recording_link: "Professional Information",
+  // recording_link: "Professional Information",
   moved_to_vendor: "Professional Information",
   phone_number: "Basic Information",
   secondary_phone: "Contact Information",
@@ -327,7 +336,7 @@ const fieldSections: Record<string, string> = {
   enddate: "Professional Information",
   candidate_name: "Basic Information",
   candidate_role: "Basic Information",
-  google_voice_number: "Professional Information",
+  google_voice_number: "Contact Information",
   dob: "Basic Information",
   contact: "Basic Information",
   password: "Professional Information",
@@ -344,17 +353,20 @@ const fieldSections: Record<string, string> = {
   logincount: "Professional Information",
   course: "Professional Information",
   registereddate: "Basic Information",
-  company: "Professional Information",
+  company: "Basic Information",
+  company_type: "Professional Information",
   linkedin: "Contact Information",
   github: "Contact Information",
+  github_url: "Contact Information",
   resume: "Contact Information",
+  resume_url: "Contact Information",
   client_id: "Professional Information",
   client_name: "Professional Information",
   interview_time: "Professional Information",
   vendor_or_client_name: "Professional Information",
   vendor_or_client_contact: "Professional Information",
   marketing_email_address: "Professional Information",
-  interview_date: "Professional Information",
+  interview_date: "Basic Information",
   interview_mode: "Professional Information",
   visa_status: "Professional Information",
   workstatus: "Basic Information",
@@ -407,7 +419,7 @@ const fieldSections: Record<string, string> = {
   cm_course: "Professional Information",
   cm_subject: "Basic Information",
   material_type: "Basic Information",
-  transcript: "Professional Information",
+  // transcript: "Professional Information",
 };
 
 // Override field labels for better readability
@@ -451,7 +463,9 @@ const labelOverrides: Record<string, string> = {
   registereddate: "Registered Date",
   company: "Company",
   linkedin: "LinkedIn",
+  linkedin_id: "LinkedIn ID",
   github: "GitHub",
+  github_url: "GitHub URL",
   resume: "Resume",
   client_id: "Client ID",
   client_name: "Client Name",
@@ -528,6 +542,7 @@ const dateFields = [
   "orientationdate",
   "start_date",
   "startdate",
+  "target_date",
   "enddate",
   "closed_date",
   "entry_date",
@@ -539,7 +554,6 @@ const dateFields = [
   "interview_date",
   "placement_date",
   "marketing_start_date",
-  "target_date_of_marketing",
 ];
 
 export function EditModal({
@@ -566,14 +580,14 @@ export function EditModal({
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [mlBatches, setMlBatches] = useState<Batch[]>([]);
   const modalRef = useRef<HTMLDivElement>(null);
-
+  const [shouldDisableBold, setShouldDisableBold] = useState(false);
   // Detect the modal context
   const isCourseMaterialModal = title.toLowerCase().includes("course material") || title.toLowerCase().includes("material");
   const isCourseSubjectModal = title.toLowerCase().includes("course-subject") || title.toLowerCase().includes("course subject");
   const isVendorModal = title.toLowerCase().includes("vendor");
   const isCandidateOrEmployee = title.toLowerCase().includes("candidate") || title.toLowerCase().includes("employee");
   const isBatchesModal = title.toLowerCase().includes("batch") && !title.toLowerCase().includes("course");
-
+  const isEmailActivityLogsModal = title.toLowerCase().includes("email activity log") || title.toLowerCase().includes("emailactivitylog");
   const isInterviewModal = title.toLowerCase().includes("interview");
   const isMarketingModal = title.toLowerCase().includes("marketing");
   const isPlacementModal = title.toLowerCase().includes("placement");
@@ -581,9 +595,11 @@ export function EditModal({
   const isEmployeeModal = title.toLowerCase().includes("employee");
   const isLeadModal = title.toLowerCase().includes("lead");
   const isCandidateModal = title.toLowerCase().includes("candidate") && !isPreparationModal;
+  const showInstructorFields = shouldShowInstructorFields(title);
+  const showLinkedInField = shouldShowLinkedInField(title);
 
   // modal for candidate_full_name first and read-only
-  const isSpecialModal = isInterviewModal || isMarketingModal || isPlacementModal || isPreparationModal;
+  const isSpecialModal = isInterviewModal || isMarketingModal || isPlacementModal || isPreparationModal || isEmailActivityLogsModal ;
 
   // Fetch ML batches
   useEffect(() => {
@@ -727,83 +743,96 @@ export function EditModal({
     fetchSubjects();
     fetchEmployees();
   }, [isCourseMaterialModal]);
-
-  // Flatten nested data for the form
+  
   const flattenData = (data: Record<string, any>) => {
     const flattened: Record<string, any> = { ...data };
-    if (data.candidate) flattened.candidate_full_name = data.candidate.full_name;
-    if (data.instructor1) {
-      flattened.instructor1_name = data.instructor1.name;
-      flattened.instructor1_id = data.instructor1.id;
+  if (data.candidate) flattened.candidate_full_name = data.candidate.full_name;
+  flattened.instructor1_id = data.instructor1?.id || data.instructor1_id || "";
+  flattened.instructor1_name = data.instructor1?.name || data.instructor1_name || "";
+  flattened.instructor2_id = data.instructor2?.id || data.instructor2_id || "";
+  flattened.instructor2_name = data.instructor2?.name || data.instructor2_name || "";
+  flattened.instructor3_id = data.instructor3?.id || data.instructor3_id || "";
+  flattened.instructor3_name = data.instructor3?.name || data.instructor3_name || "";
+  if (data.visa_status) {
+    flattened.visa_status = String(data.visa_status).toLowerCase();
+  }
+  if (data.workstatus) {
+    flattened.workstatus = String(data.workstatus).toLowerCase();
+  }
+  if (data.work_status) {
+    flattened.work_status = String(data.work_status).toLowerCase();
+  }
+  if (data.type) {
+    flattened.material_type = data.type;
+  }
+  if (data.rating) {
+    const ratingValue = String(data.rating).trim();
+    const normalizedRating = normalizeRatingValue(ratingValue);
+    flattened.rating = normalizedRating;
+  }
+
+  if (data.communication) {
+    const communicationValue = String(data.communication).trim();
+    const normalizedCommunication = normalizeCommunicationValue(communicationValue);
+    flattened.communication = normalizedCommunication;
+  }
+  flattened.linkedin_id = data.candidate?.linkedin_id || data.linkedin_id || "";
+  if (data.github_link) {
+    flattened.github_link = data.github_link;
+  } else if (data.github) {
+    flattened.github_link = data.github;
+  }
+  else if ('github_link' in data) {
+    flattened.github_link = data.github_link;
+  }
+  if (data.cm_course) {
+    flattened.cm_course = data.cm_course;
+  } else if (data.course_name) {
+    flattened.cm_course = data.course_name;
+  } else if (data.courseid === 0) {
+    flattened.cm_course = "Fundamentals";
+  }
+  if (data.cm_subject) {
+    flattened.cm_subject = data.cm_subject;
+  } else if (data.subject_name) {
+    flattened.cm_subject = data.subject_name;
+  } else if (data.subjectid === 0) {
+    flattened.cm_subject = "Basic Fundamentals";
+  }
+  dateFields.forEach(dateField => {
+    if (flattened[dateField] && !isNaN(new Date(flattened[dateField]).getTime())) {
+      flattened[dateField] = new Date(flattened[dateField]).toISOString().split('T')[0];
     }
-    if (data.instructor2) {
-      flattened.instructor2_name = data.instructor2.name;
-      flattened.instructor2_id = data.instructor2.id;
-    }
-    if (data.instructor3) {
-      flattened.instructor3_name = data.instructor3.name;
-      flattened.instructor3_id = data.instructor3.id;
-    }
-    if (data.visa_status) {
-      flattened.visa_status = String(data.visa_status).toLowerCase();
-    }
-    if (data.workstatus) {
-      flattened.workstatus = String(data.workstatus).toLowerCase();
-    }
-    if (data.work_status) {
-      flattened.work_status = String(data.work_status).toLowerCase();
-    }
-    if (data.type) {
-      flattened.material_type = data.type;
-    }
-    if (data.cm_course) {
-      flattened.cm_course = data.cm_course;
-    } else if (data.course_name) {
-      flattened.cm_course = data.course_name;
-    } else if (data.courseid === 0) {
-      flattened.cm_course = "Fundamentals";
-    }
-    if (data.cm_subject) {
-      flattened.cm_subject = data.cm_subject;
-    } else if (data.subject_name) {
-      flattened.cm_subject = data.subject_name;
-    } else if (data.subjectid === 0) {
-      flattened.cm_subject = "Basic Fundamentals";
-    }
-    if (data.status) {
-      if (isEmployeeModal) {
-        flattened.status = String(data.status);
-      } else if (isMarketingModal) {
-        flattened.status = data.status;
-      } else if (isPlacementModal) {
-        flattened.status = data.status;
-      } else if (isPreparationModal) {
-        flattened.status = data.status;
-      } else if (isCandidateModal) {
-        flattened.status = data.status;
-      }
-    }
-    if (data.instructor && isEmployeeModal) {
-      flattened.instructor = String(data.instructor);
-    }
-    if (isVendorModal) {
-      if (data.linkedin_connected) {
-        flattened.linkedin_connected = data.linkedin_connected;
-      }
-      if (data.intro_email_sent) {
-        flattened.intro_email_sent = data.intro_email_sent;
-      }
-      if (data.intro_call) {
-        flattened.intro_call = data.intro_call;
-      }
-    }
-    dateFields.forEach(dateField => {
-      if (flattened[dateField] && !isNaN(new Date(flattened[dateField]).getTime())) {
-        flattened[dateField] = new Date(flattened[dateField]).toISOString().split('T')[0];
-      }
-    });
-    return flattened;
+  });
+  
+  return flattened;
+};
+
+const normalizeRatingValue = (value: string): string => {
+  const ratingMap: Record<string, string> = {
+    'excellent': 'Excellent',
+    'very good': 'Very Good',
+    'good': 'Good',
+    'average': 'Average',
+    'need to improve': 'Need to Improve',
   };
+  
+  const normalized = value.toLowerCase().trim();
+  return ratingMap[normalized] || value;
+};
+
+const normalizeCommunicationValue = (value: string): string => {
+  const communicationMap: Record<string, string> = {
+    'excellent': 'Excellent',
+    'very good': 'Very Good',
+    'good': 'Good',
+    'average': 'Average',
+    'need to improve': 'Need to Improve',
+  };
+  
+  const normalized = value.toLowerCase().trim();
+  return communicationMap[normalized] || value; 
+};
 
   // Reset form data when the modal opens
   useEffect(() => {
@@ -863,25 +892,25 @@ export function EditModal({
         full_name: formData.candidate_full_name,
       };
     }
-    if (formData.instructor1_name) {
+    if (formData.instructor1_id && showInstructorFields) {
       reconstructedData.instructor1 = {
         ...data.instructor1,
         name: formData.instructor1_name,
-        id: formData.instructor1_id,
+        id: parseInt(formData.instructor1_id),
       };
     }
-    if (formData.instructor2_name) {
+    if (formData.instructor2_id && showInstructorFields) {
       reconstructedData.instructor2 = {
         ...data.instructor2,
         name: formData.instructor2_name,
-        id: formData.instructor2_id,
+        id: parseInt(formData.instructor2_id),
       };
     }
-    if (formData.instructor3_name) {
+    if (formData.instructor3_id && showInstructorFields) {
       reconstructedData.instructor3 = {
         ...data.instructor3,
         name: formData.instructor3_name,
-        id: formData.instructor3_id,
+        id: parseInt(formData.instructor3_id),
       };
     }
     onSave(reconstructedData);
@@ -944,7 +973,7 @@ export function EditModal({
     return enumOptions[keyLower];
   };
 
-  // Organize fields into sections
+  // Organize fields into sections with modal-specific filtering
   const sectionedFields: Record<string, { key: string; value: any }[]> = {
     "Basic Information": [],
     "Professional Information": [],
@@ -956,12 +985,32 @@ export function EditModal({
 
   const formValues = watch();
   Object.entries(formData).forEach(([key, value]) => {
+    // Skip excluded fields
     if (excludedFields.includes(key)) return;
+    
+    // MODAL-SPECIFIC FIELD FILTERING
+    const instructorFields = [
+      'instructor1_name', 'instructor2_name', 'instructor3_name',
+      'instructor1_id', 'instructor2_id', 'instructor3_id'
+    ];
+    
+    // Hide instructor fields in non-relevant modals
+    if (!showInstructorFields && instructorFields.includes(key)) {
+      return;
+    }
+    
+    // Hide LinkedIn in non-relevant modals
+    if (!showLinkedInField && key === 'linkedin_id') {
+      return;
+    }
+    
+    // Existing filters
     if (isCandidateOrEmployee && key.toLowerCase() === "name") return;
     if (isCourseSubjectModal && ["cm_course", "cm_subject"].includes(key.toLowerCase())) return;
     if (isCourseMaterialModal && ["subjectid", "courseid", "type"].includes(key.toLowerCase())) return;
     if (isBatchesModal && key.toLowerCase() === "batchid") return;
     if (isMarketingModal && (key === "Marketing Manager obj" || key === "marketing_manager_obj")) return;
+    
     const section = fieldSections[key] || "Other";
     if (!sectionedFields[section]) sectionedFields[section] = [];
     sectionedFields[section].push({ key, value });
@@ -998,8 +1047,6 @@ export function EditModal({
     3: "sm:grid-cols-2 md:grid-cols-3",
     4: "sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4",
   }[columnCount] || "sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4";
-
-  const isInterviewOrMarketing = title.toLowerCase().includes("interview") || title.toLowerCase().includes("marketing");
 
   if (!isOpen || !data) return null;
 
@@ -1141,58 +1188,91 @@ export function EditModal({
                             </select>
                           </div>
                         )}
-                        {section === "Professional Information" && title.toLowerCase().includes("preparation") && (
+                      
+                        {section === "Professional Information" && showInstructorFields && (
                           <>
+                            {/* Instructor 1 */}
                             <div className="space-y-1 sm:space-y-1.5">
                               <label className="block text-xs sm:text-sm font-bold text-blue-700">
                                 Instructor 1
                               </label>
-                              <select
-                                {...register("instructor1_id")}
-                                value={currentFormValues.instructor1_id || formData.instructor1_id || ""}
-                                className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
-                              >
-                                <option value="">Select Instructor</option>
-                                {employees.map((emp) => (
-                                  <option key={emp.id} value={emp.id}>
-                                    {emp.name}
-                                  </option>
-                                ))}
-                              </select>
+                              {(isMarketingModal || isInterviewModal) ? (
+                                <input
+                                  type="text"
+                                  value={data.instructor1?.name || formData.instructor1_name || ""}
+                                  readOnly
+                                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
+                                />
+                              ) : (
+                                <select
+                                  {...register("instructor1_id")}
+                                  value={currentFormValues.instructor1_id || formData.instructor1_id || ""}
+                                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                                >
+                                  <option value="">Select Instructor</option>
+                                  {employees.map((emp) => (
+                                    <option key={emp.id} value={emp.id}>
+                                      {emp.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
                             </div>
+                            
+                            {/* Instructor 2 */}
                             <div className="space-y-1 sm:space-y-1.5">
                               <label className="block text-xs sm:text-sm font-bold text-blue-700">
                                 Instructor 2
                               </label>
-                              <select
-                                {...register("instructor2_id")}
-                                value={currentFormValues.instructor2_id || formData.instructor2_id || ""}
-                                className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
-                              >
-                                <option value="">Select Instructor</option>
-                                {employees.map((emp) => (
-                                  <option key={emp.id} value={emp.id}>
-                                    {emp.name}
-                                  </option>
-                                ))}
-                              </select>
+                              {(isMarketingModal || isInterviewModal) ? (
+                                <input
+                                  type="text"
+                                  value={data.instructor2?.name || formData.instructor2_name || ""}
+                                  readOnly
+                                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
+                                />
+                              ) : (
+                                <select
+                                  {...register("instructor2_id")}
+                                  value={currentFormValues.instructor2_id || formData.instructor2_id || ""}
+                                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                                >
+                                  <option value="">Select Instructor</option>
+                                  {employees.map((emp) => (
+                                    <option key={emp.id} value={emp.id}>
+                                      {emp.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
                             </div>
+                            
+                            {/* Instructor 3 */}
                             <div className="space-y-1 sm:space-y-1.5">
                               <label className="block text-xs sm:text-sm font-bold text-blue-700">
                                 Instructor 3
                               </label>
-                              <select
-                                {...register("instructor3_id")}
-                                value={currentFormValues.instructor3_id || formData.instructor3_id || ""}
-                                className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
-                              >
-                                <option value="">Select Instructor</option>
-                                {employees.map((emp) => (
-                                  <option key={emp.id} value={emp.id}>
-                                    {emp.name}
-                                  </option>
-                                ))}
-                              </select>
+                              {(isMarketingModal || isInterviewModal) ? (
+                                <input
+                                  type="text"
+                                  value={data.instructor3?.name || formData.instructor3_name || ""}
+                                  readOnly
+                                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
+                                />
+                              ) : (
+                                <select
+                                  {...register("instructor3_id")}
+                                  value={currentFormValues.instructor3_id || formData.instructor3_id || ""}
+                                  className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
+                                >
+                                  <option value="">Select Instructor</option>
+                                  {employees.map((emp) => (
+                                    <option key={emp.id} value={emp.id}>
+                                      {emp.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
                             </div>
                           </>
                         )}
@@ -1226,14 +1306,48 @@ export function EditModal({
                             const isIntroEmailSentField = key.toLowerCase() === "intro_email_sent";
                             const isIntroCallField = key.toLowerCase() === "intro_call";
                             const isCandidateFullName = key.toLowerCase() === "candidate_full_name";
+                            const isLinkedInField = key.toLowerCase() === "linkedin_id";
                             const isPrepOrMarketing = isPreparationModal || isMarketingModal;
 
                             if (isMaterialTypeField && !isCourseMaterialModal) {
                               return null;
                             }
-                            if (isInterviewOrMarketing && ["instructor1_name", "instructor2_name", "instructor3_name"].includes(key)) {
-                              return null;
+
+                            // Make all fields read-only in EmailActivityLog modal
+                            if (isEmailActivityLogsModal) {
+                              // Handle date fields specially
+                              if (dateFields.includes(key.toLowerCase())) {
+                                return (
+                                  <div key={key} className="space-y-1 sm:space-y-1.5">
+                                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                      {toLabel(key)}
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={formData[key] || ""}
+                                      readOnly
+                                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
+                                    />
+                                  </div>
+                                );
+                              }
+                              // Handle all other fields
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                    {toLabel(key)}
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={formData[key] || ""}
+                                    readOnly
+                                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
+                                  />
+                                </div>
+                              );
                             }
+
+                            // Special handling for candidate_full_name in special modals
                             if (isSpecialModal && isCandidateFullName) {
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5">
@@ -1251,22 +1365,69 @@ export function EditModal({
                               );
                             }
 
-                            // Special handling for status in Preparation/Marketing modals
-                            if (isStatusField && isPrepOrMarketing) {
-                              const statusValue = formData[key] || "";
-                              const displayValue = statusValue.charAt(0).toUpperCase() + statusValue.slice(1);
+                            // Special handling for LinkedIn ID in special modals (read-only)
+                            if (isSpecialModal && isLinkedInField) {
+                              let url = (formData?.[key] || formData?.candidate?.[key] || "").trim();
+
+                              if (!url) {
+                                return (
+                                  <div key={key} className="space-y-1 sm:space-y-1.5">
+                                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                      {toLabel(key)}
+                                    </label>
+                                    <div className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-400 shadow-sm">
+                                      N/A
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              if (!/^https?:\/\//i.test(url)) {
+                                url = `https://${url}`;
+                              }
+
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5">
                                   <label className="block text-xs sm:text-sm font-bold text-blue-700">
                                     {toLabel(key)}
                                   </label>
-                                  <input
-                                    type="text"
-                                    {...register(key)}
-                                    defaultValue={displayValue}
-                                    readOnly
-                                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
-                                  />
+                                  <a
+                                    href={url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="block w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-blue-600 hover:text-blue-800 hover:underline cursor-pointer shadow-sm"
+                                  >
+                                    Click Here
+                                  </a>
+                                </div>
+                              );
+                            }
+
+                            // Special handling for status in Preparation/Marketing modals
+                            if (isStatusField && isPrepOrMarketing) {
+                              const statusValue = formData[key] || "";
+                              const displayValue = statusValue.toUpperCase();
+                              const normalized = statusValue.toLowerCase();
+                              const isActive = normalized === "active";
+
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                    {toLabel(key)}
+                                  </label>
+                                  <div
+                                    className={`w-full px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm rounded-lg border border-blue-200 bg-white shadow-sm`}
+                                  >
+                                    <span
+                                      className={`font-semibold px-2.5 py-1 rounded-full ${
+                                        isActive
+                                          ? "text-green-700 bg-green-100"
+                                          : "text-red-800 bg-red-100"
+                                      }`}
+                                    >
+                                      {displayValue}
+                                    </span>
+                                  </div>
                                 </div>
                               );
                             }
@@ -1455,7 +1616,8 @@ export function EditModal({
                               type="button"
                               onClick={() => {
                                 const timestamp = `[${new Date().toLocaleString()}]: `;
-                                const newContent = `<p><strong>${timestamp}</strong></p>${currentFormValues.notes || formData.notes || ""}`;
+                                const existingContent = currentFormValues.notes || formData.notes || "";
+                                const newContent = `<p><strong>${timestamp}</strong></p><p><br></p>${existingContent}`;
 
                                 setValue("notes", newContent);
                                 setFormData((prev) => ({
@@ -1463,26 +1625,29 @@ export function EditModal({
                                   notes: newContent
                                 }));
 
+                                setShouldDisableBold(true);
+
                                 setTimeout(() => {
-                                  const quillEditor = document.querySelector('.ql-editor') as HTMLElement;
-                                  if (quillEditor) {
-                                    quillEditor.focus();
-                                    const range = document.createRange();
-                                    const sel = window.getSelection();
-                                    const firstP = quillEditor.querySelector('p');
-                                    if (firstP && firstP.firstChild) {
-                                      range.setStart(firstP, 1);
-                                      range.collapse(true);
-                                      sel?.removeAllRanges();
-                                      sel?.addRange(range);
+                                  const editor = document.querySelector('.ql-editor') as any;
+                                  if (editor && editor.parentElement) {
+                                    const quill = (editor.parentElement as any).__quill;
+                                    if (quill) {
+                                      quill.focus();
+                                      
+                                     const timestampLength = timestamp.length;
+                                      
+                                     quill.setSelection(timestampLength, 0);
+                                      
+                                     quill.format('bold', false);
+                                      setShouldDisableBold(false);
                                     }
                                   }
-                                }, 0);
+                                }, 150);
                               }}
-                              className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white
-                                        bg-gradient-to-r from-cyan-500 to-blue-500
-                                        rounded-lg hover:from-cyan-600 hover:to-blue-600
-                                        transition shadow-md"
+                              className="px-2 sm:px-2 py-1sm:py-1 text-xs sm:text-sm font-medium text-black hover 
+                              
+                                        
+                                         "
                             >
                               + New Entry
                             </button>
@@ -1493,6 +1658,21 @@ export function EditModal({
                             onChange={(content) => {
                               setValue("notes", content);
                               setFormData((prev) => ({ ...prev, notes: content }));
+                              if (shouldDisableBold) {
+                                setShouldDisableBold(false);
+                              }
+                            }}
+                            onChangeSelection={(range) => {
+                              if (shouldDisableBold && range && range.length === 0) {
+                                const editor = document.querySelector('.ql-editor') as any;
+                                if (editor && editor.parentElement) {
+                                  const quill = (editor.parentElement as any).__quill;
+                                  if (quill) {
+                                    quill.format('bold', false);
+                                    setShouldDisableBold(false);
+                                  }
+                                }
+                              }
                             }}
                             className="bg-white dark:bg-gray-800"
                           />
@@ -1502,12 +1682,14 @@ export function EditModal({
                   </div>
                 )}
                 <div className="flex justify-end mt-3 sm:mt-4 md:mt-6 pt-2 sm:pt-3 md:pt-4 border-t border-blue-200">
-                  <button
-                    type="submit"
-                    className="px-3 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg hover:from-cyan-600 hover:to-blue-600 transition shadow-md"
-                  >
-                    Save Changes
-                  </button>
+                  {!isEmailActivityLogsModal && (
+                    <button
+                      type="submit"
+                      className="px-3 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg hover:from-cyan-600 hover:to-blue-600 transition shadow-md"
+                    >
+                      Save Changes
+                    </button>
+                  )}
                 </div>
               </form>
             </div>

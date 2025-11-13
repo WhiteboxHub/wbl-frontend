@@ -14,7 +14,7 @@ import { createPortal } from "react-dom";
 import { toast, Toaster } from "sonner";
 import  api, { smartUpdate }  from "@/lib/api";
 
-// ---------------- Status Renderer ----------------
+
 const StatusRenderer = (params: any) => {
   const status = params.value?.toLowerCase();
   let badgeClass = "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300";
@@ -38,13 +38,11 @@ const getAllValues = (obj: any): string[] => {
   return values;
 };
 
-// ---------------- Filter Option Interface ----------------
 interface FilterOption {
   value: string;
   label: string;
 }
 
-// ---------------- Status Filter Header ----------------
 interface StatusHeaderProps {
   selectedStatuses: string[];
   setSelectedStatuses: (values: string[]) => void;
@@ -146,7 +144,6 @@ const StatusHeaderComponent = ({
   );
 };
 
-// ---------------- Main Page ----------------
 export default function CandidatesMarketingPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredCandidates, setFilteredCandidates] = useState<any[]>([]);
@@ -155,7 +152,6 @@ export default function CandidatesMarketingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // ---------------- Fetch Data ----------------
   const fetchCandidates = async () => {
     try {
       setLoading(true);
@@ -181,6 +177,28 @@ export default function CandidatesMarketingPage() {
     fetchCandidates();
   }, []);
 
+
+
+const LinkCellRenderer = (params: any) => {
+  let url = (params.value || "").trim(); 
+
+    if (!url) return <span className="text-gray-500">N/A</span>;
+    if (!/^https?:\/\//i.test(url)) {
+      url = `https://${url}`;
+    }
+
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-600 hover:underline"
+      >
+        Click Here
+      </a>
+    );
+  };
+
   // ---------------- Filtering ----------------
   useEffect(() => {
     let filtered = [...allCandidates];
@@ -198,7 +216,7 @@ export default function CandidatesMarketingPage() {
     setFilteredCandidates(filtered);
   }, [allCandidates, searchTerm, selectedStatuses]);
 
-  // ---------------- Resume Renderer ----------------
+
   const ResumeRenderer = (params: any) => (
     <div className="flex items-center space-x-2">
       {params.value ? (
@@ -213,12 +231,6 @@ export default function CandidatesMarketingPage() {
       ) : (
         <span className="text-gray-400">N/A</span>
       )}
-      {/* <label
-        htmlFor={`fileInput-${params.data.candidate_id}`}
-        className="text-blue-600 hover:underline cursor-pointer"
-      >
-        Upload
-      </label> */}
       <input
         type="file"
         id={`fileInput-${params.data.candidate_id}`}
@@ -264,7 +276,7 @@ export default function CandidatesMarketingPage() {
     </div>
   );
 
-  // ---------------- Candidate Name Renderer ----------------
+
   const CandidateNameRenderer = (params: any) => {
     const candidateId = params.data?.candidate_id;
     const candidateName = params.data?.candidate?.full_name || params.value;
@@ -283,7 +295,7 @@ export default function CandidatesMarketingPage() {
     );
   };
 
-  // ---------------- Column Defs ----------------
+  
   const columnDefs: ColDef[] = useMemo(
     () => [
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
@@ -336,6 +348,12 @@ export default function CandidatesMarketingPage() {
         editable: false,
       },
       {
+        headerName: "LinkedIn",
+        minWidth: 150,
+        valueGetter: (params) => params.data?.candidate?.linkedin_id || null,
+        cellRenderer: LinkCellRenderer,
+      },
+      {
         field: "resume_url",
         headerName: "Resume",
         width: 200,
@@ -368,19 +386,20 @@ export default function CandidatesMarketingPage() {
         },
       },
       { field: "password", headerName: "Password", width: 150, editable: true },
+      { field: "linkedin_username", headerName: "Linkedin Username", width: 190, editable: true },
+      { field: "linkedin_passwd", headerName: "Linkedin Password", width: 190, editable: true },
       {
         field: "google_voice_number",
         headerName: "Google Voice Number",
         width: 150,
         editable: true,
       },
-      { field: "priority", headerName: "Priority", width: 100, editable: true },
       {
         field: "move_to_placement",
         headerName: "Move to Placement",
         width: 190,
         sortable: true,
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
         cellRenderer: (params: any) => (
           <span>{params.value ? "Yes" : "No"}</span>
         ),
@@ -405,56 +424,52 @@ export default function CandidatesMarketingPage() {
   );
 
 const handleRowUpdated = async (updatedRow: any) => {
-    // Use the marketing record ID instead of candidate_id
-    const marketingId = updatedRow?.id; // This should be the marketing record ID
-    if (!marketingId) {
-      console.error("Updated row missing marketing record ID", updatedRow);
-      toast.error("Failed to update candidate: Missing marketing record ID.");
-      return;
+  const marketingId = updatedRow?.id;
+  if (!marketingId) {
+    toast.error("Failed to update candidate: Missing marketing record ID.");
+    return;
+  }
+  const payload = { ...updatedRow };
+  Object.keys(payload).forEach((key) => {
+    if (payload[key] === "") {
+      payload[key] = null;
     }
-    try {
-      console.log("Updating marketing record:", marketingId, updatedRow);
-      
-      const res = await api.put(
-        `/candidate/marketing/${marketingId}`, // Use marketing record ID
-        updatedRow
-      );
-      
-      console.log("Update response:", res.data);
-      const updatedRecord = res.data;
-      
-      setFilteredCandidates((prev) =>
-        prev.map((row) =>
-          row.id === marketingId ? { ...row, ...updatedRecord } : row
-        )
-      );
-      setAllCandidates((prev) =>
-        prev.map((row) =>
-          row.id === marketingId ? { ...row, ...updatedRecord } : row
-        )
-      );
-      toast.success("Candidate updated successfully!");
-    } catch (err: any) {
-      console.error("Failed to update candidate:", err);
-      if (err.status === 401) {
-        toast.error("Session expired. Please login again.");
-      } else {
-        const errorMessage =
-          err.body?.detail ??
-          err.body?.message ??
-          err.message ??
-          "Failed to update candidate.";
-        toast.error(errorMessage);
-      }
+  });
+
+  try {
+    const res = await api.put(`/candidate/marketing/${marketingId}`, payload);
+
+    const updatedRecord = res.data;
+
+    setFilteredCandidates((prev) =>
+      prev.map((row) => (row.id === marketingId ? { ...row, ...updatedRecord } : row))
+    );
+    setAllCandidates((prev) =>
+      prev.map((row) => (row.id === marketingId ? { ...row, ...updatedRecord } : row))
+    );
+
+    toast.success("Candidate updated successfully!");
+  } catch (err: any) {
+    console.error("Failed to update candidate:", err);
+
+    let message = "Failed to update candidate.";
+
+    if (Array.isArray(err?.body?.detail)) {
+      message = err.body.detail.map((e: any) => e.msg).join(", ");
+    } else if (err?.body?.message) {
+      message = err.body.message;
+    } else if (err?.message) {
+      message = err.message;
     }
-  };
+
+    toast.error(message);
+  }
+};
+
 
 const handleRowDeleted = async (id: number | string) => {
     try {
-      // Use the marketing record ID for deletion
       await api.delete(`/candidate/marketing/${id}`);
-      
-      // Filter by the correct ID field - try both id and candidate_id
       setFilteredCandidates((prev) => 
         prev.filter((row) => row.id !== id && row.candidate_id !== id)
       );
@@ -478,30 +493,6 @@ const handleRowDeleted = async (id: number | string) => {
       }
     }
   };
-// const handleRowDeleted = async (id: number | string) => {
-//     try {
-//       // Use the marketing record ID for deletion
-//       await api.delete(`/candidate/marketing/${id}`);
-      
-//       setFilteredCandidates((prev) => prev.filter((row) => row.id === id));
-//       setAllCandidates((prev) => prev.filter((row) => row.id === id));
-      
-//       toast.success("Marketing candidate deleted successfully!");
-//     } catch (err: any) {
-//       console.error("Failed to delete marketing candidate:", err);
-      
-//       if (err.status === 401) {
-//         toast.error("Session expired. Please login again.");
-//       } else {
-//         const errorMessage =
-//           err.body?.detail ??
-//           err.body?.message ??
-//           err.message ??
-//           "Failed to delete marketing candidate.";
-//         toast.error(errorMessage);
-//       }
-//     }
-//   };
   // ---------------- Render ----------------
   return (
     <div className="space-y-6">

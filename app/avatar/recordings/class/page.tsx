@@ -1,5 +1,4 @@
 "use client";
-
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable";
@@ -9,25 +8,8 @@ import { Label } from "@/components/admin_ui/label";
 import { SearchIcon, PlusIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect } from "react";
-import axios from "axios";
 import { toast, Toaster } from "sonner";
-
-/* 🔹 Token helper (same as other pages) */
-const ACCESS_TOKEN_KEYS = ["access_token", "token", "accesstoken"];
-
-function getStoredToken(): string | null {
-  for (const k of ACCESS_TOKEN_KEYS) {
-    const val = typeof window !== "undefined" ? localStorage.getItem(k) : null;
-    if (val) return val;
-  }
-  return null;
-}
-
-function getAuthHeaders() {
-  const token = getStoredToken();
-  if (!token) return {};
-  return { Authorization: `Bearer ${token}` };
-}
+import api, { smartUpdate } from "@/lib/api";
 
 export default function RecordingsPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -35,7 +17,7 @@ export default function RecordingsPage() {
   const [recordings, setRecordings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔹 Debounce search input
+  // Debounce search input
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(searchTerm);
@@ -43,28 +25,22 @@ export default function RecordingsPage() {
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  // 🔹 Fetch recordings with Authorization header
+
   const fetchRecordings = async () => {
     try {
       setLoading(true);
-      const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
-      const url = `${base}/recordings`;
-
-      const params: Record<string, string> = {};
-      if (debouncedSearch.trim()) params["search"] = debouncedSearch.trim();
-
-      const headers = { ...getAuthHeaders(), "Content-Type": "application/json" };
-
-      const res = await axios.get(url, { headers, params });
-
-      const data = res.data && Array.isArray(res.data) ? res.data : res.data?.data ?? [];
-      setRecordings(data);
-    } catch (err: any) {
-      console.error("Failed to fetch recordings:", err?.response?.data ?? err?.message ?? err);
-      if (err?.response?.status === 401) {
+      const params = debouncedSearch.trim() ? { search: debouncedSearch.trim() } : {};
+      const queryString = new URLSearchParams(params).toString();
+      const endpoint = `/recordings${queryString ? `?${queryString}` : ""}`;
+      const { data } = await api.get(endpoint);
+      const recordingsData = Array.isArray(data) ? data : data?.data ?? [];
+      setRecordings(recordingsData);
+    } catch (err) {
+      console.error("Failed to fetch recordings:", err);
+      if (err.status === 401) {
         toast.error("Not authorized — please login again.");
       } else {
-        toast.error(err.response?.data?.message || "Failed to fetch recordings.");
+        toast.error(err.message || "Failed to fetch recordings.");
       }
       setRecordings([]);
     } finally {
@@ -76,7 +52,6 @@ export default function RecordingsPage() {
     fetchRecordings();
   }, [debouncedSearch]);
 
-  /* 🔹 Column definitions for AG Grid */
   const columnDefs: ColDef[] = useMemo<ColDef[]>(
     () => [
       { field: "id", headerName: "ID", width: 90, pinned: "left" },
@@ -115,53 +90,40 @@ export default function RecordingsPage() {
     []
   );
 
-  /* 🔹 PUT request on row update */
   const handleRowUpdated = async (updatedRow: any) => {
     try {
-      const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
-      const url = `${base}/recordings/${updatedRow.id}`;
-      const headers = { ...getAuthHeaders(), "Content-Type": "application/json" };
-
-      await axios.put(url, updatedRow, { headers });
-
-      setRecordings((prev) => prev.map((r) => (r.id === updatedRow.id ? { ...r, ...updatedRow } : r)));
+      const updatedRecording = await smartUpdate("recordings", updatedRow.id, updatedRow);
+      setRecordings((prev) => prev.map((r) => (r.id === updatedRow.id ? updatedRecording : r)));
       toast.success("Recording updated successfully.");
-    } catch (err: any) {
-      console.error("Failed to update recording:", err?.response?.data ?? err?.message ?? err);
-      if (err?.response?.status === 401) {
+    } catch (err) {
+      console.error("Failed to update recording:", err);
+      if (err.status === 401) {
         toast.error("Not authorized — please login again.");
       } else {
-        toast.error("Failed to update recording.");
+        toast.error(err.message || "Failed to update recording.");
       }
     }
   };
 
-  /* 🔹 DELETE request on row deletion */
+
   const handleRowDeleted = async (id: number | string) => {
     try {
-      const base = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
-      const url = `${base}/recordings/${id}`;
-      const headers = { ...getAuthHeaders(), "Content-Type": "application/json" };
-
-      await axios.delete(url, { headers });
-
+      await api.delete(`/recordings/${id}`);
       setRecordings((prev) => prev.filter((r) => r.id !== id));
       toast.success(`Recording ${id} deleted.`);
-    } catch (err: any) {
-      console.error("Failed to delete recording:", err?.response?.data ?? err?.message ?? err);
-      if (err?.response?.status === 401) {
+    } catch (err) {
+      console.error("Failed to delete recording:", err);
+      if (err.status === 401) {
         toast.error("Not authorized — please login again.");
       } else {
-        toast.error("Failed to delete recording.");
+        toast.error(err.message || "Failed to delete recording.");
       }
     }
   };
 
-  /* 🔹 UI render */
   return (
     <div className="space-y-6">
       <Toaster position="top-center" richColors />
-
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -173,7 +135,6 @@ export default function RecordingsPage() {
           Add Recording
         </Button>
       </div>
-
       {/* Search Input */}
       <div className="max-w-md">
         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -191,7 +152,6 @@ export default function RecordingsPage() {
           />
         </div>
       </div>
-
       {/* Table */}
       {loading ? (
         <p className="text-center mt-8">Loading...</p>
