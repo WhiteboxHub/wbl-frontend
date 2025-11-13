@@ -11,7 +11,7 @@ export default function Chatbot() {
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
-  // ✅ Send message
+  //  Send message
   const handleSend = async () => {
     if (!input.trim()) return;
     const userMessage = { sender: "user", text: input };
@@ -33,19 +33,19 @@ export default function Chatbot() {
     } catch {
       setMessages((prev) => [
         ...prev,
-        { sender: "bot", text: "⚠️ Could not reach server." },
+        { sender: "bot", text: "Could not reach server." },
       ]);
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ Scroll to bottom on message change
+  //  Scroll to bottom on message change
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // ✅ Clear chat functionality
+  // Clear chat functionality
   const handleClearChat = () => {
     setMessages([
       { sender: "bot", text: "Hello 👋 I'm WBL Assist! How can I help you today?" },
@@ -68,7 +68,7 @@ export default function Chatbot() {
       {/* 💬 Chat Window */}
       {isOpen && (
         <div
-          className="fixed bottom-24 right-0 z-50 w-[380px] h-[520px] bg-white dark:bg-darklight rounded-l-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-300 animate-slide-up"
+          className="fixed bottom-40 right-0 z-50 w-[380px] h-[520px] bg-white dark:bg-darklight rounded-l-2xl shadow-2xl flex flex-col overflow-hidden border border-gray-300 animate-slide-up"
         >
           {/* Header */}
           <div className="bg-white dark:bg-darklight border-b border-gray-200 dark:border-gray-700 flex justify-between items-center px-4 py-3">
@@ -81,7 +81,7 @@ export default function Chatbot() {
 
             {/* Header Actions */}
             <div className="flex items-center gap-2">
-              {/* ✅ Clear Chat Button */}
+              {/*  Clear Chat Button */}
               <button
                 onClick={handleClearChat}
                 className="text-gray-500 hover:text-red-500 transition"
@@ -125,7 +125,7 @@ export default function Chatbot() {
             <div ref={bottomRef} />
           </div>
 
-          {/* ✅ Input Section (shorter + styled) */}
+          {/*  Input Section (shorter + styled) */}
           <div className="flex items-center border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-darklight px-3 py-2">
             <div className="flex items-center gap-2 w-full">
               <input
