@@ -838,7 +838,7 @@ export function EditModal({
     };
   }, [isOpen, onClose]);
 
-  // Fetch courses, subjects, and employees
+// Fetch courses, subjects, and employees
   useEffect(() => {
     const fetchCourses = async () => {
       try {

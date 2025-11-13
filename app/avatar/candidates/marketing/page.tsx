@@ -393,7 +393,7 @@ export default function CandidatesMarketingPage() {
           );
         },
       },
-      { field: "password", headerName: "Password", width: 150, editable: true },
+      { field: "password", headerName: "Email Password", width: 150, editable: true },
       {
         field: "linkedin_username",
         headerName: "Linkedin Username",
@@ -414,7 +414,7 @@ export default function CandidatesMarketingPage() {
         filter: true,
         editable: false,
         valueFormatter: (params) => {
-          if (!params.value) return "Not Set";
+          if (!params.value) return "";
           return format(new Date(params.value), "yyyy-MM-dd");
         },
       },
@@ -425,6 +425,7 @@ export default function CandidatesMarketingPage() {
         width: 150,
         editable: true,
       },
+      { field: "priority", headerName: "Priority", width: 100, editable: true },
       {
         field: "move_to_placement",
         headerName: "Move to Placement",
