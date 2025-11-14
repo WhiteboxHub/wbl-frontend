@@ -418,6 +418,7 @@ export default function CandidatesMarketingPage() {
           return format(new Date(params.value), "yyyy-MM-dd");
         },
       },
+
       {
         field: "google_voice_number",
         headerName: "Google Voice Number",

@@ -1,13 +1,10 @@
-
-
-
 "use client";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon, PlusCircle, RefreshCw, X } from "lucide-react";
+import { SearchIcon, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { toast, Toaster } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -1120,6 +1117,12 @@ export default function CandidatesPage() {
           if (rowNode) {
             rowNode.setData(updatedData);
             gridRef.current.api.redrawRows({ rowNodes: [rowNode] });
+
+            gridRef.current.api.refreshCells({
+              rowNodes: [rowNode],
+              force: true,
+            });
+
             gridRef.current.api.refreshCells({ rowNodes: [rowNode], force: true });
           } else {
             gridRef.current.api.refreshCells({ force: true });
@@ -1215,12 +1218,6 @@ export default function CandidatesPage() {
             {searchTerm && <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{candidates.length} candidates found</p>}
           </div>
         </div>
-        <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
-          <Button onClick={handleOpenModal} className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add New Candidate
-          </Button>
-        </div>
       </div>
 
       <div className="flex w-full justify-center">
@@ -1286,332 +1283,6 @@ export default function CandidatesPage() {
         />
       </div>
 
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 p-2 sm:p-4">
-          <div className="w-full max-w-6xl rounded-xl bg-white shadow-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 flex items-center justify-between border-b border-blue-200 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 py-2 sm:px-4 sm:py-2 md:px-6">
-              <h2 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-sm font-semibold text-transparent sm:text-base md:text-lg">
-                Add New Candidate
-              </h2>
-              <button
-                onClick={handleCloseModal}
-                className="rounded-lg p-1 text-blue-400 transition hover:bg-blue-100 hover:text-blue-600"
-              >
-                <X size={16} className="sm:h-5 sm:w-5" />
-              </button>
-            </div>
-
-            <div className="bg-white p-3 sm:p-4 md:p-6">
-              <form onSubmit={handleSubmit(onSubmit)}>
-                <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-4">
-                  {/* Full Name */}
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                      Full Name <span className="text-red-700">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      {...register("full_name", {
-                        required: "Full name is required",
-                        maxLength: { value: 100, message: "Full name cannot exceed 100 characters" },
-                      })}
-                      placeholder="Enter full name"
-                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                    />
-                    {errors.full_name && <p className="mt-1 text-xs text-red-600">{errors.full_name.message}</p>}
-                  </div>
-                  {/* Email */}
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                      Email <span className="text-red-700">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      {...register("email", {
-                        required: "Email is required",
-                        pattern: { value: /^\S+@\S+\.\S+$/, message: "Invalid email address" },
-                      })}
-                      placeholder="Enter email"
-                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                    />
-                    {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>}
-                  </div>
-                  {/* Phone */}
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                      Phone <span className="text-red-700">*</span>
-                    </label>
-                    <input
-                      type="tel"
-                      {...register("phone", {
-                        required: "Phone is required",
-                        validate: (value) => {
-                          const cleaned = cleanPhoneNumber(value);
-                          return cleaned.length >= 10 || "Phone number must be at least 10 digits";
-                        }
-                      })}
-                      onInput={handlePhoneInput}
-                      placeholder="(555) 123-4567"
-                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                    />
-                    {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone.message}</p>}
-                  </div>
-                  {/* Date of Birth */}
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                      Date of Birth <span className="text-red-700">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      {...register("dob", { required: "Date of birth is required" })}
-                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                    />
-                    {errors.dob && <p className="mt-1 text-xs text-red-600">{errors.dob.message}</p>}
-                  </div>
-                  {/* Batch */}
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                      Batch <span className="text-red-700">*</span>
-                    </label>
-                    {batchesLoading ? (
-                      <p className="text-xs text-gray-500">Loading batches...</p>
-                    ) : (
-                      <select
-                        {...register("batchid", {
-                          required: "Batch is required",
-                          validate: (value) => value !== 0 || "Please select a batch",
-                        })}
-                        className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                      >
-                        <option value="0">Select a batch</option>
-                        {mlBatches.map((batch) => (
-                          <option key={batch.batchid} value={batch.batchid}>
-                            {batch.batchname}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                    {errors.batchid && <p className="mt-1 text-xs text-red-600">{errors.batchid.message}</p>}
-                  </div>
-                  {/* Status */}
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">Status</label>
-                    <select
-                      {...register("status")}
-                      className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                    >
-                      {statusOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option.charAt(0).toUpperCase() + option.slice(1)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {/* Work Status */}
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">Work Status</label>
-                    <select
-                      {...register("workstatus")}
-                      className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                    >
-                      {workStatusOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {/* Education */}
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">Education</label>
-                    <input
-                      type="text"
-                      {...register("education")}
-                      placeholder="Enter education"
-                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                    />
-                  </div>
-                  {/* Work Experience */}
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">Work Experience</label>
-                    <input
-                      type="text"
-                      {...register("workexperience")}
-                      placeholder="Enter work experience"
-                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                    />
-                  </div>
-                  {/* SSN */}
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">SSN</label>
-                    <input
-                      type="password"
-                      {...register("ssn")}
-                      placeholder="Enter SSN"
-                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                    />
-                  </div>
-                  {/* Agreement */}
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">Agreement</label>
-                    <select
-                      {...register("agreement")}
-                      className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                    >
-                      <option value="Y">Yes</option>
-                      <option value="N">No</option>
-                    </select>
-                  </div>
-                  {/* Secondary Email */}
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">Secondary Email</label>
-                    <input
-                      type="email"
-                      {...register("secondaryemail")}
-                      placeholder="Enter secondary email"
-                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                    />
-                  </div>
-                  {/* Secondary Phone */}
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">Secondary Phone</label>
-                    <input
-                      type="tel"
-                      {...register("secondaryphone")}
-                      onInput={handlePhoneInput}
-                      placeholder="(555) 123-4567"
-                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                    />
-                  </div>
-                  {/* LinkedIn ID */}
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">LinkedIn ID</label>
-                    <input
-                      type="text"
-                      {...register("linkedin_id")}
-                      placeholder="Enter LinkedIn ID"
-                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                    />
-                  </div>
-                  
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">Fee Paid ($)</label>
-                    <input
-                      type="number"
-                      {...register("fee_paid", {
-                        valueAsNumber: true,
-                        min: { value: 0, message: "Fee paid cannot be negative" },
-                      })}
-                      placeholder="0"
-                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                    />
-                    {errors.fee_paid && <p className="mt-1 text-xs text-red-600">{errors.fee_paid.message}</p>}
-                  </div>
-                  
-                  <div className="space-y-1 sm:space-y-1.5">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">Enrolled Date</label>
-                    <input
-                      type="date"
-                      {...register("enrolled_date")}
-                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-1 gap-2 md:grid-cols-4 lg:col-span-4">
-                    <div className="space-y-1 sm:space-y-1.5">
-                      <label className="block text-xs font-bold text-blue-700 sm:text-sm">Emergency Contact Name</label>
-                      <input
-                        type="text"
-                        {...register("emergcontactname")}
-                        placeholder="Enter emergency contact name"
-                        className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                      />
-                    </div>
-                    <div className="space-y-1 sm:space-y-1.5">
-                      <label className="block text-xs font-bold text-blue-700 sm:text-sm">Emergency Contact Email</label>
-                      <input
-                        type="email"
-                        {...register("emergcontactemail")}
-                        placeholder="Enter emergency contact email"
-                        className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                      />
-                    </div>
-                    <div className="space-y-1 sm:space-y-1.5">
-                      <label className="block text-xs font-bold text-blue-700 sm:text-sm">Emergency Contact Phone</label>
-                      <input
-                        type="tel"
-                        {...register("emergcontactphone", {
-                          validate: (value) => {
-                            if (!value) return true; 
-                            const cleaned = cleanPhoneNumber(value);
-                            return cleaned.length >= 10 || "Phone number must be at least 10 digits";
-                          }
-                        })}
-                        onInput={handlePhoneInput}
-                        placeholder="(555) 123-4567"
-                        className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                      />
-                      {errors.emergcontactphone && <p className="mt-1 text-xs text-red-600">{errors.emergcontactphone.message}</p>}
-                    </div>
-                    <div className="space-y-1 sm:space-y-1.5">
-                      <label className="block text-xs font-bold text-blue-700 sm:text-sm">Candidate Folder</label>
-                      <input
-                        type="text"
-                        {...register("candidate_folder")}
-                        placeholder="Google Drive/Dropbox link"
-                        className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                      />
-                    </div>
-                  </div>
-                
-                  <div className="space-y-1 sm:space-y-1.5 lg:col-span-2">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">Address</label>
-                    <input
-                      type="text"
-                      {...register("address")}
-                      placeholder="Enter address"
-                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                    />
-                  </div>
-                  
-                  <div className="space-y-1 sm:space-y-1.5 lg:col-span-2">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">Emergency Contact Address</label>
-                    <input
-                      type="text"
-                      {...register("emergcontactaddrs")}
-                      placeholder="Enter emergency contact address"
-                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1 sm:space-y-1.5 lg:col-span-4">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">Notes</label>
-                    <textarea
-                      {...register("notes")}
-                      placeholder="Enter notes..."
-                      className="min-h-[60px] w-full resize-y rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                    />
-                  </div>
-                </div>
-                <div className="mt-3 flex justify-end gap-2 border-t border-blue-200 pt-2 sm:mt-4 sm:gap-3 sm:pt-3 md:mt-6 md:pt-4">
-                  <button
-                    type="button"
-                    onClick={handleCloseModal}
-                    className="rounded-lg border border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-700 transition hover:bg-blue-50 sm:px-4 sm:py-2 sm:text-sm"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 px-3 py-1.5 text-xs font-medium text-white shadow-md transition hover:from-cyan-600 hover:to-blue-600 sm:px-5 sm:py-2 sm:text-sm"
-                  >
-                    Save Candidate
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

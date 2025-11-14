@@ -93,17 +93,6 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "green card", label: "Green Card" },
     { value: "h1b", label: "H1B" },
   ],
-  workstatus: [
-    { value: "waiting for status", label: "Waiting for Status" },
-    { value: "citizen", label: "Citizen" },
-    { value: "f1", label: "F1" },
-    { value: "other", label: "Other" },
-    { value: "permanent resident", label: "Permanent Resident" },
-    { value: "h4", label: "H4" },
-    { value: "ead", label: "EAD" },
-    { value: "green card", label: "Green Card" },
-    { value: "h1b", label: "H1B" },
-  ],
   visa_status: [
     { value: "waiting for status", label: "Waiting for Status" },
     { value: "citizen", label: "Citizen" },
@@ -200,6 +189,20 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "break", label: "Break" },
     { value: "closed", label: "Closed" },
   ],
+  activity_type: [
+    { value: "extraction", label: "extraction" },
+    { value: "connection", label: "connection" },
+  ],
+  status: [
+    { value: "success", label: "Success" },
+    { value: "failed", label: "Failed" },
+  ],
+  linkedin_status: [
+    { value: "idle", label: "Idle" },
+    { value: "running", label: "Running" },
+    { value: "error", label: "Error" },
+    { value: "completed", label: "Completed" },
+  ],
 };
 
 // Vendor type options
@@ -220,6 +223,37 @@ const vendorStatuses = [
   { value: "inactive", label: "Inactive" },
   { value: "prospect", label: "Prospect" },
 ];
+
+// Required fields configuration - only for create mode
+const requiredFieldsConfig: Record<string, string[]> = {
+  leads: ["Phone", "Email", "Full Name"],
+  candidate: ["Phone", "Email", "Full Name", "Date of Birth", "Batch"],
+  interviews: ["Candidate Name", "Company", "Interview Date", "Company Type", "Mode of Interview", "Type of Interview"],
+  authuser: ["Phone", "Email", "Full Name", "Registered Date", "Passwd"],
+  employee: ["Email", "Full Name", "Phone", "Date of Birth", "Aadhaar"],
+};
+
+// Helper function to check if a field is required based on modal type and mode
+const isFieldRequired = (fieldName: string, modalType: string, isAddMode: boolean): boolean => {
+  if (!isAddMode) return false;
+  
+  const modalKey = modalType.toLowerCase();
+  const fieldConfigMap: Record<string, string[]> = {};
+  
+  Object.entries(requiredFieldsConfig).forEach(([key, fields]) => {
+    fields.forEach(field => {
+      const normalizedField = field.toLowerCase().replace(/\s+/g, '');
+      fieldConfigMap[normalizedField] = fieldConfigMap[normalizedField] || [];
+      fieldConfigMap[normalizedField].push(key);
+    });
+  });
+  
+  const normalizedFieldName = fieldName.toLowerCase().replace(/\s+/g, '');
+  const requiredForModals = fieldConfigMap[normalizedFieldName];
+  if (!requiredForModals) return false;
+  
+  return requiredForModals.some(modal => modalKey.includes(modal));
+};
 
 const genericStatusOptions = [
   { value: "active", label: "Active" },
@@ -255,49 +289,22 @@ interface EditModalProps {
   title: string;
   onSave: (updatedData: Record<string, any>) => void;
   batches: Batch[];
+  isAddMode?: boolean;
 }
 
 // Fields to exclude from the form
 const excludedFields = [
-  "candidate",
-  "instructor1",
-  "instructor2",
-  "instructor3",
-  "id",
-  "sessionid",
-  "vendor_type",
-  "last_mod_datetime",
-  "last_modified",
-  "logincount",
-  "googleId",
-  "subject_id",
-  "lastmoddatetime",
-  "course_id",
-  "new_subject_id",
-  "instructor_1id",
-  "instructor_2id",
-  "instructor_3id",
-  "instructor1_id",
-  "instructor2_id",
-  "instructor3_id",
-  "candidate_id",
-  "batch",
-  "lastSync",
-  "synced",
+  "candidate", "instructor1", "instructor2", "instructor3", "id", "sessionid", 
+  "vendor_type", "last_mod_datetime", "last_modified", "logincount", "googleId", 
+  "subject_id", "lastmoddatetime", "course_id", "new_subject_id", "instructor_1id", 
+  "instructor_2id", "instructor_3id", "instructor1_id", "instructor2_id", 
+  "instructor3_id", "candidate_id", "batch", "lastSync", "synced",
 ];
 
 // Field visibility configuration
 const fieldVisibility: Record<string, string[]> = {
   instructor: ["preparation", "interview", "marketing"],
-  linkedin: [
-    "preparation",
-    "interview",
-    "marketing",
-    "candidate",
-    "vendor",
-    "client",
-    "placement",
-  ],
+  linkedin: ["preparation", "interview", "marketing", "candidate", "vendor", "client", "placement"],
 };
 
 // Helper functions for field visibility
@@ -343,8 +350,6 @@ const fieldSections: Record<string, string> = {
   linkedin_connected: "Professional Information",
   intro_email_sent: "Professional Information",
   intro_call: "Professional Information",
-  // recording_link: "Professional Information",
-  moved_to_vendor: "Professional Information",
   phone_number: "Basic Information",
   secondary_phone: "Contact Information",
   last_mod_datetime: "Contact Information",
@@ -447,7 +452,6 @@ const fieldSections: Record<string, string> = {
   cm_course: "Professional Information",
   cm_subject: "Basic Information",
   material_type: "Basic Information",
-  // transcript: "Professional Information",
 };
 
 // Override field labels for better readability
@@ -584,6 +588,8 @@ const dateFields = [
   "placement_date",
   "marketing_start_date",
   "linkedin_premium_end_date",
+  "registereddate",
+  "extraction_date",
 ];
 
 export function EditModal({
@@ -593,6 +599,7 @@ export function EditModal({
   title,
   onSave,
   batches: propBatches,
+  isAddMode = false,
 }: EditModalProps) {
   const {
     register,
@@ -612,7 +619,9 @@ export function EditModal({
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [mlBatches, setMlBatches] = useState<Batch[]>([]);
   const modalRef = useRef<HTMLDivElement>(null);
+  const [marketingCandidates, setMarketingCandidates] = useState<any[]>([]);
   const [shouldDisableBold, setShouldDisableBold] = useState(false);
+
   // Detect the modal context
   const isCourseMaterialModal =
     title.toLowerCase().includes("course material") ||
@@ -621,15 +630,9 @@ export function EditModal({
     title.toLowerCase().includes("course-subject") ||
     title.toLowerCase().includes("course subject");
   const isVendorModal = title.toLowerCase().includes("vendor");
-  const isCandidateOrEmployee =
-    title.toLowerCase().includes("candidate") ||
-    title.toLowerCase().includes("employee");
-  const isBatchesModal =
-    title.toLowerCase().includes("batch") &&
-    !title.toLowerCase().includes("course");
-  const isEmailActivityLogsModal =
-    title.toLowerCase().includes("email activity log") ||
-    title.toLowerCase().includes("emailactivitylog");
+  const isCandidateOrEmployee = title.toLowerCase().includes("candidate") || title.toLowerCase().includes("employee");
+  const isBatchesModal = title.toLowerCase().includes("batch") && !title.toLowerCase().includes("course");
+  const isEmailActivityLogsModal = title.toLowerCase().includes("email activity log") || title.toLowerCase().includes("emailactivitylog"); 
   const isInterviewModal = title.toLowerCase().includes("interview");
   const isMarketingModal = title.toLowerCase().includes("marketing");
   const isPlacementModal = title.toLowerCase().includes("placement");
@@ -638,7 +641,11 @@ export function EditModal({
   const isLeadModal = title.toLowerCase().includes("lead");
   const isCandidateModal =
     title.toLowerCase().includes("candidate") && !isPreparationModal;
-  const showInstructorFields = shouldShowInstructorFields(title);
+  const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity");
+
+  // Field visibility for current modal
+  const showInstructorFields =
+    shouldShowInstructorFields(title) && !(isInterviewModal && isAddMode);
   const showLinkedInField = shouldShowLinkedInField(title);
 
   // modal for candidate_full_name first and read-only
@@ -648,6 +655,35 @@ export function EditModal({
     isPlacementModal ||
     isPreparationModal ||
     isEmailActivityLogsModal;
+
+  // Add this useEffect - place it with the other useEffect hooks
+  useEffect(() => {
+    if (isOpen && isInterviewModal && isAddMode) {
+      const fetchMarketingCandidates = async () => {
+        try {
+          const res = await apiFetch("/candidate/marketing?page=1&limit=200");
+          const body = res?.data ?? res;
+          const arr = Array.isArray(body) ? body : body.data ?? [];
+
+          // Filter for ACTIVE marketing candidates with candidate data
+          const activeCandidates = (arr || []).filter((m: any) => {
+            const status = (m?.status || "").toString().toLowerCase();
+            const hasCandidate = !!m.candidate && !!m.candidate.id;
+            return status === "active" && hasCandidate;
+          });
+
+          setMarketingCandidates(activeCandidates);
+        } catch (err: any) {
+          console.error(
+            "Failed to fetch marketing candidates:",
+            err?.body ?? err
+          );
+        }
+      };
+
+      fetchMarketingCandidates();
+    }
+  }, [isOpen, isInterviewModal, isAddMode]);
 
   // Fetch ML batches
   useEffect(() => {
@@ -703,7 +739,7 @@ export function EditModal({
       }
       setMlBatches(mlBatchesOnly);
     }
-  }, [isOpen, propBatches]);
+  }, [isOpen, propBatches, setValue]);
 
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
@@ -733,7 +769,7 @@ export function EditModal({
     };
   }, [isOpen, onClose]);
 
-  // Fetch courses, subjects, and employees
+// Fetch courses, subjects, and employees
   useEffect(() => {
     const fetchCourses = async () => {
       try {
@@ -1011,6 +1047,10 @@ export function EditModal({
       if (keyLower === "feedback") return enumOptions.feedback;
     }
 
+    if (keyLower === "work_status" || keyLower === "workstatus") {
+      return enumOptions.work_status;
+    }
+
     if (isMarketingModal && keyLower === "status")
       return enumOptions.marketing_status;
     if (isMarketingModal && keyLower === "priority") {
@@ -1084,6 +1124,11 @@ export function EditModal({
 
     // Hide LinkedIn in non-relevant modals
     if (!showLinkedInField && key === "linkedin_id") {
+      return;
+    }
+
+    // ADD THIS - Hide Candidate Name for LinkedIn Activity Log
+    if (isLinkedInActivityModal && key.toLowerCase() === "candidate_name") {
       return;
     }
 
@@ -1166,7 +1211,7 @@ export function EditModal({
           >
             <div className="sticky top-0 flex items-center justify-between border-b border-blue-200 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 py-2 sm:px-4 sm:py-2.5 md:px-6">
               <h2 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-sm font-semibold text-transparent sm:text-base md:text-lg">
-                {title} - Edit Details
+                {isAddMode ? `Add New ${title}` : `${title} - Edit Details`}
               </h2>
               <button
                 onClick={onClose}
@@ -1187,6 +1232,62 @@ export function EditModal({
                         <h3 className="border-b border-blue-200 pb-1.5 text-xs font-semibold text-blue-700 sm:pb-2 sm:text-sm">
                           {section}
                         </h3>
+                        {/* Add Candidate Input Field for Preparation and Marketing in Add Mode */}
+                        {section === "Basic Information" &&
+                          (isPreparationModal || isMarketingModal) &&
+                          isAddMode && (
+                            <div className="space-y-1 sm:space-y-1.5">
+                              <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                Candidate Name{" "}
+                                <span className="text-red-700">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                {...register("candidate_full_name", {
+                                  required: "Candidate name is required",
+                                })}
+                                className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                placeholder="Enter candidate name"
+                              />
+                              {errors.candidate_full_name && (
+                                <p className="mt-1 text-xs text-red-600">
+                                  {errors.candidate_full_name.message as string}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        {/* Add Candidate Dropdown in Basic Information section for Interview Add Mode */}
+                        {section === "Basic Information" &&
+                          isInterviewModal &&
+                          isAddMode && (
+                            <div className="space-y-1 sm:space-y-1.5">
+                              <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                Candidate Name{" "}
+                                <span className="text-red-700">*</span>
+                              </label>
+                              <select
+                                {...register("candidate_id", {
+                                  required: "Candidate is required",
+                                })}
+                                className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                              >
+                                <option value="">Select Candidate</option>
+                                {marketingCandidates.map((m) => (
+                                  <option
+                                    key={m.candidate.id}
+                                    value={m.candidate.id}
+                                  >
+                                    {m.candidate.full_name}
+                                  </option>
+                                ))}
+                              </select>
+                              {errors.candidate_id && (
+                                <p className="mt-1 text-xs text-red-600">
+                                  {errors.candidate_id.message as string}
+                                </p>
+                              )}
+                            </div>
+                          )}
                         {isCourseMaterialModal &&
                           section === "Professional Information" && (
                             <div className="space-y-1 sm:space-y-1.5">
@@ -1335,6 +1436,7 @@ export function EditModal({
                                   Instructor 1
                                 </label>
                                 {isMarketingModal || isInterviewModal ? (
+                                {isInterviewModal ? (
                                   <input
                                     type="text"
                                     value={
@@ -1371,6 +1473,7 @@ export function EditModal({
                                   Instructor 2
                                 </label>
                                 {isMarketingModal || isInterviewModal ? (
+                                {isInterviewModal ? (
                                   <input
                                     type="text"
                                     value={
@@ -1407,6 +1510,7 @@ export function EditModal({
                                   Instructor 3
                                 </label>
                                 {isMarketingModal || isInterviewModal ? (
+                                {isInterviewModal ? (
                                   <input
                                     type="text"
                                     value={
@@ -1490,13 +1594,96 @@ export function EditModal({
                               key.toLowerCase() === "linkedin_id";
                             const isPrepOrMarketing =
                               isPreparationModal || isMarketingModal;
+                            const isSubjectField =
+                              key.toLowerCase() === "subject";
+                            const isCourseIdField =
+                              key.toLowerCase() === "courseid";
 
                             if (isMaterialTypeField && !isCourseMaterialModal) {
                               return null;
                             }
 
+                            // ADD THIS CONDITION FOR SUBJECT FIELD
+                            if (isSubjectField && isBatchesModal) {
+                              return (
+                                <div
+                                  key={key}
+                                  className="space-y-1 sm:space-y-1.5"
+                                >
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
+                                  </label>
+                                  <select
+                                    {...register(key)}
+                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                    onChange={(e) => {
+                                      const selectedSubject = e.target.value;
+                                      let courseid = "3"; // default ML
+                                      if (selectedSubject === "QA")
+                                        courseid = "1";
+                                      else if (selectedSubject === "UI")
+                                        courseid = "2";
+                                      else if (selectedSubject === "ML")
+                                        courseid = "3";
+
+                                      setValue(key, selectedSubject);
+                                      setValue("courseid", courseid);
+                                      setFormData((prev) => ({
+                                        ...prev,
+                                        [key]: selectedSubject,
+                                        courseid,
+                                      }));
+                                    }}
+                                  >
+                                    <option value="">Select Subject</option>
+                                    <option value="ML">ML</option>
+                                    <option value="QA">QA</option>
+                                    <option value="UI">UI</option>
+                                  </select>
+                                </div>
+                              );
+                            }
+                            // ADD THIS CONDITION FOR COURSEID FIELD
+                            if (isCourseIdField && isBatchesModal) {
+                              const currentSubject =
+                                currentFormValues.subject ||
+                                formData.subject ||
+                                "ML";
+                              let defaultCourseId = "3"; // default for ML
+                              if (currentSubject === "QA")
+                                defaultCourseId = "1";
+                              else if (currentSubject === "UI")
+                                defaultCourseId = "2";
+                              else if (currentSubject === "ML")
+                                defaultCourseId = "3";
+
+                              return (
+                                <div
+                                  key={key}
+                                  className="space-y-1 sm:space-y-1.5"
+                                >
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
+                                  </label>
+                                  <input
+                                    type="text"
+                                    {...register(key)}
+                                    value={
+                                      currentFormValues.courseid ||
+                                      formData.courseid ||
+                                      defaultCourseId
+                                    }
+                                    readOnly
+                                    className="w-full rounded-lg border border-blue-200 bg-gray-50 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
+                                  />
+                                </div>
+                              );
+                            }
+
                             // Make all fields read-only in EmailActivityLog modal
-                            if (isEmailActivityLogsModal) {
+                            if (isEmailActivityLogsModal && !isAddMode) {
                               // Handle date fields specially
                               if (dateFields.includes(key.toLowerCase())) {
                                 return (
@@ -1544,6 +1731,7 @@ export function EditModal({
                                 >
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                   </label>
                                   <input
                                     type="text"
@@ -1557,7 +1745,7 @@ export function EditModal({
                             }
 
                             // Special handling for LinkedIn ID in special modals (read-only)
-                            if (isSpecialModal && isLinkedInField) {
+                            if (isSpecialModal && isLinkedInField && !isAddMode) {
                               let url = (
                                 formData?.[key] ||
                                 formData?.candidate?.[key] ||
@@ -1572,6 +1760,7 @@ export function EditModal({
                                   >
                                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                       {toLabel(key)}
+                                      {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                     </label>
                                     <div className="w-full rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-400 shadow-sm sm:px-3 sm:py-2 sm:text-sm">
                                       N/A
@@ -1591,6 +1780,7 @@ export function EditModal({
                                 >
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                   </label>
                                   <a
                                     href={url}
@@ -1605,7 +1795,11 @@ export function EditModal({
                             }
 
                             // Special handling for status in Preparation/Marketing modals
-                            if (isStatusField && isPrepOrMarketing) {
+                            if (
+                              isStatusField &&
+                              isPrepOrMarketing &&
+                              !isAddMode
+                            ) {
                               const statusValue = formData[key] || "";
                               const displayValue = statusValue.toUpperCase();
                               const normalized = statusValue.toLowerCase();
@@ -1618,6 +1812,7 @@ export function EditModal({
                                 >
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                   </label>
                                   <div
                                     className={`w-full rounded-lg border border-blue-200 bg-white px-2 py-1 text-xs shadow-sm sm:px-3 sm:py-2 sm:text-sm`}
@@ -1647,6 +1842,7 @@ export function EditModal({
                                 >
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                   </label>
                                   <select
                                     {...register(key)}
@@ -1670,6 +1866,7 @@ export function EditModal({
                                 >
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                   </label>
                                   <select
                                     {...register(key)}
@@ -1697,6 +1894,7 @@ export function EditModal({
                                 >
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                   </label>
                                   <select
                                     {...register(key)}
@@ -1724,6 +1922,7 @@ export function EditModal({
                                 >
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                   </label>
                                   <select
                                     {...register(key)}
@@ -1751,6 +1950,7 @@ export function EditModal({
                                 >
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                   </label>
                                   <select
                                     {...register("batchid")}
@@ -1761,9 +1961,7 @@ export function EditModal({
                                     }
                                     className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
-                                    <option value="">
-                                      Select a batch (optional)
-                                    </option>
+                                    <option value="">Select a batch</option>
                                     {mlBatches.map((batch) => (
                                       <option
                                         key={batch.batchid}
@@ -1784,6 +1982,7 @@ export function EditModal({
                                 >
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                   </label>
                                   <input
                                     type="date"
@@ -1804,6 +2003,7 @@ export function EditModal({
                                 >
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                   </label>
                                   <select
                                     {...register(key)}
@@ -1835,6 +2035,7 @@ export function EditModal({
                                 >
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                   </label>
                                   <textarea
                                     {...register(key)}
@@ -1852,6 +2053,7 @@ export function EditModal({
                               >
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                   {toLabel(key)}
+                                  {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                                 </label>
                                 <input
                                   type="text"
@@ -1873,6 +2075,7 @@ export function EditModal({
                           <div className="flex items-center justify-between">
                             <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                               {toLabel(key)}
+                              {isFieldRequired(toLabel(key), title, isAddMode) && <span className="text-red-700"> *</span>}
                             </label>
                             <button
                               type="button"
@@ -1901,21 +2104,15 @@ export function EditModal({
                                       .__quill;
                                     if (quill) {
                                       quill.focus();
-
                                       const timestampLength = timestamp.length;
-
                                       quill.setSelection(timestampLength, 0);
-
-                                      quill.format("bold", false);
+                                      quill.format('bold', false);
                                       setShouldDisableBold(false);
                                     }
                                   }
                                 }, 150);
                               }}
-                              className="py-1sm:py-1 hover px-2 text-xs font-medium text-black sm:px-2 sm:text-sm 
-                              
-                                        
-                                         "
+                              className="px-2 sm:px-2 py-1 sm:py-1 text-xs sm:text-sm font-medium text-black hover:text-blue-800 hover:underline"
                             >
                               + New Entry
                             </button>
@@ -1935,25 +2132,6 @@ export function EditModal({
                                 setShouldDisableBold(false);
                               }
                             }}
-                            onChangeSelection={(range) => {
-                              if (
-                                shouldDisableBold &&
-                                range &&
-                                range.length === 0
-                              ) {
-                                const editor = document.querySelector(
-                                  ".ql-editor"
-                                ) as any;
-                                if (editor && editor.parentElement) {
-                                  const quill = (editor.parentElement as any)
-                                    .__quill;
-                                  if (quill) {
-                                    quill.format("bold", false);
-                                    setShouldDisableBold(false);
-                                  }
-                                }
-                              }
-                            }}
                             className="bg-white dark:bg-gray-800"
                           />
                         </div>
@@ -1961,15 +2139,14 @@ export function EditModal({
                     </div>
                   </div>
                 )}
+
                 <div className="mt-3 flex justify-end border-t border-blue-200 pt-2 sm:mt-4 sm:pt-3 md:mt-6 md:pt-4">
-                  {!isEmailActivityLogsModal && (
-                    <button
-                      type="submit"
-                      className="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 px-3 py-1.5 text-xs font-medium text-white shadow-md transition hover:from-cyan-600 hover:to-blue-600 sm:px-5 sm:py-2 sm:text-sm"
-                    >
-                      Save Changes
-                    </button>
-                  )}
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 px-3 py-1.5 text-xs font-medium text-white shadow-md transition hover:from-cyan-600 hover:to-blue-600 sm:px-5 sm:py-2 sm:text-sm"
+                  >
+                    {isAddMode ? "Create" : "Save Changes"}
+                  </button>
                 </div>
               </form>
             </div>
