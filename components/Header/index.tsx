@@ -1,14 +1,23 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import ThemeToggler from "./ThemeToggler";
+import { useEffect, useState, memo } from "react";
+import dynamic from 'next/dynamic';
 import menuData from "./menuData";
 import WBLlight from "@/public/images/wbl-light.png";
 import WBLdark from "@/public/images/wbl-dark.png";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/utils/AuthContext";
 
-const Header = ({
+const ThemeToggler = dynamic(() => import("./ThemeToggler"), {
+  ssr: false,
+  loading: () => (
+    <div className="bg-gray-2 dark:bg-dark-bg flex h-9 w-9 items-center justify-center rounded-full md:h-14 md:w-14" />
+  ),
+});
+
+const Header = memo(({
   toggleSidebar,
   isOpen,
 }: {
@@ -26,7 +35,7 @@ const Header = ({
   };
 
   useEffect(() => {
-    window.addEventListener("scroll", handleStickyNavbar);
+    window.addEventListener("scroll", handleStickyNavbar, { passive: true });
     return () => {
       window.removeEventListener("scroll", handleStickyNavbar);
     };
@@ -60,6 +69,7 @@ const Header = ({
           ? "!fixed !z-[9999] !bg-white !bg-opacity-80 shadow-sticky backdrop-blur-sm !transition dark:!bg-primary dark:!bg-opacity-20"
           : "absolute"
       }`}
+      style={{ minHeight: '80px' }}
     >
       <div className="container mt-5">
         <div className="relative -mx-4 flex items-center justify-between">
@@ -72,28 +82,32 @@ const Header = ({
             >
               <Image
                 src={WBLdark}
-                alt="logo"
+                alt="Whitebox Learning Logo"
                 width={50}
                 height={50}
                 className="dark:hidden"
+                priority
+                quality={90}
               />
               <Image
                 src={WBLlight}
-                alt="logo"
+                alt="Whitebox Learning Logo"
                 width={50}
                 height={50}
                 className="hidden dark:block"
+                priority
+                quality={90}
               />
             </Link>
           </div>
 
           <div className="flex w-full items-center justify-between px-4">
-            {/* Mobile Navbar */}
             <div className="">
               <button
                 onClick={navbarToggleHandler}
                 id="navbarToggler"
                 aria-label="Mobile Menu"
+                aria-expanded={navbarOpen}
                 className="absolute right-4 top-1/2 block translate-y-[-50%] rounded-lg px-0 py-1 focus:outline-none lg:hidden"
               >
                 <span
@@ -115,7 +129,7 @@ const Header = ({
 
               <nav
                 id="navbarCollapse"
-                className={`navbar -[.5px] -body-color/50 dark:-body-color/20 lg:-none absolute right-0 z-30 w-[250px] rounded bg-white px-6 py-4 duration-300 dark:bg-dark lg:visible lg:static lg:w-auto lg:!bg-transparent lg:p-0 lg:opacity-100 ${
+                className={`navbar absolute right-0 z-30 w-[250px] rounded bg-white px-6 py-4 duration-300 dark:bg-dark lg:visible lg:static lg:w-auto lg:!bg-transparent lg:p-0 lg:opacity-100 ${
                   navbarOpen
                     ? "visible top-full opacity-100"
                     : "invisible top-[120%] opacity-0"
@@ -140,7 +154,7 @@ const Header = ({
                           >
                             {menuItem.title}
                             <span className="pl-3">
-                              <svg width="15" height="14" viewBox="0 0 15 14">
+                              <svg width="15" height="14" viewBox="0 0 15 14" aria-hidden="true">
                                 <path
                                   d="M7.81602 9.97495C7.68477 9.97495 7.57539 9.9312 7.46602 9.8437L2.43477 4.89995C2.23789 4.70308 2.23789 4.39683 2.43477 4.19995C2.63164 4.00308 2.93789 4.00308 3.13477 4.19995L7.81602 8.77183L12.4973 4.1562C12.6941 3.95933 13.0004 3.95933 13.1973 4.1562C13.3941 4.35308 13.3941 4.65933 13.1973 4.8562L8.16601 9.79995C8.05664 9.90933 7.94727 9.97495 7.81602 9.97495Z"
                                   fill="currentColor"
@@ -172,59 +186,11 @@ const Header = ({
                       )}
                     </li>
                   ))}
-
-                  {isAuthenticated && (
-                    <li className="lg:hidden">
-                      <button
-                        onClick={() => {
-                          closeNavbar();
-                          display_user_dashboard();
-                        }}
-                        className="my-3 block w-full rounded-3xl bg-gradient-to-tl from-indigo-900 to-purple-400 px-3 py-2 text-center text-sm font-bold text-white hover:bg-gradient-to-br sm:text-base"
-                      >
-                        My Profile
-                      </button>
-                    </li>
-                  )}
-
-                  {isAuthenticated ? (
-                    <li className="lg:hidden">
-                      <button
-                        className="my-3 block w-full rounded-3xl bg-gradient-to-tl from-indigo-900 to-purple-400 px-3 py-2 text-center text-sm font-bold text-white hover:bg-gradient-to-br sm:text-base"
-                        onClick={() => {
-                          closeNavbar();
-                          handleLogout();
-                        }}
-                      >
-                        Logout
-                      </button>
-                    </li>
-                  ) : (
-                    <>
-                      <li className="lg:hidden">
-                        <Link
-                          href="/login"
-                          className="my-3 block rounded-3xl bg-gradient-to-tl from-indigo-900 to-purple-400 px-3 py-2 text-center text-sm font-bold text-white hover:bg-gradient-to-br sm:text-base"
-                          onClick={closeNavbar}
-                        >
-                          Login
-                        </Link>
-                      </li>
-                      <li className="lg:hidden">
-                        <Link
-                          href="/signup"
-                          className="block rounded-3xl bg-gradient-to-tl from-indigo-900 to-purple-400 px-3 py-2 text-center text-sm font-bold text-white hover:bg-gradient-to-br sm:text-base"
-                          onClick={closeNavbar}
-                        >
-                          Register
-                        </Link>
-                      </li>
-                    </>
-                  )}
                 </ul>
               </nav>
             </div>
-            {/* Desktop section */}
+
+
             <div className="hidden items-center justify-end pr-16 lg:flex lg:pr-0">
               {isAuthenticated ? (
                 <div className="flex items-center gap-4">
@@ -237,14 +203,13 @@ const Header = ({
                     </Link>
                   )}
 
-                  {
-                    <button
-                      onClick={display_user_dashboard}
-                      className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
-                    >
-                      My Profile
-                    </button>
-                  }
+                  <button
+                    onClick={display_user_dashboard}
+                    className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
+                  >
+                    My Profile
+                  </button>
+
                   <button
                     onClick={handleLogout}
                     className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
@@ -268,14 +233,15 @@ const Header = ({
                   </Link>
                 </>
               )}
+              
               <div className="items-center justify-end pr-12 lg:flex lg:pr-0">
                 <ThemeToggler />
               </div>
             </div>
-            {/* Mobile Right Section - Clean and Non-Overlapping */}
+
+
             <div className="flex w-full items-center justify-end gap-2 pr-3 lg:hidden">
               <div className="no-scrollbar flex items-center gap-2 overflow-x-auto">
-                {/* Avatar Button (Admin only) */}
                 {isAuthenticated && userRole === "admin" && (
                   <Link
                     href="/avatar"
@@ -285,7 +251,6 @@ const Header = ({
                   </Link>
                 )}
 
-                {/* My Profile & Logout Buttons */}
                 {isAuthenticated && (
                   <>
                     <button
@@ -303,18 +268,9 @@ const Header = ({
                   </>
                 )}
 
-                {/* Theme Toggler */}
                 <div className="ml-1">
                   <ThemeToggler />
                 </div>
-
-                {/* Hamburger Menu Button */}
-                <button
-                  onClick={navbarToggleHandler}
-                  id="navbarToggler"
-                  aria-label="Mobile Menu"
-                  className="ml-1 flex flex-col items-center justify-center focus:outline-none"
-                ></button>
               </div>
             </div>
           </div>
@@ -322,6 +278,8 @@ const Header = ({
       </div>
     </header>
   );
-};
+});
+
+Header.displayName = 'Header';
 
 export default Header;
