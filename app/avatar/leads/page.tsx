@@ -1124,9 +1124,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AGGridTable } from "@/components/AGGridTable";
 import { createPortal } from "react-dom";
 import { AgGridReact } from "ag-grid-react";
-import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
+import { cachedApiFetch, cachedApiFetchNoValidation, invalidateCache } from "@/lib/apiCache";
 import { apiFetch, smartUpdate } from "@/lib/api";
-import "@/lib/cacheDebug"; // Initialize debug tools 
 
 
 
@@ -1565,6 +1564,39 @@ export default function LeadsPage() {
 
   const apiEndpoint = useMemo(() => "/leads", []);
 
+  /**
+   * Check server for updates using HEAD request
+   */
+  const checkForUpdates = useCallback(async () => {
+    try {
+      const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+      const url = `${baseUrl}/leads`;
+      
+      const token = typeof window !== "undefined" &&
+        (localStorage.getItem("access_token") ||
+          localStorage.getItem("token") ||
+          localStorage.getItem("auth_token") ||
+          localStorage.getItem("bearer_token") ||
+          null);
+
+      const response = await fetch(url, {
+        method: "HEAD",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+
+      if (response.ok) {
+        const serverLastMod = response.headers.get("Last-Modified");
+        console.log(`[Leads] Server Last-Modified: ${serverLastMod}`);
+        return serverLastMod;
+      }
+    } catch (error) {
+      console.error("[Leads] HEAD check failed:", error);
+    }
+    return null;
+  }, []);
+
     const fetchLeads = useCallback(
     async (
       search?: string,
@@ -1584,9 +1616,7 @@ export default function LeadsPage() {
         const sortParam = sortToApply.map((s) => `${s.colId}:${s.sort}`).join(",");
         params.append("sort", sortParam);
         if (params.toString()) url += `?${params.toString()}`;
-
-        // Use apiFetch directly if forceRefresh, otherwise use cache
-        const data = forceRefresh ? await apiFetch(url) : await cachedApiFetch(url);
+        const data = forceRefresh ? await apiFetch(url) : await cachedApiFetchNoValidation(url);
         const leadsData = Array.isArray(data) ? data : (data?.data || []);
         console.log('[Leads] Fetched data:', leadsData.length, 'leads');
         setLeads(leadsData);
