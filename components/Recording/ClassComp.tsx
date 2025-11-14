@@ -241,7 +241,7 @@ const RecordingComp: React.FC = () => {
               <option value="">Please select a recording...</option>
               {recordings.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {formatVideoTitle(r.description || r.filename)}
+                  {formatVideoTitle(r.description || r.filename )}
                 </option>
               ))}
             </>
