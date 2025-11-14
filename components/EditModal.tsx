@@ -369,6 +369,7 @@ const fieldSections: Record<string, string> = {
   candidate_name: "Basic Information",
   candidate_role: "Basic Information",
   google_voice_number: "Contact Information",
+  linkedin_premium_end_date: "Professional Information",
   dob: "Basic Information",
   contact: "Basic Information",
   password: "Professional Information",
@@ -475,6 +476,7 @@ const labelOverrides: Record<string, string> = {
   candidate_name: "Candidate Name",
   candidate_role: "Candidate Role",
   google_voice_number: "Google Voice Number",
+  linkedin_premium_end_date: "LinkedIn Premium End Date",
   dob: "Date of Birth",
   contact: "Contact",
   password: "Password",
@@ -585,6 +587,7 @@ const dateFields = [
   "interview_date",
   "placement_date",
   "marketing_start_date",
+  "linkedin_premium_end_date",
   "registereddate",
   "extraction_date",
 ];
@@ -609,7 +612,9 @@ export function EditModal({
   } = useForm();
   const [courses, setCourses] = useState<{ id: number; name: string }[]>([]);
   const [subjects, setSubjects] = useState<{ id: number; name: string }[]>([]);
-  const [employees, setEmployees] = useState<{ id: number; name: string }[]>([]);
+  const [employees, setEmployees] = useState<{ id: number; name: string }[]>(
+    []
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [mlBatches, setMlBatches] = useState<Batch[]>([]);
@@ -648,7 +653,8 @@ export function EditModal({
     isInterviewModal ||
     isMarketingModal ||
     isPlacementModal ||
-    isPreparationModal;
+    isPreparationModal ||
+    isEmailActivityLogsModal;
 
   // Add this useEffect - place it with the other useEffect hooks
   useEffect(() => {
@@ -1216,7 +1222,9 @@ export function EditModal({
             </div>
             <div className="bg-white p-3 sm:p-4 md:p-6">
               <form onSubmit={handleSubmit(onSubmit)}>
-                <div className={`grid ${gridColsClass} gap-2.5 sm:gap-3 md:gap-5`}>
+                <div
+                  className={`grid ${gridColsClass} gap-2.5 sm:gap-3 md:gap-5`}
+                >
                   {visibleSections
                     .filter((section) => section !== "Notes")
                     .map((section) => (
@@ -1427,6 +1435,7 @@ export function EditModal({
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                   Instructor 1
                                 </label>
+                                {isMarketingModal || isInterviewModal ? (
                                 {isInterviewModal ? (
                                   <input
                                     type="text"
@@ -1463,6 +1472,7 @@ export function EditModal({
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                   Instructor 2
                                 </label>
+                                {isMarketingModal || isInterviewModal ? (
                                 {isInterviewModal ? (
                                   <input
                                     type="text"
@@ -1499,6 +1509,7 @@ export function EditModal({
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                   Instructor 3
                                 </label>
+                                {isMarketingModal || isInterviewModal ? (
                                 {isInterviewModal ? (
                                   <input
                                     type="text"
@@ -1676,30 +1687,36 @@ export function EditModal({
                               // Handle date fields specially
                               if (dateFields.includes(key.toLowerCase())) {
                                 return (
-                                  <div key={key} className="space-y-1 sm:space-y-1.5">
-                                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                  <div
+                                    key={key}
+                                    className="space-y-1 sm:space-y-1.5"
+                                  >
+                                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                       {toLabel(key)}
                                     </label>
                                     <input
                                       type="text"
                                       value={formData[key] || ""}
                                       readOnly
-                                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
+                                      className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
                                     />
                                   </div>
                                 );
                               }
                               // Handle all other fields
                               return (
-                                <div key={key} className="space-y-1 sm:space-y-1.5">
-                                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                <div
+                                  key={key}
+                                  className="space-y-1 sm:space-y-1.5"
+                                >
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
                                   </label>
                                   <input
                                     type="text"
                                     value={formData[key] || ""}
                                     readOnly
-                                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
+                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
                                   />
                                 </div>
                               );
@@ -2064,7 +2081,10 @@ export function EditModal({
                               type="button"
                               onClick={() => {
                                 const timestamp = `[${new Date().toLocaleString()}]: `;
-                                const existingContent = currentFormValues.notes || formData.notes || "";
+                                const existingContent =
+                                  currentFormValues.notes ||
+                                  formData.notes ||
+                                  "";
                                 const newContent = `<p><strong>${timestamp}</strong></p><p><br></p>${existingContent}`;
 
                                 setValue("notes", newContent);
@@ -2076,9 +2096,12 @@ export function EditModal({
                                 setShouldDisableBold(true);
 
                                 setTimeout(() => {
-                                  const editor = document.querySelector('.ql-editor') as any;
+                                  const editor = document.querySelector(
+                                    ".ql-editor"
+                                  ) as any;
                                   if (editor && editor.parentElement) {
-                                    const quill = (editor.parentElement as any).__quill;
+                                    const quill = (editor.parentElement as any)
+                                      .__quill;
                                     if (quill) {
                                       quill.focus();
                                       const timestampLength = timestamp.length;
