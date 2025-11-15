@@ -414,7 +414,7 @@ export default function CandidatesMarketingPage() {
         filter: true,
         editable: false,
         valueFormatter: (params) => {
-          if (!params.value) return "Not Set";
+          if (!params.value) return "";
           return format(new Date(params.value), "yyyy-MM-dd");
         },
       },

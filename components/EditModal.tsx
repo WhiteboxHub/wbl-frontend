@@ -1435,7 +1435,6 @@ export function EditModal({
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                   Instructor 1
                                 </label>
-                                {isMarketingModal || isInterviewModal ? (
                                 {isInterviewModal ? (
                                   <input
                                     type="text"
@@ -1472,7 +1471,6 @@ export function EditModal({
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                   Instructor 2
                                 </label>
-                                {isMarketingModal || isInterviewModal ? (
                                 {isInterviewModal ? (
                                   <input
                                     type="text"
@@ -1509,7 +1507,6 @@ export function EditModal({
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                   Instructor 3
                                 </label>
-                                {isMarketingModal || isInterviewModal ? (
                                 {isInterviewModal ? (
                                   <input
                                     type="text"
