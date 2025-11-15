@@ -93,17 +93,6 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "green card", label: "Green Card" },
     { value: "h1b", label: "H1B" },
   ],
-  // workstatus: [
-  //   { value: "waiting for status", label: "Waiting for Status" },
-  //   { value: "citizen", label: "Citizen" },
-  //   { value: "f1", label: "F1" },
-  //   { value: "other", label: "Other" },
-  //   { value: "permanent resident", label: "Permanent Resident" },
-  //   { value: "h4", label: "H4" },
-  //   { value: "ead", label: "EAD" },
-  //   { value: "green card", label: "Green Card" },
-  //   { value: "h1b", label: "H1B" },
-  // ],
   visa_status: [
     { value: "waiting for status", label: "Waiting for Status" },
     { value: "citizen", label: "Citizen" },
@@ -208,7 +197,7 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "success", label: "Success" },
     { value: "failed", label: "Failed" },
   ],
-   linkedin_status: [
+  linkedin_status: [
     { value: "idle", label: "Idle" },
     { value: "running", label: "Running" },
     { value: "error", label: "Error" },
@@ -241,17 +230,16 @@ const requiredFieldsConfig: Record<string, string[]> = {
   candidate: ["Phone", "Email", "Full Name", "Date of Birth", "Batch"],
   interviews: ["Candidate Name", "Company", "Interview Date", "Company Type", "Mode of Interview", "Type of Interview"],
   authuser: ["Phone", "Email", "Full Name", "Registered Date", "Passwd"],
-  employee: ["Email", "Full Name","Phone","Date of Birth","Aadhaar"],
+  employee: ["Email", "Full Name", "Phone", "Date of Birth", "Aadhaar"],
 };
 
 // Helper function to check if a field is required based on modal type and mode
 const isFieldRequired = (fieldName: string, modalType: string, isAddMode: boolean): boolean => {
-  if (!isAddMode) return false; // Never show * in edit mode
+  if (!isAddMode) return false;
   
   const modalKey = modalType.toLowerCase();
   const fieldConfigMap: Record<string, string[]> = {};
   
-  // Map modal types to required fields
   Object.entries(requiredFieldsConfig).forEach(([key, fields]) => {
     fields.forEach(field => {
       const normalizedField = field.toLowerCase().replace(/\s+/g, '');
@@ -261,8 +249,6 @@ const isFieldRequired = (fieldName: string, modalType: string, isAddMode: boolea
   });
   
   const normalizedFieldName = fieldName.toLowerCase().replace(/\s+/g, '');
-  
-  // Check if this field is required for the current modal type
   const requiredForModals = fieldConfigMap[normalizedFieldName];
   if (!requiredForModals) return false;
   
@@ -364,8 +350,6 @@ const fieldSections: Record<string, string> = {
   linkedin_connected: "Professional Information",
   intro_email_sent: "Professional Information",
   intro_call: "Professional Information",
-  // recording_link: "Professional Information",
-  moved_to_vendor: "Professional Information",
   phone_number: "Basic Information",
   secondary_phone: "Contact Information",
   last_mod_datetime: "Contact Information",
@@ -385,6 +369,7 @@ const fieldSections: Record<string, string> = {
   candidate_name: "Basic Information",
   candidate_role: "Basic Information",
   google_voice_number: "Contact Information",
+  linkedin_premium_end_date: "Professional Information",
   dob: "Basic Information",
   contact: "Basic Information",
   password: "Professional Information",
@@ -467,7 +452,6 @@ const fieldSections: Record<string, string> = {
   cm_course: "Professional Information",
   cm_subject: "Basic Information",
   material_type: "Basic Information",
-  // transcript: "Professional Information",
 };
 
 // Override field labels for better readability
@@ -492,6 +476,7 @@ const labelOverrides: Record<string, string> = {
   candidate_name: "Candidate Name",
   candidate_role: "Candidate Role",
   google_voice_number: "Google Voice Number",
+  linkedin_premium_end_date: "LinkedIn Premium End Date",
   dob: "Date of Birth",
   contact: "Contact",
   password: "Password",
@@ -602,6 +587,7 @@ const dateFields = [
   "interview_date",
   "placement_date",
   "marketing_start_date",
+  "linkedin_premium_end_date",
   "registereddate",
   "extraction_date",
 ];
@@ -633,8 +619,9 @@ export function EditModal({
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [mlBatches, setMlBatches] = useState<Batch[]>([]);
   const modalRef = useRef<HTMLDivElement>(null);
-  // Add this state near the other useState declarations
   const [marketingCandidates, setMarketingCandidates] = useState<any[]>([]);
+  const [shouldDisableBold, setShouldDisableBold] = useState(false);
+
   // Detect the modal context
   const isCourseMaterialModal =
     title.toLowerCase().includes("course material") ||
@@ -654,9 +641,7 @@ export function EditModal({
   const isLeadModal = title.toLowerCase().includes("lead");
   const isCandidateModal =
     title.toLowerCase().includes("candidate") && !isPreparationModal;
-  
-  // ADD THIS LINE - LinkedIn Activity Log detection
-const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity");
+  const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity");
 
   // Field visibility for current modal
   const showInstructorFields =
@@ -668,7 +653,8 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
     isInterviewModal ||
     isMarketingModal ||
     isPlacementModal ||
-    isPreparationModal;
+    isPreparationModal ||
+    isEmailActivityLogsModal;
 
   // Add this useEffect - place it with the other useEffect hooks
   useEffect(() => {
@@ -753,7 +739,7 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
       }
       setMlBatches(mlBatchesOnly);
     }
-  }, [isOpen, propBatches]);
+  }, [isOpen, propBatches, setValue]);
 
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
@@ -783,7 +769,7 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
     };
   }, [isOpen, onClose]);
 
-  // Fetch courses, subjects, and employees
+// Fetch courses, subjects, and employees
   useEffect(() => {
     const fetchCourses = async () => {
       try {
@@ -791,6 +777,12 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
         const data = res?.data ?? res;
         const sortedCourses = [...data].sort((a: any, b: any) => b.id - a.id);
         let coursesWithOrphans = [...sortedCourses];
+        if (
+          isCourseMaterialModal &&
+          !coursesWithOrphans.some((course) => course.id === 0)
+        ) {
+          coursesWithOrphans.unshift({ id: 0, name: "Fundamentals" });
+        }
         setCourses(coursesWithOrphans);
       } catch (error: any) {
         console.error(
@@ -806,6 +798,12 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
         const data = res?.data ?? res;
         const sortedSubjects = [...data].sort((a: any, b: any) => b.id - a.id);
         let subjectsWithOrphans = [...sortedSubjects];
+        if (
+          isCourseMaterialModal &&
+          !subjectsWithOrphans.some((subject) => subject.id === 0)
+        ) {
+          subjectsWithOrphans.unshift({ id: 0, name: "Basic Fundamentals" });
+        }
         setSubjects(subjectsWithOrphans);
       } catch (error: any) {
         console.error(
@@ -1050,8 +1048,8 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
     }
 
     if (keyLower === "work_status" || keyLower === "workstatus") {
-    return enumOptions.work_status;
-  }
+      return enumOptions.work_status;
+    }
 
     if (isMarketingModal && keyLower === "status")
       return enumOptions.marketing_status;
@@ -1130,9 +1128,9 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
     }
 
     // ADD THIS - Hide Candidate Name for LinkedIn Activity Log
-  if (isLinkedInActivityModal && key.toLowerCase() === "candidate_name") {
-    return;
-  }
+    if (isLinkedInActivityModal && key.toLowerCase() === "candidate_name") {
+      return;
+    }
 
     // Existing filters
     if (isCandidateOrEmployee && key.toLowerCase() === "name") return;
@@ -1224,7 +1222,6 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
             </div>
             <div className="bg-white p-3 sm:p-4 md:p-6">
               <form onSubmit={handleSubmit(onSubmit)}>
-                {/* Add this in the form section - place it right after the opening <form> tag */}
                 <div
                   className={`grid ${gridColsClass} gap-2.5 sm:gap-3 md:gap-5`}
                 >
@@ -1438,7 +1435,7 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                   Instructor 1
                                 </label>
-                                {/* {isMarketingModal || isInterviewModal ? ( */}
+                                {isMarketingModal || isInterviewModal ? (
                                 {isInterviewModal ? (
                                   <input
                                     type="text"
@@ -1475,7 +1472,7 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                   Instructor 2
                                 </label>
-                                {/* {isMarketingModal || isInterviewModal ? ( */}
+                                {isMarketingModal || isInterviewModal ? (
                                 {isInterviewModal ? (
                                   <input
                                     type="text"
@@ -1512,7 +1509,7 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                   Instructor 3
                                 </label>
-                                {/* {isMarketingModal || isInterviewModal ? ( */}
+                                {isMarketingModal || isInterviewModal ? (
                                 {isInterviewModal ? (
                                   <input
                                     type="text"
@@ -1606,8 +1603,7 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                               return null;
                             }
 
-
-                            // ADD THIS CONDITION FOR SUBJECT FIELD (right here)
+                            // ADD THIS CONDITION FOR SUBJECT FIELD
                             if (isSubjectField && isBatchesModal) {
                               return (
                                 <div
@@ -1648,7 +1644,7 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                                 </div>
                               );
                             }
-                            // ADD THIS CONDITION FOR COURSEID FIELD (right here)
+                            // ADD THIS CONDITION FOR COURSEID FIELD
                             if (isCourseIdField && isBatchesModal) {
                               const currentSubject =
                                 currentFormValues.subject ||
@@ -1681,37 +1677,46 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                                     }
                                     readOnly
                                     className="w-full rounded-lg border border-blue-200 bg-gray-50 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
+                                  />
+                                </div>
+                              );
+                            }
 
                             // Make all fields read-only in EmailActivityLog modal
-                            if (isEmailActivityLogsModal) {
+                            if (isEmailActivityLogsModal && !isAddMode) {
                               // Handle date fields specially
                               if (dateFields.includes(key.toLowerCase())) {
                                 return (
-                                  <div key={key} className="space-y-1 sm:space-y-1.5">
-                                    <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                  <div
+                                    key={key}
+                                    className="space-y-1 sm:space-y-1.5"
+                                  >
+                                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                       {toLabel(key)}
                                     </label>
                                     <input
                                       type="text"
                                       value={formData[key] || ""}
                                       readOnly
-                                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
+                                      className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
                                     />
                                   </div>
                                 );
                               }
                               // Handle all other fields
                               return (
-                                <div key={key} className="space-y-1 sm:space-y-1.5">
-                                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                                <div
+                                  key={key}
+                                  className="space-y-1 sm:space-y-1.5"
+                                >
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
                                   </label>
                                   <input
                                     type="text"
                                     value={formData[key] || ""}
                                     readOnly
-                                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed shadow-sm"
-
+                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
                                   />
                                 </div>
                               );
@@ -1956,7 +1961,6 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                                     }
                                     className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
-                                     placeholder="YYYY-MM"
                                     <option value="">Select a batch</option>
                                     {mlBatches.map((batch) => (
                                       <option
@@ -2077,15 +2081,11 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                               type="button"
                               onClick={() => {
                                 const timestamp = `[${new Date().toLocaleString()}]: `;
-                                const newContent = `<p><strong>${timestamp}</strong></p>${
+                                const existingContent =
                                   currentFormValues.notes ||
                                   formData.notes ||
-                                  ""
-                                }`;
-
-                                const existingContent = currentFormValues.notes || formData.notes || "";
+                                  "";
                                 const newContent = `<p><strong>${timestamp}</strong></p><p><br></p>${existingContent}`;
-
 
                                 setValue("notes", newContent);
                                 setFormData((prev) => ({
@@ -2096,41 +2096,23 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                                 setShouldDisableBold(true);
 
                                 setTimeout(() => {
-                                  const quillEditor = document.querySelector(
+                                  const editor = document.querySelector(
                                     ".ql-editor"
-                                  ) as HTMLElement;
-                                  if (quillEditor) {
-                                    quillEditor.focus();
-                                    const range = document.createRange();
-                                    const sel = window.getSelection();
-                                    const firstP =
-                                      quillEditor.querySelector("p");
-                                    if (firstP && firstP.firstChild) {
-                                      range.setStart(firstP, 1);
-                                      range.collapse(true);
-                                      sel?.removeAllRanges();
-                                      sel?.addRange(range);
-
-                                  const editor = document.querySelector('.ql-editor') as any;
+                                  ) as any;
                                   if (editor && editor.parentElement) {
-                                    const quill = (editor.parentElement as any).__quill;
+                                    const quill = (editor.parentElement as any)
+                                      .__quill;
                                     if (quill) {
                                       quill.focus();
-                                      
-                                     const timestampLength = timestamp.length;
-                                      
-                                     quill.setSelection(timestampLength, 0);
-                                      
-                                     quill.format('bold', false);
+                                      const timestampLength = timestamp.length;
+                                      quill.setSelection(timestampLength, 0);
+                                      quill.format('bold', false);
                                       setShouldDisableBold(false);
-
                                     }
                                   }
                                 }, 150);
                               }}
-
-                              className="px-2 py-1 text-sm font-medium text-black hover:text-blue-800 hover:underline sm:px-2 sm:py-1 sm:text-sm"
-                              className="px-2 sm:px-2 py-1sm:py-1 text-xs sm:text-sm font-medium text-black hover                               
+                              className="px-2 sm:px-2 py-1 sm:py-1 text-xs sm:text-sm font-medium text-black hover:text-blue-800 hover:underline"
                             >
                               + New Entry
                             </button>
@@ -2146,24 +2128,9 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                                 ...prev,
                                 notes: content,
                               }));
-
-                              setFormData((prev) => ({ ...prev, notes: content }));
                               if (shouldDisableBold) {
                                 setShouldDisableBold(false);
                               }
-                            }}
-                            onChangeSelection={(range) => {
-                              if (shouldDisableBold && range && range.length === 0) {
-                                const editor = document.querySelector('.ql-editor') as any;
-                                if (editor && editor.parentElement) {
-                                  const quill = (editor.parentElement as any).__quill;
-                                  if (quill) {
-                                    quill.format('bold', false);
-                                    setShouldDisableBold(false);
-                                  }
-                                }
-                              }
-
                             }}
                             className="bg-white dark:bg-gray-800"
                           />
@@ -2180,17 +2147,6 @@ const isLinkedInActivityModal = title.toLowerCase().includes("linkedin activity"
                   >
                     {isAddMode ? "Create" : "Save Changes"}
                   </button>
-
-                <div className="flex justify-end mt-3 sm:mt-4 md:mt-6 pt-2 sm:pt-3 md:pt-4 border-t border-blue-200">
-                  {!isEmailActivityLogsModal && (
-                    <button
-                      type="submit"
-                      className="px-3 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg hover:from-cyan-600 hover:to-blue-600 transition shadow-md"
-                    >
-                      Save Changes
-                    </button>
-                  )}
-
                 </div>
               </form>
             </div>
