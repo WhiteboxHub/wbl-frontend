@@ -1,6 +1,3 @@
-
-
-
 "use client";
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
@@ -156,10 +153,56 @@ export default function VendorContactsGrid() {
         body: processedData,
       });
       toast.success("Contact updated successfully");
+      
       await fetchContacts();
     } catch (error) {
       console.error("Failed to update contact:", error);
       toast.error("Failed to update contact");
+
+      fetchContacts();
+    } catch (err: any) {
+      console.error("Update error:", err);
+      toast.error(err?.message || "Failed to update contact");
+    }
+  }, [fetchContacts]);
+
+  const handleRowAdded = async (newContact: any) => {
+    try {
+      console.log("CREATING NEW VENDOR CONTACT:", newContact);
+      
+      // Send POST request to create new vendor contact
+      const response = await apiFetch("/vendor_contact", {
+        method: "POST",
+        body: JSON.stringify(newContact),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      
+      console.log("VENDOR CONTACT CREATED:", response);
+      
+      // Refresh the contacts list
+      fetchContacts();
+      
+      toast.success("Vendor contact created successfully");
+    } catch (err: any) {
+      console.error("FAILED TO CREATE VENDOR CONTACT:", err);
+      toast.error(err?.message || "Failed to create vendor contact");
+    }
+  };
+
+  // FIXED: Properly defined handleRowDeleted function
+  const handleRowDeleted = useCallback(async (contactId: number | string) => {
+    try {
+      await apiFetch(`/vendor_contact/${contactId}`, {
+        method: "DELETE",
+      });
+      toast.success("Contact deleted successfully");
+      fetchContacts();
+    } catch (err: any) {
+      console.error("Delete error:", err);
+      toast.error(err?.message || "Failed to delete contact");
+
     }
   };
 
@@ -333,6 +376,7 @@ export default function VendorContactsGrid() {
         </Button>
       </div>
 
+
       {/* Search Bar */}
       <div className="relative max-w-md">
         <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -343,6 +387,24 @@ export default function VendorContactsGrid() {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
+
+      {/* Grid */}
+      <div className="flex w-full justify-center">
+        <div className="w-full max-w-7xl">
+          <AGGridTable
+            rowData={filteredContacts}
+            columnDefs={columnDefs}
+            defaultColDef={defaultColDef}
+            loading={loading}
+            height="600px"
+            title={`Vendor Contacts (${filteredContacts.length})`}
+            showSearch={false}
+            onRowAdded={handleRowAdded} 
+            onRowUpdated={handleRowUpdated}
+            onRowDeleted={handleRowDeleted}
+          />
+        </div>
+
       </div>
 
       {/* Data Grid */}

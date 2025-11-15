@@ -173,7 +173,15 @@ export default function EmployeesPage() {
     }
   };
 
+
   // Add Employee (Form)
+
+  const handleCloseEmployeeForm = () => {
+    setShowEmployeeForm(false);
+    reset();
+  };
+
+
   const handleFormSubmit = async (data: EmployeeFormData) => {
     setFormSaveLoading(true);
     try {
@@ -272,10 +280,27 @@ export default function EmployeesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Employee Management</h1>
-          <p className="text-gray-600">Browse, search, and manage employees.</p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Employee Management</h1>
+          <p className="text-gray-600 dark:text-gray-400">Browse, search, and manage employees.</p>
+          <div className="mt-2 sm:mt-0 sm:max-w-md">
+
+            <Label
+              htmlFor="search"
+              className="text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              {/* Search Employees */}
+            </Label>
+
+            {searchTerm && (
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {filteredEmployees.length} result(s) found
+              </p>
+            )}
+
+          </div>
+
         </div>
       </div>
 
@@ -292,6 +317,7 @@ export default function EmployeesPage() {
           />
         </div>
       </div>
+
 
       {/* Table */}
       {loading ? (
