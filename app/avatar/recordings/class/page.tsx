@@ -98,12 +98,26 @@ export default function RecordingsPage() {
         },
       },
       { field: "videoid", headerName: "Video ID", width: 160, editable: true },
+
       {
         field: "classdate",
         headerName: "Class Date",
         width: 180,
-        valueFormatter: (params) => (params.value ? new Date(params.value).toLocaleDateString() : ""),
-      },
+        sortable: true,
+        filter: "agDateColumnFilter",
+        valueGetter: (params) => {
+          return params.data?.entry_date ? new Date(params.data.entry_date) : null;
+        },
+        valueFormatter: (params) => {
+          const value = params.value;
+          if (!value) return "-";
+          return value.toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          });
+        },
+      }
     ],
     []
   );

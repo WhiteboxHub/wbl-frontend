@@ -350,7 +350,25 @@ export default function CandidatesPrepPage() {
         cellRenderer: LinkCellRenderer,
       },
       { field: "resume_url", headerName: "Resume", minWidth: 150, cellRenderer: LinkCellRenderer },
-      { field: "target_date", headerName: "Target Date", minWidth: 150 },
+      {
+        field: "target_date",
+        headerName: "Target Date",
+        width: 180,
+        sortable: true,
+        filter: "agDateColumnFilter",
+        valueGetter: (params) => {
+          return params.data?.entry_date ? new Date(params.data.entry_date) : null;
+        },
+        valueFormatter: (params) => {
+          const value = params.value;
+          if (!value) return "-";
+          return value.toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          });
+        },
+      },
       {
         field: "move_to_mrkt",
         headerName: "Move to Marketing",

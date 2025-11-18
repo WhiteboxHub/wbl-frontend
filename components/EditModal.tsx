@@ -89,7 +89,7 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "other", label: "Other" },
     { value: "permanent resident", label: "Permanent Resident" },
     { value: "h4", label: "H4" },
-    { value: "ead", label: "EAD" },
+    { value: "EAD", label: "EAD" },
     { value: "green card", label: "Green Card" },
     { value: "h1b", label: "H1B" },
   ],
@@ -852,10 +852,10 @@ export function EditModal({
       flattened.visa_status = String(data.visa_status).toLowerCase();
     }
     if (data.workstatus) {
-      flattened.workstatus = String(data.workstatus).toLowerCase();
+      flattened.workstatus = String(data.workstatus);
     }
     if (data.work_status) {
-      flattened.work_status = String(data.work_status).toLowerCase();
+      flattened.work_status = String(data.work_status);
     }
     if (data.type) {
       flattened.material_type = data.type;
