@@ -58,6 +58,7 @@ const workStatusOptions = [
   "Citizen",
   "OPT",
   "CPT",
+  "EAD",
 ];
 
 const cleanPhoneNumber = (phoneNumberString: string): string => {
@@ -84,18 +85,18 @@ const formatPhoneNumber = (phoneNumberString: string): string => {
     }
   }
 
- 
+
   return phoneNumberString;
 };
 
 const formatPhoneInput = (value: string): string => {
   const cleaned = value.replace(/\D/g, "");
-  
+
   if (cleaned.length === 0) return "";
   if (cleaned.length <= 3) return `(${cleaned}`;
   if (cleaned.length <= 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
   if (cleaned.length <= 10) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
- 
+
   return `+1 (${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
 };
 
@@ -120,7 +121,7 @@ const sortLeadsByEntryDate = (leads: Lead[]): Lead[] => {
   return [...leads].sort((a, b) => {
     const dateA = new Date(a.entry_date || 0).getTime();
     const dateB = new Date(b.entry_date || 0).getTime();
-    return dateB - dateA; 
+    return dateB - dateA;
   });
 };
 
@@ -139,7 +140,7 @@ const useSimpleCache = () => {
     maxAge: number = 300000
   ) => {
     const localLeads = await db.leads.toArray();
-    
+
     if (localLeads.length === 0) {
       return false;
     }
@@ -153,9 +154,9 @@ const useSimpleCache = () => {
       }
     }
 
-    const localDataAge = localLeads[0]?.lastSync ? 
+    const localDataAge = localLeads[0]?.lastSync ?
       Date.now() - new Date(localLeads[0].lastSync).getTime() : Infinity;
-    
+
     return localDataAge < 60000;
   };
 
@@ -414,7 +415,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
       window.removeEventListener("scroll", handleScroll, true);
     };
   }, [filterVisible]);
-  
+
   return (
     <div className="relative flex w-full items-center">
       <span className="mr-2 flex-grow">Work Status</span>
@@ -513,12 +514,12 @@ export default function LeadsPage() {
   const [sortModel, setSortModel] = useState([
     { colId: "entry_date", sort: "desc" as "desc" },
   ]);
-  
+
   const [loadingRowId, setLoadingRowId] = useState<number | null>(null);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  
+
   const gridRef = useRef<AgGridReactType<Lead> | null>(null);
   const apiEndpoint = useMemo(() => `${process.env.NEXT_PUBLIC_API_URL}/leads`, []);
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
@@ -552,8 +553,8 @@ export default function LeadsPage() {
     setLoading(true);
     try {
       let localLeads = await db.leads.toArray();
-      
-      
+
+
       if (search && search.trim()) {
         const term = search.trim().toLowerCase();
         localLeads = localLeads.filter((lead) => {
@@ -568,9 +569,9 @@ export default function LeadsPage() {
       const sortedLeads = sortLeadsByEntryDate(localLeads);
       setLeads(sortedLeads);
       setFilteredLeads(sortedLeads);
-      
-      
-      
+
+
+
     } catch (err) {
       console.error('Error loading from IndexedDB:', err);
       setError('Failed to load local data');
@@ -582,23 +583,23 @@ export default function LeadsPage() {
 
   const syncFromAPI = useCallback(async (forceRefresh = false) => {
     if (fetchInProgressRef.current) return;
-    
+
     fetchInProgressRef.current = true;
     setLoading(true);
 
     try {
-      
+
       let url = `leads`;
       const params = new URLSearchParams();
       const sortParam = sortModel.map((s) => `${s.colId}:${s.sort}`).join(",");
       params.append("sort", sortParam);
-      
+
       if (params.toString()) {
         url += `?${params.toString()}`;
       }
 
       const data = await apiFetch(url, { timeout: 10000 });
-      
+
       let leadsData: Lead[] = [];
       if (data.data && Array.isArray(data.data)) {
         leadsData = data.data;
@@ -614,20 +615,20 @@ export default function LeadsPage() {
         lastSync: new Date().toISOString(),
         synced: true
       }));
-      
+
       await db.leads.clear();
       await db.leads.bulkPut(leadsWithSync);
 
-    
+
       const sortedLeadsData = sortLeadsByEntryDate(leadsData);
       setLeads(sortedLeadsData);
       setFilteredLeads(sortedLeadsData);
-      
+
     } catch (err: any) {
       console.error('API sync failed:', err);
-      
+
       await loadLeadsFromIndexedDB();
-      
+
       if (err.name === 'TimeoutError') {
         toast.warning("Server sync timeout - using local data");
       } else if (err.name === 'NetworkError') {
@@ -643,22 +644,22 @@ export default function LeadsPage() {
     }
   }, [sortModel]);
 
- 
+
   useEffect(() => {
     const loadInitialData = async () => {
       if (!isInitialMountRef.current) return;
       isInitialMountRef.current = false;
 
-      
+
       const localLeads = await db.leads.toArray();
-      
+
       if (localLeads.length === 0) {
-        
+
         await syncFromAPI(true);
       } else {
-        
+
         await loadLeadsFromIndexedDB();
-        syncFromAPI(true).catch(() => {  
+        syncFromAPI(true).catch(() => {
         });
       }
     };
@@ -666,7 +667,7 @@ export default function LeadsPage() {
     loadInitialData();
   }, [loadLeadsFromIndexedDB, syncFromAPI]);
 
-  
+
   useEffect(() => {
     const timeoutId = setTimeout(async () => {
       await loadLeadsFromIndexedDB(searchTerm);
@@ -675,10 +676,10 @@ export default function LeadsPage() {
     return () => clearTimeout(timeoutId);
   }, [searchTerm, loadLeadsFromIndexedDB]);
 
- 
+
   useEffect(() => {
-    let filtered = [...leads];  
-    
+    let filtered = [...leads];
+
     if (selectedStatuses.length > 0) {
       filtered = filtered.filter((lead) =>
         selectedStatuses.some(
@@ -699,13 +700,13 @@ export default function LeadsPage() {
     setTotalLeads(filtered.length);
   }, [leads, selectedStatuses, selectedWorkStatuses]);
 
-   useEffect(() => {
+  useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
       syncFromAPI(true).catch(() => {
       });
     };
-    
+
     const handleOffline = () => {
       setIsOnline(false);
       toast.warning("You are now offline. Using local data.");
@@ -730,7 +731,7 @@ export default function LeadsPage() {
     setFormErrors({});
 
     try {
-      const updatedData = { 
+      const updatedData = {
         ...data,
         full_name: toPascalCase(data.full_name),
         phone: cleanPhoneNumber(data.phone),
@@ -749,21 +750,21 @@ export default function LeadsPage() {
         timeout: 10000,
       });
 
-   
-      await db.leads.add({ 
-        ...savedLead, 
+
+      await db.leads.add({
+        ...savedLead,
         synced: true,
         lastSync: new Date().toISOString()
       });
 
-      
+
       await loadLeadsFromIndexedDB(searchTerm);
 
       toast.success("Lead created successfully!");
       handleCloseModal();
     } catch (error: any) {
       console.error("Error creating lead:", error);
-      
+
       if (error.name === 'TimeoutError') {
         toast.error("Server timeout - lead creation failed");
       } else if (error.name === 'NetworkError') {
@@ -797,7 +798,7 @@ export default function LeadsPage() {
           phone: payload.phone ? cleanPhoneNumber(payload.phone) : payload.phone,
           secondary_phone: payload.secondary_phone ? cleanPhoneNumber(payload.secondary_phone) : payload.secondary_phone,
         };
-       
+
         if (processedPayload.moved_to_candidate && processedPayload.status !== "Closed") {
           processedPayload.status = "Closed";
           processedPayload.closed_date = new Date().toISOString().split("T")[0];
@@ -810,27 +811,27 @@ export default function LeadsPage() {
         processedPayload.massemail_unsubscribe = Boolean(processedPayload.massemail_unsubscribe);
         processedPayload.massemail_email_sent = Boolean(processedPayload.massemail_email_sent);
 
-      
+
         const updatedLead = await apiFetch(`leads/${updatedRow.id}`, {
           method: "PUT",
           body: processedPayload,
           timeout: 10000,
         });
 
-      
-        await db.leads.update(updatedRow.id, { 
+
+        await db.leads.update(updatedRow.id, {
           ...updatedLead,
           lastSync: new Date().toISOString(),
           synced: true
         });
 
-       
+
         await loadLeadsFromIndexedDB(searchTerm);
 
         toast.success("Lead updated successfully");
       } catch (err: any) {
         console.error("Error updating lead:", err);
-        
+
         if (err.name === 'TimeoutError') {
           toast.error("Server timeout - update failed");
         } else if (err.name === 'NetworkError') {
@@ -857,13 +858,13 @@ export default function LeadsPage() {
         });
         await db.leads.delete(id);
 
-  
+
         await loadLeadsFromIndexedDB(searchTerm);
 
         toast.success("Lead deleted successfully");
       } catch (error: any) {
         console.error("Error deleting lead:", error);
-        
+
         if (error.name === 'TimeoutError') {
           toast.error("Server timeout - delete failed");
         } else if (error.name === 'NetworkError') {
@@ -945,17 +946,19 @@ export default function LeadsPage() {
         headerName: "Entry Date",
         width: 180,
         sortable: true,
-
         filter: "agDateColumnFilter",
-
-        valueFormatter: ({ value }: ValueFormatterParams) =>
-          value
-            ? new Date(value).toLocaleString("en-US", {
-                year: "numeric",
-                month: "2-digit",
-                day: "2-digit",
-              })
-            : "-",
+        valueGetter: (params) => {
+          return params.data?.entry_date ? new Date(params.data.entry_date) : null;
+        },
+        valueFormatter: (params) => {
+          const value = params.value;
+          if (!value) return "-";
+          return value.toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          });
+        },
       },
       {
         field: "workstatus",
@@ -1028,15 +1031,23 @@ export default function LeadsPage() {
         width: 150,
         sortable: true,
         filter: "agDateColumnFilter",
-
-
-        valueFormatter: ({ value }: ValueFormatterParams) =>
-          value
-            ? new Date(value).toLocaleDateString("en-IN", {
-                timeZone: "Asia/Kolkata",
-              })
-            : "-",
-      },
+        valueGetter: (params) => {
+          // Keep a real Date object for filter/sort
+          return params.data?.closed_date ? new Date(params.data.closed_date) : null;
+        },
+        valueFormatter: (params) => {
+          // Format nicely for display in Indian format
+          const value = params.value;
+          if (!value) return "-";
+          return value.toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            timeZone: "Asia/Kolkata",
+          });
+        },
+      }
+      ,
       {
         field: "notes",
         headerName: "Notes",
@@ -1092,6 +1103,7 @@ export default function LeadsPage() {
     [selectedStatuses, selectedWorkStatuses]
   );
 
+
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center h-64 p-4">
@@ -1114,7 +1126,7 @@ export default function LeadsPage() {
   return (
     <div className="space-y-6 p-4">
       <Toaster position="top-center" />
-      
+
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div className="flex-1">
@@ -1194,10 +1206,10 @@ export default function LeadsPage() {
           loading={loading}
           showFilters={true}
           showSearch={false}
-          
+
           height="600px"
           title={`Leads (${filteredLeads.length})`}
-          
+
         />
       </div>
 

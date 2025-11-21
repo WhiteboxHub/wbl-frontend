@@ -615,6 +615,7 @@ const SignupPage = () => {
                         <option value="OPT">OPT</option>
                         <option value="Green Card">Green Card</option>
                         <option value="Citizen">Citizen</option>
+                        <option value="EAD">EAD</option>
                         <option value="Other">Other</option>
                       </select>
                     </div>
