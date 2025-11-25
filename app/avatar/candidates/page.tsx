@@ -125,7 +125,6 @@ const cleanPhoneNumber = (phoneNumberString: string): string => {
 
 const formatPhoneNumber = (phoneNumberString: string): string => {
   if (!phoneNumberString) return "";
-
   const cleaned = cleanPhoneNumber(phoneNumberString);
 
   if (cleaned.length === 11 && cleaned.startsWith("1")) {
@@ -142,19 +141,17 @@ const formatPhoneNumber = (phoneNumberString: string): string => {
     }
   }
 
-
   return phoneNumberString;
 };
 
 const formatPhoneInput = (value: string): string => {
   const cleaned = value.replace(/\D/g, "");
-  
   if (cleaned.length === 0) return "";
   if (cleaned.length <= 3) return `(${cleaned}`;
-  if (cleaned.length <= 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
-  if (cleaned.length <= 10) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
-  
-
+  if (cleaned.length <= 6)
+    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
+  if (cleaned.length <= 10)
+    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
   return `+1 (${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
 };
 
@@ -263,7 +260,9 @@ const FilterHeaderComponent = ({
     const value = getOptionValue(item);
     setSelectedItems((prev: any[]) => {
       const isSelected = prev.some((i) => getOptionValue(i) === value);
-      return isSelected ? prev.filter((i) => getOptionValue(i) !== value) : [...prev, item];
+      return isSelected
+        ? prev.filter((i) => getOptionValue(i) !== value)
+        : [...prev, item];
     });
   };
 
@@ -291,6 +290,7 @@ const FilterHeaderComponent = ({
 
   const isAllSelected = selectedItems.length === options.length && options.length > 0;
   const isIndeterminate = selectedItems.length > 0 && selectedItems.length < options.length;
+  
   const colorMap: Record<string, string> = {
     blue: "bg-blue-500",
     green: "bg-green-500",
@@ -334,7 +334,12 @@ const FilterHeaderComponent = ({
           ref={filterButtonRef}
           className="ag-header-icon ag-header-label-icon"
           onClick={toggleFilter}
-          style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", marginLeft: "4px" }}
+          style={{
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            marginLeft: "4px",
+          }}
         >
           {selectedItems.length > 0 && (
             <span
@@ -367,7 +372,13 @@ const FilterHeaderComponent = ({
           <div
             ref={dropdownRef}
             className="filter-dropdown pointer-events-auto fixed flex w-56 flex-col space-y-2 rounded-lg border bg-white p-3 text-sm shadow-xl dark:border-gray-600 dark:bg-gray-800"
-            style={{ top: dropdownPos.top + 5, left: dropdownPos.left, zIndex: 99999, maxHeight: "300px", overflowY: "auto" }}
+            style={{
+              top: dropdownPos.top + 5,
+              left: dropdownPos.left,
+              zIndex: 99999,
+              maxHeight: "300px",
+              overflowY: "auto",
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-2 border-b pb-2">
@@ -446,6 +457,8 @@ export default function CandidatesPage() {
   const [allBatches, setAllBatches] = useState<Batch[]>([]);
   const [mlBatches, setMlBatches] = useState<Batch[]>([]);
   const [batchesLoading, setBatchesLoading] = useState(true);
+  
+  // Filter states
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
   const [selectedBatches, setSelectedBatches] = useState<Batch[]>([]);
@@ -484,24 +497,51 @@ export default function CandidatesPage() {
     }
   }, [emergContactNameValue, setValue]);
 
-  const gridOptions = useMemo(
-    () => ({
-      defaultColDef: {
-        filter: "agTextColumnFilter",
-        sortable: true,
-        resizable: true,
-      },
-      suppressRowClickSelection: true,
-      rowSelection: "single",
-      onSortChanged: () => {
-        if (gridRef.current && gridRef.current.api) {
-          const sortModel = gridRef.current.api.getSortModel();
-          setSortModel(sortModel);
-        }
-      },
-    }),
-    []
-  );
+  // ============================================
+  // KEY CHANGE: Filter candidates using useMemo
+  // ============================================
+  const filteredCandidates = useMemo(() => {
+    let filtered = candidates;
+
+    // Filter by status
+    if (selectedStatuses.length > 0) {
+      filtered = filtered.filter((candidate) => {
+        const candidateStatus = (candidate.status || "").toLowerCase();
+        return selectedStatuses.some(
+          (status) => status.toLowerCase() === candidateStatus
+        );
+      });
+    }
+
+    // Filter by work status
+    if (selectedWorkStatuses.length > 0) {
+      filtered = filtered.filter((candidate) => {
+        const candidateWorkStatus = (candidate.workstatus || "").toLowerCase();
+        return selectedWorkStatuses.some(
+          (ws) => ws.toLowerCase() === candidateWorkStatus
+        );
+      });
+    }
+
+    // Filter by batch
+    if (selectedBatches.length > 0) {
+      filtered = filtered.filter((candidate) => {
+        return selectedBatches.some(
+          (batch) => batch.batchid === candidate.batchid
+        );
+      });
+    }
+
+    return filtered;
+  }, [candidates, selectedStatuses, selectedWorkStatuses, selectedBatches]);
+
+  // Calculate counts for display
+  const displayCount = filteredCandidates.length;
+  const totalCount = candidates.length;
+  const hasActiveFilters =
+    selectedStatuses.length > 0 ||
+    selectedWorkStatuses.length > 0 ||
+    selectedBatches.length > 0;
 
   const columnDefs: ColDef<any, any>[] = useMemo(
     () => [
@@ -547,9 +587,7 @@ export default function CandidatesPage() {
             </a>
           );
         },
-        valueParser: (params) => {
-          return cleanPhoneNumber(params.newValue);
-        },
+        valueParser: (params) => cleanPhoneNumber(params.newValue),
       },
       {
         field: "email",
@@ -576,7 +614,7 @@ export default function CandidatesPage() {
         headerName: "Batch",
         width: 140,
         sortable: true,
-        filter: true,
+        filter: false, // CHANGED: Disabled AG Grid's built-in filter
         suppressHeaderMenuButton: true,
         valueGetter: (params) => {
           const batch = params.data?.batch;
@@ -587,14 +625,6 @@ export default function CandidatesPage() {
           if (valueA === "N/A") return 1;
           if (valueB === "N/A") return -1;
           return valueA.localeCompare(valueB);
-        },
-        filterParams: {
-          doesFilterPass: (params: any) => {
-            if (selectedBatches.length === 0) return true;
-            return selectedBatches.some((batch) => batch.batchid === params.data.batchid);
-          },
-          filterOptions: ["custom"],
-          suppressAndOrCondition: true,
         },
         cellRenderer: (params: any) => {
           const batch = params.data?.batch;
@@ -618,28 +648,17 @@ export default function CandidatesPage() {
         headerName: "Status",
         width: 120,
         sortable: true,
-        filter: true,
+        filter: false, // CHANGED: Disabled AG Grid's built-in filter
         suppressHeaderMenuButton: true,
         valueGetter: (params) => params.data?.status || "",
         comparator: (valueA, valueB) => {
           const order = ["active", "break", "discontinued", "closed"];
           const indexA = order.indexOf(valueA.toLowerCase());
           const indexB = order.indexOf(valueB.toLowerCase());
-
           if (indexA === -1 && indexB === -1) return valueA.localeCompare(valueB);
           if (indexA === -1) return 1;
           if (indexB === -1) return -1;
-
           return indexA - indexB;
-        },
-        filterParams: {
-          doesFilterPass: (params: any) => {
-            if (selectedStatuses.length === 0) return true;
-            const candidateStatus = (params.data.status || "").toLowerCase();
-            return selectedStatuses.some((status) => status.toLowerCase() === candidateStatus);
-          },
-          filterOptions: ["custom"],
-          suppressAndOrCondition: true,
         },
         cellRenderer: StatusRenderer,
         headerComponent: FilterHeaderComponent,
@@ -650,9 +669,9 @@ export default function CandidatesPage() {
           label: "Status",
           displayName: "Status",
           color: "blue",
-          renderOption: (option) => <StatusRenderer value={option} />,
-          getOptionValue: (option) => option,
-          getOptionKey: (option) => option,
+          renderOption: (option: string) => <StatusRenderer value={option} />,
+          getOptionValue: (option: string) => option,
+          getOptionKey: (option: string) => option,
         },
       },
       {
@@ -660,28 +679,17 @@ export default function CandidatesPage() {
         headerName: "Work Status",
         width: 150,
         sortable: true,
-        filter: true,
+        filter: false, // CHANGED: Disabled AG Grid's built-in filter
         suppressHeaderMenuButton: true,
         valueGetter: (params) => params.data?.workstatus || "",
         comparator: (valueA, valueB) => {
           const order = ["waiting for status", "citizen", "permanent resident", "ead", "visa"];
           const indexA = order.indexOf(valueA.toLowerCase());
           const indexB = order.indexOf(valueB.toLowerCase());
-
           if (indexA === -1 && indexB === -1) return valueA.localeCompare(valueB);
           if (indexA === -1) return 1;
           if (indexB === -1) return -1;
-
           return indexA - indexB;
-        },
-        filterParams: {
-          doesFilterPass: (params: any) => {
-            if (selectedWorkStatuses.length === 0) return true;
-            const candidateWorkStatus = (params.data.workstatus || "").toLowerCase();
-            return selectedWorkStatuses.some((ws) => ws.toLowerCase() === candidateWorkStatus);
-          },
-          filterOptions: ["custom"],
-          suppressAndOrCondition: true,
         },
         cellRenderer: WorkStatusRenderer,
         headerComponent: FilterHeaderComponent,
@@ -692,9 +700,9 @@ export default function CandidatesPage() {
           label: "Work Status",
           displayName: "Work Status",
           color: "green",
-          renderOption: (option) => option,
-          getOptionValue: (option) => option,
-          getOptionKey: (option) => option,
+          renderOption: (option: string) => option,
+          getOptionValue: (option: string) => option,
+          getOptionKey: (option: string) => option,
         },
       },
       {
@@ -772,9 +780,7 @@ export default function CandidatesPage() {
             </a>
           );
         },
-        valueParser: (params) => {
-          return cleanPhoneNumber(params.newValue);
-        },
+        valueParser: (params) => cleanPhoneNumber(params.newValue),
       },
       {
         field: "address",
@@ -792,7 +798,10 @@ export default function CandidatesPage() {
         cellRenderer: (params: any) => {
           if (!params.value) return "";
           const url = params.value.trim();
-          const href = url.startsWith("http://") || url.startsWith("https://") ? url : `https://linkedin.com/in/${url}`;
+          const href =
+            url.startsWith("http://") || url.startsWith("https://")
+              ? url
+              : `https://linkedin.com/in/${url}`;
           return (
             <a
               href={href}
@@ -874,9 +883,7 @@ export default function CandidatesPage() {
             </a>
           );
         },
-        valueParser: (params) => {
-          return cleanPhoneNumber(params.newValue);
-        },
+        valueParser: (params) => cleanPhoneNumber(params.newValue),
       },
       {
         field: "emergcontactaddrs",
@@ -892,7 +899,8 @@ export default function CandidatesPage() {
         sortable: true,
         filter: "agTextColumnFilter",
         cellClass: (params) => (params.value && params.value > 0 ? "text-green-500" : ""),
-        valueFormatter: ({ value }: ValueFormatterParams) => (value != null ? `$${Number(value).toLocaleString()}` : ""),
+        valueFormatter: ({ value }: ValueFormatterParams) =>
+          value != null ? `$${Number(value).toLocaleString()}` : "",
         cellStyle: { textAlign: "right" },
       },
       {
@@ -903,7 +911,10 @@ export default function CandidatesPage() {
         cellRenderer: (params: any) => {
           if (!params.value) return "";
           return (
-            <div className="prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: params.value }} />
+            <div
+              className="prose prose-sm dark:prose-invert max-w-none"
+              dangerouslySetInnerHTML={{ __html: params.value }}
+            />
           );
         },
       },
@@ -932,16 +943,29 @@ export default function CandidatesPage() {
     [selectedStatuses, selectedWorkStatuses, selectedBatches, mlBatches]
   );
 
+  const gridOptions = useMemo(
+    () => ({
+      defaultColDef: {
+        filter: "agTextColumnFilter",
+        sortable: true,
+        resizable: true,
+      },
+      suppressRowClickSelection: true,
+      rowSelection: "single",
+      onSortChanged: () => {
+        if (gridRef.current && gridRef.current.api) {
+          const sortModel = gridRef.current.api.getSortModel();
+          setSortModel(sortModel);
+        }
+      },
+    }),
+    []
+  );
+
   useEffect(() => {
     const newCandidateParam = searchParams.get("newcandidate") === "true";
     setIsModalOpen(newCandidateParam);
   }, [searchParams]);
-
-  useEffect(() => {
-    if (gridRef.current && gridRef.current.api) {
-      gridRef.current.api.onFilterChanged();
-    }
-  }, [selectedStatuses, selectedWorkStatuses, selectedBatches]);
 
   useEffect(() => {
     const fetchBatches = async () => {
@@ -949,7 +973,9 @@ export default function CandidatesPage() {
       try {
         const res = await api.get("/batch");
         const rawBatches = res.data?.data ?? res.data;
-        const sortedAllBatches = [...(rawBatches || [])].sort((a: Batch, b: Batch) => b.batchid - a.batchid);
+        const sortedAllBatches = [...(rawBatches || [])].sort(
+          (a: Batch, b: Batch) => b.batchid - a.batchid
+        );
         setAllBatches(sortedAllBatches);
         let mlBatchesOnly = sortedAllBatches.filter((batch) => {
           const subject = (batch.subject || "").toLowerCase();
@@ -1016,7 +1042,8 @@ export default function CandidatesPage() {
         if (search && search.trim()) {
           url += `&search=${encodeURIComponent(search.trim())}&search_by=${searchBy}`;
         }
-        const sortToApply = sort && sort.length > 0 ? sort : [{ colId: "enrolled_date", sort: "desc" }];
+        const sortToApply =
+          sort && sort.length > 0 ? sort : [{ colId: "enrolled_date", sort: "desc" }];
         const sortParam = sortToApply.map((s) => `${s.colId}:${s.sort}`).join(",");
         url += `&sort=${encodeURIComponent(sortParam)}`;
         if (Object.keys(filters).length > 0) {
@@ -1032,7 +1059,8 @@ export default function CandidatesPage() {
           setCandidates(dataArray);
         }
       } catch (err: any) {
-        const message = err?.response?.data?.message || err?.message || "Failed to load candidates";
+        const message =
+          err?.response?.data?.message || err?.message || "Failed to load candidates";
         setError(message);
         toast.error(message);
         console.error("fetchCandidates error ->", err);
@@ -1075,7 +1103,8 @@ export default function CandidatesPage() {
       handleCloseModal();
       fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
     } catch (error: any) {
-      const message = error?.response?.data?.message || error?.message || "Failed to create candidate";
+      const message =
+        error?.response?.data?.message || error?.message || "Failed to create candidate";
       toast.error("Failed to create candidate: " + message);
       console.error("Error creating candidate:", error);
     }
@@ -1103,10 +1132,16 @@ export default function CandidatesPage() {
         const updatedData = {
           ...updatedRow,
           full_name: updatedRow.full_name ? toPascalCase(updatedRow.full_name) : updatedRow.full_name,
-          emergcontactname: updatedRow.emergcontactname ? toPascalCase(updatedRow.emergcontactname) : updatedRow.emergcontactname,
+          emergcontactname: updatedRow.emergcontactname
+            ? toPascalCase(updatedRow.emergcontactname)
+            : updatedRow.emergcontactname,
           phone: updatedRow.phone ? cleanPhoneNumber(updatedRow.phone) : updatedRow.phone,
-          secondaryphone: updatedRow.secondaryphone ? cleanPhoneNumber(updatedRow.secondaryphone) : updatedRow.secondaryphone,
-          emergcontactphone: updatedRow.emergcontactphone ? cleanPhoneNumber(updatedRow.emergcontactphone) : updatedRow.emergcontactphone,
+          secondaryphone: updatedRow.secondaryphone
+            ? cleanPhoneNumber(updatedRow.secondaryphone)
+            : updatedRow.secondaryphone,
+          emergcontactphone: updatedRow.emergcontactphone
+            ? cleanPhoneNumber(updatedRow.emergcontactphone)
+            : updatedRow.emergcontactphone,
           enrolled_date: updatedRow.enrolled_date || new Date().toISOString().split("T")[0],
         };
         if (!updatedData.status || updatedData.status === "") {
@@ -1114,7 +1149,11 @@ export default function CandidatesPage() {
         }
         const { id, ...payload } = updatedData;
         await api.put(`${apiPath}/${updatedRow.id}`, payload);
-        setCandidates((prevCandidates) => prevCandidates.map((candidate) => (candidate.id === updatedRow.id ? updatedData : candidate)));
+        setCandidates((prevCandidates) =>
+          prevCandidates.map((candidate) =>
+            candidate.id === updatedRow.id ? updatedData : candidate
+          )
+        );
         if (gridRef.current) {
           const rowNode = gridRef.current.api.getRowNode(updatedRow.id.toString());
           if (rowNode) {
@@ -1140,7 +1179,9 @@ export default function CandidatesPage() {
     async (id: number) => {
       try {
         await api.delete(`${apiPath}/${id}`);
-        setCandidates((prevCandidates) => prevCandidates.filter((candidate) => candidate.id !== id));
+        setCandidates((prevCandidates) =>
+          prevCandidates.filter((candidate) => candidate.id !== id)
+        );
         if (gridRef.current) {
           gridRef.current.api.applyTransaction({ remove: [{ id }] });
         }
@@ -1152,6 +1193,12 @@ export default function CandidatesPage() {
     },
     [apiPath]
   );
+
+  const clearAllFilters = () => {
+    setSelectedStatuses([]);
+    setSelectedWorkStatuses([]);
+    setSelectedBatches([]);
+  };
 
   if (error) {
     return (
@@ -1195,9 +1242,14 @@ export default function CandidatesPage() {
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Candidates Management</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            Candidates Management
+          </h1>
           <div className="mt-2 sm:mt-0 sm:max-w-md">
-            <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <Label
+              htmlFor="search"
+              className="text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
               Search Candidates
             </Label>
             <div className="relative mt-1">
@@ -1212,24 +1264,23 @@ export default function CandidatesPage() {
                 className="w-full pl-10 text-sm sm:text-base"
               />
             </div>
-            {searchTerm && <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{candidates.length} candidates found</p>}
+            {(searchTerm || hasActiveFilters) && (
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {hasActiveFilters
+                  ? `${displayCount} of ${totalCount} candidates shown (filtered)`
+                  : `${displayCount} candidates found`}
+              </p>
+            )}
           </div>
-        </div>
-        <div className="mt-2 flex flex-row items-center gap-2 sm:mt-0">
-          <Button onClick={handleOpenModal} className="whitespace-nowrap bg-green-600 text-white hover:bg-green-700">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add New Candidate
-          </Button>
         </div>
       </div>
 
       <div className="flex w-full justify-center">
+       
         <AGGridTable
-          key={`${candidates.length}-${selectedStatuses.join(",")}-${selectedWorkStatuses.join(",")}-${selectedBatches
-            .map((b) => b.batchid)
-            .join(",")}`}
-          rowData={loading ? undefined : candidates}
-          title={`Candidates (${candidates.length})`}
+          key={`grid-${selectedStatuses.join(",")}-${selectedWorkStatuses.join(",")}-${selectedBatches.map((b) => b.batchid).join(",")}`}
+          rowData={loading ? undefined : filteredCandidates}
+          title={`Candidates (${displayCount}${hasActiveFilters ? ` of ${totalCount}` : ""})`}
           columnDefs={columnDefs}
           onRowAdded={async (newRow: any) => {
             try {
@@ -1281,11 +1332,13 @@ export default function CandidatesPage() {
           loading={loading}
           height="600px"
           gridOptions={gridOptions}
-          
-          overlayNoRowsTemplate={loading ? "" : '<span class="ag-overlay-no-rows-center">No candidates found</span>'}
+          overlayNoRowsTemplate={
+            loading ? "" : '<span class="ag-overlay-no-rows-center">No candidates found</span>'
+          }
         />
       </div>
 
+      {/* Add New Candidate Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 p-2 sm:p-4">
           <div className="w-full max-w-6xl rounded-xl bg-white shadow-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto">
@@ -1318,8 +1371,11 @@ export default function CandidatesPage() {
                       placeholder="Enter full name"
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
-                    {errors.full_name && <p className="mt-1 text-xs text-red-600">{errors.full_name.message}</p>}
+                    {errors.full_name && (
+                      <p className="mt-1 text-xs text-red-600">{errors.full_name.message}</p>
+                    )}
                   </div>
+
                   {/* Email */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">
@@ -1334,8 +1390,11 @@ export default function CandidatesPage() {
                       placeholder="Enter email"
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
-                    {errors.email && <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>}
+                    {errors.email && (
+                      <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>
+                    )}
                   </div>
+
                   {/* Phone */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">
@@ -1348,14 +1407,17 @@ export default function CandidatesPage() {
                         validate: (value) => {
                           const cleaned = cleanPhoneNumber(value);
                           return cleaned.length >= 10 || "Phone number must be at least 10 digits";
-                        }
+                        },
                       })}
                       onInput={handlePhoneInput}
                       placeholder="(555) 123-4567"
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
-                    {errors.phone && <p className="mt-1 text-xs text-red-600">{errors.phone.message}</p>}
+                    {errors.phone && (
+                      <p className="mt-1 text-xs text-red-600">{errors.phone.message}</p>
+                    )}
                   </div>
+
                   {/* Date of Birth */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">
@@ -1366,8 +1428,11 @@ export default function CandidatesPage() {
                       {...register("dob", { required: "Date of birth is required" })}
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
-                    {errors.dob && <p className="mt-1 text-xs text-red-600">{errors.dob.message}</p>}
+                    {errors.dob && (
+                      <p className="mt-1 text-xs text-red-600">{errors.dob.message}</p>
+                    )}
                   </div>
+
                   {/* Batch */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">
@@ -1391,8 +1456,11 @@ export default function CandidatesPage() {
                         ))}
                       </select>
                     )}
-                    {errors.batchid && <p className="mt-1 text-xs text-red-600">{errors.batchid.message}</p>}
+                    {errors.batchid && (
+                      <p className="mt-1 text-xs text-red-600">{errors.batchid.message}</p>
+                    )}
                   </div>
+
                   {/* Status */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">Status</label>
@@ -1407,6 +1475,7 @@ export default function CandidatesPage() {
                       ))}
                     </select>
                   </div>
+
                   {/* Work Status */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">Work Status</label>
@@ -1421,6 +1490,7 @@ export default function CandidatesPage() {
                       ))}
                     </select>
                   </div>
+
                   {/* Education */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">Education</label>
@@ -1431,6 +1501,7 @@ export default function CandidatesPage() {
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                   </div>
+
                   {/* Work Experience */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">Work Experience</label>
@@ -1441,6 +1512,7 @@ export default function CandidatesPage() {
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                   </div>
+
                   {/* SSN */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">SSN</label>
@@ -1451,6 +1523,7 @@ export default function CandidatesPage() {
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                   </div>
+
                   {/* Agreement */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">Agreement</label>
@@ -1462,6 +1535,7 @@ export default function CandidatesPage() {
                       <option value="N">No</option>
                     </select>
                   </div>
+
                   {/* Secondary Email */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">Secondary Email</label>
@@ -1472,6 +1546,7 @@ export default function CandidatesPage() {
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                   </div>
+
                   {/* Secondary Phone */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">Secondary Phone</label>
@@ -1483,6 +1558,7 @@ export default function CandidatesPage() {
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                   </div>
+
                   {/* LinkedIn ID */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">LinkedIn ID</label>
@@ -1493,7 +1569,8 @@ export default function CandidatesPage() {
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                   </div>
-                  
+
+                  {/* Fee Paid */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">Fee Paid ($)</label>
                     <input
@@ -1505,9 +1582,12 @@ export default function CandidatesPage() {
                       placeholder="0"
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
-                    {errors.fee_paid && <p className="mt-1 text-xs text-red-600">{errors.fee_paid.message}</p>}
+                    {errors.fee_paid && (
+                      <p className="mt-1 text-xs text-red-600">{errors.fee_paid.message}</p>
+                    )}
                   </div>
-                  
+
+                  {/* Enrolled Date */}
                   <div className="space-y-1 sm:space-y-1.5">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">Enrolled Date</label>
                     <input
@@ -1516,10 +1596,13 @@ export default function CandidatesPage() {
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                   </div>
-                  
+
+                  {/* Emergency Contact Section */}
                   <div className="grid grid-cols-1 gap-2 md:grid-cols-4 lg:col-span-4">
                     <div className="space-y-1 sm:space-y-1.5">
-                      <label className="block text-xs font-bold text-blue-700 sm:text-sm">Emergency Contact Name</label>
+                      <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                        Emergency Contact Name
+                      </label>
                       <input
                         type="text"
                         {...register("emergcontactname")}
@@ -1528,7 +1611,9 @@ export default function CandidatesPage() {
                       />
                     </div>
                     <div className="space-y-1 sm:space-y-1.5">
-                      <label className="block text-xs font-bold text-blue-700 sm:text-sm">Emergency Contact Email</label>
+                      <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                        Emergency Contact Email
+                      </label>
                       <input
                         type="email"
                         {...register("emergcontactemail")}
@@ -1537,21 +1622,25 @@ export default function CandidatesPage() {
                       />
                     </div>
                     <div className="space-y-1 sm:space-y-1.5">
-                      <label className="block text-xs font-bold text-blue-700 sm:text-sm">Emergency Contact Phone</label>
+                      <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                        Emergency Contact Phone
+                      </label>
                       <input
                         type="tel"
                         {...register("emergcontactphone", {
                           validate: (value) => {
-                            if (!value) return true; 
+                            if (!value) return true;
                             const cleaned = cleanPhoneNumber(value);
                             return cleaned.length >= 10 || "Phone number must be at least 10 digits";
-                          }
+                          },
                         })}
                         onInput={handlePhoneInput}
                         placeholder="(555) 123-4567"
                         className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                       />
-                      {errors.emergcontactphone && <p className="mt-1 text-xs text-red-600">{errors.emergcontactphone.message}</p>}
+                      {errors.emergcontactphone && (
+                        <p className="mt-1 text-xs text-red-600">{errors.emergcontactphone.message}</p>
+                      )}
                     </div>
                     <div className="space-y-1 sm:space-y-1.5">
                       <label className="block text-xs font-bold text-blue-700 sm:text-sm">Candidate Folder</label>
@@ -1563,7 +1652,8 @@ export default function CandidatesPage() {
                       />
                     </div>
                   </div>
-                
+
+                  {/* Address */}
                   <div className="space-y-1 sm:space-y-1.5 lg:col-span-2">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">Address</label>
                     <input
@@ -1573,9 +1663,12 @@ export default function CandidatesPage() {
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                   </div>
-                  
+
+                  {/* Emergency Contact Address */}
                   <div className="space-y-1 sm:space-y-1.5 lg:col-span-2">
-                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">Emergency Contact Address</label>
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                      Emergency Contact Address
+                    </label>
                     <input
                       type="text"
                       {...register("emergcontactaddrs")}
@@ -1583,6 +1676,8 @@ export default function CandidatesPage() {
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                   </div>
+
+                  {/* Notes */}
                   <div className="space-y-1 sm:space-y-1.5 lg:col-span-4">
                     <label className="block text-xs font-bold text-blue-700 sm:text-sm">Notes</label>
                     <textarea
@@ -1592,6 +1687,8 @@ export default function CandidatesPage() {
                     />
                   </div>
                 </div>
+
+                {/* Form Actions */}
                 <div className="mt-3 flex justify-end gap-2 border-t border-blue-200 pt-2 sm:mt-4 sm:gap-3 sm:pt-3 md:mt-6 md:pt-4">
                   <button
                     type="button"

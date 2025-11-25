@@ -247,6 +247,8 @@ export default function CandidateDashboard() {
     }
   };
 
+
+  // Update the loadSessions function in your React component
   const loadDashboard = async (retryCount = 0) => {
     try {
       setLoading(true);
@@ -929,3 +931,6 @@ const PhaseCard = ({
     </div>
   );
 };
+
+
+
