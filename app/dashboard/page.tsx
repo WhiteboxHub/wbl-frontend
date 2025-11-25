@@ -1,6 +1,4 @@
 
-
-
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -260,6 +258,7 @@ export default function CandidateDashboard() {
       }
 
       const profileData = await loadUserProfile();
+
       const id = await getCandidateId();
       setCandidateId(id);
 

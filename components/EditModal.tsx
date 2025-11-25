@@ -90,7 +90,6 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "permanent resident", label: "Permanent Resident" },
     { value: "h4", label: "H4" },
     { value: "EAD", label: "EAD" },
-    { value: "EAD", label: "EAD" },
     { value: "green card", label: "Green Card" },
     { value: "h1b", label: "H1B" },
   ],
