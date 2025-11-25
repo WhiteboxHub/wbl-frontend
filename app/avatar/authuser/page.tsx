@@ -253,11 +253,24 @@ export default function AuthUsersPage() {
     { field: "city", headerName: "City", width: 140, editable: true, cellEditor: 'agTextCellEditor' },
     { field: "country", headerName: "Country", width: 140, editable: true, cellEditor: 'agTextCellEditor' },
     {
-      field: "registereddate",
-      headerName: "Registered Date",
-      width: 180,
-      valueFormatter: (params) => params.value ? new Date(params.value).toLocaleDateString() : "",
-    },
+        field: "registereddate",
+        headerName: "Registered Date",
+        width: 180,
+        sortable: true,
+        filter: "agDateColumnFilter",
+        valueGetter: (params) => {
+          return params.data?.entry_date ? new Date(params.data.entry_date) : null;
+        },
+        valueFormatter: (params) => {
+          const value = params.value;
+          if (!value) return "-";
+          return value.toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          });
+        },
+      },
     { field: "googleId", headerName: "Google ID", width: 220, editable: false },
     { field: "team", headerName: "Team", width: 180, editable: true, cellEditor: 'agTextCellEditor' },
     { field: "message", headerName: "Message", width: 250, editable: true, cellEditor: 'agTextCellEditor' },

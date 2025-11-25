@@ -90,6 +90,7 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "permanent resident", label: "Permanent Resident" },
     { value: "h4", label: "H4" },
     { value: "EAD", label: "EAD" },
+    { value: "EAD", label: "EAD" },
     { value: "green card", label: "Green Card" },
     { value: "h1b", label: "H1B" },
   ],
@@ -194,8 +195,8 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "connection", label: "connection" },
   ],
   status: [
-    { value: "success", label: "Success" },
-    { value: "failed", label: "Failed" },
+    { value: "Active", label: "Active" },
+    { value: "In Active", label: "In Active" },
   ],
   linkedin_status: [
     { value: "idle", label: "Idle" },
@@ -852,11 +853,9 @@ export function EditModal({
       flattened.visa_status = String(data.visa_status).toLowerCase();
     }
     if (data.workstatus) {
-      // flattened.workstatus = String(data.workstatus).toLowerCase();
       flattened.workstatus = String(data.workstatus);
     }
     if (data.work_status) {
-      // flattened.work_status = String(data.work_status).toLowerCase();
       flattened.work_status = String(data.work_status);
     }
     if (data.type) {
@@ -1444,7 +1443,7 @@ export function EditModal({
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                   Instructor 1
                                 </label>
-                                {isInterviewModal ? (
+                                {isInterviewModal || isMarketingModal || isPlacementModal ? (
                                   <input
                                     type="text"
                                     value={
@@ -1480,7 +1479,7 @@ export function EditModal({
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                   Instructor 2
                                 </label>
-                                {isInterviewModal ? (
+                                {isInterviewModal || isMarketingModal || isPlacementModal ? (
                                   <input
                                     type="text"
                                     value={
@@ -1516,7 +1515,7 @@ export function EditModal({
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                   Instructor 3
                                 </label>
-                                {isInterviewModal ? (
+                                {isInterviewModal || isMarketingModal || isPlacementModal ? (
                                   <input
                                     type="text"
                                     value={
