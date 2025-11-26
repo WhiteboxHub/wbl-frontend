@@ -1,6 +1,4 @@
 
-
-
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -247,6 +245,8 @@ export default function CandidateDashboard() {
     }
   };
 
+
+  // Update the loadSessions function in your React component
   const loadDashboard = async (retryCount = 0) => {
     try {
       setLoading(true);
@@ -260,6 +260,7 @@ export default function CandidateDashboard() {
       }
 
       const profileData = await loadUserProfile();
+
       const id = await getCandidateId();
       setCandidateId(id);
 
@@ -929,3 +930,6 @@ const PhaseCard = ({
     </div>
   );
 };
+
+
+

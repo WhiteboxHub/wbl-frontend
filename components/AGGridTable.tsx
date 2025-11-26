@@ -352,6 +352,17 @@ export function AGGridTable({
     [onRowAdded, onRowUpdated]
   );
 
+  // Add this condition to check if we should hide the add button
+const shouldHideAddButton = useMemo(() => {
+  if (!title) return false;
+  const lowerTitle = title.toLowerCase();
+  return (
+    lowerTitle.includes("preparation") ||
+    lowerTitle.includes("marketing") || 
+    lowerTitle.includes("placement")
+  );
+}, [title]);
+
   return (
     <div className="mx-auto w-full max-w-7xl flex-row-reverse space-y-4">
       <div className="flex items-center justify-end justify-between">
@@ -361,6 +372,7 @@ export function AGGridTable({
           </h3>
         )}
         <div className="ml-auto flex items-center  space-x-2">
+          {!shouldHideAddButton && (
           <Button
             variant="outline"
             size="sm"
@@ -370,6 +382,7 @@ export function AGGridTable({
           >
             +
           </Button>
+          )}
 
           <Button
             variant="outline"

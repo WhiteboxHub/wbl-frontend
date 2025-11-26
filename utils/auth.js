@@ -1,8 +1,200 @@
-// // utils/auth.js
+// // // // utils/auth.js
 
+// // // export const parseJwt = (token) => {
+// // //   try {
+// // //     return JSON.parse(atob(token.split('.')[1]));
+// // //   } catch (e) {
+// // //     return null;
+// // //   }
+// // // };
+
+// // // export const isTokenExpired = (token) => {
+// // //   const decoded = parseJwt(token);
+// // //   if (!decoded || !decoded.exp) return true;
+// // //   return decoded.exp * 1000 < Date.now();
+// // // };
+
+// // // export const fetchUserRole = async (token) => {
+// // //   try {
+// // //     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user_role`, {
+// // //       method: 'GET',
+// // //       headers: {
+// // //         Authorization: `Bearer ${token}`,
+// // //       },
+// // //     });
+
+// // //     if (!response.ok) {
+// // //       throw new Error("Failed to fetch role");
+// // //     }
+
+// // //     const data = await response.json();
+// // //     return data.role || "candidate";
+// // //   } catch (error) {
+// // //     console.error("Error fetching user role:", error);
+// // //     return "candidate"; // fallback
+// // //   }
+// // // };
+
+// // // export const getUserTeamRole = (token = null) => {
+// // //   const accessToken = token || localStorage.getItem("access_token");
+// // //   if (!accessToken) return null;
+
+// // //   const decoded = parseJwt(accessToken);
+// // //   if (!decoded) return null;
+
+// // //   const uname = decoded.sub || "";
+// // //   if (uname.toLowerCase() === "admin") {
+// // //     return "admin";
+// // //   }
+
+// // //   return "candidate";
+// // // };
+
+// // // export const isAuthenticated = async () => {
+// // //   const token = localStorage.getItem("access_token");
+
+// // //   if (!token) {
+// // //     return { valid: false, message: "Please Login!" };
+// // //   }
+
+// // //   if (isTokenExpired(token)) {
+// // //     return { valid: false, message: "Session expired, please login again." };
+// // //   }
+
+// // //   try {
+// // //     const response = await fetch(
+// // //       `${process.env.NEXT_PUBLIC_API_URL}/verify-token`,
+// // //       {
+// // //         method: "POST",
+// // //         headers: {
+// // //           "Content-Type": "application/json",
+// // //         },
+// // //         body: JSON.stringify({ access_token: token, token_type: "Bearer" }),
+// // //       }
+// // //     );
+
+// // //     if (!response.ok) {
+// // //       const errorData = await response.json();
+// // //       return {
+// // //         valid: false,
+// // //         message: errorData.detail || "Token validation failed",
+// // //       };
+// // //     }
+
+// // //     return { valid: true, message: "" };
+// // //   } catch (error) {
+// // //     return {
+// // //       valid: false,
+// // //       message: "An error occurred while validating the token",
+// // //     };
+// // //   }
+// // // };
+// // // utils/auth.js
+
+// // export const parseJwt = (token) => {
+// //   try {
+// //     return JSON.parse(atob(token.split(".")[1]));
+// //   } catch (e) {
+// //     return null;
+// //   }
+// // };
+
+// // export const isTokenExpired = (token) => {
+// //   const decoded = parseJwt(token);
+// //   if (!decoded || !decoded.exp) return true;
+// //   return decoded.exp * 1000 < Date.now();
+// // };
+
+// // function getAuthHeaders() {
+// //   const token = localStorage.getItem("access_token"); 
+// //   if (!token) return {};
+// //   return {
+// //     Authorization: `Bearer ${token}`,
+// //   };
+// // }
+
+// // export const fetchUserRole = async (token) => {
+// //   try {
+// //     const response = await fetch(
+// //       `${process.env.NEXT_PUBLIC_API_URL}/user_role`,
+// //       {
+// //         method: "GET",
+// //         headers: {
+// //           Authorization: `Bearer ${token}`,
+// //         },
+// //       }
+// //     );
+
+// //     if (!response.ok) {
+// //       throw new Error("Failed to fetch role");
+// //     }
+
+// //     const data = await response.json();
+// //     return data.role || "candidate";
+// //   } catch (error) {
+// //     console.error("Error fetching user role:", error);
+// //     return "candidate"; // fallback
+// //   }
+// // };
+
+// // export const getUserTeamRole = (token = null) => {
+// //   const accessToken = token || localStorage.getItem("access_token");
+// //   if (!accessToken) return null;
+
+// //   const decoded = parseJwt(accessToken);
+// //   if (!decoded) return null;
+
+// //   const uname = decoded.sub || "";
+// //   if (uname.toLowerCase() === "admin") {
+// //     return "admin";
+// //   }
+
+// //   return "candidate";
+// // };
+
+// // export const isAuthenticated = async () => {
+// //   const token = localStorage.getItem("access_token");
+
+// //   if (!token) {
+// //     return { valid: false, message: "Please Login!" };
+// //   }
+
+// //   if (isTokenExpired(token)) {
+// //     return { valid: false, message: "Session expired, please login again." };
+// //   }
+
+// //   try {
+// //     // Use Authorization header instead of body
+// //     const response = await fetch(
+// //       `${process.env.NEXT_PUBLIC_API_URL}/user_role`,
+// //       {
+// //         method: "GET",
+// //         headers: {
+// //           Authorization: `Bearer ${token}`,
+// //         },
+// //       }
+// //     );
+
+// //     if (!response.ok) {
+// //       const errorData = await response.json();
+// //       return {
+// //         valid: false,
+// //         message: errorData.detail || "Token validation failed",
+// //       };
+// //     }
+
+// //     return { valid: true, message: "" };
+// //   } catch (error) {
+// //     console.error("Auth check error:", error);
+// //     return {
+// //       valid: false,
+// //       message: "An error occurred while validating the token",
+// //     };
+// //   }
+// // };
 // export const parseJwt = (token) => {
 //   try {
-//     return JSON.parse(atob(token.split('.')[1]));
+//     return JSON.parse(atob(token.split(".")[1]));
 //   } catch (e) {
 //     return null;
 //   }
@@ -14,40 +206,39 @@
 //   return decoded.exp * 1000 < Date.now();
 // };
 
+// function getAuthHeaders() {
+//   const token = localStorage.getItem("access_token");
+//   if (!token) return {};
+//   return {
+//     Authorization: `Bearer ${token}`,
+//   };
+// }
+
 // export const fetchUserRole = async (token) => {
 //   try {
-//     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user_role`, {
-//       method: 'GET',
-//       headers: {
-//         Authorization: `Bearer ${token}`,
-//       },
-//     });
+//     const response = await fetch(
+//       `${process.env.NEXT_PUBLIC_API_URL}/user_role`,
+//       {
+//         method: "GET",
+//         headers: {
+//           Authorization: `Bearer ${token}`,
+//         },
+//       }
+//     );
 
-//     if (!response.ok) {
-//       throw new Error("Failed to fetch role");
-//     }
+//     if (!response.ok) return { role: null, status: "inactive" };
 
 //     const data = await response.json();
-//     return data.role || "candidate";
-//   } catch (error) {
-//     console.error("Error fetching user role:", error);
-//     return "candidate"; // fallback
+
+//     // backend returns: { role: "...", status: "active" }
+//     return {
+//       role: data.role,
+//       status: data.status,
+//     };
+//   } catch (err) {
+//     console.error("Error fetching role:", err);
+//     return { role: null, status: "inactive" };
 //   }
-// };
-
-// export const getUserTeamRole = (token = null) => {
-//   const accessToken = token || localStorage.getItem("access_token");
-//   if (!accessToken) return null;
-
-//   const decoded = parseJwt(accessToken);
-//   if (!decoded) return null;
-
-//   const uname = decoded.sub || "";
-//   if (uname.toLowerCase() === "admin") {
-//     return "admin";
-//   }
-
-//   return "candidate";
 // };
 
 // export const isAuthenticated = async () => {
@@ -58,38 +249,34 @@
 //   }
 
 //   if (isTokenExpired(token)) {
-//     return { valid: false, message: "Session expired, please login again." };
+//     return { valid: false, message: "Session expired. Please login again." };
 //   }
 
 //   try {
 //     const response = await fetch(
-//       `${process.env.NEXT_PUBLIC_API_URL}/verify-token`,
+//       `${process.env.NEXT_PUBLIC_API_URL}/user_role`,
 //       {
-//         method: "POST",
-//         headers: {
-//           "Content-Type": "application/json",
-//         },
-//         body: JSON.stringify({ access_token: token, token_type: "Bearer" }),
+//         method: "GET",
+//         headers: { Authorization: `Bearer ${token}` },
 //       }
 //     );
 
+//     const data = await response.json();
+
 //     if (!response.ok) {
-//       const errorData = await response.json();
-//       return {
-//         valid: false,
-//         message: errorData.detail || "Token validation failed",
-//       };
+//       return { valid: false, message: data.detail || "Token validation failed" };
+//     }
+
+//     if (data.status !== "active") {
+//       return { valid: false, message: "Your account is inactive." };
 //     }
 
 //     return { valid: true, message: "" };
 //   } catch (error) {
-//     return {
-//       valid: false,
-//       message: "An error occurred while validating the token",
-//     };
+//     return { valid: false, message: "Auth validation error" };
 //   }
 // };
-// utils/auth.js
+// frontend/utils/auth.js
 
 export const parseJwt = (token) => {
   try {
@@ -105,38 +292,62 @@ export const isTokenExpired = (token) => {
   return decoded.exp * 1000 < Date.now();
 };
 
-function getAuthHeaders() {
-  const token = localStorage.getItem("access_token"); 
-  if (!token) return {};
+export function getAuthHeaders(token = null) {
+  const t = token || localStorage.getItem("access_token");
+  if (!t) return {};
   return {
-    Authorization: `Bearer ${token}`,
+    Authorization: `Bearer ${t}`,
+    "Content-Type": "application/json",
   };
 }
 
+/**
+ * Call backend /user_role to get role + status.
+ * Backend response expected: { role: string, status: "active" | "inactive" | "registered", ... }
+ */
 export const fetchUserRole = async (token) => {
   try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/user_role`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    const t = token || localStorage.getItem("access_token");
+    if (!t) return { role: null, status: "inactive" };
+
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user_role`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${t}`,
+      },
+    });
 
     if (!response.ok) {
-      throw new Error("Failed to fetch role");
+      // try to parse error body
+      try {
+        const err = await response.json();
+        // if token invalid or user inactive backend should return proper status code & message
+        return { role: null, status: err.status || "inactive", detail: err.detail || null };
+      } catch (e) {
+        return { role: null, status: "inactive", detail: null };
+      }
     }
 
     const data = await response.json();
-    return data.role || "candidate";
+    // Normalise shape
+    return {
+      role: data.role ?? null,
+      status: (data.status ?? "active").toString().toLowerCase(),
+      raw: data,
+    };
   } catch (error) {
-    console.error("Error fetching user role:", error);
-    return "candidate"; // fallback
+    console.error("Error in fetchUserRole:", error);
+    return { role: null, status: "inactive" };
   }
 };
 
+/**
+ * Derive team role from token payload:
+ * - sub === "admin" => "admin"
+ * - payload.is_employee === true => "employee"
+ * - otherwise => "candidate"
+ * Treat employee as admin for avatar/dashboard access.
+ */
 export const getUserTeamRole = (token = null) => {
   const accessToken = token || localStorage.getItem("access_token");
   if (!accessToken) return null;
@@ -144,14 +355,20 @@ export const getUserTeamRole = (token = null) => {
   const decoded = parseJwt(accessToken);
   if (!decoded) return null;
 
-  const uname = decoded.sub || "";
-  if (uname.toLowerCase() === "admin") {
-    return "admin";
-  }
+  const uname = (decoded.sub || "").toString();
+  if (uname.toLowerCase() === "admin") return "admin";
 
+  // backend sets is_employee True for employee logins
+  if (decoded.is_employee === true || decoded.is_employee === "true") return "admin";
+
+  // fallback to candidate
   return "candidate";
 };
 
+/**
+ * Validate token + remote status check
+ * Returns { valid: boolean, message: string }
+ */
 export const isAuthenticated = async () => {
   const token = localStorage.getItem("access_token");
 
@@ -164,31 +381,26 @@ export const isAuthenticated = async () => {
   }
 
   try {
-    // Use Authorization header instead of body
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/user_role`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+    const r = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user_role`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      return {
-        valid: false,
-        message: errorData.detail || "Token validation failed",
-      };
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      return { valid: false, message: err.detail || "Token validation failed" };
+    }
+
+    const data = await r.json();
+    if ((data.status ?? "active").toString().toLowerCase() !== "active") {
+      return { valid: false, message: "Your account is inactive." };
     }
 
     return { valid: true, message: "" };
   } catch (error) {
     console.error("Auth check error:", error);
-    return {
-      valid: false,
-      message: "An error occurred while validating the token",
-    };
+    return { valid: false, message: "An error occurred while validating the token" };
   }
 };

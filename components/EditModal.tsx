@@ -90,6 +90,7 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "permanent resident", label: "Permanent Resident" },
     { value: "h4", label: "H4" },
     { value: "EAD", label: "EAD" },
+    { value: "EAD", label: "EAD" },
     { value: "green card", label: "Green Card" },
     { value: "h1b", label: "H1B" },
   ],
@@ -196,8 +197,8 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "connection", label: "connection" },
   ],
   status: [
-    { value: "success", label: "Success" },
-    { value: "failed", label: "Failed" },
+    { value: "active", label: "Active" },
+    { value: "inactive", label: "Inactive" },
   ],
   linkedin_status: [
     { value: "idle", label: "Idle" },
@@ -1049,6 +1050,13 @@ export function EditModal({
       if (keyLower === "feedback") return enumOptions.feedback;
     }
 
+    if (isPreparationModal && keyLower === "status") {
+    return [
+      { value: "active", label: "Active" },
+      { value: "inactive", label: "Inactive" },
+    ];
+  }
+
     if (keyLower === "work_status" || keyLower === "workstatus") {
       return enumOptions.work_status;
     }
@@ -1085,7 +1093,7 @@ export function EditModal({
       if (keyLower === "intro_call") return enumOptions.vendor_intro_call;
     }
 
-    if (isCandidateModal) {
+    if (isCandidateModal || isPreparationModal) {
       if (keyLower === "status") return enumOptions.candidate_status;
       if (keyLower === "workstatus") return enumOptions.workstatus;
     }
@@ -1437,7 +1445,7 @@ export function EditModal({
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                   Instructor 1
                                 </label>
-                                {isInterviewModal ? (
+                                {isInterviewModal || isMarketingModal ? (
                                   <input
                                     type="text"
                                     value={
@@ -1473,7 +1481,7 @@ export function EditModal({
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                   Instructor 2
                                 </label>
-                                {isInterviewModal ? (
+                                {isInterviewModal || isMarketingModal ? (
                                   <input
                                     type="text"
                                     value={
@@ -1509,7 +1517,7 @@ export function EditModal({
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                   Instructor 3
                                 </label>
-                                {isInterviewModal ? (
+                                {isInterviewModal || isMarketingModal ? (
                                   <input
                                     type="text"
                                     value={

@@ -32,7 +32,7 @@ interface Placement {
   benefits: string;
   fee_paid: number | string;
   notes: string;
-  priority: number | string;
+  // priority: number | string;
   last_mod_datetime?: string;
   marketing_start_date?: string;
 }
