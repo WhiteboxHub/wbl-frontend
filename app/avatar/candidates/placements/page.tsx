@@ -1,3 +1,5 @@
+
+
 // app/avatar/placements/page.tsx (or wherever your placements page lives)
 // keep client directive
 "use client";
