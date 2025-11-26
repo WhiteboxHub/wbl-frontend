@@ -801,6 +801,7 @@ export default function LeadsPage() {
 
         if (processedPayload.moved_to_candidate && processedPayload.status !== "Closed") {
           processedPayload.status = "Closed";
+          processedPayload.closed_date = new Date().toISOString();
           processedPayload.closed_date = new Date().toISOString().split("T")[0];
         } else if (!processedPayload.moved_to_candidate && processedPayload.status === "Closed") {
           processedPayload.status = "Open";
@@ -1025,6 +1026,7 @@ export default function LeadsPage() {
         width: 250,
         sortable: true,
       },
+
       {
         field: "closed_date",
         headerName: "Closed Date",
@@ -1046,8 +1048,8 @@ export default function LeadsPage() {
             timeZone: "Asia/Kolkata",
           });
         },
-      }
-      ,
+      },
+
       {
         field: "notes",
         headerName: "Notes",

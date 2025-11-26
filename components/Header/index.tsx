@@ -59,6 +59,8 @@ const Header = memo(({
   };
 
   const display_user_dashboard = () => {
+
+    router.push("/user_dashboard");
    
   };
 
