@@ -18,9 +18,6 @@ const AGGridTable = dynamic(() => import("@/components/AGGridTable"), {
   ssr: false,
 });
 
-// -----------------------------
-// Types
-// -----------------------------
 interface VendorContact {
   id: number;
   full_name?: string;
