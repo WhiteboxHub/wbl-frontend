@@ -1,4 +1,3 @@
-
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -13,6 +12,7 @@ import {
   ArrowLeftIcon,
   Video,
   ChevronRight,
+  Briefcase,
 } from "lucide-react";
 import { cn } from "lib/utils";
 import { useState, useEffect, useRef } from "react";
@@ -98,7 +98,10 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       children: [
         { title: "List", href: "/avatar/employee" },
         { title: "Search", href: "/avatar/employee/employeesearch" },
-        { title: "Internal Documents", href: "/avatar/employee/internal_documents" },
+        {
+          title: "Internal Documents",
+          href: "/avatar/employee/internal_documents",
+        },
       ],
     },
     {
@@ -111,7 +114,29 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
           href: "/avatar/vendors/daily-contact",
         },
         { title: "Vendor", href: "/avatar/vendors/vendor" },
-        { title: "Email Activity Log", href: "/avatar/vendors/email-tracking-log" }
+        {
+          title: "Linkedin Activity Log",
+          href: "/avatar/vendors/linkedin_activity_log",
+        },
+        {
+          title: "Email Activity Log",
+          href: "/avatar/vendors/email-tracking-log",
+        },
+      ],
+    },
+    {
+      title: "Job Activity",
+      href: "/avatar/job-activity/job-types",
+      icon: Briefcase,
+      children: [
+        {
+          title: "Job Types",
+          href: "/avatar/job-activity/job-types",
+        },
+        {
+          title: "Job Activity Log",
+          href: "/avatar/job-activity/job-activity-log",
+        },
       ],
     },
   ];
@@ -125,7 +150,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
     }
   };
 
-  const isActive = (item: typeof sidebarItems[number]) => {
+  const isActive = (item: (typeof sidebarItems)[number]) => {
     if (item.exact) return pathname === item.href;
     if (pathname === item.href) return true;
     if (item.children) {
@@ -247,7 +272,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
                             setExpandedItem(null);
                           }}
                           className={cn(
-                            "block px-4 py-2 text-sm rounded hover:bg-gradient-to-r hover:from-violet-50 hover:to-fuchsia-50 dark:hover:from-violet-900/20 dark:hover:to-fuchsia-900/20",
+                            "block rounded px-4 py-2 text-sm hover:bg-gradient-to-r hover:from-violet-50 hover:to-fuchsia-50 dark:hover:from-violet-900/20 dark:hover:to-fuchsia-900/20",
                             pathname === child.href
                               ? "border-r-2 border-violet-500 bg-gradient-to-r from-violet-50 to-fuchsia-50 text-violet-700 dark:border-violet-400 dark:from-violet-900/30 dark:to-fuchsia-900/30 dark:text-violet-300"
                               : "text-gray-600 hover:text-violet-600 dark:text-gray-300 dark:hover:text-violet-400"
