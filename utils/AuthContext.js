@@ -1,3 +1,6 @@
+
+
+
 // frontend/utils/AuthContext.js
 "use client";
 
@@ -85,8 +88,44 @@ export const AuthProvider = ({ children }) => {
       return { success: false, message: "Invalid or expired token" };
     }
 
+
+  // Listen for logout events from other tabs/windows and force redirect
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === "logout") {
+        // another tab has logged out — clear local state and navigate to login
+        localStorage.removeItem("access_token");
+        sessionStorage.clear();
+        setAuthToken(null);
+        setIsAuthenticated(false);
+        setUserRole(null);
+        setSidebarOpen(false);
+        try {
+          router.push("/login");
+        } catch (err) {
+          // router might not be ready in some contexts
+        }
+      }
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("storage", onStorage);
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("storage", onStorage);
+      }
+    };
+  }, [router]);
+
+  const login = async (token) => {
+    setAuthToken(token);
+    localStorage.setItem("access_token", token);
+    setIsAuthenticated(true);
+
     // Check backend status
   const { role, status } = await fetchUserRole(token);
+
 
     if (!status || status.toString().toLowerCase() !== "active") {
       return { success: false, message: "Account is inactive. Please contact admin." };
@@ -100,16 +139,36 @@ export const AuthProvider = ({ children }) => {
     return { success: true };
   };
 
-  const logout = (doSignOut = true) => {
+
+  const logout = () => {
+    // clear local storage + notify other tabs
+
+
     localStorage.removeItem("access_token");
+    // write a `logout` key so other tabs receive the `storage` event
+    try {
+      localStorage.setItem("logout", Date.now().toString());
+    } catch (e) {
+      // ignore quota errors
+    }
+
     sessionStorage.clear();
     setAuthToken(null);
     setIsAuthenticated(false);
     setUserRole(null);
     setSidebarOpen(false);
     clearNextAuthCookies();
-    if (doSignOut) {
-      signOut({ redirect: false });
+
+    // sign out from next-auth (server) but don't auto-redirect; we'll navigate explicitly
+    signOut({ redirect: false });
+
+    // ensure current tab navigates to login
+    try {
+      router.push("/login");
+    } catch (err) {
+      // fall back: reload the page
+      window.location.href = "/login";
+
     }
   };
 
