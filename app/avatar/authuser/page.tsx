@@ -253,11 +253,24 @@ export default function AuthUsersPage() {
     { field: "city", headerName: "City", width: 140, editable: true, cellEditor: 'agTextCellEditor' },
     { field: "country", headerName: "Country", width: 140, editable: true, cellEditor: 'agTextCellEditor' },
     {
-      field: "registereddate",
-      headerName: "Registered Date",
-      width: 180,
-      valueFormatter: (params) => params.value ? new Date(params.value).toLocaleDateString() : "",
-    },
+        field: "registereddate",
+        headerName: "Registered Date",
+        width: 180,
+        sortable: true,
+        filter: "agDateColumnFilter",
+        valueGetter: (params) => {
+          return params.data?.entry_date ? new Date(params.data.entry_date) : null;
+        },
+        valueFormatter: (params) => {
+          const value = params.value;
+          if (!value) return "-";
+          return value.toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          });
+        },
+      },
     { field: "googleId", headerName: "Google ID", width: 220, editable: false },
     { field: "team", headerName: "Team", width: 180, editable: true, cellEditor: 'agTextCellEditor' },
     { field: "message", headerName: "Message", width: 250, editable: true, cellEditor: 'agTextCellEditor' },
@@ -311,6 +324,45 @@ export default function AuthUsersPage() {
     }
   };
 
+  // POST request to create new user
+const handleRowAdded = async (newUser: any) => {
+  try {
+    console.log("CREATING NEW USER:", newUser);
+    
+    // Remove empty password field if it exists
+    const dataToSend = { ...newUser };
+    if (dataToSend.passwd === "" || dataToSend.passwd === "********") {
+      delete dataToSend.passwd;
+    }
+    
+    // Validate password if provided
+    if (dataToSend.passwd) {
+      const validation = validatePasswordStrength(dataToSend.passwd);
+      if (!validation.isValid) {
+        toast.error(validation.errors[0]);
+        return;
+      }
+    }
+    
+    // Remove fields that shouldn't be sent for new user
+    delete dataToSend.id;
+    delete dataToSend.googleId;
+    
+    // Send POST request to create new user
+    const response = await api.post("/user", dataToSend);
+    
+    console.log("USER CREATED:", response);
+    
+    // Refresh the users list
+    fetchUsers();
+    
+    toast.success("User created successfully");
+  } catch (err: any) {
+    console.error("FAILED TO CREATE USER:", err);
+    toast.error(err.message || "Failed to create user");
+  }
+};
+
   // DELETE request on row deletion
   const handleRowDeleted = async (id: number | string) => {
     try {
@@ -325,7 +377,8 @@ export default function AuthUsersPage() {
 
   // Handle add user
   const handleAddUser = () => {
-    toast.info("Add user functionality to be implemented");
+    // toast.info("Add user functionality to be implemented");
+    toast.info("Click the + button in the table to add a new user");
   };
 
   return (
@@ -377,6 +430,7 @@ export default function AuthUsersPage() {
           title={`Users (${filteredUsers.length})`}
           height="600px"
           showSearch={false}
+          onRowAdded={handleRowAdded} 
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
         />

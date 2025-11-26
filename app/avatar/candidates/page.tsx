@@ -1,13 +1,10 @@
-
-
-
 "use client";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon, PlusCircle, RefreshCw, X } from "lucide-react";
+import { SearchIcon, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { toast, Toaster } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -1159,6 +1156,12 @@ export default function CandidatesPage() {
           if (rowNode) {
             rowNode.setData(updatedData);
             gridRef.current.api.redrawRows({ rowNodes: [rowNode] });
+
+            gridRef.current.api.refreshCells({
+              rowNodes: [rowNode],
+              force: true,
+            });
+
             gridRef.current.api.refreshCells({ rowNodes: [rowNode], force: true });
           } else {
             gridRef.current.api.refreshCells({ force: true });
@@ -1337,6 +1340,7 @@ export default function CandidatesPage() {
           }
         />
       </div>
+
 
       {/* Add New Candidate Modal */}
       {isModalOpen && (
@@ -1709,6 +1713,7 @@ export default function CandidatesPage() {
           </div>
         </div>
       )}
+
     </div>
   );
 }

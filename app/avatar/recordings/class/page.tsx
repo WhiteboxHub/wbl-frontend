@@ -55,15 +55,33 @@ export default function RecordingsPage() {
   const columnDefs: ColDef[] = useMemo<ColDef[]>(
     () => [
       { field: "id", headerName: "ID", width: 90, pinned: "left" },
-      { field: "batchname", headerName: "Batch Name", width: 200, editable: true },
       { field: "description", headerName: "Description", width: 300, editable: true },
-      { field: "type", headerName: "Type", width: 140, editable: true, cellEditor: "agTextCellEditor" },
-      { field: "subject", headerName: "Subject", width: 180, editable: true },
-      { field: "filename", headerName: "File Name", width: 180, editable: true },
+      { field: "type", headerName: "Type", width: 120, editable: true, cellEditor: "agTextCellEditor" },
+      { field: "subject", headerName: "Subject", width: 140, editable: true },
+      { field: "filename", headerName: "File Name", width: 200, editable: true },
       {
         field: "link",
         headerName: "Link",
-        width: 250,
+        width: 150,
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          return (
+            <a
+              href={params.value}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 underline hover:text-blue-800"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Open
+            </a>
+          );
+        },
+      },
+        {
+        field: "backup_url",
+        headerName: "Backup Url",
+        width: 150,
         cellRenderer: (params: any) => {
           if (!params.value) return "";
           return (
@@ -80,12 +98,26 @@ export default function RecordingsPage() {
         },
       },
       { field: "videoid", headerName: "Video ID", width: 160, editable: true },
+
       {
         field: "classdate",
         headerName: "Class Date",
         width: 180,
-        valueFormatter: (params) => (params.value ? new Date(params.value).toLocaleDateString() : ""),
-      },
+        sortable: true,
+        filter: "agDateColumnFilter",
+        valueGetter: (params) => {
+          return params.data?.entry_date ? new Date(params.data.entry_date) : null;
+        },
+        valueFormatter: (params) => {
+          const value = params.value;
+          if (!value) return "-";
+          return value.toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          });
+        },
+      }
     ],
     []
   );
@@ -138,7 +170,7 @@ export default function RecordingsPage() {
       {/* Search Input */}
       <div className="max-w-md">
         <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          Search by ID or Batch Name or Title
+          Search by ID or Title
         </Label>
         <div className="relative mt-1">
           <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -146,7 +178,7 @@ export default function RecordingsPage() {
             id="search"
             type="text"
             value={searchTerm}
-            placeholder="Type ID or Batch Name..."
+            placeholder="Type ID or Title..."
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
           />
