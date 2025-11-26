@@ -141,6 +141,8 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
   placement_status: [
     { value: "Active", label: "Active" },
     { value: "Inactive", label: "Inactive" },
+    { value: "Complete", label: "Complete" },
+    { value: "Fired", label: "Fired" },
   ],
   employee_status: [
     { value: "1", label: "Active" },
