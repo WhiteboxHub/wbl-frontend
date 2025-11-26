@@ -122,7 +122,6 @@ const cleanPhoneNumber = (phoneNumberString: string): string => {
 
 const formatPhoneNumber = (phoneNumberString: string): string => {
   if (!phoneNumberString) return "";
-
   const cleaned = cleanPhoneNumber(phoneNumberString);
 
   if (cleaned.length === 11 && cleaned.startsWith("1")) {
@@ -139,19 +138,17 @@ const formatPhoneNumber = (phoneNumberString: string): string => {
     }
   }
 
-
   return phoneNumberString;
 };
 
 const formatPhoneInput = (value: string): string => {
   const cleaned = value.replace(/\D/g, "");
-  
   if (cleaned.length === 0) return "";
   if (cleaned.length <= 3) return `(${cleaned}`;
-  if (cleaned.length <= 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
-  if (cleaned.length <= 10) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
-  
-
+  if (cleaned.length <= 6)
+    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
+  if (cleaned.length <= 10)
+    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
   return `+1 (${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
 };
 
@@ -260,7 +257,9 @@ const FilterHeaderComponent = ({
     const value = getOptionValue(item);
     setSelectedItems((prev: any[]) => {
       const isSelected = prev.some((i) => getOptionValue(i) === value);
-      return isSelected ? prev.filter((i) => getOptionValue(i) !== value) : [...prev, item];
+      return isSelected
+        ? prev.filter((i) => getOptionValue(i) !== value)
+        : [...prev, item];
     });
   };
 
@@ -288,6 +287,7 @@ const FilterHeaderComponent = ({
 
   const isAllSelected = selectedItems.length === options.length && options.length > 0;
   const isIndeterminate = selectedItems.length > 0 && selectedItems.length < options.length;
+  
   const colorMap: Record<string, string> = {
     blue: "bg-blue-500",
     green: "bg-green-500",
@@ -331,7 +331,12 @@ const FilterHeaderComponent = ({
           ref={filterButtonRef}
           className="ag-header-icon ag-header-label-icon"
           onClick={toggleFilter}
-          style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", marginLeft: "4px" }}
+          style={{
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            marginLeft: "4px",
+          }}
         >
           {selectedItems.length > 0 && (
             <span
@@ -364,7 +369,13 @@ const FilterHeaderComponent = ({
           <div
             ref={dropdownRef}
             className="filter-dropdown pointer-events-auto fixed flex w-56 flex-col space-y-2 rounded-lg border bg-white p-3 text-sm shadow-xl dark:border-gray-600 dark:bg-gray-800"
-            style={{ top: dropdownPos.top + 5, left: dropdownPos.left, zIndex: 99999, maxHeight: "300px", overflowY: "auto" }}
+            style={{
+              top: dropdownPos.top + 5,
+              left: dropdownPos.left,
+              zIndex: 99999,
+              maxHeight: "300px",
+              overflowY: "auto",
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-2 border-b pb-2">
@@ -443,6 +454,8 @@ export default function CandidatesPage() {
   const [allBatches, setAllBatches] = useState<Batch[]>([]);
   const [mlBatches, setMlBatches] = useState<Batch[]>([]);
   const [batchesLoading, setBatchesLoading] = useState(true);
+  
+  // Filter states
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
   const [selectedBatches, setSelectedBatches] = useState<Batch[]>([]);
@@ -481,24 +494,51 @@ export default function CandidatesPage() {
     }
   }, [emergContactNameValue, setValue]);
 
-  const gridOptions = useMemo(
-    () => ({
-      defaultColDef: {
-        filter: "agTextColumnFilter",
-        sortable: true,
-        resizable: true,
-      },
-      suppressRowClickSelection: true,
-      rowSelection: "single",
-      onSortChanged: () => {
-        if (gridRef.current && gridRef.current.api) {
-          const sortModel = gridRef.current.api.getSortModel();
-          setSortModel(sortModel);
-        }
-      },
-    }),
-    []
-  );
+  // ============================================
+  // KEY CHANGE: Filter candidates using useMemo
+  // ============================================
+  const filteredCandidates = useMemo(() => {
+    let filtered = candidates;
+
+    // Filter by status
+    if (selectedStatuses.length > 0) {
+      filtered = filtered.filter((candidate) => {
+        const candidateStatus = (candidate.status || "").toLowerCase();
+        return selectedStatuses.some(
+          (status) => status.toLowerCase() === candidateStatus
+        );
+      });
+    }
+
+    // Filter by work status
+    if (selectedWorkStatuses.length > 0) {
+      filtered = filtered.filter((candidate) => {
+        const candidateWorkStatus = (candidate.workstatus || "").toLowerCase();
+        return selectedWorkStatuses.some(
+          (ws) => ws.toLowerCase() === candidateWorkStatus
+        );
+      });
+    }
+
+    // Filter by batch
+    if (selectedBatches.length > 0) {
+      filtered = filtered.filter((candidate) => {
+        return selectedBatches.some(
+          (batch) => batch.batchid === candidate.batchid
+        );
+      });
+    }
+
+    return filtered;
+  }, [candidates, selectedStatuses, selectedWorkStatuses, selectedBatches]);
+
+  // Calculate counts for display
+  const displayCount = filteredCandidates.length;
+  const totalCount = candidates.length;
+  const hasActiveFilters =
+    selectedStatuses.length > 0 ||
+    selectedWorkStatuses.length > 0 ||
+    selectedBatches.length > 0;
 
   const columnDefs: ColDef<any, any>[] = useMemo(
     () => [
@@ -544,9 +584,7 @@ export default function CandidatesPage() {
             </a>
           );
         },
-        valueParser: (params) => {
-          return cleanPhoneNumber(params.newValue);
-        },
+        valueParser: (params) => cleanPhoneNumber(params.newValue),
       },
       {
         field: "email",
@@ -573,7 +611,7 @@ export default function CandidatesPage() {
         headerName: "Batch",
         width: 140,
         sortable: true,
-        filter: true,
+        filter: false, // CHANGED: Disabled AG Grid's built-in filter
         suppressHeaderMenuButton: true,
         valueGetter: (params) => {
           const batch = params.data?.batch;
@@ -584,14 +622,6 @@ export default function CandidatesPage() {
           if (valueA === "N/A") return 1;
           if (valueB === "N/A") return -1;
           return valueA.localeCompare(valueB);
-        },
-        filterParams: {
-          doesFilterPass: (params: any) => {
-            if (selectedBatches.length === 0) return true;
-            return selectedBatches.some((batch) => batch.batchid === params.data.batchid);
-          },
-          filterOptions: ["custom"],
-          suppressAndOrCondition: true,
         },
         cellRenderer: (params: any) => {
           const batch = params.data?.batch;
@@ -615,28 +645,17 @@ export default function CandidatesPage() {
         headerName: "Status",
         width: 120,
         sortable: true,
-        filter: true,
+        filter: false, // CHANGED: Disabled AG Grid's built-in filter
         suppressHeaderMenuButton: true,
         valueGetter: (params) => params.data?.status || "",
         comparator: (valueA, valueB) => {
           const order = ["active", "break", "discontinued", "closed"];
           const indexA = order.indexOf(valueA.toLowerCase());
           const indexB = order.indexOf(valueB.toLowerCase());
-
           if (indexA === -1 && indexB === -1) return valueA.localeCompare(valueB);
           if (indexA === -1) return 1;
           if (indexB === -1) return -1;
-
           return indexA - indexB;
-        },
-        filterParams: {
-          doesFilterPass: (params: any) => {
-            if (selectedStatuses.length === 0) return true;
-            const candidateStatus = (params.data.status || "").toLowerCase();
-            return selectedStatuses.some((status) => status.toLowerCase() === candidateStatus);
-          },
-          filterOptions: ["custom"],
-          suppressAndOrCondition: true,
         },
         cellRenderer: StatusRenderer,
         headerComponent: FilterHeaderComponent,
@@ -647,9 +666,9 @@ export default function CandidatesPage() {
           label: "Status",
           displayName: "Status",
           color: "blue",
-          renderOption: (option) => <StatusRenderer value={option} />,
-          getOptionValue: (option) => option,
-          getOptionKey: (option) => option,
+          renderOption: (option: string) => <StatusRenderer value={option} />,
+          getOptionValue: (option: string) => option,
+          getOptionKey: (option: string) => option,
         },
       },
       {
@@ -657,28 +676,17 @@ export default function CandidatesPage() {
         headerName: "Work Status",
         width: 150,
         sortable: true,
-        filter: true,
+        filter: false, // CHANGED: Disabled AG Grid's built-in filter
         suppressHeaderMenuButton: true,
         valueGetter: (params) => params.data?.workstatus || "",
         comparator: (valueA, valueB) => {
           const order = ["waiting for status", "citizen", "permanent resident", "ead", "visa"];
           const indexA = order.indexOf(valueA.toLowerCase());
           const indexB = order.indexOf(valueB.toLowerCase());
-
           if (indexA === -1 && indexB === -1) return valueA.localeCompare(valueB);
           if (indexA === -1) return 1;
           if (indexB === -1) return -1;
-
           return indexA - indexB;
-        },
-        filterParams: {
-          doesFilterPass: (params: any) => {
-            if (selectedWorkStatuses.length === 0) return true;
-            const candidateWorkStatus = (params.data.workstatus || "").toLowerCase();
-            return selectedWorkStatuses.some((ws) => ws.toLowerCase() === candidateWorkStatus);
-          },
-          filterOptions: ["custom"],
-          suppressAndOrCondition: true,
         },
         cellRenderer: WorkStatusRenderer,
         headerComponent: FilterHeaderComponent,
@@ -689,9 +697,9 @@ export default function CandidatesPage() {
           label: "Work Status",
           displayName: "Work Status",
           color: "green",
-          renderOption: (option) => option,
-          getOptionValue: (option) => option,
-          getOptionKey: (option) => option,
+          renderOption: (option: string) => option,
+          getOptionValue: (option: string) => option,
+          getOptionKey: (option: string) => option,
         },
       },
       {
@@ -769,9 +777,7 @@ export default function CandidatesPage() {
             </a>
           );
         },
-        valueParser: (params) => {
-          return cleanPhoneNumber(params.newValue);
-        },
+        valueParser: (params) => cleanPhoneNumber(params.newValue),
       },
       {
         field: "address",
@@ -789,7 +795,10 @@ export default function CandidatesPage() {
         cellRenderer: (params: any) => {
           if (!params.value) return "";
           const url = params.value.trim();
-          const href = url.startsWith("http://") || url.startsWith("https://") ? url : `https://linkedin.com/in/${url}`;
+          const href =
+            url.startsWith("http://") || url.startsWith("https://")
+              ? url
+              : `https://linkedin.com/in/${url}`;
           return (
             <a
               href={href}
@@ -871,9 +880,7 @@ export default function CandidatesPage() {
             </a>
           );
         },
-        valueParser: (params) => {
-          return cleanPhoneNumber(params.newValue);
-        },
+        valueParser: (params) => cleanPhoneNumber(params.newValue),
       },
       {
         field: "emergcontactaddrs",
@@ -889,7 +896,8 @@ export default function CandidatesPage() {
         sortable: true,
         filter: "agTextColumnFilter",
         cellClass: (params) => (params.value && params.value > 0 ? "text-green-500" : ""),
-        valueFormatter: ({ value }: ValueFormatterParams) => (value != null ? `$${Number(value).toLocaleString()}` : ""),
+        valueFormatter: ({ value }: ValueFormatterParams) =>
+          value != null ? `$${Number(value).toLocaleString()}` : "",
         cellStyle: { textAlign: "right" },
       },
       {
@@ -900,7 +908,10 @@ export default function CandidatesPage() {
         cellRenderer: (params: any) => {
           if (!params.value) return "";
           return (
-            <div className="prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: params.value }} />
+            <div
+              className="prose prose-sm dark:prose-invert max-w-none"
+              dangerouslySetInnerHTML={{ __html: params.value }}
+            />
           );
         },
       },
@@ -929,16 +940,29 @@ export default function CandidatesPage() {
     [selectedStatuses, selectedWorkStatuses, selectedBatches, mlBatches]
   );
 
+  const gridOptions = useMemo(
+    () => ({
+      defaultColDef: {
+        filter: "agTextColumnFilter",
+        sortable: true,
+        resizable: true,
+      },
+      suppressRowClickSelection: true,
+      rowSelection: "single",
+      onSortChanged: () => {
+        if (gridRef.current && gridRef.current.api) {
+          const sortModel = gridRef.current.api.getSortModel();
+          setSortModel(sortModel);
+        }
+      },
+    }),
+    []
+  );
+
   useEffect(() => {
     const newCandidateParam = searchParams.get("newcandidate") === "true";
     setIsModalOpen(newCandidateParam);
   }, [searchParams]);
-
-  useEffect(() => {
-    if (gridRef.current && gridRef.current.api) {
-      gridRef.current.api.onFilterChanged();
-    }
-  }, [selectedStatuses, selectedWorkStatuses, selectedBatches]);
 
   useEffect(() => {
     const fetchBatches = async () => {
@@ -946,7 +970,9 @@ export default function CandidatesPage() {
       try {
         const res = await api.get("/batch");
         const rawBatches = res.data?.data ?? res.data;
-        const sortedAllBatches = [...(rawBatches || [])].sort((a: Batch, b: Batch) => b.batchid - a.batchid);
+        const sortedAllBatches = [...(rawBatches || [])].sort(
+          (a: Batch, b: Batch) => b.batchid - a.batchid
+        );
         setAllBatches(sortedAllBatches);
         let mlBatchesOnly = sortedAllBatches.filter((batch) => {
           const subject = (batch.subject || "").toLowerCase();
@@ -1013,7 +1039,8 @@ export default function CandidatesPage() {
         if (search && search.trim()) {
           url += `&search=${encodeURIComponent(search.trim())}&search_by=${searchBy}`;
         }
-        const sortToApply = sort && sort.length > 0 ? sort : [{ colId: "enrolled_date", sort: "desc" }];
+        const sortToApply =
+          sort && sort.length > 0 ? sort : [{ colId: "enrolled_date", sort: "desc" }];
         const sortParam = sortToApply.map((s) => `${s.colId}:${s.sort}`).join(",");
         url += `&sort=${encodeURIComponent(sortParam)}`;
         if (Object.keys(filters).length > 0) {
@@ -1029,7 +1056,8 @@ export default function CandidatesPage() {
           setCandidates(dataArray);
         }
       } catch (err: any) {
-        const message = err?.response?.data?.message || err?.message || "Failed to load candidates";
+        const message =
+          err?.response?.data?.message || err?.message || "Failed to load candidates";
         setError(message);
         toast.error(message);
         console.error("fetchCandidates error ->", err);
@@ -1072,7 +1100,8 @@ export default function CandidatesPage() {
       handleCloseModal();
       fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
     } catch (error: any) {
-      const message = error?.response?.data?.message || error?.message || "Failed to create candidate";
+      const message =
+        error?.response?.data?.message || error?.message || "Failed to create candidate";
       toast.error("Failed to create candidate: " + message);
       console.error("Error creating candidate:", error);
     }
@@ -1100,10 +1129,16 @@ export default function CandidatesPage() {
         const updatedData = {
           ...updatedRow,
           full_name: updatedRow.full_name ? toPascalCase(updatedRow.full_name) : updatedRow.full_name,
-          emergcontactname: updatedRow.emergcontactname ? toPascalCase(updatedRow.emergcontactname) : updatedRow.emergcontactname,
+          emergcontactname: updatedRow.emergcontactname
+            ? toPascalCase(updatedRow.emergcontactname)
+            : updatedRow.emergcontactname,
           phone: updatedRow.phone ? cleanPhoneNumber(updatedRow.phone) : updatedRow.phone,
-          secondaryphone: updatedRow.secondaryphone ? cleanPhoneNumber(updatedRow.secondaryphone) : updatedRow.secondaryphone,
-          emergcontactphone: updatedRow.emergcontactphone ? cleanPhoneNumber(updatedRow.emergcontactphone) : updatedRow.emergcontactphone,
+          secondaryphone: updatedRow.secondaryphone
+            ? cleanPhoneNumber(updatedRow.secondaryphone)
+            : updatedRow.secondaryphone,
+          emergcontactphone: updatedRow.emergcontactphone
+            ? cleanPhoneNumber(updatedRow.emergcontactphone)
+            : updatedRow.emergcontactphone,
           enrolled_date: updatedRow.enrolled_date || new Date().toISOString().split("T")[0],
         };
         if (!updatedData.status || updatedData.status === "") {
@@ -1111,7 +1146,11 @@ export default function CandidatesPage() {
         }
         const { id, ...payload } = updatedData;
         await api.put(`${apiPath}/${updatedRow.id}`, payload);
-        setCandidates((prevCandidates) => prevCandidates.map((candidate) => (candidate.id === updatedRow.id ? updatedData : candidate)));
+        setCandidates((prevCandidates) =>
+          prevCandidates.map((candidate) =>
+            candidate.id === updatedRow.id ? updatedData : candidate
+          )
+        );
         if (gridRef.current) {
           const rowNode = gridRef.current.api.getRowNode(updatedRow.id.toString());
           if (rowNode) {
@@ -1143,7 +1182,9 @@ export default function CandidatesPage() {
     async (id: number) => {
       try {
         await api.delete(`${apiPath}/${id}`);
-        setCandidates((prevCandidates) => prevCandidates.filter((candidate) => candidate.id !== id));
+        setCandidates((prevCandidates) =>
+          prevCandidates.filter((candidate) => candidate.id !== id)
+        );
         if (gridRef.current) {
           gridRef.current.api.applyTransaction({ remove: [{ id }] });
         }
@@ -1155,6 +1196,12 @@ export default function CandidatesPage() {
     },
     [apiPath]
   );
+
+  const clearAllFilters = () => {
+    setSelectedStatuses([]);
+    setSelectedWorkStatuses([]);
+    setSelectedBatches([]);
+  };
 
   if (error) {
     return (
@@ -1198,9 +1245,14 @@ export default function CandidatesPage() {
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Candidates Management</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            Candidates Management
+          </h1>
           <div className="mt-2 sm:mt-0 sm:max-w-md">
-            <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <Label
+              htmlFor="search"
+              className="text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
               Search Candidates
             </Label>
             <div className="relative mt-1">
@@ -1215,18 +1267,23 @@ export default function CandidatesPage() {
                 className="w-full pl-10 text-sm sm:text-base"
               />
             </div>
-            {searchTerm && <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{candidates.length} candidates found</p>}
+            {(searchTerm || hasActiveFilters) && (
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {hasActiveFilters
+                  ? `${displayCount} of ${totalCount} candidates shown (filtered)`
+                  : `${displayCount} candidates found`}
+              </p>
+            )}
           </div>
         </div>
       </div>
 
       <div className="flex w-full justify-center">
+       
         <AGGridTable
-          key={`${candidates.length}-${selectedStatuses.join(",")}-${selectedWorkStatuses.join(",")}-${selectedBatches
-            .map((b) => b.batchid)
-            .join(",")}`}
-          rowData={loading ? undefined : candidates}
-          title={`Candidates (${candidates.length})`}
+          key={`grid-${selectedStatuses.join(",")}-${selectedWorkStatuses.join(",")}-${selectedBatches.map((b) => b.batchid).join(",")}`}
+          rowData={loading ? undefined : filteredCandidates}
+          title={`Candidates (${displayCount}${hasActiveFilters ? ` of ${totalCount}` : ""})`}
           columnDefs={columnDefs}
           onRowAdded={async (newRow: any) => {
             try {
@@ -1278,10 +1335,384 @@ export default function CandidatesPage() {
           loading={loading}
           height="600px"
           gridOptions={gridOptions}
-          
-          overlayNoRowsTemplate={loading ? "" : '<span class="ag-overlay-no-rows-center">No candidates found</span>'}
+          overlayNoRowsTemplate={
+            loading ? "" : '<span class="ag-overlay-no-rows-center">No candidates found</span>'
+          }
         />
       </div>
+
+
+      {/* Add New Candidate Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 p-2 sm:p-4">
+          <div className="w-full max-w-6xl rounded-xl bg-white shadow-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 flex items-center justify-between border-b border-blue-200 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 py-2 sm:px-4 sm:py-2 md:px-6">
+              <h2 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-sm font-semibold text-transparent sm:text-base md:text-lg">
+                Add New Candidate
+              </h2>
+              <button
+                onClick={handleCloseModal}
+                className="rounded-lg p-1 text-blue-400 transition hover:bg-blue-100 hover:text-blue-600"
+              >
+                <X size={16} className="sm:h-5 sm:w-5" />
+              </button>
+            </div>
+
+            <div className="bg-white p-3 sm:p-4 md:p-6">
+              <form onSubmit={handleSubmit(onSubmit)}>
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-4">
+                  {/* Full Name */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                      Full Name <span className="text-red-700">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      {...register("full_name", {
+                        required: "Full name is required",
+                        maxLength: { value: 100, message: "Full name cannot exceed 100 characters" },
+                      })}
+                      placeholder="Enter full name"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    />
+                    {errors.full_name && (
+                      <p className="mt-1 text-xs text-red-600">{errors.full_name.message}</p>
+                    )}
+                  </div>
+
+                  {/* Email */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                      Email <span className="text-red-700">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      {...register("email", {
+                        required: "Email is required",
+                        pattern: { value: /^\S+@\S+\.\S+$/, message: "Invalid email address" },
+                      })}
+                      placeholder="Enter email"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    />
+                    {errors.email && (
+                      <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>
+                    )}
+                  </div>
+
+                  {/* Phone */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                      Phone <span className="text-red-700">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      {...register("phone", {
+                        required: "Phone is required",
+                        validate: (value) => {
+                          const cleaned = cleanPhoneNumber(value);
+                          return cleaned.length >= 10 || "Phone number must be at least 10 digits";
+                        },
+                      })}
+                      onInput={handlePhoneInput}
+                      placeholder="(555) 123-4567"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    />
+                    {errors.phone && (
+                      <p className="mt-1 text-xs text-red-600">{errors.phone.message}</p>
+                    )}
+                  </div>
+
+                  {/* Date of Birth */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                      Date of Birth <span className="text-red-700">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      {...register("dob", { required: "Date of birth is required" })}
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    />
+                    {errors.dob && (
+                      <p className="mt-1 text-xs text-red-600">{errors.dob.message}</p>
+                    )}
+                  </div>
+
+                  {/* Batch */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                      Batch <span className="text-red-700">*</span>
+                    </label>
+                    {batchesLoading ? (
+                      <p className="text-xs text-gray-500">Loading batches...</p>
+                    ) : (
+                      <select
+                        {...register("batchid", {
+                          required: "Batch is required",
+                          validate: (value) => value !== 0 || "Please select a batch",
+                        })}
+                        className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                      >
+                        <option value="0">Select a batch</option>
+                        {mlBatches.map((batch) => (
+                          <option key={batch.batchid} value={batch.batchid}>
+                            {batch.batchname}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {errors.batchid && (
+                      <p className="mt-1 text-xs text-red-600">{errors.batchid.message}</p>
+                    )}
+                  </div>
+
+                  {/* Status */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">Status</label>
+                    <select
+                      {...register("status")}
+                      className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    >
+                      {statusOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option.charAt(0).toUpperCase() + option.slice(1)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Work Status */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">Work Status</label>
+                    <select
+                      {...register("workstatus")}
+                      className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    >
+                      {workStatusOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Education */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">Education</label>
+                    <input
+                      type="text"
+                      {...register("education")}
+                      placeholder="Enter education"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    />
+                  </div>
+
+                  {/* Work Experience */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">Work Experience</label>
+                    <input
+                      type="text"
+                      {...register("workexperience")}
+                      placeholder="Enter work experience"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    />
+                  </div>
+
+                  {/* SSN */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">SSN</label>
+                    <input
+                      type="password"
+                      {...register("ssn")}
+                      placeholder="Enter SSN"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    />
+                  </div>
+
+                  {/* Agreement */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">Agreement</label>
+                    <select
+                      {...register("agreement")}
+                      className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    >
+                      <option value="Y">Yes</option>
+                      <option value="N">No</option>
+                    </select>
+                  </div>
+
+                  {/* Secondary Email */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">Secondary Email</label>
+                    <input
+                      type="email"
+                      {...register("secondaryemail")}
+                      placeholder="Enter secondary email"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    />
+                  </div>
+
+                  {/* Secondary Phone */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">Secondary Phone</label>
+                    <input
+                      type="tel"
+                      {...register("secondaryphone")}
+                      onInput={handlePhoneInput}
+                      placeholder="(555) 123-4567"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    />
+                  </div>
+
+                  {/* LinkedIn ID */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">LinkedIn ID</label>
+                    <input
+                      type="text"
+                      {...register("linkedin_id")}
+                      placeholder="Enter LinkedIn ID"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    />
+                  </div>
+
+                  {/* Fee Paid */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">Fee Paid ($)</label>
+                    <input
+                      type="number"
+                      {...register("fee_paid", {
+                        valueAsNumber: true,
+                        min: { value: 0, message: "Fee paid cannot be negative" },
+                      })}
+                      placeholder="0"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    />
+                    {errors.fee_paid && (
+                      <p className="mt-1 text-xs text-red-600">{errors.fee_paid.message}</p>
+                    )}
+                  </div>
+
+                  {/* Enrolled Date */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">Enrolled Date</label>
+                    <input
+                      type="date"
+                      {...register("enrolled_date")}
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    />
+                  </div>
+
+                  {/* Emergency Contact Section */}
+                  <div className="grid grid-cols-1 gap-2 md:grid-cols-4 lg:col-span-4">
+                    <div className="space-y-1 sm:space-y-1.5">
+                      <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                        Emergency Contact Name
+                      </label>
+                      <input
+                        type="text"
+                        {...register("emergcontactname")}
+                        placeholder="Enter emergency contact name"
+                        className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1 sm:space-y-1.5">
+                      <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                        Emergency Contact Email
+                      </label>
+                      <input
+                        type="email"
+                        {...register("emergcontactemail")}
+                        placeholder="Enter emergency contact email"
+                        className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1 sm:space-y-1.5">
+                      <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                        Emergency Contact Phone
+                      </label>
+                      <input
+                        type="tel"
+                        {...register("emergcontactphone", {
+                          validate: (value) => {
+                            if (!value) return true;
+                            const cleaned = cleanPhoneNumber(value);
+                            return cleaned.length >= 10 || "Phone number must be at least 10 digits";
+                          },
+                        })}
+                        onInput={handlePhoneInput}
+                        placeholder="(555) 123-4567"
+                        className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                      />
+                      {errors.emergcontactphone && (
+                        <p className="mt-1 text-xs text-red-600">{errors.emergcontactphone.message}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1 sm:space-y-1.5">
+                      <label className="block text-xs font-bold text-blue-700 sm:text-sm">Candidate Folder</label>
+                      <input
+                        type="text"
+                        {...register("candidate_folder")}
+                        placeholder="Google Drive/Dropbox link"
+                        className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Address */}
+                  <div className="space-y-1 sm:space-y-1.5 lg:col-span-2">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">Address</label>
+                    <input
+                      type="text"
+                      {...register("address")}
+                      placeholder="Enter address"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    />
+                  </div>
+
+                  {/* Emergency Contact Address */}
+                  <div className="space-y-1 sm:space-y-1.5 lg:col-span-2">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                      Emergency Contact Address
+                    </label>
+                    <input
+                      type="text"
+                      {...register("emergcontactaddrs")}
+                      placeholder="Enter emergency contact address"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    />
+                  </div>
+
+                  {/* Notes */}
+                  <div className="space-y-1 sm:space-y-1.5 lg:col-span-4">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">Notes</label>
+                    <textarea
+                      {...register("notes")}
+                      placeholder="Enter notes..."
+                      className="min-h-[60px] w-full resize-y rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Form Actions */}
+                <div className="mt-3 flex justify-end gap-2 border-t border-blue-200 pt-2 sm:mt-4 sm:gap-3 sm:pt-3 md:mt-6 md:pt-4">
+                  <button
+                    type="button"
+                    onClick={handleCloseModal}
+                    className="rounded-lg border border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-700 transition hover:bg-blue-50 sm:px-4 sm:py-2 sm:text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 px-3 py-1.5 text-xs font-medium text-white shadow-md transition hover:from-cyan-600 hover:to-blue-600 sm:px-5 sm:py-2 sm:text-sm"
+                  >
+                    Save Candidate
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

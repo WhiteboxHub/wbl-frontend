@@ -89,7 +89,8 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "other", label: "Other" },
     { value: "permanent resident", label: "Permanent Resident" },
     { value: "h4", label: "H4" },
-    { value: "ead", label: "EAD" },
+    { value: "EAD", label: "EAD" },
+    { value: "EAD", label: "EAD" },
     { value: "green card", label: "Green Card" },
     { value: "h1b", label: "H1B" },
   ],
@@ -141,6 +142,8 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
   placement_status: [
     { value: "Active", label: "Active" },
     { value: "Inactive", label: "Inactive" },
+    { value: "Complete", label: "Complete" },
+    { value: "Fired", label: "Fired" },
   ],
   employee_status: [
     { value: "1", label: "Active" },
@@ -194,8 +197,8 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "connection", label: "connection" },
   ],
   status: [
-    { value: "success", label: "Success" },
-    { value: "failed", label: "Failed" },
+    { value: "active", label: "Active" },
+    { value: "inactive", label: "Inactive" },
   ],
   linkedin_status: [
     { value: "idle", label: "Idle" },
@@ -249,13 +252,10 @@ const requiredFieldsConfig: Record<string, string[]> = {
 };
 
 // Helper function to check if a field is required based on modal type and mode
-const isFieldRequired = (
-  fieldName: string,
-  modalType: string,
-  isAddMode: boolean
-): boolean => {
-  if (!isAddMode) return false;
 
+const isFieldRequired = (fieldName: string, modalType: string, isAddMode: boolean): boolean => {
+  if (!isAddMode) return false;
+  
   const modalKey = modalType.toLowerCase();
   const fieldConfigMap: Record<string, string[]> = {};
 
@@ -267,7 +267,8 @@ const isFieldRequired = (
     });
   });
 
-  const normalizedFieldName = fieldName.toLowerCase().replace(/\s+/g, "");
+  
+  const normalizedFieldName = fieldName.toLowerCase().replace(/\s+/g, '');
   const requiredForModals = fieldConfigMap[normalizedFieldName];
   if (!requiredForModals) return false;
 
@@ -680,6 +681,7 @@ export function EditModal({
     []
   );
 
+
   // Detect the modal context
   const isCourseMaterialModal =
     title.toLowerCase().includes("course material") ||
@@ -711,6 +713,7 @@ export function EditModal({
   const isJobActivityLogModal = title
     .toLowerCase()
     .includes("job activity log");
+
 
   // Field visibility for current modal
   const showInstructorFields =
@@ -838,7 +841,7 @@ export function EditModal({
     };
   }, [isOpen, onClose]);
 
-  // Fetch courses, subjects, and employees
+// Fetch courses, subjects, and employees
   useEffect(() => {
     const fetchCourses = async () => {
       try {
@@ -937,10 +940,10 @@ export function EditModal({
       flattened.visa_status = String(data.visa_status).toLowerCase();
     }
     if (data.workstatus) {
-      flattened.workstatus = String(data.workstatus).toLowerCase();
+      flattened.workstatus = String(data.workstatus);
     }
     if (data.work_status) {
-      flattened.work_status = String(data.work_status).toLowerCase();
+      flattened.work_status = String(data.work_status);
     }
     if (data.type) {
       flattened.material_type = data.type;
@@ -1147,6 +1150,16 @@ export function EditModal({
     if (keyLower === "work_status" || keyLower === "workstatus") {
       return enumOptions.work_status;
     }
+    if (isPreparationModal && keyLower === "status") {
+    return [
+      { value: "active", label: "Active" },
+      { value: "inactive", label: "Inactive" },
+    ];
+  }
+
+    if (keyLower === "work_status" || keyLower === "workstatus") {
+      return enumOptions.work_status;
+    }
 
     if (isMarketingModal && keyLower === "status")
       return enumOptions.marketing_status;
@@ -1180,7 +1193,7 @@ export function EditModal({
       if (keyLower === "intro_call") return enumOptions.vendor_intro_call;
     }
 
-    if (isCandidateModal) {
+    if (isCandidateModal || isPreparationModal) {
       if (keyLower === "status") return enumOptions.candidate_status;
       if (keyLower === "workstatus") return enumOptions.workstatus;
     }
@@ -1532,7 +1545,7 @@ export function EditModal({
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                   Instructor 1
                                 </label>
-                                {isInterviewModal ? (
+                                {isInterviewModal || isMarketingModal ? (
                                   <input
                                     type="text"
                                     value={
@@ -1568,7 +1581,7 @@ export function EditModal({
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                   Instructor 2
                                 </label>
-                                {isInterviewModal ? (
+                                {isInterviewModal || isMarketingModal ? (
                                   <input
                                     type="text"
                                     value={
@@ -1604,7 +1617,7 @@ export function EditModal({
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                   Instructor 3
                                 </label>
-                                {isInterviewModal ? (
+                                {isInterviewModal || isMarketingModal ? (
                                   <input
                                     type="text"
                                     value={
@@ -1706,6 +1719,7 @@ export function EditModal({
                               return null;
                             }
 
+
                             // Make job_id, employee_id, employee_name, and activity_count read-only in Job Activity Log modal (not add mode)
                             if (
                               isJobActivityLogModal &&
@@ -1772,6 +1786,7 @@ export function EditModal({
                                 </div>
                               );
                             }
+
 
                             // ADD THIS CONDITION FOR SUBJECT FIELD
                             if (isSubjectField && isBatchesModal) {
@@ -2372,13 +2387,13 @@ export function EditModal({
                                       quill.focus();
                                       const timestampLength = timestamp.length;
                                       quill.setSelection(timestampLength, 0);
-                                      quill.format("bold", false);
+                                      quill.format('bold', false);
                                       setShouldDisableBold(false);
                                     }
                                   }
                                 }, 150);
                               }}
-                              className="px-2 py-1 text-xs font-medium text-black hover:text-blue-800 hover:underline sm:px-2 sm:py-1 sm:text-sm"
+                              className="px-2 sm:px-2 py-1 sm:py-1 text-xs sm:text-sm font-medium text-black hover:text-blue-800 hover:underline"
                             >
                               + New Entry
                             </button>

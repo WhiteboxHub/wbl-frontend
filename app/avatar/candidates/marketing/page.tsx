@@ -581,7 +581,7 @@ export default function CandidatesMarketingPage() {
             <AGGridTable
               rowData={filteredCandidates}
               columnDefs={columnDefs}
-              title={`Marketing Phase (${allCandidates.length})`}
+              title={`Marketing Phase (${filteredCandidates.length})`}
               height="calc(70vh)"
               showSearch={false}
               onRowDeleted={handleRowDeleted}
