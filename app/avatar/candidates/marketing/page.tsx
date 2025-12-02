@@ -394,6 +394,7 @@ export default function CandidatesMarketingPage() {
         },
       },
       { field: "password", headerName: "Email Password", width: 150, editable: true },
+      { field: "imap_password", headerName: "Imap Password", width: 190, editable: true },
       {
         field: "linkedin_username",
         headerName: "Linkedin Username",

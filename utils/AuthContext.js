@@ -1,3 +1,6 @@
+
+
+
 // frontend/utils/AuthContext.js
 "use client";
 
@@ -47,13 +50,42 @@ export const AuthProvider = ({ children }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
+  // Listen for logout events from other tabs/windows and force redirect
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === "logout") {
+        // another tab has logged out — clear local state and navigate to login
+        localStorage.removeItem("access_token");
+        sessionStorage.clear();
+        setAuthToken(null);
+        setIsAuthenticated(false);
+        setUserRole(null);
+        setSidebarOpen(false);
+        try {
+          router.push("/login");
+        } catch (err) {
+          // router might not be ready in some contexts
+        }
+      }
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("storage", onStorage);
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("storage", onStorage);
+      }
+    };
+  }, [router]);
+
   const _checkToken = async (token) => {
     if (isTokenExpired(token)) {
       handleTokenExpiration();
       return;
     }
 
-  const { role, status } = await fetchUserRole(token);
+    const { role, status } = await fetchUserRole(token);
 
     // Block inactive accounts at UI
     if (!status || status.toString().toLowerCase() !== "active") {
@@ -62,9 +94,9 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
-  setAuthToken(token);
-  setIsAuthenticated(true);
-  setUserRole(role || "candidate");
+    setAuthToken(token);
+    setIsAuthenticated(true);
+    setUserRole(role || "candidate");
     // optionally open sidebar if logged in
     setSidebarOpen(true);
   };
@@ -85,31 +117,53 @@ export const AuthProvider = ({ children }) => {
       return { success: false, message: "Invalid or expired token" };
     }
 
-    // Check backend status
-  const { role, status } = await fetchUserRole(token);
+    try {
+      // Check backend status
+      const { role, status } = await fetchUserRole(token);
 
-    if (!status || status.toString().toLowerCase() !== "active") {
-      return { success: false, message: "Account is inactive. Please contact admin." };
+      if (!status || status.toString().toLowerCase() !== "active") {
+        return { success: false, message: "Account is inactive. Please contact admin." };
+      }
+
+      // Store token and update auth state
+      localStorage.setItem("access_token", token);
+      setAuthToken(token);
+      setIsAuthenticated(true);
+      setUserRole(role || "candidate");
+      setSidebarOpen(true);
+      return { success: true };
+    } catch (error) {
+      console.error("Login error:", error);
+      return { success: false, message: "Login failed" };
     }
-
-  localStorage.setItem("access_token", token);
-  setAuthToken(token);
-  setIsAuthenticated(true);
-  setUserRole(role || "candidate");
-    setSidebarOpen(true);
-    return { success: true };
   };
 
-  const logout = (doSignOut = true) => {
+  const logout = () => {
+    // clear local storage + notify other tabs
     localStorage.removeItem("access_token");
+    // write a `logout` key so other tabs receive the `storage` event
+    try {
+      localStorage.setItem("logout", Date.now().toString());
+    } catch (e) {
+      // ignore quota errors
+    }
+
     sessionStorage.clear();
     setAuthToken(null);
     setIsAuthenticated(false);
     setUserRole(null);
     setSidebarOpen(false);
     clearNextAuthCookies();
-    if (doSignOut) {
-      signOut({ redirect: false });
+
+    // sign out from next-auth (server) but don't auto-redirect; we'll navigate explicitly
+    signOut({ redirect: false });
+
+    // ensure current tab navigates to login
+    try {
+      router.push("/login");
+    } catch (err) {
+      // fall back: reload the page
+      window.location.href = "/login";
     }
   };
 

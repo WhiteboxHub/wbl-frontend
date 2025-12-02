@@ -157,6 +157,13 @@ const fieldSections: Record<string, string> = {
   cm_course:"Professional Information",
   cm_subject: "Basic Information",
   material_type: "Basic Information",
+  job_name: "Basic Information",
+  job_description: "Professional Information",
+  created_date: "Professional Information",
+  job_id: "Professional Information",
+  employee_id: "Professional Information",
+  activity_date: "Professional Information",
+  activity_count: "Professional Information",
 };
 
 const workVisaStatusOptions = [
@@ -404,7 +411,17 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
   const renderValue = (key: string, value: any) => {
     const lowerKey = key.toLowerCase();
     if (!value && value !== 0 && value !== false) return null;
-    
+
+    // Handle job activity log boolean fields
+    if (lowerKey === 'json_downloaded' || lowerKey === 'sql_downloaded') {
+      const booleanMap: Record<string, string> = {
+        'yes': 'Yes',
+        'no': 'No'
+      };
+      const displayValue = booleanMap[value] || value;
+      return <Badge className={value === 'yes' ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>{displayValue}</Badge>;
+    }
+
     // Handle Employees modal specific fields
     if (title.toLowerCase().includes('employee')) {
       if (lowerKey === 'status') {
@@ -417,7 +434,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
         const displayValue = statusMap[value] || value;
         return <Badge className={getStatusColor(value)}>{displayValue}</Badge>;
       }
-      
+
       if (lowerKey === 'instructor') {
         const instructorMap: Record<string, string> = {
           '1': 'Yes',
