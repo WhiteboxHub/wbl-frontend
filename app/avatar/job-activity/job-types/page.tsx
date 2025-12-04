@@ -121,13 +121,13 @@ export default function JobTypesPage() {
     },
     {
       field: "lmdt",
-      headerName: "Last Modified",
+      headerName: "Last Modified date",
       width: 150,
       editable: false,
     },
     {
       field: "lmuid",
-      headerName: "Last Modified uid",
+      headerName: "Last Modified userid",
       width: 150,
       editable: false,
     },
