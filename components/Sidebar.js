@@ -223,9 +223,6 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                     {interviewsData.slice(0, 10).map((interview) => (
                       <div key={interview.id} className={`${isDark ? "bg-gray-800/40" : "bg-white/20"} p-3 rounded-lg ${isDark ? "hover:bg-gray-700/40" : "hover:bg-white/30"} transition-all cursor-pointer backdrop-blur-sm mb-3`}>
                         <div className="flex justify-between">
-                          {/* <h4 className={`font-semibold ${isDark ? "text-gray-100" : "text-gray-800"}`}>
-                            {getCandidateName(interview)}
-                          </h4> */}
                           <h4 className={`font-semibold ${isDark ? "text-gray-100" : "text-gray-800"}`}>
                           {getFirstName(getCandidateName(interview))}
                           </h4>
@@ -234,12 +231,6 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                           </span>
                         </div>
                         <p className="text-blue-500 font-semibold">{interview.company}</p>
-
-                        {/* {interview.url && (
-                          <a href={interview.url} target="_blank" rel="noopener noreferrer" className="mt-1 block text-sm text-indigo-400 underline hover:text-indigo-600">
-                            Open Interview URL
-                          </a>
-                        )} */}
                       </div>
                     ))}
                   </div>
@@ -254,7 +245,6 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                     {placementsData.map((placement) => (
                       <div key={placement.id} className={`${isDark ? "bg-gray-800/40" : "bg-white/20"} p-3 rounded-lg ${isDark ? "hover:bg-gray-700/40" : "hover:bg-white/30"} transition-all cursor-pointer backdrop-blur-sm mb-3`}>
                         <div className="flex justify-between">
-                          {/* <h4 className={`font-semibold ${isDark ? "text-gray-100" : "text-gray-800"}`}>{placement.candidate_name}</h4> */}
                           <h4 className={`font-semibold ${isDark ? "text-gray-100" : "text-gray-800"}`}>
                           {getFirstName(placement.candidate_name)}
                           </h4>

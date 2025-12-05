@@ -359,7 +359,8 @@ const shouldHideAddButton = useMemo(() => {
   return (
     lowerTitle.includes("preparation") ||
     lowerTitle.includes("marketing") || 
-    lowerTitle.includes("placement")
+    lowerTitle.includes("placement") ||
+    lowerTitle.includes("activity")
   );
 }, [title]);
 

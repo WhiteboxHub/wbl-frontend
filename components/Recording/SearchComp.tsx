@@ -221,7 +221,8 @@ const SearchComp: React.FC = () => {
       {showSearchBox && searchResults.length > 0 && (
         <div className="mb-4 max-h-60 overflow-y-auto rounded-md bg-gray-100 p-4 dark:text-black">
           <p className="mb-2 text-sm text-gray-600">
-            Showing {searchResults.length} videos containing: "{searchQuery}"
+            {/* Showing {searchResults.length} videos containing: "{searchQuery}" */}
+            Showing {searchResults.length} videos containing: &quot;{searchQuery}&quot;
           </p>
           {searchResults.map((video) => (
             <div

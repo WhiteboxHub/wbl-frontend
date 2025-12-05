@@ -53,7 +53,7 @@ const statusOptions = ["Open", "Closed", "Future"];
 const workStatusOptions = [
   "Waiting for Status",
   "H1B",
-  "H4 EAD",
+  "H4",
   "Permanent Resident",
   "Citizen",
   "OPT",
@@ -200,7 +200,7 @@ const WorkStatusRenderer = ({ value }: { value?: string }) => {
   const variantMap: Record<string, string> = {
     "waiting for status": "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
     h1b: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-    "h4 ead": "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
+    "h4": "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
     "permanent resident": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
     citizen: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
     opt: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",

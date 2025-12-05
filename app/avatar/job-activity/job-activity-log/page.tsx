@@ -907,7 +907,7 @@ export default function JobActivityLogPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="candidate_id">Candidate (Optional)</Label>
+                <Label htmlFor="candidate_id">Candidate</Label>
                 <Select
                   value={formData.candidate_id || undefined}
                   onValueChange={(value) =>
@@ -915,7 +915,7 @@ export default function JobActivityLogPage() {
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select candidate (optional)" />
+                    <SelectValue placeholder="Select candidate" />
                   </SelectTrigger>
                   <SelectContent>
                     {candidates.map((cand) => (
