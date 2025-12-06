@@ -122,16 +122,16 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       ],
     },
     {
-      title: "Job Activity",
+      title: "Jobs",
       href: "/avatar/job-activity/job-types",
       icon: Briefcase,
       children: [
         {
-          title: "Job Types",
+          title: "Types",
           href: "/avatar/job-activity/job-types",
         },
         {
-          title: "Job Activity Log",
+          title: "Activity Log",
           href: "/avatar/job-activity/job-activity-log",
         },
       ],
