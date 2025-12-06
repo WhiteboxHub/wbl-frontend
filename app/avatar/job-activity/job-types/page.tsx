@@ -20,10 +20,51 @@ export default function JobTypesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [jobTypes, setJobTypes] = useState<any[]>([]);
   const [filteredJobTypes, setFilteredJobTypes] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]); 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // AG Grid Columns
+  // Function to get employee name by ID - ADD THIS FUNCTION
+  const getEmployeeName = (employeeId) => {
+    if (!employeeId) return "Not Assigned";
+    const employee = employees.find(emp => emp.id == employeeId);
+    return employee ? employee.name : `ID: ${employeeId}`;
+  };
+
+  // Fetch job types AND employees - UPDATE THIS FUNCTION
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      // Fetch job types
+      const res = await apiFetch("/job-types");
+      const arr = Array.isArray(res) ? res : res?.data ?? [];
+      const sorted = (arr || []).slice().sort((a: any, b: any) => b.id - a.id);
+
+      // Fetch employees
+      const employeesRes = await apiFetch("/employees");
+      const employeesArr = Array.isArray(employeesRes) ? employeesRes : employeesRes?.data ?? [];
+
+      setJobTypes(sorted);
+      setFilteredJobTypes(sorted);
+      setEmployees(employeesArr);
+
+      toast.success("Fetched data successfully.");
+    } catch (e: any) {
+      const msg = e?.body || e?.message || "Failed to fetch data";
+      setError(typeof msg === "string" ? msg : JSON.stringify(msg));
+      toast.error(typeof msg === "string" ? msg : JSON.stringify(msg));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData(); 
+  }, []);
+
+  // AG Grid Columns - UPDATE job_owner column
   const columnDefs: ColDef[] = [
     {
       field: "id",
@@ -33,11 +74,37 @@ export default function JobTypesPage() {
       editable: false,
     },
     {
+      field: "uid",
+      headerName: "uid",
+      width: 150,
+      editable: true,
+    },
+    {
       field: "job_name",
       headerName: "Job Name",
       width: 300,
       editable: true,
       cellRenderer: JobNameRenderer,
+    },
+    {
+      field: "job_owner",
+      headerName: "Job Owner",
+      width: 200, 
+      editable: true,
+      cellRenderer: (params) => { 
+        return getEmployeeName(params.value);
+      },
+      cellEditor: 'agSelectCellEditor',
+      cellEditorParams: { 
+        values: employees.map(emp => emp.id.toString()),
+      },
+      valueGetter: (params) => { 
+        return params.data.job_owner;
+      },
+      valueSetter: (params) => { 
+        params.data.job_owner = params.newValue ? parseInt(params.newValue) : null;
+        return true;
+      }
     },
     {
       field: "job_description",
@@ -51,53 +118,53 @@ export default function JobTypesPage() {
       width: 200,
       editable: false,
     },
+    {
+      field: "lmdt",
+      headerName: "Last Modified",
+      width: 150,
+      editable: false,
+    },
+    {
+      field: "lmuid_name",
+      headerName: "Last Mod userid",
+      width: 150,
+      editable: false,
+    },
+    {
+      field: "notes",
+      headerName: "Notes",
+      width: 200,
+      editable: true,
+    },
   ];
 
-  // Fetch job types
-  const fetchJobTypes = async () => {
-    try {
-      setLoading(true);
-      setError("");
-
-      const res = await apiFetch("/job-types");
-      const arr = Array.isArray(res) ? res : res?.data ?? [];
-
-      const sorted = (arr || []).slice().sort((a: any, b: any) => b.id - a.id);
-
-      setJobTypes(sorted);
-      setFilteredJobTypes(sorted);
-
-      toast.success("Fetched job types successfully.");
-    } catch (e: any) {
-      const msg = e?.body || e?.message || "Failed to fetch job types";
-      setError(typeof msg === "string" ? msg : JSON.stringify(msg));
-      toast.error(typeof msg === "string" ? msg : JSON.stringify(msg));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchJobTypes();
-  }, []);
-
-  // Search filter
+  // Update search filter to search by employee name - UPDATE THIS
   useEffect(() => {
     const lower = searchTerm.trim().toLowerCase();
     if (!lower) return setFilteredJobTypes(jobTypes);
 
     const filtered = jobTypes.filter((row) => {
       const idMatch = row.id?.toString().includes(lower);
+      const codeMatch = row.uid?.toLowerCase().includes(lower);
       const nameMatch = row.job_name?.toLowerCase().includes(lower);
+      const ownerMatch = getEmployeeName(row.job_owner).toLowerCase().includes(lower); 
       const descMatch = row.job_description?.toLowerCase().includes(lower);
+      const notesMatch = row.notes?.toLowerCase().includes(lower);
 
-      return idMatch || nameMatch || descMatch;
+      return (
+        idMatch ||
+        codeMatch ||
+        nameMatch ||
+        ownerMatch ||
+        descMatch ||
+        notesMatch
+      );
     });
 
     setFilteredJobTypes(filtered);
-  }, [searchTerm, jobTypes]);
+  }, [searchTerm, jobTypes, employees]); 
 
-  // Update row
+  // Update row - NO CHANGE
   const handleRowUpdated = async (updatedRow: any) => {
     try {
       await apiFetch(`/job-types/${updatedRow.id}`, {
@@ -120,7 +187,7 @@ export default function JobTypesPage() {
     }
   };
 
-  // Delete row
+  // Delete row - NO CHANGE
   const handleRowDeleted = async (id: number) => {
     try {
       await apiFetch(`/job-types/${id}`, { method: "DELETE" });
@@ -143,7 +210,7 @@ export default function JobTypesPage() {
     <div className="space-y-6">
       <Toaster position="top-center" />
 
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Job Types</h1>
           <p>Manage all job types here.</p>
@@ -173,8 +240,11 @@ export default function JobTypesPage() {
         onRowAdded={async (newRow: any) => {
           try {
             const payload = {
+              uid: newRow.uid || "", 
               job_name: newRow.job_name || "",
+              job_owner: newRow.job_owner || "",
               job_description: newRow.job_description || "",
+              notes: newRow.notes || "",
             };
 
             if (!payload.job_name) {
