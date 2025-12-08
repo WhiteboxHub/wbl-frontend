@@ -55,6 +55,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
   const sidebarItems = [
     { title: "Dashboard", href: "/avatar", icon: HomeIcon, exact: true },
     { title: "Leads", href: "/avatar/leads", icon: UsersIcon },
+    { title: "Placement Fee Collection", href: "/avatar/Placement_fee_collection", icon: UsersIcon },
     {
       title: "Training",
       href: "/avatar/training/course",
