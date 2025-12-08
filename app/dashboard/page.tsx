@@ -505,7 +505,7 @@ export default function CandidateDashboard() {
                   active={data.journey.preparation.active}
                   completed={data.journey.preparation.completed}
                   durationDays={data.journey.preparation.duration_days}
-                  rating={data.phase_metrics.preparation?.rating}
+                  // rating={data.phase_metrics.preparation?.rating}
                 />
                 <PhaseCard
                   title="Marketing"
