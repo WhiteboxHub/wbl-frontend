@@ -1,7 +1,4 @@
-
-
-
-// app/avatar/placements/page.tsx
+// app/avatar/placements/page.tsx 
 "use client";
 
 import Link from "next/link";
@@ -16,7 +13,7 @@ import { SearchIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useState, useEffect } from "react";
 import { toast, Toaster } from "sonner";
-import api from "@/lib/api";
+import api from "@/lib/api"; 
 
 interface Placement {
   id?: number;
