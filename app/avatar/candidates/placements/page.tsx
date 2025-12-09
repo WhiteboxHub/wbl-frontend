@@ -38,7 +38,7 @@ interface Placement {
 }
 
 const typeOptions = ["Company", "Client", "Vendor", "Implementation Partner"];
-const statusOptions = ["Active", "Inactive", "Complete", "Fired"," did not take off"];
+const statusOptions = ["Active", "Inactive", "Complete", "Fired","did not take off"];
 
 export default function CandidatesPlacements() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -68,9 +68,9 @@ export default function CandidatesPlacements() {
         break;
       default:
         badgeClass = "bg-gray-100 text-gray-700";
-        case "did not take off":
-      badgeClass = "bg-purple-100 text-purple-800"; 
-      break;
+      case "did not take off":
+        badgeClass = "bg-purple-100 text-purple-800"; 
+        break;
     }
 
     return <Badge className={badgeClass}>{params.value}</Badge>;

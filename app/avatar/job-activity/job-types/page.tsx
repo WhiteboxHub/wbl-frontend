@@ -127,11 +127,7 @@ export default function JobTypesPage() {
     },
     {
       field: "lmuid_name",
-<<<<<<< HEAD
-      headerName: "Last Modified uerid",
-=======
       headerName: "Last Mod userid",
->>>>>>> 98eb569a575b5ffa8a49769c5573720a6d36e06f
       width: 150,
       editable: false,
     },

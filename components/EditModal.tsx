@@ -144,7 +144,7 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "Inactive", label: "Inactive" },
     { value: "Complete", label: "Complete" },
     { value: "Fired", label: "Fired" },
-    { value: "did not take off", label: "did not take off" },
+    { value: "did not take off", label: "Did Not Take Off" },
   ],
   employee_status: [
     { value: "1", label: "Active" },
@@ -320,7 +320,7 @@ const excludedFields = [
   "instructor2",
   "instructor3",
   "id",
-  "sessionid",
+  "sessionid",  
   "vendor_type",
   "last_mod_datetime",
   "last_modified",
