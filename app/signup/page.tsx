@@ -1,14 +1,23 @@
 
+
 // whiteboxLearning-wbl/app/signup/page.tsx
 "use client";
 import Link from "next/link";
 import { countries } from "country-data";
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ChangeEvent, FormEvent, useState } from "react";
 import { useAuth } from "@/utils/AuthContext";
 import { signIn, useSession } from "next-auth/react";
 import { SignInResponse } from "next-auth/react";
+
+// Add this interface for reCAPTCHA v2
+declare global {
+  interface Window {
+    grecaptcha: any;
+    onRecaptchaLoad: () => void;
+  }
+}
 
 const SignupPage = () => {
   const [firstName, setFirstName] = useState('');
@@ -30,6 +39,9 @@ const SignupPage = () => {
   const [education, setEducation] = useState("");
   const [specialization, setSpecialization] = useState("");
   const [referredBy, setReferredBy] = useState("");
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [isCaptchaLoaded, setIsCaptchaLoaded] = useState(false);
+  const captchaRef = useRef<HTMLDivElement>(null);
 
   const { data: session, status } = useSession();
   const [googleStatus, setGoogleStatus] = useState("");
@@ -41,6 +53,49 @@ const SignupPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordsMatch, setPasswordsMatch] = useState(true);
+
+  // Load reCAPTCHA v2 script
+  useEffect(() => {
+    const loadRecaptcha = () => {
+      if (typeof window !== 'undefined' && !window.grecaptcha) {
+        window.onRecaptchaLoad = () => {
+          setIsCaptchaLoaded(true);
+          console.log('reCAPTCHA v2 loaded successfully');
+        };
+
+        const script = document.createElement('script');
+        script.src = `https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&render=explicit`;
+        script.async = true;
+        script.defer = true;
+        script.onerror = () => {
+          console.error('Failed to load reCAPTCHA');
+        };
+        document.head.appendChild(script);
+      } else {
+        setIsCaptchaLoaded(true);
+      }
+    };
+
+    loadRecaptcha();
+  }, []);
+
+  // Render reCAPTCHA v2 widget
+  useEffect(() => {
+    if (isCaptchaLoaded && window.grecaptcha && captchaRef.current) {
+      window.grecaptcha.render(captchaRef.current, {
+        sitekey: process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY,
+        callback: (token: string) => {
+          setCaptchaToken(token);
+        },
+        'expired-callback': () => {
+          setCaptchaToken(null);
+        },
+        'error-callback': () => {
+          setCaptchaToken(null);
+        },
+      });
+    }
+  }, [isCaptchaLoaded]);
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -135,6 +190,14 @@ const SignupPage = () => {
     e.preventDefault();
     setLoading(true);
 
+    // Validate CAPTCHA for v2
+    if (!captchaToken) {
+      setResponseStatus("error");
+      setMessagee("Please complete the CAPTCHA verification");
+      setLoading(false);
+      return;
+    }
+
     const correctCountryCode = countryCode.replace(/[^+\d]/g, "");
 
     try {
@@ -160,6 +223,7 @@ const SignupPage = () => {
             referby: referredBy,
             registereddate: new Date().toISOString(),
             level3date: new Date().toISOString(),
+            captcha_token: captchaToken,
           }),
         }
       );
@@ -169,29 +233,45 @@ const SignupPage = () => {
       if (response.ok) {
         setResponseStatus("success");
         setMessagee(data.message);
+        // Reset form
+        setFirstName("");
+        setLastName("");
+        setEmail("");
+        setPhone("");
+        setPassword("");
+        setConfirmPassword("");
+        setAddress("");
+        setZip("");
+        setVisaStatus("");
+        setExperience("");
+        setEducation("");
+        setSpecialization("");
+        setReferredBy("");
+        // Reset CAPTCHA
+        if (window.grecaptcha) {
+          window.grecaptcha.reset();
+        }
+        setCaptchaToken(null);
       } else {
         setResponseStatus("error");
         setMessagee(data.detail || "Registration failed");
+        // Reset CAPTCHA on error
+        if (window.grecaptcha) {
+          window.grecaptcha.reset();
+        }
+        setCaptchaToken(null);
       }
     } catch (error) {
       setResponseStatus("error");
       setMessagee("An error occurred during registration");
+      // Reset CAPTCHA on error
+      if (window.grecaptcha) {
+        window.grecaptcha.reset();
+      }
+      setCaptchaToken(null);
     } finally {
       setLoading(false);
     }
-
-    setFirstName("");
-    setLastName("");
-    setEmail("");
-    setPhone("");
-    setPassword("");
-    setAddress("");
-    setZip("");
-    setVisaStatus("");
-    setExperience("");
-    setEducation("");
-    setSpecialization("");
-    setReferredBy("");
   };
 
   const handleInputFocus = () => {
@@ -211,7 +291,7 @@ const SignupPage = () => {
               <div className="mx-auto max-w-full rounded-3xl bg-gradient-to-br from-pink-400 to-sky-200 p-4 px-6 dark:bg-gradient-to-br dark:from-pink-700 dark:to-sky-500/30 sm:max-w-[600px] sm:pt-8 sm:pb-10 sm:px-10">
                 <p className="text-2xl px-1 py-1 mb-4 text-center font-semibold text-gray-700 dark:text-white sm:mb-1 sm:text-1xl">
                   Create your account
-                  </p>
+                </p>
 
                 <button
                   className="dark:shadow-signUp mb-4 flex w-full items-center justify-center rounded-xl bg-white py-2 px-1 text-[13px]  text-primary shadow-one dark:bg-white dark:text-black sm:mb-6 sm:py-2 sm:text-base"
@@ -302,6 +382,7 @@ const SignupPage = () => {
                   onSubmit={handleSubmit}
                   className="md:text-md text-xs text-black dark:text-white sm:text-sm"
                 >
+                  {/* Your existing form fields remain exactly the same */}
                   <div className="flex flex-col gap-4">
                     <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                       <div className="mb-4 sm:mb-6 flex-1">
@@ -313,10 +394,8 @@ const SignupPage = () => {
                           name="firstName"
                           id="firstName"
                           placeholder="Enter your first Name"
-                          // className="dark:shadow-signUp w-full rounded-xl border py-1 px-1 text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:border-transparent sm:py-3"
                           className="dark:shadow-signUp w-full rounded-xl border py-3 px-1 text-[13px] text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:border-transparent sm:py-1.5"
                           value={firstName}
-                           
                           onChange={(e) => setFirstName(e.target.value)}
                           onFocus={handleInputFocus}
                           required
@@ -349,7 +428,7 @@ const SignupPage = () => {
                       </label>
 
                       <div
-                      id="phone"
+                        id="phone"
                         className={`group flex w-full rounded-xl border border-gray-300 bg-white shadow-one dark:shadow-signUp focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all`}
                       >
                         <select
@@ -373,7 +452,6 @@ const SignupPage = () => {
 
                         <input
                           type="tel"
-                          
                           name="phone"
                           placeholder="Enter your phone number"
                           className="w-full rounded-r-xl border-none bg-transparent py-3 px-1 sm:py-1.5 text-[13px] text-body-color placeholder-body-color outline-none dark:bg-white"
@@ -596,7 +674,6 @@ const SignupPage = () => {
                   <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                     <div className="mb-4 sm:mb-6 flex-1">
                       <label htmlFor="visaStatus " className="mb-2 block font-bold  text-[13px] text-dark dark:text-white">
-                        {/* Visa Status <span className="text-[red]">*</span> */}
                         Work Authorization<span className="text-"></span>
                       </label>
                       <select
@@ -606,7 +683,6 @@ const SignupPage = () => {
                         value={visaStatus}
                         onChange={(e) => setVisaStatus(e.target.value)}
                         onFocus={handleInputFocus}
-                       
                       >
                         <option value="">Select Work Authorization</option>
                         <option value="H1B">H1B</option>
@@ -648,7 +724,6 @@ const SignupPage = () => {
                         value={education}
                         onChange={(e) => setEducation(e.target.value)}
                         onFocus={handleInputFocus}
-                        
                       >
                         <option value="">Select Education</option>
                         <option value="High School">High School</option>
@@ -671,7 +746,6 @@ const SignupPage = () => {
                         value={specialization}
                         onChange={(e) => setSpecialization(e.target.value)}
                         onFocus={handleInputFocus}
-                        
                       >
                         <option value="">Select Specialization</option>
                         <option value="Computer Science">Computer Science</option>
@@ -685,7 +759,6 @@ const SignupPage = () => {
                     </div>
                   </div>
 
-                  {/* Modified Address and Referred By fields to be side by side */}
                   <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                     <div className="mb-4 sm:mb-6 flex-1">
                       <label htmlFor="address" className="mb-2 block font-bold  text-[13px] text-dark dark:text-white">
@@ -715,6 +788,32 @@ const SignupPage = () => {
                         onChange={(e) => setReferredBy(e.target.value)}
                         onFocus={handleInputFocus}
                       />
+                    </div>
+                  </div>
+
+                  {/* CAPTCHA Section - V2 (Checkbox) */}
+                  <div className="mb-4 sm:mb-6">
+                    <label className="mb-2 block font-bold text-[13px] text-dark dark:text-white">
+                      Security Verification <span className="text-[red]">*</span>
+                    </label>
+                    <div className="flex items-center justify-center">
+                      <div 
+                        ref={captchaRef}
+                        id="g-recaptcha"
+                        className="g-recaptcha"
+                      ></div>
+                    </div>
+                    {!captchaToken && (
+                      <p className="mt-2 text-sm text-red-600">
+                        {/* Please complete the CAPTCHA verification */}
+                      </p>
+                    )}
+                    <div className="mt-2 text-center text-xs text-gray-600 dark:text-gray-300">
+                      <p>This site is protected by reCAPTCHA and the Google</p>
+                      <p>
+                        <a href="https://policies.google.com/privacy" className="text-primary hover:underline">Privacy Policy</a> and
+                        <a href="https://policies.google.com/terms" className="text-primary hover:underline"> Terms of Service</a> apply.
+                      </p>
                     </div>
                   </div>
 
@@ -779,6 +878,7 @@ const SignupPage = () => {
                     <button
                       type="submit"
                       className="hover:shadow-signUp ext-sm flex w-full items-center justify-center rounded-xl bg-primary py-2 px-6 font-medium text-white transition duration-300 ease-in-out hover:bg-opacity-80 sm:py-1.5 sm:text-base"
+                      disabled={!captchaToken || loading}
                     >
                       Register
                     </button>
@@ -905,4 +1005,4 @@ const SignupPage = () => {
   );
 };
 
-export default SignupPage;
+export default SignupPage;  
