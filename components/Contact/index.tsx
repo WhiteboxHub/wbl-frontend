@@ -1,4 +1,4 @@
-// wbl-frontend\components\Contact\index.tsx
+ // wbl-frontend\components\Contact\index.tsx
 "use client";
 import ContactDetails from "./ContactDetails";
 import React, { useState, useEffect, useRef } from "react";
@@ -13,7 +13,7 @@ declare global {
 const ContactForm = () => {
   const initialFormData = {
     firstName: "",
-    lastName: "",
+    lastName: "",           
     email: "",
     phone: "",
     message: "",
