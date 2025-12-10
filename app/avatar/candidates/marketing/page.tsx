@@ -102,7 +102,6 @@ const StatusHeaderComponent = ({
     { value: "active", label: "Active" },
     { value: "inactive", label: "Inactive" },
   ];
-
   return (
     <div className="relative flex w-full items-center" ref={filterButtonRef}>
       <span className="mr-2">Status</span>
@@ -154,6 +153,137 @@ const StatusHeaderComponent = ({
   );
 };
 
+const WorkStatusHeaderComponent = ({
+  selectedWorkStatuses,
+  setSelectedWorkStatuses,
+}: {
+  selectedWorkStatuses: string[];
+  setSelectedWorkStatuses: (values: string[]) => void;
+}) => {
+  const filterButtonRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
+  const [filterVisible, setFilterVisible] = useState(false);
+
+  const workStatusOptions = [
+    "waiting for status",
+    "citizen",
+    "visa",
+    "permanent resident",
+    "ead",
+  ];
+
+  const toggleFilter = (e: any) => {
+    e.stopPropagation();
+    if (filterButtonRef.current) {
+      const rect = filterButtonRef.current.getBoundingClientRect();
+      setDropdownPos({
+        top: rect.bottom + window.scrollY,
+        left: rect.left,
+      });
+    }
+    setFilterVisible((v) => !v);
+  };
+
+  const handleToggle = (value: string) => {
+    if (selectedWorkStatuses.includes(value)) {
+      setSelectedWorkStatuses(selectedWorkStatuses.filter((v) => v !== value));
+    } else {
+      setSelectedWorkStatuses([...selectedWorkStatuses, value]);
+    }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    setSelectedWorkStatuses(checked ? [...workStatusOptions] : []);
+  };
+
+  const isAllSelected =
+    selectedWorkStatuses.length === workStatusOptions.length;
+
+  const isIndeterminate =
+    selectedWorkStatuses.length > 0 &&
+    selectedWorkStatuses.length < workStatusOptions.length;
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        filterButtonRef.current &&
+        !filterButtonRef.current.contains(event.target as Node) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setFilterVisible(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div className="relative flex w-full items-center" ref={filterButtonRef}>
+      <span className="mr-2">Work Status</span>
+
+      <svg
+        onClick={toggleFilter}
+        xmlns="http://www.w3.org/2000/svg"
+        className="h-4 w-4 cursor-pointer text-gray-500 hover:text-gray-700"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+          d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z"
+        />
+      </svg>
+
+      {filterVisible &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            className="z-[99999] max-h-60 w-56 overflow-y-auto rounded-lg border bg-white p-3 shadow-lg"
+            style={{
+              top: `${dropdownPos.top}px`,
+              left: `${dropdownPos.left}px`,
+              position: "absolute",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/*SELECT ALL */}
+            <div className="mb-2 border-b pb-2">
+              <label className="flex cursor-pointer items-center gap-2 font-medium">
+                <input
+                  type="checkbox"
+                  checked={isAllSelected}
+                  ref={(el) => {
+                    if (el) el.indeterminate = isIndeterminate;
+                  }}
+                  onChange={(e) => handleSelectAll(e.target.checked)}
+                />
+                Select All
+              </label>
+            </div>
+
+            {/*OPTIONS */}
+            {workStatusOptions.map((value) => (
+              <label
+                key={value}
+                className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-gray-100"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedWorkStatuses.includes(value)}
+                  onChange={() => handleToggle(value)}
+                />
+                <span className="capitalize">{value}</span>
+              </label>
+            ))}
+          </div>,
+          document.body
+        )}
+    </div>
+  );
+};
+
 export default function CandidatesMarketingPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredCandidates, setFilteredCandidates] = useState<any[]>([]);
@@ -161,6 +291,7 @@ export default function CandidatesMarketingPage() {
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([
     "active",
   ]);
+  const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -217,6 +348,15 @@ export default function CandidatesMarketingPage() {
         selectedStatuses.includes(c.status?.toLowerCase())
       );
     }
+    if (selectedWorkStatuses.length > 0) {
+    const wsLower = selectedWorkStatuses.map((s) => s.toLowerCase());
+
+    filtered = filtered.filter((c) =>
+      wsLower.includes(
+        (c?.candidate?.workstatus || "").toString().toLowerCase()
+      )
+    );
+  }
     if (searchTerm.trim() !== "") {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter((c) =>
@@ -224,7 +364,7 @@ export default function CandidatesMarketingPage() {
       );
     }
     setFilteredCandidates(filtered);
-  }, [allCandidates, searchTerm, selectedStatuses]);
+  }, [allCandidates, searchTerm, selectedStatuses,selectedWorkStatuses]);
 
   const ResumeRenderer = (params: any) => (
     <div className="flex items-center space-x-2">
@@ -338,6 +478,27 @@ export default function CandidatesMarketingPage() {
         headerComponentParams: { selectedStatuses, setSelectedStatuses },
       },
       {
+        headerName: "Work Status",
+        field: "candidate.workstatus",
+        width: 150,
+        sortable: true,
+        valueGetter: (params) => params.data?.candidate?.workstatus || "N/A",
+        headerComponent: WorkStatusHeaderComponent,
+        headerComponentParams: {
+          selectedWorkStatuses,
+          setSelectedWorkStatuses,
+        },
+        cellRenderer: (params: any) => {
+          const value = params.value || "N/A";
+          return (
+            <span className="rounded bg-blue-100 px-2 py-1 text-xs text-blue-700">
+              {value}
+            </span>
+          );
+        },
+      },
+
+      {
         field: "instructor1_name",
         headerName: "Instructor 1",
         width: 190,
@@ -393,8 +554,18 @@ export default function CandidatesMarketingPage() {
           );
         },
       },
-      { field: "password", headerName: "Email Password", width: 150, editable: true },
-      { field: "imap_password", headerName: "Imap Password", width: 190, editable: true },
+      {
+        field: "password",
+        headerName: "Email Password",
+        width: 150,
+        editable: true,
+      },
+      {
+        field: "imap_password",
+        headerName: "Imap Password",
+        width: 190,
+        editable: true,
+      },
       {
         field: "linkedin_username",
         headerName: "Linkedin Username",

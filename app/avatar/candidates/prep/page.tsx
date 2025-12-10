@@ -21,10 +21,11 @@ const StatusRenderer = (params: any) => {
     badgeClass =
       "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
   } else if (status === "inactive") {
-    badgeClass =
-      "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+    badgeClass = "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
   }
-  return <Badge className={badgeClass}>{(status || "N/A").toUpperCase()}</Badge>;
+  return (
+    <Badge className={badgeClass}>{(status || "N/A").toUpperCase()}</Badge>
+  );
 };
 
 interface FilterOption {
@@ -43,7 +44,9 @@ const StatusHeaderComponent = ({
 }: StatusHeaderProps) => {
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>(
+    { top: 0, left: 0 }
+  );
   const [filterVisible, setFilterVisible] = useState(false);
 
   const toggleFilter = () => {
@@ -56,8 +59,10 @@ const StatusHeaderComponent = ({
 
   const handleValueChange = (value: string) => {
     const valLower = value.toLowerCase();
-    if (selectedStatuses.map(s => s.toLowerCase()).includes(valLower)) {
-      setSelectedStatuses(selectedStatuses.filter((v) => v.toLowerCase() !== valLower));
+    if (selectedStatuses.map((s) => s.toLowerCase()).includes(valLower)) {
+      setSelectedStatuses(
+        selectedStatuses.filter((v) => v.toLowerCase() !== valLower)
+      );
     } else {
       setSelectedStatuses([...selectedStatuses, valLower]);
     }
@@ -90,7 +95,7 @@ const StatusHeaderComponent = ({
   ];
 
   return (
-    <div className="relative flex items-center w-full" ref={filterButtonRef}>
+    <div className="relative flex w-full items-center" ref={filterButtonRef}>
       <span className="mr-2">Status</span>
       <svg
         onClick={toggleFilter}
@@ -100,13 +105,18 @@ const StatusHeaderComponent = ({
         viewBox="0 0 24 24"
         stroke="currentColor"
       >
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z"
+        />
       </svg>
       {filterVisible &&
         createPortal(
           <div
             ref={dropdownRef}
-            className="z-[99999] bg-white border border-gray-200 rounded-md shadow-lg w-48 max-h-60 overflow-y-auto"
+            className="z-[99999] max-h-60 w-48 overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg"
             style={{
               top: `${dropdownPos.top}px`,
               left: `${dropdownPos.left}px`,
@@ -118,8 +128,10 @@ const StatusHeaderComponent = ({
                 <button
                   key={value}
                   onClick={() => handleValueChange(value)}
-                  className={`block w-full text-left px-4 py-2 text-sm ${
-                    selectedStatuses.map(s => s.toLowerCase()).includes(value.toLowerCase())
+                  className={`block w-full px-4 py-2 text-left text-sm ${
+                    selectedStatuses
+                      .map((s) => s.toLowerCase())
+                      .includes(value.toLowerCase())
                       ? "bg-blue-50 text-blue-700"
                       : "text-gray-700 hover:bg-gray-100"
                   }`}
@@ -135,11 +147,149 @@ const StatusHeaderComponent = ({
   );
 };
 
+const WorkStatusHeaderComponent = ({
+  selectedWorkStatuses,
+  setSelectedWorkStatuses,
+}: {
+  selectedWorkStatuses: string[];
+  setSelectedWorkStatuses: (values: string[]) => void;
+}) => {
+  const filterButtonRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
+  const [filterVisible, setFilterVisible] = useState(false);
+
+  const workStatusOptions = [
+    "waiting for status",
+    "citizen",
+    "visa",
+    "permanent resident",
+    "ead",
+  ];
+
+  const toggleFilter = (e: any) => {
+    e.stopPropagation();
+    if (filterButtonRef.current) {
+      const rect = filterButtonRef.current.getBoundingClientRect();
+      setDropdownPos({
+        top: rect.bottom + window.scrollY,
+        left: rect.left,
+      });
+    }
+    setFilterVisible((v) => !v);
+  };
+
+  const handleToggle = (value: string) => {
+    if (selectedWorkStatuses.includes(value)) {
+      setSelectedWorkStatuses(selectedWorkStatuses.filter((v) => v !== value));
+    } else {
+      setSelectedWorkStatuses([...selectedWorkStatuses, value]);
+    }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    setSelectedWorkStatuses(checked ? [...workStatusOptions] : []);
+  };
+
+  const isAllSelected =
+    selectedWorkStatuses.length === workStatusOptions.length;
+
+  const isIndeterminate =
+    selectedWorkStatuses.length > 0 &&
+    selectedWorkStatuses.length < workStatusOptions.length;
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        filterButtonRef.current &&
+        !filterButtonRef.current.contains(event.target as Node) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setFilterVisible(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div className="relative flex w-full items-center" ref={filterButtonRef}>
+      <span className="mr-2">Work Status</span>
+      <svg
+        onClick={toggleFilter}
+        xmlns="http://www.w3.org/2000/svg"
+        className="h-4 w-4 cursor-pointer text-gray-500 hover:text-gray-700"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z"
+        />
+      </svg>
+
+      {filterVisible &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            className="z-[99999] max-h-60 w-56 overflow-y-auto rounded-lg border bg-white p-3 shadow-lg"
+            style={{
+              top: `${dropdownPos.top}px`,
+              left: `${dropdownPos.left}px`,
+              position: "absolute",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* SELECT ALL */}
+            <div className="mb-2 border-b pb-2">
+              <label className="flex cursor-pointer items-center gap-2 font-medium">
+                <input
+                  type="checkbox"
+                  checked={isAllSelected}
+                  ref={(el) => {
+                    if (el) el.indeterminate = isIndeterminate;
+                  }}
+                  onChange={(e) => handleSelectAll(e.target.checked)}
+                />
+                Select All
+              </label>
+            </div>
+
+            {/* INDIVIDUAL OPTIONS */}
+            {workStatusOptions.map((value) => (
+              <label
+                key={value}
+                className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 hover:bg-gray-100"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedWorkStatuses.includes(value)}
+                  onChange={() => handleToggle(value)}
+                />
+                <span className="capitalize">{value}</span>
+              </label>
+            ))}
+          </div>,
+          document.body
+        )}
+    </div>
+  );
+};
+
 export default function CandidatesPrepPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredCandidates, setFilteredCandidates] = useState<any[]>([]);
   const [allCandidates, setAllCandidates] = useState<any[]>([]);
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["active"]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([
+    "active",
+  ]);
+  const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>(
+    []
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [instructors, setInstructors] = useState<any[]>([]);
@@ -206,6 +356,17 @@ export default function CandidatesPrepPage() {
       );
     }
 
+    // WORK STATUS FILTER
+    if (selectedWorkStatuses.length > 0) {
+      const wsLower = selectedWorkStatuses.map((s) => s.toLowerCase());
+
+      filtered = filtered.filter((c) =>
+        wsLower.includes(
+          (c?.candidate?.workstatus || "").toString().toLowerCase()
+        )
+      );
+    }
+
     const term = (searchTerm || "").trim().toLowerCase();
 
     if (term !== "") {
@@ -236,11 +397,18 @@ export default function CandidatesPrepPage() {
     });
 
     setFilteredCandidates(filtered);
-  }, [allCandidates, searchTerm, selectedStatuses]);
+  }, [allCandidates, searchTerm, selectedStatuses, selectedWorkStatuses]);
 
   const CandidateNameRenderer = (params: any) => {
-    const candidateId = params?.data?.candidate_id || params?.data?.candidate?.id || params?.data?.id;
-    const candidateName = params?.data?.candidate?.full_name || params?.data?.candidate_name || params?.value || "";
+    const candidateId =
+      params?.data?.candidate_id ||
+      params?.data?.candidate?.id ||
+      params?.data?.id;
+    const candidateName =
+      params?.data?.candidate?.full_name ||
+      params?.data?.candidate_name ||
+      params?.value ||
+      "";
 
     if (!candidateId || !candidateName) {
       return <span className="text-gray-500">{candidateName || "N/A"}</span>;
@@ -251,7 +419,7 @@ export default function CandidatesPrepPage() {
         href={`/avatar/candidates/search?candidateId=${candidateId}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer"
+        className="cursor-pointer font-medium text-blue-600 underline hover:text-blue-800"
       >
         {candidateName}
       </Link>
@@ -259,7 +427,7 @@ export default function CandidatesPrepPage() {
   };
 
   const LinkCellRenderer = (params: any) => {
-    let url = (params.value || "").trim(); 
+    let url = (params.value || "").trim();
 
     if (!url) return <span className="text-gray-500">N/A</span>;
     if (!/^https?:\/\//i.test(url)) {
@@ -277,7 +445,6 @@ export default function CandidatesPrepPage() {
       </a>
     );
   };
-
 
   const formatEnumValue = (value: string) => {
     if (!value) return "N/A";
@@ -305,9 +472,15 @@ export default function CandidatesPrepPage() {
         headerName: "Batch",
         sortable: true,
         maxWidth: 150,
-        valueGetter: (params) => params.data.candidate?.batch?.batchname || "N/A",
+        valueGetter: (params) =>
+          params.data.candidate?.batch?.batchname || "N/A",
       },
-      { field: "start_date", headerName: "Start Date", sortable: true, maxWidth: 130 },
+      {
+        field: "start_date",
+        headerName: "Start Date",
+        sortable: true,
+        maxWidth: 130,
+      },
       {
         field: "status",
         headerName: "Status",
@@ -316,6 +489,30 @@ export default function CandidatesPrepPage() {
         headerComponent: StatusHeaderComponent,
         headerComponentParams: { selectedStatuses, setSelectedStatuses },
       },
+      {
+        headerName: "Work Status",
+        field: "candidate.workstatus",
+        width: 150,
+        sortable: true,
+        valueGetter: (params) => params.data?.candidate?.workstatus || "N/A",
+
+        // ADD THESE 2 LINES:
+        headerComponent: WorkStatusHeaderComponent,
+        headerComponentParams: {
+          selectedWorkStatuses,
+          setSelectedWorkStatuses,
+        },
+
+        cellRenderer: (params: any) => {
+          const value = params.value || "N/A";
+          return (
+            <span className="rounded bg-purple-100 px-2 py-1 text-xs text-purple-700">
+              {value}
+            </span>
+          );
+        },
+      },
+
       {
         field: "instructor1_name",
         headerName: "Instructor 1",
@@ -334,9 +531,23 @@ export default function CandidatesPrepPage() {
         minWidth: 150,
         valueGetter: (params) => params.data?.instructor3?.name || "N/A",
       },
-      { field: "rating", headerName: "Rating", minWidth: 120, valueFormatter: (params) => formatEnumValue(params.value) },
-      { field: "communication", headerName: "Communication", minWidth: 120, valueFormatter: (params) => formatEnumValue(params.value) },
-      { field: "years_of_experience", headerName: "Experience (Years)", minWidth: 140 },
+      {
+        field: "rating",
+        headerName: "Rating",
+        minWidth: 120,
+        valueFormatter: (params) => formatEnumValue(params.value),
+      },
+      {
+        field: "communication",
+        headerName: "Communication",
+        minWidth: 120,
+        valueFormatter: (params) => formatEnumValue(params.value),
+      },
+      {
+        field: "years_of_experience",
+        headerName: "Experience (Years)",
+        minWidth: 140,
+      },
       {
         headerName: "LinkedIn",
         minWidth: 150,
@@ -349,7 +560,12 @@ export default function CandidatesPrepPage() {
         minWidth: 150,
         cellRenderer: LinkCellRenderer,
       },
-      { field: "resume_url", headerName: "Resume", minWidth: 150, cellRenderer: LinkCellRenderer },
+      {
+        field: "resume_url",
+        headerName: "Resume",
+        minWidth: 150,
+        cellRenderer: LinkCellRenderer,
+      },
       {
         field: "target_date",
         headerName: "Target Date",
@@ -357,7 +573,9 @@ export default function CandidatesPrepPage() {
         sortable: true,
         filter: "agDateColumnFilter",
         valueGetter: (params) => {
-          return params.data?.entry_date ? new Date(params.data.entry_date) : null;
+          return params.data?.entry_date
+            ? new Date(params.data.entry_date)
+            : null;
         },
         valueFormatter: (params) => {
           const value = params.value;
@@ -374,9 +592,11 @@ export default function CandidatesPrepPage() {
         headerName: "Move to Marketing",
         width: 150,
         sortable: true,
-        filter : "agTextColumnFilter",
+        filter: "agTextColumnFilter",
         // filter: "agSetColumnFilter",
-        cellRenderer: (params: any) => <span>{params.value ? "Yes" : "No"}</span>,
+        cellRenderer: (params: any) => (
+          <span>{params.value ? "Yes" : "No"}</span>
+        ),
       },
       {
         field: "notes",
@@ -387,7 +607,7 @@ export default function CandidatesPrepPage() {
           if (!params.value) return "";
           return (
             <div
-              className="prose prose-sm max-w-none dark:prose-invert"
+              className="prose prose-sm dark:prose-invert max-w-none"
               dangerouslySetInnerHTML={{ __html: params.value }}
             />
           );
@@ -420,7 +640,10 @@ export default function CandidatesPrepPage() {
         }
       });
 
-      const response = await api.put(`/candidate_preparation/${prepId}`, payload);
+      const response = await api.put(
+        `/candidate_preparation/${prepId}`,
+        payload
+      );
       const updatedRecord = response?.data || payload;
 
       setFilteredCandidates((prev) =>
@@ -434,7 +657,10 @@ export default function CandidatesPrepPage() {
     } catch (err: any) {
       console.error("Failed to update:", err);
       const errorMessage =
-        err.body?.detail || err.body?.message || err.message || "Failed to update candidate preparation.";
+        err.body?.detail ||
+        err.body?.message ||
+        err.message ||
+        "Failed to update candidate preparation.";
       toast.error(errorMessage);
     }
   };
@@ -449,7 +675,10 @@ export default function CandidatesPrepPage() {
     } catch (err: any) {
       console.error("Failed to delete candidate preparation:", err);
       const errorMessage =
-        err.body?.detail ?? err.body?.message ?? err.message ?? "Failed to delete candidate preparation.";
+        err.body?.detail ??
+        err.body?.message ??
+        err.message ??
+        "Failed to delete candidate preparation.";
       toast.error(errorMessage);
     }
   };
@@ -457,39 +686,48 @@ export default function CandidatesPrepPage() {
   return (
     <div className="space-y-6 p-4">
       <Toaster position="top-center" richColors />
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Candidate Preparations</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">Tracking candidate preparation status</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            Candidate Preparations
+          </h1>
+          <p className="mt-1 text-gray-600 dark:text-gray-400">
+            Tracking candidate preparation status
+          </p>
         </div>
       </div>
 
       {/* Search */}
       <div className="max-w-md">
-        <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <Label
+          htmlFor="search"
+          className="text-sm font-medium text-gray-700 dark:text-gray-300"
+        >
           Search Candidates
         </Label>
         <div className="relative mt-2">
-          <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
           <Input
             id="search"
             type="text"
             placeholder="Search..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 py-2"
+            className="py-2 pl-10"
           />
         </div>
       </div>
 
       {/* Data Table */}
       {loading ? (
-        <p className="text-center text-sm text-gray-500 dark:text-gray-400">Loading...</p>
+        <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+          Loading...
+        </p>
       ) : error ? (
         <p className="text-center text-red-500">{error}</p>
       ) : (
-        <div className="flex justify-center w-full">
-          <div className="w-full max-w-7xl p-2 bg-white dark:bg-gray-800 rounded-lg shadow">
+        <div className="flex w-full justify-center">
+          <div className="w-full max-w-7xl rounded-lg bg-white p-2 shadow dark:bg-gray-800">
             <AGGridTable
               rowData={filteredCandidates}
               columnDefs={columnDefs}
