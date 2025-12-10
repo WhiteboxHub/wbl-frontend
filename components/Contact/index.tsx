@@ -1,4 +1,3 @@
-// wbl-frontend\components\Contact\index.tsx
 "use client";
 import ContactDetails from "./ContactDetails";
 import React, { useState, useEffect, useRef } from "react";
@@ -108,7 +107,7 @@ const ContactForm = () => {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ ...formData, captchaToken }),
+          body: JSON.stringify({ ...formData, captcha_token: captchaToken }),
         }
       );
 

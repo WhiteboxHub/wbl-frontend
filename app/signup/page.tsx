@@ -223,7 +223,7 @@ const SignupPage = () => {
             referby: referredBy,
             registereddate: new Date().toISOString(),
             level3date: new Date().toISOString(),
-            captchaToken: captchaToken,
+            captcha_token: captchaToken,
           }),
         }
       );
