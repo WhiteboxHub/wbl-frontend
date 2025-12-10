@@ -235,7 +235,7 @@ const YesNoFilterHeaderComponent = (props: any) => {
                       e.stopPropagation();
                       setSelectedValues([]);
                     }}
-                    className="flex w-full cursor-pointer items-center rounded px-2 py-1 text-sm text-destructive hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-destructive"
+                    className="text-destructive hover:text-destructive flex w-full cursor-pointer items-center rounded px-2 py-1 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
                     Clear All
                   </button>
@@ -337,7 +337,7 @@ const JobTypeFilterHeaderComponent = (props: any) => {
 
   return (
     <div className="relative flex w-full items-center">
-      <span className="mr-2 flex-grow">Job Type</span>
+      <span className="mr-2 flex-grow">Job Name</span>
 
       <div
         ref={filterButtonRef}
@@ -412,7 +412,7 @@ const JobTypeFilterHeaderComponent = (props: any) => {
                   onClick={(e) => e.stopPropagation()}
                   className="mr-3 h-3.5 w-3.5"
                 />
-                {jobType.job_name}
+                {jobType.name || jobType.job_name}
               </label>
             ))}
 
@@ -424,7 +424,7 @@ const JobTypeFilterHeaderComponent = (props: any) => {
                       e.stopPropagation();
                       setSelectedJobTypes([]);
                     }}
-                    className="flex w-full cursor-pointer items-center rounded px-2 py-1 text-sm text-destructive hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-destructive"
+                    className="text-destructive hover:text-destructive flex w-full cursor-pointer items-center rounded px-2 py-1 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
                     Clear All
                   </button>
@@ -458,15 +458,15 @@ interface JobActivityLog {
   id: number;
   job_id: number;
   candidate_id: number | null;
-  employee_id: number;
+  employee_id: number | null;
   activity_date: string;
   activity_count: number;
-  json_downloaded: "yes" | "no";
-  sql_downloaded: "yes" | "no";
+  notes: string | null;
   last_mod_date: string;
+  lastmod_user_name: string | null;
   job_name: string;
   candidate_name: string | null;
-  employee_name: string;
+  employee_name: string | null;
 }
 
 export default function JobActivityLogPage() {
@@ -477,12 +477,7 @@ export default function JobActivityLogPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [jobTypes, setJobTypes] = useState<JobType[]>([]);
   const [selectedJobTypes, setSelectedJobTypes] = useState<number[]>([]);
-  const [selectedJsonDownloaded, setSelectedJsonDownloaded] = useState<
-    string[]
-  >([]);
-  const [selectedSqlDownloaded, setSelectedSqlDownloaded] = useState<string[]>(
-    []
-  );
+
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -492,8 +487,7 @@ export default function JobActivityLogPage() {
     employee_id: "",
     activity_date: new Date().toISOString().split("T")[0],
     activity_count: 0,
-    json_downloaded: "no" as "yes" | "no",
-    sql_downloaded: "no" as "yes" | "no",
+    notes: "",
   });
 
   const fetchLogs = async () => {
@@ -564,20 +558,6 @@ export default function JobActivityLogPage() {
       );
     }
 
-    // Filter by JSON Downloaded (if any selected)
-    if (selectedJsonDownloaded.length > 0) {
-      filtered = filtered.filter((log) =>
-        selectedJsonDownloaded.includes(log.json_downloaded)
-      );
-    }
-
-    // Filter by SQL Downloaded (if any selected)
-    if (selectedSqlDownloaded.length > 0) {
-      filtered = filtered.filter((log) =>
-        selectedSqlDownloaded.includes(log.sql_downloaded)
-      );
-    }
-
     // Filter by search term
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
@@ -586,17 +566,12 @@ export default function JobActivityLogPage() {
           log.job_name?.toLowerCase().includes(term) ||
           log.employee_name?.toLowerCase().includes(term) ||
           log.candidate_name?.toLowerCase().includes(term) ||
-          log.activity_date?.toLowerCase().includes(term)
+          log.activity_date?.toLowerCase().includes(term) ||
+          log.notes?.toLowerCase().includes(term)
       );
     }
     setFilteredLogs(filtered);
-  }, [
-    logs,
-    searchTerm,
-    selectedJobTypes,
-    selectedJsonDownloaded,
-    selectedSqlDownloaded,
-  ]);
+  }, [logs, searchTerm, selectedJobTypes]);
 
   const columnDefs: ColDef[] = React.useMemo(
     () => [
@@ -621,18 +596,6 @@ export default function JobActivityLogPage() {
         },
       },
       {
-        field: "employee_name",
-        headerName: "Employee",
-        width: 200,
-        editable: false,
-      },
-      {
-        field: "candidate_name",
-        headerName: "Candidate",
-        width: 200,
-        editable: false,
-      },
-      {
         field: "activity_date",
         headerName: "Activity Date",
         width: 150,
@@ -647,38 +610,22 @@ export default function JobActivityLogPage() {
         editable: true,
       },
       {
-        field: "json_downloaded",
-        headerName: "JSON Downloaded",
-        width: 180,
-        editable: true,
-        cellRenderer: (params: any) => (params.value === "yes" ? "Yes" : "No"),
-        cellEditor: "agSelectCellEditor",
-        cellEditorParams: {
-          values: ["yes", "no"],
-        },
-        headerComponent: YesNoFilterHeaderComponent,
-        headerComponentParams: {
-          selectedValues: selectedJsonDownloaded,
-          setSelectedValues: setSelectedJsonDownloaded,
-          fieldName: "JSON Downloaded",
-        },
+        field: "employee_name",
+        headerName: "Employee",
+        width: 200,
+        editable: false,
       },
       {
-        field: "sql_downloaded",
-        headerName: "SQL Downloaded",
-        width: 180,
+        field: "candidate_name",
+        headerName: "Candidate",
+        width: 200,
+        editable: false,
+      },
+      {
+        field: "notes",
+        headerName: "Notes",
+        width: 300,
         editable: true,
-        cellRenderer: (params: any) => (params.value === "yes" ? "Yes" : "No"),
-        cellEditor: "agSelectCellEditor",
-        cellEditorParams: {
-          values: ["yes", "no"],
-        },
-        headerComponent: YesNoFilterHeaderComponent,
-        headerComponentParams: {
-          selectedValues: selectedSqlDownloaded,
-          setSelectedValues: setSelectedSqlDownloaded,
-          fieldName: "SQL Downloaded",
-        },
       },
       {
         field: "last_mod_date",
@@ -688,15 +635,20 @@ export default function JobActivityLogPage() {
         editable: false,
         filter: "agDateColumnFilter",
       },
+      {
+        field: "lastmod_user_name",
+        headerName: "Last Mod User",
+        width: 150,
+        editable: false,
+      },
     ],
-    [selectedJobTypes, jobTypes, selectedJsonDownloaded, selectedSqlDownloaded]
+    [selectedJobTypes, jobTypes]
   );
 
   const handleRowUpdated = async (updatedRow: JobActivityLog) => {
     const payload = {
       activity_count: updatedRow.activity_count,
-      json_downloaded: updatedRow.json_downloaded,
-      sql_downloaded: updatedRow.sql_downloaded,
+      notes: updatedRow.notes,
     };
     try {
       await apiFetch(`/job_activity_logs/${updatedRow.id}`, {
@@ -756,8 +708,7 @@ export default function JobActivityLogPage() {
         : null,
       activity_date: cleanDate,
       activity_count: parseInt(newData.activity_count) || 0,
-      json_downloaded: newData.json_downloaded || "no",
-      sql_downloaded: newData.sql_downloaded || "no",
+      notes: newData.notes || "",
     };
 
     // Final validation
@@ -852,8 +803,7 @@ export default function JobActivityLogPage() {
                   employee_id: "",
                   activity_date: new Date().toISOString().split("T")[0],
                   activity_count: 0,
-                  json_downloaded: "no",
-                  sql_downloaded: "no",
+                  notes: "",
                 });
               } catch (error) {
                 // Error already handled in handleAddLog
@@ -956,42 +906,17 @@ export default function JobActivityLogPage() {
                 />
               </div>
 
-              <div className="flex gap-4">
-                <div className="flex-1 space-y-2">
-                  <Label htmlFor="json_downloaded">JSON Downloaded</Label>
-                  <Select
-                    value={formData.json_downloaded}
-                    onValueChange={(value: "yes" | "no") =>
-                      setFormData({ ...formData, json_downloaded: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="no">No</SelectItem>
-                      <SelectItem value="yes">Yes</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex-1 space-y-2">
-                  <Label htmlFor="sql_downloaded">SQL Downloaded</Label>
-                  <Select
-                    value={formData.sql_downloaded}
-                    onValueChange={(value: "yes" | "no") =>
-                      setFormData({ ...formData, sql_downloaded: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="no">No</SelectItem>
-                      <SelectItem value="yes">Yes</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="notes">Notes</Label>
+                <Input
+                  id="notes"
+                  type="text"
+                  value={formData.notes}
+                  onChange={(e) =>
+                    setFormData({ ...formData, notes: e.target.value })
+                  }
+                  placeholder="Enter any notes..."
+                />
               </div>
             </div>
 

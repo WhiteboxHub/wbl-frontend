@@ -20,14 +20,14 @@ export default function JobTypesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [jobTypes, setJobTypes] = useState<any[]>([]);
   const [filteredJobTypes, setFilteredJobTypes] = useState<any[]>([]);
-  const [employees, setEmployees] = useState<any[]>([]); 
+  const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   // Function to get employee name by ID - ADD THIS FUNCTION
   const getEmployeeName = (employeeId) => {
     if (!employeeId) return "Not Assigned";
-    const employee = employees.find(emp => emp.id == employeeId);
+    const employee = employees.find((emp) => emp.id == employeeId);
     return employee ? employee.name : `ID: ${employeeId}`;
   };
 
@@ -44,7 +44,9 @@ export default function JobTypesPage() {
 
       // Fetch employees
       const employeesRes = await apiFetch("/employees");
-      const employeesArr = Array.isArray(employeesRes) ? employeesRes : employeesRes?.data ?? [];
+      const employeesArr = Array.isArray(employeesRes)
+        ? employeesRes
+        : employeesRes?.data ?? [];
 
       setJobTypes(sorted);
       setFilteredJobTypes(sorted);
@@ -61,7 +63,7 @@ export default function JobTypesPage() {
   };
 
   useEffect(() => {
-    fetchData(); 
+    fetchData();
   }, []);
 
   // AG Grid Columns - UPDATE job_owner column
@@ -74,59 +76,55 @@ export default function JobTypesPage() {
       editable: false,
     },
     {
-      field: "uid",
-      headerName: "uid",
-      width: 150,
-      editable: true,
-    },
-    {
-      field: "job_name",
-      headerName: "Job Name",
+      field: "name",
+      headerName: "Name",
       width: 300,
       editable: true,
       cellRenderer: JobNameRenderer,
     },
     {
-      field: "job_owner",
+      field: "job_owner_id",
       headerName: "Job Owner",
-      width: 200, 
+      width: 200,
       editable: true,
-      cellRenderer: (params) => { 
+      cellRenderer: (params) => {
         return getEmployeeName(params.value);
       },
-      cellEditor: 'agSelectCellEditor',
-      cellEditorParams: { 
-        values: employees.map(emp => emp.id.toString()),
+      cellEditor: "agSelectCellEditor",
+      cellEditorParams: {
+        values: employees.map((emp) => emp.id.toString()),
       },
-      valueGetter: (params) => { 
-        return params.data.job_owner;
+      valueGetter: (params) => {
+        return params.data.job_owner_id;
       },
-      valueSetter: (params) => { 
-        params.data.job_owner = params.newValue ? parseInt(params.newValue) : null;
+      valueSetter: (params) => {
+        params.data.job_owner_id = params.newValue
+          ? parseInt(params.newValue)
+          : null;
         return true;
-      }
+      },
     },
     {
-      field: "job_description",
+      field: "unique_id",
+      headerName: "Unique ID",
+      width: 150,
+      editable: true,
+    },
+    {
+      field: "description",
       headerName: "Job Description",
       width: 410,
       editable: true,
     },
     {
-      field: "created_date",
-      headerName: "Created Date",
+      field: "lastmod_date_time",
+      headerName: "Last Modified",
       width: 200,
       editable: false,
     },
     {
-      field: "lmdt",
-      headerName: "Last Modified",
-      width: 150,
-      editable: false,
-    },
-    {
-      field: "lmuid_name",
-      headerName: "Last Mod userid",
+      field: "lastmod_user_name",
+      headerName: "Last Mod User",
       width: 150,
       editable: false,
     },
@@ -145,10 +143,12 @@ export default function JobTypesPage() {
 
     const filtered = jobTypes.filter((row) => {
       const idMatch = row.id?.toString().includes(lower);
-      const codeMatch = row.uid?.toLowerCase().includes(lower);
-      const nameMatch = row.job_name?.toLowerCase().includes(lower);
-      const ownerMatch = getEmployeeName(row.job_owner).toLowerCase().includes(lower); 
-      const descMatch = row.job_description?.toLowerCase().includes(lower);
+      const codeMatch = row.unique_id?.toLowerCase().includes(lower);
+      const nameMatch = row.name?.toLowerCase().includes(lower);
+      const ownerMatch = getEmployeeName(row.job_owner_id)
+        .toLowerCase()
+        .includes(lower);
+      const descMatch = row.description?.toLowerCase().includes(lower);
       const notesMatch = row.notes?.toLowerCase().includes(lower);
 
       return (
@@ -162,7 +162,7 @@ export default function JobTypesPage() {
     });
 
     setFilteredJobTypes(filtered);
-  }, [searchTerm, jobTypes, employees]); 
+  }, [searchTerm, jobTypes, employees]);
 
   // Update row - NO CHANGE
   const handleRowUpdated = async (updatedRow: any) => {
@@ -240,15 +240,19 @@ export default function JobTypesPage() {
         onRowAdded={async (newRow: any) => {
           try {
             const payload = {
-              uid: newRow.uid || "", 
-              job_name: newRow.job_name || "",
-              job_owner: newRow.job_owner || "",
-              job_description: newRow.job_description || "",
+              unique_id: newRow.unique_id || "",
+              name: newRow.name || "",
+              job_owner_id: newRow.job_owner_id || null,
+              description: newRow.description || "",
               notes: newRow.notes || "",
             };
 
-            if (!payload.job_name) {
+            if (!payload.name) {
               toast.error("Job Name is required");
+              return;
+            }
+            if (!payload.unique_id) {
+              toast.error("Unique ID is required");
               return;
             }
 
