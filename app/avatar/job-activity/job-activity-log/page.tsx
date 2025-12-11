@@ -1,431 +1,37 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import "@/styles/admin.css";
-import "@/styles/App.css";
 import { ColDef } from "ag-grid-community";
-import dynamic from "next/dynamic";
+import { AGGridTable } from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
-import { SearchIcon, Plus } from "lucide-react";
-import { createPortal } from "react-dom";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/admin_ui/select";
 import { Label } from "@/components/admin_ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/admin_ui/dialog";
-import { Button } from "@/components/admin_ui/button";
+import { SearchIcon } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { apiFetch } from "@/lib/api.js";
-
-const AGGridTable = dynamic(() => import("@/components/AGGridTable"), {
-  ssr: false,
-});
-
-const formatDateFromDB = (dateStr: string | null | undefined) => {
-  if (!dateStr) return "";
-  return dateStr.slice(0, 10);
-};
-
-const DateFormatter = (params: any) => {
-  if (!params.value) return "";
-  const dateStr = formatDateFromDB(params.value);
-  if (!dateStr) return "";
-  return dateStr.replace(/-/g, "/");
-};
 
 const JobNameRenderer = (params: any) => {
   const name = params.value;
   if (!name) return "";
-  return name;
+  return name.toString();
 };
 
-const YesNoFilterHeaderComponent = (props: any) => {
-  const { selectedValues, setSelectedValues, fieldName } = props;
-  const filterButtonRef = React.useRef<HTMLDivElement>(null);
-  const dropdownRef = React.useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = React.useState<{
-    top: number;
-    left: number;
-  }>({ top: 0, left: 0 });
-  const [filterVisible, setFilterVisible] = React.useState(false);
-
-  const options = [
-    { value: "yes", label: "Yes" },
-    { value: "no", label: "No" },
-  ];
-
-  const toggleFilter = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (filterButtonRef.current) {
-      const rect = filterButtonRef.current.getBoundingClientRect();
-      const viewportHeight = window.innerHeight;
-      const dropdownHeight = 200;
-      const spaceBelow = viewportHeight - rect.bottom;
-      const spaceAbove = rect.top;
-
-      let top: number;
-      if (spaceBelow >= dropdownHeight || spaceBelow > spaceAbove) {
-        top = rect.bottom + window.scrollY;
-      } else {
-        top = rect.top + window.scrollY - dropdownHeight;
-      }
-
-      setDropdownPos({
-        top: Math.max(10, top),
-        left: Math.max(10, rect.left + window.scrollX - 100),
-      });
-    }
-    setFilterVisible((v) => !v);
-  };
-
-  const handleValueChange = (
-    value: string,
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    e.stopPropagation();
-    setSelectedValues((prev: string[]) => {
-      const isSelected = prev.includes(value);
-      return isSelected ? prev.filter((v) => v !== value) : [...prev, value];
-    });
-  };
-
-  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.stopPropagation();
-    if (e.target.checked) {
-      setSelectedValues(options.map((opt) => opt.value));
-    } else {
-      setSelectedValues([]);
-    }
-  };
-
-  const isAllSelected = selectedValues.length === options.length;
-  const isIndeterminate =
-    selectedValues.length > 0 && selectedValues.length < options.length;
-
-  React.useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        filterButtonRef.current &&
-        !filterButtonRef.current.contains(event.target as Node) &&
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setFilterVisible(false);
-      }
-    };
-    const handleScroll = () => setFilterVisible(false);
-
-    if (filterVisible) {
-      document.addEventListener("mousedown", handleClickOutside);
-      window.addEventListener("scroll", handleScroll, true);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      window.removeEventListener("scroll", handleScroll, true);
-    };
-  }, [filterVisible]);
-
-  return (
-    <div className="relative flex w-full items-center">
-      <span className="mr-2 flex-grow">{fieldName}</span>
-
-      <div
-        ref={filterButtonRef}
-        className="flex cursor-pointer items-center gap-1 rounded p-1 hover:bg-gray-100 dark:hover:bg-gray-700"
-        onClick={toggleFilter}
-      >
-        {selectedValues.length > 0 &&
-          selectedValues.length < options.length && (
-            <span className="text-primary-foreground min-w-[20px] rounded-full bg-primary px-2 py-0.5 text-center text-xs font-medium">
-              {selectedValues.length}
-            </span>
-          )}
-
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="text-muted-foreground h-4 w-4 hover:text-foreground"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z"
-          />
-        </svg>
-      </div>
-
-      {filterVisible &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div
-            ref={dropdownRef}
-            className="animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 pointer-events-auto fixed z-50 flex w-64 flex-col space-y-2 overflow-hidden rounded-md border bg-popover p-3 text-popover-foreground shadow-md"
-            style={{
-              top: dropdownPos.top + 5,
-              left: dropdownPos.left,
-              maxHeight: "200px",
-              overflowY: "auto",
-              animationFillMode: "forwards",
-            }}
-            onClick={(e) => e.stopPropagation()}
-            data-state="open"
-          >
-            <div className="mb-2 border-b border-border pb-2">
-              <label className="flex cursor-pointer items-center rounded px-2 py-1 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700">
-                <input
-                  type="checkbox"
-                  checked={isAllSelected}
-                  ref={(el) => {
-                    if (el) el.indeterminate = isIndeterminate;
-                  }}
-                  onChange={handleSelectAll}
-                  className="mr-3 h-3.5 w-3.5"
-                  onClick={(e) => e.stopPropagation()}
-                />
-                Select All
-              </label>
-            </div>
-
-            {options.map((option) => (
-              <label
-                key={option.value}
-                className="flex cursor-pointer items-center rounded px-2 py-1 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedValues.includes(option.value)}
-                  onChange={(e) => handleValueChange(option.value, e)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="mr-3 h-3.5 w-3.5"
-                />
-                {option.label}
-              </label>
-            ))}
-
-            {selectedValues.length > 0 &&
-              selectedValues.length < options.length && (
-                <div className="mt-2 border-t border-border pt-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedValues([]);
-                    }}
-                    className="text-destructive hover:text-destructive flex w-full cursor-pointer items-center rounded px-2 py-1 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    Clear All
-                  </button>
-                </div>
-              )}
-          </div>,
-          document.body
-        )}
-    </div>
-  );
+const DateFormatter = (params: any) => {
+  if (!params.value) return "";
+  const dateStr = params.value?.slice(0, 10);
+  if (!dateStr) return "";
+  return dateStr.replace(/-/g, "/");
 };
 
-const JobTypeFilterHeaderComponent = (props: any) => {
-  const { selectedJobTypes, setSelectedJobTypes, jobTypes } = props;
-  const filterButtonRef = React.useRef<HTMLDivElement>(null);
-  const dropdownRef = React.useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = React.useState<{
-    top: number;
-    left: number;
-  }>({ top: 0, left: 0 });
-  const [filterVisible, setFilterVisible] = React.useState(false);
-
-  const toggleFilter = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (filterButtonRef.current) {
-      const rect = filterButtonRef.current.getBoundingClientRect();
-      const viewportHeight = window.innerHeight;
-      const dropdownHeight = 400;
-      const spaceBelow = viewportHeight - rect.bottom;
-      const spaceAbove = rect.top;
-
-      let top: number;
-      if (spaceBelow >= dropdownHeight || spaceBelow > spaceAbove) {
-        top = rect.bottom + window.scrollY;
-      } else {
-        top = rect.top + window.scrollY - dropdownHeight;
-      }
-
-      setDropdownPos({
-        top: Math.max(10, top),
-        left: Math.max(10, rect.left + window.scrollX - 100),
-      });
-    }
-    setFilterVisible((v) => !v);
-  };
-
-  const handleJobTypeChange = (
-    jobTypeId: number,
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    e.stopPropagation();
-    setSelectedJobTypes((prev: number[]) => {
-      const isSelected = prev.includes(jobTypeId);
-      return isSelected
-        ? prev.filter((id) => id !== jobTypeId)
-        : [...prev, jobTypeId];
-    });
-  };
-
-  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.stopPropagation();
-    if (e.target.checked) {
-      setSelectedJobTypes(jobTypes.map((jt: any) => jt.id));
-    } else {
-      setSelectedJobTypes([]);
-    }
-  };
-
-  const isAllSelected =
-    selectedJobTypes.length === jobTypes.length && jobTypes.length > 0;
-  const isIndeterminate =
-    selectedJobTypes.length > 0 && selectedJobTypes.length < jobTypes.length;
-
-  React.useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        filterButtonRef.current &&
-        !filterButtonRef.current.contains(event.target as Node) &&
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setFilterVisible(false);
-      }
-    };
-    const handleScroll = () => setFilterVisible(false);
-
-    if (filterVisible) {
-      document.addEventListener("mousedown", handleClickOutside);
-      window.addEventListener("scroll", handleScroll, true);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      window.removeEventListener("scroll", handleScroll, true);
-    };
-  }, [filterVisible]);
-
-  return (
-    <div className="relative flex w-full items-center">
-      <span className="mr-2 flex-grow">Job Name</span>
-
-      <div
-        ref={filterButtonRef}
-        className="flex cursor-pointer items-center gap-1 rounded p-1 hover:bg-gray-100 dark:hover:bg-gray-700"
-        onClick={toggleFilter}
-      >
-        {selectedJobTypes.length > 0 &&
-          selectedJobTypes.length < jobTypes.length && (
-            <span className="text-primary-foreground min-w-[20px] rounded-full bg-primary px-2 py-0.5 text-center text-xs font-medium">
-              {selectedJobTypes.length}
-            </span>
-          )}
-
-        {/* Funnel icon */}
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="text-muted-foreground h-4 w-4 hover:text-foreground"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z"
-          />
-        </svg>
-      </div>
-
-      {filterVisible &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div
-            ref={dropdownRef}
-            className="animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 pointer-events-auto fixed z-50 flex w-64 flex-col space-y-2 overflow-hidden rounded-md border bg-popover p-3 text-popover-foreground shadow-md"
-            style={{
-              top: dropdownPos.top + 5,
-              left: dropdownPos.left,
-              maxHeight: "400px",
-              overflowY: "auto",
-              animationFillMode: "forwards",
-            }}
-            onClick={(e) => e.stopPropagation()}
-            data-state="open"
-          >
-            <div className="mb-2 border-b border-border pb-2">
-              <label className="flex cursor-pointer items-center rounded px-2 py-1 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700">
-                <input
-                  type="checkbox"
-                  checked={isAllSelected}
-                  ref={(el) => {
-                    if (el) el.indeterminate = isIndeterminate;
-                  }}
-                  onChange={handleSelectAll}
-                  className="mr-3 h-3.5 w-3.5"
-                  onClick={(e) => e.stopPropagation()}
-                />
-                Select All
-              </label>
-            </div>
-
-            {jobTypes.map((jobType: any) => (
-              <label
-                key={jobType.id}
-                className="flex cursor-pointer items-center rounded px-2 py-1 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedJobTypes.includes(jobType.id)}
-                  onChange={(e) => handleJobTypeChange(jobType.id, e)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="mr-3 h-3.5 w-3.5"
-                />
-                {jobType.name || jobType.job_name}
-              </label>
-            ))}
-
-            {selectedJobTypes.length > 0 &&
-              selectedJobTypes.length < jobTypes.length && (
-                <div className="mt-2 border-t border-border pt-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedJobTypes([]);
-                    }}
-                    className="text-destructive hover:text-destructive flex w-full cursor-pointer items-center rounded px-2 py-1 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    Clear All
-                  </button>
-                </div>
-              )}
-          </div>,
-          document.body
-        )}
-    </div>
-  );
-};
 
 interface JobType {
   id: number;
-  job_name: string;
-  job_description: string | null;
+  name: string;
+  unique_id: string;
+  job_owner: string | null;
+  description: string | null;
+  notes: string | null;
+  lastmod_date_time: string | null;
+  lastmod_user_name: string | null;
 }
 
 interface Employee {
@@ -441,9 +47,7 @@ interface Candidate {
 
 interface JobActivityLog {
   id: number;
-  job_id: number;
   candidate_id: number | null;
-  employee_id: number | null;
   activity_date: string;
   activity_count: number;
   notes: string | null;
@@ -461,19 +65,8 @@ export default function JobActivityLogPage() {
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [jobTypes, setJobTypes] = useState<JobType[]>([]);
-  const [selectedJobTypes, setSelectedJobTypes] = useState<number[]>([]);
-
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
-  const [formData, setFormData] = useState({
-    job_id: "",
-    candidate_id: "",
-    employee_id: "",
-    activity_date: new Date().toISOString().split("T")[0],
-    activity_count: 0,
-    notes: "",
-  });
 
   const fetchLogs = async (showSuccessToast = false) => {
     try {
@@ -547,27 +140,22 @@ export default function JobActivityLogPage() {
   }, []);
 
   useEffect(() => {
-    let filtered = logs;
-
-    if (selectedJobTypes.length > 0) {
-      filtered = filtered.filter((log) =>
-        selectedJobTypes.includes(log.job_id)
-      );
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) {
+      setFilteredLogs(logs);
+      return;
     }
 
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (log) =>
-          log.job_name?.toLowerCase().includes(term) ||
-          log.employee_name?.toLowerCase().includes(term) ||
-          log.candidate_name?.toLowerCase().includes(term) ||
-          log.activity_date?.toLowerCase().includes(term) ||
-          log.notes?.toLowerCase().includes(term)
-      );
-    }
+    const filtered = logs.filter(
+      (log) =>
+        log.job_name?.toLowerCase().includes(term) ||
+        log.employee_name?.toLowerCase().includes(term) ||
+        log.candidate_name?.toLowerCase().includes(term) ||
+        log.activity_date?.toLowerCase().includes(term) ||
+        log.notes?.toLowerCase().includes(term)
+    );
     setFilteredLogs(filtered);
-  }, [logs, searchTerm, selectedJobTypes]);
+  }, [logs, searchTerm]);
 
   const columnDefs: ColDef[] = React.useMemo(
     () => [
@@ -584,11 +172,11 @@ export default function JobActivityLogPage() {
         width: 250,
         editable: false,
         cellRenderer: JobNameRenderer,
-        headerComponent: JobTypeFilterHeaderComponent,
-        headerComponentParams: {
-          selectedJobTypes,
-          setSelectedJobTypes,
-          jobTypes,
+        filter: "agSetColumnFilter",
+        filterParams: {
+          values: jobTypes.map(job => job.name),
+          valueListGap: 0,
+          valueListMaxHeight: 220,
         },
       },
       {
@@ -638,7 +226,7 @@ export default function JobActivityLogPage() {
         editable: false,
       },
     ],
-    [selectedJobTypes, jobTypes]
+    [jobTypes]
   );
 
   const handleRowUpdated = async (updatedRow: JobActivityLog) => {
@@ -687,72 +275,13 @@ export default function JobActivityLogPage() {
     }
   };
 
-  const handleAddLog = async (newData: any) => {
-    if (!newData.job_id || !newData.employee_id || !newData.activity_date) {
-      toast.error(
-        "Please fill in all required fields: Job Type, Employee, and Activity Date"
-      );
-      throw new Error("Missing required fields");
-    }
-
-    let cleanDate = newData.activity_date;
-    if (typeof cleanDate === "string") {
-      cleanDate = cleanDate.split("T")[0];
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(cleanDate)) {
-        toast.error("Invalid date format. Please use YYYY-MM-DD format");
-        throw new Error("Invalid date format");
-      }
-    }
-
-    const payload = {
-      job_id: parseInt(newData.job_id) || parseInt(newData.job_name) || null,
-      employee_id:
-        parseInt(newData.employee_id) ||
-        parseInt(newData.employee_name) ||
-        null,
-      candidate_id: newData.candidate_id
-        ? parseInt(newData.candidate_id)
-        : null,
-      activity_date: cleanDate,
-      activity_count: parseInt(newData.activity_count) || 0,
-      notes: newData.notes || "",
-    };
-
-    if (!payload.job_id || !payload.employee_id) {
-      toast.error("Job Type and Employee are required");
-      throw new Error("Missing required fields");
-    }
-
-    try {
-      await apiFetch("/job_activity_logs", {
-        method: "POST",
-        body: payload,
-      });
-
-      await fetchLogs(false);
-      toast.success("Log created successfully");
-    } catch (error: any) {
-      const errorMsg =
-        error?.body?.detail ||
-        error?.detail ||
-        error?.message ||
-        error?.body ||
-        "Failed to create log";
-      toast.error(
-        typeof errorMsg === "string"
-          ? errorMsg
-          : JSON.stringify(errorMsg, null, 2)
-      );
-      throw error;
-    }
-  };
-
   if (loading) return <p className="mt-8 text-center">Loading...</p>;
   if (error) return <p className="mt-8 text-center text-red-600">{error}</p>;
 
   return (
     <div className="space-y-6">
       <Toaster position="top-center" />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Job Activity Log</h1>
@@ -788,154 +317,7 @@ export default function JobActivityLogPage() {
         onRowUpdated={handleRowUpdated}
         onRowDeleted={handleRowDeleted}
         showSearch={false}
-        onAddClick={() => setIsAddDialogOpen(true)}
       />
-
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="max-w-6xl">
-          <DialogHeader>
-            <DialogTitle>Add New Job Activity Log</DialogTitle>
-          </DialogHeader>
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              try {
-                await handleAddLog(formData);
-                setIsAddDialogOpen(false);
-                setFormData({
-                  job_id: "",
-                  candidate_id: "",
-                  employee_id: "",
-                  activity_date: new Date().toISOString().split("T")[0],
-                  activity_count: 0,
-                  notes: "",
-                });
-              } catch (error) {}
-            }}
-            className="mt-4"
-          >
-            <div className="grid grid-cols-1 gap-2.5 sm:gap-3 md:grid-cols-2 md:gap-5">
-              <div className="space-y-1 sm:space-y-1.5">
-                <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                  Job Type <span className="text-red-700">*</span>
-                </label>
-                <Select
-                  value={formData.job_id || undefined}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, job_id: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select job type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {jobTypes.map((job) => (
-                      <SelectItem key={job.id} value={job.id.toString()}>
-                        {job.job_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="employee_id">Employee *</Label>
-                <Select
-                  value={formData.employee_id || undefined}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, employee_id: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select employee" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {employees.map((emp) => (
-                      <SelectItem key={emp.id} value={emp.id.toString()}>
-                        {emp.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="candidate_id">Candidate (Optional)</Label>
-                <Select
-                  value={formData.candidate_id || undefined}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, candidate_id: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select candidate (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {candidates.map((cand) => (
-                      <SelectItem key={cand.id} value={cand.id.toString()}>
-                        {cand.full_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="activity_date">Activity Date *</Label>
-                <Input
-                  id="activity_date"
-                  type="date"
-                  value={formData.activity_date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, activity_date: e.target.value })
-                  }
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="activity_count">Activity Count</Label>
-                <Input
-                  id="activity_count"
-                  type="number"
-                  min="0"
-                  value={formData.activity_count}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      activity_count: parseInt(e.target.value) || 0,
-                    })
-                  }
-                />
-              </div>
-
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Input
-                  id="notes"
-                  type="text"
-                  value={formData.notes}
-                  onChange={(e) =>
-                    setFormData({ ...formData, notes: e.target.value })
-                  }
-                  placeholder="Enter any notes..."
-                />
-              </div>
-            </div>
-
-            <div className="mt-6 flex justify-end gap-2 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsAddDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit">Add Log</Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

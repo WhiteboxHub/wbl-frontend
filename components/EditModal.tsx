@@ -341,6 +341,7 @@ const excludedFields = [
   "sessionid",
   "vendor_type",
   "last_mod_datetime",
+  "last_mod_date",
   "last_modified",
   "logincount",
   "googleId",
@@ -354,14 +355,16 @@ const excludedFields = [
   "instructor1_id",
   "instructor2_id",
   "instructor3_id",
-  "candidate_id",
   "batch",
   "lastSync",
   "synced",
   "lastmod_date_time",
   "lastmod_user_name",
   "job_owner_id",
-  "job_owner_name"
+  "job_owner_name",
+  "candidate_id",
+  "job_id",
+  "employee_id"
 ];
 
 // Field visibility configuration
@@ -531,13 +534,12 @@ const fieldSections: Record<string, string> = {
   job_name: "Basic Information",
   job_description: "Professional Information",
   created_date: "Professional Information",
-  job_id: "Professional Information",
-  employee_id: "Professional Information",
   activity_date: "Professional Information",
   activity_count: "Professional Information",
   job_owner: "Basic Information",
   unique_id: "Professional Information",
   description: "Professional Information",
+  lastmod_date_time: "Professional Information",
 };
 
 // Override field labels for better readability
@@ -713,7 +715,10 @@ export function EditModal({
   const modalRef = useRef<HTMLDivElement>(null);
   const [marketingCandidates, setMarketingCandidates] = useState<any[]>([]);
   const [shouldDisableBold, setShouldDisableBold] = useState(false);
-  const [jobTypes, setJobTypes] = useState<{ id: number; job_name: string }[]>(
+  const [jobTypes, setJobTypes] = useState<{ id: number; name: string }[]>(
+    []
+  );
+  const [candidates, setCandidates] = useState<{ id: number; full_name: string }[]>(
     []
   );
 
@@ -950,11 +955,26 @@ export function EditModal({
       }
     };
 
+    const fetchCandidates = async () => {
+      try {
+        const res = await apiFetch("/candidates");
+        const data = res?.data ?? res;
+        const arr = Array.isArray(data) ? data : data?.data || [];
+        setCandidates(arr);
+      } catch (error: any) {
+        console.error(
+          "Failed to fetch candidates:",
+          error?.response?.data || error.message || error
+        );
+      }
+    };
+
     fetchCourses();
     fetchSubjects();
     fetchEmployees();
     if (isJobActivityLogModal) {
       fetchJobTypes();
+      fetchCandidates();
     }
   }, [isCourseMaterialModal, isJobActivityLogModal]);
 
@@ -1089,12 +1109,36 @@ export function EditModal({
     // Convert job_name to job_id for Job Activity Log modal
     if (isJobActivityLogModal && formData.job_name) {
       const selectedJob = jobTypes.find(
-        (job) => job.job_name === formData.job_name
+        (job) => job.name === formData.job_name
       );
       if (selectedJob) {
         reconstructedData.job_id = selectedJob.id;
       }
       delete reconstructedData.job_name;
+    }
+
+    // Convert employee_name to employee_id for Job Activity Log modal
+    if (isJobActivityLogModal && formData.employee_name) {
+      const selectedEmployee = employees.find(
+        (emp) => emp.name === formData.employee_name
+      );
+      if (selectedEmployee) {
+        reconstructedData.employee_id = selectedEmployee.id;
+      }
+      // Remove employee_name from payload as backend doesn't accept it
+      delete reconstructedData.employee_name;
+    }
+
+    // Convert candidate_name to candidate_id for Job Activity Log modal
+    if (isJobActivityLogModal && formData.candidate_name) {
+      const selectedCandidate = candidates.find(
+        (cand) => cand.full_name === formData.candidate_name
+      );
+      if (selectedCandidate) {
+        reconstructedData.candidate_id = selectedCandidate.id;
+      }
+      // Remove candidate_name from payload as backend doesn't accept it
+      delete reconstructedData.candidate_name;
     }
 
     // Handle job_owner field for Job Types modal - ensure it's sent as ID
@@ -1777,9 +1821,6 @@ export function EditModal({
                               key.toLowerCase() === "subject";
                             const isCourseIdField =
                               key.toLowerCase() === "courseid";
-                            const isJobIdField = key.toLowerCase() === "job_id";
-                            const isEmployeeIdField =
-                              key.toLowerCase() === "employee_id";
                             const isEmployeeNameField =
                               key.toLowerCase() === "employee_name";
                             const isActivityCountField =
@@ -1790,6 +1831,14 @@ export function EditModal({
                               key.toLowerCase() === "batch";
                             const isJobOwnerField =
                               key.toLowerCase() === "job_owner";
+                            const isJobIdField =
+                              key.toLowerCase() === "job_id";
+                            const isEmployeeIdField =
+                              key.toLowerCase() === "employee_id";
+                            const isCandidateIdField =
+                              key.toLowerCase() === "candidate_id";
+                            const isCandidateNameField =
+                              key.toLowerCase() === "candidate_name";
 
                             if (isMaterialTypeField && !isCourseMaterialModal) {
                               return null;
@@ -1891,14 +1940,10 @@ export function EditModal({
 
 
 
-                            // Make job_id, employee_id, employee_name, and activity_count read-only in Job Activity Log modal (not add mode)
+                            // Make job_id, employee_id, employee_name, and activity_count read-only in Job Activity Log modal
                             if (
                               isJobActivityLogModal &&
-                              !isAddMode &&
-                              (isJobIdField ||
-                                isEmployeeIdField ||
-                                isEmployeeNameField ||
-                                isActivityCountField)
+                              isEmployeeNameField
                             ) {
                               return (
                                 <div
@@ -1908,20 +1953,38 @@ export function EditModal({
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
                                   </label>
-                                  <input
-                                    type="text"
-                                    value={formData[key] || ""}
-                                    readOnly
-                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
-                                  />
+                                  <select
+                                    {...register(key)}
+                                    value={
+                                      currentFormValues[key] ||
+                                      formData[key] ||
+                                      ""
+                                    }
+                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                  >
+                                    {employees.length === 0 ? (
+                                      <option value="">Loading...</option>
+                                    ) : (
+                                      <>
+                                        <option value="">All</option>
+                                        {employees.map((emp) => (
+                                          <option
+                                            key={emp.id}
+                                            value={emp.name}
+                                          >
+                                            {emp.name}
+                                          </option>
+                                        ))}
+                                      </>
+                                    )}
+                                  </select>
                                 </div>
                               );
                             }
 
-                            // Make job_name a dropdown in Job Activity Log modal (not add mode)
+                            // Make job_name a dropdown in Job Activity Log modal (both add and edit modes)
                             if (
                               isJobActivityLogModal &&
-                              !isAddMode &&
                               isJobNameField
                             ) {
                               return (
@@ -1947,9 +2010,90 @@ export function EditModal({
                                       jobTypes.map((job) => (
                                         <option
                                           key={job.id}
-                                          value={job.job_name}
+                                          value={job.name}
                                         >
-                                          {job.job_name}
+                                          {job.name}
+                                        </option>
+                                      ))
+                                    )}
+                                  </select>
+                                </div>
+                              );
+                            }
+
+                            // Make candidate_name a dropdown in Job Activity Log modal (both add and edit modes)
+                            if (
+                              isJobActivityLogModal &&
+                              isCandidateNameField
+                            ) {
+                              return (
+                                <div
+                                  key={key}
+                                  className="space-y-1 sm:space-y-1.5"
+                                >
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    {toLabel(key)}
+                                  </label>
+                                  <select
+                                    {...register(key)}
+                                    value={
+                                      currentFormValues[key] ||
+                                      formData[key] ||
+                                      ""
+                                    }
+                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                  >
+                                    {candidates.length === 0 ? (
+                                      <option value="">Loading...</option>
+                                    ) : (
+                                      <>
+                                        <option value="">All</option>
+                                        {candidates.map((cand) => (
+                                          <option
+                                            key={cand.id}
+                                            value={cand.full_name}
+                                          >
+                                            {cand.full_name}
+                                          </option>
+                                        ))}
+                                      </>
+                                    )}
+                                  </select>
+                                </div>
+                              );
+                            }
+
+                            // Make employee_name a dropdown in Job Activity Log modal (both add and edit modes)
+                            if (
+                              isJobActivityLogModal &&
+                              isEmployeeNameField
+                            ) {
+                              return (
+                                <div
+                                  key={key}
+                                  className="space-y-1 sm:space-y-1.5"
+                                >
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    {toLabel(key)}
+                                  </label>
+                                  <select
+                                    {...register(key)}
+                                    value={
+                                      currentFormValues[key] ||
+                                      formData[key] ||
+                                      ""
+                                    }
+                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                  >
+                                    {employees.length === 0 ? (
+                                      <option value="">Loading...</option>
+                                    ) : (
+                                      employees.map((emp) => (
+                                        <option
+                                          key={emp.id}
+                                          value={emp.name}
+                                        >
+                                          {emp.name}
                                         </option>
                                       ))
                                     )}
