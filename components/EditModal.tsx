@@ -90,7 +90,6 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "permanent resident", label: "Permanent Resident" },
     { value: "h4", label: "H4" },
     { value: "EAD", label: "EAD" },
-    { value: "EAD", label: "EAD" },
     { value: "green card", label: "Green Card" },
     { value: "h1b", label: "H1B" },
   ],
@@ -267,7 +266,11 @@ const requiredFieldsConfig: Record<string, string[]> = {
 
 // Helper function to check if a field is required based on modal type and mode
 
-const isFieldRequired = (fieldName: string, modalType: string, isAddMode: boolean): boolean => {
+const isFieldRequired = (
+  fieldName: string,
+  modalType: string,
+  isAddMode: boolean
+): boolean => {
   if (!isAddMode) return false;
 
   const modalKey = modalType.toLowerCase();
@@ -282,7 +285,7 @@ const isFieldRequired = (fieldName: string, modalType: string, isAddMode: boolea
   });
 
 
-  const normalizedFieldName = fieldName.toLowerCase().replace(/\s+/g, '');
+  const normalizedFieldName = fieldName.toLowerCase().replace(/\s+/g, "");
   const requiredForModals = fieldConfigMap[normalizedFieldName];
   if (!requiredForModals) return false;
 
@@ -353,6 +356,8 @@ const excludedFields = [
   "batch",
   "lastSync",
   "synced",
+  "lastmod_date_time",
+  "lastmod_user_name",
 ];
 
 // Field visibility configuration
@@ -526,6 +531,9 @@ const fieldSections: Record<string, string> = {
   employee_id: "Professional Information",
   activity_date: "Professional Information",
   activity_count: "Professional Information",
+  job_owner: "Basic Information",
+  unique_id: "Professional Information",
+  description: "Professional Information",
 };
 
 // Override field labels for better readability
@@ -604,6 +612,7 @@ const labelOverrides: Record<string, string> = {
   move_to_mrkt: "Move to Marketing",
   aadhaar: "Aadhaar",
   job_posting_url: "Job Posting URL",
+  job_owner: "Job Owner",
   feedback: "Feedback",
   entry_date: "Entry Date",
   closed_date: "Closed Date",
@@ -736,7 +745,9 @@ export function EditModal({
   const isJobActivityLogModal = title
     .toLowerCase()
     .includes("job activity log");
-
+  const isJobTypesModal =
+    title.toLowerCase().includes("job types") ||
+    title.toLowerCase().includes("job type");
 
   // Field visibility for current modal
   const showInstructorFields =
@@ -1064,7 +1075,7 @@ export function EditModal({
         reset(flattenedData);
       }, 0);
     }
-  }, [data, isOpen]); // Removed reset from dependencies to prevent infinite loops
+  }, [data, isOpen]);
 
 
   // Handle form submission
@@ -1081,6 +1092,17 @@ export function EditModal({
       }
       // Remove job_name from payload as backend doesn't accept it
       delete reconstructedData.job_name;
+    }
+
+    // Handle job_owner field for Job Types modal - ensure it's sent as ID
+    if (isJobTypesModal && formData.job_owner !== undefined) {
+      if (formData.job_owner === "" || formData.job_owner === null) {
+        reconstructedData.job_owner = null;
+      } else if (typeof formData.job_owner === 'string' && formData.job_owner !== "") {
+        // If it's a string ID, convert to number
+        reconstructedData.job_owner = parseInt(formData.job_owner);
+      }
+      // If it's already a number (ID), keep it as is
     }
 
     if (isEmployeeModal) {
@@ -1765,11 +1787,51 @@ export function EditModal({
                               key.toLowerCase() === "job_name";
                             const isBatchNameField =
                               key.toLowerCase() === "batch";
+                            const isJobOwnerField =
+                              key.toLowerCase() === "job_owner";
 
                             if (isMaterialTypeField && !isCourseMaterialModal) {
                               return null;
                             }
 
+                            // Handle job_owner dropdown in Job Types modal
+                            if (isJobTypesModal && isJobOwnerField) {
+                                const currentJobOwnerValue = currentFormValues[key] || formData[key] || "";
+
+                                let jobOwnerId = "";
+                                if (typeof currentJobOwnerValue === 'string') {
+                                    const matchingEmployee = employees.find(emp => emp.name === currentJobOwnerValue);
+                                    if (matchingEmployee) {
+                                        jobOwnerId = String(matchingEmployee.id);
+                                    }
+                                } else if (typeof currentJobOwnerValue === 'number') {
+                                    jobOwnerId = String(currentJobOwnerValue);
+                                }
+
+                                return (
+                                    <div key={key} className="space-y-1 sm:space-y-1.5">
+                                        <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                            {toLabel(key)}
+                                        </label>
+                                        <select
+                                            {...register(key)}
+                                            value={jobOwnerId}
+                                            onChange={(e) => {
+                                                const selectedId = e.target.value;
+                                                setValue(key, selectedId === "" ? null : parseInt(selectedId));
+                                            }}
+                                            className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                        >
+                                            <option value="">Not Assigned</option>
+                                            {employees.map((emp) => (
+                                                <option key={emp.id} value={String(emp.id)}>
+                                                    {emp.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                );
+                            }
 
                             if (
                               isPlacementModal &&
@@ -1989,7 +2051,6 @@ export function EditModal({
 
                             // Make all fields read-only in EmailActivityLog modal
                             if (isEmailActivityLogsModal && !isAddMode) {
-                              // Handle date fields specially
                               if (dateFields.includes(key.toLowerCase())) {
                                 return (
                                   <div
@@ -2534,13 +2595,13 @@ export function EditModal({
                                       quill.focus();
                                       const timestampLength = timestamp.length;
                                       quill.setSelection(timestampLength, 0);
-                                      quill.format('bold', false);
+                                      quill.format("bold", false);
                                       setShouldDisableBold(false);
                                     }
                                   }
                                 }, 150);
                               }}
-                              className="px-2 sm:px-2 py-1 sm:py-1 text-xs sm:text-sm font-medium text-black hover:text-blue-800 hover:underline"
+                              className="px-2 py-1 text-xs font-medium text-black hover:text-blue-800 hover:underline sm:px-2 sm:py-1 sm:text-sm"
                             >
                               + New Entry
                             </button>
@@ -2581,6 +2642,5 @@ export function EditModal({
           </div>
         </div>
       )}
-    </>
-  );
+    </>);
 }
