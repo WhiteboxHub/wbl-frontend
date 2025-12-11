@@ -84,9 +84,12 @@ const statusOptions = ["active", "discontinued", "break", "closed"];
 const workStatusOptions = [
   "Waiting for Status",
   "Citizen",
-  "Visa",
+  "F1",
   "Permanent resident",
   "EAD",
+  "H4 EAD",
+  "OPT",
+  "H1B"
 ];
 
 const initialFormData: FormData = {
