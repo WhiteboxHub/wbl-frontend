@@ -81,7 +81,7 @@ interface RowData {
   fullName?: string;
   company?: string;
   [key: string]: any;
-  
+
 }
 
 export function AGGridTable({
@@ -181,7 +181,7 @@ export function AGGridTable({
     }
   }, []);
 
-  const onColumnMoved = useCallback((event: ColumnMovedEvent) => {}, []);
+  const onColumnMoved = useCallback((event: ColumnMovedEvent) => { }, []);
 
   // Returns the currently displayed (filtered and sorted) rows
   const getDisplayedRows = useCallback((): RowData[] => {
@@ -353,15 +353,16 @@ export function AGGridTable({
   );
 
   // Add this condition to check if we should hide the add button
-const shouldHideAddButton = useMemo(() => {
-  if (!title) return false;
-  const lowerTitle = title.toLowerCase();
-  return (
-    lowerTitle.includes("preparation") ||
-    lowerTitle.includes("marketing") || 
-    lowerTitle.includes("placement")
-  );
-}, [title]);
+  const shouldHideAddButton = useMemo(() => {
+    if (!title) return false;
+    const lowerTitle = title.toLowerCase();
+    if (lowerTitle.includes("placement fee")) return false;
+    return (
+      lowerTitle.includes("preparation") ||
+      lowerTitle.includes("marketing") ||
+      lowerTitle.includes("placement")
+    );
+  }, [title]);
 
   return (
     <div className="mx-auto w-full max-w-7xl flex-row-reverse space-y-4">
@@ -373,15 +374,15 @@ const shouldHideAddButton = useMemo(() => {
         )}
         <div className="ml-auto flex items-center  space-x-2">
           {!shouldHideAddButton && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleAdd}
-            className="flex h-8 w-8 items-center justify-center p-0 font-bold text-green-600 hover:text-blue-700 dark:text-green-400"
-            title="Add New"
-          >
-            +
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAdd}
+              className="flex h-8 w-8 items-center justify-center p-0 font-bold text-green-600 hover:text-blue-700 dark:text-green-400"
+              title="Add New"
+            >
+              +
+            </Button>
           )}
 
           <Button
@@ -438,9 +439,8 @@ const shouldHideAddButton = useMemo(() => {
 
       <div className="flex justify-center">
         <div
-          className={`ag-theme-alpine ${
-            isDarkMode ? "ag-grid-dark-mode" : ""
-          } w-full rounded-lg border border-gray-200 shadow-sm dark:border-gray-700`}
+          className={`ag-theme-alpine ${isDarkMode ? "ag-grid-dark-mode" : ""
+            } w-full rounded-lg border border-gray-200 shadow-sm dark:border-gray-700`}
           style={{ height: "calc(100vh - 260px)", minHeight: "400px" }}
         >
           <AgGridReact
@@ -567,13 +567,11 @@ const shouldHideAddButton = useMemo(() => {
           onClose={() => setDeleteConfirmData(null)}
           onConfirm={confirmDelete}
           title="Delete Record"
-          message={`Are you sure you want to delete this record?${
-            deleteConfirmData.fullName || deleteConfirmData.company
-              ? `\n\nRecord: ${
-                  deleteConfirmData.fullName || deleteConfirmData.company
-                }`
+          message={`Are you sure you want to delete this record?${deleteConfirmData.fullName || deleteConfirmData.company
+              ? `\n\nRecord: ${deleteConfirmData.fullName || deleteConfirmData.company
+              }`
               : ""
-          }`}
+            }`}
           confirmText="Delete"
           cancelText="Cancel"
         />

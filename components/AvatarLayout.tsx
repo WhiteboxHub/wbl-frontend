@@ -79,6 +79,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
         { title: "Interviews", href: "/avatar/candidates/interviews" },
         { title: "Marketing", href: "/avatar/candidates/marketing" },
         { title: "Placements", href: "/avatar/candidates/placements" },
+        { title: "Placements Fee", href: "/avatar/candidates/placement_fee" },
       ],
     },
     {
