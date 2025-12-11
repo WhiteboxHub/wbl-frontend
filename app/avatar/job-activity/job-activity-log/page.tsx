@@ -24,6 +24,7 @@ import {
   DialogTrigger,
 } from "@/components/admin_ui/dialog";
 import { Button } from "@/components/admin_ui/button";
+import { toast, Toaster } from "sonner";
 import { apiFetch } from "@/lib/api.js";
 
 const AGGridTable = dynamic(() => import("@/components/AGGridTable"), {
@@ -42,25 +43,12 @@ const DateFormatter = (params: any) => {
   return dateStr.replace(/-/g, "/");
 };
 
-const DateTimeFormatter = (params: any) =>
-  params.value
-    ? new Date(params.value).toLocaleString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "";
-
-// Job Name Renderer - formats job names with spaces and title case
 const JobNameRenderer = (params: any) => {
   const name = params.value;
   if (!name) return "";
   return name;
 };
 
-// Yes/No Filter Header Component
 const YesNoFilterHeaderComponent = (props: any) => {
   const { selectedValues, setSelectedValues, fieldName } = props;
   const filterButtonRef = React.useRef<HTMLDivElement>(null);
@@ -81,7 +69,7 @@ const YesNoFilterHeaderComponent = (props: any) => {
     if (filterButtonRef.current) {
       const rect = filterButtonRef.current.getBoundingClientRect();
       const viewportHeight = window.innerHeight;
-      const dropdownHeight = 200; // estimated max height
+      const dropdownHeight = 200;
       const spaceBelow = viewportHeight - rect.bottom;
       const spaceAbove = rect.top;
 
@@ -248,7 +236,6 @@ const YesNoFilterHeaderComponent = (props: any) => {
   );
 };
 
-// Job Type Filter Header Component
 const JobTypeFilterHeaderComponent = (props: any) => {
   const { selectedJobTypes, setSelectedJobTypes, jobTypes } = props;
   const filterButtonRef = React.useRef<HTMLDivElement>(null);
@@ -264,22 +251,20 @@ const JobTypeFilterHeaderComponent = (props: any) => {
     if (filterButtonRef.current) {
       const rect = filterButtonRef.current.getBoundingClientRect();
       const viewportHeight = window.innerHeight;
-      const dropdownHeight = 400; // estimated max height
+      const dropdownHeight = 400;
       const spaceBelow = viewportHeight - rect.bottom;
       const spaceAbove = rect.top;
 
       let top: number;
       if (spaceBelow >= dropdownHeight || spaceBelow > spaceAbove) {
-        // Show below
         top = rect.bottom + window.scrollY;
       } else {
-        // Show above
         top = rect.top + window.scrollY - dropdownHeight;
       }
 
       setDropdownPos({
-        top: Math.max(10, top), // Ensure at least 10px from top
-        left: Math.max(10, rect.left + window.scrollX - 100), // Ensure at least 10px from left
+        top: Math.max(10, top),
+        left: Math.max(10, rect.left + window.scrollX - 100),
       });
     }
     setFilterVisible((v) => !v);
@@ -490,9 +475,10 @@ export default function JobActivityLogPage() {
     notes: "",
   });
 
-  const fetchLogs = async () => {
+  const fetchLogs = async (showSuccessToast = false) => {
     try {
       setLoading(true);
+      setError("");
       const data = await apiFetch("/job_activity_logs");
       const arr = Array.isArray(data) ? data : data?.data || [];
 
@@ -501,8 +487,23 @@ export default function JobActivityLogPage() {
 
       setLogs(sorted);
       setFilteredLogs(sorted);
+
+      if (showSuccessToast) {
+        toast.success("Data refreshed successfully");
+      }
     } catch (e: any) {
-      setError(e?.message || e?.body || "Failed to load job activity logs");
+      const errorMsg =
+        e?.body?.detail ||
+        e?.detail ||
+        e?.message ||
+        e?.body ||
+        "Failed to load job activity logs";
+      setError(
+        typeof errorMsg === "string" ? errorMsg : JSON.stringify(errorMsg)
+      );
+      toast.error(
+        typeof errorMsg === "string" ? errorMsg : JSON.stringify(errorMsg)
+      );
     } finally {
       setLoading(false);
     }
@@ -513,11 +514,8 @@ export default function JobActivityLogPage() {
       const data = await apiFetch("/job-types");
       const jobTypesArray = Array.isArray(data) ? data : [];
       setJobTypes(jobTypesArray);
-
-      // Don't set default job type - show all logs by default
-      // Users can manually filter if needed
     } catch (e: any) {
-      console.error("Failed to load job types:", e);
+      toast.error("Failed to load job types");
     }
   };
 
@@ -527,7 +525,7 @@ export default function JobActivityLogPage() {
       const arr = Array.isArray(data) ? data : data?.data || [];
       setEmployees(arr);
     } catch (e: any) {
-      console.error("Failed to load employees:", e);
+      toast.error("Failed to load employees");
     }
   };
 
@@ -537,7 +535,7 @@ export default function JobActivityLogPage() {
       const arr = Array.isArray(data) ? data : data?.data || [];
       setCandidates(arr);
     } catch (e: any) {
-      console.error("Failed to load candidates:", e);
+      toast.error("Failed to load candidates");
     }
   };
 
@@ -551,14 +549,12 @@ export default function JobActivityLogPage() {
   useEffect(() => {
     let filtered = logs;
 
-    // Filter by job types (if any selected)
     if (selectedJobTypes.length > 0) {
       filtered = filtered.filter((log) =>
         selectedJobTypes.includes(log.job_id)
       );
     }
 
-    // Filter by search term
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
@@ -655,34 +651,45 @@ export default function JobActivityLogPage() {
         method: "PUT",
         body: payload,
       });
-      // Update both logs and filteredLogs to maintain consistency
-      setLogs((prev) =>
-        prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
-      );
-      setFilteredLogs((prev) =>
-        prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
-      );
+
+      await fetchLogs(false);
+      toast.success("Log updated successfully");
     } catch (error: any) {
-      console.error("Update failed", error);
-      alert(error?.message || error?.body || "Failed to update log");
+      const errorMsg =
+        error?.body?.detail ||
+        error?.detail ||
+        error?.message ||
+        error?.body ||
+        "Failed to update log";
+      toast.error(
+        typeof errorMsg === "string" ? errorMsg : JSON.stringify(errorMsg)
+      );
     }
   };
 
   const handleRowDeleted = async (id: number | string) => {
     try {
       await apiFetch(`/job_activity_logs/${id}`, { method: "DELETE" });
+
       setFilteredLogs((prev) => prev.filter((row) => row.id !== id));
       setLogs((prev) => prev.filter((row) => row.id !== id));
+      toast.success(`Log ${id} deleted successfully`);
     } catch (error: any) {
-      console.error("Delete failed", error);
-      alert(error?.message || error?.body || "Failed to delete log");
+      const errorMsg =
+        error?.body?.detail ||
+        error?.detail ||
+        error?.message ||
+        error?.body ||
+        "Failed to delete log";
+      toast.error(
+        typeof errorMsg === "string" ? errorMsg : JSON.stringify(errorMsg)
+      );
     }
   };
 
   const handleAddLog = async (newData: any) => {
-    // Validate required fields
     if (!newData.job_id || !newData.employee_id || !newData.activity_date) {
-      alert(
+      toast.error(
         "Please fill in all required fields: Job Type, Employee, and Activity Date"
       );
       throw new Error("Missing required fields");
@@ -690,9 +697,9 @@ export default function JobActivityLogPage() {
 
     let cleanDate = newData.activity_date;
     if (typeof cleanDate === "string") {
-      cleanDate = cleanDate.split("T")[0]; // Remove time part if exists
+      cleanDate = cleanDate.split("T")[0];
       if (!/^\d{4}-\d{2}-\d{2}$/.test(cleanDate)) {
-        alert("Invalid date format. Please use YYYY-MM-DD format");
+        toast.error("Invalid date format. Please use YYYY-MM-DD format");
         throw new Error("Invalid date format");
       }
     }
@@ -711,28 +718,27 @@ export default function JobActivityLogPage() {
       notes: newData.notes || "",
     };
 
-    // Final validation
     if (!payload.job_id || !payload.employee_id) {
-      alert("Job Type and Employee are required");
+      toast.error("Job Type and Employee are required");
       throw new Error("Missing required fields");
     }
 
     try {
-      const result = await apiFetch("/job_activity_logs", {
+      await apiFetch("/job_activity_logs", {
         method: "POST",
         body: payload,
       });
-      setLogs((prev) => [result, ...prev]);
-      setFilteredLogs((prev) => [result, ...prev]);
-      return result;
+
+      await fetchLogs(false);
+      toast.success("Log created successfully");
     } catch (error: any) {
-      console.error("Create failed", error);
       const errorMsg =
+        error?.body?.detail ||
         error?.detail ||
         error?.message ||
         error?.body ||
         "Failed to create log";
-      alert(
+      toast.error(
         typeof errorMsg === "string"
           ? errorMsg
           : JSON.stringify(errorMsg, null, 2)
@@ -746,6 +752,7 @@ export default function JobActivityLogPage() {
 
   return (
     <div className="space-y-6">
+      <Toaster position="top-center" />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Job Activity Log</h1>
@@ -753,7 +760,6 @@ export default function JobActivityLogPage() {
         </div>
       </div>
 
-      {/* Search bar */}
       <div className="max-w-md">
         <Label htmlFor="search">Search</Label>
         <div className="relative mt-1">
@@ -785,7 +791,6 @@ export default function JobActivityLogPage() {
         onAddClick={() => setIsAddDialogOpen(true)}
       />
 
-      {/* Add Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent className="max-w-6xl">
           <DialogHeader>
@@ -805,9 +810,7 @@ export default function JobActivityLogPage() {
                   activity_count: 0,
                   notes: "",
                 });
-              } catch (error) {
-                // Error already handled in handleAddLog
-              }
+              } catch (error) {}
             }}
             className="mt-4"
           >

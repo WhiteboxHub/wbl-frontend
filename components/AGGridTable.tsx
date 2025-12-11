@@ -259,6 +259,18 @@ export function AGGridTable({
     }
   }, [deleteConfirmData, onRowDeleted]);
 
+  // Helper function to get the unique ID for a row
+  const getRowId = useCallback((params: any) => {
+    // Try to find a unique identifier in this order: id, sessionid, leadid, candidateid, batchid
+    if (params.data.id !== undefined) return params.data.id;
+    if (params.data.sessionid !== undefined) return params.data.sessionid;
+    if (params.data.leadid !== undefined) return params.data.leadid;
+    if (params.data.candidateid !== undefined) return params.data.candidateid;
+    if (params.data.batchid !== undefined) return params.data.batchid;
+    // Fallback to a combination of properties if no clear ID field exists
+    return JSON.stringify(params.data);
+  }, []);
+
   const handleSave = useCallback(
     (updatedData: RowData) => {
       if (gridRef.current) {
@@ -472,6 +484,7 @@ export function AGGridTable({
             paginationPageSizeSelector={[10, 25, 50, 100]}
             paginationNumberFormatter={paginationNumberFormatter}
             maintainColumnOrder={true}
+            getRowId={getRowId}
           />
         </div>
       </div>
