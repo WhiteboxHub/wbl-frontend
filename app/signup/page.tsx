@@ -1,23 +1,13 @@
-
-
 // whiteboxLearning-wbl/app/signup/page.tsx
 "use client";
 import Link from "next/link";
 import { countries } from "country-data";
-import { Suspense, useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChangeEvent, FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent } from "react";
 import { useAuth } from "@/utils/AuthContext";
 import { signIn, useSession } from "next-auth/react";
 import { SignInResponse } from "next-auth/react";
-
-// Add this interface for reCAPTCHA v2
-declare global {
-  interface Window {
-    grecaptcha: any;
-    onRecaptchaLoad: () => void;
-  }
-}
 
 const SignupPage = () => {
   const [firstName, setFirstName] = useState('');
@@ -39,9 +29,6 @@ const SignupPage = () => {
   const [education, setEducation] = useState("");
   const [specialization, setSpecialization] = useState("");
   const [referredBy, setReferredBy] = useState("");
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const [isCaptchaLoaded, setIsCaptchaLoaded] = useState(false);
-  const captchaRef = useRef<HTMLDivElement>(null);
 
   const { data: session, status } = useSession();
   const [googleStatus, setGoogleStatus] = useState("");
@@ -53,49 +40,6 @@ const SignupPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordsMatch, setPasswordsMatch] = useState(true);
-
-  // Load reCAPTCHA v2 script
-  useEffect(() => {
-    const loadRecaptcha = () => {
-      if (typeof window !== 'undefined' && !window.grecaptcha) {
-        window.onRecaptchaLoad = () => {
-          setIsCaptchaLoaded(true);
-          console.log('reCAPTCHA v2 loaded successfully');
-        };
-
-        const script = document.createElement('script');
-        script.src = `https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&render=explicit`;
-        script.async = true;
-        script.defer = true;
-        script.onerror = () => {
-          console.error('Failed to load reCAPTCHA');
-        };
-        document.head.appendChild(script);
-      } else {
-        setIsCaptchaLoaded(true);
-      }
-    };
-
-    loadRecaptcha();
-  }, []);
-
-  // Render reCAPTCHA v2 widget
-  useEffect(() => {
-    if (isCaptchaLoaded && window.grecaptcha && captchaRef.current) {
-      window.grecaptcha.render(captchaRef.current, {
-        sitekey: process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY,
-        callback: (token: string) => {
-          setCaptchaToken(token);
-        },
-        'expired-callback': () => {
-          setCaptchaToken(null);
-        },
-        'error-callback': () => {
-          setCaptchaToken(null);
-        },
-      });
-    }
-  }, [isCaptchaLoaded]);
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -190,16 +134,6 @@ const SignupPage = () => {
     e.preventDefault();
     setLoading(true);
 
-    // Validate CAPTCHA for v2
-    if (!captchaToken) {
-      setResponseStatus("error");
-      setMessagee("Please complete the CAPTCHA verification");
-      setLoading(false);
-      return;
-    }
-
-    const correctCountryCode = countryCode.replace(/[^+\d]/g, "");
-
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/signup`,
@@ -223,7 +157,6 @@ const SignupPage = () => {
             referby: referredBy,
             registereddate: new Date().toISOString(),
             level3date: new Date().toISOString(),
-            captcha_token: captchaToken,
           }),
         }
       );
@@ -247,28 +180,13 @@ const SignupPage = () => {
         setEducation("");
         setSpecialization("");
         setReferredBy("");
-        // Reset CAPTCHA
-        if (window.grecaptcha) {
-          window.grecaptcha.reset();
-        }
-        setCaptchaToken(null);
       } else {
         setResponseStatus("error");
         setMessagee(data.detail || "Registration failed");
-        // Reset CAPTCHA on error
-        if (window.grecaptcha) {
-          window.grecaptcha.reset();
-        }
-        setCaptchaToken(null);
       }
     } catch (error) {
       setResponseStatus("error");
       setMessagee("An error occurred during registration");
-      // Reset CAPTCHA on error
-      if (window.grecaptcha) {
-        window.grecaptcha.reset();
-      }
-      setCaptchaToken(null);
     } finally {
       setLoading(false);
     }
@@ -791,32 +709,6 @@ const SignupPage = () => {
                     </div>
                   </div>
 
-                  {/* CAPTCHA Section - V2 (Checkbox) */}
-                  <div className="mb-4 sm:mb-6">
-                    <label className="mb-2 block font-bold text-[13px] text-dark dark:text-white">
-                      Security Verification <span className="text-[red]">*</span>
-                    </label>
-                    <div className="flex items-center justify-center">
-                      <div 
-                        ref={captchaRef}
-                        id="g-recaptcha"
-                        className="g-recaptcha"
-                      ></div>
-                    </div>
-                    {!captchaToken && (
-                      <p className="mt-2 text-sm text-red-600">
-                        {/* Please complete the CAPTCHA verification */}
-                      </p>
-                    )}
-                    <div className="mt-2 text-center text-xs text-gray-600 dark:text-gray-300">
-                      <p>This site is protected by reCAPTCHA and the Google</p>
-                      <p>
-                        <a href="https://policies.google.com/privacy" className="text-primary hover:underline">Privacy Policy</a> and
-                        <a href="https://policies.google.com/terms" className="text-primary hover:underline"> Terms of Service</a> apply.
-                      </p>
-                    </div>
-                  </div>
-
                   <div className="mb-1 flex flex-col items-center sm:flex-row">
                     <div className="w-full">
                       <input
@@ -878,7 +770,7 @@ const SignupPage = () => {
                     <button
                       type="submit"
                       className="hover:shadow-signUp ext-sm flex w-full items-center justify-center rounded-xl bg-primary py-2 px-6 font-medium text-white transition duration-300 ease-in-out hover:bg-opacity-80 sm:py-1.5 sm:text-base"
-                      disabled={!captchaToken || loading}
+                      disabled={loading}
                     >
                       Register
                     </button>
@@ -1005,4 +897,4 @@ const SignupPage = () => {
   );
 };
 
-export default SignupPage;  
+export default SignupPage;

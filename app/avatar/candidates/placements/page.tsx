@@ -1,4 +1,4 @@
-// app/avatar/placements/page.tsx 
+// app/avatar/placements/page.tsx
 "use client";
 
 import Link from "next/link";
@@ -13,7 +13,7 @@ import { SearchIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useState, useEffect } from "react";
 import { toast, Toaster } from "sonner";
-import api from "@/lib/api"; 
+import api from "@/lib/api";
 
 interface Placement {
   id?: number;
@@ -32,10 +32,13 @@ interface Placement {
   // priority: number | string;
   last_mod_datetime?: string;
   marketing_start_date?: string;
+  // new field
+  no_of_installments?: string | null;
 }
 
 const typeOptions = ["Company", "Client", "Vendor", "Implementation Partner"];
 const statusOptions = ["Active", "Inactive", "Complete", "Fired"];
+const installmentOptions = ["1", "2", "3", "4", "5"];
 
 export default function CandidatesPlacements() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -70,10 +73,14 @@ export default function CandidatesPlacements() {
     return <Badge className={badgeClass}>{params.value}</Badge>;
   };
 
-  // Date Renderer
   const DateRenderer = (params: any) => {
     if (!params.value) return <span className="text-gray-500">N/A</span>;
     try {
+      const str = String(params.value);
+      const datePart = str.split("T")[0];
+      if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+        return <span>{datePart}</span>;
+      }
       const date = new Date(params.value);
       return date.toLocaleDateString("en-US", {
         year: "numeric",
@@ -125,12 +132,12 @@ export default function CandidatesPlacements() {
           ? body.data
           : body.data ?? [];
 
-        // Ensure joining_date field exists
         const placementsWithJoiningDate = placements.map((p: any) => ({
           ...p,
           joining_date: p.joining_date || null,
           marketing_start_date: p.marketing_start_date || null,
           placement_date: p.placement_date || null,
+          no_of_installments: p.no_of_installments ?? null,
         }));
 
         setAllPlacements(placementsWithJoiningDate);
@@ -154,7 +161,6 @@ export default function CandidatesPlacements() {
             { field: "company", headerName: "Company", minWidth: 150, editable: true },
             { field: "position", headerName: "Position", minWidth: 150, editable: true },
 
-            // 📌 UPDATED DATE COLUMNS WITH FILTERS
             {
               field: "marketing_start_date",
               headerName: "Marketing Date",
@@ -217,6 +223,16 @@ export default function CandidatesPlacements() {
               cellRenderer: AmountRenderer,
             },
 
+            {
+              field: "no_of_installments",
+              headerName: "Installments",
+              minWidth: 140,
+              editable: true,
+              cellEditor: "agSelectCellEditor",
+              cellEditorParams: { values: installmentOptions },
+              valueFormatter: (params: any) => params.value ?? "—",
+            },
+
             { field: "benefits", headerName: "Benefits", minWidth: 150, editable: true },
             { field: "notes", headerName: "Notes", minWidth: 150, editable: true },
           ];
@@ -263,7 +279,7 @@ export default function CandidatesPlacements() {
     }
   };
 
-  // Delete row
+
   const handleRowDeleted = async (id: number) => {
     try {
       await api.delete(`/candidate/placements/${id}`);
@@ -321,5 +337,3 @@ export default function CandidatesPlacements() {
     </div>
   );
 }
-
-
