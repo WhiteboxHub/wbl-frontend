@@ -40,6 +40,7 @@ const excludedFields = [
   "batch",
   "job_id",
   "employee_id",
+  "job_owner",
 ];
 
 const fieldSections: Record<string, string> = {
@@ -194,6 +195,7 @@ const fieldSections: Record<string, string> = {
   lastmod_user_name: "Professional Information",
   lastmod_date_time: "Professional Information",
   description: "Professional Information",
+  job_owner_name: "Basic Information",
 };
 
 const workVisaStatusOptions = [
@@ -282,7 +284,9 @@ const labelOverrides: Record<string, string> = {
   type: "Type",
   material_type: "Material Type",
   link: "Link",
-  workexperience: "Work Experience"
+  workexperience: "Work Experience",
+  lastmod_date_time: "Last Modified",
+  job_owner_name: "Job Owner",
 };
 
 const dateFields = [
