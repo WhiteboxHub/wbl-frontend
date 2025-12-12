@@ -70,7 +70,9 @@ export default function JobActivityLogPage() {
 
   const fetchLogs = async (showSuccessToast = false) => {
     try {
-      setLoading(true);
+      if (showSuccessToast === true) {
+        setLoading(true);
+      }
       setError("");
       const data = await apiFetch("/job_activity_logs");
       const arr = Array.isArray(data) ? data : data?.data || [];
@@ -98,7 +100,9 @@ export default function JobActivityLogPage() {
         typeof errorMsg === "string" ? errorMsg : JSON.stringify(errorMsg)
       );
     } finally {
-      setLoading(false);
+      if (showSuccessToast === true) {
+        setLoading(false);
+      }
     }
   };
 
@@ -133,7 +137,7 @@ export default function JobActivityLogPage() {
   };
 
   useEffect(() => {
-    fetchLogs();
+    fetchLogs(true);
     fetchJobTypes();
     fetchEmployees();
     fetchCandidates();
@@ -206,12 +210,6 @@ export default function JobActivityLogPage() {
         editable: false,
       },
       {
-        field: "notes",
-        headerName: "Notes",
-        width: 300,
-        editable: true,
-      },
-      {
         field: "last_mod_date",
         headerName: "Last Modified",
         width: 180,
@@ -221,9 +219,15 @@ export default function JobActivityLogPage() {
       },
       {
         field: "lastmod_user_name",
-        headerName: "Last Mod User",
-        width: 150,
+        headerName: "Last Modified By",
+        width: 200,
         editable: false,
+      },
+      {
+        field: "notes",
+        headerName: "Notes",
+        width: 300,
+        editable: true,
       },
     ],
     [jobTypes]

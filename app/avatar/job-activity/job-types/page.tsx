@@ -12,7 +12,21 @@ import { apiFetch } from "@/lib/api.js";
 const JobNameRenderer = (params: any) => {
   const name = params.value;
   if (!name) return "";
-  return name.toString();
+
+  // Convert to init case (capitalize first letter of each word)
+  const initCaseName = name.toString()
+    .split(/[\s_-]+/) // Split on spaces, underscores, or hyphens
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+
+  return initCaseName;
+};
+
+const DateFormatter = (params: any) => {
+  if (!params.value) return "";
+  const dateStr = params.value?.slice(0, 10);
+  if (!dateStr) return "";
+  return dateStr.replace(/-/g, "/");
 };
 
 export default function JobTypesPage() {
@@ -140,7 +154,7 @@ export default function JobTypesPage() {
     {
       field: "unique_id",
       headerName: "Unique ID",
-      width: 150,
+      width: 250,
       editable: true,
     },
     {
@@ -152,19 +166,21 @@ export default function JobTypesPage() {
     {
       field: "lastmod_date_time",
       headerName: "Last Modified",
-      width: 200,
+      width: 150,
       editable: false,
+      filter: "agDateColumnFilter",
+      valueFormatter: DateFormatter,
     },
     {
       field: "lastmod_user_name",
-      headerName: "Last Mod User",
-      width: 150,
+      headerName: "Last Modified By",
+      width: 200,
       editable: false,
     },
     {
       field: "notes",
       headerName: "Notes",
-      width: 200,
+      width: 250,
       editable: true,
     },
   ];

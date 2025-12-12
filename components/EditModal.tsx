@@ -1862,6 +1862,11 @@ export function EditModal({
                                     <div key={key} className="space-y-1 sm:space-y-1.5">
                                         <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                             {toLabel(key)}
+                                            {isFieldRequired(
+                                                toLabel(key),
+                                                title,
+                                                isAddMode
+                                            ) && <span className="text-red-700"> *</span>}
                                         </label>
                                         <select
                                             {...register(key)}

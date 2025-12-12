@@ -284,7 +284,8 @@ const labelOverrides: Record<string, string> = {
   type: "Type",
   material_type: "Material Type",
   link: "Link",
-  workexperience: "Work Experience"
+  workexperience: "Work Experience",
+  lastmod_date_time: "Last Modified",
 };
 
 const dateFields = [
