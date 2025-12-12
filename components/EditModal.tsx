@@ -262,7 +262,7 @@ const requiredFieldsConfig: Record<string, string[]> = {
   ],
   authuser: ["Phone", "Email", "Full Name", "Registered Date", "Passwd"],
   employee: ["Email", "Full Name", "Phone", "Date of Birth", "Aadhaar"],
-  placement: ["Placement ID", 'Deposit Date'],
+  placement: ["Placement ID", "Deposit Date"],
 };
 
 // Helper function to check if a field is required based on modal type and mode
@@ -273,7 +273,6 @@ const isFieldRequired = (
   isAddMode: boolean
 ): boolean => {
   if (!isAddMode) return false;
-
 
   const modalKey = modalType.toLowerCase();
   const fieldConfigMap: Record<string, string[]> = {};
@@ -1754,7 +1753,6 @@ export function EditModal({
                               return null;
                             }
 
-
                             // Make job_id, employee_id, employee_name, and activity_count read-only in Job Activity Log modal (not add mode)
                             if (
                               isJobActivityLogModal &&
@@ -1836,8 +1834,8 @@ export function EditModal({
                                       title,
                                       isAddMode
                                     ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <select
                                     {...register(key)}
@@ -1895,8 +1893,8 @@ export function EditModal({
                                       title,
                                       isAddMode
                                     ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <input
                                     type="text"
@@ -1967,8 +1965,8 @@ export function EditModal({
                                       title,
                                       isAddMode
                                     ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <input
                                     type="text"
@@ -2030,8 +2028,8 @@ export function EditModal({
                                         title,
                                         isAddMode
                                       ) && (
-                                          <span className="text-red-700"> *</span>
-                                        )}
+                                        <span className="text-red-700"> *</span>
+                                      )}
                                     </label>
                                     <div className="w-full rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-400 shadow-sm sm:px-3 sm:py-2 sm:text-sm">
                                       N/A
@@ -2056,8 +2054,8 @@ export function EditModal({
                                       title,
                                       isAddMode
                                     ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <a
                                     href={url}
@@ -2094,21 +2092,43 @@ export function EditModal({
                                       title,
                                       isAddMode
                                     ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <div
                                     className={`w-full rounded-lg border border-blue-200 bg-white px-2 py-1 text-xs shadow-sm sm:px-3 sm:py-2 sm:text-sm`}
                                   >
                                     <span
-                                      className={`rounded-full px-2.5 py-1 font-semibold ${isActive
-                                        ? "bg-green-100 text-green-700"
-                                        : "bg-red-100 text-red-800"
-                                        }`}
+                                      className={`rounded-full px-2.5 py-1 font-semibold ${
+                                        isActive
+                                          ? "bg-green-100 text-green-700"
+                                          : "bg-red-100 text-red-800"
+                                      }`}
                                     >
                                       {displayValue}
                                     </span>
                                   </div>
+                                </div>
+                              );
+                            }
+                            if (
+                              isWorkStatusField &&
+                              (isPreparationModal || isMarketingModal) && !isAddMode){
+                              return (
+                                <div
+                                  key={key}
+                                  className="space-y-1 sm:space-y-1.5"
+                                >
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    {toLabel(key)}
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={formData[key] || ""}
+                                    readOnly
+                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
+                                  />
+                                  <p className="mt-1 text-xs italic text-gray-500"></p>
                                 </div>
                               );
                             }
@@ -2129,8 +2149,8 @@ export function EditModal({
                                       title,
                                       isAddMode
                                     ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <select
                                     {...register(key)}
@@ -2159,8 +2179,8 @@ export function EditModal({
                                       title,
                                       isAddMode
                                     ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <select
                                     {...register(key)}
@@ -2193,8 +2213,8 @@ export function EditModal({
                                       title,
                                       isAddMode
                                     ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <select
                                     {...register(key)}
@@ -2227,8 +2247,8 @@ export function EditModal({
                                       title,
                                       isAddMode
                                     ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <select
                                     {...register(key)}
@@ -2261,8 +2281,8 @@ export function EditModal({
                                       title,
                                       isAddMode
                                     ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <select
                                     {...register("batchid")}
@@ -2299,8 +2319,8 @@ export function EditModal({
                                       title,
                                       isAddMode
                                     ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <input
                                     type="date"
@@ -2326,8 +2346,8 @@ export function EditModal({
                                       title,
                                       isAddMode
                                     ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <select
                                     {...register(key)}
@@ -2364,8 +2384,8 @@ export function EditModal({
                                       title,
                                       isAddMode
                                     ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <textarea
                                     {...register(key, {
