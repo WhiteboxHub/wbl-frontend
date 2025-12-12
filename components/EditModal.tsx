@@ -253,9 +253,13 @@ const requiredFieldsConfig: Record<string, string[]> = {
 
 // Helper function to check if a field is required based on modal type and mode
 
-const isFieldRequired = (fieldName: string, modalType: string, isAddMode: boolean): boolean => {
+const isFieldRequired = (
+  fieldName: string,
+  modalType: string,
+  isAddMode: boolean
+): boolean => {
   if (!isAddMode) return false;
-  
+
   const modalKey = modalType.toLowerCase();
   const fieldConfigMap: Record<string, string[]> = {};
 
@@ -267,8 +271,7 @@ const isFieldRequired = (fieldName: string, modalType: string, isAddMode: boolea
     });
   });
 
-  
-  const normalizedFieldName = fieldName.toLowerCase().replace(/\s+/g, '');
+  const normalizedFieldName = fieldName.toLowerCase().replace(/\s+/g, "");
   const requiredForModals = fieldConfigMap[normalizedFieldName];
   if (!requiredForModals) return false;
 
@@ -681,7 +684,6 @@ export function EditModal({
     []
   );
 
-
   // Detect the modal context
   const isCourseMaterialModal =
     title.toLowerCase().includes("course material") ||
@@ -713,7 +715,6 @@ export function EditModal({
   const isJobActivityLogModal = title
     .toLowerCase()
     .includes("job activity log");
-
 
   // Field visibility for current modal
   const showInstructorFields =
@@ -841,7 +842,7 @@ export function EditModal({
     };
   }, [isOpen, onClose]);
 
-// Fetch courses, subjects, and employees
+  // Fetch courses, subjects, and employees
   useEffect(() => {
     const fetchCourses = async () => {
       try {
@@ -1151,11 +1152,11 @@ export function EditModal({
       return enumOptions.work_status;
     }
     if (isPreparationModal && keyLower === "status") {
-    return [
-      { value: "active", label: "Active" },
-      { value: "inactive", label: "Inactive" },
-    ];
-  }
+      return [
+        { value: "active", label: "Active" },
+        { value: "inactive", label: "Inactive" },
+      ];
+    }
 
     if (keyLower === "work_status" || keyLower === "workstatus") {
       return enumOptions.work_status;
@@ -1719,7 +1720,6 @@ export function EditModal({
                               return null;
                             }
 
-
                             // Make job_id, employee_id, employee_name, and activity_count read-only in Job Activity Log modal (not add mode)
                             if (
                               isJobActivityLogModal &&
@@ -1786,7 +1786,6 @@ export function EditModal({
                                 </div>
                               );
                             }
-
 
                             // ADD THIS CONDITION FOR SUBJECT FIELD
                             if (isSubjectField && isBatchesModal) {
@@ -1945,6 +1944,67 @@ export function EditModal({
                                   />
                                 </div>
                               );
+                            }
+
+                            // Replace the existing work status field logic with this:
+                            if (isWorkStatusField) {
+                              // Make work status read-only for preparation modal in edit mode
+                              if (isPreparationModal || isMarketingModal&& !isAddMode) {
+                                return (
+                                  <div
+                                    key={key}
+                                    className="space-y-1 sm:space-y-1.5"
+                                  >
+                                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                      {toLabel(key)}
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={formData[key] || ""}
+                                      readOnly
+                                      className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
+                                    />
+                                  </div>
+                                );
+                              }
+
+                              // For other cases, show the normal dropdown
+                              const fieldEnumOptions = getEnumOptions(key);
+                              if (fieldEnumOptions) {
+                                const currentValue =
+                                  currentFormValues[key] || formData[key] || "";
+                                return (
+                                  <div
+                                    key={key}
+                                    className="space-y-1 sm:space-y-1.5"
+                                  >
+                                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                      {toLabel(key)}
+                                      {isFieldRequired(
+                                        toLabel(key),
+                                        title,
+                                        isAddMode
+                                      ) && (
+                                        <span className="text-red-700"> *</span>
+                                      )}
+                                    </label>
+                                    <select
+                                      {...register(key)}
+                                      value={currentValue}
+                                      className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                    >
+                                      {fieldEnumOptions.map((opt) => (
+                                        <option
+                                          key={opt.value}
+                                          value={opt.value}
+                                        >
+                                          {opt.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                );
+                              }
                             }
 
                             // Special handling for LinkedIn ID in special modals (read-only)
@@ -2387,13 +2447,13 @@ export function EditModal({
                                       quill.focus();
                                       const timestampLength = timestamp.length;
                                       quill.setSelection(timestampLength, 0);
-                                      quill.format('bold', false);
+                                      quill.format("bold", false);
                                       setShouldDisableBold(false);
                                     }
                                   }
                                 }, 150);
                               }}
-                              className="px-2 sm:px-2 py-1 sm:py-1 text-xs sm:text-sm font-medium text-black hover:text-blue-800 hover:underline"
+                              className="px-2 py-1 text-xs font-medium text-black hover:text-blue-800 hover:underline sm:px-2 sm:py-1 sm:text-sm"
                             >
                               + New Entry
                             </button>
