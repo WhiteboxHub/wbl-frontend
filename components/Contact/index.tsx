@@ -1,13 +1,6 @@
 "use client";
 import ContactDetails from "./ContactDetails";
-import React, { useState, useEffect, useRef } from "react";
-
-declare global {
-  interface Window {
-    grecaptcha: any;
-    onRecaptchaLoad: () => void;
-  }
-}
+import React, { useState, useEffect } from "react";
 
 const ContactForm = () => {
   const initialFormData = {
@@ -22,60 +15,15 @@ const ContactForm = () => {
   const [submitting, setSubmitting] = useState(false);
   const [messageFromServer, setMessageFromServer] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error" | null>(null);
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const [isCaptchaLoaded, setIsCaptchaLoaded] = useState(false);
-  const [submittedOnce, setSubmittedOnce] = useState(false); // <-- new
-  const captchaRef = useRef<HTMLDivElement>(null);
 
-  // Load reCAPTCHA v2 script
+  // optional: clear messages on mount
   useEffect(() => {
-    const loadRecaptcha = () => {
-      if (typeof window !== 'undefined' && !window.grecaptcha) {
-        window.onRecaptchaLoad = () => {
-          setIsCaptchaLoaded(true);
-          console.log('reCAPTCHA v2 loaded successfully');
-        };
-
-        const script = document.createElement('script');
-        script.src = `https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&render=explicit`;
-        script.async = true;
-        script.defer = true;
-        script.onerror = () => {
-          console.error('Failed to load reCAPTCHA');
-        };
-        document.head.appendChild(script);
-      } else {
-        setIsCaptchaLoaded(true);
-      }
-    };
-
-    loadRecaptcha();
+    setMessageFromServer("");
+    setMessageType(null);
   }, []);
-
-  // Render reCAPTCHA v2 widget
-  useEffect(() => {
-    if (isCaptchaLoaded && window.grecaptcha && captchaRef.current) {
-      window.grecaptcha.render(captchaRef.current, {
-        sitekey: process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!,
-        callback: (token: string) => {
-          setCaptchaToken(token);
-          setSubmittedOnce(false); // captcha completed, clear submit-attempt flag
-        },
-        'expired-callback': () => {
-          setCaptchaToken(null);
-        },
-        'error-callback': () => {
-          setCaptchaToken(null);
-        },
-      });
-    }
-  }, [isCaptchaLoaded]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // mark that user attempted to submit (so validation messages should show)
-    setSubmittedOnce(true);
 
     if (
       formData.firstName.trim() === "" ||
@@ -85,14 +33,6 @@ const ContactForm = () => {
       formData.message.trim() === ""
     ) {
       setMessageFromServer("Please fill out all fields.");
-      setMessageType("error");
-      return;
-    }
-
-    if (!captchaToken) {
-      // show messageFromServer for server/errors; the captcha-specific help text
-      // is shown in the form only when submittedOnce && !captchaToken (see JSX)
-      setMessageFromServer("Please complete the CAPTCHA.");
       setMessageType("error");
       return;
     }
@@ -107,7 +47,7 @@ const ContactForm = () => {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ ...formData, captcha_token: captchaToken }),
+          body: JSON.stringify({ ...formData }),
         }
       );
 
@@ -115,32 +55,15 @@ const ContactForm = () => {
 
       if (response.ok) {
         setFormData(initialFormData);
-        setMessageFromServer(data.detail);
+        setMessageFromServer(data.detail || "Message sent successfully.");
         setMessageType("success");
-        // Reset CAPTCHA
-        if (window.grecaptcha) {
-          window.grecaptcha.reset();
-        }
-        setCaptchaToken(null);
-        setSubmittedOnce(false); // clear the submit-attempt flag on success
       } else {
-        setMessageFromServer(data.detail);
+        setMessageFromServer(data.detail || "Failed to send message.");
         setMessageType("error");
-        // Reset CAPTCHA on error
-        if (window.grecaptcha) {
-          window.grecaptcha.reset();
-        }
-        setCaptchaToken(null);
-        // keep submittedOnce as true so user still sees guidance
       }
     } catch (error) {
       setMessageFromServer("Please try again later.");
       setMessageType("error");
-      // Reset CAPTCHA on error
-      if (window.grecaptcha) {
-        window.grecaptcha.reset();
-      }
-      setCaptchaToken(null);
     } finally {
       setSubmitting(false);
     }
@@ -161,8 +84,6 @@ const ContactForm = () => {
   const handleInputFocus = () => {
     setMessageFromServer("");
     setMessageType(null);
-    // optionally clear submittedOnce so validation UI hides while typing:
-    // setSubmittedOnce(false);
   };
 
   return (
@@ -270,35 +191,6 @@ const ContactForm = () => {
                         ></textarea>
                       </div>
 
-                      {/* CAPTCHA Section - V2 (Checkbox) */}
-                      <div className="mb-4">
-                        <label className="mb-2 block font-bold">
-                          Security Verification <span className="text-[red]">*</span>
-                        </label>
-                        <div className="flex items-center justify-center">
-                          <div 
-                            ref={captchaRef}
-                            id="g-recaptcha"
-                            className="g-recaptcha"
-                          ></div>
-                        </div>
-
-                        {/* Only show this guidance after the user has tried to submit */}
-                        {submittedOnce && !captchaToken && (
-                          <p className="mt-2 text-sm text-red-600">
-                            {/* Please complete the CAPTCHA verification */}
-                          </p>
-                        )}
-
-                        <div className="mt-2 text-center text-xs text-gray-600 dark:text-gray-300">
-                          <p>This site is protected by reCAPTCHA and the Google</p>
-                          <p>
-                            <a href="https://policies.google.com/privacy" className="text-primary hover:underline">Privacy Policy</a> and
-                            <a href="https://policies.google.com/terms" className="text-primary hover:underline"> Terms of Service</a> apply.
-                          </p>
-                        </div>
-                      </div>
-
                       <div className="mt-5 flex justify-between gap-3 md:gap-5">
                         <input
                           className="md:text-md w-36 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-200 p-1 py-2 px-1 text-[11px] font-bold text-black hover:bg-indigo-700 hover:from-indigo-500 hover:to-indigo-200 dark:text-white sm:py-2 sm:px-4 sm:text-sm"
@@ -314,11 +206,6 @@ const ContactForm = () => {
                             setFormData(initialFormData);
                             setMessageFromServer("");
                             setMessageType(null);
-                            setSubmittedOnce(false); // reset the submitted flag
-                            if (window.grecaptcha) {
-                              window.grecaptcha.reset();
-                            }
-                            setCaptchaToken(null);
                           }}
                         />
                       </div>
