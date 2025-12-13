@@ -690,7 +690,7 @@ export function EditModal({
   onSave,
   batches: propBatches,
   isAddMode = false,
-}: EditModalProps) {
+}: EditModalProps): React.ReactElement {
   const {
     register,
     handleSubmit,
@@ -1099,43 +1099,99 @@ export function EditModal({
 
 
   // Handle form submission
-  const onSubmit = (formData: any) => {
-    const reconstructedData = { ...formData };
+  const onSubmit = async (formData: any) => {
+    try {
+      const reconstructedData = { ...formData };
+      setIsLoading(true);
 
     // Convert job_name to job_id for Job Activity Log modal
-    if (isJobActivityLogModal && formData.job_name) {
-      const selectedJob = jobTypes.find(
-        (job) => job.name === formData.job_name
-      );
-      if (selectedJob) {
-        reconstructedData.job_id = selectedJob.id;
+    if (isJobActivityLogModal) {
+      if (formData.job_name) {
+        const selectedJob = jobTypes.find(
+          (job) => job.name === formData.job_name
+        );
+        if (selectedJob) {
+          reconstructedData.job_id = selectedJob.id;
+        } else {
+          // If job is not found but job_name exists, try to find by ID if job_name is actually an ID
+          const jobId = parseInt(formData.job_name);
+          if (!isNaN(jobId)) {
+            reconstructedData.job_id = jobId;
+          } else {
+            // If no valid job is selected, set to a default value or handle error
+            reconstructedData.job_id = 1; // Default to first job ID
+          }
+        }
+      } else {
+        // If no job_name is provided, set to a default value
+        reconstructedData.job_id = 1; // Default to first job ID
       }
       // Remove job_name from payload as backend doesn't accept it
       delete reconstructedData.job_name;
     }
 
     // Convert employee_name to employee_id for Job Activity Log modal
-    if (isJobActivityLogModal && formData.employee_name) {
-      const selectedEmployee = employees.find(
-        (emp) => emp.name === formData.employee_name
-      );
-      if (selectedEmployee) {
-        reconstructedData.employee_id = selectedEmployee.id;
+    if (isJobActivityLogModal) {
+      if (formData.employee_name) {
+        const selectedEmployee = employees.find(
+          (emp) => emp.name === formData.employee_name
+        );
+        if (selectedEmployee) {
+          reconstructedData.employee_id = selectedEmployee.id;
+        } else if (formData.employee_name === "") {
+          // Set to null when employee_name is empty
+          reconstructedData.employee_id = null;
+        }
+      } else {
+        // Set to null when employee_name is not provided
+        reconstructedData.employee_id = null;
       }
       // Remove employee_name from payload as backend doesn't accept it
       delete reconstructedData.employee_name;
     }
 
     // Convert candidate_name to candidate_id for Job Activity Log modal
-    if (isJobActivityLogModal && formData.candidate_name) {
-      const selectedCandidate = candidates.find(
-        (cand) => cand.full_name === formData.candidate_name
-      );
-      if (selectedCandidate) {
-        reconstructedData.candidate_id = selectedCandidate.id;
+    if (isJobActivityLogModal) {
+      if (formData.candidate_name) {
+        const selectedCandidate = candidates.find(
+          (cand) => cand.full_name === formData.candidate_name
+        );
+        if (selectedCandidate) {
+          reconstructedData.candidate_id = selectedCandidate.id;
+        } else if (formData.candidate_name === "") {
+          // Set to null when candidate_name is empty
+          reconstructedData.candidate_id = null;
+        }
+      } else {
+        // Set to null when candidate_name is not provided
+        reconstructedData.candidate_id = null;
       }
       // Remove candidate_name from payload as backend doesn't accept it
       delete reconstructedData.candidate_name;
+    }
+
+    // Handle activity_date - ensure it's a valid date string or null
+    if (isJobActivityLogModal) {
+      if (formData.activity_date === "" || (typeof formData.activity_date === 'string' && formData.activity_date.trim() === "")) {
+        reconstructedData.activity_date = null;
+      } else if (typeof formData.activity_date === 'string') {
+        // Validate date format YYYY-MM-DD
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(formData.activity_date)) {
+          // If date is invalid, set to null
+          reconstructedData.activity_date = null;
+        }
+      }
+    }
+
+    // Handle activity_count - ensure it's a valid integer or null
+    if (isJobActivityLogModal && formData.activity_count !== undefined) {
+      if (formData.activity_count === "" || (typeof formData.activity_count === 'string' && formData.activity_count.trim() === "")) {
+        reconstructedData.activity_count = 0; // Default to 0 for activity_count
+      } else {
+        // Convert to integer if it's a string number
+        reconstructedData.activity_count = parseInt(formData.activity_count) || 0;
+      }
     }
 
     // Handle job_owner field for Job Types modal - ensure it's sent as ID
@@ -1225,6 +1281,18 @@ export function EditModal({
     }
     onSave(reconstructedData);
     onClose();
+    } catch (error: any) {
+      console.error("Error submitting form:", error);
+      // Handle error display here
+      if (error.body && error.body.detail) {
+        alert(`Error: ${error.body.detail}`);
+      } else if (error.message) {
+        alert(`Error: ${error.message}`);
+      } else {
+        alert("An error occurred while saving. Please try again.");
+      }
+      setIsLoading(false);
+    }
   };
 
   const toLabel = (key: string) => {
