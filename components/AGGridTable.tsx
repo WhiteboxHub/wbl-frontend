@@ -68,6 +68,7 @@ interface AGGridTableProps {
   height?: string;
   overlayNoRowsTemplate?: string;
   batches?: any[];
+  employees?: any[];
   gridOptions?: any;
   getRowNodeId?: (data: any) => string;
 }
@@ -81,7 +82,6 @@ interface RowData {
   fullName?: string;
   company?: string;
   [key: string]: any;
-
 }
 
 export function AGGridTable({
@@ -99,6 +99,7 @@ export function AGGridTable({
   showFilters = true,
   height = "400px",
   batches = [],
+  employees = [],
 }: AGGridTableProps) {
   // Refs and State
   const gridRef = useRef<AgGridReact>(null);
@@ -369,6 +370,7 @@ export function AGGridTable({
     if (!title) return false;
     const lowerTitle = title.toLowerCase();
     if (lowerTitle.includes("placement fee")) return false;
+
     return (
       lowerTitle.includes("preparation") ||
       lowerTitle.includes("marketing") ||
@@ -561,6 +563,7 @@ export function AGGridTable({
           currentIndex={currentViewIndex}
           onNavigate={handleViewNavigation}
           title={title || "Record"}
+          employees={employees}
         />
       )}
       {editData && (
@@ -571,6 +574,7 @@ export function AGGridTable({
           data={editData}
           title={title || "Record"}
           batches={batches}
+          isAddMode={false}
         />
       )}
 

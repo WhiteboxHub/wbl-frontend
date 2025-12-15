@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { ColDef } from "ag-grid-community";
 import { AGGridTable } from "@/components/AGGridTable";
+import { EditModal } from "@/components/EditModal";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
@@ -68,7 +69,7 @@ function formatErrorMessage(error: any): string {
 
 const JobNameRenderer = (params: any) => {
   const name = params.value;
-  if (!name) return "";
+  if (!name || name === null || name === undefined) return "[Job Type Missing]";
   return name.toString();
 };
 
@@ -133,7 +134,7 @@ export default function JobActivityLogPage() {
         setLoading(true);
       }
       setError("");
-      const data = await apiFetch("/job_activity_logs");
+      const data = await apiFetch("/api/job_activity_logs");
       const arr = Array.isArray(data) ? data : data?.data || [];
 
       // Sort by ID descending to show newest first
@@ -158,7 +159,7 @@ export default function JobActivityLogPage() {
 
   const fetchJobTypes = async () => {
     try {
-      const data = await apiFetch("/job-types");
+      const data = await apiFetch("/api/job-types");
       const jobTypesArray = Array.isArray(data) ? data : [];
       setJobTypes(jobTypesArray);
     } catch (e: any) {
@@ -168,7 +169,7 @@ export default function JobActivityLogPage() {
 
   const fetchEmployees = async () => {
     try {
-      const data = await apiFetch("/employees");
+      const data = await apiFetch("/api/employees");
       const arr = Array.isArray(data) ? data : data?.data || [];
       setEmployees(arr);
     } catch (e: any) {
@@ -178,7 +179,7 @@ export default function JobActivityLogPage() {
 
   const fetchCandidates = async () => {
     try {
-      const data = await apiFetch("/candidates");
+      const data = await apiFetch("/api/candidates");
       const arr = Array.isArray(data) ? data : data?.data || [];
       setCandidates(arr);
     } catch (e: any) {
@@ -278,18 +279,60 @@ export default function JobActivityLogPage() {
         headerName: "Notes",
         width: 300,
         editable: true,
+        cellEditor: 'agLargeTextCellEditor',
+        cellEditorParams: {
+          maxLength: 10000,
+          rows: 3,
+          cols: 50
+        },
       },
     ],
     [jobTypes]
   );
 
   const handleRowUpdated = async (updatedRow: JobActivityLog) => {
-    const payload = {
-      activity_count: updatedRow.activity_count,
-      notes: updatedRow.notes,
-    };
+    // Construct payload with all updatable fields
+    const payload: any = {};
+
+    // Handle job_id (from job_name conversion in EditModal)
+    if (updatedRow.job_id !== undefined) {
+      payload.job_id = updatedRow.job_id;
+    }
+
+    // Handle candidate_id (from candidate_name conversion in EditModal)
+    if (updatedRow.candidate_id !== undefined) {
+      payload.candidate_id = updatedRow.candidate_id;
+    }
+
+    // Handle employee_id (from employee_name conversion in EditModal)
+    if (updatedRow.employee_id !== undefined) {
+      payload.employee_id = updatedRow.employee_id;
+    }
+
+    // Handle activity_date
+    if (updatedRow.activity_date !== undefined) {
+      payload.activity_date = updatedRow.activity_date;
+    }
+
+    // Handle activity_count
+    if (updatedRow.activity_count !== undefined) {
+      payload.activity_count = updatedRow.activity_count;
+    }
+
+    // Handle notes
+    if (updatedRow.notes !== undefined) {
+      payload.notes = updatedRow.notes;
+    }
+
+    // If no fields to update, return early
+    if (Object.keys(payload).length === 0) {
+      console.warn("No fields to update for job activity log:", updatedRow.id);
+      return;
+    }
+
+    console.log("Updating job activity log:", updatedRow.id, payload);
     try {
-      await apiFetch(`/job_activity_logs/${updatedRow.id}`, {
+      await apiFetch(`/api/job_activity_logs/${updatedRow.id}`, {
         method: "PUT",
         body: payload,
       });
@@ -297,6 +340,7 @@ export default function JobActivityLogPage() {
       await fetchLogs(false);
       toast.success("Log updated successfully");
     } catch (error: any) {
+      console.error("Error updating job activity log:", error);
       const errorMsg =
         error?.body?.detail ||
         error?.detail ||
@@ -311,7 +355,7 @@ export default function JobActivityLogPage() {
 
   const handleRowDeleted = async (id: number | string) => {
     try {
-      await apiFetch(`/job_activity_logs/${id}`, { method: "DELETE" });
+      await apiFetch(`/api/job_activity_logs/${id}`, { method: "DELETE" });
 
       setFilteredLogs((prev) => prev.filter((row) => row.id !== id));
       setLogs((prev) => prev.filter((row) => row.id !== id));
@@ -329,37 +373,110 @@ export default function JobActivityLogPage() {
     }
   };
 
-  const handleRowAdded = async (newRow: JobActivityLog) => {
+  // Add state for add modal
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  const handleAddJobActivityLog = () => {
+    setIsAddModalOpen(true);
+  };
+
+  const handleAddSave = async (newData: any) => {
     try {
-      // Convert the new row data to the expected payload format
+      let jobId = null;
+      let candidateId = null;
+      let employeeId = null;
+
+      if (newData.job_id !== undefined && newData.job_id !== null && newData.job_id !== "") {
+        if (typeof newData.job_id === "number") {
+          jobId = newData.job_id;
+        } else if (typeof newData.job_id === "string") {
+          const parsed = parseInt(newData.job_id);
+          if (!isNaN(parsed)) {
+            jobId = parsed;
+          }
+        }
+      }
+
+      if (newData.candidate_id !== undefined && newData.candidate_id !== null && newData.candidate_id !== "") {
+        if (typeof newData.candidate_id === "number") {
+          candidateId = newData.candidate_id;
+        } else if (typeof newData.candidate_id === "string") {
+          const parsed = parseInt(newData.candidate_id);
+          if (!isNaN(parsed)) {
+            candidateId = parsed;
+          }
+        }
+      }
+
+      if (newData.employee_id !== undefined && newData.employee_id !== null && newData.employee_id !== "") {
+        if (typeof newData.employee_id === "number") {
+          employeeId = newData.employee_id;
+        } else if (typeof newData.employee_id === "string") {
+          const parsed = parseInt(newData.employee_id);
+          if (!isNaN(parsed)) {
+            employeeId = parsed;
+          }
+        }
+      }
+
       const payload = {
-        job_id: newRow.job_id,
-        candidate_id: newRow.candidate_id,
-        employee_id: newRow.employee_id,
-        activity_date: newRow.activity_date,
-        activity_count: newRow.activity_count,
-        notes: newRow.notes,
+        job_id: jobId,
+        candidate_id: candidateId,
+        employee_id: employeeId,
+        activity_date: newData.activity_date?.trim() || new Date().toISOString().split('T')[0],
+        activity_count: parseInt(newData.activity_count) || 0,
+        notes: newData.notes?.trim() || "",
       };
 
-      const createdLog = await apiFetch("/job_activity_logs", {
+      // Validate required fields
+      if (!payload.job_id) {
+        toast.error("Job is required");
+        return;
+      }
+      if (!payload.activity_date) {
+        toast.error("Activity Date is required");
+        return;
+      }
+
+      await apiFetch("/api/job_activity_logs", {
         method: "POST",
         body: payload,
       });
 
-      // Refresh the data to show the new record
       await fetchLogs(false);
-      toast.success("Log created successfully");
-    } catch (error: any) {
-      const errorMsg =
-        error?.body?.detail ||
-        error?.detail ||
-        error?.message ||
-        error?.body ||
-        "Failed to create log";
-      toast.error(
-        typeof errorMsg === "string" ? errorMsg : JSON.stringify(errorMsg)
-      );
+      toast.success("Job activity log created successfully");
+      setIsAddModalOpen(false);
+    } catch (e: any) {
+      let errorMsg = "Failed to create job activity log";
+      if (e?.body?.detail) {
+        errorMsg = e.body.detail;
+      } else if (e?.detail) {
+        errorMsg = e.detail;
+      } else if (e?.message) {
+        errorMsg = e.message;
+      } else if (typeof e?.body === "string") {
+        errorMsg = e.body;
+      }
+      toast.error(errorMsg);
     }
+  };
+
+  // Get initial data for add modal
+  const getAddInitialData = () => {
+    return {
+      id: "",
+      job_id: "",
+      job_name: "",
+      candidate_id: "",
+      candidate_name: "",
+      employee_id: "",
+      employee_name: "",
+      activity_date: new Date().toISOString().split('T')[0],
+      activity_count: "",
+      notes: "",
+      last_mod_date: "",
+      lastmod_user_name: "",
+    };
   };
 
   if (loading) return <p className="mt-8 text-center">Loading...</p>;
@@ -401,11 +518,24 @@ export default function JobActivityLogPage() {
         columnDefs={columnDefs}
         title={`Job Activity Logs (${filteredLogs.length})`}
         height="calc(70vh)"
+        onAddClick={handleAddJobActivityLog}
         onRowUpdated={handleRowUpdated}
         onRowDeleted={handleRowDeleted}
-        onRowAdded={handleRowAdded}
         showSearch={false}
       />
+
+      {/* Add Modal for Job Activity Logs */}
+      {isAddModalOpen && (
+        <EditModal
+          isOpen={true}
+          onClose={() => setIsAddModalOpen(false)}
+          onSave={handleAddSave}
+          data={getAddInitialData()}
+          title="Job Activity Log"
+          batches={[]}
+          isAddMode={true}
+        />
+      )}
     </div>
   );
 }
