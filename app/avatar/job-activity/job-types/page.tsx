@@ -16,7 +16,7 @@ const JobNameRenderer = (params: any) => {
 
   // Convert to init case (capitalize first letter of each word)
   const initCaseName = name.toString()
-    .split(/[\s_-]+/) // Split on spaces, underscores, or hyphens
+    .split(/[\s_-]+/)
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
 
@@ -41,7 +41,7 @@ export default function JobTypesPage() {
   const getEmployeeName = (value) => {
     if (!value || value === null || value === "") return "Not Assigned";
     const id = typeof value === "string" ? parseInt(value) : value;
-    if (isNaN(id)) return value; // if string name
+    if (isNaN(id)) return value;
     const employee = employees.find((emp) => emp.id == id);
     return employee ? employee.name : "Not Assigned";
   };
@@ -116,7 +116,6 @@ export default function JobTypesPage() {
       width: 200,
       editable: true,
       cellRenderer: (params) => {
-        // Always show the job owner name, either from job_owner_name field or by looking up from employees
         if (params.data.job_owner_name) {
           return params.data.job_owner_name;
         } else if (params.data.job_owner) {
@@ -146,7 +145,6 @@ export default function JobTypesPage() {
         };
       },
       valueFormatter: (params) => {
-        // Always show the job owner name, either from job_owner_name field or by looking up from employees
         if (params.data.job_owner_name) {
           return params.data.job_owner_name;
         } else if (params.data.job_owner) {
@@ -330,10 +328,6 @@ export default function JobTypesPage() {
       }
       if (!payload.unique_id || payload.unique_id === "") {
         toast.error("Unique ID is required");
-        return;
-      }
-      if (jobOwnerId === null) {
-        toast.error("Job Owner is required");
         return;
       }
 
