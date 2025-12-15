@@ -11,6 +11,7 @@ interface ViewModalProps {
   currentIndex?: number;
   onNavigate?: (index: number) => void;
   title: string;
+  employees?: any[];
 }
 
 const excludedFields = [
@@ -42,6 +43,8 @@ const excludedFields = [
   "job_owner_name",
   "job_id",
   "employee_id",
+  "job_owner_id",
+  "job_owner_name"
 ];
 
 const fieldSections: Record<string, string> = {
@@ -389,9 +392,18 @@ export function ViewModal({
   currentIndex = 0,
   onNavigate,
   title,
+  employees = [],
 }: ViewModalProps) {
   const { register, watch, setValue, reset } = useForm();
   const modalRef = useRef<HTMLDivElement>(null);
+
+  // Helper function to get employee name from ID
+  const getEmployeeName = (value: any) => {
+    if (!value) return "Not Assigned";
+    if (typeof value === "string") return value;
+    const employee = employees.find((emp) => emp.id == value);
+    return employee ? employee.name : `ID: ${value}`;
+  };
 
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
@@ -642,6 +654,11 @@ export function ViewModal({
           {value}
         </a>
       );
+    }
+
+    // Handle job_owner field for job types
+    if (lowerKey === "job_owner" && title.toLowerCase().includes("job type")) {
+      return <p>{getEmployeeName(value)}</p>;
     }
 
     return <p className="break-words">{String(value)}</p>;

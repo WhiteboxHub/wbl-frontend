@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { ColDef } from "ag-grid-community";
 import { AGGridTable } from "@/components/AGGridTable";
+import { EditModal } from "@/components/EditModal";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
@@ -38,14 +39,15 @@ export default function JobTypesPage() {
   const [error, setError] = useState("");
 
   const getEmployeeName = (value) => {
-    if (!value) return "Not Assigned";
-    if (typeof value === "string") return value;
-    const employee = employees.find((emp) => emp.id == value);
-    return employee ? employee.name : `ID: ${value}`;
+    if (!value || value === null || value === "") return "Not Assigned";
+    const id = typeof value === "string" ? parseInt(value) : value;
+    if (isNaN(id)) return value; // if string name
+    const employee = employees.find((emp) => emp.id == id);
+    return employee ? employee.name : "Not Assigned";
   };
 
   const getEmployeeIdByName = (name) => {
-    if (!name || name === "Not Assigned") return null;
+    if (!name || name === "Not Assigned" || name === null || name === "") return null;
     const employee = employees.find((emp) => emp.name === name);
     return employee ? employee.id : null;
   };
@@ -57,11 +59,11 @@ export default function JobTypesPage() {
       }
       setError("");
 
-      const res = await apiFetch("/job-types");
+      const res = await apiFetch("/api/job-types");
       const arr = Array.isArray(res) ? res : res?.data ?? [];
       const sorted = (arr || []).slice().sort((a: any, b: any) => b.id - a.id);
 
-      const employeesRes = await apiFetch("/employees");
+      const employeesRes = await apiFetch("/api/employees");
       const employeesArr = Array.isArray(employeesRes)
         ? employeesRes
         : employeesRes?.data ?? [];
@@ -114,7 +116,13 @@ export default function JobTypesPage() {
       width: 200,
       editable: true,
       cellRenderer: (params) => {
-        return getEmployeeName(params.value);
+        // Always show the job owner name, either from job_owner_name field or by looking up from employees
+        if (params.data.job_owner_name) {
+          return params.data.job_owner_name;
+        } else if (params.data.job_owner) {
+          return getEmployeeName(params.data.job_owner);
+        }
+        return "Not Assigned";
       },
       cellEditor: "agSelectCellEditor",
       cellEditorParams: (params) => {
@@ -138,7 +146,13 @@ export default function JobTypesPage() {
         };
       },
       valueFormatter: (params) => {
-        return getEmployeeName(params.value);
+        // Always show the job owner name, either from job_owner_name field or by looking up from employees
+        if (params.data.job_owner_name) {
+          return params.data.job_owner_name;
+        } else if (params.data.job_owner) {
+          return getEmployeeName(params.data.job_owner);
+        }
+        return "Not Assigned";
       },
       valueSetter: (params) => {
         const newValue = params.newValue;
@@ -193,10 +207,7 @@ export default function JobTypesPage() {
       const idMatch = row.id?.toString().includes(lower);
       const codeMatch = row.unique_id?.toLowerCase().includes(lower);
       const nameMatch = row.name?.toLowerCase().includes(lower);
-      const ownerName =
-        typeof row.job_owner === "string"
-          ? row.job_owner
-          : getEmployeeName(row.job_owner);
+      const ownerName = row.job_owner_name || getEmployeeName(row.job_owner);
       const ownerMatch = ownerName.toLowerCase().includes(lower);
       const descMatch = row.description?.toLowerCase().includes(lower);
       const notesMatch = row.notes?.toLowerCase().includes(lower);
@@ -227,13 +238,13 @@ export default function JobTypesPage() {
 
       if (updatedRow.job_owner !== undefined) {
         if (typeof updatedRow.job_owner === "string") {
-          payload.job_owner = getEmployeeIdByName(updatedRow.job_owner);
+          payload.job_owner_id = getEmployeeIdByName(updatedRow.job_owner);
         } else {
-          payload.job_owner = updatedRow.job_owner;
+          payload.job_owner_id = updatedRow.job_owner;
         }
       }
 
-      await apiFetch(`/job-types/${updatedRow.id}`, {
+      await apiFetch(`/api/job-types/${updatedRow.id}`, {
         method: "PUT",
         body: payload,
       });
@@ -258,7 +269,7 @@ export default function JobTypesPage() {
 
   const handleRowDeleted = async (id: number) => {
     try {
-      await apiFetch(`/job-types/${id}`, { method: "DELETE" });
+      await apiFetch(`/api/job-types/${id}`, { method: "DELETE" });
 
       const updated = jobTypes.filter((jt) => jt.id !== id);
       setJobTypes(updated);
@@ -278,6 +289,86 @@ export default function JobTypesPage() {
       }
       toast.error(errorMsg);
     }
+  };
+
+  // Add state for add modal
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  const handleAddJobType = () => {
+    setIsAddModalOpen(true);
+  };
+
+  const handleAddSave = async (newData: any) => {
+    try {
+      let jobOwnerId = null;
+
+      if (newData.job_owner_id !== undefined && newData.job_owner_id !== null && newData.job_owner_id !== "") {
+        if (typeof newData.job_owner_id === "number") {
+          jobOwnerId = newData.job_owner_id;
+        } else if (typeof newData.job_owner_id === "string") {
+          const parsed = parseInt(newData.job_owner_id);
+          if (!isNaN(parsed)) {
+            jobOwnerId = parsed;
+          } else {
+            jobOwnerId = getEmployeeIdByName(newData.job_owner_id);
+          }
+        }
+      }
+
+      const payload = {
+        unique_id: newData.unique_id?.trim() || "",
+        name: newData.name?.trim() || "",
+        job_owner_id: jobOwnerId,
+        description: newData.description?.trim() || "",
+        notes: newData.notes?.trim() || "",
+      };
+
+      // Validate required fields
+      if (!payload.name || payload.name === "") {
+        toast.error("Job Name is required");
+        return;
+      }
+      if (!payload.unique_id || payload.unique_id === "") {
+        toast.error("Unique ID is required");
+        return;
+      }
+      if (jobOwnerId === null) {
+        toast.error("Job Owner is required");
+        return;
+      }
+
+      await apiFetch("/api/job-types", {
+        method: "POST",
+        body: payload,
+      });
+
+      await fetchData(false);
+      toast.success("Job type created successfully");
+      setIsAddModalOpen(false);
+    } catch (e: any) {
+      let errorMsg = "Failed to create job type";
+      if (e?.body?.detail) {
+        errorMsg = e.body.detail;
+      } else if (e?.detail) {
+        errorMsg = e.detail;
+      } else if (e?.message) {
+        errorMsg = e.message;
+      } else if (typeof e?.body === "string") {
+        errorMsg = e.body;
+      }
+      toast.error(errorMsg);
+    }
+  };
+
+  // Get initial data for add modal
+  const getAddInitialData = () => {
+    return {
+      name: "",
+      unique_id: "",
+      job_owner: "",
+      description: "",
+      notes: "",
+    };
   };
 
   if (loading) return <p className="mt-8 text-center">Loading...</p>;
@@ -313,73 +404,25 @@ export default function JobTypesPage() {
         columnDefs={columnDefs}
         title={`Job Types (${filteredJobTypes.length})`}
         height="calc(70vh)"
-        onRowAdded={async (newRow: any) => {
-          try {
-            let jobOwnerId = null;
-
-            if (
-              newRow.job_owner !== undefined &&
-              newRow.job_owner !== null &&
-              newRow.job_owner !== ""
-            ) {
-              if (typeof newRow.job_owner === "number") {
-                jobOwnerId = newRow.job_owner;
-              } else if (typeof newRow.job_owner === "string") {
-                const parsed = parseInt(newRow.job_owner);
-                if (!isNaN(parsed)) {
-                  jobOwnerId = parsed;
-                } else {
-                  jobOwnerId = getEmployeeIdByName(newRow.job_owner);
-                }
-              }
-            }
-
-            const payload = {
-              unique_id: newRow.unique_id?.trim() || "",
-              name: newRow.name?.trim() || "",
-              job_owner: jobOwnerId,
-              description: newRow.description?.trim() || "",
-              notes: newRow.notes?.trim() || "",
-            };
-
-            if (!payload.name || payload.name === "") {
-              toast.error("Job Name is required");
-              return;
-            }
-            if (!payload.unique_id || payload.unique_id === "") {
-              toast.error("Unique ID is required");
-              return;
-            }
-            if (!payload.job_owner) {
-              toast.error("Job Owner is required");
-              return;
-            }
-
-            await apiFetch("/job-types", {
-              method: "POST",
-              body: payload,
-            });
-
-            await fetchData(false);
-            toast.success("Job type created successfully");
-          } catch (e: any) {
-            let errorMsg = "Failed to create job type";
-            if (e?.body?.detail) {
-              errorMsg = e.body.detail;
-            } else if (e?.detail) {
-              errorMsg = e.detail;
-            } else if (e?.message) {
-              errorMsg = e.message;
-            } else if (typeof e?.body === "string") {
-              errorMsg = e.body;
-            }
-            toast.error(errorMsg);
-          }
-        }}
+        onAddClick={handleAddJobType}
         onRowUpdated={handleRowUpdated}
         onRowDeleted={handleRowDeleted}
+        employees={employees}
         showSearch={false}
       />
+
+      {/* Add Modal for Job Types */}
+      {isAddModalOpen && (
+        <EditModal
+          isOpen={true}
+          onClose={() => setIsAddModalOpen(false)}
+          onSave={handleAddSave}
+          data={getAddInitialData()}
+          title="Job Type"
+          batches={[]}
+          isAddMode={true}
+        />
+      )}
     </div>
   );
 }

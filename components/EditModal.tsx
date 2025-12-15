@@ -364,7 +364,9 @@ const excludedFields = [
   "job_owner_name",
   "candidate_id",
   "job_id",
-  "employee_id"
+  "employee_id",
+  "job_owner_id",
+  "job_owner_name"
 ];
 
 // Field visibility configuration
@@ -1110,25 +1112,24 @@ export function EditModal({
 
     // Convert job_name to job_id for Job Activity Log modal
     if (isJobActivityLogModal) {
-      if (formData.job_name) {
-        const selectedJob = jobTypes.find(
+      if (formData.job_name && formData.job_name.trim() !== "") {
+        let selectedJob = jobTypes.find(
           (job) => job.name === formData.job_name
         );
         if (selectedJob) {
           reconstructedData.job_id = selectedJob.id;
+          reconstructedData.job_name = selectedJob.name;
         } else {
           // If job is not found but job_name exists, try to find by ID if job_name is actually an ID
           const jobId = parseInt(formData.job_name);
           if (!isNaN(jobId)) {
-            reconstructedData.job_id = jobId;
-          } else {
-            // If no valid job is selected, set to a default value or handle error
-            reconstructedData.job_id = 1; // Default to first job ID
+            selectedJob = jobTypes.find((job) => job.id === jobId);
+            if (selectedJob) {
+              reconstructedData.job_id = jobId;
+              reconstructedData.job_name = selectedJob.name;
+            }
           }
         }
-      } else {
-        // If no job_name is provided, set to a default value
-        reconstructedData.job_id = 1; // Default to first job ID
       }
       delete reconstructedData.job_name;
     }
@@ -1141,16 +1142,31 @@ export function EditModal({
         );
         if (selectedEmployee) {
           reconstructedData.employee_id = selectedEmployee.id;
+          reconstructedData.employee_name = selectedEmployee.name;
         } else if (formData.employee_name === "") {
-          // Set to null when employee_name is empty
           reconstructedData.employee_id = null;
+          reconstructedData.employee_name = null;
+        } else {
+          const empId = parseInt(formData.employee_name);
+          if (!isNaN(empId)) {
+            const emp = employees.find((e) => e.id === empId);
+            if (emp) {
+              reconstructedData.employee_id = empId;
+              reconstructedData.employee_name = emp.name;
+            } else {
+              reconstructedData.employee_id = null;
+              reconstructedData.employee_name = null;
+            }
+          } else {
+            reconstructedData.employee_id = null;
+            reconstructedData.employee_name = null;
+          }
         }
       } else {
         // Set to null when employee_name is not provided
         reconstructedData.employee_id = null;
+        reconstructedData.employee_name = null;
       }
-      // Remove employee_name from payload as backend doesn't accept it
-      delete reconstructedData.employee_name;
     }
 
     // Convert candidate_name to candidate_id for Job Activity Log modal
@@ -1161,16 +1177,34 @@ export function EditModal({
         );
         if (selectedCandidate) {
           reconstructedData.candidate_id = selectedCandidate.id;
+          reconstructedData.candidate_name = selectedCandidate.full_name;
         } else if (formData.candidate_name === "") {
           // Set to null when candidate_name is empty
           reconstructedData.candidate_id = null;
+          reconstructedData.candidate_name = null;
+        } else {
+          // Try to find by ID if candidate_name is actually an ID
+          const candId = parseInt(formData.candidate_name);
+          if (!isNaN(candId)) {
+            const cand = candidates.find((c) => c.id === candId);
+            if (cand) {
+              reconstructedData.candidate_id = candId;
+              reconstructedData.candidate_name = cand.full_name;
+            } else {
+              reconstructedData.candidate_id = null;
+              reconstructedData.candidate_name = null;
+            }
+          } else {
+            reconstructedData.candidate_id = null;
+            reconstructedData.candidate_name = null;
+          }
         }
       } else {
         // Set to null when candidate_name is not provided
         reconstructedData.candidate_id = null;
+        reconstructedData.candidate_name = null;
       }
-      // Remove candidate_name from payload as backend doesn't accept it
-      delete reconstructedData.candidate_name;
+      // Keep candidate_name in payload for grid update, backend will ignore it
     }
 
     // Handle activity_date - ensure it's a valid date string or null
@@ -1178,10 +1212,8 @@ export function EditModal({
       if (formData.activity_date === "" || (typeof formData.activity_date === 'string' && formData.activity_date.trim() === "")) {
         reconstructedData.activity_date = null;
       } else if (typeof formData.activity_date === 'string') {
-        // Validate date format YYYY-MM-DD
         const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
         if (!dateRegex.test(formData.activity_date)) {
-          // If date is invalid, set to null
           reconstructedData.activity_date = null;
         }
       }
@@ -1205,6 +1237,7 @@ export function EditModal({
         reconstructedData.job_owner = parseInt(formData.job_owner);
       }
     }
+
 
     if (isEmployeeModal) {
       if (formData.status) {
@@ -1914,18 +1947,6 @@ export function EditModal({
 
                             // Handle job_owner dropdown in Job Types modal
                             if (isJobTypesModal && isJobOwnerField) {
-                                const currentJobOwnerValue = currentFormValues[key] || formData[key] || "";
-
-                                let jobOwnerId = "";
-                                if (typeof currentJobOwnerValue === 'string') {
-                                    const matchingEmployee = employees.find(emp => emp.name === currentJobOwnerValue);
-                                    if (matchingEmployee) {
-                                        jobOwnerId = String(matchingEmployee.id);
-                                    }
-                                } else if (typeof currentJobOwnerValue === 'number') {
-                                    jobOwnerId = String(currentJobOwnerValue);
-                                }
-
                                 return (
                                     <div key={key} className="space-y-1 sm:space-y-1.5">
                                         <label className="block text-xs font-bold text-blue-700 sm:text-sm">
@@ -1938,10 +1959,14 @@ export function EditModal({
                                         </label>
                                         <select
                                             {...register(key)}
-                                            value={jobOwnerId}
+                                            value={
+                                                currentFormValues[key] ||
+                                                formData[key] ||
+                                                ""
+                                            }
                                             onChange={(e) => {
                                                 const selectedId = e.target.value;
-                                                setValue(key, selectedId === "" ? null : parseInt(selectedId));
+                                                setValue(key, selectedId === "" ? null : selectedId);
                                             }}
                                             className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                         >
@@ -2080,14 +2105,17 @@ export function EditModal({
                                     {jobTypes.length === 0 ? (
                                       <option value="">Loading...</option>
                                     ) : (
-                                      jobTypes.map((job) => (
-                                        <option
-                                          key={job.id}
-                                          value={job.name}
-                                        >
-                                          {job.name}
-                                        </option>
-                                      ))
+                                      <>
+                                        <option value="">Job not selected</option>
+                                        {jobTypes.map((job) => (
+                                          <option
+                                            key={job.id}
+                                            value={job.name}
+                                          >
+                                            {job.name}
+                                          </option>
+                                        ))}
+                                      </>
                                     )}
                                   </select>
                                 </div>
