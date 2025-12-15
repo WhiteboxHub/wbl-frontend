@@ -1430,6 +1430,7 @@ export function EditModal({
 
   const formValues = watch();
   Object.entries(formData).forEach(([key, value]) => {
+
     // Skip excluded fields, but allow batch for prep and marketing modals
     if (excludedFields.includes(key)) {
       const isBatch = key === 'batch';
@@ -1437,6 +1438,7 @@ export function EditModal({
         return;
       }
     }
+
 
     // MODAL-SPECIFIC FIELD FILTERING
     const instructorFields = [
@@ -1993,6 +1995,7 @@ export function EditModal({
                                     </div>
                                 );
                             }
+
 
                             if (
                               isPlacementModal &&
