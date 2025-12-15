@@ -985,6 +985,14 @@ export function EditModal({
     }
     flattened.linkedin_id =
       data.candidate?.linkedin_id || data.linkedin_id || "";
+
+    // Flatten batch data from candidate.batch.batchname
+    if (data.candidate?.batch?.batchname) {
+      flattened.batch = data.candidate.batch.batchname;
+    } else if (data.batch) {
+      flattened.batch = typeof data.batch === 'string' ? data.batch : data.batch.batchname || "";
+    }
+
     if (data.github_link) {
       flattened.github_link = data.github_link;
     } else if (data.github) {
@@ -1051,9 +1059,13 @@ export function EditModal({
     if (data && isOpen) {
       const flattenedData = flattenData(data);
       setFormData(flattenedData);
-      reset(flattenedData);
+      // Use setTimeout to defer reset to next tick, preventing blocking
+      setTimeout(() => {
+        reset(flattenedData);
+      }, 0);
     }
-  }, [data, isOpen, reset]);
+  }, [data, isOpen]); // Removed reset from dependencies to prevent infinite loops
+
 
   // Handle form submission
   const onSubmit = (formData: any) => {
@@ -1124,26 +1136,26 @@ export function EditModal({
         full_name: formData.candidate_full_name,
       };
     }
-    if (formData.instructor1_id && showInstructorFields) {
-      reconstructedData.instructor1 = {
-        ...data.instructor1,
-        name: formData.instructor1_name,
-        id: parseInt(formData.instructor1_id),
-      };
-    }
-    if (formData.instructor2_id && showInstructorFields) {
-      reconstructedData.instructor2 = {
-        ...data.instructor2,
-        name: formData.instructor2_name,
-        id: parseInt(formData.instructor2_id),
-      };
-    }
-    if (formData.instructor3_id && showInstructorFields) {
-      reconstructedData.instructor3 = {
-        ...data.instructor3,
-        name: formData.instructor3_name,
-        id: parseInt(formData.instructor3_id),
-      };
+
+    // Handle instructor fields - send null if "Select Instructor" is chosen
+    if (showInstructorFields) {
+      if (formData.instructor1_id) {
+        reconstructedData.instructor1_id = parseInt(formData.instructor1_id);
+      } else {
+        reconstructedData.instructor1_id = null;
+      }
+
+      if (formData.instructor2_id) {
+        reconstructedData.instructor2_id = parseInt(formData.instructor2_id);
+      } else {
+        reconstructedData.instructor2_id = null;
+      }
+
+      if (formData.instructor3_id) {
+        reconstructedData.instructor3_id = parseInt(formData.instructor3_id);
+      } else {
+        reconstructedData.instructor3_id = null;
+      }
     }
     onSave(reconstructedData);
     onClose();
@@ -1237,8 +1249,13 @@ export function EditModal({
 
   const formValues = watch();
   Object.entries(formData).forEach(([key, value]) => {
-    // Skip excluded fields
-    if (excludedFields.includes(key)) return;
+    // Skip excluded fields, but allow batch for prep and marketing modals
+    if (excludedFields.includes(key)) {
+      const isBatch = key === 'batch';
+      if (!(isBatch && (isPreparationModal || isMarketingModal))) {
+        return;
+      }
+    }
 
     // MODAL-SPECIFIC FIELD FILTERING
     const instructorFields = [
@@ -1304,6 +1321,24 @@ export function EditModal({
       basicInfo.unshift(candidateField);
     }
   }
+
+  // Prioritize candidate_name in placement modal
+  if (
+    isPlacementModal &&
+    sectionedFields["Basic Information"]?.some(
+      (item) => item.key === "candidate_name"
+    )
+  ) {
+    const basicInfo = sectionedFields["Basic Information"];
+    const candidateNameIndex = basicInfo.findIndex(
+      (item) => item.key === "candidate_name"
+    );
+    if (candidateNameIndex > -1) {
+      const candidateNameField = basicInfo.splice(candidateNameIndex, 1)[0];
+      basicInfo.unshift(candidateNameField);
+    }
+  }
+
 
   const visibleSections = Object.keys(sectionedFields).filter(
     (section) => sectionedFields[section]?.length > 0 && section !== "Notes"
@@ -1582,11 +1617,8 @@ export function EditModal({
                                 ) : (
                                   <select
                                     {...register("instructor1_id")}
-                                    value={
-                                      currentFormValues.instructor1_id ||
-                                      formData.instructor1_id ||
-                                      ""
-                                    }
+                                    value={watch("instructor1_id") ?? formData.instructor1_id ?? ""}
+                                    onChange={(e) => setValue("instructor1_id", e.target.value, { shouldValidate: true })}
                                     className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
                                     <option value="">Select Instructor</option>
@@ -1618,11 +1650,8 @@ export function EditModal({
                                 ) : (
                                   <select
                                     {...register("instructor2_id")}
-                                    value={
-                                      currentFormValues.instructor2_id ||
-                                      formData.instructor2_id ||
-                                      ""
-                                    }
+                                    value={watch("instructor2_id") ?? formData.instructor2_id ?? ""}
+                                    onChange={(e) => setValue("instructor2_id", e.target.value, { shouldValidate: true })}
                                     className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
                                     <option value="">Select Instructor</option>
@@ -1654,11 +1683,8 @@ export function EditModal({
                                 ) : (
                                   <select
                                     {...register("instructor3_id")}
-                                    value={
-                                      currentFormValues.instructor3_id ||
-                                      formData.instructor3_id ||
-                                      ""
-                                    }
+                                    value={watch("instructor3_id") ?? formData.instructor3_id ?? ""}
+                                    onChange={(e) => setValue("instructor3_id", e.target.value, { shouldValidate: true })}
                                     className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
                                     <option value="">Select Instructor</option>
@@ -1737,20 +1763,69 @@ export function EditModal({
                               key.toLowerCase() === "activity_count";
                             const isJobNameField =
                               key.toLowerCase() === "job_name";
+                            const isBatchNameField =
+                              key.toLowerCase() === "batch";
 
                             if (isMaterialTypeField && !isCourseMaterialModal) {
                               return null;
                             }
 
+
                             if (
                               isPlacementModal &&
                               (key.toLowerCase() === "batch" ||
                                 key.toLowerCase() === "batchid" ||
-                                key.toLowerCase() === "lastmod_user_id" ||
-                                key.toLowerCase() === "candidate_name")
+                                key.toLowerCase() === "lastmod_user_id")
                             ) {
                               return null;
                             }
+
+
+                            if (
+                              isPlacementModal &&
+                              key.toLowerCase() === "candidate_name"
+                            ) {
+                              return (
+                                <div
+                                  key={key}
+                                  className="space-y-1 sm:space-y-1.5"
+                                >
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    {toLabel(key)}
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={formData[key] || ""}
+                                    readOnly
+                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
+                                  />
+                                </div>
+                              );
+                            }
+
+                            if (
+                              (isPreparationModal || isMarketingModal) &&
+                              isBatchNameField
+                            ) {
+                              return (
+                                <div
+                                  key={key}
+                                  className="space-y-1 sm:space-y-1.5"
+                                >
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    {toLabel(key)}
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={formData[key] || ""}
+                                    readOnly
+                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
+                                  />
+                                </div>
+                              );
+                            }
+
+
 
 
                             // Make job_id, employee_id, employee_name, and activity_count read-only in Job Activity Log modal (not add mode)

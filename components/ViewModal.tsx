@@ -479,7 +479,6 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       if (!isNaN(date.getTime())) return <p>{date.toISOString().split("T")[0]}</p>;
     }
 
-    // if (lowerKey === "status") return <Badge className={getStatusColor(value)}>{value}</Badge>;
     if (lowerKey === "status") {
       const displayValue = String(value).toUpperCase();
       return <Badge className={getStatusColor(value)}>{displayValue}</Badge>;
@@ -488,9 +487,30 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     if (["feepaid", "feedue", "salary0", "salary6", "salary12"].includes(lowerKey)) return <p>${Number(value).toLocaleString()}</p>;
     if (lowerKey.includes("rating")) return <p>{value} </p>;
     if (["notes", "task"].includes(lowerKey)) return <div dangerouslySetInnerHTML={{ __html: value }} />;
+    if (lowerKey === "linkedin_id" || lowerKey === "linkedin" || lowerKey === "interviewer_linkedin") {
+      let url = (value || "").trim();
 
-    // Handle URL fields
-    if (["recording_link", "transcript", "job_posting_url", "resume_url", "backup_recording_url", "linkedin", "github_url", "github_link", "linkedin_id", "resume", "interviewer_linkedin", "url", "candidate_resume", "backup_url", "link"].includes(lowerKey)) {
+      if (!url) {
+        return <div className="text-gray-400">N/A</div>;
+      }
+      if (!/^https?:\/\//i.test(url)) {
+        url = `https://${url}`;
+      }
+
+      return (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 underline hover:text-blue-800 break-all"
+        >
+          Click Here
+        </a>
+      );
+    }
+
+    // Handle other URL fields
+    if (["recording_link", "transcript", "job_posting_url", "resume_url", "backup_recording_url", "github_url", "github_link", "resume", "url", "candidate_resume", "backup_url", "link"].includes(lowerKey)) {
       return (
         <a
           href={value}
@@ -547,6 +567,14 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       flattened.cm_subject = data.subject.name || data.subject.subject_name;
     }
     flattened.linkedin_id = data.candidate?.linkedin_id || data.linkedin_id || "";
+
+    // Flatten batch data from candidate.batch.batchname
+    if (data.candidate?.batch?.batchname) {
+      flattened.batch = data.candidate.batch.batchname;
+    } else if (data.batch) {
+      flattened.batch = typeof data.batch === 'string' ? data.batch : data.batch.batchname || "";
+    }
+
 
     const typeMap: Record<string, string> = {
       'P': 'Presentations',
@@ -607,10 +635,17 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
   const allFields: { key: string; value: any; section: string }[] = [];
 
   Object.entries(flattenedData).forEach(([key, value]) => {
-    // Skip excluded fields
-    if (excludedFields.includes(key)) return;
 
-    // MODAL-SPECIFIC FIELD FILTERING
+    if (excludedFields.includes(key)) {
+      const isPrep = title.toLowerCase().includes('preparation');
+      const isMarketing = title.toLowerCase().includes('marketing');
+      const isBatch = key === 'batch';
+
+      if (!(isBatch && (isPrep || isMarketing))) {
+        return;
+      }
+    }
+
     const instructorFields = [
       'instructor1_name', 'instructor2_name', 'instructor3_name',
       'instructor1_id', 'instructor2_id', 'instructor3_id'
