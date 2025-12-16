@@ -261,7 +261,7 @@ const requiredFieldsConfig: Record<string, string[]> = {
     "Type of Interview",
   ],
   authuser: ["Phone", "Email", "Full Name", "Registered Date", "Passwd"],
-  employee: ["Email", "Full Name", "Phone", "Date of Birth", "Aadhaar"],
+  employee: ["Full Name","Email", "Phone", "Date of Birth", "Aadhaar"],
   placement: ["Placement ID", 'Deposit Date'],
 };
 
@@ -483,7 +483,7 @@ const fieldSections: Record<string, string> = {
   marketing_startdate: "Professional Information",
   recruiterassesment: "Professional Information",
   statuschangedate: "Professional Information",
-  aadhaar: "Basic Information",
+  aadhaar: "Professional Information",
   job_posting_url: "Basic Information",
   feedback: "Basic Information",
   entry_date: "Professional Information",
@@ -494,7 +494,7 @@ const fieldSections: Record<string, string> = {
   moved_to_candidate: "Contact Information",
   link: "Professional Information",
   videoid: "Professional Information",
-  address: "Professional Information",
+  address: "Contact Information",
   candidate_folder: "Professional Information",
   city: "Contact Information",
   state: "Contact Information",

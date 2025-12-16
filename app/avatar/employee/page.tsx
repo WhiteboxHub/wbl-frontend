@@ -1,3 +1,5 @@
+
+
 "use client";
 import React, { useEffect, useState } from "react";
 import { ColDef } from "ag-grid-community";
@@ -5,20 +7,24 @@ import "@/styles/admin.css";
 import "@/styles/App.css";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon, X } from "lucide-react";
+import { SearchIcon } from "lucide-react";
 import AGGridTable from "@/components/AGGridTable";
 import { apiFetch } from "@/lib/api";
 import { useForm } from "react-hook-form";
 
+
 const DateFormatter = (params: any) => {
   if (!params.value) return "";
-  const parts = String(params.value).split("-");
-  if (parts.length !== 3) return String(params.value);
-  const [year, month, day] = parts;
-  return `${month}/${day}/${year}`;
+  const date = new Date(params.value);
+  if (isNaN(date.getTime())) return params.value;
+  return date.toLocaleDateString('en-US', {
+    month: '2-digit',
+    day: '2-digit',
+    year: 'numeric'
+  });
 };
 
-// Helper: Convert string to InitCap format
+
 const toInitCap = (name: string): string =>
   name
     .toLowerCase()
@@ -26,6 +32,60 @@ const toInitCap = (name: string): string =>
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+
+const StatusRenderer = (params: any) => {
+  return params.value === 1 ? "Active" : "Inactive";
+};
+
+const BooleanRenderer = (params: any) => {
+  return params.value === 1 ? "Yes" : "No";
+};
+
+
+const booleanValueParser = (params: any) => {
+  if (params.newValue === "Yes" || params.newValue === "Active") {
+    return 1;
+  } else if (params.newValue === "No" || params.newValue === "Inactive") {
+    return 0;
+  }
+  return params.newValue;
+};
+
+
+const formatPhoneNumber = (phone: string) => {
+  if (!phone) return "";
+  
+  const digits = phone.replace(/\D/g, '');
+
+  if (digits.length === 10) {
+    return `+91 ${digits.substring(0, 5)} ${digits.substring(5)}`;
+  }
+  return phone;
+};
+
+
+const parsePhoneNumber = (phone: string) => {
+  if (!phone) return "";
+ 
+  return phone.replace(/[^\d+]/g, '');
+};
+
+
+const validateEmail = (email: string) => {
+  return /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(email);
+};
+
+const validatePhone = (phone: string) => {
+  
+  const digits = phone.replace(/\D/g, '');
+  return digits.length === 10 && /^[6-9]/.test(digits);
+};
+
+const validateAadhaar = (aadhaar: string) => {
+  
+  const digits = aadhaar.replace(/\D/g, '');
+  return digits.length === 12;
+};
 
 type EmployeeFormData = {
   name: string;
@@ -66,21 +126,23 @@ export default function EmployeesPage() {
   const [error, setError] = useState<string | null>(null);
   const [showEmployeeForm, setShowEmployeeForm] = useState(false);
   const [formSaveLoading, setFormSaveLoading] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [dateFilter, setDateFilter] = useState<{ from?: string; to?: string }>({});
 
   const {
     register,
     handleSubmit,
     reset,
     formState: { errors },
+    setValue,
   } = useForm<EmployeeFormData>({
     defaultValues: initialFormData,
   });
 
-  // Fetch Employees
   const fetchEmployees = async () => {
     try {
       setLoading(true);
-      const data = await apiFetch("/employees");
+      const data = await apiFetch("/api/employees");
       const rawData = Array.isArray(data) ? data : data?.data || [];
 
       const mappedData = rawData.map((emp: any) => {
@@ -88,6 +150,7 @@ export default function EmployeesPage() {
         return {
           ...emp,
           full_name: toInitCap(fullName),
+          phone: emp.phone ? formatPhoneNumber(emp.phone) : "",
         };
       });
 
@@ -109,60 +172,181 @@ export default function EmployeesPage() {
     fetchEmployees();
   }, []);
 
-  // Search filter
   useEffect(() => {
-    if (!searchTerm.trim()) {
-      setFilteredEmployees(employees);
-    } else {
+    let result = [...employees];
+
+    if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
-      const filtered = employees.filter((emp) =>
+      result = result.filter((emp) =>
         ["full_name", "name", "email", "phone"].some((field) =>
           String(emp[field] || "").toLowerCase().includes(term)
         )
       );
-      setFilteredEmployees(filtered);
     }
-  }, [searchTerm, employees]);
 
-  // Update Row
+    
+    if (dateFilter.from || dateFilter.to) {
+      result = result.filter((emp) => {
+        if (!emp.startdate && !emp.enddate) return false;
+
+        const startDate = emp.startdate ? new Date(emp.startdate) : null;
+        const endDate = emp.enddate ? new Date(emp.enddate) : null;
+        const fromDate = dateFilter.from ? new Date(dateFilter.from) : null;
+        const toDate = dateFilter.to ? new Date(dateFilter.to) : null;
+
+        if (fromDate && toDate) {
+          
+          if (startDate && endDate) {
+            return (
+              (startDate >= fromDate && startDate <= toDate) ||
+              (endDate >= fromDate && endDate <= toDate) ||
+              (startDate <= fromDate && endDate >= toDate)
+            );
+          } else if (startDate) {
+            return startDate >= fromDate && startDate <= toDate;
+          } else if (endDate) {
+            return endDate >= fromDate && endDate <= toDate;
+          }
+        } else if (fromDate) {
+          
+          if (startDate && endDate) {
+            return endDate >= fromDate;
+          } else if (startDate) {
+            return startDate >= fromDate;
+          } else if (endDate) {
+            return endDate >= fromDate;
+          }
+        } else if (toDate) {
+          
+          if (startDate && endDate) {
+            return startDate <= toDate;
+          } else if (startDate) {
+            return startDate <= toDate;
+          } else if (endDate) {
+            return endDate <= toDate;
+          }
+        }
+        return true;
+      });
+    }
+
+    setFilteredEmployees(result);
+  }, [searchTerm, employees, dateFilter]);
+
+ 
+  const validateForm = (data: EmployeeFormData) => {
+    const newErrors: Record<string, string> = {};
+
+    if (!data.name.trim()) {
+      newErrors.name = "Name is required";
+    }
+
+    if (!data.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!validateEmail(data.email)) {
+      newErrors.email = "Invalid email format";
+    }
+
+    if (data.phone) {
+      if (!validatePhone(data.phone)) {
+        newErrors.phone = "Phone must be 10 digits";
+      }
+    }
+
+    if (data.aadhaar) {
+      if (!validateAadhaar(data.aadhaar)) {
+        newErrors.aadhaar = "Aadhaar must be 12 digits";
+      }
+    }
+
+    setFormErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+
   const handleRowUpdated = async (updatedRow: any) => {
     try {
       const formattedName = toInitCap(updatedRow.full_name || updatedRow.name || "");
-
       const payload = {
         id: updatedRow.id,
         name: formattedName,
         email: updatedRow.email || null,
-        phone: updatedRow.phone || null,
+        phone: updatedRow.phone ? parsePhoneNumber(updatedRow.phone) : null,
         address: updatedRow.address || null,
         dob: updatedRow.dob || null,
-        startdate: updatedRow.startdate || null,
+
         enddate: updatedRow.enddate || null,
-        instructor: updatedRow.instructor ?? null,
+        instructor: updatedRow.instructor !== undefined ? Number(updatedRow.instructor) : null,
+        status: updatedRow.status !== undefined ? Number(updatedRow.status) : 1,
         notes: updatedRow.notes || null,
         state: updatedRow.state || null,
-        aadhaar: updatedRow.aadhaar || null,
-        status: updatedRow.status ?? null,
+        aadhaar: updatedRow.aadhaar ? parsePhoneNumber(updatedRow.aadhaar) : null,
       };
-
-      await apiFetch(`/employees/${updatedRow.id}`, { method: "PUT", body: payload });
-
+      await apiFetch(`/api/employees/${updatedRow.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    
       const updatedList = employees.map((emp) =>
-        emp.id === updatedRow.id ? { ...emp, ...payload, full_name: formattedName } : emp
+        emp.id === updatedRow.id ? {
+          ...emp,
+          ...payload,
+          full_name: formattedName,
+          phone: payload.phone ? formatPhoneNumber(payload.phone) : ""
+        } : emp
       );
-
       setEmployees(updatedList);
       setFilteredEmployees(updatedList);
     } catch (err) {
       console.error("Failed to update employee:", err);
-      setError("Failed to update employee");
+      setError(err.message);
     }
   };
 
-  // Delete Row
+  const handleRowAdded = async (newRow: any) => {
+    try {
+      const formattedName = toInitCap(newRow.full_name || newRow.name || "");
+      const payload = {
+        name: formattedName,
+        email: newRow.email || null,
+        phone: newRow.phone ? parsePhoneNumber(newRow.phone) : null,
+        address: newRow.address || null,
+        dob: newRow.dob || null,
+        startdate: newRow.startdate || null,
+        enddate: newRow.enddate || null,
+        instructor: newRow.instructor !== undefined ? Number(newRow.instructor) : null,
+        status: newRow.status !== undefined ? Number(newRow.status) : 1,
+        notes: newRow.notes || null,
+        state: newRow.state || null,
+        aadhaar: newRow.aadhaar ? parsePhoneNumber(newRow.aadhaar) : null,
+      };
+      const created = await apiFetch("/api/employees", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+   
+      const newEmployee = {
+        ...created,
+        full_name: formattedName,
+        phone: created.phone ? formatPhoneNumber(created.phone) : "",
+      };
+
+      
+      setEmployees((prev) => [newEmployee, ...prev]);
+      setFilteredEmployees((prev) => [newEmployee, ...prev]);
+    } catch (err) {
+      console.error("Failed to add employee:", err);
+      setError(err.message);
+    }
+  };
+
+ 
   const handleRowDeleted = async (id: number | string) => {
     try {
-      await apiFetch(`/employees/${id}`, { method: "DELETE" });
+      await apiFetch(`/api/employees/${id}`, { method: "DELETE" });
       setEmployees((prev) => prev.filter((row) => row.id !== id));
       setFilteredEmployees((prev) => prev.filter((row) => row.id !== id));
     } catch (err) {
@@ -171,26 +355,39 @@ export default function EmployeesPage() {
     }
   };
 
-  // Add Employee (Form)
   const handleFormSubmit = async (data: EmployeeFormData) => {
+    if (!validateForm(data)) {
+      return;
+    }
+
     setFormSaveLoading(true);
     try {
       const formattedName = toInitCap(data.name);
       const payload = {
         ...data,
         name: formattedName,
+        phone: data.phone ? parsePhoneNumber(data.phone) : null,
+        aadhaar: data.aadhaar ? parsePhoneNumber(data.aadhaar) : null,
       };
 
-      const created = await apiFetch("/employees", { method: "POST", body: payload });
+      const created = await apiFetch("/api/employees", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      
       const newEmployee = {
         ...created,
         full_name: formattedName,
+        phone: created.phone ? formatPhoneNumber(created.phone) : "",
       };
 
       setEmployees((prev) => [newEmployee, ...prev]);
       setFilteredEmployees((prev) => [newEmployee, ...prev]);
       reset();
       setShowEmployeeForm(false);
+      setFormErrors({});
     } catch (err) {
       console.error("Failed to add employee:", err);
       setError("Failed to add employee");
@@ -199,7 +396,7 @@ export default function EmployeesPage() {
     }
   };
 
-  // Column Definitions
+
   const columnDefs: ColDef[] = [
     { headerName: "ID", field: "id", width: 80, pinned: "left" },
     {
@@ -218,12 +415,13 @@ export default function EmployeesPage() {
       editable: true,
       cellRenderer: (params: any) =>
         params.value ? (
-          <a href={`tel:${params.value}`} className="text-blue-600 underline hover:text-blue-800">
+          <a href={`tel:${parsePhoneNumber(params.value)}`} className="text-blue-600 underline hover:text-blue-800">
             {params.value}
           </a>
         ) : (
           ""
         ),
+      valueParser: (params) => formatPhoneNumber(params.newValue),
       onCellValueChanged: (params) => handleRowUpdated(params.data),
     },
     {
@@ -247,11 +445,76 @@ export default function EmployeesPage() {
     },
     { headerName: "Address", field: "address", editable: true, onCellValueChanged: (params) => handleRowUpdated(params.data) },
     { headerName: "State", field: "state", editable: true, onCellValueChanged: (params) => handleRowUpdated(params.data) },
-    { headerName: "DOB", field: "dob", valueFormatter: DateFormatter, editable: true, onCellValueChanged: (params) => handleRowUpdated(params.data) },
-    { headerName: "Start Date", field: "startdate", valueFormatter: DateFormatter, editable: true, onCellValueChanged: (params) => handleRowUpdated(params.data) },
-    { headerName: "End Date", field: "enddate", valueFormatter: DateFormatter, editable: true, onCellValueChanged: (params) => handleRowUpdated(params.data) },
-    { headerName: "Instructor", field: "instructor", editable: true, onCellValueChanged: (params) => handleRowUpdated(params.data) },
-    { headerName: "Status", field: "status", editable: true, onCellValueChanged: (params) => handleRowUpdated(params.data) },
+    {
+      headerName: "DOB",
+      field: "dob",
+      valueFormatter: DateFormatter,
+      editable: true,
+      onCellValueChanged: (params) => handleRowUpdated(params.data),
+      filter: 'agDateColumnFilter',
+      filterParams: {
+        comparator: (filterLocalDateAtMidnight: Date, cellValue: string) => {
+          if (!cellValue) return -1;
+          const cellDate = new Date(cellValue);
+          if (filterLocalDateAtMidnight.getTime() === cellDate.getTime()) {
+            return 0;
+          }
+          return cellDate < filterLocalDateAtMidnight ? -1 : 1;
+        },
+      },
+    },
+    {
+      headerName: "Start Date",
+      field: "startdate",
+      valueFormatter: DateFormatter,
+      editable: true,
+      onCellValueChanged: (params) => handleRowUpdated(params.data),
+      filter: 'agDateColumnFilter',
+      filterParams: {
+        comparator: (filterLocalDateAtMidnight: Date, cellValue: string) => {
+          if (!cellValue) return -1;
+          const cellDate = new Date(cellValue);
+          if (filterLocalDateAtMidnight.getTime() === cellDate.getTime()) {
+            return 0;
+          }
+          return cellDate < filterLocalDateAtMidnight ? -1 : 1;
+        },
+      },
+    },
+    {
+      headerName: "End Date",
+      field: "enddate",
+      valueFormatter: DateFormatter,
+      editable: true,
+      onCellValueChanged: (params) => handleRowUpdated(params.data),
+      filter: 'agDateColumnFilter',
+      filterParams: {
+        comparator: (filterLocalDateAtMidnight: Date, cellValue: string) => {
+          if (!cellValue) return -1;
+          const cellDate = new Date(cellValue);
+          if (filterLocalDateAtMidnight.getTime() === cellDate.getTime()) {
+            return 0;
+          }
+          return cellDate < filterLocalDateAtMidnight ? -1 : 1;
+        },
+      },
+    },
+    {
+      headerName: "Instructor",
+      field: "instructor",
+      editable: true,
+      cellRenderer: BooleanRenderer,
+      valueParser: booleanValueParser,
+      onCellValueChanged: (params) => handleRowUpdated(params.data),
+    },
+    {
+      headerName: "Status",
+      field: "status",
+      editable: true,
+      cellRenderer: StatusRenderer,
+      valueParser: booleanValueParser,
+      onCellValueChanged: (params) => handleRowUpdated(params.data),
+    },
     {
       field: "notes",
       headerName: "Notes",
@@ -264,12 +527,20 @@ export default function EmployeesPage() {
           ""
         ),
     },
-    { headerName: "Aadhaar Number", field: "aadhaar", editable: true, onCellValueChanged: (params) => handleRowUpdated(params.data) },
+    {
+      headerName: "Aadhaar Number",
+      field: "aadhaar",
+      editable: true,
+      valueParser: (params) => parsePhoneNumber(params.newValue),
+      cellRenderer: (params: any) =>
+        params.value ? formatPhoneNumber(params.value) : "",
+      onCellValueChanged: (params) => handleRowUpdated(params.data),
+    },
   ];
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Employee Management</h1>
@@ -277,19 +548,153 @@ export default function EmployeesPage() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="max-w-md">
-        <div className="relative mt-1">
-          <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-          <Input
-            id="search"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by name, email, phone"
-            className="pl-10"
-          />
+     
+      <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+     
+        <div className="max-w-md flex-1">
+          <div className="relative mt-1">
+            <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+            <Input
+              id="search"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search by name, email, phone"
+              className="pl-10 w-full"
+            />
+          </div>
         </div>
+
+
+
       </div>
+
+
+    
+      {showEmployeeForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
+            <h2 className="mb-4 text-xl font-bold">Add New Employee</h2>
+            <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Name*</label>
+                <input
+                  {...register("name", { required: "Name is required" })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+                {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>}
+                {formErrors.name && <p className="mt-1 text-sm text-red-600">{formErrors.name}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Email*</label>
+                <input
+                  {...register("email", {
+                    required: "Email is required",
+                    validate: (value) => validateEmail(value) || "Invalid email format"
+                  })}
+                  type="email"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+                {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>}
+                {formErrors.email && <p className="mt-1 text-sm text-red-600">{formErrors.email}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Phone</label>
+                <input
+                  {...register("phone", {
+                    validate: (value) => !value || validatePhone(parsePhoneNumber(value)) || "Phone must be 10 digits"
+                  })}
+                  placeholder="+91 XXXXX XXXXX"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  onChange={(e) => {
+                    const formatted = formatPhoneNumber(e.target.value);
+                    setValue("phone", formatted);
+                  }}
+                />
+                {errors.phone && <p className="mt-1 text-sm text-red-600">{errors.phone.message}</p>}
+                {formErrors.phone && <p className="mt-1 text-sm text-red-600">{formErrors.phone}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Aadhaar</label>
+                <input
+                  {...register("aadhaar", {
+                    validate: (value) => !value || validateAadhaar(value) || "Aadhaar must be 12 digits"
+                  })}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+                {errors.aadhaar && <p className="mt-1 text-sm text-red-600">{errors.aadhaar.message}</p>}
+                {formErrors.aadhaar && <p className="mt-1 text-sm text-red-600">{formErrors.aadhaar}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Address</label>
+                <textarea
+                  {...register("address")}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Date of Birth</label>
+                <input
+                  type="date"
+                  {...register("dob")}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Start Date</label>
+                <input
+                  type="date"
+                  {...register("startdate")}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">End Date</label>
+                <input
+                  type="date"
+                  {...register("enddate")}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Notes</label>
+                <textarea
+                  {...register("notes")}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEmployeeForm(false);
+                    reset();
+                    setFormErrors({});
+                  }}
+                  className="rounded px-4 py-2 text-gray-700 hover:bg-gray-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={formSaveLoading}
+                  className="rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:opacity-50"
+                >
+                  {formSaveLoading ? "Saving..." : "Save"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       {loading ? (
@@ -302,6 +707,7 @@ export default function EmployeesPage() {
           columnDefs={columnDefs}
           title={`Employees (${filteredEmployees.length})`}
           height="70vh"
+          onRowAdded={handleRowAdded}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
           showFilters={false}
