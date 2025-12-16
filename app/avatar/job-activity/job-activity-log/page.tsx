@@ -80,6 +80,11 @@ const DateFormatter = (params: any) => {
   return dateStr.replace(/-/g, "/");
 };
 
+const stripHtml = (html: string) => {
+  if (!html) return "";
+  return html.replace(/<[^>]*>/g, "");
+};
+
 
 interface JobType {
   id: number;
@@ -279,6 +284,7 @@ export default function JobActivityLogPage() {
         headerName: "Notes",
         width: 300,
         editable: true,
+        cellRenderer: (params) => stripHtml(params.value || ""),
         cellEditor: 'agLargeTextCellEditor',
         cellEditorParams: {
           maxLength: 10000,

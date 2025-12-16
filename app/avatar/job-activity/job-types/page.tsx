@@ -30,6 +30,11 @@ const DateFormatter = (params: any) => {
   return dateStr.replace(/-/g, "/");
 };
 
+const stripHtml = (html: string) => {
+  if (!html) return "";
+  return html.replace(/<[^>]*>/g, "");
+};
+
 export default function JobTypesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [jobTypes, setJobTypes] = useState<any[]>([]);
@@ -180,6 +185,7 @@ export default function JobTypesPage() {
       headerName: "Notes",
       width: 250,
       editable: true,
+      cellRenderer: (params) => stripHtml(params.value || ""),
     },
   ];
 
@@ -319,6 +325,10 @@ export default function JobTypesPage() {
       }
       if (!payload.unique_id || payload.unique_id === "") {
         toast.error("Unique ID is required");
+        return;
+      }
+      if (payload.job_owner_id === null || payload.job_owner_id === undefined) {
+        toast.error("Job Owner is required");
         return;
       }
 

@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
 import "react-quill/dist/quill.snow.css";
 import { apiFetch } from "@/lib/api";
+import { toast } from "sonner";
 
 // Enum options for various fields
 const enumOptions: Record<string, { value: string; label: string }[]> = {
@@ -261,9 +262,10 @@ const requiredFieldsConfig: Record<string, string[]> = {
   ],
   authuser: ["Phone", "Email", "Full Name", "Registered Date", "Passwd"],
   employee: ["Email", "Full Name", "Phone", "Date of Birth", "Aadhaar"],
-  placement: ["Placement ID", 'Deposit Date'],
-  "job types": ["Name", "Job Owner", "Unique ID"],
-  "job type": ["Name", "Job Owner", "Unique ID"],
+  placement: ["Placement ID", "Deposit Date"],
+  "job types": ["name", "job_owner", "unique_id"],
+  "job type": ["name", "job_owner", "unique_id"],
+  "job activity log": ["Job Name"],
 };
 
 // Helper function to check if a field is required based on modal type and mode
@@ -280,14 +282,13 @@ const isFieldRequired = (
 
   Object.entries(requiredFieldsConfig).forEach(([key, fields]) => {
     fields.forEach((field) => {
-      const normalizedField = field.toLowerCase().replace(/\s+/g, "");
+      const normalizedField = field.toLowerCase().replace(/[\s_]+/g, "");
       fieldConfigMap[normalizedField] = fieldConfigMap[normalizedField] || [];
       fieldConfigMap[normalizedField].push(key);
     });
   });
 
-
-  const normalizedFieldName = fieldName.toLowerCase().replace(/\s+/g, '');
+  const normalizedFieldName = fieldName.toLowerCase().replace(/[\s_]+/g, "");
   const requiredForModals = fieldConfigMap[normalizedFieldName];
   if (!requiredForModals) return false;
 
@@ -366,7 +367,7 @@ const excludedFields = [
   "job_id",
   "employee_id",
   "job_owner_id",
-  "job_owner_name"
+  "job_owner_name",
 ];
 
 // Field visibility configuration
@@ -706,6 +707,14 @@ export function EditModal({
     setValue,
     getValues,
   } = useForm();
+
+  const onError = (errors: any) => {
+    if (isJobTypesModal) {
+      Object.keys(errors).forEach(key => {
+        toast.error(`${toLabel(key)} is required`);
+      });
+    }
+  };
   const [courses, setCourses] = useState<{ id: number; name: string }[]>([]);
   const [subjects, setSubjects] = useState<{ id: number; name: string }[]>([]);
   const [employees, setEmployees] = useState<{ id: number; name: string }[]>(
@@ -717,13 +726,10 @@ export function EditModal({
   const modalRef = useRef<HTMLDivElement>(null);
   const [marketingCandidates, setMarketingCandidates] = useState<any[]>([]);
   const [shouldDisableBold, setShouldDisableBold] = useState(false);
-  const [jobTypes, setJobTypes] = useState<{ id: number; name: string }[]>(
-    []
-  );
-  const [candidates, setCandidates] = useState<{ id: number; full_name: string }[]>(
-    []
-  );
-
+  const [jobTypes, setJobTypes] = useState<{ id: number; name: string }[]>([]);
+  const [candidates, setCandidates] = useState<
+    { id: number; full_name: string }[]
+  >([]);
 
   // Detect the modal context
   const isCourseMaterialModal =
@@ -1027,7 +1033,10 @@ export function EditModal({
     if (data.candidate?.batch?.batchname) {
       flattened.batch = data.candidate.batch.batchname;
     } else if (data.batch) {
-      flattened.batch = typeof data.batch === 'string' ? data.batch : data.batch.batchname || "";
+      flattened.batch =
+        typeof data.batch === "string"
+          ? data.batch
+          : data.batch.batchname || "";
     }
 
     if (data.github_link) {
@@ -1103,221 +1112,232 @@ export function EditModal({
     }
   }, [data, isOpen]); // Removed reset from dependencies to prevent infinite loops
 
-
   // Handle form submission
   const onSubmit = async (formData: any) => {
     try {
       const reconstructedData = { ...formData };
       setIsLoading(true);
 
-    // Convert job_name to job_id for Job Activity Log modal
-    if (isJobActivityLogModal) {
-      if (formData.job_name && formData.job_name.trim() !== "") {
-        let selectedJob = jobTypes.find(
-          (job) => job.name === formData.job_name
-        );
-        if (selectedJob) {
-          reconstructedData.job_id = selectedJob.id;
-          reconstructedData.job_name = selectedJob.name;
-        } else {
-          // If job is not found but job_name exists, try to find by ID if job_name is actually an ID
-          const jobId = parseInt(formData.job_name);
-          if (!isNaN(jobId)) {
-            selectedJob = jobTypes.find((job) => job.id === jobId);
-            if (selectedJob) {
-              reconstructedData.job_id = jobId;
-              reconstructedData.job_name = selectedJob.name;
+      // Convert job_name to job_id for Job Activity Log modal
+      if (isJobActivityLogModal) {
+        if (formData.job_name && formData.job_name.trim() !== "") {
+          let selectedJob = jobTypes.find(
+            (job) => job.name === formData.job_name
+          );
+          if (selectedJob) {
+            reconstructedData.job_id = selectedJob.id;
+            reconstructedData.job_name = selectedJob.name;
+          } else {
+            // If job is not found but job_name exists, try to find by ID if job_name is actually an ID
+            const jobId = parseInt(formData.job_name);
+            if (!isNaN(jobId)) {
+              selectedJob = jobTypes.find((job) => job.id === jobId);
+              if (selectedJob) {
+                reconstructedData.job_id = jobId;
+                reconstructedData.job_name = selectedJob.name;
+              }
             }
           }
         }
+        delete reconstructedData.job_name;
       }
-      delete reconstructedData.job_name;
-    }
 
-    // Convert employee_name to employee_id for Job Activity Log modal
-    if (isJobActivityLogModal) {
-      if (formData.employee_name) {
-        const selectedEmployee = employees.find(
-          (emp) => emp.name === formData.employee_name
-        );
-        if (selectedEmployee) {
-          reconstructedData.employee_id = selectedEmployee.id;
-          reconstructedData.employee_name = selectedEmployee.name;
-        } else if (formData.employee_name === "") {
-          reconstructedData.employee_id = null;
-          reconstructedData.employee_name = null;
-        } else {
-          const empId = parseInt(formData.employee_name);
-          if (!isNaN(empId)) {
-            const emp = employees.find((e) => e.id === empId);
-            if (emp) {
-              reconstructedData.employee_id = empId;
-              reconstructedData.employee_name = emp.name;
+      // Convert employee_name to employee_id for Job Activity Log modal
+      if (isJobActivityLogModal) {
+        if (formData.employee_name) {
+          const selectedEmployee = employees.find(
+            (emp) => emp.name === formData.employee_name
+          );
+          if (selectedEmployee) {
+            reconstructedData.employee_id = selectedEmployee.id;
+            reconstructedData.employee_name = selectedEmployee.name;
+          } else if (formData.employee_name === "") {
+            reconstructedData.employee_id = null;
+            reconstructedData.employee_name = null;
+          } else {
+            const empId = parseInt(formData.employee_name);
+            if (!isNaN(empId)) {
+              const emp = employees.find((e) => e.id === empId);
+              if (emp) {
+                reconstructedData.employee_id = empId;
+                reconstructedData.employee_name = emp.name;
+              } else {
+                reconstructedData.employee_id = null;
+                reconstructedData.employee_name = null;
+              }
             } else {
               reconstructedData.employee_id = null;
               reconstructedData.employee_name = null;
             }
-          } else {
-            reconstructedData.employee_id = null;
-            reconstructedData.employee_name = null;
           }
-        }
-      } else {
-        // Set to null when employee_name is not provided
-        reconstructedData.employee_id = null;
-        reconstructedData.employee_name = null;
-      }
-    }
-
-    // Convert candidate_name to candidate_id for Job Activity Log modal
-    if (isJobActivityLogModal) {
-      if (formData.candidate_name) {
-        const selectedCandidate = candidates.find(
-          (cand) => cand.full_name === formData.candidate_name
-        );
-        if (selectedCandidate) {
-          reconstructedData.candidate_id = selectedCandidate.id;
-          reconstructedData.candidate_name = selectedCandidate.full_name;
-        } else if (formData.candidate_name === "") {
-          // Set to null when candidate_name is empty
-          reconstructedData.candidate_id = null;
-          reconstructedData.candidate_name = null;
         } else {
-          // Try to find by ID if candidate_name is actually an ID
-          const candId = parseInt(formData.candidate_name);
-          if (!isNaN(candId)) {
-            const cand = candidates.find((c) => c.id === candId);
-            if (cand) {
-              reconstructedData.candidate_id = candId;
-              reconstructedData.candidate_name = cand.full_name;
+          // Set to null when employee_name is not provided
+          reconstructedData.employee_id = null;
+          reconstructedData.employee_name = null;
+        }
+      }
+
+      // Convert candidate_name to candidate_id for Job Activity Log modal
+      if (isJobActivityLogModal) {
+        if (formData.candidate_name) {
+          const selectedCandidate = candidates.find(
+            (cand) => cand.full_name === formData.candidate_name
+          );
+          if (selectedCandidate) {
+            reconstructedData.candidate_id = selectedCandidate.id;
+            reconstructedData.candidate_name = selectedCandidate.full_name;
+          } else if (formData.candidate_name === "") {
+            // Set to null when candidate_name is empty
+            reconstructedData.candidate_id = null;
+            reconstructedData.candidate_name = null;
+          } else {
+            // Try to find by ID if candidate_name is actually an ID
+            const candId = parseInt(formData.candidate_name);
+            if (!isNaN(candId)) {
+              const cand = candidates.find((c) => c.id === candId);
+              if (cand) {
+                reconstructedData.candidate_id = candId;
+                reconstructedData.candidate_name = cand.full_name;
+              } else {
+                reconstructedData.candidate_id = null;
+                reconstructedData.candidate_name = null;
+              }
             } else {
               reconstructedData.candidate_id = null;
               reconstructedData.candidate_name = null;
             }
-          } else {
-            reconstructedData.candidate_id = null;
-            reconstructedData.candidate_name = null;
+          }
+        } else {
+          // Set to null when candidate_name is not provided
+          reconstructedData.candidate_id = null;
+          reconstructedData.candidate_name = null;
+        }
+        // Keep candidate_name in payload for grid update, backend will ignore it
+      }
+
+      // Handle activity_date - ensure it's a valid date string or null
+      if (isJobActivityLogModal) {
+        if (
+          formData.activity_date === "" ||
+          (typeof formData.activity_date === "string" &&
+            formData.activity_date.trim() === "")
+        ) {
+          reconstructedData.activity_date = null;
+        } else if (typeof formData.activity_date === "string") {
+          const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+          if (!dateRegex.test(formData.activity_date)) {
+            reconstructedData.activity_date = null;
           }
         }
-      } else {
-        // Set to null when candidate_name is not provided
-        reconstructedData.candidate_id = null;
-        reconstructedData.candidate_name = null;
       }
-      // Keep candidate_name in payload for grid update, backend will ignore it
-    }
 
-    // Handle activity_date - ensure it's a valid date string or null
-    if (isJobActivityLogModal) {
-      if (formData.activity_date === "" || (typeof formData.activity_date === 'string' && formData.activity_date.trim() === "")) {
-        reconstructedData.activity_date = null;
-      } else if (typeof formData.activity_date === 'string') {
-        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-        if (!dateRegex.test(formData.activity_date)) {
-          reconstructedData.activity_date = null;
+      // Handle activity_count - ensure it's a valid integer or null
+      if (isJobActivityLogModal && formData.activity_count !== undefined) {
+        if (
+          formData.activity_count === "" ||
+          (typeof formData.activity_count === "string" &&
+            formData.activity_count.trim() === "")
+        ) {
+          reconstructedData.activity_count = 0; // Default to 0 for activity_count
+        } else {
+          // Convert to integer if it's a string number
+          reconstructedData.activity_count =
+            parseInt(formData.activity_count) || 0;
         }
       }
-    }
 
-    // Handle activity_count - ensure it's a valid integer or null
-    if (isJobActivityLogModal && formData.activity_count !== undefined) {
-      if (formData.activity_count === "" || (typeof formData.activity_count === 'string' && formData.activity_count.trim() === "")) {
-        reconstructedData.activity_count = 0; // Default to 0 for activity_count
-      } else {
-        // Convert to integer if it's a string number
-        reconstructedData.activity_count = parseInt(formData.activity_count) || 0;
-      }
-    }
-
-    // Handle job_owner field for Job Types modal - ensure it's sent as job_owner_id
-    if (isJobTypesModal) {
-      const jobOwnerValue = formData.job_owner;
-      if (jobOwnerValue === "" || jobOwnerValue === null || jobOwnerValue === undefined) {
-        reconstructedData.job_owner_id = null;
-      } else if (typeof jobOwnerValue === 'string' && jobOwnerValue !== "") {
-        reconstructedData.job_owner_id = parseInt(jobOwnerValue);
-      } else if (typeof jobOwnerValue === 'number') {
-        reconstructedData.job_owner_id = jobOwnerValue;
-      }
-    }
-
-
-    if (isEmployeeModal) {
-      if (formData.status) {
-        reconstructedData.status = parseInt(formData.status);
-      }
-      if (formData.instructor) {
-        reconstructedData.instructor = parseInt(formData.instructor);
-      }
-    }
-    if (isCourseMaterialModal) {
-      if (formData.cm_course) {
-        const selectedCourse = courses.find(
-          (course) => course.name === formData.cm_course
-        );
-        if (selectedCourse) {
-          reconstructedData.courseid = selectedCourse.id;
+      // Handle job_owner field for Job Types modal - ensure it's sent as job_owner_id
+      if (isJobTypesModal) {
+        const jobOwnerValue = formData.job_owner;
+        if (
+          jobOwnerValue === "" ||
+          jobOwnerValue === null ||
+          jobOwnerValue === undefined
+        ) {
+          reconstructedData.job_owner_id = null;
+        } else if (typeof jobOwnerValue === "string" && jobOwnerValue !== "") {
+          reconstructedData.job_owner_id = parseInt(jobOwnerValue);
+        } else if (typeof jobOwnerValue === "number") {
+          reconstructedData.job_owner_id = jobOwnerValue;
         }
       }
-      if (formData.cm_subject) {
-        const selectedSubject = subjects.find(
-          (subject) => subject.name === formData.cm_subject
-        );
-        if (selectedSubject) {
-          reconstructedData.subjectid = selectedSubject.id;
+
+      if (isEmployeeModal) {
+        if (formData.status) {
+          reconstructedData.status = parseInt(formData.status);
+        }
+        if (formData.instructor) {
+          reconstructedData.instructor = parseInt(formData.instructor);
         }
       }
-      if (formData.material_type) {
-        reconstructedData.type = formData.material_type;
-      }
-    }
-    if (isCourseSubjectModal) {
-      if (formData.course_name) {
-        const selectedCourse = courses.find(
-          (course) => course.name === formData.course_name
-        );
-        if (selectedCourse) {
-          reconstructedData.courseid = selectedCourse.id;
+      if (isCourseMaterialModal) {
+        if (formData.cm_course) {
+          const selectedCourse = courses.find(
+            (course) => course.name === formData.cm_course
+          );
+          if (selectedCourse) {
+            reconstructedData.courseid = selectedCourse.id;
+          }
+        }
+        if (formData.cm_subject) {
+          const selectedSubject = subjects.find(
+            (subject) => subject.name === formData.cm_subject
+          );
+          if (selectedSubject) {
+            reconstructedData.subjectid = selectedSubject.id;
+          }
+        }
+        if (formData.material_type) {
+          reconstructedData.type = formData.material_type;
         }
       }
-      if (formData.subject_name) {
-        const selectedSubject = subjects.find(
-          (subject) => subject.name === formData.subject_name
-        );
-        if (selectedSubject) {
-          reconstructedData.subjectid = selectedSubject.id;
+      if (isCourseSubjectModal) {
+        if (formData.course_name) {
+          const selectedCourse = courses.find(
+            (course) => course.name === formData.course_name
+          );
+          if (selectedCourse) {
+            reconstructedData.courseid = selectedCourse.id;
+          }
+        }
+        if (formData.subject_name) {
+          const selectedSubject = subjects.find(
+            (subject) => subject.name === formData.subject_name
+          );
+          if (selectedSubject) {
+            reconstructedData.subjectid = selectedSubject.id;
+          }
         }
       }
-    }
-    if (formData.candidate_full_name) {
-      reconstructedData.candidate = {
-        ...data.candidate,
-        full_name: formData.candidate_full_name,
-      };
-    }
-
-    // Handle instructor fields - send null if "Select Instructor" is chosen
-    if (showInstructorFields) {
-      if (formData.instructor1_id) {
-        reconstructedData.instructor1_id = parseInt(formData.instructor1_id);
-      } else {
-        reconstructedData.instructor1_id = null;
+      if (formData.candidate_full_name) {
+        reconstructedData.candidate = {
+          ...data.candidate,
+          full_name: formData.candidate_full_name,
+        };
       }
 
-      if (formData.instructor2_id) {
-        reconstructedData.instructor2_id = parseInt(formData.instructor2_id);
-      } else {
-        reconstructedData.instructor2_id = null;
-      }
+      // Handle instructor fields - send null if "Select Instructor" is chosen
+      if (showInstructorFields) {
+        if (formData.instructor1_id) {
+          reconstructedData.instructor1_id = parseInt(formData.instructor1_id);
+        } else {
+          reconstructedData.instructor1_id = null;
+        }
 
-      if (formData.instructor3_id) {
-        reconstructedData.instructor3_id = parseInt(formData.instructor3_id);
-      } else {
-        reconstructedData.instructor3_id = null;
+        if (formData.instructor2_id) {
+          reconstructedData.instructor2_id = parseInt(formData.instructor2_id);
+        } else {
+          reconstructedData.instructor2_id = null;
+        }
+
+        if (formData.instructor3_id) {
+          reconstructedData.instructor3_id = parseInt(formData.instructor3_id);
+        } else {
+          reconstructedData.instructor3_id = null;
+        }
       }
-    }
-    onSave(reconstructedData);
-    onClose();
+      onSave(reconstructedData);
+      onClose();
     } catch (error: any) {
       console.error("Error submitting form:", error);
       // Handle error display here
@@ -1420,10 +1440,9 @@ export function EditModal({
 
   const formValues = watch();
   Object.entries(formData).forEach(([key, value]) => {
-
     // Skip excluded fields, but allow batch for prep and marketing modals
     if (excludedFields.includes(key)) {
-      const isBatch = key === 'batch';
+      const isBatch = key === "batch";
       if (!(isBatch && (isPreparationModal || isMarketingModal))) {
         return;
       }
@@ -1511,7 +1530,6 @@ export function EditModal({
     }
   }
 
-
   const visibleSections = Object.keys(sectionedFields).filter(
     (section) => sectionedFields[section]?.length > 0 && section !== "Notes"
   );
@@ -1561,7 +1579,7 @@ export function EditModal({
               </button>
             </div>
             <div className="bg-white p-3 sm:p-4 md:p-6">
-              <form onSubmit={handleSubmit(onSubmit)}>
+              <form onSubmit={handleSubmit(onSubmit, onError)}>
                 <div
                   className={`grid ${gridColsClass} gap-2.5 sm:gap-3 md:gap-5`}
                 >
@@ -1789,8 +1807,18 @@ export function EditModal({
                                 ) : (
                                   <select
                                     {...register("instructor1_id")}
-                                    value={watch("instructor1_id") ?? formData.instructor1_id ?? ""}
-                                    onChange={(e) => setValue("instructor1_id", e.target.value, { shouldValidate: true })}
+                                    value={
+                                      watch("instructor1_id") ??
+                                      formData.instructor1_id ??
+                                      ""
+                                    }
+                                    onChange={(e) =>
+                                      setValue(
+                                        "instructor1_id",
+                                        e.target.value,
+                                        { shouldValidate: true }
+                                      )
+                                    }
                                     className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
                                     <option value="">Select Instructor</option>
@@ -1822,8 +1850,18 @@ export function EditModal({
                                 ) : (
                                   <select
                                     {...register("instructor2_id")}
-                                    value={watch("instructor2_id") ?? formData.instructor2_id ?? ""}
-                                    onChange={(e) => setValue("instructor2_id", e.target.value, { shouldValidate: true })}
+                                    value={
+                                      watch("instructor2_id") ??
+                                      formData.instructor2_id ??
+                                      ""
+                                    }
+                                    onChange={(e) =>
+                                      setValue(
+                                        "instructor2_id",
+                                        e.target.value,
+                                        { shouldValidate: true }
+                                      )
+                                    }
                                     className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
                                     <option value="">Select Instructor</option>
@@ -1855,8 +1893,18 @@ export function EditModal({
                                 ) : (
                                   <select
                                     {...register("instructor3_id")}
-                                    value={watch("instructor3_id") ?? formData.instructor3_id ?? ""}
-                                    onChange={(e) => setValue("instructor3_id", e.target.value, { shouldValidate: true })}
+                                    value={
+                                      watch("instructor3_id") ??
+                                      formData.instructor3_id ??
+                                      ""
+                                    }
+                                    onChange={(e) =>
+                                      setValue(
+                                        "instructor3_id",
+                                        e.target.value,
+                                        { shouldValidate: true }
+                                      )
+                                    }
                                     className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
                                     <option value="">Select Instructor</option>
@@ -1936,8 +1984,7 @@ export function EditModal({
                               key.toLowerCase() === "batch";
                             const isJobOwnerField =
                               key.toLowerCase() === "job_owner";
-                            const isJobIdField =
-                              key.toLowerCase() === "job_id";
+                            const isJobIdField = key.toLowerCase() === "job_id";
                             const isEmployeeIdField =
                               key.toLowerCase() === "employee_id";
                             const isCandidateIdField =
@@ -1951,40 +1998,58 @@ export function EditModal({
 
                             // Handle job_owner dropdown in Job Types modal
                             if (isJobTypesModal && isJobOwnerField) {
-                                return (
-                                    <div key={key} className="space-y-1 sm:space-y-1.5">
-                                        <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                                            {toLabel(key)}
-                                            {isFieldRequired(
-                                                toLabel(key),
-                                                title,
-                                                isAddMode
-                                            ) && <span className="text-red-700"> *</span>}
-                                        </label>
-                                        <select
-                                            {...register(key)}
-                                            value={
-                                                currentFormValues[key] ||
-                                                formData[key] ||
-                                                ""
-                                            }
-                                            onChange={(e) => {
-                                                const selectedId = e.target.value;
-                                                setValue(key, selectedId === "" ? null : selectedId);
-                                            }}
-                                            className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                                        >
-                                            <option value="">Not Assigned</option>
-                                            {employees.map((emp) => (
-                                                <option key={emp.id} value={String(emp.id)}>
-                                                    {emp.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                );
+                              return (
+                                <div
+                                  key={key}
+                                  className="space-y-1 sm:space-y-1.5"
+                                >
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    {toLabel(key)}
+                                    {isFieldRequired(
+                                      toLabel(key),
+                                      title,
+                                      isAddMode
+                                    ) && (
+                                      <span className="text-red-700"> *</span>
+                                    )}
+                                  </label>
+                                  <select
+                                    {...register(key, {
+                                      required: isFieldRequired(
+                                        toLabel(key),
+                                        title,
+                                        isAddMode
+                                      )
+                                        ? "This field is required"
+                                        : false,
+                                    })}
+                                    value={
+                                      currentFormValues[key] ||
+                                      formData[key] ||
+                                      ""
+                                    }
+                                    onChange={(e) => {
+                                      const selectedId = e.target.value;
+                                      setValue(
+                                        key,
+                                        selectedId === "" ? null : selectedId
+                                      );
+                                    }}
+                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                  >
+                                    <option value="">Not Assigned</option>
+                                    {employees.map((emp) => (
+                                      <option
+                                        key={emp.id}
+                                        value={String(emp.id)}
+                                      >
+                                        {emp.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              );
                             }
-
 
                             if (
                               isPlacementModal &&
@@ -1994,7 +2059,6 @@ export function EditModal({
                             ) {
                               return null;
                             }
-
 
                             if (
                               isPlacementModal &&
@@ -2040,11 +2104,7 @@ export function EditModal({
                               );
                             }
 
-
-                            if (
-                              isJobActivityLogModal &&
-                              isEmployeeNameField
-                            ) {
+                            if (isJobActivityLogModal && isEmployeeNameField) {
                               return (
                                 <div
                                   key={key}
@@ -2068,10 +2128,7 @@ export function EditModal({
                                       <>
                                         <option value="">All</option>
                                         {employees.map((emp) => (
-                                          <option
-                                            key={emp.id}
-                                            value={emp.name}
-                                          >
+                                          <option key={emp.id} value={emp.name}>
                                             {emp.name}
                                           </option>
                                         ))}
@@ -2083,10 +2140,7 @@ export function EditModal({
                             }
 
                             // Make job_name a dropdown in Job Activity Log modal (both add and edit modes)
-                            if (
-                              isJobActivityLogModal &&
-                              isJobNameField
-                            ) {
+                            if (isJobActivityLogModal && isJobNameField) {
                               return (
                                 <div
                                   key={key}
@@ -2094,6 +2148,13 @@ export function EditModal({
                                 >
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
                                     {toLabel(key)}
+                                    {isFieldRequired(
+                                      toLabel(key),
+                                      title,
+                                      isAddMode
+                                    ) && (
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <select
                                     {...register(key)}
@@ -2108,12 +2169,11 @@ export function EditModal({
                                       <option value="">Loading...</option>
                                     ) : (
                                       <>
-                                        <option value="">Job not selected</option>
+                                        <option value="">
+                                          Job not selected
+                                        </option>
                                         {jobTypes.map((job) => (
-                                          <option
-                                            key={job.id}
-                                            value={job.name}
-                                          >
+                                          <option key={job.id} value={job.name}>
                                             {job.name}
                                           </option>
                                         ))}
@@ -2125,10 +2185,7 @@ export function EditModal({
                             }
 
                             // Make candidate_name a dropdown in Job Activity Log modal (both add and edit modes)
-                            if (
-                              isJobActivityLogModal &&
-                              isCandidateNameField
-                            ) {
+                            if (isJobActivityLogModal && isCandidateNameField) {
                               return (
                                 <div
                                   key={key}
@@ -2167,10 +2224,7 @@ export function EditModal({
                             }
 
                             // Make employee_name a dropdown in Job Activity Log modal (both add and edit modes)
-                            if (
-                              isJobActivityLogModal &&
-                              isEmployeeNameField
-                            ) {
+                            if (isJobActivityLogModal && isEmployeeNameField) {
                               return (
                                 <div
                                   key={key}
@@ -2192,10 +2246,7 @@ export function EditModal({
                                       <option value="">Loading...</option>
                                     ) : (
                                       employees.map((emp) => (
-                                        <option
-                                          key={emp.id}
-                                          value={emp.name}
-                                        >
+                                        <option key={emp.id} value={emp.name}>
                                           {emp.name}
                                         </option>
                                       ))
@@ -2204,7 +2255,6 @@ export function EditModal({
                                 </div>
                               );
                             }
-
 
                             // ADD THIS CONDITION FOR SUBJECT FIELD
                             if (isSubjectField && isBatchesModal) {
@@ -2220,8 +2270,8 @@ export function EditModal({
                                       title,
                                       isAddMode
                                     ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <select
                                     {...register(key)}
@@ -2279,8 +2329,8 @@ export function EditModal({
                                       title,
                                       isAddMode
                                     ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <input
                                     type="text"
@@ -2350,8 +2400,8 @@ export function EditModal({
                                       title,
                                       isAddMode
                                     ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <input
                                     type="text"
@@ -2413,8 +2463,8 @@ export function EditModal({
                                         title,
                                         isAddMode
                                       ) && (
-                                          <span className="text-red-700"> *</span>
-                                        )}
+                                        <span className="text-red-700"> *</span>
+                                      )}
                                     </label>
                                     <div className="w-full rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-400 shadow-sm sm:px-3 sm:py-2 sm:text-sm">
                                       N/A
@@ -2439,8 +2489,8 @@ export function EditModal({
                                       title,
                                       isAddMode
                                     ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <a
                                     href={url}
@@ -2477,17 +2527,18 @@ export function EditModal({
                                       title,
                                       isAddMode
                                     ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <div
                                     className={`w-full rounded-lg border border-blue-200 bg-white px-2 py-1 text-xs shadow-sm sm:px-3 sm:py-2 sm:text-sm`}
                                   >
                                     <span
-                                      className={`rounded-full px-2.5 py-1 font-semibold ${isActive
-                                        ? "bg-green-100 text-green-700"
-                                        : "bg-red-100 text-red-800"
-                                        }`}
+                                      className={`rounded-full px-2.5 py-1 font-semibold ${
+                                        isActive
+                                          ? "bg-green-100 text-green-700"
+                                          : "bg-red-100 text-red-800"
+                                      }`}
                                     >
                                       {displayValue}
                                     </span>
@@ -2512,8 +2563,8 @@ export function EditModal({
                                       title,
                                       isAddMode
                                     ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <select
                                     {...register(key)}
@@ -2542,8 +2593,8 @@ export function EditModal({
                                       title,
                                       isAddMode
                                     ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <select
                                     {...register(key)}
@@ -2576,8 +2627,8 @@ export function EditModal({
                                       title,
                                       isAddMode
                                     ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <select
                                     {...register(key)}
@@ -2610,8 +2661,8 @@ export function EditModal({
                                       title,
                                       isAddMode
                                     ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <select
                                     {...register(key)}
@@ -2644,8 +2695,8 @@ export function EditModal({
                                       title,
                                       isAddMode
                                     ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <select
                                     {...register("batchid")}
@@ -2682,8 +2733,8 @@ export function EditModal({
                                       title,
                                       isAddMode
                                     ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <input
                                     type="date"
@@ -2709,8 +2760,8 @@ export function EditModal({
                                       title,
                                       isAddMode
                                     ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <select
                                     {...register(key)}
@@ -2747,8 +2798,8 @@ export function EditModal({
                                       title,
                                       isAddMode
                                     ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
+                                      <span className="text-red-700"> *</span>
+                                    )}
                                   </label>
                                   <textarea
                                     {...register(key, {
@@ -2890,5 +2941,6 @@ export function EditModal({
           </div>
         </div>
       )}
-    </>);
+    </>
+  );
 }
