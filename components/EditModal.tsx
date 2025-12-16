@@ -1229,12 +1229,15 @@ export function EditModal({
       }
     }
 
-    // Handle job_owner field for Job Types modal - ensure it's sent as ID
-    if (isJobTypesModal && formData.job_owner !== undefined) {
-      if (formData.job_owner === "" || formData.job_owner === null) {
-        reconstructedData.job_owner = null;
-      } else if (typeof formData.job_owner === 'string' && formData.job_owner !== "") {
-        reconstructedData.job_owner = parseInt(formData.job_owner);
+    // Handle job_owner field for Job Types modal - ensure it's sent as job_owner_id
+    if (isJobTypesModal) {
+      const jobOwnerValue = formData.job_owner;
+      if (jobOwnerValue === "" || jobOwnerValue === null || jobOwnerValue === undefined) {
+        reconstructedData.job_owner_id = null;
+      } else if (typeof jobOwnerValue === 'string' && jobOwnerValue !== "") {
+        reconstructedData.job_owner_id = parseInt(jobOwnerValue);
+      } else if (typeof jobOwnerValue === 'number') {
+        reconstructedData.job_owner_id = jobOwnerValue;
       }
     }
 

@@ -115,14 +115,7 @@ export default function JobTypesPage() {
       headerName: "Job Owner",
       width: 200,
       editable: true,
-      cellRenderer: (params) => {
-        if (params.data.job_owner_name) {
-          return params.data.job_owner_name;
-        } else if (params.data.job_owner) {
-          return getEmployeeName(params.data.job_owner);
-        }
-        return "Not Assigned";
-      },
+      cellRenderer: (params) => getEmployeeName(params.data.job_owner),
       cellEditor: "agSelectCellEditor",
       cellEditorParams: (params) => {
         return {
@@ -144,14 +137,7 @@ export default function JobTypesPage() {
           },
         };
       },
-      valueFormatter: (params) => {
-        if (params.data.job_owner_name) {
-          return params.data.job_owner_name;
-        } else if (params.data.job_owner) {
-          return getEmployeeName(params.data.job_owner);
-        }
-        return "Not Assigned";
-      },
+      valueFormatter: (params) => getEmployeeName(params.data.job_owner),
       valueSetter: (params) => {
         const newValue = params.newValue;
         if (newValue && newValue !== "") {
@@ -236,7 +222,12 @@ export default function JobTypesPage() {
 
       if (updatedRow.job_owner !== undefined) {
         if (typeof updatedRow.job_owner === "string") {
-          payload.job_owner_id = getEmployeeIdByName(updatedRow.job_owner);
+          const parsed = parseInt(updatedRow.job_owner);
+          if (!isNaN(parsed)) {
+            payload.job_owner_id = parsed;
+          } else {
+            payload.job_owner_id = getEmployeeIdByName(updatedRow.job_owner);
+          }
         } else {
           payload.job_owner_id = updatedRow.job_owner;
         }
