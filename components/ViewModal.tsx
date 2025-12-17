@@ -314,8 +314,8 @@ const getTitleSpecificExclusions = (title: string): string[] => {
     exclusions.push('cm_subject', 'subject_name');
   }
 
-  if (lowerTitle.includes("leads")) {
-    exclusions.push("synced", "lastSync");
+  if (lowerTitle.includes('leads')) {
+    exclusions.push('synced', 'lastSync');
   }
 
   // class recordings
@@ -439,6 +439,16 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     const lowerKey = key.toLowerCase();
     if (!value && value !== 0 && value !== false) return null;
 
+    // Handle job activity log boolean fields
+    if (lowerKey === 'json_downloaded' || lowerKey === 'sql_downloaded' || lowerKey === 'amount_collected') {
+      const booleanMap: Record<string, string> = {
+        'yes': 'Yes',
+        'no': 'No'
+      };
+      const normalizedValue = String(value).toLowerCase();
+      const displayValue = booleanMap[normalizedValue] || (normalizedValue === 'yes' ? 'Yes' : 'No');
+      return <Badge className={normalizedValue === 'yes' ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>{displayValue}</Badge>;
+    }
 
     // Handle Employees modal specific fields
     if (title.toLowerCase().includes('employee')) {
@@ -483,7 +493,6 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       const date = new Date(value);
       if (!isNaN(date.getTime())) return <p>{date.toISOString().split("T")[0]}</p>;
     }
-
 
     if (lowerKey === "status") {
       const displayValue = String(value).toUpperCase();
@@ -558,7 +567,6 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
 
   const flattenData = (data: Record<string, any>) => {
     const flattened: Record<string, any> = { ...data };
-
     if (data.candidate) flattened.candidate_full_name = data.candidate.full_name;
 
     flattened.instructor1_id = data.instructor1?.id || data.instructor1_id || "";

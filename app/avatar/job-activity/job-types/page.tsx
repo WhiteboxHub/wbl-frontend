@@ -89,9 +89,11 @@ export default function JobTypesPage() {
   };
 
   useEffect(() => {
+
     fetchData(true);
   }, []);
 
+  // AG Grid Columns - UPDATE job_owner column
   const columnDefs: ColDef[] = [
     {
       field: "id",
@@ -101,6 +103,7 @@ export default function JobTypesPage() {
       editable: false,
     },
     {
+
       field: "name",
       headerName: "Name",
       width: 300,
@@ -148,6 +151,7 @@ export default function JobTypesPage() {
       editable: false,
     },
     {
+      
       field: "notes",
       headerName: "Notes",
       width: 250,
@@ -181,8 +185,6 @@ export default function JobTypesPage() {
     setFilteredJobTypes(filtered);
   }, [searchTerm, jobTypes, employees]);
 
-
-
   const getErrorMessage = (e: any) => {
     return (
       e?.body?.detail ||
@@ -205,6 +207,7 @@ export default function JobTypesPage() {
       toast.error(getErrorMessage(e));
     }
   };
+
 
   // Add state for add modal
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);

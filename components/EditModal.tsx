@@ -221,6 +221,18 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "4", label: "4" },
     { value: "5", label: "5" },
   ],
+  amount_collected: [
+    { value: "no", label: "No" },
+    { value: "yes", label: "Yes" },
+  ],
+  no_of_installments: [
+    { value: "", label: "Select Installments" },
+    { value: "1", label: "1" },
+    { value: "2", label: "2" },
+    { value: "3", label: "3" },
+    { value: "4", label: "4" },
+    { value: "5", label: "5" },
+  ],
 };
 
 // Vendor type options
@@ -276,8 +288,7 @@ const isFieldRequired = (fieldName: string, modalType: string, isAddMode: boolea
   });
 
 
-
-  const normalizedFieldName = fieldName.toLowerCase().replace(/\s+/g, "");
+  const normalizedFieldName = fieldName.toLowerCase().replace(/\s+/g, '');
   const requiredForModals = fieldConfigMap[normalizedFieldName];
   if (!requiredForModals) return false;
 
@@ -1088,7 +1099,6 @@ export function EditModal({
   }, [data, isOpen]);
 
 
-
   // Handle form submission
   const onSubmit = (formData: any) => {
     const reconstructedData = { ...data, ...formData };
@@ -1867,6 +1877,7 @@ export function EditModal({
 
                             if (
                               isPlacementModal &&
+
                               (key.toLowerCase() === "batch" ||
                                 key.toLowerCase() === "batchid" ||
                                 key.toLowerCase() === "lastmod_user_id")
@@ -1877,6 +1888,7 @@ export function EditModal({
 
                             if (
                               isPlacementModal &&
+
                               key.toLowerCase() === "candidate_name"
                             ) {
                               return (
@@ -2246,6 +2258,39 @@ export function EditModal({
                                     type="text"
                                     {...register(key)}
                                     defaultValue={formData[key] || ""}
+                                    readOnly
+                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
+                                  />
+                                </div>
+                              );
+                            }
+
+                            // Read-only fields for Last Modified info
+                            if (
+                              key === "lastmod_user_id" ||
+                              key === "lastmod_user_name" ||
+                              key === "last_mod_date"
+                            ) {
+                              return (
+                                <div
+                                  key={key}
+                                  className="space-y-1 sm:space-y-1.5"
+                                >
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    {toLabel(key)}
+
+                                    {isFieldRequired(
+                                      toLabel(key),
+                                      title,
+                                      isAddMode
+                                    ) && (
+                                        <span className="text-red-700"> *</span>
+                                      )}
+
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={formData[key] || ""}
                                     readOnly
                                     className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
                                   />
@@ -2670,6 +2715,7 @@ export function EditModal({
                                   ) && <span className="text-red-700"> *</span>}
                                 </label>
                                 <input
+
                                   type={
                                     isJobActivityLogModal &&
                                       key === "activity_count"
@@ -2688,6 +2734,7 @@ export function EditModal({
                                       ? 1
                                       : undefined
                                   }
+
                                   {...register(key, {
                                     required: isFieldRequired(
                                       toLabel(key),
