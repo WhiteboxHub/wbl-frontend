@@ -1,11 +1,10 @@
-
 // whiteboxLearning-wbl/app/signup/page.tsx
 "use client";
 import Link from "next/link";
 import { countries } from "country-data";
-import { Suspense, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChangeEvent, FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent } from "react";
 import { useAuth } from "@/utils/AuthContext";
 import { signIn, useSession } from "next-auth/react";
 import { SignInResponse } from "next-auth/react";
@@ -135,8 +134,6 @@ const SignupPage = () => {
     e.preventDefault();
     setLoading(true);
 
-    const correctCountryCode = countryCode.replace(/[^+\d]/g, "");
-
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/signup`,
@@ -169,6 +166,20 @@ const SignupPage = () => {
       if (response.ok) {
         setResponseStatus("success");
         setMessagee(data.message);
+        // Reset form
+        setFirstName("");
+        setLastName("");
+        setEmail("");
+        setPhone("");
+        setPassword("");
+        setConfirmPassword("");
+        setAddress("");
+        setZip("");
+        setVisaStatus("");
+        setExperience("");
+        setEducation("");
+        setSpecialization("");
+        setReferredBy("");
       } else {
         setResponseStatus("error");
         setMessagee(data.detail || "Registration failed");
@@ -179,19 +190,6 @@ const SignupPage = () => {
     } finally {
       setLoading(false);
     }
-
-    setFirstName("");
-    setLastName("");
-    setEmail("");
-    setPhone("");
-    setPassword("");
-    setAddress("");
-    setZip("");
-    setVisaStatus("");
-    setExperience("");
-    setEducation("");
-    setSpecialization("");
-    setReferredBy("");
   };
 
   const handleInputFocus = () => {
@@ -211,7 +209,7 @@ const SignupPage = () => {
               <div className="mx-auto max-w-full rounded-3xl bg-gradient-to-br from-pink-400 to-sky-200 p-4 px-6 dark:bg-gradient-to-br dark:from-pink-700 dark:to-sky-500/30 sm:max-w-[600px] sm:pt-8 sm:pb-10 sm:px-10">
                 <p className="text-2xl px-1 py-1 mb-4 text-center font-semibold text-gray-700 dark:text-white sm:mb-1 sm:text-1xl">
                   Create your account
-                  </p>
+                </p>
 
                 <button
                   className="dark:shadow-signUp mb-4 flex w-full items-center justify-center rounded-xl bg-white py-2 px-1 text-[13px]  text-primary shadow-one dark:bg-white dark:text-black sm:mb-6 sm:py-2 sm:text-base"
@@ -302,6 +300,7 @@ const SignupPage = () => {
                   onSubmit={handleSubmit}
                   className="md:text-md text-xs text-black dark:text-white sm:text-sm"
                 >
+                  {/* Your existing form fields remain exactly the same */}
                   <div className="flex flex-col gap-4">
                     <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                       <div className="mb-4 sm:mb-6 flex-1">
@@ -313,10 +312,8 @@ const SignupPage = () => {
                           name="firstName"
                           id="firstName"
                           placeholder="Enter your first Name"
-                          // className="dark:shadow-signUp w-full rounded-xl border py-1 px-1 text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:border-transparent sm:py-3"
                           className="dark:shadow-signUp w-full rounded-xl border py-3 px-1 text-[13px] text-body-color placeholder-body-color shadow-one outline-none focus:border-primary focus-visible:shadow-none dark:bg-white sm:border-transparent sm:py-1.5"
                           value={firstName}
-                           
                           onChange={(e) => setFirstName(e.target.value)}
                           onFocus={handleInputFocus}
                           required
@@ -349,7 +346,7 @@ const SignupPage = () => {
                       </label>
 
                       <div
-                      id="phone"
+                        id="phone"
                         className={`group flex w-full rounded-xl border border-gray-300 bg-white shadow-one dark:shadow-signUp focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all`}
                       >
                         <select
@@ -373,7 +370,6 @@ const SignupPage = () => {
 
                         <input
                           type="tel"
-                          
                           name="phone"
                           placeholder="Enter your phone number"
                           className="w-full rounded-r-xl border-none bg-transparent py-3 px-1 sm:py-1.5 text-[13px] text-body-color placeholder-body-color outline-none dark:bg-white"
@@ -596,7 +592,6 @@ const SignupPage = () => {
                   <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                     <div className="mb-4 sm:mb-6 flex-1">
                       <label htmlFor="visaStatus " className="mb-2 block font-bold  text-[13px] text-dark dark:text-white">
-                        {/* Visa Status <span className="text-[red]">*</span> */}
                         Work Authorization<span className="text-"></span>
                       </label>
                       <select
@@ -606,7 +601,6 @@ const SignupPage = () => {
                         value={visaStatus}
                         onChange={(e) => setVisaStatus(e.target.value)}
                         onFocus={handleInputFocus}
-                       
                       >
                         <option value="">Select Work Authorization</option>
                         <option value="H1B">H1B</option>
@@ -615,6 +609,7 @@ const SignupPage = () => {
                         <option value="OPT">OPT</option>
                         <option value="Green Card">Green Card</option>
                         <option value="Citizen">Citizen</option>
+                        <option value="EAD">EAD</option>
                         <option value="Other">Other</option>
                       </select>
                     </div>
@@ -647,7 +642,6 @@ const SignupPage = () => {
                         value={education}
                         onChange={(e) => setEducation(e.target.value)}
                         onFocus={handleInputFocus}
-                        
                       >
                         <option value="">Select Education</option>
                         <option value="High School">High School</option>
@@ -670,7 +664,6 @@ const SignupPage = () => {
                         value={specialization}
                         onChange={(e) => setSpecialization(e.target.value)}
                         onFocus={handleInputFocus}
-                        
                       >
                         <option value="">Select Specialization</option>
                         <option value="Computer Science">Computer Science</option>
@@ -684,7 +677,6 @@ const SignupPage = () => {
                     </div>
                   </div>
 
-                  {/* Modified Address and Referred By fields to be side by side */}
                   <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                     <div className="mb-4 sm:mb-6 flex-1">
                       <label htmlFor="address" className="mb-2 block font-bold  text-[13px] text-dark dark:text-white">
@@ -778,6 +770,7 @@ const SignupPage = () => {
                     <button
                       type="submit"
                       className="hover:shadow-signUp ext-sm flex w-full items-center justify-center rounded-xl bg-primary py-2 px-6 font-medium text-white transition duration-300 ease-in-out hover:bg-opacity-80 sm:py-1.5 sm:text-base"
+                      disabled={loading}
                     >
                       Register
                     </button>

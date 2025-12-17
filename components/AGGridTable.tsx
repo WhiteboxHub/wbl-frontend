@@ -19,9 +19,9 @@ import {
   DownloadIcon,
   SettingsIcon,
 } from "lucide-react";
+import { MutableRefObject } from "react";
 import { ViewModal } from "./ViewModal";
 import { EditModal } from "@/components/EditModal";
-import { DynamicFormModal } from "@/components/forms/DynamicFormModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
@@ -68,8 +68,10 @@ interface AGGridTableProps {
   height?: string;
   overlayNoRowsTemplate?: string;
   batches?: any[];
+
   gridOptions?: any;
   getRowNodeId?: (data: any) => string;
+  showAddButton?: boolean;
 }
 
 interface RowData {
@@ -81,6 +83,7 @@ interface RowData {
   fullName?: string;
   company?: string;
   [key: string]: any;
+
 }
 
 export function AGGridTable({
@@ -96,8 +99,10 @@ export function AGGridTable({
   title,
   showSearch = true,
   showFilters = true,
+
   height = "400px",
   batches = [],
+  showAddButton,
 }: AGGridTableProps) {
   // Refs and State
   const gridRef = useRef<AgGridReact>(null);
@@ -180,7 +185,7 @@ export function AGGridTable({
     }
   }, []);
 
-  const onColumnMoved = useCallback((event: ColumnMovedEvent) => {}, []);
+  const onColumnMoved = useCallback((event: ColumnMovedEvent) => { }, []);
 
   // Returns the currently displayed (filtered and sorted) rows
   const getDisplayedRows = useCallback((): RowData[] => {
@@ -315,7 +320,6 @@ export function AGGridTable({
       const blank: Record<string, any> = {};
       Object.keys(sample).forEach((k) => {
         const v = (sample as any)[k];
-        // initialize strings to "", numbers to "", booleans to "false" for select compatibility
         if (typeof v === "boolean") blank[k] = "";
         else if (typeof v === "number") blank[k] = "";
         else blank[k] = "";
@@ -323,8 +327,13 @@ export function AGGridTable({
       return blank;
     }
     // fallback: build from column defs
-    const fields = initialColumnDefs.map((c) => c.field).filter(Boolean) as string[];
-    return fields.reduce((acc: any, f: string) => { acc[f] = ""; return acc; }, {});
+    const fields = initialColumnDefs
+      .map((c) => c.field)
+      .filter(Boolean) as string[];
+    return fields.reduce((acc: any, f: string) => {
+      acc[f] = "";
+      return acc;
+    }, {});
   }, [rowData, initialColumnDefs]);
 
   const handleAdd = () => {
@@ -335,14 +344,29 @@ export function AGGridTable({
     setIsAddModalOpen(true);
   };
 
-  const handleAddSave = useCallback((newData: RowData) => {
-    if (gridRef.current) {
-      gridRef.current.api.applyTransaction({ add: [newData] });
-    }
-    if (onRowAdded) onRowAdded(newData);
-    else if (onRowUpdated) onRowUpdated(newData);
-    setIsAddModalOpen(false);
-  }, [onRowAdded, onRowUpdated]);
+  const handleAddSave = useCallback(
+    (newData: RowData) => {
+      if (gridRef.current) {
+        gridRef.current.api.applyTransaction({ add: [newData] });
+      }
+      if (onRowAdded) onRowAdded(newData);
+      else if (onRowUpdated) onRowUpdated(newData);
+      setIsAddModalOpen(false);
+    },
+    [onRowAdded, onRowUpdated]
+  );
+
+  // Add this condition to check if we should hide the add button
+  const shouldHideAddButton = useMemo(() => {
+    if (!title) return false;
+    const lowerTitle = title.toLowerCase();
+    if (lowerTitle.includes("placement fee")) return false;
+    return (
+      lowerTitle.includes("preparation") ||
+      lowerTitle.includes("marketing") ||
+      lowerTitle.includes("placement")
+    );
+  }, [title]);
 
   return (
     <div className="mx-auto w-full max-w-7xl flex-row-reverse space-y-4">
@@ -353,15 +377,17 @@ export function AGGridTable({
           </h3>
         )}
         <div className="ml-auto flex items-center  space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleAdd}
-            className="flex h-8 w-8 items-center justify-center p-0 font-bold text-green-600 hover:text-blue-700 dark:text-green-400"
-            title="Add New"
-          >
-            +
-          </Button>
+          {!shouldHideAddButton && showAddButton !== false && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAdd}
+              className="flex h-8 w-8 items-center justify-center p-0 font-bold text-green-600 hover:text-blue-700 dark:text-green-400"
+              title="Add New"
+            >
+              +
+            </Button>
+          )}
 
           <Button
             variant="outline"
@@ -417,9 +443,8 @@ export function AGGridTable({
 
       <div className="flex justify-center">
         <div
-          className={`ag-theme-alpine ${
-            isDarkMode ? "ag-grid-dark-mode" : ""
-          } w-full rounded-lg border border-gray-200 shadow-sm dark:border-gray-700`}
+          className={`ag-theme-alpine ${isDarkMode ? "ag-grid-dark-mode" : ""
+            } w-full rounded-lg border border-gray-200 shadow-sm dark:border-gray-700`}
           style={{ height: "calc(100vh - 260px)", minHeight: "400px" }}
         >
           <AgGridReact
@@ -507,6 +532,18 @@ export function AGGridTable({
         </div>
       </ColumnVisibilityModal>
 
+      {isAddModalOpen && (
+        <EditModal
+          isOpen={true}
+          onClose={() => setIsAddModalOpen(false)}
+          onSave={handleAddSave}
+          data={addInitialData}
+          title={title || "Record"}
+          batches={batches}
+          isAddMode={true} // Add this line
+        />
+      )}
+
       {viewData && (
         <ViewModal
           isOpen={true}
@@ -527,31 +564,18 @@ export function AGGridTable({
           batches={batches}
         />
       )}
-      {isAddModalOpen && !onAddClick && (
-        <DynamicFormModal
-          isOpen={true}
-          onClose={() => setIsAddModalOpen(false)}
-          title={(title ? `${title}` : "Record") + " - Add"}
-          mode="add"
-          entity={undefined}
-          initialData={addInitialData}
-          onSubmit={handleAddSave}
-          externalLists={{ batches }}
-        />
-      )}
+
       {deleteConfirmData && (
         <ConfirmDialog
           isOpen={true}
           onClose={() => setDeleteConfirmData(null)}
           onConfirm={confirmDelete}
           title="Delete Record"
-          message={`Are you sure you want to delete this record?${
-            deleteConfirmData.fullName || deleteConfirmData.company
-              ? `\n\nRecord: ${
-                  deleteConfirmData.fullName || deleteConfirmData.company
-                }`
-              : ""
-          }`}
+          message={`Are you sure you want to delete this record?${deleteConfirmData.fullName || deleteConfirmData.company
+            ? `\n\nRecord: ${deleteConfirmData.fullName || deleteConfirmData.company
+            }`
+            : ""
+            }`}
           confirmText="Delete"
           cancelText="Cancel"
         />

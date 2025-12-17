@@ -32,6 +32,9 @@ const fieldSections: Record<string, string> = {
   interviewer_contact: "Contact Information",
   interviewer_linkedin: "Contact Information",
   id: "Basic Information",
+  placement_id: "Basic Information",
+  installment_id: "Basic Information",
+  deposit_amount: "Basic Information",
   alias: "Basic Information",
   Fundamentals: "Basic Information",
   AIML: "Basic Information",
@@ -42,6 +45,7 @@ const fieldSections: Record<string, string> = {
   phone: "Basic Information",
   status: "Basic Information",
   batchid: "Contact Information",
+  amount_collected: "Contact Information",
   batch: "Basic Information",
   start_date: "Basic Information",
   batchname: "Basic Information",
@@ -86,7 +90,7 @@ const fieldSections: Record<string, string> = {
   subject: "Basic Information",
   title: "Basic Information",
   enrolleddate: "Basic Information",
-  emails_read : "Basic Information",
+  emails_read: "Basic Information",
   orientationdate: "Basic Information",
   promissory: "Basic Information",
   lastlogin: "Professional Information",
@@ -121,6 +125,8 @@ const fieldSections: Record<string, string> = {
   salary12: "Professional Information",
   instructor: "Professional Information",
   second_instructor: "Professional Information",
+  joining_date: "Professional Information",
+  no_of_installments: "Professional Information",
   marketing_startdate: "Professional Information",
   recruiterassesment: "Professional Information",
   statuschangedate: "Professional Information",
@@ -154,10 +160,17 @@ const fieldSections: Record<string, string> = {
   subject_name: "Basic Information",
   employee_name: "Basic Information",
   secondaryphone: "Contact Information",
-  secondary_email:"Contact Information",
-  cm_course:"Professional Information",
+  secondary_email: "Contact Information",
+  cm_course: "Professional Information",
   cm_subject: "Basic Information",
   material_type: "Basic Information",
+  job_name: "Basic Information",
+  job_description: "Professional Information",
+  created_date: "Professional Information",
+  job_id: "Professional Information",
+  employee_id: "Professional Information",
+  activity_date: "Professional Information",
+  activity_count: "Professional Information",
 };
 
 const workVisaStatusOptions = [
@@ -198,6 +211,7 @@ const labelOverrides: Record<string, string> = {
   candidate_email: "Candidate Email",
   uname: "Email",
   fullname: "Full Name",
+  lastmod_user_name: "Last Modified By",
   job_posting_url: "Job Posting URL",
   ssn: "SSN",
   dob: "Date of Birth",
@@ -242,10 +256,10 @@ const labelOverrides: Record<string, string> = {
   cm_course: "Course Name",
   cm_subject: "Subject Name",
   subject: "Subject",
-  type:"Type",
+  type: "Type",
   material_type: "Material Type",
   link: "Link",
-  workexperience:"Work Experience"
+  workexperience: "Work Experience"
 };
 
 const dateFields = [
@@ -269,7 +283,7 @@ const courseMaterialHiddenFields = ["subjectid", "courseid", "type"];
 // Field visibility configuration
 const fieldVisibility: Record<string, string[]> = {
   instructor: ['preparation', 'interview', 'marketing'],
-  linkedin: ['preparation', 'interview', 'marketing', 'candidate', 'vendor', 'client', 'placement']
+  linkedin: ['preparation', 'interview', 'marketing', 'candidate', 'vendor', 'client']
 };
 
 // Helper functions for field visibility
@@ -287,33 +301,38 @@ const shouldShowLinkedInField = (title: string): boolean => {
 const getTitleSpecificExclusions = (title: string): string[] => {
   const lowerTitle = title.toLowerCase();
   const exclusions: string[] = [];
-  
+
   // batches
   if (lowerTitle.includes('batch')) {
     exclusions.push('cm_subject', 'subject_name');
   }
-    if (lowerTitle.includes('leads')) {
-    exclusions.push('synced', 'lastSync', 'machineId', 'lastModified', 'version', '_action');
+  if (lowerTitle.includes('leads')) {
+    exclusions.push('synced', 'lastSync');
   }
-  
+
   // class recordings
   if (lowerTitle.includes('recording') || lowerTitle.includes('class recording')) {
     exclusions.push('material_type', 'cm_subject', 'subject_name');
   }
 
-  if (lowerTitle.includes('marketing')){
+  if (lowerTitle.includes('marketing')) {
     exclusions.push('marketing_manager_obj')
   }
   // sessions
   if (lowerTitle.includes('session') && !lowerTitle.includes('submission')) {
     exclusions.push('material_type', 'cm_subject', 'subject_name');
   }
-  
+
   // vendors
   if (lowerTitle.includes('vendor')) {
     exclusions.push('material_type');
   }
-  
+
+  // placement fees
+  if (lowerTitle.includes('placement')) {
+    exclusions.push('batch', 'batchid', 'lastmod_user_id');
+  }
+
   return exclusions;
 };
 
@@ -332,13 +351,13 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     };
 
     document.addEventListener('keydown', handleEscKey);
-    
+
     return () => {
       document.removeEventListener('keydown', handleEscKey);
     };
   }, [isOpen, onClose]);
 
-  
+
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
       if (modalRef.current && !modalRef.current.contains(event.target as Node) && isOpen) {
@@ -347,7 +366,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     };
 
     document.addEventListener('mousedown', handleOutsideClick);
-    
+
     return () => {
       document.removeEventListener('mousedown', handleOutsideClick);
     };
@@ -405,7 +424,18 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
   const renderValue = (key: string, value: any) => {
     const lowerKey = key.toLowerCase();
     if (!value && value !== 0 && value !== false) return null;
-    
+
+    // Handle job activity log boolean fields
+    if (lowerKey === 'json_downloaded' || lowerKey === 'sql_downloaded' || lowerKey === 'amount_collected') {
+      const booleanMap: Record<string, string> = {
+        'yes': 'Yes',
+        'no': 'No'
+      };
+      const normalizedValue = String(value).toLowerCase();
+      const displayValue = booleanMap[normalizedValue] || (normalizedValue === 'yes' ? 'Yes' : 'No');
+      return <Badge className={normalizedValue === 'yes' ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>{displayValue}</Badge>;
+    }
+
     // Handle Employees modal specific fields
     if (title.toLowerCase().includes('employee')) {
       if (lowerKey === 'status') {
@@ -418,7 +448,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
         const displayValue = statusMap[value] || value;
         return <Badge className={getStatusColor(value)}>{displayValue}</Badge>;
       }
-      
+
       if (lowerKey === 'instructor') {
         const instructorMap: Record<string, string> = {
           '1': 'Yes',
@@ -438,19 +468,18 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       const displayValue = ratingLabelMap[normalizedValue] || value;
       return <p>{displayValue}</p>;
     }
-    
+
     if (typeof value === "object" && value !== null) {
       if (key.includes("candidate") && value.full_name) return <p>{value.full_name}</p>;
       if (key.includes("instructor") && value.name) return <p>{value.name}</p>;
       return <p>{JSON.stringify(value)}</p>;
     }
-    
+
     if (dateFields.includes(lowerKey)) {
       const date = new Date(value);
       if (!isNaN(date.getTime())) return <p>{date.toISOString().split("T")[0]}</p>;
     }
-    
-    // if (lowerKey === "status") return <Badge className={getStatusColor(value)}>{value}</Badge>;
+
     if (lowerKey === "status") {
       const displayValue = String(value).toUpperCase();
       return <Badge className={getStatusColor(value)}>{displayValue}</Badge>;
@@ -459,9 +488,30 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     if (["feepaid", "feedue", "salary0", "salary6", "salary12"].includes(lowerKey)) return <p>${Number(value).toLocaleString()}</p>;
     if (lowerKey.includes("rating")) return <p>{value} </p>;
     if (["notes", "task"].includes(lowerKey)) return <div dangerouslySetInnerHTML={{ __html: value }} />;
-    
-    // Handle URL fields
-    if (["recording_link", "transcript", "job_posting_url", "resume_url", "backup_recording_url", "linkedin", "github_url","github_link","linkedin_id", "resume", "interviewer_linkedin", "url", "candidate_resume", "backup_url", "link"].includes(lowerKey)) {
+    if (lowerKey === "linkedin_id" || lowerKey === "linkedin" || lowerKey === "interviewer_linkedin") {
+      let url = (value || "").trim();
+
+      if (!url) {
+        return <div className="text-gray-400">N/A</div>;
+      }
+      if (!/^https?:\/\//i.test(url)) {
+        url = `https://${url}`;
+      }
+
+      return (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 underline hover:text-blue-800 break-all"
+        >
+          Click Here
+        </a>
+      );
+    }
+
+    // Handle other URL fields
+    if (["recording_link", "transcript", "job_posting_url", "resume_url", "backup_recording_url", "github_url", "github_link", "resume", "url", "candidate_resume", "backup_url", "link"].includes(lowerKey)) {
       return (
         <a
           href={value}
@@ -473,7 +523,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
         </a>
       );
     }
-    
+
     // Handle email fields
     if (lowerKey.includes("email") || lowerKey.includes("mail")) {
       return (
@@ -485,7 +535,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
         </a>
       );
     }
-    
+
     // Handle phone fields
     if (lowerKey.includes("phone") || lowerKey.includes("contact")) {
       return (
@@ -497,32 +547,40 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
         </a>
       );
     }
-    
+
     return <p className="break-words">{String(value)}</p>;
   };
 
-const flattenData = (data: Record<string, any>) => {
-  const flattened: Record<string, any> = { ...data };
-  if (data.candidate) flattened.candidate_full_name = data.candidate.full_name;
+  const flattenData = (data: Record<string, any>) => {
+    const flattened: Record<string, any> = { ...data };
+    if (data.candidate) flattened.candidate_full_name = data.candidate.full_name;
 
-  flattened.instructor1_id = data.instructor1?.id || data.instructor1_id || "";
-  flattened.instructor1_name = data.instructor1?.name || data.instructor1_name || "";
-  flattened.instructor2_id = data.instructor2?.id || data.instructor2_id || "";
-  flattened.instructor2_name = data.instructor2?.name || data.instructor2_name || "";
-  flattened.instructor3_id = data.instructor3?.id || data.instructor3_id || "";
-  flattened.instructor3_name = data.instructor3?.name || data.instructor3_name || "";
+    flattened.instructor1_id = data.instructor1?.id || data.instructor1_id || "";
+    flattened.instructor1_name = data.instructor1?.name || data.instructor1_name || "";
+    flattened.instructor2_id = data.instructor2?.id || data.instructor2_id || "";
+    flattened.instructor2_name = data.instructor2?.name || data.instructor2_name || "";
+    flattened.instructor3_id = data.instructor3?.id || data.instructor3_id || "";
+    flattened.instructor3_name = data.instructor3?.name || data.instructor3_name || "";
     if (data.course) {
       flattened.cm_course = data.course.name || data.course.course_name;
     }
     if (data.subject) {
       flattened.cm_subject = data.subject.name || data.subject.subject_name;
     }
-  flattened.linkedin_id = data.candidate?.linkedin_id || data.linkedin_id || "";
-    
+    flattened.linkedin_id = data.candidate?.linkedin_id || data.linkedin_id || "";
+
+    // Flatten batch data from candidate.batch.batchname
+    if (data.candidate?.batch?.batchname) {
+      flattened.batch = data.candidate.batch.batchname;
+    } else if (data.batch) {
+      flattened.batch = typeof data.batch === 'string' ? data.batch : data.batch.batchname || "";
+    }
+
+
     const typeMap: Record<string, string> = {
       'P': 'Presentations',
       'C': 'Cheatsheets',
-      'D': 'Diagrams', 
+      'D': 'Diagrams',
       'S': 'Softwares',
       'I': 'Installations',
       'B': 'Books',
@@ -536,7 +594,7 @@ const flattenData = (data: Record<string, any>) => {
     } else if (data.type) {
       flattened.material_type = typeMap[data.type] || data.type;
     }
-    
+
     if (data.material_type && data.material_type.length === 1 && typeMap[data.material_type]) {
       flattened.material_type = typeMap[data.material_type];
     }
@@ -554,17 +612,17 @@ const flattenData = (data: Record<string, any>) => {
     "Notes": [],
   };
 
-  const isCourseMaterial = title.toLowerCase().includes("course material") || 
-                          title.toLowerCase().includes("material") ||
-                          flattenedData.hasOwnProperty("cm_course");
+  const isCourseMaterial = title.toLowerCase().includes("course material") ||
+    title.toLowerCase().includes("material") ||
+    flattenedData.hasOwnProperty("cm_course");
 
-  const isCandidateOrEmployee = title.toLowerCase().includes("candidate") || 
-                                title.toLowerCase().includes("employee");
+  const isCandidateOrEmployee = title.toLowerCase().includes("candidate") ||
+    title.toLowerCase().includes("employee");
 
 
   const shouldPrioritizeFullName = [
     'Interviews',
-    'Candidate Preparations', 
+    'Candidate Preparations',
     'Placements',
     'Marketing Phase'
   ].some(modalTitle => title.includes(modalTitle));
@@ -576,33 +634,40 @@ const flattenData = (data: Record<string, any>) => {
   const showLinkedInField = shouldShowLinkedInField(title);
 
   const allFields: { key: string; value: any; section: string }[] = [];
-  
+
   Object.entries(flattenedData).forEach(([key, value]) => {
-    // Skip excluded fields
-    if (excludedFields.includes(key)) return;
-    
-    // MODAL-SPECIFIC FIELD FILTERING
+
+    if (excludedFields.includes(key)) {
+      const isPrep = title.toLowerCase().includes('preparation');
+      const isMarketing = title.toLowerCase().includes('marketing');
+      const isBatch = key === 'batch';
+
+      if (!(isBatch && (isPrep || isMarketing))) {
+        return;
+      }
+    }
+
     const instructorFields = [
       'instructor1_name', 'instructor2_name', 'instructor3_name',
       'instructor1_id', 'instructor2_id', 'instructor3_id'
     ];
-    
+
     // Hide instructor fields in non-relevant modals
     if (!showInstructorFields && instructorFields.includes(key)) {
       return;
     }
-    
+
     // Hide LinkedIn in non-relevant modals
     if (!showLinkedInField && key === 'linkedin_id') {
       return;
     }
-    
+
     if (isCourseMaterial && courseMaterialHiddenFields.includes(key)) return;
-    
+
     if (titleExclusions.includes(key)) return;
-    
+
     if (isCandidateOrEmployee && key === "name") return;
-    
+
     const section = fieldSections[key] || "Other";
     allFields.push({ key, value, section });
   });
@@ -611,7 +676,7 @@ const flattenData = (data: Record<string, any>) => {
   const sortedFields = allFields.sort((a, b) => {
     const aIsPriority = priorityFields.includes(a.key);
     const bIsPriority = priorityFields.includes(b.key);
-    
+
     if (aIsPriority && !bIsPriority) return -1;
     if (!aIsPriority && bIsPriority) return 1;
     return 0;
@@ -628,7 +693,7 @@ const flattenData = (data: Record<string, any>) => {
     sectionedFields["Basic Information"].sort((a, b) => {
       const aIsFullName = priorityFields.includes(a.key);
       const bIsFullName = priorityFields.includes(b.key);
-      
+
       if (aIsFullName && !bIsFullName) return -1;
       if (!aIsFullName && bIsFullName) return 1;
       return 0;
@@ -638,10 +703,10 @@ const flattenData = (data: Record<string, any>) => {
   // For course materials
   if (isCourseMaterial && sectionedFields["Professional Information"]) {
     const basicInfoFields = sectionedFields["Professional Information"];
-    const courseNameIndex = basicInfoFields.findIndex(item => 
+    const courseNameIndex = basicInfoFields.findIndex(item =>
       item.key === "cm_course" || item.key === "course_name"
     );
-    
+
     if (courseNameIndex > -1) {
       const courseNameField = basicInfoFields.splice(courseNameIndex, 1)[0];
       basicInfoFields.unshift(courseNameField);
@@ -667,7 +732,7 @@ const flattenData = (data: Record<string, any>) => {
     <>
       {isOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center p-2 sm:p-4 z-50">
-          <div 
+          <div
             ref={modalRef}
             className={`bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full ${getModalWidth()} max-h-[90vh] overflow-y-auto`}
           >
@@ -710,26 +775,26 @@ const flattenData = (data: Record<string, any>) => {
                   ))}
                 </div>
 
-                {/* Notes Section */}      
+                {/* Notes Section */}
                 {sectionedFields["Notes"]?.length > 0 && (
-                <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-blue-200">
-                  <div className="space-y-2 sm:space-y-3">
-                    {sectionedFields["Notes"].map(({ key, value }) => (
-                      <div key={key} className="space-y-1">
-                        <label className="block text-xs sm:text-sm font-bold text-blue-700">
-                          {toLabel(key)}
-                        </label>
-                        <div className="w-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm border border-blue-200 rounded-lg bg-white min-h-[60px]">
-                          <div 
-                            className="whitespace-pre-wrap"
-                            dangerouslySetInnerHTML={{ __html: value || "" }}
-                          />
+                  <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-blue-200">
+                    <div className="space-y-2 sm:space-y-3">
+                      {sectionedFields["Notes"].map(({ key, value }) => (
+                        <div key={key} className="space-y-1">
+                          <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                            {toLabel(key)}
+                          </label>
+                          <div className="w-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm border border-blue-200 rounded-lg bg-white min-h-[60px]">
+                            <div
+                              className="whitespace-pre-wrap"
+                              dangerouslySetInnerHTML={{ __html: value || "" }}
+                            />
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
                     </div>
                   </div>
-                  )}
+                )}
                 {/* Navigation */}
                 {hasNavigation && (
                   <div className="flex justify-between items-center mt-3 p-2 bg-blue-50 rounded-md">
@@ -737,11 +802,10 @@ const flattenData = (data: Record<string, any>) => {
                       type="button"
                       onClick={handlePrevious}
                       disabled={isFirstContact}
-                      className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 min-w-[90px] sm:min-w-[100px] justify-center ${
-                        isFirstContact
-                          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                          : "bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-md hover:shadow-lg"
-                      }`}
+                      className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 min-w-[90px] sm:min-w-[100px] justify-center ${isFirstContact
+                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        : "bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-md hover:shadow-lg"
+                        }`}
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -763,11 +827,10 @@ const flattenData = (data: Record<string, any>) => {
                       type="button"
                       onClick={handleNext}
                       disabled={isLastContact}
-                      className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 min-w-[90px] sm:min-w-[100px] justify-center ${
-                        isLastContact
-                          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                          : "bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-md hover:shadow-lg"
-                      }`}
+                      className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 min-w-[90px] sm:min-w-[100px] justify-center ${isLastContact
+                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        : "bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-md hover:shadow-lg"
+                        }`}
                     >
                       Next
                       <svg

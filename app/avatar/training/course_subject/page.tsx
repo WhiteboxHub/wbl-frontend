@@ -5,10 +5,8 @@ import { ColDef } from "ag-grid-community";
 import { AGGridTable } from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { Button } from "@/components/admin_ui/button";
-import { SearchIcon, PlusIcon,X } from "lucide-react";
+import { SearchIcon } from "lucide-react";
 import { toast, Toaster } from "sonner";
-// import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/admin_ui/dialog";
 import { apiFetch } from "@/lib/api.js";
 
 interface CourseSubject {
@@ -58,15 +56,9 @@ export default function CourseSubjectPage() {
   const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [showModal, setShowModal] = useState(false);
-  const [newMapping, setNewMapping] = useState<NewMapping>({ course_id: "", subject_id: "" });
-  const [saving, setSaving] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [selectedCourseName, setSelectedCourseName] = useState("");
-  const [selectedSubjectName, setSelectedSubjectName] = useState("");
   const [refreshing, setRefreshing] = useState(false);
-
 
   const fetchCourseSubjects = async () => {
     try {
@@ -105,24 +97,6 @@ export default function CourseSubjectPage() {
       toast.error("Failed to load courses");
     }
   };
-
-  // Add this useEffect after your existing useEffects
-useEffect(() => {
-  const handleEscKey = (event: KeyboardEvent) => {
-    if (event.key === 'Escape') {
-      setShowModal(false);
-      setSelectedCourseName("");
-      setSelectedSubjectName("");
-    }
-  };
-
-  if (showModal) {
-    document.addEventListener('keydown', handleEscKey);
-    return () => {
-      document.removeEventListener('keydown', handleEscKey);
-    };
-  }
-}, [showModal]);
 
   const fetchSubjects = async () => {
     try {
@@ -202,51 +176,6 @@ useEffect(() => {
     }
   };
 
-  const handleAddMapping = async () => {
-    if (!selectedCourseName || !selectedSubjectName) {
-      toast.error("Please select both a course and a subject!");
-      return;
-    }
-
-    const selectedCourse = courses.find((course) => course.name === selectedCourseName);
-    const selectedSubject = subjects.find((subject) => subject.name === selectedSubjectName);
-
-    if (!selectedCourse || !selectedSubject) {
-      toast.error("Invalid selection. Please try again.");
-      return;
-    }
-
-    const courseId = selectedCourse.id;
-    const subjectId = selectedSubject.id;
-
-    const exists = courseSubjects.some((item) => item.course_id === courseId && item.subject_id === subjectId);
-    if (exists) {
-      toast.error("This course-subject mapping already exists!");
-      return;
-    }
-
-    try {
-      setSaving(true);
-      const res = await apiFetch("/course-subjects", { method: "POST", body: { course_id: courseId, subject_id: subjectId } });
-      const created = res && !Array.isArray(res) ? (res.data ?? res) : res;
-
-      const newRecordWithId = { ...created, id: `${created.course_id}-${created.subject_id}` };
-      const updated = [newRecordWithId, ...courseSubjects];
-      setCourseSubjects(updated);
-      setFilteredCourseSubjects(updated);
-      toast.success("Course-subject mapping added successfully!");
-      setShowModal(false);
-      setSelectedCourseName("");
-      setSelectedSubjectName("");
-      setNewMapping({ course_id: "", subject_id: "" });
-    } catch (e: any) {
-      const errorMsg = getErrorMessage(e);
-      toast.error(`Failed to add mapping: ${errorMsg}`);
-    } finally {
-      setSaving(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
@@ -295,109 +224,7 @@ useEffect(() => {
             </div>
           </div>
         </div>
-
-          {/* <Button className="w-full sm:w-auto" size="sm" onClick={() => setShowModal(true)}>
-
-            <PlusIcon className="mr-2 h-4 w-4" />
-            Add Mapping
-          </Button> */}
       </div>
-
-      {/* Add Mapping Modal - Updated with same colors */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center p-2 sm:p-4 z-50">
-          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-sm sm:max-w-md max-h-[95vh] overflow-y-auto">
-            {/* Header */}
-            <div className="sticky top-0 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 md:py-5 border-b border-blue-200 flex justify-between items-center">
-              <h2 className="text-sm sm:text-base md:text-lg font-semibold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-                Add Course-Subject Mapping
-              </h2>
-              <button
-                onClick={() => {
-                  setShowModal(false);
-                  setSelectedCourseName("");
-                  setSelectedSubjectName("");
-                }}
-                className="text-blue-400 hover:text-blue-600 hover:bg-blue-100 p-1 rounded-lg transition"
-              >
-                <X size={16} className="sm:w-5 sm:h-5" />
-              </button>
-            </div>
-
-            {/* Form */}
-            <div className="p-3 sm:p-4 md:p-6 bg-white">
-              <div className="grid grid-cols-1 gap-2.5 sm:gap-3 md:gap-5">
-                
-                {/* Course */}
-                <div className="space-y-1 sm:space-y-1.5">
-                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
-                    Course <span className="text-red-700">*</span>
-                  </label>
-                  <select
-                    value={selectedCourseName}
-                    onChange={(e) => setSelectedCourseName(e.target.value)}
-                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
-                  >
-                    <option value="" disabled hidden>
-                      Select course
-                    </option>
-                    {courses.map((course) => (
-                      <option key={course.id} value={course.name}>
-                        {course.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Subject */}
-                <div className="space-y-1 sm:space-y-1.5">
-                  <label className="block text-xs sm:text-sm font-bold text-blue-700">
-                    Subject <span className="text-red-700">*</span>
-                  </label>
-                  <select
-                    value={selectedSubjectName}
-                    onChange={(e) => setSelectedSubjectName(e.target.value)}
-                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white hover:border-blue-300 transition shadow-sm"
-                  >
-                    <option value="" disabled hidden>
-                      Select subject
-                    </option>
-                    {subjects.map((subject) => (
-                      <option key={subject.id} value={subject.name}>
-                        {subject.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="flex justify-end gap-2 sm:gap-3 mt-3 sm:mt-4 md:mt-6 pt-2 sm:pt-3 md:pt-4 border-t border-blue-200">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModal(false);
-                    setSelectedCourseName("");
-                    setSelectedSubjectName("");
-                  }}
-                  disabled={saving}
-                  className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-blue-700 border border-blue-300 rounded-lg hover:bg-blue-50 transition disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAddMapping}
-                  disabled={saving || !selectedCourseName || !selectedSubjectName}
-                  className="px-3 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg hover:from-cyan-600 hover:to-blue-600 transition shadow-md disabled:opacity-50"
-                >
-                  {saving ? "Adding..." : "Save"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       <AGGridTable
         rowData={filteredCourseSubjects}

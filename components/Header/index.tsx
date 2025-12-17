@@ -50,7 +50,9 @@ const Header = ({
   };
 
   const display_user_dashboard = () => {
+
     router.push("/user_dashboard");
+   
   };
 
   return (
@@ -228,7 +230,7 @@ const Header = ({
             <div className="hidden items-center justify-end pr-16 lg:flex lg:pr-0">
               {isAuthenticated ? (
                 <div className="flex items-center gap-4">
-                  {userRole === "admin" && (
+                  {(userRole === "admin" || userRole === "employee") && (
                     <Link
                       href="/avatar"
                       className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
@@ -275,8 +277,8 @@ const Header = ({
             {/* Mobile Right Section - Clean and Non-Overlapping */}
             <div className="flex w-full items-center justify-end gap-2 pr-3 lg:hidden">
               <div className="no-scrollbar flex items-center gap-2 overflow-x-auto">
-                {/* Avatar Button (Admin only) */}
-                {isAuthenticated && userRole === "admin" && (
+                {/* Avatar Button (Admin or Employee) */}
+                {isAuthenticated && (userRole === "admin" || userRole === "employee") && (
                   <Link
                     href="/avatar"
                     className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-3 py-2 text-xs font-bold text-white sm:text-sm"

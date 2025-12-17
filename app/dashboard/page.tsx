@@ -1,118 +1,88 @@
+
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import {
-  BookOpen,
-  Target,
-  Briefcase,
+  User,
+  Mail,
+  Phone,
   Calendar,
-  BarChart3,
-  Clock,
+  Award,
   TrendingUp,
   Users,
   AlertTriangle,
   CheckCircle,
-  FileText,
-  ExternalLink,
+  Clock,
+  Briefcase,
+  Target,
+  Activity,
+  BarChart3,
+  Bell,
+  Settings,
+  LogOut,
+  BookOpen,
   PlayCircle,
   Search,
+  ExternalLink,
+  FileText,
+  Home,
+  Video,
+  MessageSquare,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
-// Types based on backend API responses
-interface CandidateBasicInfo {
-  id: number;
-  full_name: string;
-  email: string;
-  phone: string;
-  status: string;
-  enrolled_date: string;
-  batch_name: string;
-}
-
-interface JourneyPhase {
-  completed: boolean;
-  active: boolean;
-  date?: string;
-  start_date?: string;
-  duration_days?: number;
-  days_since?: number;
-  status?: string;
-  company?: string;
-  position?: string;
-}
-
-interface PhaseMetrics {
-  enrolled: {
-    date: string;
+interface DashboardData {
+  basic_info: {
+    id: number;
+    full_name: string;
+    email: string;
+    phone: string;
+    status: string;
+    enrolled_date: string;
     batch_name: string;
-    status: string;
+    login_count: number;
   };
-  preparation?: {
-    status: string;
-    start_date: string;
-    duration_days: number;
-    rating: string;
-    communication: string;
+  journey: {
+    enrolled: { completed: boolean; date: string; days_since: number };
+    preparation: { completed: boolean; active: boolean; start_date: string; duration_days: number };
+    marketing: { completed: boolean; active: boolean; start_date: string; duration_days: number };
+    placement: { completed: boolean; active: boolean; company: string; position: string };
   };
-  marketing?: {
-    status: string;
-    start_date: string;
-    duration_days: number;
-    total_interviews: number;
-    positive_interviews: number;
+  phase_metrics: {
+    enrolled: { date: string; batch_name: string; status: string };
+    preparation?: { status: string; rating: string; communication: string; duration_days: number };
+    marketing?: { total_interviews: number; positive_interviews: number; success_rate: number; duration_days: number };
+    placement?: { company: string; position: string; base_salary: number };
+  };
+  team_info: {
+    preparation: { instructors: Array<{ name: string; email: string; role: string }> };
+    marketing: { manager?: { name: string; email: string } };
+  };
+  interview_stats: {
+    total: number;
+    positive: number;
+    pending: number;
+    negative: number;
     success_rate: number;
   };
-  placement?: {
+  recent_interviews: Array<{
     company: string;
-    position: string;
-    placement_date: string;
-    base_salary: number;
-  };
+    interview_date: string;
+    type_of_interview: string;
+    feedback: string;
+  }>;
+  alerts: Array<{ type: string; phase: string; message: string }>;
 }
 
-interface TeamInfo {
-  preparation: { instructors: Array<{ id: number; name: string; email?: string; role: string }> };
-  marketing: { manager?: { id: number; name: string; email?: string } };
-}
-
-interface InterviewStats {
-  total: number;
-  positive: number;
-  pending: number;
-  negative: number;
-  success_rate: number;
-}
-
-interface InterviewSummary {
-  id: number;
-  company: string;
-  interview_date: string;
-  type_of_interview: string;
-  feedback: string;
-}
-
-interface Alert {
-  type: string;
-  phase: string;
-  message: string;
-}
-
-interface DashboardData {
-  basic_info: CandidateBasicInfo;
-  journey: {
-    enrolled: JourneyPhase;
-    preparation: JourneyPhase;
-    marketing: JourneyPhase;
-    placement: JourneyPhase;
-  };
-  phase_metrics: PhaseMetrics;
-  team_info: TeamInfo;
-  interview_stats: InterviewStats;
-  recent_interviews: InterviewSummary[];
-  alerts: Alert[];
+interface UserProfile {
+  uname: string;
+  full_name: string;
+  phone: string;
+  login_count: number;
+  last_login?: string;
+  candidate_id?: number;
 }
 
 interface Session {
@@ -125,55 +95,80 @@ interface Session {
   subject: string;
 }
 
-type TabId = "overview" | "preparation" | "marketing" | "placement";
+interface ApiError {
+  message?: string;
+  detail?: string;
+  body?: {
+    detail?: string;
+    message?: string;
+  };
+  status?: number;
+}
 
-export default function CandidateDashboardPage() {
+type TabType = 'overview' | 'journey' | 'team' | 'sessions' | 'interviews' | 'statistics';
+
+const extractErrorMessage = (err: ApiError, defaultMessage: string): string => {
+  return err.body?.detail || err.body?.message || err.detail || err.message || defaultMessage;
+};
+
+export default function CandidateDashboard() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<TabId>("overview");
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
-  const [candidateId, setCandidateId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [candidateId, setCandidateId] = useState<number | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [activeTab, setActiveTab] = useState<TabType>('overview');
+
+  // Sessions state
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [sessionSearchTerm, setSessionSearchTerm] = useState("");
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || 
-                   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "";
+  const loadUserProfile = async () => {
+    try {
+      const token = localStorage.getItem("access_token") || localStorage.getItem("token");
+      if (!token) throw new Error("No token found");
 
-  // Get candidate ID from logged-in user
+      const data = await apiFetch("user_dashboard", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setUserProfile(data);
+      return data;
+    } catch (err: any) {
+      console.error("Error loading user profile:", err);
+      return null;
+    }
+  };
+
   const getCandidateId = async (): Promise<number> => {
     try {
       const token = localStorage.getItem("access_token") || localStorage.getItem("token");
       if (!token) throw new Error("No token found");
 
-      console.log("Fetching user dashboard info...");
-      // First, get user info to get email
-      // Note: apiFetch already prepends baseUrl (which includes /api), so we don't need /api/ prefix
       const userResponse = await apiFetch("user_dashboard", {
         headers: { Authorization: `Bearer ${token}` },
       });
-
-      console.log("User dashboard response:", userResponse);
 
       if (!userResponse || !userResponse.uname) {
         throw new Error("User information not found");
       }
 
-      const userEmail = userResponse.uname; // uname is the email
-      console.log("User email from dashboard:", userEmail);
+      if (userResponse.candidate_id) {
+        return userResponse.candidate_id;
+      }
 
-      // Search for candidate by email using search-names endpoint
+      const userEmail = userResponse.uname;
+
       try {
-        console.log(`Searching for candidate with email: ${userEmail}`);
-        // apiFetch handles baseUrl prepending, so use path without leading /
-        const candidateResponse = await apiFetch(`candidates/search-names/${encodeURIComponent(userEmail)}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const candidateResponse = await apiFetch(
+          `candidates/search-names/${encodeURIComponent(userEmail)}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
 
-        console.log("Candidate search response:", candidateResponse);
-
-        // Handle different response formats
         let candidates = [];
         if (Array.isArray(candidateResponse)) {
           candidates = candidateResponse;
@@ -183,124 +178,65 @@ export default function CandidateDashboardPage() {
           candidates = candidateResponse.candidates;
         }
 
-        console.log("Parsed candidates array:", candidates);
-
         if (candidates.length > 0) {
-          // Find exact email match first, then fallback to first result
-          const exactMatch = candidates.find((c: any) => c.email?.toLowerCase() === userEmail.toLowerCase());
+          const exactMatch = candidates.find(
+            (c: any) => c.email?.toLowerCase() === userEmail.toLowerCase()
+          );
+
           if (exactMatch && exactMatch.id) {
-            console.log("Found exact match candidate ID:", exactMatch.id);
             return exactMatch.id;
           }
+
           if (candidates[0] && candidates[0].id) {
-            console.log("Using first candidate ID:", candidates[0].id);
             return candidates[0].id;
           }
         }
       } catch (searchErr: any) {
-        console.warn("Candidate search by email failed:", searchErr);
-        console.warn("Error details:", searchErr.message, searchErr.status);
-      }
-
-      // Alternative: Try to decode token or use user_dashboard if it has candidate_id
-      if (userResponse.candidate_id) {
-        console.log("Using candidate_id from user response:", userResponse.candidate_id);
-        return userResponse.candidate_id;
+        console.warn(" Candidate search by email failed:", searchErr);
       }
 
       throw new Error("Candidate ID not found. Please ensure your account is linked to a candidate profile.");
     } catch (err: any) {
-      console.error("Error getting candidate ID:", err);
-      console.error("Error details:", {
-        message: err.message,
-        status: err.status,
-        body: err.body
-      });
-      throw new Error(err.message || "Failed to get candidate ID. Please log in again.");
+      console.error(" Error getting candidate ID:", err);
+      throw new Error(extractErrorMessage(err, "Failed to get candidate ID. Please log in again."));
     }
   };
 
-  // Load dashboard overview
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const token = localStorage.getItem("access_token") || localStorage.getItem("token");
-      if (!token) {
-        console.error("No token found, redirecting to login");
-        router.push("/login");
-        return;
-      }
-
-      console.log("Loading dashboard data...");
-      
-      // Get candidate ID first
-      console.log("Getting candidate ID...");
-      const id = await getCandidateId();
-      console.log("Candidate ID:", id);
-      setCandidateId(id);
-
-      if (!id) {
-        throw new Error("Could not retrieve candidate ID");
-      }
-
-      // Fetch dashboard overview
-      // Note: candidate_dashboard router has prefix="/api/candidates" in router definition
-      // apiFetch will prepend baseUrl (which includes /api), so we need: api/candidates/{id}/dashboard/overview
-      // But since baseUrl already has /api, we use: candidates/{id}/dashboard/overview
-      console.log(`Fetching dashboard data for candidate ${id}...`);
-      const data = await apiFetch(`candidates/${id}/dashboard/overview`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      console.log("Dashboard data received:", data);
-      
-      if (!data) {
-        throw new Error("No data received from server");
-      }
-
-      setDashboardData(data);
-    } catch (err: any) {
-      console.error("Dashboard loading error:", err);
-      console.error("Error details:", {
-        message: err.message,
-        status: err.status,
-        body: err.body,
-        stack: err.stack
-      });
-      
-      const errorMessage = err.message || err.body?.detail || "Failed to load dashboard";
-      setError(errorMessage);
-      
-      if (err.status === 401 || err.status === 403) {
-        console.error("Authentication failed, redirecting to login");
-        router.push("/login");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Load sessions filtered by candidate name
   const loadSessions = async () => {
-    if (!dashboardData?.basic_info?.full_name) return;
+    const fullName = data?.basic_info?.full_name;
+    if (!fullName) return;
+
+    const token = localStorage.getItem("access_token") || localStorage.getItem("token");
+    const firstName = fullName.split(" ")[0];
 
     try {
       setSessionsLoading(true);
-      const firstName = dashboardData.basic_info.full_name.split(" ")[0];
-      const searchTerm = sessionSearchTerm || firstName;
 
-      const token = localStorage.getItem("access_token") || localStorage.getItem("token");
-      const params = new URLSearchParams({ search_title: searchTerm });
-      
-      // Session router has prefix "/api" in main.py, so use: session?params
-      const data = await apiFetch(`session?${params}`, {
+      const searchQuery = sessionSearchTerm.trim()
+        ? `${firstName} ${sessionSearchTerm}`.toLowerCase()
+        : firstName.toLowerCase();
+
+      const params = new URLSearchParams({ search_title: searchQuery });
+      const sessionData = await apiFetch(`session?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const sessionsList = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
-      setSessions(sessionsList);
+      const sessionsList =
+        sessionData?.sessions || sessionData?.data || (Array.isArray(sessionData) ? sessionData : []);
+
+      const candidateSessions = Array.isArray(sessionsList)
+        ? sessionsList.filter((session: Session) => {
+          if (!session || !session.sessiondate || !session.title) return false;
+
+          const titleLower = session.title.toLowerCase();
+          const firstNameLower = firstName.toLowerCase();
+          const fullNameLower = fullName.toLowerCase();
+
+          return titleLower.includes(firstNameLower) || titleLower.includes(fullNameLower);
+        })
+        : [];
+
+      setSessions(candidateSessions);
     } catch (err) {
       console.error("Error loading sessions:", err);
       setSessions([]);
@@ -309,44 +245,102 @@ export default function CandidateDashboardPage() {
     }
   };
 
+
+  // Update the loadSessions function in your React component
+  const loadDashboard = async (retryCount = 0) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const token = localStorage.getItem("access_token") || localStorage.getItem("token");
+
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
+      const profileData = await loadUserProfile();
+
+      const id = await getCandidateId();
+      setCandidateId(id);
+
+      if (!id) {
+        throw new Error("Could not retrieve candidate ID");
+      }
+
+      const dashboardData = await apiFetch(`candidates/${id}/dashboard/overview`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!dashboardData) {
+        throw new Error("No data received from server");
+      }
+
+      setData(dashboardData);
+    } catch (err: any) {
+      console.error("Dashboard loading error:", err);
+
+      const errorMessage = extractErrorMessage(err, "Failed to load dashboard");
+      setError(errorMessage);
+
+      if (retryCount === 0 && err.status >= 500) {
+        setTimeout(() => loadDashboard(1), 2000);
+        return;
+      }
+
+      if (err.status === 401 || err.status === 403) {
+        localStorage.clear();
+        router.push("/login");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    loadDashboardData();
+    if (data) {
+      const timeoutId = setTimeout(() => {
+        loadSessions();
+      }, 500);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [data, sessionSearchTerm]);
+
+  useEffect(() => {
+    loadDashboard();
   }, []);
 
-  useEffect(() => {
-    if (dashboardData && activeTab === "overview") {
-      loadSessions();
-    }
-  }, [dashboardData, activeTab, sessionSearchTerm]);
-
-  // Auth check on mount
-  useEffect(() => {
-    const token = localStorage.getItem("access_token") || localStorage.getItem("token");
-    if (!token) {
-      router.push("/login");
-    }
-  }, [router]);
+  const handleLogout = () => {
+    localStorage.clear();
+    router.push("/login");
+  };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center pt-24">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Loading Dashboard...</h2>
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-2">Loading Dashboard...</h2>
+          <div className="flex items-center justify-center space-x-1">
+            <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+            <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+            <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+          </div>
         </div>
       </div>
     );
   }
 
-  if (error || !dashboardData) {
+  if (error || !data) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center pt-24 px-4">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900 flex items-center justify-center px-4">
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-lg p-8 text-center max-w-md">
           <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3">Connection Failed</h3>
           <p className="text-gray-600 dark:text-gray-400 mb-6">{error || "Unable to load dashboard data"}</p>
           <button
-            onClick={loadDashboardData}
+            onClick={() => loadDashboard()}
             className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 font-semibold"
           >
             Retry Connection
@@ -356,49 +350,41 @@ export default function CandidateDashboardPage() {
     );
   }
 
-  const getFirstName = (fullName: string) => fullName.split(" ")[0];
+  const firstName = data.basic_info.full_name.split(" ")[0];
+
+  // Navigation tabs configuration
+  const tabs = [
+    { id: 'overview' as TabType, name: 'Overview', icon: Home },
+    { id: 'journey' as TabType, name: 'Journey', icon: TrendingUp },
+    { id: 'team' as TabType, name: 'My Team', icon: Users },
+    { id: 'sessions' as TabType, name: 'Sessions', icon: PlayCircle },
+    { id: 'interviews' as TabType, name: 'Interviews', icon: MessageSquare },
+    { id: 'statistics' as TabType, name: 'Statistics', icon: BarChart3 },
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pt-24">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header Section */}
-        <div className="mb-8">
-          <div className="flex items-start justify-between flex-wrap gap-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900">
+      {/* ==================== HEADER ==================== */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <div className="relative">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center text-white text-xl font-bold shadow-lg">
-                  {getFirstName(dashboardData.basic_info.full_name).charAt(0)}
-                </div>
-                <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-white dark:border-gray-900"></div>
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                  Welcome back, {getFirstName(dashboardData.basic_info.full_name)}!
-                </h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">
-                  {dashboardData.basic_info.batch_name} • Enrolled{" "}
-                  {dashboardData.basic_info.enrolled_date
-                    ? format(parseISO(dashboardData.basic_info.enrolled_date), "MMM dd, yyyy")
-                    : "N/A"}
-                </p>
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Alerts Banner */}
-        {dashboardData.alerts && dashboardData.alerts.length > 0 && (
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-28">
+        {/* ==================== ALERTS ==================== */}
+        {data.alerts && data.alerts.length > 0 && (
           <div className="mb-6 space-y-3">
-            {dashboardData.alerts.map((alert, index) => (
+            {data.alerts.map((alert, index) => (
               <div
                 key={index}
-                className={`flex items-center space-x-3 p-4 rounded-xl border ${
-                  alert.type === "warning"
-                    ? "bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800"
-                    : "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800"
-                }`}
+                className={`flex items-center space-x-3 p-4 rounded-xl border backdrop-blur-sm ${alert.type === "warning"
+                  ? "bg-yellow-50/80 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800"
+                  : "bg-blue-50/80 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800"
+                  }`}
               >
-                <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{alert.message}</p>
                   <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Phase: {alert.phase}</p>
@@ -408,593 +394,542 @@ export default function CandidateDashboardPage() {
           </div>
         )}
 
-        {/* Phase Progress Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <PhaseCard
-            title="Enrolled"
-            icon={<CheckCircle className="w-6 h-6" />}
-            color="blue"
-            completed={dashboardData.journey.enrolled.completed}
-            daysSince={dashboardData.journey.enrolled.days_since}
-            batchName={dashboardData.basic_info.batch_name}
-          />
-          <PhaseCard
-            title="Preparation"
-            icon={<BookOpen className="w-6 h-6" />}
-            color="purple"
-            active={dashboardData.journey.preparation.active}
-            completed={dashboardData.journey.preparation.completed}
-            durationDays={dashboardData.journey.preparation.duration_days}
-            rating={dashboardData.phase_metrics.preparation?.rating}
-          />
-          <PhaseCard
-            title="Marketing"
-            icon={<Target className="w-6 h-6" />}
-            color="green"
-            active={dashboardData.journey.marketing.active}
-            completed={dashboardData.journey.marketing.completed}
-            durationDays={dashboardData.journey.marketing.duration_days}
-            interviews={dashboardData.phase_metrics.marketing?.total_interviews}
-            successRate={dashboardData.phase_metrics.marketing?.success_rate}
-          />
-          <PhaseCard
-            title="Placement"
-            icon={<Briefcase className="w-6 h-6" />}
-            color="orange"
-            active={dashboardData.journey.placement.active}
-            completed={dashboardData.journey.placement.completed}
-            company={dashboardData.phase_metrics.placement?.company}
-          />
-        </div>
+        {/* ==================== PROFILE CARD ==================== */}
+        <div className="mb-8 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-2xl shadow-2xl overflow-hidden">
+          <div className="relative">
+            <div className="absolute inset-0 bg-black/10"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent"></div>
 
-        {/* Main Content with Tabs */}
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-lg overflow-hidden">
-          {/* Tab Navigation */}
-          <div className="border-b border-gray-200 dark:border-gray-700">
-            <div className="flex overflow-x-auto">
-              {[
-                { id: "overview", label: "Overview", icon: <BarChart3 className="w-4 h-4" /> },
-                { id: "preparation", label: "Preparation", icon: <BookOpen className="w-4 h-4" /> },
-                { id: "marketing", label: "Marketing", icon: <Target className="w-4 h-4" /> },
-                { id: "placement", label: "Placement", icon: <Briefcase className="w-4 h-4" /> },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as TabId)}
-                  className={`flex items-center space-x-2 px-6 py-4 border-b-2 font-medium text-sm transition-all duration-200 whitespace-nowrap ${
-                    activeTab === tab.id
-                      ? "border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20"
-                      : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                  }`}
-                >
-                  {tab.icon}
-                  <span>{tab.label}</span>
-                </button>
-              ))}
+            <div className="relative p-8">
+              <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6">
+                <div className="relative">
+                  <div className="w-28 h-28 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center text-white text-3xl font-bold shadow-xl border-4 border-white/30">
+                    {data.basic_info.full_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                  </div>
+                  <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-green-500 rounded-full border-4 border-white dark:border-gray-900 flex items-center justify-center">
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                  </div>
+                </div>
+
+                <div className="flex-1 text-center lg:text-left">
+                  <h1 className="text-3xl lg:text-4xl font-bold text-white mb-2">
+                    Welcome back, {firstName}! 👋
+                  </h1>
+
+                  <div className="flex flex-col lg:flex-row gap-4 mb-4 text-white/90">
+                    <div className="flex items-center justify-center lg:justify-start gap-2">
+                      <Mail className="w-4 h-4" />
+                      <span className="text-sm">{data.basic_info.email}</span>
+                    </div>
+                    <div className="flex items-center justify-center lg:justify-start gap-2">
+                      <Phone className="w-4 h-4" />
+                      <span className="text-sm">{data.basic_info.phone}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Award className="w-4 h-4 text-yellow-300" />
+                        <p className="text-xs text-white/70 font-medium">Batch</p>
+                      </div>
+                      <p className="text-lg font-bold text-white">{data.basic_info.batch_name || "N/A"}</p>
+                    </div>
+
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Calendar className="w-4 h-4 text-blue-300" />
+                        <p className="text-xs text-white/70 font-medium">Enrolled</p>
+                      </div>
+                      <p className="text-sm font-bold text-white">
+                        {data.basic_info.enrolled_date ? format(parseISO(data.basic_info.enrolled_date), "MMM dd, yyyy") : "N/A"}
+                      </p>
+                    </div>
+
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Activity className="w-4 h-4 text-green-300" />
+                        <p className="text-xs text-white/70 font-medium">Login Count</p>
+                      </div>
+                      <p className="text-2xl font-bold text-white">{userProfile?.login_count || 0}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
+        </div>
 
-          {/* Tab Content */}
-          <div className="p-3">
-            {activeTab === "overview" && (
-              <OverviewTab
-                data={dashboardData}
-                sessions={sessions}
-                sessionsLoading={sessionsLoading}
-                sessionSearchTerm={sessionSearchTerm}
-                setSessionSearchTerm={setSessionSearchTerm}
-                onRefresh={loadDashboardData}
-              />
-            )}
-            {activeTab === "preparation" && (
-              <PreparationTab candidateId={candidateId} onRefresh={loadDashboardData} />
-            )}
-            {activeTab === "marketing" && (
-              <MarketingTab candidateId={candidateId} onRefresh={loadDashboardData} />
-            )}
-            {activeTab === "placement" && (
-              <PlacementTab candidateId={candidateId} onRefresh={loadDashboardData} />
-            )}
+        {/* ==================== NAVIGATION TABS ==================== */}
+        <div className="mb-6 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 p-2">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 sm:py-3 rounded-xl text-xs sm:text-sm font-medium transition-all duration-300 ${isActive
+                      ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-md"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                    }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span className="text-center">{tab.name}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
-      </div>
+
+        {/* ==================== TAB CONTENT ==================== */}
+        <div className="animate-fadeIn">
+          {/* OVERVIEW TAB */}
+          {activeTab === 'overview' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <PhaseCard
+                  title="Enrolled"
+                  icon={<CheckCircle className="w-6 h-6" />}
+                  color="blue"
+                  completed={data.journey.enrolled.completed}
+                  daysSince={data.journey.enrolled.days_since}
+                  batchName={data.basic_info.batch_name}
+                />
+                <PhaseCard
+                  title="Preparation"
+                  icon={<BookOpen className="w-6 h-6" />}
+                  color="purple"
+                  active={data.journey.preparation.active}
+                  completed={data.journey.preparation.completed}
+                  durationDays={data.journey.preparation.duration_days}
+                  // rating={data.phase_metrics.preparation?.rating}
+                />
+                <PhaseCard
+                  title="Marketing"
+                  icon={<Target className="w-6 h-6" />}
+                  color="green"
+                  active={data.journey.marketing.active}
+                  completed={data.journey.marketing.completed}
+                  durationDays={data.journey.marketing.duration_days}
+                  interviews={data.phase_metrics.marketing?.total_interviews}
+                  successRate={data.phase_metrics.marketing?.success_rate}
+                />
+                <PhaseCard
+                  title="Placement"
+                  icon={<Briefcase className="w-6 h-6" />}
+                  color="orange"
+                  active={data.journey.placement.active}
+                  completed={data.journey.placement.completed}
+                  company={data.phase_metrics.placement?.company}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* JOURNEY TAB */}
+          {activeTab === 'journey' && (
+            <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6 flex items-center">
+                <TrendingUp className="w-5 h-5 mr-2 text-blue-500" />
+                Journey Timeline
+              </h2>
+
+              <div className="space-y-4">
+                <div className="flex items-start">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${data.journey.enrolled.completed ? 'bg-green-500' : 'bg-gray-300'}`}>
+                    <CheckCircle className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="ml-4 flex-1">
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100">Enrolled</h4>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {data.journey.enrolled.date ? format(parseISO(data.journey.enrolled.date), "MMM dd, yyyy") : "N/A"}
+                    </p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{data.journey.enrolled.days_since} days ago</p>
+                  </div>
+                </div>
+
+                <div className="ml-4 border-l-2 border-gray-200 dark:border-gray-700 h-8"></div>
+
+                <div className="flex items-start">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${data.journey.preparation.active ? 'bg-blue-500' :
+                    data.journey.preparation.completed ? 'bg-green-500' : 'bg-gray-300'
+                    }`}>
+                    {data.journey.preparation.active ? (
+                      <Clock className="w-5 h-5 text-white animate-pulse" />
+                    ) : data.journey.preparation.completed ? (
+                      <CheckCircle className="w-5 h-5 text-white" />
+                    ) : (
+                      <Clock className="w-5 h-5 text-white" />
+                    )}
+                  </div>
+                  <div className="ml-4 flex-1">
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100">Preparation</h4>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {data.journey.preparation.start_date ? format(parseISO(data.journey.preparation.start_date), "MMM dd, yyyy") : "Not Started"}
+                    </p>
+                    {data.journey.preparation.active && (
+                      <span className="inline-block mt-1 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full">
+                        Active - {data.journey.preparation.duration_days} days
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="ml-4 border-l-2 border-gray-200 dark:border-gray-700 h-8"></div>
+
+                <div className="flex items-start">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${data.journey.marketing.active ? 'bg-orange-500' :
+                    data.journey.marketing.completed ? 'bg-green-500' : 'bg-gray-300'
+                    }`}>
+                    {data.journey.marketing.active ? (
+                      <Target className="w-5 h-5 text-white animate-pulse" />
+                    ) : data.journey.marketing.completed ? (
+                      <CheckCircle className="w-5 h-5 text-white" />
+                    ) : (
+                      <Clock className="w-5 h-5 text-white" />
+                    )}
+                  </div>
+                  <div className="ml-4 flex-1">
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100">Marketing</h4>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {data.journey.marketing.start_date ? format(parseISO(data.journey.marketing.start_date), "MMM dd, yyyy") : "Not Started"}
+                    </p>
+                    {data.journey.marketing.active && (
+                      <span className="inline-block mt-1 px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 text-xs rounded-full">
+                        Active - {data.journey.marketing.duration_days} days
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="ml-4 border-l-2 border-gray-200 dark:border-gray-700 h-8"></div>
+
+                <div className="flex items-start">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${data.journey.placement.completed ? 'bg-green-500' : 'bg-gray-300'}`}>
+                    {data.journey.placement.completed ? (
+                      <Briefcase className="w-5 h-5 text-white" />
+                    ) : (
+                      <Clock className="w-5 h-5 text-white" />
+                    )}
+                  </div>
+                  <div className="ml-4 flex-1">
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100">Placement</h4>
+                    {data.journey.placement.completed ? (
+                      <>
+                        <p className="text-sm text-gray-900 dark:text-gray-100 font-medium">{data.journey.placement.company}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{data.journey.placement.position}</p>
+                      </>
+                    ) : (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Not Placed Yet</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'team' && (
+            <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6 flex items-center">
+                <Users className="w-5 h-5 mr-2 text-blue-500" />
+                My Team
+              </h2>
+
+              <div className="space-y-4">
+                <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 mb-3">Preparation Team</h3>
+                {data.team_info.preparation.instructors.map((instructor, idx) => (
+                  <div key={idx} className="flex items-center space-x-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:shadow-md transition-all">
+                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold text-lg">
+                      {instructor.name.split(' ').map(n => n[0]).join('')}
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900 dark:text-gray-100">{instructor.name}</h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{instructor.role}</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500">{instructor.email}</p>
+                    </div>
+                  </div>
+                ))}
+
+                {data.team_info.marketing.manager && (
+                  <>
+                    <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 mb-3 mt-6">Marketing Team</h3>
+                    <div className="flex items-center space-x-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg hover:shadow-md transition-all">
+                      <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-semibold text-lg">
+                        {data.team_info.marketing.manager.name.split(' ').map(n => n[0]).join('')}
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900 dark:text-gray-100">{data.team_info.marketing.manager.name}</h4>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Marketing Manager</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500">{data.team_info.marketing.manager.email}</p>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'sessions' && (
+            <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
+                <PlayCircle className="w-5 h-5 mr-2 text-blue-500" />
+                My Sessions & Videos
+              </h2>
+
+              <div className="mb-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    type="text"
+                    value={sessionSearchTerm}
+                    onChange={(e) => setSessionSearchTerm(e.target.value)}
+                    placeholder={`Search in your sessions...`}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  💡 Showing only sessions for {firstName}. Search by: "Mock", "Session", subject, etc.
+                </p>
+              </div>
+
+              {sessionsLoading ? (
+                <div className="text-center py-12">
+                  <div className="inline-block w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                  <p className="text-gray-600 dark:text-gray-400">Loading your sessions...</p>
+                </div>
+              ) : sessions.length === 0 ? (
+                <div className="text-center py-16">
+                  <PlayCircle className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">No Sessions Found</h3>
+                  <p className="text-gray-500 dark:text-gray-400">
+                    {sessionSearchTerm.trim()
+                      ? `No sessions found matching "${sessionSearchTerm}" for ${firstName}`
+                      : `No sessions found for ${firstName} yet`
+                    }
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-4">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Found <span className="font-semibold text-blue-600 dark:text-blue-400">{sessions.length}</span> session{sessions.length !== 1 ? 's' : ''} for {firstName}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {sessions.map((session) => (
+                      <div key={session.sessionid} className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-600 hover:shadow-lg transition-all duration-300 hover:scale-105">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-900 dark:text-gray-100 text-sm mb-1 line-clamp-2">
+                              {session.title || "Untitled Session"}
+                            </h4>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {session.sessiondate ? format(parseISO(session.sessiondate), "MMM dd, yyyy") : "No date"}
+                            </p>
+                          </div>
+                          <PlayCircle className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs mb-3">
+                          <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full">
+                            {session.type || "Session"}
+                          </span>
+                          <span className="text-gray-500 dark:text-gray-400">
+                            {session.subject || "N/A"}
+                          </span>
+                        </div>
+
+                        {session.link && (
+                          <a
+                            href={session.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg hover:from-blue-600 hover:to-purple-600 transition-all duration-300 font-medium text-sm"
+                          >
+                            <PlayCircle className="w-4 h-4" />
+                            <span>Watch Now</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'interviews' && (
+            <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6 flex items-center">
+                <Activity className="w-5 h-5 mr-2 text-blue-500" />
+                Interview History
+              </h2>
+
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {data.recent_interviews.length > 0 ? (
+                  data.recent_interviews.map((interview, idx) => (
+                    <div key={idx} className="flex items-start space-x-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:shadow-md transition-all">
+                      <div className={`w-3 h-3 rounded-full mt-2 ${interview.feedback === 'Positive' ? 'bg-green-500' :
+                        interview.feedback === 'Negative' ? 'bg-red-500' : 'bg-yellow-500'
+                        }`}></div>
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900 dark:text-gray-100">{interview.company}</h4>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{interview.type_of_interview}</p>
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-xs text-gray-400 dark:text-gray-500">
+                            {format(parseISO(interview.interview_date), "MMM dd, yyyy")}
+                          </span>
+                          <span className={`text-xs px-3 py-1 rounded-full ${interview.feedback === 'Positive' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' :
+                            interview.feedback === 'Negative' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
+                              'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300'
+                            }`}>
+                            {interview.feedback}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">No recent interviews</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'statistics' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl p-6 text-white shadow-lg">
+                  <div className="text-4xl font-bold mb-2">{data.interview_stats.total}</div>
+                  <div className="text-sm opacity-90">Total Interviews</div>
+                </div>
+
+                <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-2xl p-6 text-white shadow-lg">
+                  <div className="text-4xl font-bold mb-2">{data.interview_stats.success_rate}%</div>
+                  <div className="text-sm opacity-90">Success Rate</div>
+                </div>
+
+                <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
+                  <div className="text-4xl font-bold mb-2">
+                    {data.journey.placement.completed ? '100%' : '0%'}
+                  </div>
+                  <div className="text-sm opacity-90">Placement Status</div>
+                </div>
+
+                <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl p-6 text-white shadow-lg">
+                  <div className="text-4xl font-bold mb-2">{data.interview_stats.positive}</div>
+                  <div className="text-sm opacity-90">Positive Interviews</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-green-50 dark:bg-green-900/20 rounded-2xl p-6 text-center border-2 border-green-200 dark:border-green-800">
+                  <div className="text-5xl font-bold text-green-600 dark:text-green-400 mb-2">{data.interview_stats.positive}</div>
+                  <div className="text-gray-600 dark:text-gray-400 font-medium">Positive Feedbacks</div>
+                </div>
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-2xl p-6 text-center border-2 border-yellow-200 dark:border-yellow-800">
+                  <div className="text-5xl font-bold text-yellow-600 dark:text-yellow-400 mb-2">{data.interview_stats.pending}</div>
+                  <div className="text-gray-600 dark:text-gray-400 font-medium">Pending Results</div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 }
 
-// Phase Card Component
 const PhaseCard = ({
-  title,
-  icon,
-  color,
-  completed,
-  active,
-  daysSince,
-  durationDays,
-  batchName,
-  rating,
-  interviews,
-  successRate,
-  company,
+  title, icon, color, completed, active, daysSince, durationDays, batchName, rating, interviews, successRate, company,
 }: {
-  title: string;
-  icon: React.ReactNode;
-  color: string;
-  completed?: boolean;
-  active?: boolean;
-  daysSince?: number;
-  durationDays?: number;
-  batchName?: string;
-  rating?: string;
-  interviews?: number;
-  successRate?: number;
-  company?: string;
+  title: string; icon: React.ReactNode; color: string; completed?: boolean; active?: boolean; daysSince?: number;
+  durationDays?: number; batchName?: string; rating?: string; interviews?: number; successRate?: number; company?: string;
 }) => {
-  const colorClasses = {
-    blue: "text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/20",
-    purple: "text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/20",
-    green: "text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/20",
-    orange: "text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/20",
+  const colorClasses: Record<string, { bg: string; border: string; icon: string; badge: string }> = {
+    blue: {
+      bg: "bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20",
+      border: "border-blue-200 dark:border-blue-800",
+      icon: "bg-blue-500 text-white",
+      badge: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+    },
+    purple: {
+      bg: "bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20",
+      border: "border-purple-200 dark:border-purple-800",
+      icon: "bg-purple-500 text-white",
+      badge: "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
+    },
+    green: {
+      bg: "bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20",
+      border: "border-green-200 dark:border-green-800",
+      icon: "bg-green-500 text-white",
+      badge: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+    },
+    orange: {
+      bg: "bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20",
+      border: "border-orange-200 dark:border-orange-800",
+      icon: "bg-orange-500 text-white",
+      badge: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
+    },
   };
 
+  const colors = colorClasses[color] || colorClasses.blue;
+
   return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 shadow-sm hover:shadow-md transition-all duration-300">
+    <div className={`${colors.bg} ${colors.border} border-2 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105`}>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
-        <div className={`p-3 rounded-xl ${colorClasses[color]}`}>{icon}</div>
+        <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">{title}</h3>
+        <div className={`p-3 rounded-xl ${colors.icon} shadow-md`}>{icon}</div>
       </div>
+
       <div className="space-y-2">
-        {active && <StatusBadge label="Active" type="active" />}
-        {completed && <StatusBadge label="Completed" type="completed" />}
-        {!active && !completed && <StatusBadge label="Not Started" type="pending" />}
-        {daysSince !== undefined && (
+        {active && (
+          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${colors.badge}`}>
+            <div className="w-2 h-2 bg-current rounded-full mr-2 animate-pulse"></div>
+            Active
+          </span>
+        )}
+        {completed && !active && (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            Completed
+          </span>
+        )}
+        {!active && !completed && (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+            Pending
+          </span>
+        )}
+
+        {daysSince !== undefined && daysSince !== null && (
           <p className="text-sm text-gray-600 dark:text-gray-400">{daysSince} days since start</p>
         )}
-        {durationDays !== undefined && (
-          <p className="text-sm text-gray-600 dark:text-gray-400">{durationDays} days in phase</p>
+        {durationDays !== undefined && durationDays !== null && (
+          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{durationDays} days in phase</p>
         )}
-        {batchName && <p className="text-sm text-gray-600 dark:text-gray-400">Batch: {batchName}</p>}
-        {rating && <p className="text-sm text-gray-600 dark:text-gray-400">Rating: {rating}</p>}
-        {interviews !== undefined && (
-          <p className="text-sm text-gray-600 dark:text-gray-400">{interviews} interviews</p>
+        {batchName && <p className="text-sm text-gray-600 dark:text-gray-400">📚 {batchName}</p>}
+        {rating && (
+          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">⭐ Rating: {rating}</p>
         )}
-        {successRate !== undefined && (
-          <p className="text-sm font-semibold text-green-600 dark:text-green-400">{successRate}% success rate</p>
+        {interviews !== undefined && interviews !== null && (
+          <p className="text-sm text-gray-600 dark:text-gray-400">🎯 {interviews} interviews</p>
         )}
-        {company && <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{company}</p>}
-      </div>
-    </div>
-  );
-};
-
-// Status Badge Component
-const StatusBadge = ({ label, type }: { label: string; type: "active" | "completed" | "pending" }) => {
-  const styles = {
-    active: "bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400",
-    completed: "bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-400",
-    pending: "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400",
-  };
-
-  return <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[type]}`}>{label}</span>;
-};
-
-// Overview Tab Component
-const OverviewTab = ({
-  data,
-  sessions,
-  sessionsLoading,
-  sessionSearchTerm,
-  setSessionSearchTerm,
-  onRefresh,
-}: {
-  data: DashboardData;
-  sessions: Session[];
-  sessionsLoading: boolean;
-  sessionSearchTerm: string;
-  setSessionSearchTerm: (term: string) => void;
-  onRefresh: () => void;
-}) => {
-  const firstName = data.basic_info.full_name.split(" ")[0];
-
-  return (
-    <div className="space-y-6">
-      {/* Summary Statistics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Total Interviews" value={data.interview_stats.total} color="blue" />
-        <StatCard label="Positive" value={data.interview_stats.positive} color="green" />
-        <StatCard label="Pending" value={data.interview_stats.pending} color="yellow" />
-        <StatCard label="Success Rate" value={`${data.interview_stats.success_rate}%`} color="purple" />
-      </div>
-
-      {/* Team Information */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <TeamSection
-          title="Preparation Team"
-          icon={<Users className="w-5 h-5" />}
-          members={data.team_info.preparation.instructors}
-        />
-        <TeamSection
-          title="Marketing Team"
-          icon={<Target className="w-5 h-5" />}
-          manager={data.team_info.marketing.manager}
-        />
-      </div>
-
-      {/* Recent Interviews */}
-      <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
-        <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
-          <Calendar className="w-5 h-5 mr-2" />
-          Recent Interviews
-        </h4>
-        <div className="space-y-3">
-          {data.recent_interviews.length === 0 ? (
-            <p className="text-gray-500 dark:text-gray-400 text-center py-8">No interviews scheduled yet</p>
-          ) : (
-            data.recent_interviews.map((interview) => (
-              <div
-                key={interview.id}
-                className="flex items-center justify-between p-3 bg-white dark:bg-gray-600 rounded-lg border border-gray-200 dark:border-gray-500 hover:shadow-md transition-all"
-              >
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-gray-100">{interview.company}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {format(parseISO(interview.interview_date), "MMM dd, yyyy")} • {interview.type_of_interview}
-                  </p>
-                </div>
-                <span
-                  className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    interview.feedback === "Positive"
-                      ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                      : interview.feedback === "Negative"
-                      ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                      : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
-                  }`}
-                >
-                  {interview.feedback || "Pending"}
-                </span>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* Sessions Section */}
-      <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
-        <div className="flex items-center justify-between mb-4">
-          <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center">
-            <PlayCircle className="w-5 h-5 mr-2" />
-            Sessions
-          </h4>
-        </div>
-        <div className="mb-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              value={sessionSearchTerm}
-              onChange={(e) => setSessionSearchTerm(e.target.value)}
-              placeholder={`Search sessions (default: ${firstName})...`}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-            />
-          </div>
-        </div>
-        {sessionsLoading ? (
-          <div className="text-center py-8">
-            <div className="inline-block w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        ) : sessions.length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400 text-center py-8">
-            No sessions found. Try searching with your name or other keywords.
+        {successRate !== undefined && successRate !== null && (
+          <p className="text-sm font-bold text-green-600 dark:text-green-400">
+             {successRate.toFixed(1)}% success
           </p>
-        ) : (
-          <div className="space-y-3 max-h-96 overflow-y-auto">
-            {sessions.map((session) => (
-              <div
-                key={session.sessionid}
-                className="flex items-center justify-between p-3 bg-white dark:bg-gray-600 rounded-lg border border-gray-200 dark:border-gray-500 hover:shadow-md transition-all"
-              >
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900 dark:text-gray-100">{session.title}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {format(parseISO(session.sessiondate), "MMM dd, yyyy")} • {session.type} • {session.subject}
-                  </p>
-                </div>
-                {session.link && (
-                  <a
-                    href={session.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="ml-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center space-x-2"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    <span>Watch</span>
-                  </a>
-                )}
-              </div>
-            ))}
-          </div>
+        )}
+        {company && (
+          <p className="text-sm font-bold text-gray-900 dark:text-gray-100">🏢 {company}</p>
         )}
       </div>
     </div>
   );
 };
 
-// Stat Card Component
-const StatCard = ({ label, value, color }: { label: string; value: string | number; color: string }) => {
-  const colorClasses = {
-    blue: "border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20",
-    green: "border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20",
-    yellow: "border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20",
-    purple: "border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/20",
-  };
 
-  return (
-    <div className={`border rounded-2xl p-4 text-center ${colorClasses[color]}`}>
-      <div className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">{value}</div>
-      <div className="text-sm text-gray-600 dark:text-gray-400">{label}</div>
-    </div>
-  );
-};
-
-// Team Section Component
-const TeamSection = ({
-  title,
-  icon,
-  members,
-  manager,
-}: {
-  title: string;
-  icon: React.ReactNode;
-  members?: Array<{ id: number; name: string; email?: string; role: string }>;
-  manager?: { id: number; name: string; email?: string };
-}) => {
-  return (
-    <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3">
-      <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
-        {icon}
-        <span className="ml-2">{title}</span>
-      </h4>
-      <div className="space-y-3">
-        {members && members.length > 0 ? (
-          members.map((member) => (
-              <div key={member.id} className="flex items-center space-x-3 p-2.5 bg-white dark:bg-gray-600 rounded-lg">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                {member.name.split(" ").map((n) => n[0]).join("")}
-              </div>
-              <div className="flex-1">
-                <p className="font-medium text-gray-900 dark:text-gray-100">{member.name}</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{member.role}</p>
-              </div>
-            </div>
-          ))
-        ) : manager ? (
-          <div className="flex items-center space-x-3 p-2.5 bg-white dark:bg-gray-600 rounded-lg">
-            <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-teal-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-              {manager.name.split(" ").map((n) => n[0]).join("")}
-            </div>
-            <div className="flex-1">
-              <p className="font-medium text-gray-900 dark:text-gray-100">{manager.name}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Marketing Manager</p>
-            </div>
-          </div>
-        ) : (
-          <p className="text-gray-500 dark:text-gray-400 text-center py-4">No team members assigned yet</p>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// Preparation Tab Component
-const PreparationTab = ({ candidateId, onRefresh }: { candidateId: number | null; onRefresh: () => void }) => {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!candidateId) return;
-
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        const token = localStorage.getItem("access_token") || localStorage.getItem("token");
-        const result = await apiFetch(`candidates/${candidateId}/preparation`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setData(result);
-      } catch (err: any) {
-        setError(err.message || "Failed to load preparation data");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
-  }, [candidateId]);
-
-  if (loading) {
-    return <LoadingState />;
-  }
-
-  if (error || !data) {
-    return <ErrorState message={error || "No preparation data found"} onRetry={() => candidateId && window.location.reload()} />;
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <InfoCard title="Status" value={data.status} />
-        <InfoCard title="Start Date" value={data.start_date ? format(parseISO(data.start_date), "MMM dd, yyyy") : "N/A"} />
-        <InfoCard title="Duration" value={data.duration_days ? `${data.duration_days} days` : "N/A"} />
-        <InfoCard title="Tech Rating" value={data.rating || "N/A"} />
-        <InfoCard title="Communication" value={data.communication || "N/A"} />
-      </div>
-
-      {data.instructors && data.instructors.length > 0 && (
-        <div>
-          <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Instructors</h4>
-          <div className="space-y-3">
-            {data.instructors.map((instructor: any) => (
-              <div key={instructor.id} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <p className="font-medium text-gray-900 dark:text-gray-100">{instructor.name}</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{instructor.role}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Marketing Tab Component
-const MarketingTab = ({ candidateId, onRefresh }: { candidateId: number | null; onRefresh: () => void }) => {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!candidateId) return;
-
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        const token = localStorage.getItem("access_token") || localStorage.getItem("token");
-        const result = await apiFetch(`candidates/${candidateId}/marketing`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setData(result);
-      } catch (err: any) {
-        setError(err.message || "Failed to load marketing data");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
-  }, [candidateId]);
-
-  if (loading) {
-    return <LoadingState />;
-  }
-
-  if (error || !data) {
-    return <ErrorState message={error || "No marketing data found"} onRetry={() => candidateId && window.location.reload()} />;
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <InfoCard title="Status" value={data.status} />
-        <InfoCard title="Start Date" value={data.start_date ? format(parseISO(data.start_date), "MMM dd, yyyy") : "N/A"} />
-        <InfoCard title="Duration" value={data.duration_days ? `${data.duration_days} days` : "N/A"} />
-        <InfoCard
-          title="Total Interviews"
-          value={data.interview_stats?.total || 0}
-        />
-        <InfoCard title="Success Rate" value={`${data.interview_stats?.success_rate || 0}%`} />
-      </div>
-
-      {data.marketing_manager && (
-        <div>
-          <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Marketing Manager</h4>
-          <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
-            <p className="font-medium text-gray-900 dark:text-gray-100">{data.marketing_manager.name}</p>
-            {data.marketing_manager.email && (
-              <p className="text-sm text-gray-500 dark:text-gray-400">{data.marketing_manager.email}</p>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Placement Tab Component
-const PlacementTab = ({ candidateId, onRefresh }: { candidateId: number | null; onRefresh: () => void }) => {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!candidateId) return;
-
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        const token = localStorage.getItem("access_token") || localStorage.getItem("token");
-        const result = await apiFetch(`candidates/${candidateId}/placement`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setData(result);
-      } catch (err: any) {
-        setError(err.message || "Failed to load placement data");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
-  }, [candidateId]);
-
-  if (loading) {
-    return <LoadingState />;
-  }
-
-  if (error || !data || !data.has_placements) {
-    return (
-      <ErrorState
-        message={error || "No placement data found. You haven't been placed yet."}
-        onRetry={() => candidateId && window.location.reload()}
-      />
-    );
-  }
-
-  const placement = data.active_placement;
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <InfoCard title="Company" value={placement.company} />
-        <InfoCard title="Position" value={placement.position} />
-        <InfoCard title="Placement Date" value={placement.placement_date ? format(parseISO(placement.placement_date), "MMM dd, yyyy") : "N/A"} />
-        <InfoCard title="Status" value={placement.status} />
-        {placement.base_salary_offered && (
-          <InfoCard title="Base Salary" value={`$${placement.base_salary_offered.toLocaleString()}`} />
-        )}
-        {placement.type && <InfoCard title="Type" value={placement.type} />}
-      </div>
-    </div>
-  );
-};
-
-// Helper Components
-const InfoCard = ({ title, value }: { title: string; value: string | number }) => (
-  <div className="p-2.5 bg-gray-50 dark:bg-gray-700 rounded-xl">
-    <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">{title}</p>
-    <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{value}</p>
-  </div>
-);
-
-const LoadingState = () => (
-  <div className="text-center py-12">
-    <div className="inline-block w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-    <p className="text-gray-600 dark:text-gray-400">Loading...</p>
-  </div>
-);
-
-const ErrorState = ({ message, onRetry }: { message: string; onRetry?: () => void }) => (
-  <div className="text-center py-12">
-    <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-    <p className="text-gray-600 dark:text-gray-400 mb-4">{message}</p>
-    {onRetry && (
-      <button
-        onClick={onRetry}
-        className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-      >
-        Retry
-      </button>
-    )}
-  </div>
-);
 
