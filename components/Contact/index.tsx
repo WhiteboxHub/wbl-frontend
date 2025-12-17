@@ -1,4 +1,3 @@
- 
  // wbl-frontend\components\Contact\index.tsx
 "use client";
 import ContactDetails from "./ContactDetails";
