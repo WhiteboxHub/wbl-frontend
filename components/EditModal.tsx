@@ -90,8 +90,7 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "other", label: "Other" },
     { value: "permanent resident", label: "Permanent Resident" },
     { value: "h4", label: "H4" },
-    { value: "EAD", label: "EAD" },
-    { value: "EAD", label: "EAD" },
+    { value: "ead", label: "EAD" },
     { value: "green card", label: "Green Card" },
     { value: "h1b", label: "H1B" },
   ],
@@ -233,6 +232,18 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "4", label: "4" },
     { value: "5", label: "5" },
   ],
+  employee_task_status: [
+    { value: "pending", label: "Pending" },
+    { value: "in_progress", label: "In Progress" },
+    { value: "completed", label: "Completed" },
+    { value: "blocked", label: "Blocked" },
+  ],
+  employee_task_priority: [
+    { value: "low", label: "Low" },
+    { value: "medium", label: "Medium" },
+    { value: "high", label: "High" },
+    { value: "urgent", label: "Urgent" },
+  ],
 };
 
 // Vendor type options
@@ -368,6 +379,7 @@ const excludedFields = [
   "job_owner_id",
   "job_owner_name",
   "lastmod_date",
+
 ];
 
 // Field visibility configuration
@@ -540,6 +552,7 @@ const fieldSections: Record<string, string> = {
   activity_date: "Professional Information",
   activity_count: "Professional Information",
   job_owner: "Basic Information",
+  assigned_date: "Basic Information",
 };
 
 // Override field labels for better readability
@@ -683,6 +696,8 @@ const dateFields = [
   "activity_date",
   "deposit_date",
   "joining_date",
+  "assigned_date",
+  "due_date"
 ];
 
 export function EditModal({
@@ -739,7 +754,8 @@ export function EditModal({
   const isMarketingModal = title.toLowerCase().includes("marketing");
   const isPlacementModal = title.toLowerCase().includes("placement");
   const isPreparationModal = title.toLowerCase().includes("preparation");
-  const isEmployeeModal = title.toLowerCase().includes("employee");
+  const isEmployeeModal = title.toLowerCase().includes("employee") && !title.toLowerCase().includes("task");
+  const isEmployeeTaskModal = title.toLowerCase().includes("employee task");
   const isLeadModal = title.toLowerCase().includes("lead");
   const isCandidateModal =
     title.toLowerCase().includes("candidate") && !isPreparationModal;
@@ -1103,6 +1119,11 @@ export function EditModal({
   const onSubmit = (formData: any) => {
     const reconstructedData = { ...data, ...formData };
 
+    // Explicitly preserve ID if it exists in the original data but not in form data
+    if (data.id && !reconstructedData.id) {
+      reconstructedData.id = data.id;
+    }
+
     // Convert job_name to job_id for Job Activity Log modal
     if (isJobActivityLogModal && formData.job_name) {
       const selectedJob = jobTypes.find(
@@ -1258,6 +1279,11 @@ export function EditModal({
     if (isPlacementModal) {
       if (keyLower === "type") return enumOptions.placement_type;
       if (keyLower === "status") return enumOptions.placement_status;
+    }
+
+    if (isEmployeeTaskModal) {
+      if (keyLower === "status") return enumOptions.employee_task_status;
+      if (keyLower === "priority") return enumOptions.employee_task_priority;
     }
 
     if (isEmployeeModal) {
@@ -2528,6 +2554,57 @@ export function EditModal({
                                       </option>
                                     ))}
                                   </select>
+                                </div>
+                              );
+                            }
+
+                            if (key === 'employee_name') {
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && (
+                                      <span className="text-red-700"> *</span>
+                                    )}
+                                  </label>
+                                  <select
+                                    {...register(key, { required: "Employee Name is required" })}
+                                    value={currentFormValues[key] || formData[key] || ""}
+                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                  >
+                                    <option value="" disabled>Select an employee</option>
+                                    {employees.map((emp) => (
+                                      <option key={emp.id} value={emp.name}>
+                                        {emp.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              );
+                            }
+
+                            if (key === 'task') {
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5 col-span-full">
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && (
+                                      <span className="text-red-700"> *</span>
+                                    )}
+                                  </label>
+                                  <div className="bg-white dark:bg-gray-800">
+                                    <ReactQuill
+                                      theme="snow"
+                                      value={currentFormValues[key] || formData[key] || ""}
+                                      onChange={(content) => {
+                                        setValue(key, content);
+                                        setFormData((prev) => ({
+                                          ...prev,
+                                          [key]: content,
+                                        }));
+                                      }}
+                                    />
+                                  </div>
                                 </div>
                               );
                             }
