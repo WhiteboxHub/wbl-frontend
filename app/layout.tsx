@@ -24,26 +24,13 @@ export default function RootLayout({
   const pathname = usePathname();
   const isAvatarSection = pathname.startsWith("/avatar");
   const [isOpen, setIsOpen] = useState(false);
-  const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
-    // Load fonts
     const link = document.createElement("link");
     link.rel = "stylesheet";
     link.href =
       "https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Poppins:wght@400;500;600;700&display=swap";
     document.head.appendChild(link);
-
-    // Mark as hydrated when all resources are loaded
-    setIsHydrated(true);
-
-    // Also remove loading class from body
-    document.body.classList.remove('hydration-loading');
-
-    return () => {
-      // Cleanup font link if needed
-      document.head.removeChild(link);
-    };
   }, []);
 
   return (
@@ -70,28 +57,26 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
       </head>
-      <body className={`dark:bg-black ${!isHydrated ? 'hydration-loading' : ''}`} suppressHydrationWarning>
+      <body className="dark:bg-black" suppressHydrationWarning>
         <GoogleAnalytics />
         <SessionProvider>
           <AuthProvider>
             <Providers>
-              <div className={!isHydrated ? 'hydrated-hidden' : 'hydrated-visible'}>
-                {isAvatarSection ? (
-                  <>{children}</>
-                ) : (
-                  <>
-                    <Header />
-                    <Sidebar
-                      isOpen={isOpen}
-                      toggleSidebar={() => setIsOpen(!isOpen)}
-                    />
-                    <main className="w-full">{children}</main>
-                    <Footer />
-                    <ScrollToTop />
-                    <ReferralNotificationButton />
-                  </>
-                )}
-              </div>
+              {isAvatarSection ? (
+                <>{children}</>
+              ) : (
+                <>
+                  <Header />
+                  <Sidebar
+                    isOpen={isOpen}
+                    toggleSidebar={() => setIsOpen(!isOpen)}
+                  />
+                  <main className="w-full">{children}</main>
+                  <Footer />
+                  <ScrollToTop />
+                  <ReferralNotificationButton />
+                </>
+              )}
             </Providers>
           </AuthProvider>
         </SessionProvider>

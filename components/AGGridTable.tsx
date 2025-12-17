@@ -68,7 +68,6 @@ interface AGGridTableProps {
   height?: string;
   overlayNoRowsTemplate?: string;
   batches?: any[];
-  employees?: any[];
   gridOptions?: any;
   getRowNodeId?: (data: any) => string;
 }
@@ -82,6 +81,7 @@ interface RowData {
   fullName?: string;
   company?: string;
   [key: string]: any;
+
 }
 
 export function AGGridTable({
@@ -99,7 +99,7 @@ export function AGGridTable({
   showFilters = true,
   height = "400px",
   batches = [],
-  employees = [],
+  getRowNodeId,
 }: AGGridTableProps) {
   // Refs and State
   const gridRef = useRef<AgGridReact>(null);
@@ -260,18 +260,6 @@ export function AGGridTable({
     }
   }, [deleteConfirmData, onRowDeleted]);
 
-  // Helper function to get the unique ID for a row
-  const getRowId = useCallback((params: any) => {
-    // Try to find a unique identifier in this order: id, sessionid, leadid, candidateid, batchid
-    if (params.data.id !== undefined) return params.data.id;
-    if (params.data.sessionid !== undefined) return params.data.sessionid;
-    if (params.data.leadid !== undefined) return params.data.leadid;
-    if (params.data.candidateid !== undefined) return params.data.candidateid;
-    if (params.data.batchid !== undefined) return params.data.batchid;
-    // Fallback to a combination of properties if no clear ID field exists
-    return JSON.stringify(params.data);
-  }, []);
-
   const handleSave = useCallback(
     (updatedData: RowData) => {
       if (gridRef.current) {
@@ -370,7 +358,6 @@ export function AGGridTable({
     if (!title) return false;
     const lowerTitle = title.toLowerCase();
     if (lowerTitle.includes("placement fee")) return false;
-
     return (
       lowerTitle.includes("preparation") ||
       lowerTitle.includes("marketing") ||
@@ -486,7 +473,9 @@ export function AGGridTable({
             paginationPageSizeSelector={[10, 25, 50, 100]}
             paginationNumberFormatter={paginationNumberFormatter}
             maintainColumnOrder={true}
-            getRowId={getRowId}
+            getRowId={getRowNodeId || ((params: any) => {
+              return params.data.unique_id || params.data.id || params.data.leadid || params.data.candidateid || params.data.batchid || params.data.sessionid;
+            })}
           />
         </div>
       </div>
@@ -563,7 +552,6 @@ export function AGGridTable({
           currentIndex={currentViewIndex}
           onNavigate={handleViewNavigation}
           title={title || "Record"}
-          employees={employees}
         />
       )}
       {editData && (
@@ -574,7 +562,6 @@ export function AGGridTable({
           data={editData}
           title={title || "Record"}
           batches={batches}
-          isAddMode={false}
         />
       )}
 

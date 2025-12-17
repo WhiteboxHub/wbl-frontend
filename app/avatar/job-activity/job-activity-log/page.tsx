@@ -11,9 +11,8 @@ import { toast, Toaster } from "sonner";
 import { apiFetch } from "@/lib/api.js";
 
 /**
- * Formats API error messages into user-friendly format
- * @param error - The error object from API response
- * @returns Formatted error message string
+ * @param error
+ * @returns
  */
 function formatErrorMessage(error: any): string {
   if (!error) {
@@ -225,8 +224,34 @@ export default function JobActivityLogPage() {
         field: "job_name",
         headerName: "Job Name",
         width: 250,
-        editable: false,
+        editable: true,
         cellRenderer: JobNameRenderer,
+        cellEditor: "agSelectCellEditor",
+        cellEditorParams: (params) => {
+          return {
+            values: jobTypes.map(job => job.name),
+            valueListGap: 0,
+            valueListMaxHeight: 220,
+            formatValue: (value: any) => {
+              if (!value || value === "") return "";
+              return value;
+            },
+          };
+        },
+        valueFormatter: (params) => {
+          return params.value || "[Job Type Missing]";
+        },
+        valueSetter: (params) => {
+          const newValue = params.newValue;
+          if (newValue) {
+            const selectedJob = jobTypes.find(job => job.name === newValue);
+            if (selectedJob) {
+              params.data.job_id = selectedJob.id;
+              params.data.job_name = newValue;
+            }
+          }
+          return true;
+        },
         filter: "agSetColumnFilter",
         filterParams: {
           values: jobTypes.map(job => job.name),
