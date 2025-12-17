@@ -223,7 +223,7 @@ export default function JobActivityLogPage() {
       {
         field: "job_name",
         headerName: "Job Name",
-        width: 250,
+        width: 300,
         editable: true,
         cellRenderer: JobNameRenderer,
         cellEditor: "agSelectCellEditor",
@@ -276,13 +276,13 @@ export default function JobActivityLogPage() {
       {
         field: "employee_name",
         headerName: "Employee",
-        width: 200,
+        width: 250,
         editable: false,
       },
       {
         field: "candidate_name",
         headerName: "Candidate",
-        width: 200,
+        width: 250,
         editable: false,
       },
       {
