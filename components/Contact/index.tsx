@@ -1,4 +1,4 @@
- // wbl-frontend\components\Contact\index.tsx
+// wbl-frontend\components\Contact\index.tsx
 "use client";
 import ContactDetails from "./ContactDetails";
 import React, { useState, useEffect, useRef } from "react";
