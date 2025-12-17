@@ -228,7 +228,7 @@ export default function JobTypesPage() {
       const payload = {
         unique_id: data.unique_id?.trim() || "",
         name: data.name?.trim() || "",
-        job_owner: jobOwnerId,  // Changed from job_owner_id to match backend schema
+        job_owner_id: jobOwnerId,
         description: data.description?.trim() || "",
         notes: data.notes?.trim() || "",
       };
@@ -242,7 +242,7 @@ export default function JobTypesPage() {
         toast.error("Unique ID is required");
         return;
       }
-      if (payload.job_owner === null) {
+      if (payload.job_owner_id === null) {
         toast.error("Job Owner is required");
         return;
       }
