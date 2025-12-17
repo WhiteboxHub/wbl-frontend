@@ -68,8 +68,10 @@ interface AGGridTableProps {
   height?: string;
   overlayNoRowsTemplate?: string;
   batches?: any[];
+
   gridOptions?: any;
   getRowNodeId?: (data: any) => string;
+  showAddButton?: boolean;
 }
 
 interface RowData {
@@ -97,8 +99,10 @@ export function AGGridTable({
   title,
   showSearch = true,
   showFilters = true,
+
   height = "400px",
   batches = [],
+  showAddButton,
 }: AGGridTableProps) {
   // Refs and State
   const gridRef = useRef<AgGridReact>(null);
@@ -373,7 +377,7 @@ export function AGGridTable({
           </h3>
         )}
         <div className="ml-auto flex items-center  space-x-2">
-          {!shouldHideAddButton && (
+          {!shouldHideAddButton && showAddButton !== false && (
             <Button
               variant="outline"
               size="sm"
@@ -568,9 +572,9 @@ export function AGGridTable({
           onConfirm={confirmDelete}
           title="Delete Record"
           message={`Are you sure you want to delete this record?${deleteConfirmData.fullName || deleteConfirmData.company
-              ? `\n\nRecord: ${deleteConfirmData.fullName || deleteConfirmData.company
-              }`
-              : ""
+            ? `\n\nRecord: ${deleteConfirmData.fullName || deleteConfirmData.company
+            }`
+            : ""
             }`}
           confirmText="Delete"
           cancelText="Cancel"
