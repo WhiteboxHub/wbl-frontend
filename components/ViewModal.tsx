@@ -20,7 +20,6 @@ const excludedFields = [
   "subject_id", "lastmoddatetime", "course_id", "new_subject_id", "instructor_1id",
   "instructor_2id", "instructor_3id", "instructor1_id", "instructor2_id",
   "instructor3_id", "enddate", "candidate_id", "batch",
-  "machineId", "lastModified", "synced", "lastSync", "version", "_action"
 ];
 
 const fieldSections: Record<string, string> = {
