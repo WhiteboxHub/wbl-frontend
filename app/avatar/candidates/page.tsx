@@ -1329,7 +1329,7 @@ export default function CandidatesPage() {
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
           showFilters={true}
-          getRowNodeId={(data) => data.id.toString()}
+          getRowNodeId={(data) => data?.id?.toString() || Math.random().toString()}
           showSearch={true}
           batches={allBatches}
           loading={loading}

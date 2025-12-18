@@ -68,8 +68,10 @@ interface AGGridTableProps {
   height?: string;
   overlayNoRowsTemplate?: string;
   batches?: any[];
+
   gridOptions?: any;
   getRowNodeId?: (data: any) => string;
+  showAddButton?: boolean;
 }
 
 interface RowData {
@@ -99,6 +101,8 @@ export function AGGridTable({
   showFilters = true,
   height = "400px",
   batches = [],
+  getRowNodeId,
+  showAddButton,
 }: AGGridTableProps) {
   // Refs and State
   const gridRef = useRef<AgGridReact>(null);
@@ -373,7 +377,7 @@ export function AGGridTable({
           </h3>
         )}
         <div className="ml-auto flex items-center  space-x-2">
-          {!shouldHideAddButton && (
+          {!shouldHideAddButton && showAddButton !== false && (
             <Button
               variant="outline"
               size="sm"
@@ -472,6 +476,9 @@ export function AGGridTable({
             paginationPageSizeSelector={[10, 25, 50, 100]}
             paginationNumberFormatter={paginationNumberFormatter}
             maintainColumnOrder={true}
+            getRowId={getRowNodeId || ((params: any) => {
+              return params.data.unique_id || params.data.id || params.data.leadid || params.data.candidateid || params.data.batchid || params.data.sessionid;
+            })}
           />
         </div>
       </div>
@@ -568,9 +575,9 @@ export function AGGridTable({
           onConfirm={confirmDelete}
           title="Delete Record"
           message={`Are you sure you want to delete this record?${deleteConfirmData.fullName || deleteConfirmData.company
-              ? `\n\nRecord: ${deleteConfirmData.fullName || deleteConfirmData.company
-              }`
-              : ""
+            ? `\n\nRecord: ${deleteConfirmData.fullName || deleteConfirmData.company
+            }`
+            : ""
             }`}
           confirmText="Delete"
           cancelText="Cancel"
