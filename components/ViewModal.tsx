@@ -1,4 +1,3 @@
-
 "use client";
 import { useForm } from "react-hook-form";
 import { useEffect, useRef } from "react";
@@ -19,7 +18,7 @@ const excludedFields = [
   "vendor_type", "last_mod_datetime", "last_modified", "logincount", "googleId",
   "subject_id", "lastmoddatetime", "course_id", "new_subject_id", "instructor_1id",
   "instructor_2id", "instructor_3id", "instructor1_id", "instructor2_id",
-  "instructor3_id", "enddate", "candidate_id", "batch"
+  "instructor3_id", "enddate", "candidate_id", "batch", "job_id", "employee_id", "job_owner", "job_owner_id",
 ];
 
 const fieldSections: Record<string, string> = {
@@ -166,10 +165,16 @@ const fieldSections: Record<string, string> = {
   job_name: "Basic Information",
   job_description: "Professional Information",
   created_date: "Professional Information",
-  job_id: "Professional Information",
-  employee_id: "Professional Information",
   activity_date: "Professional Information",
   activity_count: "Professional Information",
+  job_owner_name: "Basic Information",
+  unique_id: "Basic Information",
+  job_owner: "Basic Information",
+  lastmod_user_name: "Professional Information",
+  lastmod_date_time: "Professional Information",
+  last_mod_date: "Professional Information",
+  description: "Professional Information",
+
 };
 
 const workVisaStatusOptions = [
@@ -258,7 +263,9 @@ const labelOverrides: Record<string, string> = {
   type: "Type",
   material_type: "Material Type",
   link: "Link",
-  workexperience: "Work Experience"
+  workexperience: "Work Experience",
+  lastmod_date_time: "Last Modified",
+  job_owner_name: "Job Owner",
 };
 
 const dateFields = [
@@ -305,6 +312,7 @@ const getTitleSpecificExclusions = (title: string): string[] => {
   if (lowerTitle.includes('batch')) {
     exclusions.push('cm_subject', 'subject_name');
   }
+
   if (lowerTitle.includes('leads')) {
     exclusions.push('synced', 'lastSync');
   }
@@ -325,6 +333,11 @@ const getTitleSpecificExclusions = (title: string): string[] => {
   // vendors
   if (lowerTitle.includes('vendor')) {
     exclusions.push('material_type');
+  }
+
+  // placement fees
+  if (lowerTitle.includes('placement')) {
+    exclusions.push('batch', 'batchid', 'lastmod_user_id');
   }
 
   // placement fees
@@ -363,6 +376,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
         onClose();
       }
     };
+
 
     document.addEventListener('mousedown', handleOutsideClick);
 
@@ -566,6 +580,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     if (data.subject) {
       flattened.cm_subject = data.subject.name || data.subject.subject_name;
     }
+
     flattened.linkedin_id = data.candidate?.linkedin_id || data.linkedin_id || "";
 
     // Flatten batch data from candidate.batch.batchname

@@ -1,446 +1,94 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import "@/styles/admin.css";
-import "@/styles/App.css";
 import { ColDef } from "ag-grid-community";
-import dynamic from "next/dynamic";
+import { AGGridTable } from "@/components/AGGridTable";
+import { EditModal } from "@/components/EditModal";
 import { Input } from "@/components/admin_ui/input";
-import { SearchIcon, Plus } from "lucide-react";
-import { createPortal } from "react-dom";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/admin_ui/select";
 import { Label } from "@/components/admin_ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/admin_ui/dialog";
-import { Button } from "@/components/admin_ui/button";
+import { SearchIcon } from "lucide-react";
+import { toast, Toaster } from "sonner";
 import { apiFetch } from "@/lib/api.js";
 
-const AGGridTable = dynamic(() => import("@/components/AGGridTable"), {
-  ssr: false,
-});
+/**
+ * @param error
+ * @returns
+ */
+function formatErrorMessage(error: any): string {
+  if (!error) {
+    return "An unknown error occurred";
+  }
 
-const formatDateFromDB = (dateStr: string | null | undefined) => {
-  if (!dateStr) return "";
-  return dateStr.slice(0, 10);
+  // Handle string errors
+  if (typeof error === "string") {
+    return error;
+  }
+
+  // Handle array of validation errors (Pydantic format)
+  if (Array.isArray(error)) {
+    const validationErrors = error.filter(item =>
+      item.type && item.msg && item.loc
+    );
+
+    if (validationErrors.length > 0) {
+      const fieldErrors = validationErrors.map(err => {
+        const fieldName = err.loc[err.loc.length - 1];
+        return `${fieldName}: ${err.msg}`;
+      });
+      return `Validation failed:\n- ${fieldErrors.join('\n- ')}`;
+    }
+  }
+
+  // Handle single error objects
+  if (error.detail) {
+    return error.detail;
+  }
+
+  if (error.message) {
+    return error.message;
+  }
+
+  // Handle body with detail
+  if (error.body && error.body.detail) {
+    return error.body.detail;
+  }
+
+  // Handle body as string
+  if (error.body && typeof error.body === "string") {
+    return error.body;
+  }
+
+  // Fallback to JSON stringify for complex objects
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return "An error occurred while processing the request";
+  }
+}
+
+const JobNameRenderer = (params: any) => {
+  const name = params.value;
+  if (!name || name === null || name === undefined) return "[Job Type Missing]";
+  return name.toString();
 };
 
 const DateFormatter = (params: any) => {
   if (!params.value) return "";
-  const dateStr = formatDateFromDB(params.value);
+  const dateStr = params.value?.slice(0, 10);
   if (!dateStr) return "";
   return dateStr.replace(/-/g, "/");
 };
 
-const DateTimeFormatter = (params: any) =>
-  params.value
-    ? new Date(params.value).toLocaleString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "";
-
-// Job Name Renderer - formats job names with spaces and title case
-const JobNameRenderer = (params: any) => {
-  const name = params.value;
-  if (!name) return "";
-  return name;
-};
-
-// Yes/No Filter Header Component
-const YesNoFilterHeaderComponent = (props: any) => {
-  const { selectedValues, setSelectedValues, fieldName } = props;
-  const filterButtonRef = React.useRef<HTMLDivElement>(null);
-  const dropdownRef = React.useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = React.useState<{
-    top: number;
-    left: number;
-  }>({ top: 0, left: 0 });
-  const [filterVisible, setFilterVisible] = React.useState(false);
-
-  const options = [
-    { value: "yes", label: "Yes" },
-    { value: "no", label: "No" },
-  ];
-
-  const toggleFilter = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (filterButtonRef.current) {
-      const rect = filterButtonRef.current.getBoundingClientRect();
-      const viewportHeight = window.innerHeight;
-      const dropdownHeight = 200; // estimated max height
-      const spaceBelow = viewportHeight - rect.bottom;
-      const spaceAbove = rect.top;
-
-      let top: number;
-      if (spaceBelow >= dropdownHeight || spaceBelow > spaceAbove) {
-        top = rect.bottom + window.scrollY;
-      } else {
-        top = rect.top + window.scrollY - dropdownHeight;
-      }
-
-      setDropdownPos({
-        top: Math.max(10, top),
-        left: Math.max(10, rect.left + window.scrollX - 100),
-      });
-    }
-    setFilterVisible((v) => !v);
-  };
-
-  const handleValueChange = (
-    value: string,
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    e.stopPropagation();
-    setSelectedValues((prev: string[]) => {
-      const isSelected = prev.includes(value);
-      return isSelected ? prev.filter((v) => v !== value) : [...prev, value];
-    });
-  };
-
-  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.stopPropagation();
-    if (e.target.checked) {
-      setSelectedValues(options.map((opt) => opt.value));
-    } else {
-      setSelectedValues([]);
-    }
-  };
-
-  const isAllSelected = selectedValues.length === options.length;
-  const isIndeterminate =
-    selectedValues.length > 0 && selectedValues.length < options.length;
-
-  React.useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        filterButtonRef.current &&
-        !filterButtonRef.current.contains(event.target as Node) &&
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setFilterVisible(false);
-      }
-    };
-    const handleScroll = () => setFilterVisible(false);
-
-    if (filterVisible) {
-      document.addEventListener("mousedown", handleClickOutside);
-      window.addEventListener("scroll", handleScroll, true);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      window.removeEventListener("scroll", handleScroll, true);
-    };
-  }, [filterVisible]);
-
-  return (
-    <div className="relative flex w-full items-center">
-      <span className="mr-2 flex-grow">{fieldName}</span>
-
-      <div
-        ref={filterButtonRef}
-        className="flex cursor-pointer items-center gap-1 rounded p-1 hover:bg-gray-100 dark:hover:bg-gray-700"
-        onClick={toggleFilter}
-      >
-        {selectedValues.length > 0 &&
-          selectedValues.length < options.length && (
-            <span className="text-primary-foreground min-w-[20px] rounded-full bg-primary px-2 py-0.5 text-center text-xs font-medium">
-              {selectedValues.length}
-            </span>
-          )}
-
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="text-muted-foreground h-4 w-4 hover:text-foreground"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z"
-          />
-        </svg>
-      </div>
-
-      {filterVisible &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div
-            ref={dropdownRef}
-            className="animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 pointer-events-auto fixed z-50 flex w-64 flex-col space-y-2 overflow-hidden rounded-md border bg-popover p-3 text-popover-foreground shadow-md"
-            style={{
-              top: dropdownPos.top + 5,
-              left: dropdownPos.left,
-              maxHeight: "200px",
-              overflowY: "auto",
-              animationFillMode: "forwards",
-            }}
-            onClick={(e) => e.stopPropagation()}
-            data-state="open"
-          >
-            <div className="mb-2 border-b border-border pb-2">
-              <label className="flex cursor-pointer items-center rounded px-2 py-1 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700">
-                <input
-                  type="checkbox"
-                  checked={isAllSelected}
-                  ref={(el) => {
-                    if (el) el.indeterminate = isIndeterminate;
-                  }}
-                  onChange={handleSelectAll}
-                  className="mr-3 h-3.5 w-3.5"
-                  onClick={(e) => e.stopPropagation()}
-                />
-                Select All
-              </label>
-            </div>
-
-            {options.map((option) => (
-              <label
-                key={option.value}
-                className="flex cursor-pointer items-center rounded px-2 py-1 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedValues.includes(option.value)}
-                  onChange={(e) => handleValueChange(option.value, e)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="mr-3 h-3.5 w-3.5"
-                />
-                {option.label}
-              </label>
-            ))}
-
-            {selectedValues.length > 0 &&
-              selectedValues.length < options.length && (
-                <div className="mt-2 border-t border-border pt-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedValues([]);
-                    }}
-                    className="flex w-full cursor-pointer items-center rounded px-2 py-1 text-sm text-destructive hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-destructive"
-                  >
-                    Clear All
-                  </button>
-                </div>
-              )}
-          </div>,
-          document.body
-        )}
-    </div>
-  );
-};
-
-// Job Type Filter Header Component
-const JobTypeFilterHeaderComponent = (props: any) => {
-  const { selectedJobTypes, setSelectedJobTypes, jobTypes } = props;
-  const filterButtonRef = React.useRef<HTMLDivElement>(null);
-  const dropdownRef = React.useRef<HTMLDivElement>(null);
-  const [dropdownPos, setDropdownPos] = React.useState<{
-    top: number;
-    left: number;
-  }>({ top: 0, left: 0 });
-  const [filterVisible, setFilterVisible] = React.useState(false);
-
-  const toggleFilter = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (filterButtonRef.current) {
-      const rect = filterButtonRef.current.getBoundingClientRect();
-      const viewportHeight = window.innerHeight;
-      const dropdownHeight = 400; // estimated max height
-      const spaceBelow = viewportHeight - rect.bottom;
-      const spaceAbove = rect.top;
-
-      let top: number;
-      if (spaceBelow >= dropdownHeight || spaceBelow > spaceAbove) {
-        // Show below
-        top = rect.bottom + window.scrollY;
-      } else {
-        // Show above
-        top = rect.top + window.scrollY - dropdownHeight;
-      }
-
-      setDropdownPos({
-        top: Math.max(10, top), // Ensure at least 10px from top
-        left: Math.max(10, rect.left + window.scrollX - 100), // Ensure at least 10px from left
-      });
-    }
-    setFilterVisible((v) => !v);
-  };
-
-  const handleJobTypeChange = (
-    jobTypeId: number,
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    e.stopPropagation();
-    setSelectedJobTypes((prev: number[]) => {
-      const isSelected = prev.includes(jobTypeId);
-      return isSelected
-        ? prev.filter((id) => id !== jobTypeId)
-        : [...prev, jobTypeId];
-    });
-  };
-
-  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.stopPropagation();
-    if (e.target.checked) {
-      setSelectedJobTypes(jobTypes.map((jt: any) => jt.id));
-    } else {
-      setSelectedJobTypes([]);
-    }
-  };
-
-  const isAllSelected =
-    selectedJobTypes.length === jobTypes.length && jobTypes.length > 0;
-  const isIndeterminate =
-    selectedJobTypes.length > 0 && selectedJobTypes.length < jobTypes.length;
-
-  React.useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        filterButtonRef.current &&
-        !filterButtonRef.current.contains(event.target as Node) &&
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setFilterVisible(false);
-      }
-    };
-    const handleScroll = () => setFilterVisible(false);
-
-    if (filterVisible) {
-      document.addEventListener("mousedown", handleClickOutside);
-      window.addEventListener("scroll", handleScroll, true);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      window.removeEventListener("scroll", handleScroll, true);
-    };
-  }, [filterVisible]);
-
-  return (
-    <div className="relative flex w-full items-center">
-      <span className="mr-2 flex-grow">Job Type</span>
-
-      <div
-        ref={filterButtonRef}
-        className="flex cursor-pointer items-center gap-1 rounded p-1 hover:bg-gray-100 dark:hover:bg-gray-700"
-        onClick={toggleFilter}
-      >
-        {selectedJobTypes.length > 0 &&
-          selectedJobTypes.length < jobTypes.length && (
-            <span className="text-primary-foreground min-w-[20px] rounded-full bg-primary px-2 py-0.5 text-center text-xs font-medium">
-              {selectedJobTypes.length}
-            </span>
-          )}
-
-        {/* Funnel icon */}
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="text-muted-foreground h-4 w-4 hover:text-foreground"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z"
-          />
-        </svg>
-      </div>
-
-      {filterVisible &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div
-            ref={dropdownRef}
-            className="animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 pointer-events-auto fixed z-50 flex w-64 flex-col space-y-2 overflow-hidden rounded-md border bg-popover p-3 text-popover-foreground shadow-md"
-            style={{
-              top: dropdownPos.top + 5,
-              left: dropdownPos.left,
-              maxHeight: "400px",
-              overflowY: "auto",
-              animationFillMode: "forwards",
-            }}
-            onClick={(e) => e.stopPropagation()}
-            data-state="open"
-          >
-            <div className="mb-2 border-b border-border pb-2">
-              <label className="flex cursor-pointer items-center rounded px-2 py-1 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700">
-                <input
-                  type="checkbox"
-                  checked={isAllSelected}
-                  ref={(el) => {
-                    if (el) el.indeterminate = isIndeterminate;
-                  }}
-                  onChange={handleSelectAll}
-                  className="mr-3 h-3.5 w-3.5"
-                  onClick={(e) => e.stopPropagation()}
-                />
-                Select All
-              </label>
-            </div>
-
-            {jobTypes.map((jobType: any) => (
-              <label
-                key={jobType.id}
-                className="flex cursor-pointer items-center rounded px-2 py-1 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedJobTypes.includes(jobType.id)}
-                  onChange={(e) => handleJobTypeChange(jobType.id, e)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="mr-3 h-3.5 w-3.5"
-                />
-                {jobType.job_name}
-              </label>
-            ))}
-
-            {selectedJobTypes.length > 0 &&
-              selectedJobTypes.length < jobTypes.length && (
-                <div className="mt-2 border-t border-border pt-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedJobTypes([]);
-                    }}
-                    className="flex w-full cursor-pointer items-center rounded px-2 py-1 text-sm text-destructive hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-destructive"
-                  >
-                    Clear All
-                  </button>
-                </div>
-              )}
-          </div>,
-          document.body
-        )}
-    </div>
-  );
-};
 
 interface JobType {
   id: number;
-  job_name: string;
-  job_description: string | null;
+  name: string;
+  unique_id: string;
+  job_owner: string | null;
+  description: string | null;
+  notes: string | null;
+  lastmod_date_time: string | null;
+  lastmod_user_name: string | null;
 }
 
 interface Employee {
@@ -458,15 +106,15 @@ interface JobActivityLog {
   id: number;
   job_id: number;
   candidate_id: number | null;
-  employee_id: number;
+  employee_id: number | null;
   activity_date: string;
   activity_count: number;
-  json_downloaded: "yes" | "no";
-  sql_downloaded: "yes" | "no";
+  notes: string | null;
   last_mod_date: string;
+  lastmod_user_name: string | null;
   job_name: string;
   candidate_name: string | null;
-  employee_name: string;
+  employee_name: string | null;
 }
 
 export default function JobActivityLogPage() {
@@ -476,30 +124,16 @@ export default function JobActivityLogPage() {
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [jobTypes, setJobTypes] = useState<JobType[]>([]);
-  const [selectedJobTypes, setSelectedJobTypes] = useState<number[]>([]);
-  const [selectedJsonDownloaded, setSelectedJsonDownloaded] = useState<
-    string[]
-  >([]);
-  const [selectedSqlDownloaded, setSelectedSqlDownloaded] = useState<string[]>(
-    []
-  );
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
-  const [formData, setFormData] = useState({
-    job_id: "",
-    candidate_id: "",
-    employee_id: "",
-    activity_date: new Date().toISOString().split("T")[0],
-    activity_count: 0,
-    json_downloaded: "no" as "yes" | "no",
-    sql_downloaded: "no" as "yes" | "no",
-  });
 
-  const fetchLogs = async () => {
+  const fetchLogs = async (showSuccessToast = false) => {
     try {
-      setLoading(true);
-      const data = await apiFetch("/job_activity_logs");
+      if (showSuccessToast === true) {
+        setLoading(true);
+      }
+      setError("");
+      const data = await apiFetch("/api/job_activity_logs");
       const arr = Array.isArray(data) ? data : data?.data || [];
 
       // Sort by ID descending to show newest first
@@ -507,96 +141,75 @@ export default function JobActivityLogPage() {
 
       setLogs(sorted);
       setFilteredLogs(sorted);
+
+      if (showSuccessToast) {
+        toast.success("Data refreshed successfully");
+      }
     } catch (e: any) {
-      setError(e?.message || e?.body || "Failed to load job activity logs");
+      const formattedError = formatErrorMessage(e);
+      setError(formattedError);
+      toast.error(formattedError);
     } finally {
-      setLoading(false);
+      if (showSuccessToast === true) {
+        setLoading(false);
+      }
     }
   };
 
   const fetchJobTypes = async () => {
     try {
-      const data = await apiFetch("/job-types");
+      const data = await apiFetch("/api/job-types");
       const jobTypesArray = Array.isArray(data) ? data : [];
       setJobTypes(jobTypesArray);
-
-      // Don't set default job type - show all logs by default
-      // Users can manually filter if needed
     } catch (e: any) {
-      console.error("Failed to load job types:", e);
+      toast.error("Failed to load job types");
     }
   };
 
   const fetchEmployees = async () => {
     try {
-      const data = await apiFetch("/employees");
+      const data = await apiFetch("/api/employees");
       const arr = Array.isArray(data) ? data : data?.data || [];
       setEmployees(arr);
     } catch (e: any) {
-      console.error("Failed to load employees:", e);
+      toast.error("Failed to load employees");
     }
   };
 
   const fetchCandidates = async () => {
     try {
-      const data = await apiFetch("/candidates");
+      const data = await apiFetch("/api/candidates");
       const arr = Array.isArray(data) ? data : data?.data || [];
       setCandidates(arr);
     } catch (e: any) {
-      console.error("Failed to load candidates:", e);
+      toast.error("Failed to load candidates");
     }
   };
 
   useEffect(() => {
-    fetchLogs();
+    fetchLogs(true);
     fetchJobTypes();
     fetchEmployees();
     fetchCandidates();
   }, []);
 
   useEffect(() => {
-    let filtered = logs;
-
-    // Filter by job types (if any selected)
-    if (selectedJobTypes.length > 0) {
-      filtered = filtered.filter((log) =>
-        selectedJobTypes.includes(log.job_id)
-      );
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) {
+      setFilteredLogs(logs);
+      return;
     }
 
-    // Filter by JSON Downloaded (if any selected)
-    if (selectedJsonDownloaded.length > 0) {
-      filtered = filtered.filter((log) =>
-        selectedJsonDownloaded.includes(log.json_downloaded)
-      );
-    }
-
-    // Filter by SQL Downloaded (if any selected)
-    if (selectedSqlDownloaded.length > 0) {
-      filtered = filtered.filter((log) =>
-        selectedSqlDownloaded.includes(log.sql_downloaded)
-      );
-    }
-
-    // Filter by search term
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (log) =>
-          log.job_name?.toLowerCase().includes(term) ||
-          log.employee_name?.toLowerCase().includes(term) ||
-          log.candidate_name?.toLowerCase().includes(term) ||
-          log.activity_date?.toLowerCase().includes(term)
-      );
-    }
+    const filtered = logs.filter(
+      (log) =>
+        log.job_name?.toLowerCase().includes(term) ||
+        log.employee_name?.toLowerCase().includes(term) ||
+        log.candidate_name?.toLowerCase().includes(term) ||
+        log.activity_date?.toLowerCase().includes(term) ||
+        log.notes?.toLowerCase().includes(term)
+    );
     setFilteredLogs(filtered);
-  }, [
-    logs,
-    searchTerm,
-    selectedJobTypes,
-    selectedJsonDownloaded,
-    selectedSqlDownloaded,
-  ]);
+  }, [logs, searchTerm]);
 
   const columnDefs: ColDef[] = React.useMemo(
     () => [
@@ -610,27 +223,41 @@ export default function JobActivityLogPage() {
       {
         field: "job_name",
         headerName: "Job Name",
-        width: 250,
-        editable: false,
+        width: 300,
+        editable: true,
         cellRenderer: JobNameRenderer,
-        headerComponent: JobTypeFilterHeaderComponent,
-        headerComponentParams: {
-          selectedJobTypes,
-          setSelectedJobTypes,
-          jobTypes,
+        cellEditor: "agSelectCellEditor",
+        cellEditorParams: (params) => {
+          return {
+            values: jobTypes.map(job => job.name),
+            valueListGap: 0,
+            valueListMaxHeight: 220,
+            formatValue: (value: any) => {
+              if (!value || value === "") return "";
+              return value;
+            },
+          };
         },
-      },
-      {
-        field: "employee_name",
-        headerName: "Employee",
-        width: 200,
-        editable: false,
-      },
-      {
-        field: "candidate_name",
-        headerName: "Candidate",
-        width: 200,
-        editable: false,
+        valueFormatter: (params) => {
+          return params.value || "[Job Type Missing]";
+        },
+        valueSetter: (params) => {
+          const newValue = params.newValue;
+          if (newValue) {
+            const selectedJob = jobTypes.find(job => job.name === newValue);
+            if (selectedJob) {
+              params.data.job_id = selectedJob.id;
+              params.data.job_name = newValue;
+            }
+          }
+          return true;
+        },
+        filter: "agSetColumnFilter",
+        filterParams: {
+          values: jobTypes.map(job => job.name),
+          valueListGap: 0,
+          valueListMaxHeight: 220,
+        },
       },
       {
         field: "activity_date",
@@ -647,38 +274,16 @@ export default function JobActivityLogPage() {
         editable: true,
       },
       {
-        field: "json_downloaded",
-        headerName: "JSON Downloaded",
-        width: 180,
-        editable: true,
-        cellRenderer: (params: any) => (params.value === "yes" ? "Yes" : "No"),
-        cellEditor: "agSelectCellEditor",
-        cellEditorParams: {
-          values: ["yes", "no"],
-        },
-        headerComponent: YesNoFilterHeaderComponent,
-        headerComponentParams: {
-          selectedValues: selectedJsonDownloaded,
-          setSelectedValues: setSelectedJsonDownloaded,
-          fieldName: "JSON Downloaded",
-        },
+        field: "employee_name",
+        headerName: "Employee",
+        width: 250,
+        editable: false,
       },
       {
-        field: "sql_downloaded",
-        headerName: "SQL Downloaded",
-        width: 180,
-        editable: true,
-        cellRenderer: (params: any) => (params.value === "yes" ? "Yes" : "No"),
-        cellEditor: "agSelectCellEditor",
-        cellEditorParams: {
-          values: ["yes", "no"],
-        },
-        headerComponent: YesNoFilterHeaderComponent,
-        headerComponentParams: {
-          selectedValues: selectedSqlDownloaded,
-          setSelectedValues: setSelectedSqlDownloaded,
-          fieldName: "SQL Downloaded",
-        },
+        field: "candidate_name",
+        headerName: "Candidate",
+        width: 250,
+        editable: false,
       },
       {
         field: "last_mod_date",
@@ -688,106 +293,215 @@ export default function JobActivityLogPage() {
         editable: false,
         filter: "agDateColumnFilter",
       },
+      {
+        field: "lastmod_user_name",
+        headerName: "Last Modified By",
+        width: 200,
+        editable: false,
+      },
+      {
+        field: "notes",
+        headerName: "Notes",
+        width: 300,
+        editable: true,
+        cellEditor: 'agLargeTextCellEditor',
+        cellEditorParams: {
+          maxLength: 10000,
+          rows: 3,
+          cols: 50
+        },
+      },
     ],
-    [selectedJobTypes, jobTypes, selectedJsonDownloaded, selectedSqlDownloaded]
+    [jobTypes]
   );
 
   const handleRowUpdated = async (updatedRow: JobActivityLog) => {
-    const payload = {
-      activity_count: updatedRow.activity_count,
-      json_downloaded: updatedRow.json_downloaded,
-      sql_downloaded: updatedRow.sql_downloaded,
-    };
+    // Construct payload with all updatable fields
+    const payload: any = {};
+
+    // Handle job_id (from job_name conversion in EditModal)
+    if (updatedRow.job_id !== undefined) {
+      payload.job_id = updatedRow.job_id;
+    }
+
+    // Handle candidate_id (from candidate_name conversion in EditModal)
+    if (updatedRow.candidate_id !== undefined) {
+      payload.candidate_id = updatedRow.candidate_id;
+    }
+
+    // Handle employee_id (from employee_name conversion in EditModal)
+    if (updatedRow.employee_id !== undefined) {
+      payload.employee_id = updatedRow.employee_id;
+    }
+
+    // Handle activity_date
+    if (updatedRow.activity_date !== undefined) {
+      payload.activity_date = updatedRow.activity_date;
+    }
+
+    // Handle activity_count
+    if (updatedRow.activity_count !== undefined) {
+      payload.activity_count = updatedRow.activity_count;
+    }
+
+    // Handle notes
+    if (updatedRow.notes !== undefined) {
+      payload.notes = updatedRow.notes;
+    }
+
+    // If no fields to update, return early
+    if (Object.keys(payload).length === 0) {
+      console.warn("No fields to update for job activity log:", updatedRow.id);
+      return;
+    }
+
+    console.log("Updating job activity log:", updatedRow.id, payload);
     try {
-      await apiFetch(`/job_activity_logs/${updatedRow.id}`, {
+      await apiFetch(`/api/job_activity_logs/${updatedRow.id}`, {
         method: "PUT",
         body: payload,
       });
-      // Update both logs and filteredLogs to maintain consistency
-      setLogs((prev) =>
-        prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
-      );
-      setFilteredLogs((prev) =>
-        prev.map((row) => (row.id === updatedRow.id ? updatedRow : row))
-      );
+
+      await fetchLogs(false);
+      toast.success("Log updated successfully");
     } catch (error: any) {
-      console.error("Update failed", error);
-      alert(error?.message || error?.body || "Failed to update log");
+      console.error("Error updating job activity log:", error);
+      const errorMsg =
+        error?.body?.detail ||
+        error?.detail ||
+        error?.message ||
+        error?.body ||
+        "Failed to update log";
+      toast.error(
+        typeof errorMsg === "string" ? errorMsg : JSON.stringify(errorMsg)
+      );
     }
   };
 
   const handleRowDeleted = async (id: number | string) => {
     try {
-      await apiFetch(`/job_activity_logs/${id}`, { method: "DELETE" });
+      await apiFetch(`/api/job_activity_logs/${id}`, { method: "DELETE" });
+
       setFilteredLogs((prev) => prev.filter((row) => row.id !== id));
       setLogs((prev) => prev.filter((row) => row.id !== id));
+      toast.success(`Log ${id} deleted successfully`);
     } catch (error: any) {
-      console.error("Delete failed", error);
-      alert(error?.message || error?.body || "Failed to delete log");
-    }
-  };
-
-  const handleAddLog = async (newData: any) => {
-    // Validate required fields
-    if (!newData.job_id || !newData.employee_id || !newData.activity_date) {
-      alert(
-        "Please fill in all required fields: Job Type, Employee, and Activity Date"
-      );
-      throw new Error("Missing required fields");
-    }
-
-    let cleanDate = newData.activity_date;
-    if (typeof cleanDate === "string") {
-      cleanDate = cleanDate.split("T")[0]; // Remove time part if exists
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(cleanDate)) {
-        alert("Invalid date format. Please use YYYY-MM-DD format");
-        throw new Error("Invalid date format");
-      }
-    }
-
-    const payload = {
-      job_id: parseInt(newData.job_id) || parseInt(newData.job_name) || null,
-      employee_id:
-        parseInt(newData.employee_id) ||
-        parseInt(newData.employee_name) ||
-        null,
-      candidate_id: newData.candidate_id
-        ? parseInt(newData.candidate_id)
-        : null,
-      activity_date: cleanDate,
-      activity_count: parseInt(newData.activity_count) || 0,
-      json_downloaded: newData.json_downloaded || "no",
-      sql_downloaded: newData.sql_downloaded || "no",
-    };
-
-    // Final validation
-    if (!payload.job_id || !payload.employee_id) {
-      alert("Job Type and Employee are required");
-      throw new Error("Missing required fields");
-    }
-
-    try {
-      const result = await apiFetch("/job_activity_logs", {
-        method: "POST",
-        body: payload,
-      });
-      setLogs((prev) => [result, ...prev]);
-      setFilteredLogs((prev) => [result, ...prev]);
-      return result;
-    } catch (error: any) {
-      console.error("Create failed", error);
       const errorMsg =
+        error?.body?.detail ||
         error?.detail ||
         error?.message ||
         error?.body ||
-        "Failed to create log";
-      alert(
-        typeof errorMsg === "string"
-          ? errorMsg
-          : JSON.stringify(errorMsg, null, 2)
+        "Failed to delete log";
+      toast.error(
+        typeof errorMsg === "string" ? errorMsg : JSON.stringify(errorMsg)
       );
-      throw error;
     }
+  };
+
+  // Add state for add modal
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  const handleAddJobActivityLog = () => {
+    setIsAddModalOpen(true);
+  };
+
+  const handleAddSave = async (newData: any) => {
+    try {
+      let jobId = null;
+      let candidateId = null;
+      let employeeId = null;
+
+      if (newData.job_id !== undefined && newData.job_id !== null && newData.job_id !== "") {
+        if (typeof newData.job_id === "number") {
+          jobId = newData.job_id;
+        } else if (typeof newData.job_id === "string") {
+          const parsed = parseInt(newData.job_id);
+          if (!isNaN(parsed)) {
+            jobId = parsed;
+          }
+        }
+      }
+
+      if (newData.candidate_id !== undefined && newData.candidate_id !== null && newData.candidate_id !== "") {
+        if (typeof newData.candidate_id === "number") {
+          candidateId = newData.candidate_id;
+        } else if (typeof newData.candidate_id === "string") {
+          const parsed = parseInt(newData.candidate_id);
+          if (!isNaN(parsed)) {
+            candidateId = parsed;
+          }
+        }
+      }
+
+      if (newData.employee_id !== undefined && newData.employee_id !== null && newData.employee_id !== "") {
+        if (typeof newData.employee_id === "number") {
+          employeeId = newData.employee_id;
+        } else if (typeof newData.employee_id === "string") {
+          const parsed = parseInt(newData.employee_id);
+          if (!isNaN(parsed)) {
+            employeeId = parsed;
+          }
+        }
+      }
+
+      const payload = {
+        job_id: jobId,
+        candidate_id: candidateId,
+        employee_id: employeeId,
+        activity_date: newData.activity_date?.trim() || new Date().toISOString().split('T')[0],
+        activity_count: parseInt(newData.activity_count) || 0,
+        notes: newData.notes?.trim() || "",
+      };
+
+      // Validate required fields
+      if (!payload.job_id) {
+        toast.error("Job is required");
+        return;
+      }
+      if (!payload.activity_date) {
+        toast.error("Activity Date is required");
+        return;
+      }
+
+      await apiFetch("/api/job_activity_logs", {
+        method: "POST",
+        body: payload,
+      });
+
+      await fetchLogs(false);
+      toast.success("Job activity log created successfully");
+      setIsAddModalOpen(false);
+    } catch (e: any) {
+      let errorMsg = "Failed to create job activity log";
+      if (e?.body?.detail) {
+        errorMsg = e.body.detail;
+      } else if (e?.detail) {
+        errorMsg = e.detail;
+      } else if (e?.message) {
+        errorMsg = e.message;
+      } else if (typeof e?.body === "string") {
+        errorMsg = e.body;
+      }
+      toast.error(errorMsg);
+    }
+  };
+
+  // Get initial data for add modal
+  const getAddInitialData = () => {
+    return {
+      id: "",
+      job_id: "",
+      job_name: "",
+      candidate_id: "",
+      candidate_name: "",
+      employee_id: "",
+      employee_name: "",
+      activity_date: new Date().toISOString().split('T')[0],
+      activity_count: "",
+      notes: "",
+      last_mod_date: "",
+      lastmod_user_name: "",
+    };
   };
 
   if (loading) return <p className="mt-8 text-center">Loading...</p>;
@@ -795,6 +509,8 @@ export default function JobActivityLogPage() {
 
   return (
     <div className="space-y-6">
+      <Toaster position="top-center" />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Job Activity Log</h1>
@@ -802,7 +518,6 @@ export default function JobActivityLogPage() {
         </div>
       </div>
 
-      {/* Search bar */}
       <div className="max-w-md">
         <Label htmlFor="search">Search</Label>
         <div className="relative mt-1">
@@ -828,186 +543,24 @@ export default function JobActivityLogPage() {
         columnDefs={columnDefs}
         title={`Job Activity Logs (${filteredLogs.length})`}
         height="calc(70vh)"
+        onAddClick={handleAddJobActivityLog}
         onRowUpdated={handleRowUpdated}
         onRowDeleted={handleRowDeleted}
         showSearch={false}
-        onAddClick={() => setIsAddDialogOpen(true)}
       />
 
-      {/* Add Dialog */}
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="max-w-6xl">
-          <DialogHeader>
-            <DialogTitle>Add New Job Activity Log</DialogTitle>
-          </DialogHeader>
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
-              try {
-                await handleAddLog(formData);
-                setIsAddDialogOpen(false);
-                setFormData({
-                  job_id: "",
-                  candidate_id: "",
-                  employee_id: "",
-                  activity_date: new Date().toISOString().split("T")[0],
-                  activity_count: 0,
-                  json_downloaded: "no",
-                  sql_downloaded: "no",
-                });
-              } catch (error) {
-                // Error already handled in handleAddLog
-              }
-            }}
-            className="mt-4"
-          >
-            <div className="grid grid-cols-1 gap-2.5 sm:gap-3 md:grid-cols-2 md:gap-5">
-              <div className="space-y-1 sm:space-y-1.5">
-                <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                  Job Type <span className="text-red-700">*</span>
-                </label>
-                <Select
-                  value={formData.job_id || undefined}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, job_id: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select job type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {jobTypes.map((job) => (
-                      <SelectItem key={job.id} value={job.id.toString()}>
-                        {job.job_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="employee_id">Employee *</Label>
-                <Select
-                  value={formData.employee_id || undefined}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, employee_id: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select employee" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {employees.map((emp) => (
-                      <SelectItem key={emp.id} value={emp.id.toString()}>
-                        {emp.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="candidate_id">Candidate (Optional)</Label>
-                <Select
-                  value={formData.candidate_id || undefined}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, candidate_id: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select candidate (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {candidates.map((cand) => (
-                      <SelectItem key={cand.id} value={cand.id.toString()}>
-                        {cand.full_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="activity_date">Activity Date *</Label>
-                <Input
-                  id="activity_date"
-                  type="date"
-                  value={formData.activity_date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, activity_date: e.target.value })
-                  }
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="activity_count">Activity Count</Label>
-                <Input
-                  id="activity_count"
-                  type="number"
-                  min="0"
-                  value={formData.activity_count}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      activity_count: parseInt(e.target.value) || 0,
-                    })
-                  }
-                />
-              </div>
-
-              <div className="flex gap-4">
-                <div className="flex-1 space-y-2">
-                  <Label htmlFor="json_downloaded">JSON Downloaded</Label>
-                  <Select
-                    value={formData.json_downloaded}
-                    onValueChange={(value: "yes" | "no") =>
-                      setFormData({ ...formData, json_downloaded: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="no">No</SelectItem>
-                      <SelectItem value="yes">Yes</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex-1 space-y-2">
-                  <Label htmlFor="sql_downloaded">SQL Downloaded</Label>
-                  <Select
-                    value={formData.sql_downloaded}
-                    onValueChange={(value: "yes" | "no") =>
-                      setFormData({ ...formData, sql_downloaded: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="no">No</SelectItem>
-                      <SelectItem value="yes">Yes</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 flex justify-end gap-2 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setIsAddDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit">Add Log</Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {/* Add Modal for Job Activity Logs */}
+      {isAddModalOpen && (
+        <EditModal
+          isOpen={true}
+          onClose={() => setIsAddModalOpen(false)}
+          onSave={handleAddSave}
+          data={getAddInitialData()}
+          title="Job Activity Log"
+          batches={[]}
+          isAddMode={true}
+        />
+      )}
     </div>
   );
 }
