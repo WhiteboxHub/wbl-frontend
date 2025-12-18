@@ -1,5 +1,5 @@
 const ContactDetails = () => {
-  const address = "6500 Dublin Blvd #214, Dublin, CA 94568";
+  const address = "6500 Dublin Blvd #218, Dublin, CA 94568";
 
   const googleMapsLink = `https://www.google.com/maps?q=${encodeURIComponent(
     address

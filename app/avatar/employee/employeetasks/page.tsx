@@ -8,10 +8,11 @@ import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import api from "@/lib/api";
 import { createPortal } from "react-dom";
+import dynamic from "next/dynamic";
+const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
 import { useForm, Controller } from "react-hook-form";
 
 interface EmployeeTask {
