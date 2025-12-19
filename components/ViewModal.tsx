@@ -19,6 +19,7 @@ const excludedFields = [
   "subject_id", "lastmoddatetime", "course_id", "new_subject_id", "instructor_1id",
   "instructor_2id", "instructor_3id", "instructor1_id", "instructor2_id",
   "instructor3_id", "enddate", "candidate_id", "batch", "job_id", "employee_id", "job_owner", "job_owner_id",
+  "job_owner_1", "job_owner_2", "job_owner_3",
 ];
 
 const fieldSections: Record<string, string> = {
@@ -174,7 +175,10 @@ const fieldSections: Record<string, string> = {
   lastmod_date_time: "Professional Information",
   last_mod_date: "Professional Information",
   description: "Professional Information",
-
+  job_owner_1_name: "Basic Information",
+  job_owner_2_name: "Basic Information",
+  job_owner_3_name: "Basic Information",
+  category: "Professional Information",
 };
 
 const workVisaStatusOptions = [
@@ -266,6 +270,9 @@ const labelOverrides: Record<string, string> = {
   workexperience: "Work Experience",
   lastmod_date_time: "Last Modified",
   job_owner_name: "Job Owner",
+  job_owner_1_name: "Job Owner 1",
+  job_owner_2_name: "Job Owner 2",
+  job_owner_3_name: "Job Owner 3",
 };
 
 const dateFields = [
