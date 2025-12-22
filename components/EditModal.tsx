@@ -1158,7 +1158,6 @@ export function EditModal({
       if (selectedJob) {
         reconstructedData.job_id = selectedJob.id;
       }
-      // Remove job_name from payload as backend doesn't accept it
       delete reconstructedData.job_name;
     }
 
@@ -1593,7 +1592,7 @@ export function EditModal({
                                   Job Owner 1
                                 </label>
                                 <select
-                                  {...register("job_owner_1", { required: isJobTypeModal && "Job Owner 1 is required" })}
+                                  {...register("job_owner_1")}
                                   className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                 >
                                   <option value="">Select Job Owner</option>
@@ -1605,11 +1604,6 @@ export function EditModal({
                                     </option>
                                   ))}
                                 </select>
-                                {errors.job_owner_1 && (
-                                  <p className="mt-1 text-xs text-red-600">
-                                    {errors.job_owner_1.message as string}
-                                  </p>
-                                )}
                               </div>
                               <div className="space-y-1 sm:space-y-1.5">
                                 <label className="block text-xs font-bold text-blue-700 sm:text-sm">
@@ -2873,6 +2867,23 @@ export function EditModal({
                                 </div>
                               );
                             }
+                            
+                            if (key.toLowerCase() === "description") {
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5 col-span-full">
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    {toLabel(key)}
+                                  </label>
+                                  <textarea
+                                    {...register(key)}
+                                    defaultValue={formData[key] || ""}
+                                    rows={isJobTypeModal ? 3 : 3}
+                                    className="w-full resize-none rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                  />
+                                </div>
+                              );
+                            }
+
                             return (
                               <div
                                 key={key}

@@ -293,10 +293,6 @@ export default function JobTypesPage() {
         toast.error("Unique ID is required");
         return;
       }
-      if (!payload.job_owner_1) {
-        toast.error("Job Owner 1 is required");
-        return;
-      }
 
       const url = isEdit ? `/api/job-types/${data.id}` : "/api/job-types";
       const method = isEdit ? "PUT" : "POST";
