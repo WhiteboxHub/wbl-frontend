@@ -568,6 +568,14 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       );
     }
 
+    if (lowerKey === "description") {
+      return (
+        <div className="whitespace-pre-wrap min-h-[60px] max-h-[300px] overflow-y-auto">
+          {value}
+        </div>
+      );
+    }
+
     return <p className="break-words">{String(value)}</p>;
   };
 
