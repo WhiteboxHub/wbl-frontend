@@ -267,7 +267,7 @@ const requiredFieldsConfig: Record<string, string[]> = {
     "Type of Interview",
   ],
   authuser: ["Phone", "Email", "Full Name", "Registered Date", "Passwd"],
-  employee: ["Full Name","Email", "Phone", "Date of Birth", "Aadhaar"],
+  employee: ["Full Name", "Email", "Phone", "Date of Birth", "Aadhaar"],
   placement: ["Placement ID", 'Deposit Date'],
 };
 

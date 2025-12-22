@@ -1,7 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/admin_ui/input";
-import { Label } from "@/components/admin_ui/label";
 import { Badge } from "@/components/admin_ui/badge";
 import {
   SearchIcon,
@@ -11,6 +10,8 @@ import {
   Activity,
   BookOpen,
   Briefcase,
+  ClipboardList,
+  Clock,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
@@ -49,6 +50,31 @@ type SessionClassData = {
   timeline: TeachingItem[];
 };
 
+type EmployeeTask = {
+  id: number;
+  employee_id: number;
+  employee_name: string | null;
+  task: string;
+  assigned_date: string;
+  due_date: string;
+  status: string;
+  priority: string;
+  notes: string;
+};
+
+type Placement = {
+  id: number;
+  candidate_name: string;
+  position: string;
+  company: string;
+  placement_date: string;
+  type: string;
+  status: string;
+  base_salary: number;
+  fee_paid: number;
+  notes: string;
+};
+
 // ---------------------- SMALL COMPONENTS ----------------------
 const StatusRenderer = ({ status }: { status: number }) => {
   const statusMap: Record<number, { label: string; class: string }> = {
@@ -69,9 +95,13 @@ export default function EmployeeSearchPage() {
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [candidates, setCandidates] = useState<Candidates | null>(null);
   const [sessionClassData, setSessionClassData] = useState<SessionClassData | null>(null);
+  const [tasks, setTasks] = useState<EmployeeTask[]>([]);
+  const [placements, setPlacements] = useState<Placement[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
   const [loadingSessions, setLoadingSessions] = useState(false);
+  const [loadingTasks, setLoadingTasks] = useState(false);
+  const [loadingPlacements, setLoadingPlacements] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -144,6 +174,42 @@ export default function EmployeeSearchPage() {
       }
     };
     fetchSessions();
+  }, [selectedEmployee?.id]);
+
+  // ---------------------- FETCH TASKS ----------------------
+  useEffect(() => {
+    if (!selectedEmployee) return;
+    const fetchTasks = async () => {
+      setLoadingTasks(true);
+      try {
+        const data = await apiFetch(`/employee-tasks?employee_id=${selectedEmployee.id}`);
+        setTasks(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Tasks fetch failed:", error);
+        setTasks([]);
+      } finally {
+        setLoadingTasks(false);
+      }
+    };
+    fetchTasks();
+  }, [selectedEmployee?.id]);
+
+  // ---------------------- FETCH PLACEMENTS ----------------------
+  useEffect(() => {
+    if (!selectedEmployee) return;
+    const fetchPlacements = async () => {
+      setLoadingPlacements(true);
+      try {
+        const data = await apiFetch(`/employees/${selectedEmployee.id}/placements`);
+        setPlacements(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Placements fetch failed:", error);
+        setPlacements([]);
+      } finally {
+        setLoadingPlacements(false);
+      }
+    };
+    fetchPlacements();
   }, [selectedEmployee?.id]);
 
   // ---------------------- SELECT EMPLOYEE ----------------------
@@ -236,11 +302,10 @@ export default function EmployeeSearchPage() {
               className="flex items-start gap-4 p-4 border border-black-200 dark:border-black-700 rounded-lg"
             >
               <div
-                className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                  item.type === "class"
-                    ? "bg-blue-100 text-blue-800"
-                    : "bg-purple-100 text-purple-800"
-                }`}
+                className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${item.type === "class"
+                  ? "bg-blue-100 text-blue-800"
+                  : "bg-purple-100 text-purple-800"
+                  }`}
               >
                 {item.type === "class" ? "C" : "S"}
               </div>
@@ -260,10 +325,6 @@ export default function EmployeeSearchPage() {
                     {item.title || "Untitled Event"}
                   </p>
                 )}
-                <p className="text-sm text-black-500 dark:text-black-400 flex items-center gap-1 mt-1">
-                  <Calendar className="w-4 h-4" />
-                  {item.date ? DateFormatter(item.date) : "No date"}
-                </p>
               </div>
             </div>
           ))}
@@ -348,7 +409,7 @@ export default function EmployeeSearchPage() {
                 aadhaar: selectedEmployee.aadhaar,
                 instructor: selectedEmployee.instructor,
                 notes: selectedEmployee.notes,
-                address: selectedEmployee.address ,
+                address: selectedEmployee.address,
               })}
             </AccordionSection>
 
@@ -380,6 +441,124 @@ export default function EmployeeSearchPage() {
               ) : (
                 <p className="text-black-500 dark:text-black-400 text-center py-8">
                   No candidate data available
+                </p>
+              )}
+            </AccordionSection>
+
+            {/* Placements Made */}
+            <AccordionSection
+              title="Placements Made"
+              icon={<Briefcase className="h-5 w-5 text-black-600 dark:text-black-400" />}
+              isOpen={openSections.placements}
+              onToggle={() => toggleSection("placements")}
+            >
+              {loadingPlacements ? (
+                <Loader text="Loading placements..." />
+              ) : placements.length > 0 ? (
+                <div className="bg-green-50 dark:bg-green-900/10 p-6 rounded-lg border border-black-200 dark:border-black-700 shadow-sm">
+                  <div className="flex items-center gap-3 mb-4 pb-2 border-b border-black-200 dark:border-black-700">
+                    <User className="h-5 w-5 text-green-700" />
+                    <h4 className="font-semibold text-lg text-green-800 dark:text-green-300">Placed Candidates</h4>
+                    <Badge className="bg-green-100 text-green-800 border-green-200">{placements.length}</Badge>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-2 gap-x-4">
+                    {placements.map((p) => (
+                      <div
+                        key={p.id}
+                        className="py-2 border-b border-black-100 dark:border-black-700 last:border-b-0 text-black-900 dark:text-black-100 font-medium flex items-center gap-2"
+                      >
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                        {p.candidate_name}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-black-500 dark:text-black-400 text-center py-8">
+                  No placements recorded for this employee
+                </p>
+              )}
+            </AccordionSection>
+
+            {/* Tasks */}
+            <AccordionSection
+              title="Tasks Assigned"
+              icon={<ClipboardList className="h-5 w-5 text-black-600 dark:text-black-400" />}
+              isOpen={openSections.tasks}
+              onToggle={() => toggleSection("tasks")}
+            >
+              {loadingTasks ? (
+                <Loader text="Loading tasks..." />
+              ) : tasks.length > 0 ? (
+                <div className="space-y-4">
+                  {tasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="bg-white dark:bg-black-800 rounded-lg border border-black-200 dark:border-black-700 p-4 shadow-sm"
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <div
+                            className="text-black-900 dark:text-black-100 font-medium mb-2"
+                            dangerouslySetInnerHTML={{ __html: task.task }}
+                          />
+                          <div className="flex flex-wrap gap-2 text-sm text-black-600 dark:text-black-400">
+                            <div className="flex items-center gap-1">
+                              <Calendar className="w-4 h-4" />
+                              <span>Assigned: {DateFormatter(task.assigned_date)}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Clock className="w-4 h-4" />
+                              <span>Due: {DateFormatter(task.due_date)}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-2 ml-4">
+                          <Badge
+                            className={
+                              task.status === "completed"
+                                ? "bg-green-100 text-green-800"
+                                : task.status === "in_progress"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : task.status === "blocked"
+                                    ? "bg-red-100 text-red-800"
+                                    : "bg-yellow-100 text-yellow-800"
+                            }
+                          >
+                            {task.status.replace("_", " ").toUpperCase()}
+                          </Badge>
+                          <Badge
+                            className={
+                              task.priority === "urgent"
+                                ? "bg-purple-100 text-purple-800"
+                                : task.priority === "high"
+                                  ? "bg-red-100 text-red-800"
+                                  : task.priority === "medium"
+                                    ? "bg-orange-100 text-orange-800"
+                                    : "bg-green-100 text-green-800"
+                            }
+                          >
+                            {task.priority.toUpperCase()}
+                          </Badge>
+                        </div>
+                      </div>
+                      {task.notes && (
+                        <div className="mt-3 pt-3 border-t border-black-200 dark:border-black-700">
+                          <p className="text-sm text-black-600 dark:text-black-400">
+                            <strong>Notes:</strong>
+                          </p>
+                          <div
+                            className="text-sm text-black-700 dark:text-black-300 mt-1"
+                            dangerouslySetInnerHTML={{ __html: task.notes }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-black-500 dark:text-black-400 text-center py-8">
+                  No tasks assigned to this employee
                 </p>
               )}
             </AccordionSection>
