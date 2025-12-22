@@ -1,0 +1,43 @@
+name: CI - Dev Branch
+
+on:
+  pull_request:
+    branches: [ dev ]
+  push:
+    branches: [ dev ]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    # Needed if build/lint relies on env vars
+    - name: Create .env file
+      run: |
+        if [ -n "${{ secrets.ENV_FILE }}" ]; then
+          echo "${{ secrets.ENV_FILE }}" > .env
+        else
+          touch .env
+        fi
+
+    - name: Lint
+      run: npm run lint
+
+    - name: Build Next.js App
+      run: npm run build
+
+    # Optional: Docker build check (NO PUSH)
+    - name: Docker build check
+      run: docker build -t wbl-frontend:ci .
