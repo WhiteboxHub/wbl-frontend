@@ -347,7 +347,7 @@ const ReferAndEarnPage = () => {
                 <div className="flex-1">
                   <div className="max-w-[700px]">
                     <p className="text-base leading-relaxed text-gray-800 dark:text-gray-200 md:text-lg mb-6 opacity-90">
-                      We're excited to launch our Referral Program exclusively for our current and previously enrolled candidates of the AIML Training Program at Innovapath.
+                      We're excited to launch our Referral Program exclusively for our current and previously enrolled candidates of the AIML Training Program at Whitebox Learning.
                     </p>
                     <p className="text-base leading-relaxed text-gray-800 dark:text-gray-200 md:text-lg mb-6 opacity-90">
                       Do you know someone — a friend, associate, or family member — who's passionate about Artificial Intelligence and Machine Learning?
