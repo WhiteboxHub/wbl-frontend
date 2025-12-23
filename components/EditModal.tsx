@@ -233,6 +233,10 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "high", label: "High" },
     { value: "urgent", label: "Urgent" },
   ],
+  category: [
+    { value: "manual", label: "Manual" },
+    { value: "automation", label: "Automation" },
+  ],
 };
 
 // Vendor type options
@@ -542,6 +546,7 @@ const fieldSections: Record<string, string> = {
   activity_count: "Professional Information",
   job_owner: "Basic Information",
   assigned_date: "Basic Information",
+  category: "Professional Information",
 };
 
 // Override field labels for better readability
@@ -661,6 +666,10 @@ const labelOverrides: Record<string, string> = {
   filename: "File Name",
   startdate: "Start Date",
   enddate: "End Date",
+  job_owner_1: "Job Owner 1",
+  job_owner_2: "Job Owner 2",
+  job_owner_3: "Job Owner 3",
+  category: "Category",
 };
 
 const dateFields = [
@@ -769,12 +778,12 @@ export function EditModal({
     isPlacementModal ||
     isPreparationModal;
 
-  // Add this useEffect - place it with the other useEffect hooks
+  // Consolidate marketing candidate fetch logic
   useEffect(() => {
-    if (isOpen && isInterviewModal && isAddMode) {
-      const fetchMarketingCandidates = async () => {
+    if (isOpen && (isInterviewModal || isJobActivityLogModal)) {
+      const fetchMarketingCandidatesList = async () => {
         try {
-          const res = await apiFetch("/candidate/marketing?page=1&limit=200");
+          const res = await apiFetch("/candidate/marketing?page=1&limit=500");
           const body = res?.data ?? res;
           const arr = Array.isArray(body) ? body : body.data ?? [];
 
@@ -785,6 +794,11 @@ export function EditModal({
             return status === "active" && hasCandidate;
           });
 
+          // Sort alphabetically by candidate name
+          activeCandidates.sort((a: any, b: any) => 
+            (a.candidate?.full_name || "").localeCompare(b.candidate?.full_name || "")
+          );
+
           setMarketingCandidates(activeCandidates);
         } catch (err: any) {
           console.error(
@@ -794,9 +808,9 @@ export function EditModal({
         }
       };
 
-      fetchMarketingCandidates();
+      fetchMarketingCandidatesList();
     }
-  }, [isOpen, isInterviewModal, isAddMode]);
+  }, [isOpen, isInterviewModal, isJobActivityLogModal]);
 
   // Fetch ML batches
   useEffect(() => {
@@ -956,30 +970,22 @@ export function EditModal({
     fetchCourses();
     fetchSubjects();
     fetchEmployees();
-    const fetchCandidatesWithInterviews = async () => {
-      try {
-        const res = await apiFetch("/candidates-with-interviews");
-        // Handle both direct array and object with data property
-        const data = Array.isArray(res) ? res : res?.data || [];
-        setCandidatesWithInterviews(data);
-      } catch (error: any) {
-        console.error(
-          "Failed to fetch candidates with interviews:",
-          error?.response?.data || error.message || error
-        );
-      }
-    };
-
-    if (isJobActivityLogModal) {
+    if (isOpen && isJobActivityLogModal) {
       fetchJobTypes();
-      fetchCandidatesWithInterviews();
     }
-  }, [isCourseMaterialModal, isJobActivityLogModal]);
+  }, [isCourseMaterialModal, isJobActivityLogModal, isOpen]);
 
   const flattenData = (data: Record<string, any>) => {
     const flattened: Record<string, any> = { ...data };
-    if (data.candidate)
+    if (data.candidate) {
       flattened.candidate_full_name = data.candidate.full_name;
+      if (isJobActivityLogModal) {
+        flattened.candidate_name = data.candidate.full_name;
+        flattened.candidate_id = data.candidate.id?.toString();
+      }
+    } else if (isJobActivityLogModal && data.candidate_id) {
+       flattened.candidate_id = data.candidate_id.toString();
+    }
     flattened.instructor1_id =
       data.instructor1?.id || data.instructor1_id || "";
     flattened.instructor1_name =
@@ -1058,8 +1064,17 @@ export function EditModal({
       }
     });
 
-    if (data.job_owner) {
-      flattened.job_owner_id = typeof data.job_owner === 'object' ? data.job_owner.id : data.job_owner;
+    if (data.job_owner_1) {
+      flattened.job_owner_1 = data.job_owner_1.toString();
+    }
+    if (data.job_owner_2) {
+      flattened.job_owner_2 = data.job_owner_2.toString();
+    }
+    if (data.job_owner_3) {
+      flattened.job_owner_3 = data.job_owner_3.toString();
+    }
+    if (data.category) {
+      flattened.category = data.category;
     }
 
     return flattened;
@@ -1099,13 +1114,35 @@ export function EditModal({
       // Use setTimeout to defer reset to next tick, preventing blocking
       setTimeout(() => {
         reset(flattenedData);
+        // Specifically re-sync job owner fields in case they were not yet in the DOM
+        if (isJobTypeModal) {
+          if (data.job_owner_1) setValue("job_owner_1", data.job_owner_1.toString());
+          if (data.job_owner_2) setValue("job_owner_2", data.job_owner_2.toString());
+          if (data.job_owner_3) setValue("job_owner_3", data.job_owner_3.toString());
+        }
       }, 0);
     }
-  }, [data, isOpen]);
+  }, [data, isOpen, reset, isJobTypeModal, setValue]);
+
+  // Special effect to resync job owners when employees list changes (async fetch)
+  useEffect(() => {
+    if (isOpen && isJobTypeModal && data && employees.length > 0) {
+      if (data.job_owner_1) setValue("job_owner_1", data.job_owner_1.toString());
+      if (data.job_owner_2) setValue("job_owner_2", data.job_owner_2.toString());
+      if (data.job_owner_3) setValue("job_owner_3", data.job_owner_3.toString());
+    }
+  }, [employees, isOpen, isJobTypeModal, data, setValue]);
 
 
   // Handle form submission
   const onSubmit = (formData: any) => {
+    if (isJobTypeModal) {
+      const owners = [formData.job_owner_1, formData.job_owner_2, formData.job_owner_3].filter(v => v && v !== "");
+      if (new Set(owners).size !== owners.length) {
+        toast.error("The same person cannot be assigned to multiple owner slots");
+        return;
+      }
+    }
     const reconstructedData = { ...data, ...formData };
 
     // Explicitly preserve ID if it exists in the original data but not in form data
@@ -1121,17 +1158,20 @@ export function EditModal({
       if (selectedJob) {
         reconstructedData.job_id = selectedJob.id;
       }
-      // Remove job_name from payload as backend doesn't accept it
       delete reconstructedData.job_name;
     }
 
-    // Convert candidate_name to candidate_id for Job Activity Log modal
-    if (isJobActivityLogModal && formData.candidate_name) {
-      const selectedCandidate = candidatesWithInterviews.find(
-        (c) => c.full_name === formData.candidate_name
-      );
-      if (selectedCandidate) {
-        reconstructedData.candidate_id = selectedCandidate.id;
+    // Convert candidate_name/id to candidate_id for Job Activity Log modal
+    if (isJobActivityLogModal) {
+      if (formData.candidate_id && !isNaN(parseInt(formData.candidate_id))) {
+        reconstructedData.candidate_id = parseInt(formData.candidate_id);
+      } else if (formData.candidate_name) {
+        const selectedRecord = marketingCandidates.find(
+          (m: any) => (m.candidate?.full_name === formData.candidate_name)
+        );
+        if (selectedRecord) {
+          reconstructedData.candidate_id = selectedRecord.candidate.id;
+        }
       }
       delete reconstructedData.candidate_name;
     }
@@ -1354,7 +1394,7 @@ export function EditModal({
 
     // Job Type specific filtering - only show relevant fields
     if (isJobTypeModal) {
-      const allowedJobTypeFields = ['name', 'unique_id', 'job_owner_id', 'description', 'notes'];
+      const allowedJobTypeFields = ['name', 'unique_id', 'job_owner_1', 'job_owner_2', 'job_owner_3', 'category', 'description', 'notes'];
       if (!allowedJobTypeFields.includes(key)) {
         return;
       }
@@ -1415,6 +1455,15 @@ export function EditModal({
       const candidateNameField = basicInfo.splice(candidateNameIndex, 1)[0];
       basicInfo.unshift(candidateNameField);
     }
+  }
+
+
+  // Job Type specific filtering - skip owner fields in generic loop as they are handled manually
+  if (isJobTypeModal) {
+    const ownerFields = ['job_owner_1', 'job_owner_2', 'job_owner_3', 'category'];
+    Object.keys(sectionedFields).forEach(section => {
+      sectionedFields[section] = sectionedFields[section].filter(item => !ownerFields.includes(item.key));
+    });
   }
 
 
@@ -1534,25 +1583,76 @@ export function EditModal({
                               )}
                             </div>
                           )}
-                        {/* Add Job Owner Dropdown in Basic Information section for Job Type */}
+                        {/* Add Job Owner Dropdowns in Basic Information section for Job Type */}
                         {section === "Basic Information" &&
                           isJobTypeModal && (
-                            <div className="space-y-1 sm:space-y-1.5">
-                              <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                                Job Owner
-                              </label>
-                              <select
-                                {...register("job_owner_id")}
-                                value={currentFormValues.job_owner_id || formData.job_owner_id || ""}
-                                className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                              >
-                                <option value="">Select Job Owner</option>
-                                {employees.map((emp) => (
-                                  <option key={emp.id} value={emp.id}>
-                                    {emp.name}
-                                  </option>
-                                ))}
-                              </select>
+                            <div className="space-y-3">
+                              <div className="space-y-1 sm:space-y-1.5">
+                                <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  Job Owner 1
+                                </label>
+                                <select
+                                  {...register("job_owner_1")}
+                                  className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                >
+                                  <option value="">Select Job Owner</option>
+                                  {employees
+                                    .filter(emp => emp.id.toString() !== watch("job_owner_2") && emp.id.toString() !== watch("job_owner_3"))
+                                    .map((emp) => (
+                                    <option key={emp.id} value={emp.id.toString()}>
+                                      {emp.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="space-y-1 sm:space-y-1.5">
+                                <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  Job Owner 2
+                                </label>
+                                <select
+                                  {...register("job_owner_2")}
+                                  className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                >
+                                  <option value="">Select Job Owner</option>
+                                  {employees
+                                    .filter(emp => emp.id.toString() !== watch("job_owner_1") && emp.id.toString() !== watch("job_owner_3"))
+                                    .map((emp) => (
+                                    <option key={emp.id} value={emp.id.toString()}>
+                                      {emp.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="space-y-1 sm:space-y-1.5">
+                                <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  Job Owner 3
+                                </label>
+                                <select
+                                  {...register("job_owner_3")}
+                                  className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                >
+                                  <option value="">Select Job Owner</option>
+                                  {employees
+                                    .filter(emp => emp.id.toString() !== watch("job_owner_1") && emp.id.toString() !== watch("job_owner_2"))
+                                    .map((emp) => (
+                                    <option key={emp.id} value={emp.id.toString()}>
+                                      {emp.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="space-y-1 sm:space-y-1.5">
+                                <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  Category
+                                </label>
+                                <select
+                                  {...register("category")}
+                                  className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                >
+                                  <option value="manual">Manual</option>
+                                  <option value="automation">Automation</option>
+                                </select>
+                              </div>
                             </div>
                           )}
                         {isCourseMaterialModal &&
@@ -2090,21 +2190,21 @@ export function EditModal({
                                     }
                                     onChange={(e) => {
                                       const selectedId = e.target.value;
-                                      const selectedCandidate = candidatesWithInterviews.find(
-                                        (c) => c.id.toString() === selectedId
+                                      const selectedRecord = marketingCandidates.find(
+                                        (m: any) => m.candidate?.id.toString() === selectedId
                                       );
-                                      setValue("candidate_name", selectedCandidate?.full_name || "");
+                                      setValue("candidate_name", selectedRecord?.candidate?.full_name || "");
                                       setValue("candidate_id", selectedId);
                                     }}
                                     className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
                                     <option value="">Select Candidate</option>
-                                    {candidatesWithInterviews.map((candidate) => (
+                                    {marketingCandidates.map((m: any) => (
                                       <option
-                                        key={candidate.id}
-                                        value={candidate.id.toString()}
+                                        key={m.candidate?.id}
+                                        value={m.candidate?.id.toString()}
                                       >
-                                        {candidate.full_name}
+                                        {m.candidate?.full_name}
                                       </option>
                                     ))}
                                   </select>
@@ -2767,6 +2867,23 @@ export function EditModal({
                                 </div>
                               );
                             }
+                            
+                            if (key.toLowerCase() === "description") {
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5 col-span-full">
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    {toLabel(key)}
+                                  </label>
+                                  <textarea
+                                    {...register(key)}
+                                    defaultValue={formData[key] || ""}
+                                    rows={isJobTypeModal ? 3 : 3}
+                                    className="w-full resize-none rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                  />
+                                </div>
+                              );
+                            }
+
                             return (
                               <div
                                 key={key}

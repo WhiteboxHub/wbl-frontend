@@ -38,11 +38,12 @@ export default function JobTypesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const getEmployeeName = (value) => {
+  const getEmployeeName = (value: any, list?: any[]) => {
+    const empList = list || employees;
     if (!value || value === null || value === "") return "Not Assigned";
     const id = typeof value === "string" ? parseInt(value) : value;
     if (isNaN(id)) return value;
-    const employee = employees.find((emp) => emp.id == id);
+    const employee = empList.find((emp) => emp.id == id);
     return employee ? employee.name : "Not Assigned";
   };
 
@@ -63,11 +64,19 @@ export default function JobTypesPage() {
       const employeesArr = Array.isArray(employeesRes)
         ? employeesRes
         : employeesRes?.data ?? [];
-      const activeEmployees = employeesArr.filter((emp: any) => emp.status === 1);
 
-      setJobTypes(sorted);
-      setFilteredJobTypes(sorted);
-      setEmployees(activeEmployees);
+      setEmployees(employeesArr);
+
+      // Enrich job types with names for display/view mode
+      const enriched = sorted.map((row: any) => ({
+        ...row,
+        job_owner_1_name: getEmployeeName(row.job_owner_1, employeesArr),
+        job_owner_2_name: getEmployeeName(row.job_owner_2, employeesArr),
+        job_owner_3_name: getEmployeeName(row.job_owner_3, employeesArr),
+      }));
+
+      setJobTypes(enriched);
+      setFilteredJobTypes(enriched);
 
       if (showSuccessToast) {
         toast.success("Data refreshed successfully");
@@ -111,23 +120,52 @@ export default function JobTypesPage() {
       cellRenderer: JobNameRenderer,
     },
     {
-      field: "job_owner",
-      headerName: "Job Owner",
+      field: "job_owner_1_name",
+      headerName: "Job Owner 1",
       width: 200,
       editable: false,
+      cellRenderer: (params: any) => {
+        const val = params.value;
+        if (val && val !== "Not Assigned") return val;
+        return getEmployeeName(params.data.job_owner_1);
+      },
+    },
+    {
+      field: "job_owner_2_name",
+      headerName: "Job Owner 2",
+      width: 200,
+      editable: false,
+      cellRenderer: (params: any) => {
+        const val = params.value;
+        if (val && val !== "Not Assigned") return val;
+        return getEmployeeName(params.data.job_owner_2);
+      },
+    },
+    {
+      field: "job_owner_3_name",
+      headerName: "Job Owner 3",
+      width: 200,
+      editable: false,
+      cellRenderer: (params: any) => {
+        const val = params.value;
+        if (val && val !== "Not Assigned") return val;
+        return getEmployeeName(params.data.job_owner_3);
+      },
+    },
+    {
+      field: "category",
+      headerName: "Category",
+      width: 150,
+      editable: false,
       cellRenderer: (params) => {
-        if (params.data.job_owner_name) {
-          return params.data.job_owner_name;
-        } else if (params.data.job_owner) {
-          return getEmployeeName(params.data.job_owner);
-        }
-        return "Not Assigned";
+        const val = params.value || "manual";
+        return val.charAt(0).toUpperCase() + val.slice(1);
       },
     },
     {
       field: "unique_id",
       headerName: "Unique ID",
-      width: 250,
+      width: 300,
       editable: true,
     },
     {
@@ -167,10 +205,16 @@ export default function JobTypesPage() {
       const idMatch = row.id?.toString().includes(lower);
       const codeMatch = row.unique_id?.toLowerCase().includes(lower);
       const nameMatch = row.name?.toLowerCase().includes(lower);
-      const ownerName = row.job_owner_name || getEmployeeName(row.job_owner);
-      const ownerMatch = ownerName.toLowerCase().includes(lower);
+      const owner1Name = row.job_owner_1_name || getEmployeeName(row.job_owner_1);
+      const owner2Name = row.job_owner_2_name || getEmployeeName(row.job_owner_2);
+      const owner3Name = row.job_owner_3_name || getEmployeeName(row.job_owner_3);
+      const ownerMatch = 
+        owner1Name.toLowerCase().includes(lower) ||
+        owner2Name.toLowerCase().includes(lower) ||
+        owner3Name.toLowerCase().includes(lower);
       const descMatch = row.description?.toLowerCase().includes(lower);
       const notesMatch = row.notes?.toLowerCase().includes(lower);
+      const categoryMatch = row.category?.toLowerCase().includes(lower);
 
       return (
         idMatch ||
@@ -178,7 +222,8 @@ export default function JobTypesPage() {
         nameMatch ||
         ownerMatch ||
         descMatch ||
-        notesMatch
+        notesMatch ||
+        categoryMatch
       );
     });
 
@@ -231,7 +276,10 @@ export default function JobTypesPage() {
       const payload = {
         unique_id: data.unique_id?.trim() || "",
         name: data.name?.trim() || "",
-        job_owner_id: jobOwnerId,
+        job_owner_1: (data.job_owner_1 && data.job_owner_1 !== "") ? parseInt(data.job_owner_1) : null,
+        job_owner_2: (data.job_owner_2 && data.job_owner_2 !== "") ? parseInt(data.job_owner_2) : null,
+        job_owner_3: (data.job_owner_3 && data.job_owner_3 !== "") ? parseInt(data.job_owner_3) : null,
+        category: data.category || "manual",
         description: data.description?.trim() || "",
         notes: data.notes?.trim() || "",
       };
@@ -243,10 +291,6 @@ export default function JobTypesPage() {
       }
       if (!payload.unique_id) {
         toast.error("Unique ID is required");
-        return;
-      }
-      if (payload.job_owner_id === null) {
-        toast.error("Job Owner is required");
         return;
       }
 
@@ -276,7 +320,10 @@ export default function JobTypesPage() {
     return {
       name: "",
       unique_id: "",
-      job_owner_id: null,
+      job_owner_1: null,
+      job_owner_2: null,
+      job_owner_3: null,
+      category: "manual",
       description: "",
       notes: "",
     };

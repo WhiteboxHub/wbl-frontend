@@ -33,6 +33,6 @@ coverage/
 .idea/
 *.swp
 *.swo
-
+.env
 # npm debug log
 npm-debug.log*

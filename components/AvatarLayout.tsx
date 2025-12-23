@@ -128,7 +128,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
           href: "/avatar/job-activity/job-types",
         },
         {
-          title: "Activity Log",
+          title: "Logs",
           href: "/avatar/job-activity/job-activity-log",
         },
       ],
