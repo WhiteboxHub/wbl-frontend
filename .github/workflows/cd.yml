@@ -1,4 +1,3 @@
-# wbl-frontend/.github/workflows/cd.yml
 name: CD - Production Deploy
 
 on:
@@ -23,7 +22,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Auth to GCP
+    - name: Authenticate to GCP
       uses: google-github-actions/auth@v2
       with:
         credentials_json: ${{ secrets.GCP_SA_KEY }}
@@ -33,7 +32,7 @@ jobs:
       with:
         project_id: ${{ env.PROJECT_ID }}
 
-    - name: Configure Docker
+    - name: Configure Docker for Artifact Registry
       run: gcloud auth configure-docker $REGION-docker.pkg.dev --quiet
 
     - name: Get GKE credentials
@@ -42,7 +41,7 @@ jobs:
         cluster_name: ${{ env.GKE_CLUSTER }}
         location: ${{ env.GKE_REGION }}
 
-    - name: Build & Push Image
+    - name: Build & Push Docker Image
       run: |
         IMAGE_URI=$REGION-docker.pkg.dev/$PROJECT_ID/$REPO/$IMAGE_NAME:$GITHUB_SHA
 

@@ -4,6 +4,19 @@ FROM node:18-alpine
 # Set the working directory inside the container
 WORKDIR /app
 
+# -------- BUILD-TIME ARGS (Frontend public vars) --------
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY
+ARG NEXT_PUBLIC_GOOGLE_CALENDAR_ID
+ARG NEXTAUTH_URL
+
+# -------- Make them available during build --------
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY=$NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY
+ENV NEXT_PUBLIC_GOOGLE_CALENDAR_ID=$NEXT_PUBLIC_GOOGLE_CALENDAR_ID
+ENV NEXTAUTH_URL=$NEXTAUTH_URL
+
+
 # Copy package.json and package-lock.json to the working directory
 COPY package.json package-lock.json ./
 
@@ -24,3 +37,4 @@ EXPOSE 3000
 
 # Start the Next.js application
 CMD ["npm", "run", "start"]
+
