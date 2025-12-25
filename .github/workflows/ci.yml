@@ -15,7 +15,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Set up Node.js
+    - name: Setup Node
       uses: actions/setup-node@v4
       with:
         node-version: '20'
@@ -24,21 +24,14 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
-    # Needed if build/lint relies on env vars
-    - name: Create .env file
-      run: |
-        if [ -n "${{ secrets.ENV_FILE }}" ]; then
-          echo "${{ secrets.ENV_FILE }}" > .env
-        else
-          touch .env
-        fi
-
-    - name: Lint (non-blocking)
-      run: npm run lint || true
-
     - name: Build Next.js App
+      env:
+        NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+        RESUME_PUBLIC_API_URL: ${{ secrets.RESUME_PUBLIC_API_URL }}
+        NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY }}
+        NEXT_PUBLIC_GOOGLE_CALENDAR_ID: ${{ secrets.NEXT_PUBLIC_GOOGLE_CALENDAR_ID }}
+        NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
       run: npm run build
 
-    # Optional: Docker build check (NO PUSH)
     - name: Docker build check
       run: docker build -t wbl-frontend:ci .
