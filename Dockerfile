@@ -54,7 +54,7 @@ RUN npm install
 COPY . .
 
 # Build Next.js (envs are now available)
-RUN npm run build
+RUN npm run build || { echo 'Build failed'; exit 1; }
 
 # Expose Next.js port
 EXPOSE 3000
