@@ -119,6 +119,7 @@ export function AGGridTable({
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
   const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Detect dark mode
   useEffect(() => {
@@ -144,26 +145,43 @@ export function AGGridTable({
         } catch (e) {
           console.error("Failed to parse hidden columns", e);
         }
+      } else {
+        const defaultHidden = initialColumnDefs
+          .filter((col) => col.hide && col.field)
+          .map((col) => col.field as string);
+        if (defaultHidden.length > 0) {
+          setHiddenColumns(defaultHidden);
+        }
       }
+      setIsInitialized(true);
     }
-  }, [title]);
+  }, [title, initialColumnDefs]);
 
   // Save column visibility
   useEffect(() => {
-    if (title) {
+    if (title && isInitialized) {
       localStorage.setItem(
         `hiddenColumns-${title}`,
         JSON.stringify(hiddenColumns)
       );
     }
-  }, [hiddenColumns, title]);
+  }, [hiddenColumns, title, isInitialized]);
 
   const visibleColumnDefs = useMemo(() => {
-    return initialColumnDefs.filter((col) => {
-      if (!col.field) return true;
-      return !hiddenColumns.includes(col.field);
-    });
-  }, [initialColumnDefs, hiddenColumns]);
+    return initialColumnDefs
+      .filter((col) => {
+        if (!col.field) return true;
+
+        // If we haven't loaded from localStorage yet, use the default hide property
+        if (!isInitialized && col.hide) return false;
+
+        return !hiddenColumns.includes(col.field);
+      })
+      .map((col) => ({
+        ...col,
+        hide: false, // Ensure grid shows columns that are not in hiddenColumns
+      }));
+  }, [initialColumnDefs, hiddenColumns, isInitialized]);
 
   const onGridReady = useCallback((params: GridReadyEvent) => {
     gridApiRef.current = params.api;
@@ -305,8 +323,11 @@ export function AGGridTable({
   );
 
   const resetColumns = useCallback(() => {
-    setHiddenColumns([]);
-  }, []);
+    const defaultHidden = initialColumnDefs
+      .filter((col) => col.hide && col.field)
+      .map((col) => col.field as string);
+    setHiddenColumns(defaultHidden);
+  }, [initialColumnDefs]);
 
   const paginationNumberFormatter = useCallback((params: any) => {
     return `${params.value.toLocaleString()}`;

@@ -2,18 +2,17 @@
 import { useEffect, useState, useMemo, useRef, forwardRef, useImperativeHandle, useCallback } from "react";
 import { Toaster, toast } from "sonner";
 import { ColDef } from "ag-grid-community";
-import { Plus, SearchIcon } from "lucide-react";
+import { SearchIcon } from "lucide-react";
 import AGGridTable from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import "react-quill/dist/quill.snow.css";
 import api from "@/lib/api";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
-import { useForm, Controller } from "react-hook-form";
+import { EditModal } from "@/components/EditModal";
 
 interface EmployeeTask {
   id: number;
@@ -132,25 +131,6 @@ const FilterHeaderComponent = ({
   );
 };
 
-function RichTextEditor({
-  value,
-  onChange,
-  height = "120px",
-}: {
-  value: string;
-  onChange: (val: string) => void;
-  height?: string;
-}) {
-  return (
-    <ReactQuill
-      theme="snow"
-      value={value}
-      onChange={onChange}
-      style={{ height }}
-    />
-  );
-}
-
 const RichTextCellEditor = forwardRef((props: any, ref) => {
   const [value, setValue] = useState(props.value || "");
 
@@ -223,283 +203,6 @@ const PriorityRenderer = (params: any) => {
   );
 };
 
-interface TaskFormData {
-  employee_name: string;
-  task: string;
-  assigned_date: Date | null;
-  due_date: Date | null;
-  status: string;
-  priority: string;
-  notes: string;
-}
-
-interface TaskModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onTaskAdded: (task: EmployeeTask) => void;
-}
-
-function TaskModal({ isOpen, onClose, onTaskAdded }: TaskModalProps) {
-  const {
-    register,
-    handleSubmit,
-    control,
-    reset,
-    formState: { errors, isSubmitting },
-  } = useForm<TaskFormData>({
-    defaultValues: {
-      employee_name: "",
-      task: "",
-      assigned_date: new Date(),
-      due_date: null,
-      status: "pending",
-      priority: "medium",
-      notes: "",
-    },
-  });
-
-  const [employees, setEmployees] = useState<{ id: number; name: string }[]>([]);
-
-  useEffect(() => {
-    if (isOpen) {
-      const fetchEmployees = async () => {
-        try {
-          const res = await api.get("/employees");
-          const data = res?.data ?? res;
-          const activeEmployees = (Array.isArray(data) ? data : []).filter((emp: any) => emp.status === 1);
-          setEmployees(activeEmployees);
-        } catch (error) {
-          console.error("Failed to load employees", error);
-          toast.error("Failed to load employees");
-        }
-      };
-      fetchEmployees();
-    }
-  }, [isOpen]);
-
-  const onSubmit = async (data: TaskFormData) => {
-    try {
-      const payload = {
-        employee_name: data.employee_name.trim(),
-        task: data.task.trim(),
-        assigned_date: data.assigned_date
-          ? data.assigned_date.toISOString().split("T")[0]
-          : new Date().toISOString().split("T")[0],
-        due_date: data.due_date ? data.due_date.toISOString().split("T")[0] : null,
-        status: data.status.toLowerCase(),
-        priority: data.priority.toLowerCase(),
-        notes: data.notes || "",
-      };
-
-      console.log("Creating task with payload:", payload);
-
-      const res = await api.post(`/employee-tasks`, payload);
-      onTaskAdded(res.data);
-      toast.success("Task created successfully");
-      reset();
-      onClose();
-    } catch (err: any) {
-      console.error("Error creating task:", err);
-      const errorMessage = err.response?.data?.detail
-        ? Array.isArray(err.response.data.detail)
-          ? err.response.data.detail.map((d: any) => d.msg).join(", ")
-          : String(err.response.data.detail)
-        : err.response?.data?.message || "Failed to create task";
-      toast.error(errorMessage);
-    }
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <div className="w-[90%] h-[90%] max-w-4xl bg-white rounded-lg shadow-xl overflow-auto">
-        <div className="p-5">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-gray-800">Add New Task</h2>
-            <button
-              onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 text-lg font-bold transition-colors"
-            >
-              ✕
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
-
-            {/* Row 1: Employee, Status, Priority */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Employee Name 
-                </label>
-                <select
-                  {...register("employee_name", { required: "Employee Name is required" })}
-                  className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                  defaultValue=""
-                >
-                  <option value="" disabled>Select an employee</option>
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.name}>
-                      {emp.name}
-                    </option>
-                  ))}
-                </select>
-                {errors.employee_name && (
-                  <p className="text-red-500 text-xs mt-1">{errors.employee_name.message}</p>
-                )}
-              </div>
-
-              <div className="md:col-span-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Status
-                </label>
-                <select
-                  {...register("status")}
-                  className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="pending">Pending</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="completed">Completed</option>
-                  <option value="blocked">Blocked</option>
-                </select>
-              </div>
-
-              <div className="md:col-span-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Priority
-                </label>
-                <select
-                  {...register("priority")}
-                  className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="urgent">Urgent</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Row 2: Dates */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Assigned Date 
-                </label>
-                <div className="relative">
-                  <Controller
-                    name="assigned_date"
-                    control={control}
-                    rules={{ required: "Assigned date is required" }}
-                    render={({ field }) => (
-                      <DatePicker
-                        selected={field.value}
-                        onChange={(date: Date | null) => field.onChange(date)}
-                        dateFormat="yyyy-MM-dd"
-                        className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholderText="Select assigned date"
-                      />
-                    )}
-                  />
-                  {errors.assigned_date && (
-                    <p className="text-red-500 text-xs mt-1">{errors.assigned_date.message}</p>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Due Date 
-                </label>
-                <div className="relative">
-                  <Controller
-                    name="due_date"
-                    control={control}
-                    rules={{ required: "Due date is required" }}
-                    render={({ field }) => (
-                      <DatePicker
-                        selected={field.value}
-                        onChange={(date: Date | null) => field.onChange(date)}
-                        dateFormat="yyyy-MM-dd"
-                        className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholderText="Select due date"
-                      />
-                    )}
-                  />
-                  {errors.due_date && (
-                    <p className="text-red-500 text-xs mt-1">{errors.due_date.message}</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Row 3: Task Description and Notes */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="h-full flex flex-col">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Task Description 
-                </label>
-                <div className="flex-1">
-                  <Controller
-                    name="task"
-                    control={control}
-                    rules={{ required: "Task description is required" }}
-                    render={({ field }) => (
-                      <RichTextEditor
-                        value={field.value}
-                        onChange={field.onChange}
-                        height="150px"
-                      />
-                    )}
-                  />
-                  {errors.task && (
-                    <p className="text-red-500 text-xs mt-1">{errors.task.message}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="h-full flex flex-col">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Additional Notes
-                </label>
-                <div className="flex-1">
-                  <Controller
-                    name="notes"
-                    control={control}
-                    render={({ field }) => (
-                      <RichTextEditor
-                        value={field.value}
-                        onChange={field.onChange}
-                        height="150px"
-                      />
-                    )}
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-gray-200">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 transition-colors"
-              >
-                {isSubmitting ? "Saving..." : "Save Task"}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function EmployeeTasksPage() {
   const [tasks, setTasks] = useState<EmployeeTask[]>([]);
@@ -654,7 +357,7 @@ export default function EmployeeTasksPage() {
       field: "task",
       flex: 2,
       editable: true,
-      cellEditor: RichTextCellEditor,
+      cellEditor: false,
       autoHeight: true,
       cellRenderer: (params: any) => (
         <div
@@ -668,7 +371,8 @@ export default function EmployeeTasksPage() {
       field: "notes",
       flex: 1,
       editable: true,
-      cellEditor: RichTextCellEditor,
+      hide: true,
+      cellEditor: false,
       autoHeight: true,
       cellRenderer: (params: any) => (
         <div
@@ -763,11 +467,58 @@ export default function EmployeeTasksPage() {
         </div>
       </div>
 
-      <TaskModal
+
+      <EditModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onTaskAdded={handleTaskAdded}
+        data={{
+          employee_name: "",
+          task: "",
+          assigned_date: new Date().toISOString().split("T")[0],
+          due_date: "",
+          status: "pending",
+          priority: "medium",
+          notes: "",
+        }}
+        title="Employee Task"
+        onSave={async (taskData) => {
+          try {
+            const payload = {
+              employee_name: taskData.employee_name?.trim(),
+              task: taskData.task?.trim(),
+              assigned_date: taskData.assigned_date,
+              due_date: taskData.due_date || null,
+              status: taskData.status?.toLowerCase() || "pending",
+              priority: taskData.priority?.toLowerCase() || "medium",
+              notes: taskData.notes || "",
+            };
+
+            console.log("Creating task with payload:", payload);
+
+            const res = await api.post(`/employee-tasks`, payload);
+            const newTask = {
+              ...res.data,
+              status: res.data.status?.toLowerCase(),
+              priority: res.data.priority?.toLowerCase(),
+            };
+
+            handleTaskAdded(newTask);
+            toast.success("Task created successfully");
+            setIsModalOpen(false);
+          } catch (err: any) {
+            console.error("Error creating task:", err);
+            const errorMessage = err.response?.data?.detail
+              ? Array.isArray(err.response.data.detail)
+                ? err.response.data.detail.map((d: any) => d.msg).join(", ")
+                : String(err.response.data.detail)
+              : err.response?.data?.message || "Failed to create task";
+            toast.error(errorMessage);
+          }
+        }}
+        batches={[]}
+        isAddMode={true}
       />
+
 
       {loading ? (
         <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-8">
@@ -781,7 +532,7 @@ export default function EmployeeTasksPage() {
             <AGGridTable
               rowData={filteredTasks}
               columnDefs={columnDefs}
-              title={`Employee Tasks (${filteredTasks.length})`}
+              title="Employee Tasks Tracker"
               height="500px"
               showSearch={false}
               onAddClick={() => setIsModalOpen(true)}
