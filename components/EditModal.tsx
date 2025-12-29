@@ -237,6 +237,19 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "manual", label: "Manual" },
     { value: "automation", label: "Automation" },
   ],
+  match_type: [
+    { value: "exact", label: "Exact" },
+    { value: "contains", label: "Contains" },
+    { value: "regex", label: "Regex" },
+  ],
+  action: [
+    { value: "allow", label: "Allow" },
+    { value: "block", label: "Block" },
+  ],
+  is_active: [
+    { value: "true", label: "Active" },
+    { value: "false", label: "Inactive" },
+  ],
 };
 
 // Vendor type options
@@ -271,7 +284,7 @@ const requiredFieldsConfig: Record<string, string[]> = {
     "Type of Interview",
   ],
   authuser: ["Phone", "Email", "Full Name", "Registered Date", "Passwd"],
-  employee: ["Full Name","Email", "Phone", "Date of Birth", "Aadhaar"],
+  employee: ["Full Name", "Email", "Phone", "Date of Birth", "Aadhaar"],
   placement: ["Placement ID", 'Deposit Date'],
 };
 
@@ -372,6 +385,8 @@ const excludedFields = [
   "job_owner_id",
   "job_owner_name",
   "lastmod_date",
+  "created_at",
+  "updated_at",
 
 ];
 
@@ -547,6 +562,12 @@ const fieldSections: Record<string, string> = {
   job_owner: "Basic Information",
   assigned_date: "Basic Information",
   category: "Professional Information",
+  keywords: "Basic Information",
+  match_type: "Basic Information",
+  action: "Basic Information",
+  context: "Basic Information",
+  created_at: "Professional Information",
+  updated_at: "Professional Information",
 };
 
 // Override field labels for better readability
@@ -670,6 +691,13 @@ const labelOverrides: Record<string, string> = {
   job_owner_2: "Job Owner 2",
   job_owner_3: "Job Owner 3",
   category: "Category",
+  keywords: "Keywords",
+  match_type: "Match Type",
+  action: "Action",
+  context: "Context",
+  is_active: "Is Active",
+  created_at: "Created At",
+  updated_at: "Updated At",
 };
 
 const dateFields = [
@@ -764,7 +792,7 @@ export function EditModal({
     .toLowerCase()
     .includes("job activity log");
   const isJobTypeModal = title.toLowerCase().includes("job type");
-
+  const isAutomationKeywordModal = title.toLowerCase().includes("automation keyword");
 
   // Field visibility for current modal
   const showInstructorFields =
@@ -795,7 +823,7 @@ export function EditModal({
           });
 
           // Sort alphabetically by candidate name
-          activeCandidates.sort((a: any, b: any) => 
+          activeCandidates.sort((a: any, b: any) =>
             (a.candidate?.full_name || "").localeCompare(b.candidate?.full_name || "")
           );
 
@@ -984,7 +1012,7 @@ export function EditModal({
         flattened.candidate_id = data.candidate.id?.toString();
       }
     } else if (isJobActivityLogModal && data.candidate_id) {
-       flattened.candidate_id = data.candidate_id.toString();
+      flattened.candidate_id = data.candidate_id.toString();
     }
     flattened.instructor1_id =
       data.instructor1?.id || data.instructor1_id || "";
@@ -1341,6 +1369,11 @@ export function EditModal({
       if (keyLower === "workstatus") return enumOptions.workstatus;
     }
 
+    // For automation keywords, category and priority are text/number fields, not enums
+    if (isAutomationKeywordModal) {
+      if (keyLower === "category" || keyLower === "priority") return undefined;
+    }
+
     if (keyLower === "priority") return undefined;
     return enumOptions[keyLower];
   };
@@ -1599,10 +1632,10 @@ export function EditModal({
                                   {employees
                                     .filter(emp => emp.id.toString() !== watch("job_owner_2") && emp.id.toString() !== watch("job_owner_3"))
                                     .map((emp) => (
-                                    <option key={emp.id} value={emp.id.toString()}>
-                                      {emp.name}
-                                    </option>
-                                  ))}
+                                      <option key={emp.id} value={emp.id.toString()}>
+                                        {emp.name}
+                                      </option>
+                                    ))}
                                 </select>
                               </div>
                               <div className="space-y-1 sm:space-y-1.5">
@@ -1617,10 +1650,10 @@ export function EditModal({
                                   {employees
                                     .filter(emp => emp.id.toString() !== watch("job_owner_1") && emp.id.toString() !== watch("job_owner_3"))
                                     .map((emp) => (
-                                    <option key={emp.id} value={emp.id.toString()}>
-                                      {emp.name}
-                                    </option>
-                                  ))}
+                                      <option key={emp.id} value={emp.id.toString()}>
+                                        {emp.name}
+                                      </option>
+                                    ))}
                                 </select>
                               </div>
                               <div className="space-y-1 sm:space-y-1.5">
@@ -1635,10 +1668,10 @@ export function EditModal({
                                   {employees
                                     .filter(emp => emp.id.toString() !== watch("job_owner_1") && emp.id.toString() !== watch("job_owner_2"))
                                     .map((emp) => (
-                                    <option key={emp.id} value={emp.id.toString()}>
-                                      {emp.name}
-                                    </option>
-                                  ))}
+                                      <option key={emp.id} value={emp.id.toString()}>
+                                        {emp.name}
+                                      </option>
+                                    ))}
                                 </select>
                               </div>
                               <div className="space-y-1 sm:space-y-1.5">
@@ -2794,7 +2827,8 @@ export function EditModal({
                                 </div>
                               );
                             }
-                            if (enumOptions[key.toLowerCase()]) {
+                            const fieldEnumOpts = getEnumOptions(key);
+                            if (fieldEnumOpts) {
                               const currentValue =
                                 currentFormValues[key] || formData[key] || "";
                               return (
@@ -2817,7 +2851,7 @@ export function EditModal({
                                     value={currentValue}
                                     className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
-                                    {enumOptions[key.toLowerCase()].map(
+                                    {fieldEnumOpts.map(
                                       (opt) => (
                                         <option
                                           key={opt.value}
@@ -2867,7 +2901,7 @@ export function EditModal({
                                 </div>
                               );
                             }
-                            
+
                             if (key.toLowerCase() === "description") {
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5 col-span-full">
