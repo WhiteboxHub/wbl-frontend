@@ -1,7 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/admin_ui/input";
-import { Label } from "@/components/admin_ui/label";
 import { Badge } from "@/components/admin_ui/badge";
 import {
   SearchIcon,
@@ -49,6 +48,25 @@ type SessionClassData = {
   timeline: TeachingItem[];
 };
 
+type Jobs = {
+  count: number;
+  names: string[];
+};
+
+type Task = {
+  id: number;
+  task: string;
+  status: string;
+  priority: string;
+  due_date?: string;
+  assigned_date?: string;
+};
+
+type Placements = {
+  count: number;
+  names: string[];
+};
+
 // ---------------------- SMALL COMPONENTS ----------------------
 const StatusRenderer = ({ status }: { status: number }) => {
   const statusMap: Record<number, { label: string; class: string }> = {
@@ -69,9 +87,15 @@ export default function EmployeeSearchPage() {
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [candidates, setCandidates] = useState<Candidates | null>(null);
   const [sessionClassData, setSessionClassData] = useState<SessionClassData | null>(null);
+  const [employeeJobs, setEmployeeJobs] = useState<Jobs | null>(null);
+  const [employeeTasks, setEmployeeTasks] = useState<Task[]>([]);
+  const [employeePlacements, setEmployeePlacements] = useState<Placements | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
   const [loadingSessions, setLoadingSessions] = useState(false);
+  const [loadingJobs, setLoadingJobs] = useState(false);
+  const [loadingTasks, setLoadingTasks] = useState(false);
+  const [loadingPlacements, setLoadingPlacements] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -96,7 +120,7 @@ export default function EmployeeSearchPage() {
         setFilteredEmployees(Array.isArray(data) ? data : data?.data || []);
         setShowSuggestions(true);
       } catch (error) {
-        console.error("❌ Employee search failed:", error);
+        console.error(" Employee search failed:", error);
         setFilteredEmployees([]);
       } finally {
         setLoading(false);
@@ -115,7 +139,7 @@ export default function EmployeeSearchPage() {
         const data = await apiFetch(`/employees/${selectedEmployee.id}/candidates`);
         setCandidates(data);
       } catch (error) {
-        console.error("❌ Candidate fetch failed:", error);
+        console.error(" Candidate fetch failed:", error);
         setCandidates(null);
       } finally {
         setLoadingCandidates(false);
@@ -144,6 +168,42 @@ export default function EmployeeSearchPage() {
       }
     };
     fetchSessions();
+  }, [selectedEmployee?.id]);
+
+
+  useEffect(() => {
+    if (!selectedEmployee) return;
+
+    const fetchJobs = async () => {
+      setLoadingJobs(true);
+      try {
+        const data = await apiFetch(`/employees/${selectedEmployee.id}/jobs`);
+        setEmployeeJobs(data);
+      } catch (err) { console.error("Jobs fetch failed", err); }
+      finally { setLoadingJobs(false); }
+    };
+
+    const fetchTasks = async () => {
+      setLoadingTasks(true);
+      try {
+        const data = await apiFetch(`/employees/${selectedEmployee.id}/tasks`);
+        setEmployeeTasks(data);
+      } catch (err) { console.error("Tasks fetch failed", err); }
+      finally { setLoadingTasks(false); }
+    };
+
+    const fetchPlacements = async () => {
+      setLoadingPlacements(true);
+      try {
+        const data = await apiFetch(`/employees/${selectedEmployee.id}/placements`);
+        setEmployeePlacements(data);
+      } catch (err) { console.error("Placements fetch failed", err); }
+      finally { setLoadingPlacements(false); }
+    };
+
+    fetchJobs();
+    fetchTasks();
+    fetchPlacements();
   }, [selectedEmployee?.id]);
 
   // ---------------------- SELECT EMPLOYEE ----------------------
@@ -218,6 +278,33 @@ export default function EmployeeSearchPage() {
     </div>
   );
 
+
+  const renderTasksSection = (tasks: Task[]) => (
+    <div className="bg-white dark:bg-black-800 rounded-lg border border-black-200 dark:border-black-700 p-6 shadow-sm">
+      <div className="flex items-center gap-3 mb-4 pb-2 border-b border-black-200 dark:border-black-700">
+        <Activity className="h-5 w-5 text-purple-600" />
+        <h4 className="font-semibold text-lg text-black-900 dark:text-black-100">Assigned Tasks</h4>
+        <Badge variant="secondary">{tasks.length}</Badge>
+      </div>
+      <div className="space-y-3">
+        {tasks.length > 0 ? tasks.map(t => (
+          <div key={t.id} className="p-3 border border-black-100 dark:border-black-700 rounded-md">
+            <div className="flex justify-between items-start">
+              <span className="font-bold text-black-900 dark:text-black-100">{t.task}</span>
+              <Badge className={t.status === "completed" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}>
+                {t.status}
+              </Badge>
+            </div>
+            <div className="flex gap-4 mt-2 text-xs text-black-500">
+              <span>Priority: <span className="font-semibold uppercase">{t.priority}</span></span>
+              <span>Due: {DateFormatter(t.due_date)}</span>
+            </div>
+          </div>
+        )) : <p className="text-sm text-black-500 text-center py-4">No tasks found</p>}
+      </div>
+    </div>
+  );
+
   const renderTeachingTimeline = (timeline: TeachingItem[]) => (
     <div className="bg-white dark:bg-black-800 rounded-lg border border-black-200 dark:border-black-700 p-6 shadow-sm">
       <div className="flex items-center gap-3 mb-4 pb-2 border-b border-black-200 dark:border-black-700">
@@ -236,11 +323,10 @@ export default function EmployeeSearchPage() {
               className="flex items-start gap-4 p-4 border border-black-200 dark:border-black-700 rounded-lg"
             >
               <div
-                className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                  item.type === "class"
-                    ? "bg-blue-100 text-blue-800"
-                    : "bg-purple-100 text-purple-800"
-                }`}
+                className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${item.type === "class"
+                  ? "bg-blue-100 text-blue-800"
+                  : "bg-purple-100 text-purple-800"
+                  }`}
               >
                 {item.type === "class" ? "C" : "S"}
               </div>
@@ -348,7 +434,7 @@ export default function EmployeeSearchPage() {
                 aadhaar: selectedEmployee.aadhaar,
                 instructor: selectedEmployee.instructor,
                 notes: selectedEmployee.notes,
-                address: selectedEmployee.address ,
+                address: selectedEmployee.address,
               })}
             </AccordionSection>
 
@@ -380,6 +466,62 @@ export default function EmployeeSearchPage() {
               ) : (
                 <p className="text-black-500 dark:text-black-400 text-center py-8">
                   No candidate data available
+                </p>
+              )}
+            </AccordionSection>
+
+            {/* Placements */}
+            <AccordionSection
+              title="Placements Made"
+              icon={<Users className="h-5 w-5 text-black-600 dark:text-black-400" />}
+              isOpen={openSections.placements}
+              onToggle={() => toggleSection("placements")}
+            >
+              {loadingPlacements ? (
+                <Loader text="Loading placements..." />
+              ) : employeePlacements ? (
+                renderCandidateSection(
+                  "Placed Candidates",
+                  employeePlacements.count,
+                  employeePlacements.names,
+                  "bg-emerald-50 dark:bg-emerald-900/20"
+                )
+              ) : (
+                <p className="text-black-500 dark:text-black-400 text-center py-8">
+                  No placement data available
+                </p>
+              )}
+            </AccordionSection>
+
+            {/* Tasks */}
+            <AccordionSection
+              title="Assigned Tasks"
+              icon={<Activity className="h-5 w-5 text-black-600 dark:text-black-400" />}
+              isOpen={openSections.tasks}
+              onToggle={() => toggleSection("tasks")}
+            >
+              {loadingTasks ? <Loader text="Loading tasks..." /> : renderTasksSection(employeeTasks)}
+            </AccordionSection>
+
+            {/* Jobs */}
+            <AccordionSection
+              title="Owned Jobs"
+              icon={<Briefcase className="h-5 w-5 text-black-600 dark:text-black-400" />}
+              isOpen={openSections.jobs}
+              onToggle={() => toggleSection("jobs")}
+            >
+              {loadingJobs ? (
+                <Loader text="Loading jobs..." />
+              ) : employeeJobs ? (
+                renderCandidateSection(
+                  "Job Assignments",
+                  employeeJobs.count,
+                  employeeJobs.names,
+                  "bg-blue-50 dark:bg-blue-900/20"
+                )
+              ) : (
+                <p className="text-black-500 dark:text-black-400 text-center py-8">
+                  No jobs assigned
                 </p>
               )}
             </AccordionSection>

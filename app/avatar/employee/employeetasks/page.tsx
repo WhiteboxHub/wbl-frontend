@@ -263,6 +263,10 @@ export default function EmployeeTasksPage() {
       filtered = filtered.filter(task =>
         task.status && lowerSelectedStatuses.includes(task.status.toLowerCase())
       );
+    } else {
+      filtered = filtered.filter(task =>
+        task.status && task.status.toLowerCase() !== "completed"
+      );
     }
 
     if (selectedPriorities.length > 0) {
