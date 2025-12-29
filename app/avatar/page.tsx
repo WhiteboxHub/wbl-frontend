@@ -791,7 +791,7 @@ export default function Index() {
               <CardHeader className="p-3 pb-1 border-b border-green-200">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Top 5 Batches by Fee Collection
+                    Latest 5 batch's fee collection
                   </CardTitle>
                   <TrendingUp className="size-4 text-emerald-600" />
                 </div>
