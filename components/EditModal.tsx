@@ -212,7 +212,7 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "no", label: "No" },
     { value: "yes", label: "Yes" },
   ],
-  
+
   no_of_installments: [
     { value: "", label: "Select Installments" },
     { value: "1", label: "1" },
@@ -562,10 +562,10 @@ const fieldSections: Record<string, string> = {
   job_owner: "Basic Information",
   assigned_date: "Basic Information",
   category: "Professional Information",
-  keywords: "Basic Information",
+  keywords: "Professional Information",
   match_type: "Basic Information",
   action: "Basic Information",
-  context: "Basic Information",
+  context: "Professional Information",
   created_at: "Professional Information",
   updated_at: "Professional Information",
 };
@@ -2827,6 +2827,36 @@ export function EditModal({
                                 </div>
                               );
                             }
+
+                            if (isAutomationKeywordModal && (key.toLowerCase() === "keywords" || key.toLowerCase() === "context")) {
+                              const handleTextareaRef = (element: HTMLTextAreaElement | null) => {
+                                if (element) {
+                                  element.style.height = 'auto';
+                                  element.style.height = element.scrollHeight + 'px';
+                                }
+                              };
+
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5 col-span-full">
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    {toLabel(key)}
+                                  </label>
+                                  <textarea
+                                    ref={handleTextareaRef}
+                                    {...register(key)}
+                                    defaultValue={formData[key] || ""}
+                                    onInput={(e) => {
+                                      const target = e.target as HTMLTextAreaElement;
+                                      target.style.height = 'auto';
+                                      target.style.height = target.scrollHeight + 'px';
+                                    }}
+                                    style={{ minHeight: key.toLowerCase() === "context" ? '60px' : '48px' }}
+                                    className="w-full resize rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                  />
+                                </div>
+                              );
+                            }
+
                             const fieldEnumOpts = getEnumOptions(key);
                             if (fieldEnumOpts) {
                               const currentValue =
@@ -2913,6 +2943,35 @@ export function EditModal({
                                     defaultValue={formData[key] || ""}
                                     rows={isJobTypeModal ? 3 : 3}
                                     className="w-full resize-none rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                  />
+                                </div>
+                              );
+                            }
+
+                            if (isAutomationKeywordModal && (key.toLowerCase() === "keywords" || key.toLowerCase() === "context")) {
+                              const handleTextareaRef = (element: HTMLTextAreaElement | null) => {
+                                if (element) {
+                                  element.style.height = 'auto';
+                                  element.style.height = element.scrollHeight + 'px';
+                                }
+                              };
+
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5 col-span-full">
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    {toLabel(key)}
+                                  </label>
+                                  <textarea
+                                    ref={handleTextareaRef}
+                                    {...register(key)}
+                                    defaultValue={formData[key] || ""}
+                                    onInput={(e) => {
+                                      const target = e.target as HTMLTextAreaElement;
+                                      target.style.height = 'auto';
+                                      target.style.height = target.scrollHeight + 'px';
+                                    }}
+                                    style={{ minHeight: key.toLowerCase() === "context" ? '60px' : '48px' }}
+                                    className="w-full resize rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   />
                                 </div>
                               );
