@@ -72,6 +72,7 @@ interface AGGridTableProps {
   gridOptions?: any;
   getRowNodeId?: (data: any) => string;
   showAddButton?: boolean;
+  onSelectionChanged?: (selectedRows: any[]) => void;
 }
 
 interface RowData {
@@ -103,6 +104,7 @@ export function AGGridTable({
   batches = [],
   getRowNodeId,
   showAddButton,
+  onSelectionChanged,
 }: AGGridTableProps) {
   // Refs and State
   const gridRef = useRef<AgGridReact>(null);
@@ -200,8 +202,12 @@ export function AGGridTable({
     if (gridApiRef.current) {
       const selectedRows = gridApiRef.current.getSelectedRows() as RowData[];
       setSelectedRowData(selectedRows.length > 0 ? selectedRows : null);
+      // Call parent's callback if provided
+      if (onSelectionChanged) {
+        onSelectionChanged(selectedRows);
+      }
     }
-  }, []);
+  }, [onSelectionChanged]);
 
   const onColumnMoved = useCallback((event: ColumnMovedEvent) => { }, []);
 

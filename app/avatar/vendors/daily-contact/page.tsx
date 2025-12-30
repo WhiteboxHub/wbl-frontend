@@ -14,7 +14,7 @@ import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { Button } from "@/components/admin_ui/button";
-import { SearchIcon, UserPlus } from "lucide-react";
+import { SearchIcon, UserPlus, Trash2, ArrowRight } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import dynamic from "next/dynamic";
 import { toast, Toaster } from "sonner";
@@ -66,11 +66,24 @@ const PhoneRenderer = ({ value }: { value?: string }) => {
 
 export default function VendorContactsGrid() {
   const gridRef = useRef<any>(null);
+  const selectedRowsRef = useRef<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [contacts, setContacts] = useState<any[]>([]);
   const [filteredContacts, setFilteredContacts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [selectedRows, setSelectedRows] = useState<any[]>([]);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
 
   //  SIMPLIFIED: Single fetch function
   const fetchContacts = useCallback(async () => {
@@ -79,18 +92,16 @@ export default function VendorContactsGrid() {
     try {
       // Try using the apiFetch utility first
       if (typeof apiFetch === "function") {
-        console.log("[fetchContacts] Using apiFetch");
         const data = await apiFetch("/vendor_contact_extracts");
-        console.log("[fetchContacts] Response:", data);
 
         // Normalize response
         const contactsList = Array.isArray(data)
           ? data
           : Array.isArray(data?.data)
-          ? data.data
-          : Array.isArray(data?.results)
-          ? data.results
-          : [];
+            ? data.data
+            : Array.isArray(data?.results)
+              ? data.results
+              : [];
 
         setContacts(contactsList);
         setFilteredContacts(contactsList);
@@ -99,15 +110,13 @@ export default function VendorContactsGrid() {
 
       // Fallback to api.get if available
       if (api?.get) {
-        console.log("[fetchContacts] Using api.get");
         const response = await api.get("/vendor_contact_extracts");
-        console.log("[fetchContacts] Response:", response);
 
         const contactsList = Array.isArray(response?.data)
           ? response.data
           : Array.isArray(response?.data?.data)
-          ? response.data.data
-          : [];
+            ? response.data.data
+            : [];
 
         setContacts(contactsList);
         setFilteredContacts(contactsList);
@@ -118,7 +127,7 @@ export default function VendorContactsGrid() {
       toast.error("API client not configured properly");
     } catch (err: any) {
       console.error("[fetchContacts] Error:", err);
-      
+
       // Handle authentication errors
       if (err?.response?.status === 401 || err?.status === 401) {
         toast.error("Session expired. Please log in again.");
@@ -174,8 +183,7 @@ export default function VendorContactsGrid() {
 
   const handleRowAdded = async (newContact: any) => {
     try {
-      console.log("CREATING NEW VENDOR CONTACT:", newContact);
-      
+
       // Send POST request to create new vendor contact
       const response = await apiFetch("/vendor_contact", {
         method: "POST",
@@ -184,12 +192,11 @@ export default function VendorContactsGrid() {
           "Content-Type": "application/json",
         },
       });
-      
-      console.log("VENDOR CONTACT CREATED:", response);
-      
+
+
       // Refresh the contacts list
       fetchContacts();
-      
+
       toast.success("Vendor contact created successfully");
     } catch (err: any) {
       console.error("FAILED TO CREATE VENDOR CONTACT:", err);
@@ -197,73 +204,82 @@ export default function VendorContactsGrid() {
     }
   };
 
-  // FIXED: Properly defined handleRowDeleted function
+  // FIXED: Properly defined handleRowDeleted function that works for single and multiple
   const handleRowDeleted = useCallback(async (contactId: number | string) => {
-    try {
-      await apiFetch(`/vendor_contact/${contactId}`, {
-        method: "DELETE",
-      });
-      toast.success("Contact deleted successfully");
-      fetchContacts();
-    } catch (err: any) {
-      console.error("Delete error:", err);
-      toast.error(err?.message || "Failed to delete contact");
+    const currentSelectedRows = selectedRowsRef.current;
+    // Check if multiple rows are selected
+
+
+    if (currentSelectedRows.length > 1) {
+      // Multiple delete - use bulk endpoint (1 API call)
+      try {
+        const contactIds = currentSelectedRows.map((row: any) => row.id);
+        const queryString = contactIds.map(id => `contact_ids=${id}`).join('&');
+
+        const result = await apiFetch(`/vendor_contact/bulk?${queryString}`, {
+          method: "DELETE",
+        });
+
+        toast.success(result.message || `Successfully deleted ${currentSelectedRows.length} contacts`);
+        setSelectedRows([]);
+        fetchContacts();
+      } catch (err: any) {
+        console.error("Bulk delete error:", err);
+        toast.error(err?.message || "Failed to delete contacts");
+      }
+    } else {
+      // Single delete
+      try {
+        await apiFetch(`/vendor_contact/${contactId}`, {
+          method: "DELETE",
+        });
+        toast.success("Contact deleted successfully");
+        fetchContacts();
+      } catch (err: any) {
+        console.error("Delete error:", err);
+        toast.error(err?.message || "Failed to delete contact");
+      }
     }
   }, [fetchContacts]);
 
-  // ✨ SIMPLIFIED: Bulk delete handler
-  const handleDeleteMovedContacts = useCallback(async () => {
-    const contactsToDelete = contacts.filter((c) => c.moved_to_vendor === true);
 
-    if (!contactsToDelete.length) {
-      toast.info("No contacts with 'Yes' in Moved To Vendor to delete");
+  // Move selected contacts to vendor
+  const handleMoveToVendor = useCallback(async () => {
+    const currentSelectedRows = selectedRowsRef.current;
+
+
+    if (!currentSelectedRows.length) {
+      toast.info("Please select contacts to move to vendor");
       return;
     }
 
-    const confirmed = window.confirm(
-      `Are you sure you want to delete ${contactsToDelete.length} contacts that have been moved to vendor? This action cannot be undone.`
-    );
-
-    if (!confirmed) return;
-
-    setDeleting(true);
-
-    try {
-      let deleted = 0;
-      let failed = 0;
-
-      for (const contact of contactsToDelete) {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Move to Vendor',
+      message: `Are you sure you want to move ${currentSelectedRows.length} selected contact${currentSelectedRows.length > 1 ? 's' : ''} to vendor?`,
+      onConfirm: async () => {
+        setConfirmDialog({ ...confirmDialog, isOpen: false });
+        setDeleting(true);
         try {
-          await apiFetch(`/vendor_contact/${contact.id}`, {
-            method: "DELETE",
-          });
-          deleted++;
-        } catch (e: any) {
-          console.error(`Failed to delete contact ${contact.id}:`, e);
-          failed++;
+      const contactIds = currentSelectedRows.map((row: any) => row.id);
+      const queryString = contactIds.map(id => `contact_ids=${id}`).join('&');
+
+      const result = await apiFetch(`/vendor_contact/move-to-vendor?${queryString}`, {
+        method: "PUT",
+      });
+
+          toast.success(result.message || `Successfully moved ${currentSelectedRows.length} contact${currentSelectedRows.length > 1 ? 's' : ''} to vendor`);
+          setSelectedRows([]);
+          await fetchContacts();
+        } catch (err: any) {
+          console.error("Move to vendor error:", err);
+          toast.error(err?.message || "Failed to move contacts to vendor");
+        } finally {
+          setDeleting(false);
         }
-      }
-
-      if (deleted > 0) {
-        toast.success(
-          `Successfully deleted ${deleted} contact${deleted > 1 ? "s" : ""}${
-            failed ? `, ${failed} failed` : ""
-          }`
-        );
-      }
-
-      if (failed > 0) {
-        toast.error(`${failed} contact${failed > 1 ? "s" : ""} failed to delete`);
-      }
-
-      await fetchContacts();
-    } catch (err: any) {
-      console.error("Bulk delete error:", err);
-      toast.error(err?.message || "Failed to delete contacts");
-    } finally {
-      setDeleting(false);
-    }
-  }, [contacts, fetchContacts]);
+      },
+    });
+  }, [fetchContacts]);
 
   // Initial fetch
   useEffect(() => {
@@ -374,17 +390,17 @@ export default function VendorContactsGrid() {
             </h1>
           </div>
 
-          {/* Optional Bulk Delete Button */}
-          {/* <div className="sm:w-auto">
+          {/* Move to Vendor Button */}
+          <div>
             <Button
-              onClick={handleDeleteMovedContacts}
+              onClick={handleMoveToVendor}
               disabled={deleting}
-              className="w-full bg-red-600 text-white hover:bg-red-700 sm:w-auto"
+              className="bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              <UserPlus className="mr-2 h-4 w-4" />
-              {deleting ? "Deleting..." : "Delete Moved Contacts"}
+              <ArrowRight className="mr-2 h-4 w-4" />
+              Move to Vendor
             </Button>
-          </div> */}
+          </div>
         </div>
 
         {/* Search Box */}
@@ -416,11 +432,44 @@ export default function VendorContactsGrid() {
             height="600px"
             title={`Vendor Contacts (${filteredContacts.length})`}
             showSearch={false}
-            onRowAdded={handleRowAdded} 
+            onRowAdded={handleRowAdded}
             onRowUpdated={handleRowUpdated}
             onRowDeleted={handleRowDeleted}
+            onSelectionChanged={(rows: any[]) => {
+              selectedRowsRef.current = rows;
+              setSelectedRows(rows);
+            }}
           />
         </div>
+
+      {/* Confirmation Dialog */}
+      {confirmDialog.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-gray-800">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              {confirmDialog.title}
+            </h3>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              {confirmDialog.message}
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button
+                onClick={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+                className="bg-gray-200 text-gray-800 hover:bg-gray-300"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmDialog.onConfirm}
+                className="bg-red-600 text-white hover:bg-red-700"
+              >
+                Proceed
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       </div>
     </div>
   );
