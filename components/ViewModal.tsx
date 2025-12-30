@@ -179,6 +179,13 @@ const fieldSections: Record<string, string> = {
   job_owner_2_name: "Basic Information",
   job_owner_3_name: "Basic Information",
   category: "Professional Information",
+  keywords: "Professional Information",
+  match_type: "Basic Information",
+  action: "Basic Information",
+  context: "Professional Information",
+  is_active: "Basic Information",
+  created_at: "Professional Information",
+  updated_at: "Professional Information",
 };
 
 const workVisaStatusOptions = [

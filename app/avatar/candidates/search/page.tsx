@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import "@/styles/admin.css";
 import "@/styles/App.css";
-import { isTokenExpired } from "@/utils/auth"; 
+import { isTokenExpired } from "@/utils/auth";
 import { apiFetch } from "@/lib/api";
 
 import { Badge } from "@/components/admin_ui/badge";
@@ -28,13 +28,14 @@ interface CandidateData {
   login_access: any;
   miscellaneous: any;
   session_records?: any[];
+  placement_fee_collection?: any[];
 }
 
 const StatusRenderer = ({ status }: { status: string }) => {
   const statusStr = status?.toString().toLowerCase() ?? "";
   const colorMap: Record<string, string> = {
     active: "bg-green-100 text-green-800",
-    preparation: "bg-yellow-100 text-yellow-800", 
+    preparation: "bg-yellow-100 text-yellow-800",
     marketing: "bg-blue-100 text-blue-800",
     placed: "bg-purple-100 text-purple-800",
     discontinued: "bg-red-100 text-red-800",
@@ -44,10 +45,10 @@ const StatusRenderer = ({ status }: { status: string }) => {
   return <Badge className={badgeClass}>{status?.toString().toUpperCase()}</Badge>;
 };
 
-const DateFormatter = (date: any) => 
+const DateFormatter = (date: any) =>
   date ? new Date(date).toLocaleDateString() : "Not Set";
 
-const AmountFormatter = (amount: any) => 
+const AmountFormatter = (amount: any) =>
   amount ? `$${Number(amount).toLocaleString()}` : "Not Set";
 
 function isPotentialUrl(val: any): boolean {
@@ -97,11 +98,12 @@ export default function CandidateSearchPage() {
     login: false,
     marketing: false,
     interviews: false,
+    placement: false,
     sessions: false,
     misc: false
   });
   const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
-  
+
   const searchParams = useSearchParams();
   const candidateIdFromUrl = searchParams.get("candidateId");
 
@@ -118,9 +120,9 @@ export default function CandidateSearchPage() {
       if (candidateIdFromUrl) {
         console.log("Loading candidate from URL:", candidateIdFromUrl);
         setUrlParamLoading(true);
-        
+
         const candidateId = Number(candidateIdFromUrl);
-        
+
         if (!isNaN(candidateId) && candidateId > 0) {
           // Clear any existing candidate and search term
           setSelectedCandidate(null);
@@ -129,19 +131,19 @@ export default function CandidateSearchPage() {
         } else {
           console.error(" Invalid candidate ID from URL:", candidateIdFromUrl);
         }
-        
+
         setUrlParamLoading(false);
       }
     };
 
     loadCandidateFromUrl();
-  }, [candidateIdFromUrl]); 
+  }, [candidateIdFromUrl]);
 
   const toggleSection = (section: string) => {
     setOpenSections(prev => ({
       ...prev,
       [section]: !prev[section]
-    }));   
+    }));
   };
 
   const getAuthHeaders = () => {
@@ -175,7 +177,7 @@ export default function CandidateSearchPage() {
           `${process.env.NEXT_PUBLIC_API_URL}/candidates/search-names/${encodeURIComponent(searchTerm)}`,
           {
             headers: {
-              Authorization: `Bearer ${token}`, 
+              Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
             },
           }
@@ -219,7 +221,7 @@ export default function CandidateSearchPage() {
   const fetchCandidateById = async (id: number) => {
     setLoading(true);
     console.log(" Fetching candidate data for ID:", id);
-    
+
     try {
       const [data, sessionData] = await Promise.all([
         apiFetch(`/candidates/details/${id}`),
@@ -242,7 +244,7 @@ export default function CandidateSearchPage() {
         ...data,
         session_records: sessionData.sessions || []
       });
-      
+
     } catch (error) {
       console.error(" Failed to fetch candidate details:", error);
     } finally {
@@ -256,7 +258,7 @@ export default function CandidateSearchPage() {
         {icon}
         <h4 className="font-semibold text-lg text-black-900 dark:text-black-100">{title}</h4>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-1 text-sm">
         {Object.entries(data).map(([key, value]) => {
           if (value === null || value === undefined || value === "") return null;
@@ -428,14 +430,13 @@ export default function CandidateSearchPage() {
                     .join(' ');
 
                   return (
-                    <th 
-                      key={column} 
-                      className={`text-left p-2 font-semibold text-black-700 dark:text-black-300 ${
-                        column.toLowerCase().includes('email') ? 'w-48' : 
-                        column === 'recording_link' ? 'w-20' : 
-                        column.toLowerCase().includes('date') ? 'w-24' : 
-                        'w-auto'
-                      }`}
+                    <th
+                      key={column}
+                      className={`text-left p-2 font-semibold text-black-700 dark:text-black-300 ${column.toLowerCase().includes('email') ? 'w-48' :
+                          column === 'recording_link' ? 'w-20' :
+                            column.toLowerCase().includes('date') ? 'w-24' :
+                              'w-auto'
+                        }`}
                     >
                       {displayColumn}
                     </th>
@@ -448,7 +449,7 @@ export default function CandidateSearchPage() {
                 <tr key={idx} className="border-b border-black-100 dark:border-black-700">
                   {columns.map(column => {
                     let value = record[column];
-                    
+
                     if (column.toLowerCase().includes('date')) {
                       value = DateFormatter(value);
                     } else if (column === 'Last Modified' && value) {
@@ -468,7 +469,7 @@ export default function CandidateSearchPage() {
                     } else if (column === 'feedback') {
                       const feedbackColors = {
                         'Positive': 'bg-green-100 text-green-800',
-                        'Negative': 'bg-red-100 text-red-800', 
+                        'Negative': 'bg-red-100 text-red-800',
                         'No Response': 'bg-black-100 text-black-800',
                         'Cancelled': 'bg-orange-100 text-orange-800'
                       };
@@ -479,9 +480,9 @@ export default function CandidateSearchPage() {
                       if (!url.startsWith('http://') && !url.startsWith('https://')) {
                         finalUrl = 'https://' + url;
                       }
-                      
+
                       value = (
-                        <button 
+                        <button
                           className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer whitespace-nowrap inline-block min-w-0 max-w-fit"
                           onClick={(e) => {
                             e.preventDefault();
@@ -535,9 +536,9 @@ export default function CandidateSearchPage() {
         </div>
       );
     }
-  
+
     const columns = Object.keys(records[0]).filter(key => key !== 'id' && key !== 'error');
-  
+
     return (
       <div className="bg-white dark:bg-black-800 rounded-lg border border-black-200 dark:border-black-700 p-6 shadow-sm">
         <div className="flex items-center gap-3 mb-4 pb-2 border-b border-black-200 dark:border-black-700">
@@ -558,13 +559,12 @@ export default function CandidateSearchPage() {
                     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
                     .join(' ');
                   return (
-                    <th 
-                      key={column} 
-                      className={`text-left p-2 font-semibold text-black-700 dark:text-black-300 ${
-                        column.toLowerCase().includes('email') ? 'w-48' : 
-                        column.toLowerCase().includes('date') ? 'w-24' : 
-                        'w-auto'
-                      }`}
+                    <th
+                      key={column}
+                      className={`text-left p-2 font-semibold text-black-700 dark:text-black-300 ${column.toLowerCase().includes('email') ? 'w-48' :
+                          column.toLowerCase().includes('date') ? 'w-24' :
+                            'w-auto'
+                        }`}
                     >
                       {displayColumn}
                     </th>
@@ -622,7 +622,7 @@ export default function CandidateSearchPage() {
 
       <div className="max-w-md relative">
         <Label htmlFor="search" className="text-sm font-medium text-black-700 dark:text-black-300">
-          
+
         </Label>
         <div className="relative mt-1">
           <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-black-400" />
@@ -655,8 +655,8 @@ export default function CandidateSearchPage() {
         )}
 
         {showSuggestions && (
-          <div 
-            className="fixed inset-0 z-0" 
+          <div
+            className="fixed inset-0 z-0"
             onClick={() => setShowSuggestions(false)}
           />
         )}
@@ -667,7 +667,7 @@ export default function CandidateSearchPage() {
             <p className="text-sm text-blue-500 dark:text-blue-400">Loading candidate details...</p>
           </div>
         )}
-        
+
         {searchTerm.length >= 2 && !loading && suggestions.length === 0 && (
           <p className="mt-2 text-sm text-black-500 dark:text-black-400">No candidates found</p>
         )}
@@ -680,7 +680,7 @@ export default function CandidateSearchPage() {
               {selectedCandidate?.basic_info?.full_name || "Unnamed Candidate"}
             </h2>
             <p className="text-black-600 dark:text-black-400">
-              ID: {selectedCandidate.candidate_id} • 
+              ID: {selectedCandidate.candidate_id} •
               Email: {selectedCandidate?.basic_info?.email || "No email"}
             </p>
           </div>
@@ -703,7 +703,7 @@ export default function CandidateSearchPage() {
                 <div className="px-6 pb-4 space-y-4">
                   {renderInfoCard("Candidate Details", <User className="h-4 w-4" />, {
                     ...selectedCandidate.basic_info,
-                    ...selectedCandidate.emergency_contact                   
+                    ...selectedCandidate.emergency_contact
                   })}
                 </div>
               )}
@@ -795,7 +795,28 @@ export default function CandidateSearchPage() {
                       return parseDate(b["interview_date"]) - parseDate(a["interview_date"]);
                     })
                   )}
+                </div>
+              )}
+            </div>
+
+            <div className="accordion-item">
+              <button
+                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-black-50 dark:hover:bg-black-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
+                onClick={() => toggleSection('placement')}
+              >
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5 text-black-600 dark:text-black-400" />
+                  <span className="font-medium text-black-900 dark:text-black-100">Placement Info</span>
+                  <Badge variant="secondary">{selectedCandidate.placement_records?.length}</Badge>
+                </div>
+                <span className="text-xl font-bold text-black-400">
+                  {openSections['placement'] ? '−' : '+'}
+                </span>
+              </button>
+              {openSections['placement'] && (
+                <div className="px-6 pb-4 space-y-4">
                   {renderTable("Placement Records", <DollarSign className="h-4 w-4" />, selectedCandidate.placement_records)}
+                  {renderTable("Placement Fee Collected", <DollarSign className="h-4 w-4" />, selectedCandidate.placement_fee_collection || [])}
                 </div>
               )}
             </div>

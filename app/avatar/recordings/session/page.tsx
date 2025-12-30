@@ -36,8 +36,8 @@ export default function SessionsPage() {
       const sessionsData = Array.isArray(data)
         ? data
         : Array.isArray(data?.data)
-        ? data.data
-        : [];
+          ? data.data
+          : [];
       setSessions(sessionsData);
     } catch (err) {
       console.error("Failed to fetch sessions:", err);
@@ -52,20 +52,20 @@ export default function SessionsPage() {
     }
   };
 
-useEffect(() => {
-  fetchSessions();
-}, []); // fetch all sessions only once
+  useEffect(() => {
+    fetchSessions();
+  }, []); 
 
-// Derived filtered list
-const filteredSessions = useMemo(() => {
-  const term = debouncedSearch.toLowerCase();
-  if (!term) return sessions;
-  return sessions.filter(
-    (s) =>
-      s.title?.toLowerCase().includes(term) ||
-      String(s.sessionid).includes(term)
-  );
-}, [debouncedSearch, sessions]);
+  // Derived filtered list
+  const filteredSessions = useMemo(() => {
+    const term = debouncedSearch.toLowerCase();
+    if (!term) return sessions;
+    return sessions.filter(
+      (s) =>
+        s.title?.toLowerCase().includes(term) ||
+        String(s.sessionid).includes(term)
+    );
+  }, [debouncedSearch, sessions]);
 
   // Column definitions for AG Grid
   const columnDefs: ColDef[] = useMemo<ColDef[]>(
@@ -124,6 +124,7 @@ const filteredSessions = useMemo(() => {
     try {
       const payload = {
         title: updatedRow.title,
+        status: updatedRow.status || "active",
         link: updatedRow.link,
         videoid: updatedRow.videoid,
         type: updatedRow.type,
