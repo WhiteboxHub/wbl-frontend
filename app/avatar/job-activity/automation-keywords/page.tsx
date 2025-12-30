@@ -310,7 +310,7 @@ export default function JobAutomationKeywordsPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold">Job Automation Keywords</h1>
-                    <p>Manage automation keywords for email extraction and filtering.</p>
+                    <p>.</p>
                 </div>
             </div>
 
