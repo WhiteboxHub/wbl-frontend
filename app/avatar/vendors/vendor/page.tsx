@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { ColDef } from "ag-grid-community";
@@ -10,6 +10,7 @@ import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import { createPortal } from "react-dom";
 import { apiFetch } from "@/lib/api.js";
+import { toast, Toaster } from "sonner";
 
 const AGGridTable = dynamic(() => import("@/components/AGGridTable"), { ssr: false });
 
@@ -21,31 +22,31 @@ const BadgeRenderer = (params: any, map: Record<string, string>) => {
 
 const TypeRenderer = (params: any) => {
   const map = {
-    client: "bg-green-100 text-green-800",
-    "implementation-partner": "bg-blue-100 text-blue-800",
-    "third-party-vendor": "bg-yellow-500 text-yellow-800",
-    sourcer: "bg-purple-100 text-purple-800",
-    "contact-from-ip": "bg-pink-100 text-pink-800",
+    client: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    "implementation-partner": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+    "third-party-vendor": "bg-yellow-500 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+    sourcer: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+    "contact-from-ip": "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
   };
   return BadgeRenderer(params, map);
 };
 
 const StatusRenderer = (params: any) => {
   const map = {
-    active: "bg-green-100 text-green-800",
-    working: "bg-blue-100 text-blue-800",
-    not_useful: "bg-red-100 text-red-800",
-    do_not_contact: "bg-gray-500 text-gray-800",
-    inactive: "bg-gray-200 text-gray-600",
-    prospect: "bg-yellow-200 text-yellow-800",
+    active: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    working: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+    not_useful: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+    do_not_contact: "bg-gray-500 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
+    inactive: "bg-gray-200 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+    prospect: "bg-yellow-200 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
   };
   return BadgeRenderer(params, map);
 };
 
 const YesNoRenderer = (params: any) => {
   const map = {
-    YES: "bg-indigo-100 text-indigo-800",
-    NO: "bg-gray-100 text-gray-800",
+    YES: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
+    NO: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200",
   };
   const key = params?.value?.toString().toUpperCase();
   return BadgeRenderer({ value: key }, map);
@@ -397,22 +398,37 @@ const TypeFilterHeaderComponent = (props: any) => {
 };
 
 export default function VendorPage() {
+  const gridRef = useRef<any>(null);
+  const selectedRowsRef = useRef<any[]>([]);
   const [vendors, setVendors] = useState<any[]>([]);
-  const [filteredVendors, setFilteredVendors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [selectedRows, setSelectedRows] = useState<any[]>([]);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+  });
 
   const fetchVendors = async () => {
     try {
       setLoading(true);
       const data = await apiFetch("/vendors");
       const arr = Array.isArray(data) ? data : data?.data || [];
+      console.log("[fetchVendors] Successfully loaded", arr.length, "vendors");
       setVendors(arr);
-      setFilteredVendors(arr);
     } catch (e: any) {
+      console.error("[fetchVendors] Error:", e);
+      toast.error(e?.message || e?.body || "Failed to load vendors");
       setError(e?.message || e?.body || "Failed to load vendors");
     } finally {
       setLoading(false);
@@ -423,7 +439,8 @@ export default function VendorPage() {
     fetchVendors();
   }, []);
 
-  useEffect(() => {
+  // Stable filtered data with useMemo (no state updates to prevent re-renders)
+  const filteredVendors = useMemo(() => {
     let filtered = vendors;
     if (selectedStatuses.length > 0) {
       filtered = filtered.filter((v) => selectedStatuses.includes(v.status?.toLowerCase()));
@@ -432,14 +449,15 @@ export default function VendorPage() {
       filtered = filtered.filter((v) => selectedTypes.includes(v.type?.toLowerCase()));
     }
     if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (v) =>
-          v.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          v.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          v.company_name?.toLowerCase().includes(searchTerm.toLowerCase())
+          v.full_name?.toLowerCase().includes(term) ||
+          v.email?.toLowerCase().includes(term) ||
+          v.company_name?.toLowerCase().includes(term)
       );
     }
-    setFilteredVendors(filtered);
+    return filtered;
   }, [vendors, searchTerm, selectedStatuses, selectedTypes]);
 
   const columnDefs: ColDef[] = React.useMemo(() => [
@@ -510,7 +528,7 @@ export default function VendorPage() {
       cellEditor: SelectEditor,
       cellEditorParams: { options: ["YES", "NO"] },
     },
-    { field: "created_at", headerName: "Created At", width: 180, valueFormatter: DateFormatter, filter:"agDateColumnFilter", editable: false },
+    { field: "created_at", headerName: "Created At", width: 180, valueFormatter: DateFormatter, filter: "agDateColumnFilter", editable: false },
     {
       field: "notes",
       headerName: "Notes",
@@ -527,7 +545,7 @@ export default function VendorPage() {
       },
     },
     { field: "linkedin_internal_id", headerName: "LinkedIn Internal ID", width: 200, editable: true },
-  ], [selectedStatuses, selectedTypes]);
+  ], []);
 
   const handleRowUpdated = async (updatedRow: any) => {
     const normalizeYesNo = (val: any) => (!val ? "NO" : val.toString().toUpperCase());
@@ -540,32 +558,88 @@ export default function VendorPage() {
     };
     try {
       await apiFetch(`/vendors/${updatedRow.id}`, { method: "PUT", body: payload });
-      setFilteredVendors((prev) => prev.map((row) => (row.id === updatedRow.id ? payload : row)));
+      console.log("[handleRowUpdated] Successfully updated vendor:", updatedRow.id);
+      setVendors((prev) => prev.map((row) => (row.id === updatedRow.id ? payload : row)));
+      toast.success("Vendor updated successfully");
     } catch (error: any) {
       console.error("Update failed", error);
+      toast.error(error?.message || "Failed to update vendor");
     }
   };
 
-  const handleRowDeleted = async (id: number | string) => {
-    try {
-      await apiFetch(`/vendors/${id}`, { method: "DELETE" });
-      setFilteredVendors((prev) => prev.filter((row) => row.id !== id));
-    } catch (error: any) {
-      console.error("Delete failed", error);
-    }
-  };
+  // Helper: Get only visible selected rows (after AG Grid column filters)
+  const getVisibleSelectedRows = useCallback(() => {
+    const currentSelectedRows = selectedRowsRef.current;
+    if (!currentSelectedRows || currentSelectedRows.length === 0) return [];
+    if (!gridRef.current?.api) return currentSelectedRows;
 
-  if (loading) return <p className="text-center mt-8">Loading...</p>;
+    // Get IDs of visible rows after AG Grid filters
+    const visibleRowIds = new Set();
+    gridRef.current.api.forEachNodeAfterFilter((node: any) => {
+      if (node.data?.id) visibleRowIds.add(node.data.id);
+    });
+
+    // Return only selected rows that are visible
+    return currentSelectedRows.filter((row: any) => visibleRowIds.has(row.id));
+  }, []);
+
+  const handleRowDeleted = useCallback(async (vendorId: number | string) => {
+    // Get only visible selected rows (respects AG Grid column filters)
+    const visibleSelectedRows = getVisibleSelectedRows();
+    const deleteCount = visibleSelectedRows.length > 1 ? visibleSelectedRows.length : 1;
+
+    // Show confirmation with exact count
+    setConfirmDialog({
+      isOpen: true,
+      title: 'Confirm Delete',
+      message: `Delete ${deleteCount} vendor${deleteCount > 1 ? 's' : ''}?`,
+      onConfirm: async () => {
+        setConfirmDialog({ ...confirmDialog, isOpen: false });
+
+        if (visibleSelectedRows.length > 1) {
+          // Bulk delete - only visible rows
+          try {
+            const vendorIds = visibleSelectedRows.map((row: any) => row.id);
+
+            const result = await apiFetch(`/vendors/bulk-delete`, {
+              method: "POST",
+              body: vendorIds,
+            });
+
+            console.log("[handleRowDeleted] Successfully deleted", visibleSelectedRows.length, "vendors");
+            toast.success(`Deleted ${visibleSelectedRows.length} vendors`);
+            setSelectedRows([]);
+            fetchVendors();
+          } catch (err: any) {
+            console.error("Bulk delete error:", err);
+            toast.error(err?.message || "Failed to delete vendors");
+          }
+        } else {
+          // Single delete
+          try {
+            await apiFetch(`/vendors/${vendorId}`, { method: "DELETE" });
+            console.log("[handleRowDeleted] Successfully deleted vendor:", vendorId);
+            toast.success("Deleted 1 vendor");
+            fetchVendors();
+          } catch (error: any) {
+            console.error("Delete failed", error);
+            toast.error(error?.message || "Failed to delete vendor");
+          }
+        }
+      },
+    });
+  }, [fetchVendors, getVisibleSelectedRows]);
+
   if (error) return <p className="text-center mt-8 text-red-600">{error}</p>;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold">Vendors</h1>
       </div>
       <div className="max-w-md">
         <div className="relative mt-1">
-          <SearchIcon className="absolute left-3 top-1/3 h-4 w-4 text-gray-400" />
+          <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
           <Input
             id="search"
             value={searchTerm}
@@ -577,48 +651,91 @@ export default function VendorPage() {
         {searchTerm && <p>{filteredVendors.length} found</p>}
       </div>
 
-      <AGGridTable
-        key={`${filteredVendors.length}-${selectedStatuses.join(",")}-${selectedTypes.join(",")}`} // fixed key
-        rowData={filteredVendors}
-        columnDefs={columnDefs}
-        title={`All Vendors (${filteredVendors.length})`}
-        height="calc(70vh)"
-        onRowUpdated={handleRowUpdated}
-        onRowDeleted={handleRowDeleted}
-        showSearch={false}
-        onRowAdded={async (newRow: any) => {
-          try {
-            const payload = {
-              full_name: newRow.full_name || newRow.name || "",
-              phone_number: newRow.phone_number || newRow.phone || null,
-              secondary_phone: newRow.secondary_phone || null,
-              email: newRow.email || null,
-              linkedin_id: newRow.linkedin_id || newRow.linkedin || null,
-              type: newRow.type || newRow.vendor_type || "client",
-              status: newRow.status || "active",
-              company_name: newRow.company_name || newRow.company || null,
-              city: newRow.city || null,
-              postal_code: newRow.postal_code || null,
-              address: newRow.address || null,
-              country: newRow.country || null,
-              location: newRow.location || null,
-              linkedin_connected: (newRow.linkedin_connected || "NO").toString().toUpperCase(),
-              intro_email_sent: (newRow.intro_email_sent || "NO").toString().toUpperCase(),
-              intro_call: (newRow.intro_call || "NO").toString().toUpperCase(),
-              notes: newRow.notes || null,
-              linkedin_internal_id: newRow.linkedin_internal_id || null,
-            };
-            if (!payload.full_name) { console.warn('Vendor name required'); return; }
-            const res = await apiFetch("/vendors", { method: "POST", body: payload });
-            const created = Array.isArray(res) ? res : (res?.data ?? res);
-            setVendors((prev) => [created, ...prev]);
-            setFilteredVendors((prev) => [created, ...prev]);
-          } catch (e:any) {
-            console.error('Failed to create vendor', e);
-          }
-        }}
-      />
+      <div className="flex w-full justify-center">
+        <div className="w-full max-w-7xl">
+          <AGGridTable
+            loading={loading}
+            rowData={filteredVendors}
+            columnDefs={columnDefs}
+            title={`All Vendors (${filteredVendors.length})`}
+            height="calc(70vh)"
+            onRowUpdated={handleRowUpdated}
+            onRowDeleted={handleRowDeleted}
+            skipDeleteConfirmation={true}
+            showSearch={false}
+            onFilterChanged={() => {
+              if (gridRef.current?.api) {
+                gridRef.current.api.deselectAll();
+              }
+              setSelectedRows([]);
+              selectedRowsRef.current = [];
+            }}
+            onSelectionChanged={(rows: any[]) => {
+              selectedRowsRef.current = rows;
+              setSelectedRows(rows);
+            }}
+            onRowAdded={async (newRow: any) => {
+              try {
+                const payload = {
+                  full_name: newRow.full_name || newRow.name || "",
+                  phone_number: newRow.phone_number || newRow.phone || null,
+                  secondary_phone: newRow.secondary_phone || null,
+                  email: newRow.email || null,
+                  linkedin_id: newRow.linkedin_id || newRow.linkedin || null,
+                  type: newRow.type || newRow.vendor_type || "client",
+                  status: newRow.status || "active",
+                  company_name: newRow.company_name || newRow.company || null,
+                  city: newRow.city || null,
+                  postal_code: newRow.postal_code || null,
+                  address: newRow.address || null,
+                  country: newRow.country || null,
+                  location: newRow.location || null,
+                  linkedin_connected: (newRow.linkedin_connected || "NO").toString().toUpperCase(),
+                  intro_email_sent: (newRow.intro_email_sent || "NO").toString().toUpperCase(),
+                  intro_call: (newRow.intro_call || "NO").toString().toUpperCase(),
+                  notes: newRow.notes || null,
+                  linkedin_internal_id: newRow.linkedin_internal_id || null,
+                };
+                if (!payload.full_name) { console.warn('Vendor name required'); return; }
+                const res = await apiFetch("/vendors", { method: "POST", body: payload });
+                const created = Array.isArray(res) ? res : (res?.data ?? res);
+                console.log("[onRowAdded] Successfully created vendor:", created);
+                setVendors((prev) => [created, ...prev]);
+                toast.success("Vendor created successfully");
+              } catch (e: any) {
+                console.error('Failed to create vendor', e);
+                toast.error(e?.message || "Failed to create vendor");
+              }
+            }}
+          />
+
+          {/* Confirmation Dialog */}
+          {confirmDialog.isOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+                <h3 className="text-lg font-semibold mb-2">{confirmDialog.title}</h3>
+                <p className="text-gray-600 dark:text-gray-300 mb-4">{confirmDialog.message}</p>
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+                    className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmDialog.onConfirm}
+                    className="px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <Toaster position="top-center" richColors />
+        </div>
+      </div>
     </div>
   );
 }
-
