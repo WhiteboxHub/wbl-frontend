@@ -1104,6 +1104,12 @@ export function EditModal({
     if (data.category) {
       flattened.category = data.category;
     }
+    if (data.status !== undefined && data.status !== null) {
+      flattened.status = String(data.status);
+    }
+    if (data.instructor !== undefined && data.instructor !== null) {
+      flattened.instructor = String(data.instructor); 
+    }
 
     return flattened;
   };

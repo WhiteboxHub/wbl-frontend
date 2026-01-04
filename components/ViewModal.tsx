@@ -634,6 +634,12 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     if (data.material_type && data.material_type.length === 1 && typeMap[data.material_type]) {
       flattened.material_type = typeMap[data.material_type];
     }
+    if (data.status !== undefined && data.status !== null) {
+      flattened.status = String(data.status);
+    }
+    if (data.instructor !== undefined && data.instructor !== null) {
+      flattened.instructor = String(data.instructor);
+    }
 
     return flattened;
   };
