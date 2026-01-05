@@ -1178,6 +1178,12 @@ export function EditModal({
     if (data.category) {
       flattened.category = data.category;
     }
+    if (data.status !== undefined && data.status !== null) {
+      flattened.status = String(data.status);
+    }
+    if (data.instructor !== undefined && data.instructor !== null) {
+      flattened.instructor = String(data.instructor); 
+    }
 
     return flattened;
   };
@@ -2156,7 +2162,6 @@ export function EditModal({
 
 
 
-                            // Make job_id, employee_id, employee_name, and activity_count read-only in Job Activity Log modal (not add mode)
                             if (
                               isPlacementModal &&
                               key.toLowerCase() === "candidate_name"
@@ -2204,8 +2209,7 @@ export function EditModal({
 
 
 
-                            // Make job_id and employee_id read-only in Job Activity Log modal (not add mode)
-                            // employee_name and activity_count are now editable
+                           
                             if (
                               isJobActivityLogModal &&
                               !isAddMode &&
@@ -2230,7 +2234,6 @@ export function EditModal({
                               );
                             }
 
-                            // Make job_name a dropdown in Job Activity Log modal
                             if (
                               isJobActivityLogModal &&
                               isJobNameField
@@ -2275,7 +2278,6 @@ export function EditModal({
                               );
                             }
 
-                            // Make candidate_name a dropdown in Job Activity Log modal
                             if (
                               isJobActivityLogModal &&
                               key.toLowerCase() === "candidate_name"
@@ -2319,7 +2321,7 @@ export function EditModal({
                               );
                             }
 
-                            // Make employee_name a dropdown in Job Activity Log modal
+                   
                             if (
                               isJobActivityLogModal &&
                               key.toLowerCase() === "employee_name"
@@ -2366,7 +2368,6 @@ export function EditModal({
 
 
 
-                            // ADD THIS CONDITION FOR SUBJECT FIELD
                             if (isSubjectField && isBatchesModal) {
                               return (
                                 <div
@@ -2388,7 +2389,7 @@ export function EditModal({
                                     className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                     onChange={(e) => {
                                       const selectedSubject = e.target.value;
-                                      let courseid = "3"; // default ML
+                                      let courseid = "3"; 
                                       if (selectedSubject === "QA")
                                         courseid = "1";
                                       else if (selectedSubject === "UI")
@@ -2413,13 +2414,13 @@ export function EditModal({
                                 </div>
                               );
                             }
-                            // ADD THIS CONDITION FOR COURSEID FIELD
+                           
                             if (isCourseIdField && isBatchesModal) {
                               const currentSubject =
                                 currentFormValues.subject ||
                                 formData.subject ||
                                 "ML";
-                              let defaultCourseId = "3"; // default for ML
+                              let defaultCourseId = "3"; 
                               if (currentSubject === "QA")
                                 defaultCourseId = "1";
                               else if (currentSubject === "UI")
@@ -2459,7 +2460,7 @@ export function EditModal({
 
 
 
-                            // Special handling for candidate_full_name in special modals
+                            
                             if (isSpecialModal && isCandidateFullName) {
                               return (
                                 <div
@@ -2487,7 +2488,7 @@ export function EditModal({
                               );
                             }
 
-                            // Read-only fields for Last Modified info
+                           
                             if (
                               key === "lastmod_user_id" ||
                               key === "lastmod_user_name" ||
@@ -2520,7 +2521,7 @@ export function EditModal({
                               );
                             }
 
-                            // Read-only fields for Last Modified info
+                            
                             if (
                               key === "lastmod_user_id" ||
                               key === "lastmod_user_name" ||
@@ -2544,7 +2545,7 @@ export function EditModal({
                               );
                             }
 
-                            // Special handling for LinkedIn ID in special modals (read-only)
+                            
                             if (
                               isSpecialModal &&
                               isLinkedInField &&
@@ -2610,7 +2611,7 @@ export function EditModal({
                               );
                             }
 
-                            // Special handling for status in Preparation/Marketing modals
+                          
                             if (
                               isStatusField &&
                               isPrepOrMarketing &&
