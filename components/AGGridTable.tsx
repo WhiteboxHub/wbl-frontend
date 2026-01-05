@@ -72,6 +72,9 @@ interface AGGridTableProps {
   getRowNodeId?: (data: any) => string;
   showAddButton?: boolean;
   onSelectionChanged?: (selectedRows: any[]) => void;
+  skipDeleteConfirmation?: boolean;
+  onFilterChanged?: () => void;
+  onGridReady?: (params: any) => void;
 }
 
 interface RowData {
@@ -104,6 +107,9 @@ export function AGGridTable({
   getRowNodeId,
   showAddButton,
   onSelectionChanged,
+  skipDeleteConfirmation = false,
+  onFilterChanged,
+  onGridReady: onGridReadyProp,
 }: AGGridTableProps) {
   // Refs and State
   const gridRef = useRef<AgGridReact>(null);
@@ -186,7 +192,8 @@ export function AGGridTable({
 
   const onGridReady = useCallback((params: GridReadyEvent) => {
     gridApiRef.current = params.api;
-  }, []);
+    onGridReadyProp?.(params);
+  }, [onGridReadyProp]);
 
   const onRowClickedHandler = useCallback(
     (event: any) => {
@@ -266,9 +273,22 @@ export function AGGridTable({
 
   const handleDelete = useCallback(() => {
     if (selectedRowData && selectedRowData.length > 0) {
-      setDeleteConfirmData(selectedRowData[0]);
+      if (skipDeleteConfirmation) {
+        // Skip confirmation, call onRowDeleted directly
+        const rowToDelete = selectedRowData[0];
+        if (onRowDeleted) {
+          if (rowToDelete.leadid) onRowDeleted(rowToDelete.leadid);
+          else if (rowToDelete.candidateid) onRowDeleted(rowToDelete.candidateid);
+          else if (rowToDelete.id) onRowDeleted(rowToDelete.id);
+          else if (rowToDelete.batchid) onRowDeleted(rowToDelete.batchid);
+          else if (rowToDelete.sessionid) onRowDeleted(rowToDelete.sessionid);
+        }
+        setSelectedRowData(null);
+      } else {
+        setDeleteConfirmData(selectedRowData[0]);
+      }
     }
-  }, [selectedRowData]);
+  }, [selectedRowData, skipDeleteConfirmation, onRowDeleted]);
 
   const confirmDelete = useCallback(() => {
     if (deleteConfirmData && onRowDeleted) {
@@ -480,6 +500,9 @@ export function AGGridTable({
             onGridReady={onGridReady}
             onRowClicked={onRowClickedHandler}
             onSelectionChanged={handleRowSelection}
+            onFilterChanged={() => {
+              onFilterChanged?.();
+            }}
             onColumnMoved={onColumnMoved}
             onCellValueChanged={onCellValueChanged}
             animateRows={true}
@@ -489,8 +512,11 @@ export function AGGridTable({
             defaultColDef={{
               resizable: true,
               sortable: true,
-
               filter: true,
+              filterParams: {
+                debounceMs: 500,
+                suppressAndOrCondition: true,
+              },
               cellClass: "custom-cell-style",
               editable: true,
             }}
@@ -505,6 +531,9 @@ export function AGGridTable({
             getRowId={getRowNodeId || ((params: any) => {
               return params.data.unique_id || params.data.id || params.data.leadid || params.data.candidateid || params.data.batchid || params.data.sessionid;
             })}
+            isRowSelectable={(node) => {
+              return node.displayed;
+            }}
           />
         </div>
       </div>
