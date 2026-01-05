@@ -1,5 +1,3 @@
-
-
 "use client";
 import React, { useEffect, useState } from "react";
 import { ColDef } from "ag-grid-community";
@@ -11,17 +9,15 @@ import { SearchIcon } from "lucide-react";
 import AGGridTable from "@/components/AGGridTable";
 import { apiFetch } from "@/lib/api";
 import { useForm } from "react-hook-form";
+import { toast, Toaster } from "sonner";
 
 
 const DateFormatter = (params: any) => {
   if (!params.value) return "";
-  const date = new Date(params.value);
-  if (isNaN(date.getTime())) return params.value;
-  return date.toLocaleDateString('en-US', {
-    month: '2-digit',
-    day: '2-digit',
-    year: 'numeric'
-  });
+
+  // value is already YYYY-MM-DD from backend
+  const [year, month, day] = params.value.split("-");
+  return `${month}/${day}/${year}`; // MM/DD/YYYY
 };
 
 
@@ -34,8 +30,20 @@ const toInitCap = (name: string): string =>
     .join(" ");
 
 const StatusRenderer = (params: any) => {
-  return params.value === 1 ? "Active" : "Inactive";
+  const isActive = Number(params.value) === 1;
+
+  return (
+    <span
+      className={`px-2 py-1 rounded-full text-xs font-semibold ${isActive
+        ? "bg-green-100 text-green-700"
+        : "bg-red-100 text-red-700"
+        }`}
+    >
+      {isActive ? "Active" : "Inactive"}
+    </span>
+  );
 };
+
 
 const BooleanRenderer = (params: any) => {
   return params.value === 1 ? "Yes" : "No";
@@ -54,7 +62,7 @@ const booleanValueParser = (params: any) => {
 
 const formatPhoneNumber = (phone: string) => {
   if (!phone) return "";
-  
+
   const digits = phone.replace(/\D/g, '');
 
   if (digits.length === 10) {
@@ -66,7 +74,7 @@ const formatPhoneNumber = (phone: string) => {
 
 const parsePhoneNumber = (phone: string) => {
   if (!phone) return "";
- 
+
   return phone.replace(/[^\d+]/g, '');
 };
 
@@ -76,13 +84,13 @@ const validateEmail = (email: string) => {
 };
 
 const validatePhone = (phone: string) => {
-  
+
   const digits = phone.replace(/\D/g, '');
   return digits.length === 10 && /^[6-9]/.test(digits);
 };
 
 const validateAadhaar = (aadhaar: string) => {
-  
+
   const digits = aadhaar.replace(/\D/g, '');
   return digits.length === 12;
 };
@@ -184,7 +192,7 @@ export default function EmployeesPage() {
       );
     }
 
-    
+
     if (dateFilter.from || dateFilter.to) {
       result = result.filter((emp) => {
         if (!emp.startdate && !emp.enddate) return false;
@@ -195,7 +203,7 @@ export default function EmployeesPage() {
         const toDate = dateFilter.to ? new Date(dateFilter.to) : null;
 
         if (fromDate && toDate) {
-          
+
           if (startDate && endDate) {
             return (
               (startDate >= fromDate && startDate <= toDate) ||
@@ -208,7 +216,7 @@ export default function EmployeesPage() {
             return endDate >= fromDate && endDate <= toDate;
           }
         } else if (fromDate) {
-          
+
           if (startDate && endDate) {
             return endDate >= fromDate;
           } else if (startDate) {
@@ -217,7 +225,7 @@ export default function EmployeesPage() {
             return endDate >= fromDate;
           }
         } else if (toDate) {
-          
+
           if (startDate && endDate) {
             return startDate <= toDate;
           } else if (startDate) {
@@ -233,7 +241,7 @@ export default function EmployeesPage() {
     setFilteredEmployees(result);
   }, [searchTerm, employees, dateFilter]);
 
- 
+
   const validateForm = (data: EmployeeFormData) => {
     const newErrors: Record<string, string> = {};
 
@@ -263,138 +271,174 @@ export default function EmployeesPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-
   const handleRowUpdated = async (updatedRow: any) => {
     try {
-      const formattedName = toInitCap(updatedRow.full_name || updatedRow.name || "");
-      const payload = {
-        id: updatedRow.id,
-        name: formattedName,
-        email: updatedRow.email || null,
-        phone: updatedRow.phone ? parsePhoneNumber(updatedRow.phone) : null,
-        address: updatedRow.address || null,
-        dob: updatedRow.dob || null,
+      const formattedName = toInitCap(
+        updatedRow.full_name || updatedRow.name || ""
+      );
 
-        enddate: updatedRow.enddate || null,
-        instructor: updatedRow.instructor !== undefined ? Number(updatedRow.instructor) : null,
-        status: updatedRow.status !== undefined ? Number(updatedRow.status) : 1,
-        notes: updatedRow.notes || null,
-        state: updatedRow.state || null,
-        aadhaar: updatedRow.aadhaar ? parsePhoneNumber(updatedRow.aadhaar) : null,
+      const payload = {
+        name: formattedName,
+        email: updatedRow.email ?? null,
+        phone: updatedRow.phone ? parsePhoneNumber(updatedRow.phone) : null,
+        address: updatedRow.address ?? null,
+        dob: updatedRow.dob ?? null,
+        enddate: updatedRow.enddate ?? null,
+        instructor:
+          updatedRow.instructor !== undefined
+            ? Number(updatedRow.instructor)
+            : null,
+        status:
+          updatedRow.status !== undefined ? Number(updatedRow.status) : 1,
+        notes: updatedRow.notes ?? null,
+        state: updatedRow.state ?? null,
+        aadhaar: updatedRow.aadhaar
+          ? updatedRow.aadhaar.replace(/\D/g, "")
+          : null,
       };
+
       await apiFetch(`/api/employees/${updatedRow.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: payload,
       });
-    
+
       const updatedList = employees.map((emp) =>
-        emp.id === updatedRow.id ? {
-          ...emp,
-          ...payload,
-          full_name: formattedName,
-          phone: payload.phone ? formatPhoneNumber(payload.phone) : ""
-        } : emp
+        emp.id === updatedRow.id
+          ? {
+            ...emp,
+            ...payload,
+            full_name: formattedName,
+            phone: payload.phone
+              ? formatPhoneNumber(payload.phone)
+              : "",
+          }
+          : emp
       );
+
       setEmployees(updatedList);
       setFilteredEmployees(updatedList);
-    } catch (err) {
+      toast.success("Employee updated successfully");
+    } catch (err: any) {
       console.error("Failed to update employee:", err);
-      setError(err.message);
+      setError(err.message || "Failed to update employee");
     }
   };
 
-  const handleRowAdded = async (newRow: any) => {
-    try {
-      const formattedName = toInitCap(newRow.full_name || newRow.name || "");
-      const payload = {
-        name: formattedName,
-        email: newRow.email || null,
-        phone: newRow.phone ? parsePhoneNumber(newRow.phone) : null,
-        address: newRow.address || null,
-        dob: newRow.dob || null,
-        startdate: newRow.startdate || null,
-        enddate: newRow.enddate || null,
-        instructor: newRow.instructor !== undefined ? Number(newRow.instructor) : null,
-        status: newRow.status !== undefined ? Number(newRow.status) : 1,
-        notes: newRow.notes || null,
-        state: newRow.state || null,
-        aadhaar: newRow.aadhaar ? parsePhoneNumber(newRow.aadhaar) : null,
-      };
-      const created = await apiFetch("/api/employees", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
 
-   
-      const newEmployee = {
-        ...created,
-        full_name: formattedName,
-        phone: created.phone ? formatPhoneNumber(created.phone) : "",
-      };
+const handleRowAdded = async (newRow: any) => {
+  try {
+    const formattedName = toInitCap(newRow.full_name || newRow.name || "");
 
-      
-      setEmployees((prev) => [newEmployee, ...prev]);
-      setFilteredEmployees((prev) => [newEmployee, ...prev]);
-    } catch (err) {
-      console.error("Failed to add employee:", err);
-      setError(err.message);
+    const payload = {
+      name: formattedName,
+      email: newRow.email ?? null,
+      phone: newRow.phone ? parsePhoneNumber(newRow.phone) : null,
+      address: newRow.address ?? null,
+      dob: newRow.dob ?? null,
+      startdate: newRow.startdate ?? null,
+      enddate: newRow.enddate ?? null,
+      instructor:
+        newRow.instructor !== undefined ? Number(newRow.instructor) : null,
+      status:
+        newRow.status !== undefined ? Number(newRow.status) : 1,
+      notes: newRow.notes ?? null,
+      state: newRow.state ?? null,
+      aadhaar: newRow.aadhaar
+        ? newRow.aadhaar.replace(/\D/g, "")
+        : null,
+    };
+
+    const created = await apiFetch("/api/employees", {
+      method: "POST",
+      body: payload,
+    });
+
+    const newEmployee = {
+      ...created,
+      full_name: formattedName,
+      phone: created.phone ? formatPhoneNumber(created.phone) : "",
+    };
+
+    setEmployees((prev) => [newEmployee, ...prev]);
+    setFilteredEmployees((prev) => [newEmployee, ...prev]);
+
+    toast.success("Employee created successfully");
+
+  } catch (err: any) {
+    console.error("Failed to add employee:", err);
+
+    // 🔥 DUPLICATE EMAIL HANDLING
+    if (err?.status === 409) {
+      toast.error("Employee with this email already exists");
+    } else {
+      toast.error("Failed to create employee");
     }
-  };
+  }
+};
 
- 
+
+
+
   const handleRowDeleted = async (id: number | string) => {
     try {
       await apiFetch(`/api/employees/${id}`, { method: "DELETE" });
+
       setEmployees((prev) => prev.filter((row) => row.id !== id));
       setFilteredEmployees((prev) => prev.filter((row) => row.id !== id));
+      toast.success("Employee deleted successfully");
     } catch (err) {
       console.error("Failed to delete employee:", err);
       setError("Failed to delete employee");
     }
   };
 
-  const handleFormSubmit = async (data: EmployeeFormData) => {
-    if (!validateForm(data)) {
-      return;
+const handleFormSubmit = async (data: EmployeeFormData) => {
+  if (!validateForm(data)) return;
+
+  setFormSaveLoading(true);
+
+  try {
+    const formattedName = toInitCap(data.name);
+
+    const payload = {
+      ...data,
+      name: formattedName,
+      phone: data.phone ? parsePhoneNumber(data.phone) : null,
+      aadhaar: data.aadhaar ? data.aadhaar.replace(/\D/g, "") : null,
+    };
+
+    const created = await apiFetch("/api/employees", {
+      method: "POST",
+      body: payload,
+    });
+
+    const newEmployee = {
+      ...created,
+      full_name: formattedName,
+      phone: created.phone ? formatPhoneNumber(created.phone) : "",
+    };
+
+    setEmployees((prev) => [newEmployee, ...prev]);
+    setFilteredEmployees((prev) => [newEmployee, ...prev]);
+
+    toast.success("Employee created successfully");
+    reset();
+    setShowEmployeeForm(false);
+    setFormErrors({});
+
+  } catch (err: any) {
+    console.error("Failed to add employee:", err);
+
+    if (err?.status === 409) {
+      toast.error("Employee with this email already exists");
+      setFormErrors({ email: "Email already exists" });
+    } else {
+      toast.error("Failed to create employee");
     }
-
-    setFormSaveLoading(true);
-    try {
-      const formattedName = toInitCap(data.name);
-      const payload = {
-        ...data,
-        name: formattedName,
-        phone: data.phone ? parsePhoneNumber(data.phone) : null,
-        aadhaar: data.aadhaar ? parsePhoneNumber(data.aadhaar) : null,
-      };
-
-      const created = await apiFetch("/api/employees", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      
-      const newEmployee = {
-        ...created,
-        full_name: formattedName,
-        phone: created.phone ? formatPhoneNumber(created.phone) : "",
-      };
-
-      setEmployees((prev) => [newEmployee, ...prev]);
-      setFilteredEmployees((prev) => [newEmployee, ...prev]);
-      reset();
-      setShowEmployeeForm(false);
-      setFormErrors({});
-    } catch (err) {
-      console.error("Failed to add employee:", err);
-      setError("Failed to add employee");
-    } finally {
-      setFormSaveLoading(false);
-    }
-  };
+  } finally {
+    setFormSaveLoading(false);
+  }
+};
 
 
   const columnDefs: ColDef[] = [
@@ -502,19 +546,47 @@ export default function EmployeesPage() {
     {
       headerName: "Instructor",
       field: "instructor",
-      editable: true,
-      cellRenderer: BooleanRenderer,
-      valueParser: booleanValueParser,
-      onCellValueChanged: (params) => handleRowUpdated(params.data),
+
+      cellRenderer: (p) => (Number(p.value) === 1 ? "Yes" : "No"),
+
+     
+      filterValueGetter: (p) =>
+        Number(p.data.instructor) === 1 ? "Yes" : "No",
+
+      filter: "agTextColumnFilter",
+
+      cellEditor: "agSelectCellEditor",
+      cellEditorParams: {
+        values: [1, 0],
+      },
+
+      valueFormatter: (p) => (Number(p.value) === 1 ? "Yes" : "No"),
     },
+
+
+
     {
       headerName: "Status",
       field: "status",
-      editable: true,
+
       cellRenderer: StatusRenderer,
-      valueParser: booleanValueParser,
-      onCellValueChanged: (params) => handleRowUpdated(params.data),
-    },
+
+     
+      filterValueGetter: (p) =>
+        Number(p.data.status) === 1 ? "Active" : "Inactive",
+
+      filter: "agTextColumnFilter",
+
+      cellEditor: "agSelectCellEditor",
+      cellEditorParams: {
+        values: [1, 0],
+      },
+
+      valueFormatter: (p) =>
+        Number(p.value) === 1 ? "Active" : "Inactive",
+    }
+
+    ,
     {
       field: "notes",
       headerName: "Notes",
@@ -540,17 +612,18 @@ export default function EmployeesPage() {
 
   return (
     <div className="space-y-6">
+      <Toaster position="top-center" richColors />
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Employee Management</h1>
-          <p className="text-gray-600">Browse, search, and manage employees.</p>
+
         </div>
       </div>
 
-     
+
       <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-     
+
         <div className="max-w-md flex-1">
           <div className="relative mt-1">
             <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
@@ -569,7 +642,7 @@ export default function EmployeesPage() {
       </div>
 
 
-    
+
       {showEmployeeForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
@@ -717,4 +790,3 @@ export default function EmployeesPage() {
     </div>
   );
 }
-
