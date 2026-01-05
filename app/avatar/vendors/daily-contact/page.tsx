@@ -414,7 +414,7 @@ export default function VendorContactsGrid() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              Vendor Contact Extracts
+              Daily Contact Extracts
             </h1>
           </div>
 
@@ -458,7 +458,7 @@ export default function VendorContactsGrid() {
             defaultColDef={defaultColDef}
             loading={loading}
             height="600px"
-            title={`Vendor Contacts (${filteredContacts.length})`}
+            title={`Daily Contacts (${filteredContacts.length})`}
             showSearch={false}
             onRowAdded={handleRowAdded}
             onRowUpdated={handleRowUpdated}
