@@ -1358,7 +1358,6 @@ export default function CandidatesPage() {
           batches={allBatches}
           loading={loading}
           height="600px"
-
           overlayNoRowsTemplate={
             loading ? "" : '<span class="ag-overlay-no-rows-center">No candidates found</span>'
           }
