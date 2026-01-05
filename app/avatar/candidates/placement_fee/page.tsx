@@ -9,14 +9,14 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon } from "lucide-react";
+import { SearchIcon, ChevronRight, ChevronDown } from "lucide-react";
 import { ColDef } from "ag-grid-community";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { toast, Toaster } from "sonner";
 import api from "@/lib/api";
 
 interface PlacementFee {
-    id?: number;
+    id?: number | string; // ID can be string for Groups (e.g. "group-Adarsh")
     placement_id?: number | string;
     installment_id?: number | string | null;
     deposit_date?: string | null;
@@ -26,27 +26,160 @@ interface PlacementFee {
     lastmod_user_name?: string | null;
     last_mod_date?: string | null;
     candidate_name?: string | null;
+
+    // UI flags
+    isGroup?: boolean;
+    isExpanded?: boolean;
+    totalDeposit?: number;
+    originalId?: number; // Keep track of DB ID for updates
 }
 
 export default function PlacementFeeCollectionPage() {
     const [searchTerm, setSearchTerm] = useState("");
-    const [allFees, setAllFees] = useState<PlacementFee[]>([]);
-    const [filteredFees, setFilteredFees] = useState<PlacementFee[]>([]);
-    const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
+    const [rawFees, setRawFees] = useState<PlacementFee[]>([]); // The flat list from API
+    const [gridRows, setGridRows] = useState<PlacementFee[]>([]); // The rows currently shown in grid
+    const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set()); // Track expanded candidate names
     const [loading, setLoading] = useState(false);
+    const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
 
-    // Renderers
+    // ---------------------------------------------------------
+    // 1. Data Processing Logic
+    // ---------------------------------------------------------
+
+    // A. Re-calculate the grid rows whenever raw data or expanded state changes
+    useEffect(() => {
+        if (!rawFees.length) {
+            setGridRows([]);
+            return;
+        }
+
+        const lowerSearch = searchTerm.toLowerCase();
+
+        // 1. Filter raw data first (if searching)
+        const filteredRaw = rawFees.filter(f => {
+            if (!searchTerm) return true;
+            return Object.values(f).some(v => String(v).toLowerCase().includes(lowerSearch));
+        });
+
+        // 2. Group by Candidate
+        const groups: Record<string, PlacementFee[]> = {};
+        filteredRaw.forEach(fee => {
+            const name = fee.candidate_name || "Unknown";
+            if (!groups[name]) groups[name] = [];
+            groups[name].push(fee);
+        });
+
+        // 3. Flatten into Grid Rows based on expansion
+        const newGridRows: PlacementFee[] = [];
+
+        Object.entries(groups).forEach(([candidateName, children]) => {
+            // Calculate Total
+            const total = children.reduce((sum, item) => sum + Number(item.deposit_amount || 0), 0);
+            const isExpanded = expandedGroups.has(candidateName);
+
+            // Create Group Row
+            newGridRows.push({
+                id: `group-${candidateName}`,
+                candidate_name: candidateName,
+                isGroup: true,
+                isExpanded: isExpanded,
+                totalDeposit: total,
+                // Fill other cols with null/empty so they don't show garbage
+                placement_id: "",
+                installment_id: "",
+                deposit_date: null,
+                deposit_amount: total, // We use this for the aggregation display
+                amount_collected: null,
+            });
+
+            // If Filter is active, we might want to auto-expand, or just respect manual state.
+            // Let's force expand if search is active so user sees results?
+            // tailored choice: if search is active, expand all matches.
+            const effectiveExpanded = searchTerm ? true : isExpanded;
+
+            if (effectiveExpanded) {
+                children.forEach(child => {
+                    newGridRows.push({
+                        ...child,
+                        originalId: Number(child.id), // Ensure we keep original ID for edits
+                        isGroup: false,
+                    });
+                });
+            }
+        });
+
+        setGridRows(newGridRows);
+
+    }, [rawFees, expandedGroups, searchTerm]);
+
+
+    // ---------------------------------------------------------
+    // 2. Event Handlers
+    // ---------------------------------------------------------
+
+    const toggleGroup = useCallback((candidateName: string) => {
+        setExpandedGroups(prev => {
+            const next = new Set(prev);
+            if (next.has(candidateName)) {
+                next.delete(candidateName);
+            } else {
+                next.add(candidateName);
+            }
+            return next;
+        });
+    }, []);
+
+    // ---------------------------------------------------------
+    // 3. Renderers
+    // ---------------------------------------------------------
+
+    const CandidateGroupRenderer = (params: any) => {
+        const { data } = params;
+        if (!data) return null;
+
+        if (data.isGroup) {
+            return (
+                <div
+                    className="flex items-center cursor-pointer font-bold text-gray-800"
+                    onClick={() => toggleGroup(data.candidate_name)}
+                >
+                    {data.isExpanded || searchTerm ? (
+                        <ChevronDown className="w-4 h-4 mr-2" />
+                    ) : (
+                        <ChevronRight className="w-4 h-4 mr-2" />
+                    )}
+                    {data.candidate_name}
+                </div>
+            );
+        } else {
+            // Child logic: Indent
+            return <div className="pl-6 text-gray-500 text-sm"></div>; // We don't show name again? Or just indent?
+            // Actually, showing nothing in the 'Candidate' column for child is cleaner if the group header is above.
+            // But if we want to show 'Same Name', we can. Let's return null to signify it belongs to parent.
+        }
+    };
+
+    const AmountRenderer = (params: any) => {
+        const val = params.value;
+        if (params.data.isGroup) {
+            return (
+                <span className="font-bold text-gray-900">
+                    Total: ${Number(val).toLocaleString()}
+                </span>
+            );
+        }
+        return val == null ? "$0.00" : `$${Number(val).toLocaleString()}`;
+    };
+
     const DateRenderer = (params: any) => {
+        if (params.data.isGroup) return null;
         const v = params.value;
         if (!v) return <span className="text-gray-500">N/A</span>;
         return <span>{String(v).split("T")[0]}</span>;
     };
 
-
-    const AmountRenderer = (params: any) =>
-        params.value == null ? "$0.00" : `$${Number(params.value).toLocaleString()}`;
-
     const CollectedRenderer = (params: any) => {
+        if (params.data.isGroup) return null;
         const val = (params.value || "no").toString().toLowerCase();
         const cls = val === "yes" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800";
         const displayVal = val === "yes" ? "Yes" : "No";
@@ -54,8 +187,8 @@ export default function PlacementFeeCollectionPage() {
     };
 
     const PlacementLinkRenderer = (params: any) => {
+        if (params.data.isGroup) return null;
         const placementId = params.data?.placement_id ?? params.value;
-        const candidateName = params.data?.candidate_name;
         if (!placementId) return <span className="text-gray-500">N/A</span>;
         return (
             <Link
@@ -64,10 +197,14 @@ export default function PlacementFeeCollectionPage() {
                 rel="noopener noreferrer"
                 className="text-blue-600 underline hover:text-blue-800 font-medium"
             >
-                {candidateName || placementId}
+                Placement #{placementId}
             </Link>
         );
     };
+
+    // ---------------------------------------------------------
+    // 4. API & CRUD
+    // ---------------------------------------------------------
 
     useEffect(() => {
         const fetchFees = async () => {
@@ -75,81 +212,13 @@ export default function PlacementFeeCollectionPage() {
             try {
                 const res = await api.get("/placement-fee");
                 const body = res?.data ?? res?.raw ?? [];
+
                 const fees = Array.isArray(body) ? body : Array.isArray(body.data) ? body.data : body.data ?? [];
+                // Just set raw fees, the useEffect above will handle grouping
+                setRawFees(fees);
 
-                const normalized = fees.map((f: any) => ({
-                    id: f.id,
-                    placement_id: f.placement_id,
-                    installment_id: f.installment_id ?? null,
-                    deposit_date: f.deposit_date ?? null,
-                    deposit_amount: f.deposit_amount ?? null,
-                    amount_collected: f.amount_collected ?? "no",
-                    lastmod_user_id: f.lastmod_user_id ?? null,
-                    lastmod_user_name: f.lastmod_user_name ?? null,
-                    last_mod_date: f.last_mod_date ?? null,
-                    candidate_name: f.candidate_name ?? null,
-                }));
-
-                setAllFees(normalized);
-                setFilteredFees(normalized);
-
-                if (normalized.length > 0) {
-                    const cols: ColDef[] = [
-                        { field: "id", headerName: "ID", width: 80, pinned: "left" },
-                        {
-                            field: "placement_id",
-                            headerName: "Placement",
-                            minWidth: 180,
-                            cellRenderer: PlacementLinkRenderer,
-                        },
-
-                        {
-                            field: "installment_id",
-                            headerName: "Installment",
-                            minWidth: 120,
-                            editable: true,
-                        },
-
-                        {
-                            field: "deposit_date",
-                            headerName: "Deposit Date",
-                            minWidth: 140,
-                            cellRenderer: DateRenderer,
-                        },
-
-                        {
-                            field: "deposit_amount",
-                            headerName: "Deposit Amount",
-                            minWidth: 140,
-                            cellRenderer: AmountRenderer,
-                            editable: true,
-                        },
-
-                        {
-                            field: "amount_collected",
-                            headerName: "Collected",
-                            minWidth: 120,
-                            cellRenderer: CollectedRenderer,
-                            editable: true,
-                            cellEditor: "agSelectCellEditor",
-                            cellEditorParams: { values: ["yes", "no"] },
-                        },
-
-                        {
-                            field: "lastmod_user_name",
-                            headerName: "Last Modified By",
-                            minWidth: 140,
-                        },
-
-                        {
-                            field: "last_mod_date",
-                            headerName: "Last Modified At",
-                            minWidth: 180,
-                            cellRenderer: DateRenderer,
-                        },
-                    ];
-
-                    setColumnDefs(cols);
+                if (fees.length > 0) {
+                    setupColumns();
                 }
             } catch (err) {
                 console.error(err);
@@ -158,41 +227,86 @@ export default function PlacementFeeCollectionPage() {
                 setLoading(false);
             }
         };
-
         fetchFees();
     }, []);
 
-    useEffect(() => {
-        const lower = searchTerm.toLowerCase();
-        setFilteredFees(
-            allFees.filter((f) =>
-                Object.values(f)
-                    .filter(Boolean)
-                    .some((v) => String(v).toLowerCase().includes(lower))
-            )
-        );
-    }, [searchTerm, allFees]);
+    const setupColumns = () => {
+        setColumnDefs([
+            { field: "id", headerName: "ID", width: 80, hide: true },
+            {
+                field: "candidate_name",
+                headerName: "Candidate",
+                minWidth: 230,
+                cellRenderer: CandidateGroupRenderer,
+                pinned: 'left',
+            },
+            {
+                field: "placement_id",
+                headerName: "Placement",
+                minWidth: 150,
+                cellRenderer: PlacementLinkRenderer,
+                hide: true,
+            },
+            {
+                field: "installment_id",
+                headerName: "Installment",
+                width: 130,
+                editable: (p) => !p.data.isGroup,
+            },
+            {
+                field: "deposit_date",
+                headerName: "Deposit Date",
+                width: 150,
+                cellRenderer: DateRenderer,
+            },
+            {
+                field: "deposit_amount",
+                headerName: "Deposit Amount",
+                width: 170,
+                cellRenderer: AmountRenderer,
+                editable: (p) => !p.data.isGroup,
+            },
+            {
+                field: "amount_collected",
+                headerName: "Collected",
+                width: 120,
+                cellRenderer: CollectedRenderer,
+                editable: (p) => !p.data.isGroup,
+                cellEditor: "agSelectCellEditor",
+                cellEditorParams: { values: ["yes", "no"] },
+            },
+            {
+                field: "lastmod_user_name",
+                headerName: "Last Modified By",
+                width: 170,
+                cellRenderer: (params: any) => params.data.isGroup ? null : params.value,
+            },
+            {
+                field: "last_mod_date",
+                headerName: "Last Modified At",
+                width: 170,
+                cellRenderer: DateRenderer,
+            }
+        ]);
+    };
+
+    // CRUD Handlers
+    // Note: editing 'grouped' rows needs care. We map back to 'rawFees' to update UI locally too.
 
     const handleRowUpdated = async (updatedRow: PlacementFee) => {
+        if (updatedRow.isGroup) return; // Cannot edit groups
+
         try {
-            if (!updatedRow.id) return toast.error("Missing record ID");
-            const res = await api.put(`/placement-fee/${updatedRow.id}`, updatedRow);
-            const updated = res.data ?? res;
+            // Use originalId because 'id' might be something else in grid? No, for children we kept original ID.
+            const dbId = updatedRow.originalId || updatedRow.id;
+            if (!dbId) return toast.error("Missing record ID");
 
-            const normalized = {
-                id: updated.id,
-                placement_id: updated.placement_id,
-                installment_id: updated.installment_id ?? null,
-                deposit_date: updated.deposit_date ?? null,
-                deposit_amount: updated.deposit_amount ?? null,
-                amount_collected: updated.amount_collected ?? "no",
-                lastmod_user_id: updated.lastmod_user_id ?? null,
-                lastmod_user_name: updated.lastmod_user_name ?? null,
-                last_mod_date: updated.last_mod_date ?? null,
-                candidate_name: updated.candidate_name ?? null,
-            };
+            // Send update
+            await api.put(`/placement-fee/${dbId}`, updatedRow);
 
-            setAllFees((prev) => prev.map((r) => (r.id === updatedRow.id ? normalized : r)));
+            // Update Local State (rawFees)
+            setRawFees(prev => prev.map(f => f.id === dbId ? { ...f, ...updatedRow } : f));
+
             toast.success("Updated successfully");
         } catch (err) {
             console.error(err);
@@ -200,11 +314,12 @@ export default function PlacementFeeCollectionPage() {
         }
     };
 
-    // Row delete (DELETE)
-    const handleRowDeleted = async (id: number) => {
+    const handleRowDeleted = async (id: number | string) => {
+        if (String(id).startsWith("group-")) return;
+
         try {
             await api.delete(`/placement-fee/${id}`);
-            setAllFees((prev) => prev.filter((p) => p.id !== id));
+            setRawFees(prev => prev.filter(f => f.id !== id));
             toast.success("Successfully Deleted");
         } catch (err) {
             console.error(err);
@@ -212,58 +327,29 @@ export default function PlacementFeeCollectionPage() {
         }
     };
 
-
     const handleRowAdded = async (newData: any) => {
         try {
+            // ... Prepare payload ...
             const payload = { ...newData };
+            delete payload.isGroup;
+            delete payload.isExpanded;
+            delete payload.totalDeposit;
 
-            if (payload.placement_id) {
-                payload.placement_id = Number(payload.placement_id);
-            }
-            ['installment_id', 'lastmod_user_id'].forEach(key => {
-                if (payload[key]) payload[key] = Number(payload[key]);
-                else payload[key] = null;
-            });
+            // Simple type safety
+            if (payload.placement_id) payload.placement_id = Number(payload.placement_id);
+            if (payload.deposit_amount) payload.deposit_amount = Number(payload.deposit_amount);
 
-            if (payload.deposit_amount) {
-                payload.deposit_amount = Number(payload.deposit_amount);
-            } else {
-                payload.deposit_amount = null;
-            }
-
-            if (!payload.deposit_date || payload.deposit_date === "") {
-                payload.deposit_date = null;
-            }
-
-            if (!payload.amount_collected) {
-                payload.amount_collected = "no";
-            }
-
-            Object.keys(payload).forEach(key => {
-                if (payload[key] === "") payload[key] = null;
-            });
+            // Defaults
+            if (!payload.amount_collected) payload.amount_collected = "no";
 
             const res = await api.post("/placement-fee", payload);
             const created = res.data ?? res;
-            const newFee: PlacementFee = {
-                id: created.id,
-                placement_id: created.placement_id,
-                installment_id: created.installment_id,
-                deposit_date: created.deposit_date,
-                deposit_amount: created.deposit_amount,
-                amount_collected: created.amount_collected,
-                lastmod_user_id: created.lastmod_user_id,
-                lastmod_user_name: created.lastmod_user_name ?? null,
-                last_mod_date: created.last_mod_date,
-                candidate_name: created.candidate_name ?? null,
-            };
 
-            setAllFees((prev) => [newFee, ...prev]);
+            setRawFees(prev => [created, ...prev]);
             toast.success("Added successfully");
         } catch (err: any) {
             console.error(err);
-            const msg = err.response?.data?.detail || "Failed to add";
-            toast.error(msg);
+            toast.error("Failed to add");
         }
     };
 
@@ -279,13 +365,13 @@ export default function PlacementFeeCollectionPage() {
             </div>
 
             <div className="max-w-md">
-                <Label htmlFor="search">Search Fees</Label>
+                <Label htmlFor="search">Search {searchTerm && "(Typing expands all groups)"}</Label>
                 <div className="relative mt-1">
                     <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
                         id="search"
                         type="text"
-                        placeholder="Search..."
+                        placeholder="Search Candidate..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="pl-10"
@@ -293,20 +379,21 @@ export default function PlacementFeeCollectionPage() {
                 </div>
             </div>
 
-            {loading ? (
+            {loading && rawFees.length === 0 ? (
                 <p className="text-center text-gray-500">Loading...</p>
             ) : (
                 <div className="w-full flex justify-center">
                     <div className="w-full max-w-7xl">
                         <AGGridTable
-                            rowData={filteredFees}
+                            rowData={gridRows}
                             columnDefs={columnDefs}
-                            title={`Placement Fees (${filteredFees.length})`}
+                            title={`Placement Fees (${rawFees.length} records)`}
                             height="calc(60vh)"
-                            showSearch={false}
+                            showSearch={false} // We handle search manually
                             onRowUpdated={handleRowUpdated}
                             onRowDeleted={handleRowDeleted}
                             onRowAdded={handleRowAdded}
+                        // No treeData props needed!
                         />
                     </div>
                 </div>

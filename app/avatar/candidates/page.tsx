@@ -82,11 +82,35 @@ type Batch = {
 
 const statusOptions = ["active", "discontinued", "break", "closed"];
 const workStatusOptions = [
-  "Waiting for Status",
-  "Citizen",
-  "Visa",
-  "Permanent resident",
-  "EAD",
+  "US_CITIZEN",
+  "GREEN_CARD",
+  "GC_EAD",
+  "I485_EAD",
+  "I140_APPROVED",
+  "F1",
+  "F1_OPT",
+  "F1_CPT",
+  "J1",
+  "J1_AT",
+  "H1B",
+  "H1B_TRANSFER",
+  "H1B_CAP_EXEMPT",
+  "H4",
+  "H4_EAD",
+  "L1A",
+  "L1B",
+  "L2",
+  "L2_EAD",
+  "O1",
+  "TN",
+  "E3",
+  "E3_EAD",
+  "E2",
+  "E2_EAD",
+  "TPS_EAD",
+  "ASYLUM_EAD",
+  "REFUGEE_EAD",
+  "DACA_EAD",
 ];
 
 const initialFormData: FormData = {
@@ -287,7 +311,7 @@ const FilterHeaderComponent = ({
 
   const isAllSelected = selectedItems.length === options.length && options.length > 0;
   const isIndeterminate = selectedItems.length > 0 && selectedItems.length < options.length;
-  
+
   const colorMap: Record<string, string> = {
     blue: "bg-blue-500",
     green: "bg-green-500",
@@ -454,7 +478,7 @@ export default function CandidatesPage() {
   const [allBatches, setAllBatches] = useState<Batch[]>([]);
   const [mlBatches, setMlBatches] = useState<Batch[]>([]);
   const [batchesLoading, setBatchesLoading] = useState(true);
-  
+
   // Filter states
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
@@ -1279,7 +1303,7 @@ export default function CandidatesPage() {
       </div>
 
       <div className="flex w-full justify-center">
-       
+
         <AGGridTable
           key={`grid-${selectedStatuses.join(",")}-${selectedWorkStatuses.join(",")}-${selectedBatches.map((b) => b.batchid).join(",")}`}
           rowData={loading ? undefined : filteredCandidates}
@@ -1334,7 +1358,7 @@ export default function CandidatesPage() {
           batches={allBatches}
           loading={loading}
           height="600px"
-          gridOptions={gridOptions}
+
           overlayNoRowsTemplate={
             loading ? "" : '<span class="ag-overlay-no-rows-center">No candidates found</span>'
           }

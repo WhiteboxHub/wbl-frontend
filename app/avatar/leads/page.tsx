@@ -73,13 +73,35 @@ const initialFormData: FormData = {
 
 const statusOptions = ["Open", "Closed", "Future"];
 const workStatusOptions = [
-  "Waiting for Status",
+  "US_CITIZEN",
+  "GREEN_CARD",
+  "GC_EAD",
+  "I485_EAD",
+  "I140_APPROVED",
+  "F1",
+  "F1_OPT",
+  "F1_CPT",
+  "J1",
+  "J1_AT",
   "H1B",
-  "H4 EAD",
-  "Permanent Resident",
-  "Citizen",
-  "OPT",
-  "CPT"
+  "H1B_TRANSFER",
+  "H1B_CAP_EXEMPT",
+  "H4",
+  "H4_EAD",
+  "L1A",
+  "L1B",
+  "L2",
+  "L2_EAD",
+  "O1",
+  "TN",
+  "E3",
+  "E3_EAD",
+  "E2",
+  "E2_EAD",
+  "TPS_EAD",
+  "ASYLUM_EAD",
+  "REFUGEE_EAD",
+  "DACA_EAD",
 ];
 
 
@@ -157,11 +179,16 @@ const StatusFilterHeaderComponent = (props: any) => {
       }
     };
 
-    const handleScroll = () => setFilterVisible(false);
+    const handleScroll = (e: Event) => {
+      const target = e.target as HTMLElement;
+      if (dropdownRef.current && !dropdownRef.current.contains(target)) {
+        setFilterVisible(false);
+      }
+    };
 
     if (filterVisible) {
       document.addEventListener("mousedown", handleClickOutside);
-      window.addEventListener("scroll", handleScroll, true);
+      window.addEventListener("scroll", handleScroll, { capture: true, passive: true });
     }
 
     return () => {
@@ -203,7 +230,7 @@ const StatusFilterHeaderComponent = (props: any) => {
         createPortal(
           <div
             ref={dropdownRef}
-            className="fixed bg-white border rounded-lg shadow-xl p-3 flex flex-col space-y-2 w-56 pointer-events-auto dark:bg-gray-800 dark:border-gray-600"
+            className="filter-dropdown fixed bg-white border rounded-lg shadow-xl p-3 flex flex-col space-y-2 w-56 pointer-events-auto dark:bg-gray-800 dark:border-gray-600"
             style={{
               top: dropdownPos.top + 5,
               left: dropdownPos.left,
@@ -323,11 +350,16 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
       }
     };
 
-    const handleScroll = () => setFilterVisible(false);
+    const handleScroll = (e: Event) => {
+      const target = e.target as HTMLElement;
+      if (dropdownRef.current && !dropdownRef.current.contains(target)) {
+        setFilterVisible(false);
+      }
+    };
 
     if (filterVisible) {
       document.addEventListener("mousedown", handleClickOutside);
-      window.addEventListener("scroll", handleScroll, true);
+      window.addEventListener("scroll", handleScroll, { capture: true, passive: true });
     }
 
     return () => {
@@ -369,7 +401,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
         createPortal(
           <div
             ref={dropdownRef}
-            className="fixed bg-white border rounded-lg shadow-xl p-3 flex flex-col space-y-2 w-56 pointer-events-auto dark:bg-gray-800 dark:border-gray-600 text-sm"
+            className="filter-dropdown fixed bg-white border rounded-lg shadow-xl p-3 flex flex-col space-y-2 w-56 pointer-events-auto dark:bg-gray-800 dark:border-gray-600 text-sm"
             style={{
               top: dropdownPos.top + 5,
               left: dropdownPos.left,
@@ -451,7 +483,7 @@ export default function LeadsPage() {
   const gridRef = useRef<InstanceType<typeof AgGridReact> | null>(null);
 
   const apiEndpoint = useMemo(() => "/leads", []);
-    const fetchLeads = useCallback(
+  const fetchLeads = useCallback(
     async (
       search?: string,
       searchBy: string = "all",
@@ -487,7 +519,7 @@ export default function LeadsPage() {
   );
 
 
-    useEffect(() => {
+  useEffect(() => {
     console.log('[Filter] useEffect triggered. Leads count:', leads.length);
     let filtered = [...leads];
 
@@ -581,13 +613,13 @@ export default function LeadsPage() {
         closed_date: updatedData.status === "Closed" ? new Date().toISOString().split('T')[0] : null,
       };
 
-                                         
+
       await apiFetch(apiEndpoint, { method: "POST", body: payload });
       await invalidateCache(`${apiEndpoint}?sort=entry_date:desc`);
-      
+
       // Refetch to ensure UI updates
       await fetchLeads(searchTerm, searchBy, sortModel, true);
-      
+
       toast.success("Lead created successfully!");
       setNewLeadForm(false);
       setFormData(initialFormData);
@@ -599,7 +631,7 @@ export default function LeadsPage() {
     }
   };
 
-    const handleRowUpdated = useCallback(
+  const handleRowUpdated = useCallback(
     async (updatedRow: Lead) => {
       setLoadingRowId(updatedRow.id);
       try {
@@ -647,22 +679,22 @@ export default function LeadsPage() {
 
 
   const handleRowDeleted = useCallback(
-  async (id: number) => {
-    try {
-      await apiFetch(`${apiEndpoint}/${id}`, { method: "DELETE" });
+    async (id: number) => {
+      try {
+        await apiFetch(`${apiEndpoint}/${id}`, { method: "DELETE" });
 
-      // Remove from local state
-      setLeads(prev => prev.filter(lead => lead.id !== id));
+        // Remove from local state
+        setLeads(prev => prev.filter(lead => lead.id !== id));
 
-      toast.success("Lead deleted successfully");
-    } catch (error) {
-      toast.error("Failed to delete lead");
-      console.error(error);
-    }
-  },
-  []
-);
- 
+        toast.success("Lead deleted successfully");
+      } catch (error) {
+        toast.error("Failed to delete lead");
+        console.error(error);
+      }
+    },
+    []
+  );
+
 
 
 
@@ -681,14 +713,14 @@ export default function LeadsPage() {
           closed_date: !Moved ? new Date().toISOString().split("T")[0] : null,
         };
 
-                                                
+
         const data = await apiFetch(url, { method, body: payload });
         await invalidateCache(`${apiEndpoint}?sort=entry_date:desc`);
-        
+
         // Update local state
-        setLeads(prevLeads => 
-          prevLeads.map(l => 
-            l.id === lead.id 
+        setLeads(prevLeads =>
+          prevLeads.map(l =>
+            l.id === lead.id
               ? { ...l, moved_to_candidate: !Moved, status: !Moved ? "Closed" : "Open" }
               : l
           )
@@ -894,6 +926,25 @@ export default function LeadsPage() {
   // Main UI
   return (
     <div className="space-y-6">
+      <style jsx global>{`
+        .filter-dropdown {
+          scrollbar-width: thin;
+        }
+        .filter-dropdown::-webkit-scrollbar {
+          width: 8px;
+        }
+        .filter-dropdown::-webkit-scrollbar-track {
+          background: #f1f1f1;
+          border-radius: 4px;
+        }
+        .filter-dropdown::-webkit-scrollbar-thumb {
+          background: #c1c1c1;
+          border-radius: 4px;
+        }
+        .filter-dropdown::-webkit-scrollbar-thumb:hover {
+          background: #a8a8a8;
+        }
+      `}</style>
       <Toaster position="top-center" />
       <div className="flex items-center justify-between">
         <div>
@@ -901,7 +952,7 @@ export default function LeadsPage() {
             Leads Management
           </h1>
           <div key="search-container" className="max-w-md">
-      
+
             <div className="relative mt-1">
               <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
               <Input

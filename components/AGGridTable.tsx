@@ -69,7 +69,6 @@ interface AGGridTableProps {
   overlayNoRowsTemplate?: string;
   batches?: any[];
 
-  gridOptions?: any;
   getRowNodeId?: (data: any) => string;
   showAddButton?: boolean;
   onSelectionChanged?: (selectedRows: any[]) => void;
