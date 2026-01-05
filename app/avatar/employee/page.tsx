@@ -15,9 +15,8 @@ import { toast, Toaster } from "sonner";
 const DateFormatter = (params: any) => {
   if (!params.value) return "";
 
-  // value is already YYYY-MM-DD from backend
   const [year, month, day] = params.value.split("-");
-  return `${month}/${day}/${year}`; // MM/DD/YYYY
+  return `${month}/${day}/${year}`; 
 };
 
 
@@ -367,7 +366,7 @@ const handleRowAdded = async (newRow: any) => {
   } catch (err: any) {
     console.error("Failed to add employee:", err);
 
-    // 🔥 DUPLICATE EMAIL HANDLING
+
     if (err?.status === 409) {
       toast.error("Employee with this email already exists");
     } else {
