@@ -84,26 +84,97 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "Need to Improve", label: "Need to Improve" },
   ],
   work_status: [
-    { value: "waiting for status", label: "Waiting for Status" },
-    { value: "citizen", label: "Citizen" },
-    { value: "f1", label: "F1" },
-    { value: "other", label: "Other" },
-    { value: "permanent resident", label: "Permanent Resident" },
-    { value: "h4", label: "H4" },
-    { value: "ead", label: "EAD" },
-    { value: "green card", label: "Green Card" },
-    { value: "h1b", label: "H1B" },
+    { value: "US_CITIZEN", label: "US Citizen" },
+    { value: "GREEN_CARD", label: "Green Card" },
+    { value: "GC_EAD", label: "GC EAD" },
+    { value: "I485_EAD", label: "I485 EAD" },
+    { value: "I140_APPROVED", label: "I140 Approved" },
+    { value: "F1", label: "F1" },
+    { value: "F1_OPT", label: "F1 OPT" },
+    { value: "F1_CPT", label: "F1 CPT" },
+    { value: "J1", label: "J1" },
+    { value: "J1_AT", label: "J1 AT" },
+    { value: "H1B", label: "H1B" },
+    { value: "H1B_TRANSFER", label: "H1B Transfer" },
+    { value: "H1B_CAP_EXEMPT", label: "H1B Cap Exempt" },
+    { value: "H4", label: "H4" },
+    { value: "H4_EAD", label: "H4 EAD" },
+    { value: "L1A", label: "L1A" },
+    { value: "L1B", label: "L1B" },
+    { value: "L2", label: "L2" },
+    { value: "L2_EAD", label: "L2 EAD" },
+    { value: "O1", label: "O1" },
+    { value: "TN", label: "TN" },
+    { value: "E3", label: "E3" },
+    { value: "E3_EAD", label: "E3 EAD" },
+    { value: "E2", label: "E2" },
+    { value: "E2_EAD", label: "E2 EAD" },
+    { value: "TPS_EAD", label: "TPS EAD" },
+    { value: "ASYLUM_EAD", label: "Asylum EAD" },
+    { value: "REFUGEE_EAD", label: "Refugee EAD" },
+    { value: "DACA_EAD", label: "DACA EAD" },
+  ],
+  workstatus: [
+    { value: "US_CITIZEN", label: "US Citizen" },
+    { value: "GREEN_CARD", label: "Green Card" },
+    { value: "GC_EAD", label: "GC EAD" },
+    { value: "I485_EAD", label: "I485 EAD" },
+    { value: "I140_APPROVED", label: "I140 Approved" },
+    { value: "F1", label: "F1" },
+    { value: "F1_OPT", label: "F1 OPT" },
+    { value: "F1_CPT", label: "F1 CPT" },
+    { value: "J1", label: "J1" },
+    { value: "J1_AT", label: "J1 AT" },
+    { value: "H1B", label: "H1B" },
+    { value: "H1B_TRANSFER", label: "H1B Transfer" },
+    { value: "H1B_CAP_EXEMPT", label: "H1B Cap Exempt" },
+    { value: "H4", label: "H4" },
+    { value: "H4_EAD", label: "H4 EAD" },
+    { value: "L1A", label: "L1A" },
+    { value: "L1B", label: "L1B" },
+    { value: "L2", label: "L2" },
+    { value: "L2_EAD", label: "L2 EAD" },
+    { value: "O1", label: "O1" },
+    { value: "TN", label: "TN" },
+    { value: "E3", label: "E3" },
+    { value: "E3_EAD", label: "E3 EAD" },
+    { value: "E2", label: "E2" },
+    { value: "E2_EAD", label: "E2 EAD" },
+    { value: "TPS_EAD", label: "TPS EAD" },
+    { value: "ASYLUM_EAD", label: "Asylum EAD" },
+    { value: "REFUGEE_EAD", label: "Refugee EAD" },
+    { value: "DACA_EAD", label: "DACA EAD" },
   ],
   visa_status: [
-    { value: "waiting for status", label: "Waiting for Status" },
-    { value: "citizen", label: "Citizen" },
-    { value: "f1", label: "F1" },
-    { value: "other", label: "Other" },
-    { value: "permanent resident", label: "Permanent Resident" },
-    { value: "h4", label: "H4" },
-    { value: "ead", label: "EAD" },
-    { value: "green card", label: "Green Card" },
-    { value: "h1b", label: "H1B" },
+    { value: "US_CITIZEN", label: "US Citizen" },
+    { value: "GREEN_CARD", label: "Green Card" },
+    { value: "GC_EAD", label: "GC EAD" },
+    { value: "I485_EAD", label: "I485 EAD" },
+    { value: "I140_APPROVED", label: "I140 Approved" },
+    { value: "F1", label: "F1" },
+    { value: "F1_OPT", label: "F1 OPT" },
+    { value: "F1_CPT", label: "F1 CPT" },
+    { value: "J1", label: "J1" },
+    { value: "J1_AT", label: "J1 AT" },
+    { value: "H1B", label: "H1B" },
+    { value: "H1B_TRANSFER", label: "H1B Transfer" },
+    { value: "H1B_CAP_EXEMPT", label: "H1B Cap Exempt" },
+    { value: "H4", label: "H4" },
+    { value: "H4_EAD", label: "H4 EAD" },
+    { value: "L1A", label: "L1A" },
+    { value: "L1B", label: "L1B" },
+    { value: "L2", label: "L2" },
+    { value: "L2_EAD", label: "L2 EAD" },
+    { value: "O1", label: "O1" },
+    { value: "TN", label: "TN" },
+    { value: "E3", label: "E3" },
+    { value: "E3_EAD", label: "E3 EAD" },
+    { value: "E2", label: "E2" },
+    { value: "E2_EAD", label: "E2 EAD" },
+    { value: "TPS_EAD", label: "TPS EAD" },
+    { value: "ASYLUM_EAD", label: "Asylum EAD" },
+    { value: "REFUGEE_EAD", label: "Refugee EAD" },
+    { value: "DACA_EAD", label: "DACA EAD" },
   ],
   mode_of_interview: [
     { value: "Virtual", label: "Virtual" },
@@ -387,7 +458,10 @@ const excludedFields = [
   "lastmod_date",
   "created_at",
   "updated_at",
-
+  "isGroup",
+  "isExpanded",
+  "totalDeposit",
+  "originalId",
 ];
 
 // Field visibility configuration
@@ -1103,6 +1177,12 @@ export function EditModal({
     }
     if (data.category) {
       flattened.category = data.category;
+    }
+    if (data.status !== undefined && data.status !== null) {
+      flattened.status = String(data.status);
+    }
+    if (data.instructor !== undefined && data.instructor !== null) {
+      flattened.instructor = String(data.instructor); 
     }
 
     return flattened;
@@ -2082,7 +2162,6 @@ export function EditModal({
 
 
 
-                            // Make job_id, employee_id, employee_name, and activity_count read-only in Job Activity Log modal (not add mode)
                             if (
                               isPlacementModal &&
                               key.toLowerCase() === "candidate_name"
@@ -2130,8 +2209,7 @@ export function EditModal({
 
 
 
-                            // Make job_id and employee_id read-only in Job Activity Log modal (not add mode)
-                            // employee_name and activity_count are now editable
+                           
                             if (
                               isJobActivityLogModal &&
                               !isAddMode &&
@@ -2156,7 +2234,6 @@ export function EditModal({
                               );
                             }
 
-                            // Make job_name a dropdown in Job Activity Log modal
                             if (
                               isJobActivityLogModal &&
                               isJobNameField
@@ -2201,7 +2278,6 @@ export function EditModal({
                               );
                             }
 
-                            // Make candidate_name a dropdown in Job Activity Log modal
                             if (
                               isJobActivityLogModal &&
                               key.toLowerCase() === "candidate_name"
@@ -2245,7 +2321,7 @@ export function EditModal({
                               );
                             }
 
-                            // Make employee_name a dropdown in Job Activity Log modal
+                   
                             if (
                               isJobActivityLogModal &&
                               key.toLowerCase() === "employee_name"
@@ -2292,7 +2368,6 @@ export function EditModal({
 
 
 
-                            // ADD THIS CONDITION FOR SUBJECT FIELD
                             if (isSubjectField && isBatchesModal) {
                               return (
                                 <div
@@ -2314,7 +2389,7 @@ export function EditModal({
                                     className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                     onChange={(e) => {
                                       const selectedSubject = e.target.value;
-                                      let courseid = "3"; // default ML
+                                      let courseid = "3"; 
                                       if (selectedSubject === "QA")
                                         courseid = "1";
                                       else if (selectedSubject === "UI")
@@ -2339,13 +2414,13 @@ export function EditModal({
                                 </div>
                               );
                             }
-                            // ADD THIS CONDITION FOR COURSEID FIELD
+                           
                             if (isCourseIdField && isBatchesModal) {
                               const currentSubject =
                                 currentFormValues.subject ||
                                 formData.subject ||
                                 "ML";
-                              let defaultCourseId = "3"; // default for ML
+                              let defaultCourseId = "3"; 
                               if (currentSubject === "QA")
                                 defaultCourseId = "1";
                               else if (currentSubject === "UI")
@@ -2385,7 +2460,7 @@ export function EditModal({
 
 
 
-                            // Special handling for candidate_full_name in special modals
+                            
                             if (isSpecialModal && isCandidateFullName) {
                               return (
                                 <div
@@ -2413,7 +2488,7 @@ export function EditModal({
                               );
                             }
 
-                            // Read-only fields for Last Modified info
+                           
                             if (
                               key === "lastmod_user_id" ||
                               key === "lastmod_user_name" ||
@@ -2446,7 +2521,7 @@ export function EditModal({
                               );
                             }
 
-                            // Read-only fields for Last Modified info
+                            
                             if (
                               key === "lastmod_user_id" ||
                               key === "lastmod_user_name" ||
@@ -2470,7 +2545,7 @@ export function EditModal({
                               );
                             }
 
-                            // Special handling for LinkedIn ID in special modals (read-only)
+                            
                             if (
                               isSpecialModal &&
                               isLinkedInField &&
@@ -2536,7 +2611,7 @@ export function EditModal({
                               );
                             }
 
-                            // Special handling for status in Preparation/Marketing modals
+                          
                             if (
                               isStatusField &&
                               isPrepOrMarketing &&
@@ -3124,6 +3199,13 @@ export function EditModal({
                       ))}
                     </div>
                   </div>
+                )}
+
+                {title.toLowerCase().includes('placement fee') && (
+                  <>
+                    <input type="hidden" {...register("id")} value={data?.id || ""} />
+                    <input type="hidden" {...register("originalId")} value={data?.originalId || ""} />
+                  </>
                 )}
 
                 <div className="mt-3 flex justify-end border-t border-blue-200 pt-2 sm:mt-4 sm:pt-3 md:mt-6 md:pt-4">
