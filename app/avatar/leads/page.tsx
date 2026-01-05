@@ -682,8 +682,6 @@ export default function LeadsPage() {
     async (id: number) => {
       try {
         await apiFetch(`${apiEndpoint}/${id}`, { method: "DELETE" });
-
-        // Remove from local state
         setLeads(prev => prev.filter(lead => lead.id !== id));
 
         toast.success("Lead deleted successfully");
@@ -712,8 +710,6 @@ export default function LeadsPage() {
           status: !Moved ? "Closed" : "Open",
           closed_date: !Moved ? new Date().toISOString().split("T")[0] : null,
         };
-
-
         const data = await apiFetch(url, { method, body: payload });
         await invalidateCache(`${apiEndpoint}?sort=entry_date:desc`);
 

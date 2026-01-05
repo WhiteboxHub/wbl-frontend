@@ -3200,9 +3200,6 @@ export function EditModal({
                   </div>
                 )}
 
-
-
-                {/* Hidden fields to preserve IDs - Only for Placement Fees where we hide ID from UI */}
                 {title.toLowerCase().includes('placement fee') && (
                   <>
                     <input type="hidden" {...register("id")} value={data?.id || ""} />

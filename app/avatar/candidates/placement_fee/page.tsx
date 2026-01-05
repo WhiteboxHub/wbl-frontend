@@ -16,7 +16,7 @@ import { toast, Toaster } from "sonner";
 import api from "@/lib/api";
 
 interface PlacementFee {
-    id?: number | string; // ID can be string for Groups (e.g. "group-Adarsh")
+    id?: number | string;
     placement_id?: number | string;
     installment_id?: number | string | null;
     deposit_date?: string | null;
@@ -26,8 +26,6 @@ interface PlacementFee {
     lastmod_user_name?: string | null;
     last_mod_date?: string | null;
     candidate_name?: string | null;
-
-    // UI flags
     isGroup?: boolean;
     isExpanded?: boolean;
     totalDeposit?: number;
@@ -36,17 +34,13 @@ interface PlacementFee {
 
 export default function PlacementFeeCollectionPage() {
     const [searchTerm, setSearchTerm] = useState("");
-    const [rawFees, setRawFees] = useState<PlacementFee[]>([]); // The flat list from API
-    const [gridRows, setGridRows] = useState<PlacementFee[]>([]); // The rows currently shown in grid
-    const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set()); // Track expanded candidate names
+    const [rawFees, setRawFees] = useState<PlacementFee[]>([]);
+    const [gridRows, setGridRows] = useState<PlacementFee[]>([]);
+    const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(false);
     const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
 
-    // ---------------------------------------------------------
-    // 1. Data Processing Logic
-    // ---------------------------------------------------------
 
-    // A. Re-calculate the grid rows whenever raw data or expanded state changes
     useEffect(() => {
         if (!rawFees.length) {
             setGridRows([]);
@@ -54,14 +48,12 @@ export default function PlacementFeeCollectionPage() {
         }
 
         const lowerSearch = searchTerm.toLowerCase();
-
-        // 1. Filter raw data first (if searching)
         const filteredRaw = rawFees.filter(f => {
             if (!searchTerm) return true;
             return Object.values(f).some(v => String(v).toLowerCase().includes(lowerSearch));
         });
 
-        // 2. Group by Candidate
+        // Group by Candidate
         const groups: Record<string, PlacementFee[]> = {};
         filteredRaw.forEach(fee => {
             const name = fee.candidate_name || "Unknown";
@@ -69,39 +61,32 @@ export default function PlacementFeeCollectionPage() {
             groups[name].push(fee);
         });
 
-        // 3. Flatten into Grid Rows based on expansion
         const newGridRows: PlacementFee[] = [];
 
         Object.entries(groups).forEach(([candidateName, children]) => {
-            // Calculate Total
             const total = children.reduce((sum, item) => sum + Number(item.deposit_amount || 0), 0);
             const isExpanded = expandedGroups.has(candidateName);
 
-            // Create Group Row
             newGridRows.push({
                 id: `group-${candidateName}`,
                 candidate_name: candidateName,
                 isGroup: true,
                 isExpanded: isExpanded,
                 totalDeposit: total,
-                // Fill other cols with null/empty so they don't show garbage
                 placement_id: "",
                 installment_id: "",
                 deposit_date: null,
-                deposit_amount: total, // We use this for the aggregation display
+                deposit_amount: total,
                 amount_collected: null,
             });
 
-            // If Filter is active, we might want to auto-expand, or just respect manual state.
-            // Let's force expand if search is active so user sees results?
-            // tailored choice: if search is active, expand all matches.
             const effectiveExpanded = searchTerm ? true : isExpanded;
 
             if (effectiveExpanded) {
                 children.forEach(child => {
                     newGridRows.push({
                         ...child,
-                        originalId: Number(child.id), // Ensure we keep original ID for edits
+                        originalId: Number(child.id),
                         isGroup: false,
                     });
                 });
@@ -111,11 +96,6 @@ export default function PlacementFeeCollectionPage() {
         setGridRows(newGridRows);
 
     }, [rawFees, expandedGroups, searchTerm]);
-
-
-    // ---------------------------------------------------------
-    // 2. Event Handlers
-    // ---------------------------------------------------------
 
     const toggleGroup = useCallback((candidateName: string) => {
         setExpandedGroups(prev => {
@@ -129,9 +109,6 @@ export default function PlacementFeeCollectionPage() {
         });
     }, []);
 
-    // ---------------------------------------------------------
-    // 3. Renderers
-    // ---------------------------------------------------------
 
     const CandidateGroupRenderer = (params: any) => {
         const { data } = params;
@@ -152,10 +129,7 @@ export default function PlacementFeeCollectionPage() {
                 </div>
             );
         } else {
-            // Child logic: Indent
-            return <div className="pl-6 text-gray-500 text-sm"></div>; // We don't show name again? Or just indent?
-            // Actually, showing nothing in the 'Candidate' column for child is cleaner if the group header is above.
-            // But if we want to show 'Same Name', we can. Let's return null to signify it belongs to parent.
+            return <div className="pl-6 text-gray-500 text-sm"></div>;
         }
     };
 
@@ -202,19 +176,13 @@ export default function PlacementFeeCollectionPage() {
         );
     };
 
-    // ---------------------------------------------------------
-    // 4. API & CRUD
-    // ---------------------------------------------------------
-
     useEffect(() => {
         const fetchFees = async () => {
             setLoading(true);
             try {
                 const res = await api.get("/placement-fee");
                 const body = res?.data ?? res?.raw ?? [];
-
                 const fees = Array.isArray(body) ? body : Array.isArray(body.data) ? body.data : body.data ?? [];
-                // Just set raw fees, the useEffect above will handle grouping
                 setRawFees(fees);
 
                 if (fees.length > 0) {
@@ -289,22 +257,16 @@ export default function PlacementFeeCollectionPage() {
             }
         ]);
     };
-
-    // CRUD Handlers
-    // Note: editing 'grouped' rows needs care. We map back to 'rawFees' to update UI locally too.
-
+    // CRUD 
     const handleRowUpdated = async (updatedRow: PlacementFee) => {
         if (updatedRow.isGroup) return; // Cannot edit groups
 
         try {
-            // Use originalId because 'id' might be something else in grid? No, for children we kept original ID.
             const dbId = updatedRow.originalId || updatedRow.id;
             if (!dbId) return toast.error("Missing record ID");
 
-            // Send update
             await api.put(`/placement-fee/${dbId}`, updatedRow);
 
-            // Update Local State (rawFees)
             setRawFees(prev => prev.map(f => f.id === dbId ? { ...f, ...updatedRow } : f));
 
             toast.success("Updated successfully");
@@ -329,17 +291,14 @@ export default function PlacementFeeCollectionPage() {
 
     const handleRowAdded = async (newData: any) => {
         try {
-            // ... Prepare payload ...
             const payload = { ...newData };
             delete payload.isGroup;
             delete payload.isExpanded;
             delete payload.totalDeposit;
 
-            // Simple type safety
             if (payload.placement_id) payload.placement_id = Number(payload.placement_id);
             if (payload.deposit_amount) payload.deposit_amount = Number(payload.deposit_amount);
 
-            // Defaults
             if (!payload.amount_collected) payload.amount_collected = "no";
 
             const res = await api.post("/placement-fee", payload);
@@ -389,11 +348,10 @@ export default function PlacementFeeCollectionPage() {
                             columnDefs={columnDefs}
                             title={`Placement Fees (${rawFees.length} records)`}
                             height="calc(60vh)"
-                            showSearch={false} // We handle search manually
+                            showSearch={false}
                             onRowUpdated={handleRowUpdated}
                             onRowDeleted={handleRowDeleted}
                             onRowAdded={handleRowAdded}
-                        // No treeData props needed!
                         />
                     </div>
                 </div>
