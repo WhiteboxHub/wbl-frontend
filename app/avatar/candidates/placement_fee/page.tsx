@@ -204,14 +204,14 @@ export default function PlacementFeeCollectionPage() {
             {
                 field: "candidate_name",
                 headerName: "Candidate",
-                minWidth: 230,
+                width: 230,
                 cellRenderer: CandidateGroupRenderer,
                 pinned: 'left',
             },
             {
                 field: "placement_id",
                 headerName: "Placement",
-                minWidth: 150,
+                width: 150,
                 cellRenderer: PlacementLinkRenderer,
                 hide: true,
             },
@@ -259,7 +259,7 @@ export default function PlacementFeeCollectionPage() {
     };
     // CRUD 
     const handleRowUpdated = async (updatedRow: PlacementFee) => {
-        if (updatedRow.isGroup) return; // Cannot edit groups
+        if (updatedRow.isGroup) return;
 
         try {
             const dbId = updatedRow.originalId || updatedRow.id;
