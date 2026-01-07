@@ -1,6 +1,7 @@
 "use client";
 import ContactDetails from "./ContactDetails";
 import React, { useState, useEffect } from "react";
+import ReCAPTCHA from "@/components/ReCAPTCHA";
 
 const ContactForm = () => {
   const initialFormData = {
@@ -15,6 +16,8 @@ const ContactForm = () => {
   const [submitting, setSubmitting] = useState(false);
   const [messageFromServer, setMessageFromServer] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error" | null>(null);
+  const [recaptchaToken, setRecaptchaToken] = useState<string>("");
+  const [recaptchaError, setRecaptchaError] = useState<string>("");
 
   // optional: clear messages on mount
   useEffect(() => {
@@ -37,6 +40,13 @@ const ContactForm = () => {
       return;
     }
 
+    // Validate reCAPTCHA token
+    if (!recaptchaToken) {
+      setMessageFromServer("CAPTCHA verification failed. Please try again.");
+      setMessageType("error");
+      return;
+    }
+
     try {
       setSubmitting(true);
 
@@ -47,7 +57,7 @@ const ContactForm = () => {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ ...formData }),
+          body: JSON.stringify({ ...formData, recaptcha_token: recaptchaToken }),
         }
       );
 
@@ -55,6 +65,7 @@ const ContactForm = () => {
 
       if (response.ok) {
         setFormData(initialFormData);
+        setRecaptchaToken("");
         setMessageFromServer(data.detail || "Message sent successfully.");
         setMessageType("success");
       } else {
@@ -87,165 +98,172 @@ const ContactForm = () => {
   };
 
   return (
-    <section id="contact" className="w-full overflow-hidden pb-10 xl:w-2xl -mt-14">
-      <div className="container">
-        <div className="-mx-2 flex flex-wrap">
-          <div className="w-full lg:w-7/12 xl:w-8/12">
-            <div className="wow fadeInUp rounded-2xl" data-wow-delay=".15s">
-              <div className="flex flex-col justify-start py-8">
-                <div className="relative py-0 sm:mx-auto sm:max-w-2xl xl:w-full">
-                  <div className="absolute inset-0 hidden -skew-y-6 transform bg-gradient-to-r from-indigo-300 to-purple-400 shadow-lg dark:bg-gradient-to-r dark:from-indigo-700 dark:to-purple-500 sm:-rotate-6 sm:skew-y-0 sm:rounded-3xl md:block"></div>
-                  <div className="relative rounded-3xl bg-gradient-to-br from-pink-400 to-sky-200 px-8 py-5 text-white shadow-lg dark:bg-gradient-to-br dark:from-pink-700 dark:to-sky-500 sm:p-16 xl:px-14 xl:py-8 lg:px-16 lg:py-10">
-                    <div className="pb- text-center">
-                      <div className="text-lg font-bold text-black dark:text-white sm:text-2xl md:text-3xl">
-                        Get in touch!
-                      </div>
-                      <p className="md:text-md text-xs font-semibold text-gray-700 dark:text-gray-300 sm:text-sm">
-                        We'd love to hear from you.
-                      </p>
-                      <p className="md:text-md text-xs font-semibold text-gray-700 dark:text-gray-300 sm:text-sm pb-6">
-                        Fill up the form below to send us a message.
-                      </p>
-                    </div>
-
-                    <form
-                      onSubmit={handleSubmit}
-                      className="md:text-md text-xs text-black dark:text-white sm:text-sm"
-                      method="post"
-                    >
-                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <div>
-                          <label htmlFor="firstName" className="mb-2 block font-bold">
-                            First Name:
-                          </label>
-                          <input
-                            className="mb-4 w-full rounded-xl bg-white py-3 px-5 leading-tight text-gray-700 shadow"
-                            type="text"
-                            placeholder="First Name"
-                            name="firstName"
-                            value={formData.firstName}
-                            onChange={handleChange}
-                            onFocus={handleInputFocus}
-                          />
+    <>
+      <section id="contact" className="w-full overflow-hidden pb-10 xl:w-2xl -mt-14">
+        <div className="container">
+          <div className="-mx-2 flex flex-wrap">
+            <div className="w-full lg:w-7/12 xl:w-8/12">
+              <div className="wow fadeInUp rounded-2xl" data-wow-delay=".15s">
+                <div className="flex flex-col justify-start py-8">
+                  <div className="relative py-0 sm:mx-auto sm:max-w-2xl xl:w-full">
+                    <div className="absolute inset-0 hidden -skew-y-6 transform bg-gradient-to-r from-indigo-300 to-purple-400 shadow-lg dark:bg-gradient-to-r dark:from-indigo-700 dark:to-purple-500 sm:-rotate-6 sm:skew-y-0 sm:rounded-3xl md:block"></div>
+                    <div className="relative rounded-3xl bg-gradient-to-br from-pink-400 to-sky-200 px-8 py-5 text-white shadow-lg dark:bg-gradient-to-br dark:from-pink-700 dark:to-sky-500 sm:p-16 xl:px-14 xl:py-8 lg:px-16 lg:py-10">
+                      <div className="pb- text-center">
+                        <div className="text-lg font-bold text-black dark:text-white sm:text-2xl md:text-3xl">
+                          Get in touch!
                         </div>
-
-                        <div>
-                          <label htmlFor="lastName" className="mb-2 block font-bold">
-                            Last Name:
-                          </label>
-                          <input
-                            className="mb-4 w-full rounded-xl bg-white py-3 px-5 leading-tight text-gray-700 shadow"
-                            type="text"
-                            placeholder="Last Name"
-                            name="lastName"
-                            value={formData.lastName}
-                            onChange={handleChange}
-                            onFocus={handleInputFocus}
-                          />
-                        </div>
+                        <p className="md:text-md text-xs font-semibold text-gray-700 dark:text-gray-300 sm:text-sm">
+                          We'd love to hear from you.
+                        </p>
+                        <p className="md:text-md text-xs font-semibold text-gray-700 dark:text-gray-300 sm:text-sm pb-6">
+                          Fill up the form below to send us a message.
+                        </p>
                       </div>
 
-                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <div>
-                          <label htmlFor="email" className="mb-2 block font-bold">
-                            Email:
-                          </label>
-                          <input
-                            className="mb-4 w-full rounded-xl bg-white py-3 px-5 leading-tight text-gray-700 shadow"
-                            type="email"
-                            placeholder="Your Email"
-                            name="email"
-                            value={formData.email}
-                            onChange={handleChange}
-                            onFocus={handleInputFocus}
-                          />
-                        </div>
-
-                        <div>
-                          <label htmlFor="phone" className="mb-2 block font-bold">
-                            Phone:
-                          </label>
-                          <input
-                            className="mb-4 w-full rounded-xl bg-white py-3 px-5 leading-tight text-gray-700 shadow"
-                            type="tel"
-                            placeholder="Your Phone"
-                            name="phone"
-                            value={formData.phone}
-                            onChange={handleChange}
-                            onFocus={handleInputFocus}
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label htmlFor="message" className="mb-2 block font-bold">
-                          Message:
-                        </label>
-                        <textarea
-                          className="mb-4 h-20 w-full rounded-xl bg-white py-3 px-5 leading-tight text-gray-700 shadow"
-                          placeholder="Tell about yourself..."
-                          name="message"
-                          value={formData.message}
-                          onChange={handleChange}
-                          onFocus={handleInputFocus}
-                        ></textarea>
-                      </div>
-
-                      <div className="mt-5 flex justify-between gap-3 md:gap-5">
-                        <input
-                          className="md:text-md w-36 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-200 p-1 py-2 px-1 text-[11px] font-bold text-black hover:bg-indigo-700 hover:from-indigo-500 hover:to-indigo-200 dark:text-white sm:py-2 sm:px-4 sm:text-sm"
-                          type="submit"
-                          value={submitting ? "Sending..." : "Send ➤"}
-                          disabled={submitting}
-                        />
-                        <input
-                          className="md:text-md w-36 rounded-lg bg-gradient-to-br from-red-500 to-red-200 p-1 px-1 text-[11px] font-bold text-black shadow-xl hover:bg-red-700 hover:bg-gradient-to-tl hover:from-red-500 hover:to-red-200 dark:text-white sm:py-2 sm:px-4 sm:text-sm"
-                          type="reset"
-                          value="Reset"
-                          onClick={() => {
-                            setFormData(initialFormData);
-                            setMessageFromServer("");
-                            setMessageType(null);
-                          }}
-                        />
-                      </div>
-
-                      {messageFromServer && (
-                        <div
-                          className={`${
-                            messageType === "success"
-                              ? "border-green-400 bg-green-100 text-green-700"
-                              : "border-red-400 bg-red-100 text-red-700"
-                          } relative mt-4 flex items-center justify-between rounded-xl px-2 py-1 text-sm sm:px-3 sm:py-1 sm:text-base`}
-                          role="alert"
-                        >
+                      <form
+                        onSubmit={handleSubmit}
+                        className="md:text-md text-xs text-black dark:text-white sm:text-sm"
+                        method="post"
+                      >
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                           <div>
-                            <strong className="font-bold">
-                              {messageType === "success" ? "Success" : "Error"} -{" "}
-                            </strong>
-                            <span className="">{messageFromServer}</span>
+                            <label htmlFor="firstName" className="mb-2 block font-bold">
+                              First Name:
+                            </label>
+                            <input
+                              className="mb-4 w-full rounded-xl bg-white py-3 px-5 leading-tight text-gray-700 shadow"
+                              type="text"
+                              placeholder="First Name"
+                              name="firstName"
+                              value={formData.firstName}
+                              onChange={handleChange}
+                              onFocus={handleInputFocus}
+                            />
                           </div>
-                          <button
-                            onClick={handleCloseMessage}
-                            className="ml-4 bg-transparent text-lg font-bold text-red-700 hover:text-red-900"
-                          >
-                            &times;
-                          </button>
+
+                          <div>
+                            <label htmlFor="lastName" className="mb-2 block font-bold">
+                              Last Name:
+                            </label>
+                            <input
+                              className="mb-4 w-full rounded-xl bg-white py-3 px-5 leading-tight text-gray-700 shadow"
+                              type="text"
+                              placeholder="Last Name"
+                              name="lastName"
+                              value={formData.lastName}
+                              onChange={handleChange}
+                              onFocus={handleInputFocus}
+                            />
+                          </div>
                         </div>
-                      )}
-                    </form>
+
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          <div>
+                            <label htmlFor="email" className="mb-2 block font-bold">
+                              Email:
+                            </label>
+                            <input
+                              className="mb-4 w-full rounded-xl bg-white py-3 px-5 leading-tight text-gray-700 shadow"
+                              type="email"
+                              placeholder="Your Email"
+                              name="email"
+                              value={formData.email}
+                              onChange={handleChange}
+                              onFocus={handleInputFocus}
+                            />
+                          </div>
+
+                          <div>
+                            <label htmlFor="phone" className="mb-2 block font-bold">
+                              Phone:
+                            </label>
+                            <input
+                              className="mb-4 w-full rounded-xl bg-white py-3 px-5 leading-tight text-gray-700 shadow"
+                              type="tel"
+                              placeholder="Your Phone"
+                              name="phone"
+                              value={formData.phone}
+                              onChange={handleChange}
+                              onFocus={handleInputFocus}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label htmlFor="message" className="mb-2 block font-bold">
+                            Message:
+                          </label>
+                          <textarea
+                            className="mb-4 h-20 w-full rounded-xl bg-white py-3 px-5 leading-tight text-gray-700 shadow"
+                            placeholder="Tell about yourself..."
+                            name="message"
+                            value={formData.message}
+                            onChange={handleChange}
+                            onFocus={handleInputFocus}
+                          ></textarea>
+                        </div>
+                        <div className="my-6 flex justify-center">
+                          <ReCAPTCHA
+                            onToken={setRecaptchaToken}
+                            onError={setRecaptchaError}
+                          />
+                        </div>
+
+                        <div className="mt-5 flex justify-between gap-3 md:gap-5">
+                          <input
+                            className="md:text-md w-36 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-200 p-1 py-2 px-1 text-[11px] font-bold text-black hover:bg-indigo-700 hover:from-indigo-500 hover:to-indigo-200 dark:text-white sm:py-2 sm:px-4 sm:text-sm"
+                            type="submit"
+                            value={submitting ? "Sending..." : "Send ➤"}
+                            disabled={submitting}
+                          />
+                          <input
+                            className="md:text-md w-36 rounded-lg bg-gradient-to-br from-red-500 to-red-200 p-1 px-1 text-[11px] font-bold text-black shadow-xl hover:bg-red-700 hover:bg-gradient-to-tl hover:from-red-500 hover:to-red-200 dark:text-white sm:py-2 sm:px-4 sm:text-sm"
+                            type="reset"
+                            value="Reset"
+                            onClick={() => {
+                              setFormData(initialFormData);
+                              setMessageFromServer("");
+                              setMessageType(null);
+                            }}
+                          />
+                        </div>
+
+                        {messageFromServer && (
+                          <div
+                            className={`${messageType === "success"
+                                ? "border-green-400 bg-green-100 text-green-700"
+                                : "border-red-400 bg-red-100 text-red-700"
+                              } relative mt-4 flex items-center justify-between rounded-xl px-2 py-1 text-sm sm:px-3 sm:py-1 sm:text-base`}
+                            role="alert"
+                          >
+                            <div>
+                              <strong className="font-bold">
+                                {messageType === "success" ? "Success" : "Error"} -{" "}
+                              </strong>
+                              <span className="">{messageFromServer}</span>
+                            </div>
+                            <button
+                              onClick={handleCloseMessage}
+                              className="ml-4 bg-transparent text-lg font-bold text-red-700 hover:text-red-900"
+                            >
+                              &times;
+                            </button>
+                          </div>
+                        )}
+                      </form>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div className="mx-auto flex items-center justify-center py-3 sm:mx-auto sm:max-w-2xl lg:w-5/12 xl:w-4/12">
-            <ContactDetails />
+            <div className="mx-auto flex items-center justify-center py-3 sm:mx-auto sm:max-w-2xl lg:w-5/12 xl:w-4/12">
+              <ContactDetails />
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </>
   );
 };
 
