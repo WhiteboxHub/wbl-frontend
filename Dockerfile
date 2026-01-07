@@ -1,40 +1,28 @@
-# Use the official Node.js 18 Alpine image as the base image
-FROM node:18-alpine
+#wbl-frontend\Dockerfile
+# ---------- Build stage ----------
+FROM node:18-alpine AS builder
 
-# Set the working directory inside the container
 WORKDIR /app
 
-# -------- BUILD-TIME ARGS (Frontend public vars) --------
-ARG NEXT_PUBLIC_API_URL
-ARG NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY
-ARG NEXT_PUBLIC_GOOGLE_CALENDAR_ID
-ARG NEXTAUTH_URL
+COPY package*.json ./
+RUN npm ci
 
-# -------- Make them available during build --------
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY=$NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY
-ENV NEXT_PUBLIC_GOOGLE_CALENDAR_ID=$NEXT_PUBLIC_GOOGLE_CALENDAR_ID
-ENV NEXTAUTH_URL=$NEXTAUTH_URL
-
-
-# Copy package.json and package-lock.json to the working directory
-COPY package.json package-lock.json ./
-
-# Install dependencies
-RUN npm install
-
-# Copy the rest of the application code to the working directory
 COPY . .
 
-# Always build the Next.js app to ensure the .next directory exists
-RUN npm run build || { echo 'Build failed'; exit 1; }
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
-# Set environment variable to control which .env file to use
-# COPY .env .env
+RUN npm run build
 
-# Expose port 3000 to the outside world
-EXPOSE 3000
+# ---------- Run stage ----------
+FROM node:18-alpine
 
-# Start the Next.js application
-CMD ["npm", "run", "start"]
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=8080
 
+COPY --from=builder /app ./
+
+EXPOSE 8080
+
+CMD ["npm", "start", "--", "-p", "8080"]
