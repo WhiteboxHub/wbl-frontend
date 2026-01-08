@@ -141,7 +141,7 @@ export default function VendorContactsGrid() {
         const term = searchTerm.toLowerCase();
         setFilteredContacts(
           contacts.filter(
-            (c) =>
+            (c: any) =>
               c.full_name?.toLowerCase().includes(term) ||
               c.source_email?.toLowerCase().includes(term) ||
               c.email?.toLowerCase().includes(term) ||
@@ -248,8 +248,7 @@ export default function VendorContactsGrid() {
 
       if (deleted > 0) {
         toast.success(
-          `Successfully deleted ${deleted} contact${deleted > 1 ? "s" : ""}${
-            failed ? `, ${failed} failed` : ""
+          `Successfully deleted ${deleted} contact${deleted > 1 ? "s" : ""}${failed ? `, ${failed} failed` : ""
           }`
         );
       }
@@ -431,7 +430,7 @@ export default function VendorContactsGrid() {
             height="600px"
             title={`Vendor Contacts (${filteredContacts.length})`}
             showSearch={false}
-            onRowAdded={handleRowAdded} 
+            onRowAdded={handleRowAdded}
             onRowUpdated={handleRowUpdated}
             onRowDeleted={handleRowDeleted}
           />
