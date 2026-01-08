@@ -87,10 +87,10 @@ export default function VendorContactsGrid() {
         const contactsList = Array.isArray(data)
           ? data
           : Array.isArray(data?.data)
-          ? data.data
-          : Array.isArray(data?.results)
-          ? data.results
-          : [];
+            ? data.data
+            : Array.isArray(data?.results)
+              ? data.results
+              : [];
 
         setContacts(contactsList);
         setFilteredContacts(contactsList);
@@ -106,8 +106,8 @@ export default function VendorContactsGrid() {
         const contactsList = Array.isArray(response?.data)
           ? response.data
           : Array.isArray(response?.data?.data)
-          ? response.data.data
-          : [];
+            ? response.data.data
+            : [];
 
         setContacts(contactsList);
         setFilteredContacts(contactsList);
@@ -147,9 +147,11 @@ export default function VendorContactsGrid() {
               c.email?.toLowerCase().includes(term) ||
               c.phone?.toLowerCase().includes(term) ||
               c.linkedin_id?.toLowerCase().includes(term) ||
-              c.internal_linkedin_id?.toLowerCase().includes(term) ||
+              c.linkedin_internal_id?.toLowerCase().includes(term) ||
               c.company_name?.toLowerCase().includes(term) ||
-              c.location?.toLowerCase().includes(term)
+              c.location?.toLowerCase().includes(term) ||
+              c.job_source?.toLowerCase().includes(term) ||
+              c.notes?.toLowerCase().includes(term)
           )
         );
       }
@@ -340,11 +342,24 @@ export default function VendorContactsGrid() {
         valueFormatter: (params) => formatDateFromDB(params.value),
       },
       {
-        field: "internal_linkedin_id",
+        field: "linkedin_internal_id",
         headerName: "Internal LinkedIn ID",
         width: 200,
         editable: true,
       },
+      {
+        field: "job_source",
+        headerName: "Job Source",
+        width: 150,
+        editable: true,
+      },
+      {
+        field: "notes",
+        headerName: "Notes",
+        width: 250,
+        editable: true,
+      },
+
     ],
     []
   );
