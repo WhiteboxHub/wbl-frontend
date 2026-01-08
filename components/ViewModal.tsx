@@ -20,6 +20,7 @@ const excludedFields = [
   "instructor_2id", "instructor_3id", "instructor1_id", "instructor2_id",
   "instructor3_id", "enddate", "candidate_id", "batch", "job_id", "employee_id", "job_owner", "job_owner_id",
   "job_owner_1", "job_owner_2", "job_owner_3",
+  "isGroup", "isExpanded", "totalDeposit", "originalId",
 ];
 
 const fieldSections: Record<string, string> = {
@@ -179,6 +180,13 @@ const fieldSections: Record<string, string> = {
   job_owner_2_name: "Basic Information",
   job_owner_3_name: "Basic Information",
   category: "Professional Information",
+  keywords: "Professional Information",
+  match_type: "Basic Information",
+  action: "Basic Information",
+  context: "Professional Information",
+  is_active: "Basic Information",
+  created_at: "Professional Information",
+  updated_at: "Professional Information",
 };
 
 const workVisaStatusOptions = [

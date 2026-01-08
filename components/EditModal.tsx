@@ -84,26 +84,97 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "Need to Improve", label: "Need to Improve" },
   ],
   work_status: [
-    { value: "waiting for status", label: "Waiting for Status" },
-    { value: "citizen", label: "Citizen" },
-    { value: "f1", label: "F1" },
-    { value: "other", label: "Other" },
-    { value: "permanent resident", label: "Permanent Resident" },
-    { value: "h4", label: "H4" },
-    { value: "ead", label: "EAD" },
-    { value: "green card", label: "Green Card" },
-    { value: "h1b", label: "H1B" },
+    { value: "US_CITIZEN", label: "US Citizen" },
+    { value: "GREEN_CARD", label: "Green Card" },
+    { value: "GC_EAD", label: "GC EAD" },
+    { value: "I485_EAD", label: "I485 EAD" },
+    { value: "I140_APPROVED", label: "I140 Approved" },
+    { value: "F1", label: "F1" },
+    { value: "F1_OPT", label: "F1 OPT" },
+    { value: "F1_CPT", label: "F1 CPT" },
+    { value: "J1", label: "J1" },
+    { value: "J1_AT", label: "J1 AT" },
+    { value: "H1B", label: "H1B" },
+    { value: "H1B_TRANSFER", label: "H1B Transfer" },
+    { value: "H1B_CAP_EXEMPT", label: "H1B Cap Exempt" },
+    { value: "H4", label: "H4" },
+    { value: "H4_EAD", label: "H4 EAD" },
+    { value: "L1A", label: "L1A" },
+    { value: "L1B", label: "L1B" },
+    { value: "L2", label: "L2" },
+    { value: "L2_EAD", label: "L2 EAD" },
+    { value: "O1", label: "O1" },
+    { value: "TN", label: "TN" },
+    { value: "E3", label: "E3" },
+    { value: "E3_EAD", label: "E3 EAD" },
+    { value: "E2", label: "E2" },
+    { value: "E2_EAD", label: "E2 EAD" },
+    { value: "TPS_EAD", label: "TPS EAD" },
+    { value: "ASYLUM_EAD", label: "Asylum EAD" },
+    { value: "REFUGEE_EAD", label: "Refugee EAD" },
+    { value: "DACA_EAD", label: "DACA EAD" },
+  ],
+  workstatus: [
+    { value: "US_CITIZEN", label: "US Citizen" },
+    { value: "GREEN_CARD", label: "Green Card" },
+    { value: "GC_EAD", label: "GC EAD" },
+    { value: "I485_EAD", label: "I485 EAD" },
+    { value: "I140_APPROVED", label: "I140 Approved" },
+    { value: "F1", label: "F1" },
+    { value: "F1_OPT", label: "F1 OPT" },
+    { value: "F1_CPT", label: "F1 CPT" },
+    { value: "J1", label: "J1" },
+    { value: "J1_AT", label: "J1 AT" },
+    { value: "H1B", label: "H1B" },
+    { value: "H1B_TRANSFER", label: "H1B Transfer" },
+    { value: "H1B_CAP_EXEMPT", label: "H1B Cap Exempt" },
+    { value: "H4", label: "H4" },
+    { value: "H4_EAD", label: "H4 EAD" },
+    { value: "L1A", label: "L1A" },
+    { value: "L1B", label: "L1B" },
+    { value: "L2", label: "L2" },
+    { value: "L2_EAD", label: "L2 EAD" },
+    { value: "O1", label: "O1" },
+    { value: "TN", label: "TN" },
+    { value: "E3", label: "E3" },
+    { value: "E3_EAD", label: "E3 EAD" },
+    { value: "E2", label: "E2" },
+    { value: "E2_EAD", label: "E2 EAD" },
+    { value: "TPS_EAD", label: "TPS EAD" },
+    { value: "ASYLUM_EAD", label: "Asylum EAD" },
+    { value: "REFUGEE_EAD", label: "Refugee EAD" },
+    { value: "DACA_EAD", label: "DACA EAD" },
   ],
   visa_status: [
-    { value: "waiting for status", label: "Waiting for Status" },
-    { value: "citizen", label: "Citizen" },
-    { value: "f1", label: "F1" },
-    { value: "other", label: "Other" },
-    { value: "permanent resident", label: "Permanent Resident" },
-    { value: "h4", label: "H4" },
-    { value: "ead", label: "EAD" },
-    { value: "green card", label: "Green Card" },
-    { value: "h1b", label: "H1B" },
+    { value: "US_CITIZEN", label: "US Citizen" },
+    { value: "GREEN_CARD", label: "Green Card" },
+    { value: "GC_EAD", label: "GC EAD" },
+    { value: "I485_EAD", label: "I485 EAD" },
+    { value: "I140_APPROVED", label: "I140 Approved" },
+    { value: "F1", label: "F1" },
+    { value: "F1_OPT", label: "F1 OPT" },
+    { value: "F1_CPT", label: "F1 CPT" },
+    { value: "J1", label: "J1" },
+    { value: "J1_AT", label: "J1 AT" },
+    { value: "H1B", label: "H1B" },
+    { value: "H1B_TRANSFER", label: "H1B Transfer" },
+    { value: "H1B_CAP_EXEMPT", label: "H1B Cap Exempt" },
+    { value: "H4", label: "H4" },
+    { value: "H4_EAD", label: "H4 EAD" },
+    { value: "L1A", label: "L1A" },
+    { value: "L1B", label: "L1B" },
+    { value: "L2", label: "L2" },
+    { value: "L2_EAD", label: "L2 EAD" },
+    { value: "O1", label: "O1" },
+    { value: "TN", label: "TN" },
+    { value: "E3", label: "E3" },
+    { value: "E3_EAD", label: "E3 EAD" },
+    { value: "E2", label: "E2" },
+    { value: "E2_EAD", label: "E2 EAD" },
+    { value: "TPS_EAD", label: "TPS EAD" },
+    { value: "ASYLUM_EAD", label: "Asylum EAD" },
+    { value: "REFUGEE_EAD", label: "Refugee EAD" },
+    { value: "DACA_EAD", label: "DACA EAD" },
   ],
   mode_of_interview: [
     { value: "Virtual", label: "Virtual" },
@@ -212,7 +283,7 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "no", label: "No" },
     { value: "yes", label: "Yes" },
   ],
-  
+
   no_of_installments: [
     { value: "", label: "Select Installments" },
     { value: "1", label: "1" },
@@ -236,6 +307,19 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
   category: [
     { value: "manual", label: "Manual" },
     { value: "automation", label: "Automation" },
+  ],
+  match_type: [
+    { value: "exact", label: "Exact" },
+    { value: "contains", label: "Contains" },
+    { value: "regex", label: "Regex" },
+  ],
+  action: [
+    { value: "allow", label: "Allow" },
+    { value: "block", label: "Block" },
+  ],
+  is_active: [
+    { value: "true", label: "Active" },
+    { value: "false", label: "Inactive" },
   ],
 };
 
@@ -271,7 +355,7 @@ const requiredFieldsConfig: Record<string, string[]> = {
     "Type of Interview",
   ],
   authuser: ["Phone", "Email", "Full Name", "Registered Date", "Passwd"],
-  employee: ["Full Name","Email", "Phone", "Date of Birth", "Aadhaar"],
+  employee: ["Full Name", "Email", "Phone", "Date of Birth", "Aadhaar"],
   placement: ["Placement ID", 'Deposit Date'],
 };
 
@@ -372,7 +456,12 @@ const excludedFields = [
   "job_owner_id",
   "job_owner_name",
   "lastmod_date",
-
+  "created_at",
+  "updated_at",
+  "isGroup",
+  "isExpanded",
+  "totalDeposit",
+  "originalId",
 ];
 
 // Field visibility configuration
@@ -547,6 +636,12 @@ const fieldSections: Record<string, string> = {
   job_owner: "Basic Information",
   assigned_date: "Basic Information",
   category: "Professional Information",
+  keywords: "Professional Information",
+  match_type: "Basic Information",
+  action: "Basic Information",
+  context: "Professional Information",
+  created_at: "Professional Information",
+  updated_at: "Professional Information",
 };
 
 // Override field labels for better readability
@@ -670,6 +765,13 @@ const labelOverrides: Record<string, string> = {
   job_owner_2: "Job Owner 2",
   job_owner_3: "Job Owner 3",
   category: "Category",
+  keywords: "Keywords",
+  match_type: "Match Type",
+  action: "Action",
+  context: "Context",
+  is_active: "Is Active",
+  created_at: "Created At",
+  updated_at: "Updated At",
 };
 
 const dateFields = [
@@ -764,7 +866,7 @@ export function EditModal({
     .toLowerCase()
     .includes("job activity log");
   const isJobTypeModal = title.toLowerCase().includes("job type");
-
+  const isAutomationKeywordModal = title.toLowerCase().includes("automation keyword");
 
   // Field visibility for current modal
   const showInstructorFields =
@@ -795,7 +897,7 @@ export function EditModal({
           });
 
           // Sort alphabetically by candidate name
-          activeCandidates.sort((a: any, b: any) => 
+          activeCandidates.sort((a: any, b: any) =>
             (a.candidate?.full_name || "").localeCompare(b.candidate?.full_name || "")
           );
 
@@ -984,7 +1086,7 @@ export function EditModal({
         flattened.candidate_id = data.candidate.id?.toString();
       }
     } else if (isJobActivityLogModal && data.candidate_id) {
-       flattened.candidate_id = data.candidate_id.toString();
+      flattened.candidate_id = data.candidate_id.toString();
     }
     flattened.instructor1_id =
       data.instructor1?.id || data.instructor1_id || "";
@@ -1075,6 +1177,12 @@ export function EditModal({
     }
     if (data.category) {
       flattened.category = data.category;
+    }
+    if (data.status !== undefined && data.status !== null) {
+      flattened.status = String(data.status);
+    }
+    if (data.instructor !== undefined && data.instructor !== null) {
+      flattened.instructor = String(data.instructor); 
     }
 
     return flattened;
@@ -1341,6 +1449,11 @@ export function EditModal({
       if (keyLower === "workstatus") return enumOptions.workstatus;
     }
 
+    // For automation keywords, category and priority are text/number fields, not enums
+    if (isAutomationKeywordModal) {
+      if (keyLower === "category" || keyLower === "priority") return undefined;
+    }
+
     if (keyLower === "priority") return undefined;
     return enumOptions[keyLower];
   };
@@ -1599,10 +1712,10 @@ export function EditModal({
                                   {employees
                                     .filter(emp => emp.id.toString() !== watch("job_owner_2") && emp.id.toString() !== watch("job_owner_3"))
                                     .map((emp) => (
-                                    <option key={emp.id} value={emp.id.toString()}>
-                                      {emp.name}
-                                    </option>
-                                  ))}
+                                      <option key={emp.id} value={emp.id.toString()}>
+                                        {emp.name}
+                                      </option>
+                                    ))}
                                 </select>
                               </div>
                               <div className="space-y-1 sm:space-y-1.5">
@@ -1617,10 +1730,10 @@ export function EditModal({
                                   {employees
                                     .filter(emp => emp.id.toString() !== watch("job_owner_1") && emp.id.toString() !== watch("job_owner_3"))
                                     .map((emp) => (
-                                    <option key={emp.id} value={emp.id.toString()}>
-                                      {emp.name}
-                                    </option>
-                                  ))}
+                                      <option key={emp.id} value={emp.id.toString()}>
+                                        {emp.name}
+                                      </option>
+                                    ))}
                                 </select>
                               </div>
                               <div className="space-y-1 sm:space-y-1.5">
@@ -1635,10 +1748,10 @@ export function EditModal({
                                   {employees
                                     .filter(emp => emp.id.toString() !== watch("job_owner_1") && emp.id.toString() !== watch("job_owner_2"))
                                     .map((emp) => (
-                                    <option key={emp.id} value={emp.id.toString()}>
-                                      {emp.name}
-                                    </option>
-                                  ))}
+                                      <option key={emp.id} value={emp.id.toString()}>
+                                        {emp.name}
+                                      </option>
+                                    ))}
                                 </select>
                               </div>
                               <div className="space-y-1 sm:space-y-1.5">
@@ -2049,7 +2162,6 @@ export function EditModal({
 
 
 
-                            // Make job_id, employee_id, employee_name, and activity_count read-only in Job Activity Log modal (not add mode)
                             if (
                               isPlacementModal &&
                               key.toLowerCase() === "candidate_name"
@@ -2097,8 +2209,7 @@ export function EditModal({
 
 
 
-                            // Make job_id and employee_id read-only in Job Activity Log modal (not add mode)
-                            // employee_name and activity_count are now editable
+                           
                             if (
                               isJobActivityLogModal &&
                               !isAddMode &&
@@ -2123,7 +2234,6 @@ export function EditModal({
                               );
                             }
 
-                            // Make job_name a dropdown in Job Activity Log modal
                             if (
                               isJobActivityLogModal &&
                               isJobNameField
@@ -2168,7 +2278,6 @@ export function EditModal({
                               );
                             }
 
-                            // Make candidate_name a dropdown in Job Activity Log modal
                             if (
                               isJobActivityLogModal &&
                               key.toLowerCase() === "candidate_name"
@@ -2212,7 +2321,7 @@ export function EditModal({
                               );
                             }
 
-                            // Make employee_name a dropdown in Job Activity Log modal
+                   
                             if (
                               isJobActivityLogModal &&
                               key.toLowerCase() === "employee_name"
@@ -2259,7 +2368,6 @@ export function EditModal({
 
 
 
-                            // ADD THIS CONDITION FOR SUBJECT FIELD
                             if (isSubjectField && isBatchesModal) {
                               return (
                                 <div
@@ -2281,7 +2389,7 @@ export function EditModal({
                                     className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                     onChange={(e) => {
                                       const selectedSubject = e.target.value;
-                                      let courseid = "3"; // default ML
+                                      let courseid = "3"; 
                                       if (selectedSubject === "QA")
                                         courseid = "1";
                                       else if (selectedSubject === "UI")
@@ -2306,13 +2414,13 @@ export function EditModal({
                                 </div>
                               );
                             }
-                            // ADD THIS CONDITION FOR COURSEID FIELD
+                           
                             if (isCourseIdField && isBatchesModal) {
                               const currentSubject =
                                 currentFormValues.subject ||
                                 formData.subject ||
                                 "ML";
-                              let defaultCourseId = "3"; // default for ML
+                              let defaultCourseId = "3"; 
                               if (currentSubject === "QA")
                                 defaultCourseId = "1";
                               else if (currentSubject === "UI")
@@ -2352,7 +2460,7 @@ export function EditModal({
 
 
 
-                            // Special handling for candidate_full_name in special modals
+                            
                             if (isSpecialModal && isCandidateFullName) {
                               return (
                                 <div
@@ -2380,7 +2488,7 @@ export function EditModal({
                               );
                             }
 
-                            // Read-only fields for Last Modified info
+                           
                             if (
                               key === "lastmod_user_id" ||
                               key === "lastmod_user_name" ||
@@ -2413,7 +2521,7 @@ export function EditModal({
                               );
                             }
 
-                            // Read-only fields for Last Modified info
+                            
                             if (
                               key === "lastmod_user_id" ||
                               key === "lastmod_user_name" ||
@@ -2437,7 +2545,7 @@ export function EditModal({
                               );
                             }
 
-                            // Special handling for LinkedIn ID in special modals (read-only)
+                            
                             if (
                               isSpecialModal &&
                               isLinkedInField &&
@@ -2503,7 +2611,7 @@ export function EditModal({
                               );
                             }
 
-                            // Special handling for status in Preparation/Marketing modals
+                          
                             if (
                               isStatusField &&
                               isPrepOrMarketing &&
@@ -2794,7 +2902,38 @@ export function EditModal({
                                 </div>
                               );
                             }
-                            if (enumOptions[key.toLowerCase()]) {
+
+                            if (isAutomationKeywordModal && (key.toLowerCase() === "keywords" || key.toLowerCase() === "context")) {
+                              const handleTextareaRef = (element: HTMLTextAreaElement | null) => {
+                                if (element) {
+                                  element.style.height = 'auto';
+                                  element.style.height = element.scrollHeight + 'px';
+                                }
+                              };
+
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5 col-span-full">
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    {toLabel(key)}
+                                  </label>
+                                  <textarea
+                                    ref={handleTextareaRef}
+                                    {...register(key)}
+                                    defaultValue={formData[key] || ""}
+                                    onInput={(e) => {
+                                      const target = e.target as HTMLTextAreaElement;
+                                      target.style.height = 'auto';
+                                      target.style.height = target.scrollHeight + 'px';
+                                    }}
+                                    style={{ minHeight: key.toLowerCase() === "context" ? '60px' : '48px' }}
+                                    className="w-full resize rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                  />
+                                </div>
+                              );
+                            }
+
+                            const fieldEnumOpts = getEnumOptions(key);
+                            if (fieldEnumOpts) {
                               const currentValue =
                                 currentFormValues[key] || formData[key] || "";
                               return (
@@ -2817,7 +2956,7 @@ export function EditModal({
                                     value={currentValue}
                                     className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
-                                    {enumOptions[key.toLowerCase()].map(
+                                    {fieldEnumOpts.map(
                                       (opt) => (
                                         <option
                                           key={opt.value}
@@ -2867,7 +3006,7 @@ export function EditModal({
                                 </div>
                               );
                             }
-                            
+
                             if (key.toLowerCase() === "description") {
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5 col-span-full">
@@ -2879,6 +3018,35 @@ export function EditModal({
                                     defaultValue={formData[key] || ""}
                                     rows={isJobTypeModal ? 3 : 3}
                                     className="w-full resize-none rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                  />
+                                </div>
+                              );
+                            }
+
+                            if (isAutomationKeywordModal && (key.toLowerCase() === "keywords" || key.toLowerCase() === "context")) {
+                              const handleTextareaRef = (element: HTMLTextAreaElement | null) => {
+                                if (element) {
+                                  element.style.height = 'auto';
+                                  element.style.height = element.scrollHeight + 'px';
+                                }
+                              };
+
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5 col-span-full">
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    {toLabel(key)}
+                                  </label>
+                                  <textarea
+                                    ref={handleTextareaRef}
+                                    {...register(key)}
+                                    defaultValue={formData[key] || ""}
+                                    onInput={(e) => {
+                                      const target = e.target as HTMLTextAreaElement;
+                                      target.style.height = 'auto';
+                                      target.style.height = target.scrollHeight + 'px';
+                                    }}
+                                    style={{ minHeight: key.toLowerCase() === "context" ? '60px' : '48px' }}
+                                    className="w-full resize rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   />
                                 </div>
                               );
@@ -3031,6 +3199,13 @@ export function EditModal({
                       ))}
                     </div>
                   </div>
+                )}
+
+                {title.toLowerCase().includes('placement fee') && (
+                  <>
+                    <input type="hidden" {...register("id")} value={data?.id || ""} />
+                    <input type="hidden" {...register("originalId")} value={data?.originalId || ""} />
+                  </>
                 )}
 
                 <div className="mt-3 flex justify-end border-t border-blue-200 pt-2 sm:mt-4 sm:pt-3 md:mt-6 md:pt-4">
