@@ -155,8 +155,8 @@ export default function AuthUsersPage() {
   const StatusRenderer = (params: any) => {
     const v = params.value?.toLowerCase() ?? "";
     const classes = v === "active" ? "bg-green-100 text-green-800" :
-                    v === "inactive" ? "bg-red-100 text-red-800" :
-                    "bg-gray-100 text-gray-800";
+      v === "inactive" ? "bg-red-100 text-red-800" :
+        "bg-gray-100 text-gray-800";
     return <Badge className={classes}>{params.value?.toUpperCase()}</Badge>;
   };
 
@@ -175,13 +175,35 @@ export default function AuthUsersPage() {
   const VisaStatusRenderer = (params: any) => {
     const visa = params.value ?? "";
     const map: Record<string, string> = {
-      Citizen: "bg-blue-100 text-blue-800",
-      Visa: "bg-purple-100 text-purple-800",
-      "Permanent resident": "bg-green-100 text-green-800",
-      "Green Card": "bg-emerald-100 text-emerald-800",
-      EAD: "bg-yellow-100 text-yellow-800",
+      US_CITIZEN: "bg-blue-100 text-blue-800",
+      GREEN_CARD: "bg-emerald-100 text-emerald-800",
+      GC_EAD: "bg-teal-100 text-teal-800",
+      I485_EAD: "bg-teal-100 text-teal-800",
+      I140_APPROVED: "bg-cyan-100 text-cyan-800",
       F1: "bg-pink-100 text-pink-800",
-      "Waiting for Status": "bg-orange-100 text-orange-800",
+      F1_OPT: "bg-pink-100 text-pink-800",
+      F1_CPT: "bg-pink-100 text-pink-800",
+      J1: "bg-amber-100 text-amber-800",
+      J1_AT: "bg-amber-100 text-amber-800",
+      H1B: "bg-indigo-100 text-indigo-800",
+      H1B_TRANSFER: "bg-indigo-100 text-indigo-800",
+      H1B_CAP_EXEMPT: "bg-indigo-100 text-indigo-800",
+      H4: "bg-purple-100 text-purple-800",
+      H4_EAD: "bg-purple-100 text-purple-800",
+      L1A: "bg-violet-100 text-violet-800",
+      L1B: "bg-violet-100 text-violet-800",
+      L2: "bg-violet-100 text-violet-800",
+      L2_EAD: "bg-violet-100 text-violet-800",
+      O1: "bg-fuchsia-100 text-fuchsia-800",
+      TN: "bg-sky-100 text-sky-800",
+      E3: "bg-lime-100 text-lime-800",
+      E3_EAD: "bg-lime-100 text-lime-800",
+      E2: "bg-lime-100 text-lime-800",
+      E2_EAD: "bg-lime-100 text-lime-800",
+      TPS_EAD: "bg-yellow-100 text-yellow-800",
+      ASYLUM_EAD: "bg-orange-100 text-orange-800",
+      REFUGEE_EAD: "bg-orange-100 text-orange-800",
+      DACA_EAD: "bg-orange-100 text-orange-800",
     };
     return <Badge className={map[visa] ?? "bg-gray-200 text-gray-700"}>{visa}</Badge>;
   };
@@ -253,24 +275,24 @@ export default function AuthUsersPage() {
     { field: "city", headerName: "City", width: 140, editable: true, cellEditor: 'agTextCellEditor' },
     { field: "country", headerName: "Country", width: 140, editable: true, cellEditor: 'agTextCellEditor' },
     {
-        field: "registereddate",
-        headerName: "Registered Date",
-        width: 180,
-        sortable: true,
-        filter: "agDateColumnFilter",
-        valueGetter: (params) => {
-          return params.data?.entry_date ? new Date(params.data.entry_date) : null;
-        },
-        valueFormatter: (params) => {
-          const value = params.value;
-          if (!value) return "-";
-          return value.toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-          });
-        },
+      field: "registereddate",
+      headerName: "Registered Date",
+      width: 180,
+      sortable: true,
+      filter: "agDateColumnFilter",
+      valueGetter: (params) => {
+        return params.data?.entry_date ? new Date(params.data.entry_date) : null;
       },
+      valueFormatter: (params) => {
+        const value = params.value;
+        if (!value) return "-";
+        return value.toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        });
+      },
+    },
     { field: "googleId", headerName: "Google ID", width: 220, editable: false },
     { field: "team", headerName: "Team", width: 180, editable: true, cellEditor: 'agTextCellEditor' },
     { field: "message", headerName: "Message", width: 250, editable: true, cellEditor: 'agTextCellEditor' },
@@ -313,7 +335,7 @@ export default function AuthUsersPage() {
       }
       delete dataToSend.googleId;
       delete dataToSend.registereddate;
-      
+
       const updatedUser = await smartUpdate("user", updatedRow.id, dataToSend);
       setUsers((prev) => prev.map((user) => (user.id === updatedRow.id ? updatedUser : user)));
       toast.success("User updated successfully");
@@ -325,43 +347,43 @@ export default function AuthUsersPage() {
   };
 
   // POST request to create new user
-const handleRowAdded = async (newUser: any) => {
-  try {
-    console.log("CREATING NEW USER:", newUser);
-    
-    // Remove empty password field if it exists
-    const dataToSend = { ...newUser };
-    if (dataToSend.passwd === "" || dataToSend.passwd === "********") {
-      delete dataToSend.passwd;
-    }
-    
-    // Validate password if provided
-    if (dataToSend.passwd) {
-      const validation = validatePasswordStrength(dataToSend.passwd);
-      if (!validation.isValid) {
-        toast.error(validation.errors[0]);
-        return;
+  const handleRowAdded = async (newUser: any) => {
+    try {
+      console.log("CREATING NEW USER:", newUser);
+
+      // Remove empty password field if it exists
+      const dataToSend = { ...newUser };
+      if (dataToSend.passwd === "" || dataToSend.passwd === "********") {
+        delete dataToSend.passwd;
       }
+
+      // Validate password if provided
+      if (dataToSend.passwd) {
+        const validation = validatePasswordStrength(dataToSend.passwd);
+        if (!validation.isValid) {
+          toast.error(validation.errors[0]);
+          return;
+        }
+      }
+
+      // Remove fields that shouldn't be sent for new user
+      delete dataToSend.id;
+      delete dataToSend.googleId;
+
+      // Send POST request to create new user
+      const response = await api.post("/user", dataToSend);
+
+      console.log("USER CREATED:", response);
+
+      // Refresh the users list
+      fetchUsers();
+
+      toast.success("User created successfully");
+    } catch (err: any) {
+      console.error("FAILED TO CREATE USER:", err);
+      toast.error(err.message || "Failed to create user");
     }
-    
-    // Remove fields that shouldn't be sent for new user
-    delete dataToSend.id;
-    delete dataToSend.googleId;
-    
-    // Send POST request to create new user
-    const response = await api.post("/user", dataToSend);
-    
-    console.log("USER CREATED:", response);
-    
-    // Refresh the users list
-    fetchUsers();
-    
-    toast.success("User created successfully");
-  } catch (err: any) {
-    console.error("FAILED TO CREATE USER:", err);
-    toast.error(err.message || "Failed to create user");
-  }
-};
+  };
 
   // DELETE request on row deletion
   const handleRowDeleted = async (id: number | string) => {
@@ -430,7 +452,7 @@ const handleRowAdded = async (newUser: any) => {
           title={`Users (${filteredUsers.length})`}
           height="600px"
           showSearch={false}
-          onRowAdded={handleRowAdded} 
+          onRowAdded={handleRowAdded}
           onRowUpdated={handleRowUpdated}
           onRowDeleted={handleRowDeleted}
         />
