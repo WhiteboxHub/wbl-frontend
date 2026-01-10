@@ -116,7 +116,48 @@ const StatusRenderer = ({ value }: { value?: string }) => {
   };
   return (
     <Badge className={`${variantMap[status] || variantMap.default} capitalize`}>
-      {value || "N/A"}
+      {value || ""}
+    </Badge>
+  );
+};
+
+const WorkStatusRenderer = ({ value }: { value?: string }) => {
+  if (!value) return null;
+  const statusKey = value.toUpperCase().replace(/\s+/g, "_");
+  const variantMap: Record<string, string> = {
+    US_CITIZEN: "bg-blue-100 text-blue-800",
+    GREEN_CARD: "bg-emerald-100 text-emerald-800",
+    GC_EAD: "bg-teal-100 text-teal-800",
+    I485_EAD: "bg-teal-100 text-teal-800",
+    I140_APPROVED: "bg-cyan-100 text-cyan-800",
+    F1: "bg-pink-100 text-pink-800",
+    F1_OPT: "bg-pink-100 text-pink-800",
+    F1_CPT: "bg-pink-100 text-pink-800",
+    J1: "bg-amber-100 text-amber-800",
+    J1_AT: "bg-amber-100 text-amber-800",
+    H1B: "bg-indigo-100 text-indigo-800",
+    H1B_TRANSFER: "bg-indigo-100 text-indigo-800",
+    H1B_CAP_EXEMPT: "bg-indigo-100 text-indigo-800",
+    H4: "bg-purple-100 text-purple-800",
+    H4_EAD: "bg-purple-100 text-purple-800",
+    L1A: "bg-violet-100 text-violet-800",
+    L1B: "bg-violet-100 text-violet-800",
+    L2: "bg-violet-100 text-violet-800",
+    L2_EAD: "bg-violet-100 text-violet-800",
+    O1: "bg-fuchsia-100 text-fuchsia-800",
+    TN: "bg-sky-100 text-sky-800",
+    E3: "bg-lime-100 text-lime-800",
+    E3_EAD: "bg-lime-100 text-lime-800",
+    E2: "bg-lime-100 text-lime-800",
+    E2_EAD: "bg-lime-100 text-lime-800",
+    TPS_EAD: "bg-yellow-100 text-yellow-800",
+    ASYLUM_EAD: "bg-orange-100 text-orange-800",
+    REFUGEE_EAD: "bg-orange-100 text-orange-800",
+    DACA_EAD: "bg-orange-100 text-orange-800",
+  };
+  return (
+    <Badge className={`${variantMap[statusKey] || "bg-gray-100 text-gray-800"} capitalize`}>
+      {value}
     </Badge>
   );
 };
@@ -437,7 +478,7 @@ const WorkStatusFilterHeaderComponent = (props: any) => {
                   className="mr-3"
                 />
 
-                {workStatus}
+                <WorkStatusRenderer value={workStatus} />
               </label>
             ))}
             {selectedWorkStatuses.length > 0 && (
@@ -822,6 +863,7 @@ export default function LeadsPage() {
         headerName: "Work Status",
         width: 200,
         sortable: true,
+        cellRenderer: WorkStatusRenderer,
         headerComponent: WorkStatusFilterHeaderComponent,
         headerComponentParams: { selectedWorkStatuses, setSelectedWorkStatuses },
       },

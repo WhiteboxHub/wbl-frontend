@@ -29,7 +29,12 @@ interface PlacementFee {
     isGroup?: boolean;
     isExpanded?: boolean;
     totalDeposit?: number;
-    originalId?: number; // Keep track of DB ID for updates
+    originalId?: number;
+    paidCount?: number;
+    totalCount?: number;
+    collectedAmount?: number;
+    pendingAmount?: number;
+    lastDepositDate?: string | null; // Keep track of DB ID for updates
 }
 
 export default function PlacementFeeCollectionPage() {
@@ -67,22 +72,46 @@ export default function PlacementFeeCollectionPage() {
             const total = children.reduce((sum, item) => sum + Number(item.deposit_amount || 0), 0);
             const isExpanded = expandedGroups.has(candidateName);
 
+            // Calculate installment progress
+            const totalCount = children.length;
+            const paidCount = children.filter(item => item.amount_collected === "yes").length;
+
+            // Calculate collected and pending amounts
+            const collectedAmount = children
+                .filter(item => item.amount_collected === "yes")
+                .reduce((sum, item) => sum + Number(item.deposit_amount || 0), 0);
+            const pendingAmount = children
+                .filter(item => item.amount_collected !== "yes")
+                .reduce((sum, item) => sum + Number(item.deposit_amount || 0), 0);
+
+            // Find last deposit date (most recent date among paid installments)
+            const paidDates = children
+                .filter(item => item.amount_collected === "yes" && item.deposit_date)
+                .map(item => item.deposit_date)
+                .filter(Boolean) as string[];
+            const lastDepositDate = paidDates.length > 0
+                ? paidDates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0]
+                : null;
+
             newGridRows.push({
                 id: `group-${candidateName}`,
                 candidate_name: candidateName,
                 isGroup: true,
                 isExpanded: isExpanded,
                 totalDeposit: total,
+                paidCount,
+                totalCount,
+                collectedAmount,
+                pendingAmount,
+                lastDepositDate,
                 placement_id: "",
                 installment_id: "",
-                deposit_date: null,
+                deposit_date: lastDepositDate,
                 deposit_amount: total,
                 amount_collected: null,
             });
 
-            const effectiveExpanded = searchTerm ? true : isExpanded;
-
-            if (effectiveExpanded) {
+            if (isExpanded) {
                 children.forEach(child => {
                     newGridRows.push({
                         ...child,
@@ -145,19 +174,64 @@ export default function PlacementFeeCollectionPage() {
         return val == null ? "$0.00" : `$${Number(val).toLocaleString()}`;
     };
 
-    const DateRenderer = (params: any) => {
-        if (params.data.isGroup) return null;
+    const DepositDateRenderer = (params: any) => {
+        if (params.data.isGroup) {
+            // Show last deposit date for group row
+            const lastDate = params.data.lastDepositDate;
+            if (!lastDate) return null;
+            return <span className="font-semibold text-gray-700">{String(lastDate).split("T")[0]}</span>;
+        }
         const v = params.value;
         if (!v) return <span className="text-gray-500">N/A</span>;
         return <span>{String(v).split("T")[0]}</span>;
     };
 
-    const CollectedRenderer = (params: any) => {
+    const LastModDateRenderer = (params: any) => {
         if (params.data.isGroup) return null;
+        const v = params.value;
+        if (!v) return null;
+        return <span>{String(v).split("T")[0]}</span>;
+    };
+
+    const InstallmentRenderer = (params: any) => {
+        if (params.data.isGroup) {
+            // Show installment progress for group row (e.g., 2/4)
+            const paidCount = params.data.paidCount || 0;
+            const totalCount = params.data.totalCount || 0;
+            return (
+                <span className="font-bold text-blue-600">
+                    {paidCount}/{totalCount}
+                </span>
+            );
+        }
+        return <span>{params.value}</span>;
+    };
+
+    const CollectedAmountRenderer = (params: any) => {
+        if (params.data.isGroup) {
+            const amount = params.data.collectedAmount || 0;
+            return (
+                <span className="font-bold text-green-700">
+                    ${Number(amount).toLocaleString()}
+                </span>
+            );
+        }
         const val = (params.value || "no").toString().toLowerCase();
         const cls = val === "yes" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800";
         const displayVal = val === "yes" ? "Yes" : "No";
         return <Badge className={cls}>{displayVal}</Badge>;
+    };
+
+    const PendingAmountRenderer = (params: any) => {
+        if (params.data.isGroup) {
+            const amount = params.data.pendingAmount || 0;
+            return (
+                <span className="font-bold text-orange-600">
+                    ${Number(amount).toLocaleString()}
+                </span>
+            );
+        }
+        return null;
     };
 
     const PlacementLinkRenderer = (params: any) => {
@@ -204,14 +278,14 @@ export default function PlacementFeeCollectionPage() {
             {
                 field: "candidate_name",
                 headerName: "Candidate",
-                minWidth: 230,
+                width: 230,
                 cellRenderer: CandidateGroupRenderer,
                 pinned: 'left',
             },
             {
                 field: "placement_id",
                 headerName: "Placement",
-                minWidth: 150,
+                width: 150,
                 cellRenderer: PlacementLinkRenderer,
                 hide: true,
             },
@@ -219,29 +293,46 @@ export default function PlacementFeeCollectionPage() {
                 field: "installment_id",
                 headerName: "Installment",
                 width: 130,
-                editable: (p) => !p.data.isGroup,
+                cellRenderer: InstallmentRenderer,
+                editable: true,
             },
             {
                 field: "deposit_date",
                 headerName: "Deposit Date",
                 width: 150,
-                cellRenderer: DateRenderer,
+                cellRenderer: DepositDateRenderer,
             },
             {
                 field: "deposit_amount",
                 headerName: "Deposit Amount",
                 width: 170,
                 cellRenderer: AmountRenderer,
-                editable: (p) => !p.data.isGroup,
+                editable: true,
             },
             {
-                field: "amount_collected",
-                headerName: "Collected",
-                width: 120,
-                cellRenderer: CollectedRenderer,
-                editable: (p) => !p.data.isGroup,
+                field: "collectedAmount",
+                headerName: "Collected Amt",
+                width: 140,
+                cellRenderer: CollectedAmountRenderer,
+                editable: (params: any) => !params.data.isGroup,
                 cellEditor: "agSelectCellEditor",
-                cellEditorParams: { values: ["yes", "no"] },
+                cellEditorParams: {
+                    values: ["yes", "no"],
+                },
+                valueGetter: (params: any) => {
+                    if (params.data.isGroup) return params.data.collectedAmount;
+                    return params.data.amount_collected || "no";
+                },
+                valueSetter: (params: any) => {
+                    params.data.amount_collected = params.newValue;
+                    return true;
+                }
+            },
+            {
+                field: "pendingAmount",
+                headerName: "Pending Amt",
+                width: 140,
+                cellRenderer: PendingAmountRenderer,
             },
             {
                 field: "lastmod_user_name",
@@ -253,13 +344,13 @@ export default function PlacementFeeCollectionPage() {
                 field: "last_mod_date",
                 headerName: "Last Modified At",
                 width: 170,
-                cellRenderer: DateRenderer,
+                cellRenderer: LastModDateRenderer,
             }
         ]);
     };
     // CRUD 
     const handleRowUpdated = async (updatedRow: PlacementFee) => {
-        if (updatedRow.isGroup) return; // Cannot edit groups
+        if (updatedRow.isGroup) return;
 
         try {
             const dbId = updatedRow.originalId || updatedRow.id;
@@ -267,7 +358,14 @@ export default function PlacementFeeCollectionPage() {
 
             await api.put(`/placement-fee/${dbId}`, updatedRow);
 
-            setRawFees(prev => prev.map(f => f.id === dbId ? { ...f, ...updatedRow } : f));
+            setRawFees(prev => prev.map(f => {
+                if (f.id === dbId) {
+                    const updated = { ...f, ...updatedRow };
+                    updated.id = f.id; // Keep numeric ID in local state
+                    return updated;
+                }
+                return f;
+            }));
 
             toast.success("Updated successfully");
         } catch (err) {
@@ -279,9 +377,12 @@ export default function PlacementFeeCollectionPage() {
     const handleRowDeleted = async (id: number | string) => {
         if (String(id).startsWith("group-")) return;
 
+        const row = gridRows.find(r => r.id === id);
+        const dbId = row?.originalId || id;
+
         try {
-            await api.delete(`/placement-fee/${id}`);
-            setRawFees(prev => prev.filter(f => f.id !== id));
+            await api.delete(`/placement-fee/${dbId}`);
+            setRawFees(prev => prev.filter(f => f.id !== dbId));
             toast.success("Successfully Deleted");
         } catch (err) {
             console.error(err);
@@ -324,7 +425,7 @@ export default function PlacementFeeCollectionPage() {
             </div>
 
             <div className="max-w-md">
-                <Label htmlFor="search">Search {searchTerm && "(Typing expands all groups)"}</Label>
+                <Label htmlFor="search">Search</Label>
                 <div className="relative mt-1">
                     <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
