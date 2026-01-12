@@ -30,3 +30,4 @@ jobs:
             --allow-unauthenticated \
             --port 8080 \
             --set-env-vars NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }} \
+            --quiet
