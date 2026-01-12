@@ -9,6 +9,7 @@ import CourseNavigation from "@/components/Common/CourseNavigation";
 type ComponentType =
   | "Presentations"
   | "Cheatsheets"
+  | "Study Guides"
   | "Diagrams"
   | "Installations"
   | "Newsletters"
@@ -27,6 +28,7 @@ export default function Presentation() {
   const buttons = [
     { type: "Presentations", label: "Presentations" },
     { type: "Cheatsheets", label: "Cheatsheets" },
+    { type: "Study Guides", label: "Study Guides" },
     { type: "Diagrams", label: "Diagrams" },
     { type: "Softwares", label: "Softwares" },
     { type: "Installations", label: "Installations" },

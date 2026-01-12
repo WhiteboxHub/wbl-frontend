@@ -6,6 +6,7 @@ import { toast } from "sonner";
 type ComponentType =
   | "Presentations"
   | "Cheatsheets"
+  | "Study Guides"
   | "Diagrams"
   | "Installations"
   | "Newsletters"
