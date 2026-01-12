@@ -29,5 +29,4 @@ jobs:
             --platform managed \
             --allow-unauthenticated \
             --port 8080 \
-            --set-env-vars NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }},NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY }},NEXT_PUBLIC_GOOGLE_CALENDAR_ID=${{ secrets.NEXT_PUBLIC_GOOGLE_CALENDAR_ID }} \
-            --quiet
+            --set-env-vars NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }} \
