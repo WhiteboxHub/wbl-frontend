@@ -11,7 +11,7 @@ type ComponentType =
   | "Cheatsheets"
   | "Study Guides"
   | "Diagrams"
-  | "Installations"
+  | "Interactive Visual Explainers"
   | "Newsletters"
   | "Books"
   | "Softwares"
@@ -31,7 +31,7 @@ export default function Presentation() {
     { type: "Study Guides", label: "Study Guides" },
     { type: "Diagrams", label: "Diagrams" },
     { type: "Softwares", label: "Softwares" },
-    { type: "Installations", label: "Installations" },
+    { type: "Interactive Visual Explainers", label: "Visual_Intuition" },
     { type: "Books", label: "Books" },
     { type: "Newsletters", label: "Newsletters" },
     { type: "Assignments", label: "Assignments" },

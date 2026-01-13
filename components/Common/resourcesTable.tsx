@@ -8,7 +8,7 @@ type ComponentType =
   | "Cheatsheets"
   | "Study Guides"
   | "Diagrams"
-  | "Installations"
+  | "Interactive Visual Explainers"
   | "Newsletters"
   | "Books"
   | "Softwares"
