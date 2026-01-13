@@ -1,4 +1,4 @@
-
+// whiteboxLearning-wbl/app/signup/page.tsx
 "use client";
 import Link from "next/link";
 import { countries } from "country-data";
@@ -8,7 +8,6 @@ import { ChangeEvent, FormEvent } from "react";
 import { useAuth } from "@/utils/AuthContext";
 import { signIn, useSession } from "next-auth/react";
 import { SignInResponse } from "next-auth/react";
-import ReCAPTCHA from "@/components/ReCAPTCHA";
 
 const SignupPage = () => {
   const [firstName, setFirstName] = useState('');
@@ -30,8 +29,6 @@ const SignupPage = () => {
   const [education, setEducation] = useState("");
   const [specialization, setSpecialization] = useState("");
   const [referredBy, setReferredBy] = useState("");
-  const [recaptchaToken, setRecaptchaToken] = useState<string>("");
-  const [recaptchaError, setRecaptchaError] = useState<string>("");
 
   const { data: session, status } = useSession();
   const [googleStatus, setGoogleStatus] = useState("");
@@ -137,14 +134,6 @@ const SignupPage = () => {
     e.preventDefault();
     setLoading(true);
 
-    // Validate reCAPTCHA token
-    if (!recaptchaToken) {
-      setResponseStatus("error");
-      setMessagee("CAPTCHA verification failed. Please try again.");
-      setLoading(false);
-      return;
-    }
-
     try {
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/signup`,
@@ -168,7 +157,6 @@ const SignupPage = () => {
             referby: referredBy,
             registereddate: new Date().toISOString(),
             level3date: new Date().toISOString(),
-            recaptcha_token: recaptchaToken,
           }),
         }
       );
@@ -192,7 +180,6 @@ const SignupPage = () => {
         setEducation("");
         setSpecialization("");
         setReferredBy("");
-        setRecaptchaToken("");
       } else {
         setResponseStatus("error");
         setMessagee(data.detail || "Registration failed");
@@ -740,14 +727,6 @@ const SignupPage = () => {
                           Privacy Policy
                         </a>.
                       </label>
-                      {/* reCAPTCHA */}
-                      <div className="my-6 flex justify-center">
-                        <ReCAPTCHA
-                          onToken={setRecaptchaToken}
-                          onError={setRecaptchaError}
-                        />
-                      </div>
-
                     </div>
                   </div>
 
@@ -786,7 +765,6 @@ const SignupPage = () => {
                           />
                         </circle>
                       </svg>
-
                     </div>
                   ) : (
                     <button
