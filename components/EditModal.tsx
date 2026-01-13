@@ -2879,7 +2879,24 @@ export function EditModal({
                                   </label>
                                   <input
                                     type="date"
-                                    {...register(key)}
+                                    {...(() => {
+                                      const { onChange, ...rest } = register(key);
+                                      return {
+                                        ...rest,
+                                        onChange: (e: any) => {
+                                          onChange(e);
+                                          if (isAddMode && key === "assigned_date") {
+                                            const val = e.target.value;
+                                            if (val) {
+                                              const dateObj = new Date(val);
+                                              dateObj.setDate(dateObj.getDate() + 7);
+                                              const dueStr = dateObj.toISOString().split("T")[0];
+                                              setValue("due_date", dueStr);
+                                            }
+                                          }
+                                        },
+                                      };
+                                    })()}
                                     defaultValue={formData[key] || ""}
                                     className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   />
