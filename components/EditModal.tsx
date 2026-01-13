@@ -59,6 +59,10 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "false", label: "No" },
     { value: "true", label: "Yes" },
   ],
+  is_immigration_team: [
+    { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
+  ],
   priority: [
     { value: "", label: "Select" },
     { value: "1", label: "1" },
@@ -83,38 +87,10 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "Average", label: "Average" },
     { value: "Need to Improve", label: "Need to Improve" },
   ],
-  work_status: [
-    { value: "US_CITIZEN", label: "US Citizen" },
-    { value: "GREEN_CARD", label: "Green Card" },
-    { value: "GC_EAD", label: "GC EAD" },
-    { value: "I485_EAD", label: "I485 EAD" },
-    { value: "I140_APPROVED", label: "I140 Approved" },
-    { value: "F1", label: "F1" },
-    { value: "F1_OPT", label: "F1 OPT" },
-    { value: "F1_CPT", label: "F1 CPT" },
-    { value: "J1", label: "J1" },
-    { value: "J1_AT", label: "J1 AT" },
-    { value: "H1B", label: "H1B" },
-    { value: "H1B_TRANSFER", label: "H1B Transfer" },
-    { value: "H1B_CAP_EXEMPT", label: "H1B Cap Exempt" },
-    { value: "H4", label: "H4" },
-    { value: "H4_EAD", label: "H4 EAD" },
-    { value: "L1A", label: "L1A" },
-    { value: "L1B", label: "L1B" },
-    { value: "L2", label: "L2" },
-    { value: "L2_EAD", label: "L2 EAD" },
-    { value: "O1", label: "O1" },
-    { value: "TN", label: "TN" },
-    { value: "E3", label: "E3" },
-    { value: "E3_EAD", label: "E3 EAD" },
-    { value: "E2", label: "E2" },
-    { value: "E2_EAD", label: "E2 EAD" },
-    { value: "TPS_EAD", label: "TPS EAD" },
-    { value: "ASYLUM_EAD", label: "Asylum EAD" },
-    { value: "REFUGEE_EAD", label: "Refugee EAD" },
-    { value: "DACA_EAD", label: "DACA EAD" },
-  ],
+
+
   workstatus: [
+    { value: "", label: "Waiting for Status" },
     { value: "US_CITIZEN", label: "US Citizen" },
     { value: "GREEN_CARD", label: "Green Card" },
     { value: "GC_EAD", label: "GC EAD" },
@@ -145,7 +121,9 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "REFUGEE_EAD", label: "Refugee EAD" },
     { value: "DACA_EAD", label: "DACA EAD" },
   ],
+
   visa_status: [
+    { value: "", label: "Waiting for Status" },
     { value: "US_CITIZEN", label: "US Citizen" },
     { value: "GREEN_CARD", label: "Green Card" },
     { value: "GC_EAD", label: "GC EAD" },
@@ -462,6 +440,12 @@ const excludedFields = [
   "isExpanded",
   "totalDeposit",
   "originalId",
+  "paidCount",
+  "totalCount",
+  "collectedAmount",
+  "pendingAmount",
+  "lastDepositDate",
+  "placement_id"
 ];
 
 // Field visibility configuration
@@ -527,7 +511,6 @@ const fieldSections: Record<string, string> = {
   phone_number: "Basic Information",
   secondary_phone: "Contact Information",
   last_mod_datetime: "Contact Information",
-  location: "Contact Information",
   agreement: "Professional Information",
   subject_id: "Basic Information",
   subjectid: "Professional Information",
@@ -639,9 +622,13 @@ const fieldSections: Record<string, string> = {
   keywords: "Professional Information",
   match_type: "Basic Information",
   action: "Basic Information",
+  is_immigration_team: "Basic Information",
   context: "Professional Information",
   created_at: "Professional Information",
   updated_at: "Professional Information",
+  job_title: "Professional Information",
+  location: "Professional Information",
+  extraction_date: "Professional Information",
 };
 
 // Override field labels for better readability
@@ -770,6 +757,7 @@ const labelOverrides: Record<string, string> = {
   action: "Action",
   context: "Context",
   is_active: "Is Active",
+  is_immigration_team: "Immigration Team",
   created_at: "Created At",
   updated_at: "Updated At",
 };
@@ -1100,15 +1088,6 @@ export function EditModal({
       data.instructor3?.id || data.instructor3_id || "";
     flattened.instructor3_name =
       data.instructor3?.name || data.instructor3_name || "";
-    if (data.visa_status) {
-      flattened.visa_status = String(data.visa_status).toLowerCase();
-    }
-    if (data.workstatus) {
-      flattened.workstatus = String(data.workstatus);
-    }
-    if (data.work_status) {
-      flattened.work_status = String(data.work_status);
-    }
     if (data.type) {
       flattened.material_type = data.type;
     }
@@ -1183,6 +1162,11 @@ export function EditModal({
     }
     if (data.instructor !== undefined && data.instructor !== null) {
       flattened.instructor = String(data.instructor);
+
+    }
+    if (data.is_immigration_team !== undefined && data.is_immigration_team !== null) {
+      flattened.is_immigration_team = String(data.is_immigration_team);
+
     }
 
     return flattened;
@@ -1393,18 +1377,18 @@ export function EditModal({
       if (keyLower === "feedback") return enumOptions.feedback;
     }
 
-    if (keyLower === "work_status" || keyLower === "workstatus") {
-      return enumOptions.work_status;
+    // if (keyLower === "work_status" || keyLower === "workstatus") {
+    //   return enumOptions.work_status;
+    // }
+    if (keyLower === "workstatus") {
+      return enumOptions.workstatus;
     }
+
     if (isPreparationModal && keyLower === "status") {
       return [
         { value: "active", label: "Active" },
         { value: "inactive", label: "Inactive" },
       ];
-    }
-
-    if (keyLower === "work_status" || keyLower === "workstatus") {
-      return enumOptions.work_status;
     }
 
     if (isMarketingModal && keyLower === "status")
