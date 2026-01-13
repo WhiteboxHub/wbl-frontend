@@ -63,7 +63,6 @@ const fieldSections: Record<string, string> = {
   phone_number: "Basic Information",
   secondary_phone: "Contact Information",
   last_mod_datetime: "Contact Information",
-  location: "Contact Information",
   agreement: "Professional Information",
   subject_id: "Basic Information",
   subjectid: "Professional Information",
@@ -187,6 +186,10 @@ const fieldSections: Record<string, string> = {
   is_active: "Basic Information",
   created_at: "Professional Information",
   updated_at: "Professional Information",
+  job_title: "Professional Information",
+  location: "Professional Information",
+  extraction_date: "Professional Information",
+  is_immigration_team: "Basic Information",
 };
 
 const workVisaStatusOptions = [
@@ -281,6 +284,7 @@ const labelOverrides: Record<string, string> = {
   job_owner_1_name: "Job Owner 1",
   job_owner_2_name: "Job Owner 2",
   job_owner_3_name: "Job Owner 3",
+  is_immigration_team: "Immigration Team",
 };
 
 const dateFields = [
@@ -489,6 +493,16 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
         const displayValue = instructorMap[value] || value;
         return <Badge className={value === '1' || value === 'true' || value === 'yes' ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>{displayValue}</Badge>;
       }
+    }
+
+    if (lowerKey === 'is_immigration_team') {
+      const isTrue = value === true || value === 'true' || value === 'yes' || value === 1 || value === '1';
+      const displayValue = isTrue ? 'YES' : 'NO';
+      return (
+        <Badge className={isTrue ? "bg-indigo-100 text-indigo-800" : "bg-gray-100 text-gray-800"}>
+          {displayValue}
+        </Badge>
+      );
     }
 
     if (lowerKey.includes("rating") || lowerKey.includes("communication")) {

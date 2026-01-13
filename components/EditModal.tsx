@@ -59,6 +59,10 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "false", label: "No" },
     { value: "true", label: "Yes" },
   ],
+  is_immigration_team: [
+    { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
+  ],
   priority: [
     { value: "", label: "Select" },
     { value: "1", label: "1" },
@@ -507,7 +511,6 @@ const fieldSections: Record<string, string> = {
   phone_number: "Basic Information",
   secondary_phone: "Contact Information",
   last_mod_datetime: "Contact Information",
-  location: "Contact Information",
   agreement: "Professional Information",
   subject_id: "Basic Information",
   subjectid: "Professional Information",
@@ -619,9 +622,13 @@ const fieldSections: Record<string, string> = {
   keywords: "Professional Information",
   match_type: "Basic Information",
   action: "Basic Information",
+  is_immigration_team: "Basic Information",
   context: "Professional Information",
   created_at: "Professional Information",
   updated_at: "Professional Information",
+  job_title: "Professional Information",
+  location: "Professional Information",
+  extraction_date: "Professional Information",
 };
 
 // Override field labels for better readability
@@ -750,6 +757,7 @@ const labelOverrides: Record<string, string> = {
   action: "Action",
   context: "Context",
   is_active: "Is Active",
+  is_immigration_team: "Immigration Team",
   created_at: "Created At",
   updated_at: "Updated At",
 };
@@ -1154,6 +1162,11 @@ export function EditModal({
     }
     if (data.instructor !== undefined && data.instructor !== null) {
       flattened.instructor = String(data.instructor);
+
+    }
+    if (data.is_immigration_team !== undefined && data.is_immigration_team !== null) {
+      flattened.is_immigration_team = String(data.is_immigration_team);
+
     }
 
     return flattened;
