@@ -118,7 +118,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
         { title: "Vendor", href: "/avatar/vendors/vendor" },
       ],
     },
-    { title: "HR Contact", href: "/avatar/hr-contacts", icon: UsersIcon },
+    { title: "HR Contacts", href: "/avatar/hr-contacts", icon: UsersIcon },
     {
       title: "Jobs",
       href: "/avatar/job-activity/job-types",

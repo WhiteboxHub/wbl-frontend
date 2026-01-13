@@ -142,9 +142,10 @@ export default function HRContactPage() {
             is_immigration_team: updatedRow.is_immigration_team === "true" || updatedRow.is_immigration_team === true,
         };
         try {
-            await apiFetch(`/hr-contacts/${updatedRow.id}`, { method: "PUT", body: payload });
+            const res = await apiFetch(`/hr-contacts/${updatedRow.id}`, { method: "PUT", body: payload });
+            const updatedData = Array.isArray(res) ? res[0] : (res?.data ?? res);
             console.log("[handleRowUpdated] Successfully updated HR contact:", updatedRow.id);
-            setContacts((prev) => prev.map((row) => (row.id === updatedRow.id ? payload : row)));
+            setContacts((prev) => prev.map((row) => (row.id === updatedRow.id ? updatedData : row)));
             toast.success("HR Contact updated successfully");
         } catch (error: any) {
             console.error("Update failed", error);

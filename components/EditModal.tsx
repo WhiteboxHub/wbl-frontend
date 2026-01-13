@@ -59,6 +59,10 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "false", label: "No" },
     { value: "true", label: "Yes" },
   ],
+  is_immigration_team: [
+    { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
+  ],
   priority: [
     { value: "", label: "Select" },
     { value: "1", label: "1" },
@@ -527,7 +531,6 @@ const fieldSections: Record<string, string> = {
   phone_number: "Basic Information",
   secondary_phone: "Contact Information",
   last_mod_datetime: "Contact Information",
-  location: "Contact Information",
   agreement: "Professional Information",
   subject_id: "Basic Information",
   subjectid: "Professional Information",
@@ -639,9 +642,13 @@ const fieldSections: Record<string, string> = {
   keywords: "Professional Information",
   match_type: "Basic Information",
   action: "Basic Information",
+  is_immigration_team: "Basic Information",
   context: "Professional Information",
   created_at: "Professional Information",
   updated_at: "Professional Information",
+  job_title: "Professional Information",
+  location: "Professional Information",
+  extraction_date: "Professional Information",
 };
 
 // Override field labels for better readability
@@ -770,6 +777,7 @@ const labelOverrides: Record<string, string> = {
   action: "Action",
   context: "Context",
   is_active: "Is Active",
+  is_immigration_team: "Immigration Team",
   created_at: "Created At",
   updated_at: "Updated At",
 };
@@ -1182,7 +1190,10 @@ export function EditModal({
       flattened.status = String(data.status);
     }
     if (data.instructor !== undefined && data.instructor !== null) {
-      flattened.instructor = String(data.instructor); 
+      flattened.instructor = String(data.instructor);
+    }
+    if (data.is_immigration_team !== undefined && data.is_immigration_team !== null) {
+      flattened.is_immigration_team = String(data.is_immigration_team);
     }
 
     return flattened;
@@ -2209,7 +2220,7 @@ export function EditModal({
 
 
 
-                           
+
                             if (
                               isJobActivityLogModal &&
                               !isAddMode &&
@@ -2321,7 +2332,7 @@ export function EditModal({
                               );
                             }
 
-                   
+
                             if (
                               isJobActivityLogModal &&
                               key.toLowerCase() === "employee_name"
@@ -2389,7 +2400,7 @@ export function EditModal({
                                     className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                     onChange={(e) => {
                                       const selectedSubject = e.target.value;
-                                      let courseid = "3"; 
+                                      let courseid = "3";
                                       if (selectedSubject === "QA")
                                         courseid = "1";
                                       else if (selectedSubject === "UI")
@@ -2414,13 +2425,13 @@ export function EditModal({
                                 </div>
                               );
                             }
-                           
+
                             if (isCourseIdField && isBatchesModal) {
                               const currentSubject =
                                 currentFormValues.subject ||
                                 formData.subject ||
                                 "ML";
-                              let defaultCourseId = "3"; 
+                              let defaultCourseId = "3";
                               if (currentSubject === "QA")
                                 defaultCourseId = "1";
                               else if (currentSubject === "UI")
@@ -2460,7 +2471,7 @@ export function EditModal({
 
 
 
-                            
+
                             if (isSpecialModal && isCandidateFullName) {
                               return (
                                 <div
@@ -2488,7 +2499,7 @@ export function EditModal({
                               );
                             }
 
-                           
+
                             if (
                               key === "lastmod_user_id" ||
                               key === "lastmod_user_name" ||
@@ -2521,7 +2532,7 @@ export function EditModal({
                               );
                             }
 
-                            
+
                             if (
                               key === "lastmod_user_id" ||
                               key === "lastmod_user_name" ||
@@ -2545,7 +2556,7 @@ export function EditModal({
                               );
                             }
 
-                            
+
                             if (
                               isSpecialModal &&
                               isLinkedInField &&
@@ -2611,7 +2622,7 @@ export function EditModal({
                               );
                             }
 
-                          
+
                             if (
                               isStatusField &&
                               isPrepOrMarketing &&
