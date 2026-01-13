@@ -603,14 +603,35 @@ const SignupPage = () => {
                         onFocus={handleInputFocus}
                       >
                         <option value="">Select Work Authorization</option>
+                        <option value="US_CITIZEN">US Citizen</option>
+                        <option value="GREEN_CARD">Green Card</option>
+                        <option value="GC_EAD">GC EAD</option>
+                        <option value="I485_EAD">I485 EAD</option>
+                        <option value="I140_APPROVED">I140 Approved</option>
+                        <option value="F1">F1</option>
+                        <option value="F1_OPT">F1 OPT</option>
+                        <option value="F1_CPT">F1 CPT</option>
+                        <option value="J1">J1</option>
+                        <option value="J1_AT">J1 AT</option>
                         <option value="H1B">H1B</option>
-                        <option value="F1">F1 (Student)</option>
-                        <option value="L1">L1</option>
-                        <option value="OPT">OPT</option>
-                        <option value="Green Card">Green Card</option>
-                        <option value="Citizen">Citizen</option>
-                        <option value="EAD">EAD</option>
-                        <option value="Other">Other</option>
+                        <option value="H1B_TRANSFER">H1B Transfer</option>
+                        <option value="H1B_CAP_EXEMPT">H1B Cap Exempt</option>
+                        <option value="H4">H4</option>
+                        <option value="H4_EAD">H4 EAD</option>
+                        <option value="L1A">L1A</option>
+                        <option value="L1B">L1B</option>
+                        <option value="L2">L2</option>
+                        <option value="L2_EAD">L2 EAD</option>
+                        <option value="O1">O1</option>
+                        <option value="TN">TN</option>
+                        <option value="E3">E3</option>
+                        <option value="E3_EAD">E3 EAD</option>
+                        <option value="E2">E2</option>
+                        <option value="E2_EAD">E2 EAD</option>
+                        <option value="TPS_EAD">TPS EAD</option>
+                        <option value="ASYLUM_EAD">Asylum EAD</option>
+                        <option value="REFUGEE_EAD">Refugee EAD</option>
+                        <option value="DACA_EAD">DACA EAD</option>
                       </select>
                     </div>
                     <div className="mb-4 sm:mb-6 flex-1">
