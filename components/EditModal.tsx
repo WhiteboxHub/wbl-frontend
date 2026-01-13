@@ -681,7 +681,7 @@ const labelOverrides: Record<string, string> = {
   interview_date: "Interview Date",
   interview_mode: "Interview Mode",
   visa_status: "Visa Status",
-  : "Work Status",
+  workstatus: "Work Status",
   message: "Message",
   education: "Education",
   workexperience: "Work Experience",
