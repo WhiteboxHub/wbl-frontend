@@ -732,9 +732,39 @@ export default function CandidatesPage() {
         suppressHeaderMenuButton: true,
         valueGetter: (params) => params.data?.workstatus || "",
         comparator: (valueA, valueB) => {
-          const order = ["waiting for status", "citizen", "permanent resident", "ead", "visa"];
-          const indexA = order.indexOf(valueA.toLowerCase());
-          const indexB = order.indexOf(valueB.toLowerCase());
+          const order = [
+            "US_CITIZEN",
+            "GREEN_CARD",
+            "GC_EAD",
+            "I485_EAD",
+            "I140_APPROVED",
+            "H1B",
+            "H1B_TRANSFER",
+            "H1B_CAP_EXEMPT",
+            "H4_EAD",
+            "L1A",
+            "L1B",
+            "L2_EAD",
+            "F1_OPT",
+            "F1_CPT",
+            "F1",
+            "J1",
+            "J1_AT",
+            "H4",
+            "L2",
+            "O1",
+            "TN",
+            "E3",
+            "E3_EAD",
+            "E2",
+            "E2_EAD",
+            "TPS_EAD",
+            "ASYLUM_EAD",
+            "REFUGEE_EAD",
+            "DACA_EAD",
+          ];
+          const indexA = order.indexOf(valueA);
+          const indexB = order.indexOf(valueB);
           if (indexA === -1 && indexB === -1) return valueA.localeCompare(valueB);
           if (indexA === -1) return 1;
           if (indexB === -1) return -1;
