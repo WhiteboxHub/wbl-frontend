@@ -79,7 +79,7 @@ export default function InternalDocumentsPage() {
       setLoading(true);
       setError("");
 
-      const res = await apiFetch("/internal-documents/");
+      const res = await apiFetch("/api/internal-documents/");
       const documentsArray = Array.isArray(res) ? res : [];
       const sortedDocuments = documentsArray.sort(
         (a: InternalDocument, b: InternalDocument) => b.id - a.id
@@ -122,9 +122,10 @@ export default function InternalDocumentsPage() {
 
   const handleRowUpdated = async (updatedRow: InternalDocument) => {
     try {
-      await apiFetch(`/internal-documents/${updatedRow.id}`, {
+      const { id, ...updateData } = updatedRow;
+      await apiFetch(`/api/internal-documents/${id}`, {
         method: "PUT",
-        body: updatedRow,
+        body: updateData,
       });
 
       const updatedDocuments = documents
@@ -140,9 +141,30 @@ export default function InternalDocumentsPage() {
     }
   };
 
+  const handleRowAdded = async (newRow: InternalDocument) => {
+    try {
+      const { id, ...docData } = newRow; 
+      const createdDoc = await apiFetch("/api/internal-documents/", {
+        method: "POST",
+        body: docData,
+      });
+
+      const updatedDocuments = [createdDoc, ...documents].sort(
+        (a, b) => b.id - a.id
+      );
+
+      setDocuments(updatedDocuments);
+      setFilteredDocuments(updatedDocuments);
+      toast.success("Document created successfully.");
+    } catch (e: any) {
+      const msg = getErrorMessage(e);
+      toast.error(msg);
+    }
+  };
+
   const handleRowDeleted = async (id: number) => {
     try {
-      await apiFetch(`/internal-documents/${id}`, { method: "DELETE" });
+      await apiFetch(`/api/internal-documents/${id}`, { method: "DELETE" });
       const updatedDocuments = documents.filter((doc) => doc.id !== id);
       setDocuments(updatedDocuments);
       setFilteredDocuments(updatedDocuments);
@@ -206,6 +228,7 @@ export default function InternalDocumentsPage() {
         title={`Internal Documents (${filteredDocuments.length})`}
         height="calc(70vh)"
         onRowUpdated={handleRowUpdated}
+        onRowAdded={handleRowAdded}
         onRowDeleted={handleRowDeleted}
         showSearch={false}
       />
