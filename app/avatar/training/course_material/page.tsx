@@ -44,9 +44,10 @@ interface MaterialFormData {
 const TYPE_MAPPING = {
   P: "Presentations",
   C: "Cheatsheets",
+  SG: "Study Guides",
   D: "Diagrams",
   S: "Softwares",
-  I: "Installations",
+  I: "Interactive Visual Explainers",
   B: "Books",
   N: "Newsletters",
   M: "Materials",
@@ -56,9 +57,10 @@ const TYPE_MAPPING = {
 const TYPE_OPTIONS = [
   { value: "P", label: "Presentations" },
   { value: "C", label: "Cheatsheets" },
+  { value: "SG", label: "Study Guides" },
   { value: "D", label: "Diagrams" },
   { value: "S", label: "Softwares" },
-  { value: "I", label: "Installations" },
+  { value: "I", label: "Interactive Visual Explainers" },
   { value: "B", label: "Books" },
   { value: "N", label: "Newsletters" },
   { value: "M", label: "Materials" },
