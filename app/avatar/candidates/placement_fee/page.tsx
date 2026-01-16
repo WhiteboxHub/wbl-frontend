@@ -34,7 +34,7 @@ interface PlacementFee {
     totalCount?: number;
     collectedAmount?: number;
     pendingAmount?: number;
-    lastDepositDate?: string | null; // Keep track of DB ID for updates
+    lastDepositDate?: string | null;
 }
 
 export default function PlacementFeeCollectionPage() {
@@ -195,7 +195,7 @@ export default function PlacementFeeCollectionPage() {
 
     const InstallmentRenderer = (params: any) => {
         if (params.data.isGroup) {
-            // Show installment progress for group row (e.g., 2/4)
+            // Show installment progress for group row
             const paidCount = params.data.paidCount || 0;
             const totalCount = params.data.totalCount || 0;
             return (
