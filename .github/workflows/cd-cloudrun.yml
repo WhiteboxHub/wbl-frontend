@@ -1,13 +1,9 @@
+# wbl-frontend/.github/workflows/cd-cloudrun.yml
 name: CD - Frontend (Cloud Run)
 
 on:
   push:
     branches: [ main ]
-
-env:
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  REGION: us-central1
-  IMAGE: us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/wbl/frontend
 
 jobs:
   deploy:
@@ -26,25 +22,13 @@ jobs:
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
-      - name: Configure Docker
-        run: gcloud auth configure-docker us-central1-docker.pkg.dev
-
-      - name: Build Docker Image (PUBLIC VARS ONLY)
-        run: |
-          docker build \
-            --build-arg NEXT_PUBLIC_API_URL="${{ secrets.NEXT_PUBLIC_API_URL }}" \
-            --build-arg NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY="${{ secrets.NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY }}" \
-            --build-arg NEXT_PUBLIC_GOOGLE_CALENDAR_ID="${{ secrets.NEXT_PUBLIC_GOOGLE_CALENDAR_ID }}" \
-            -t $IMAGE .
-
-      - name: Push Docker Image
-        run: docker push $IMAGE
-
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy wbl-frontend \
-            --image $IMAGE \
-            --region $REGION \
+            --source . \
+            --region us-central1 \
             --platform managed \
             --allow-unauthenticated \
+            --port 8080 \
+            --set-env-vars NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }},NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY }},NEXT_PUBLIC_GOOGLE_CALENDAR_ID=${{ secrets.NEXT_PUBLIC_GOOGLE_CALENDAR_ID }} \
             --quiet
