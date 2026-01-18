@@ -1,34 +1,57 @@
-# wbl-frontend/.github/workflows/cd-cloudrun.yml
-name: CD - Frontend (Cloud Run)
+name: CD - Frontend (Cloud Run - Container)
 
 on:
   push:
     branches: [ main ]
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: us-central1
+  IMAGE: us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/wbl/wbl-frontend
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
+      # Checkout code
       - uses: actions/checkout@v4
 
+      # Authenticate to GCP
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
+      # Setup gcloud
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
+      # Allow Docker to push to Artifact Registry
+      - name: Configure Docker
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev
+
+      # Build Docker image (PUBLIC vars only)
+      - name: Build Docker Image
+        run: |
+          docker build \
+            --build-arg NEXT_PUBLIC_API_URL="${{ secrets.NEXT_PUBLIC_API_URL }}" \
+            --build-arg NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY="${{ secrets.NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY }}" \
+            --build-arg NEXT_PUBLIC_GOOGLE_CALENDAR_ID="${{ secrets.NEXT_PUBLIC_GOOGLE_CALENDAR_ID }}" \
+            -t $IMAGE .
+
+      # Push image to Artifact Registry (wbl repo)
+      - name: Push Docker Image
+        run: docker push $IMAGE
+
+      # Deploy image to Cloud Run
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy wbl-frontend \
-            --source . \
-            --region us-central1 \
+            --image $IMAGE \
+            --region $REGION \
             --platform managed \
             --allow-unauthenticated \
-            --port 8080 \
-            --set-env-vars NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }},NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY }},NEXT_PUBLIC_GOOGLE_CALENDAR_ID=${{ secrets.NEXT_PUBLIC_GOOGLE_CALENDAR_ID }} \
             --quiet
