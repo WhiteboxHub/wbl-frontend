@@ -40,6 +40,7 @@ jobs:
             --build-arg NEXT_PUBLIC_API_URL="${{ secrets.NEXT_PUBLIC_API_URL }}" \
             --build-arg NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY="${{ secrets.NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY }}" \
             --build-arg NEXT_PUBLIC_GOOGLE_CALENDAR_ID="${{ secrets.NEXT_PUBLIC_GOOGLE_CALENDAR_ID }}" \
+            --build-arg NEXTAUTH_URL="${{ secrets.NEXTAUTH_URL }}" \
             -t $IMAGE .
 
       # Push image to Artifact Registry (wbl repo)
