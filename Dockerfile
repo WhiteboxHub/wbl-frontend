@@ -1,43 +1,3 @@
-# # ---------- Build stage ----------
-# FROM node:18-alpine AS builder
-# WORKDIR /app
-
-# COPY package*.json ./
-# RUN npm ci
-
-# COPY . .
-
-# # Build-time PUBLIC variables
-# ARG NEXT_PUBLIC_API_URL
-# ARG NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY
-# ARG NEXT_PUBLIC_GOOGLE_CALENDAR_ID
-# ARG NEXTAUTH_URL
-
-# ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-# ENV NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY=$NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY
-# ENV NEXT_PUBLIC_GOOGLE_CALENDAR_ID=$NEXT_PUBLIC_GOOGLE_CALENDAR_ID
-# ENV NEXTAUTH_URL=$NEXTAUTH_URL
-
-# RUN npm run build
-
-# # ---------- Runtime stage ----------
-# FROM node:18-alpine
-# WORKDIR /app
-
-# ENV NODE_ENV=production
-# ENV PORT=8080
-
-# COPY --from=builder /app ./
-
-# EXPOSE 8080
-# CMD ["npm", "start"]
-
-
-
-# -------------------------DEBUGGING-------------------------
-
-
-    # ---------- Build stage ----------
 FROM node:18-alpine AS builder
 WORKDIR /app
 
@@ -52,12 +12,12 @@ ARG NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY
 ARG NEXT_PUBLIC_GOOGLE_CALENDAR_ID
 ARG NEXTAUTH_URL
 
-# 🔥 DEBUG: PRINT ACTUAL VALUES
-RUN echo "---- Docker Build-Time ENV VALUES ----" && \
-    echo "NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL" && \
-    echo "NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY=$NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY" && \
-    echo "NEXT_PUBLIC_GOOGLE_CALENDAR_ID=$NEXT_PUBLIC_GOOGLE_CALENDAR_ID" && \
-    echo "NEXTAUTH_URL=$NEXTAUTH_URL"
+#DEBUG: PRINT ACTUAL VALUES
+# RUN echo "---- Docker Build-Time ENV VALUES ----" && \
+#     echo "NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL" && \
+#     echo "NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY=$NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY" && \
+#     echo "NEXT_PUBLIC_GOOGLE_CALENDAR_ID=$NEXT_PUBLIC_GOOGLE_CALENDAR_ID" && \
+#     echo "NEXTAUTH_URL=$NEXTAUTH_URL"
 
 # Export for Next.js
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
