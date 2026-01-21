@@ -335,6 +335,7 @@ const requiredFieldsConfig: Record<string, string[]> = {
   authuser: ["Phone", "Email", "Full Name", "Registered Date", "Passwd"],
   employee: ["Full Name", "Email", "Phone", "Date of Birth", "Aadhaar"],
   placement: ["Placement ID", 'Deposit Date'],
+  project: ["Project Name", "Owner", "Start Date"],
 };
 
 // Helper function to check if a field is required based on modal type and mode
@@ -446,7 +447,10 @@ const excludedFields = [
   "collectedAmount",
   "pendingAmount",
   "lastDepositDate",
-  "placement_id"
+  "placement_id",
+  "end_date",
+  "project_id",
+  "project"
 ];
 
 // Field visibility configuration
@@ -656,6 +660,8 @@ const labelOverrides: Record<string, string> = {
   lastmod_user_name: "Last Modified By",
   candidate_role: "Candidate Role",
   google_voice_number: "Google Voice Number",
+  target_end_date: "Target End Date",
+  due_date: "Due Date",
   linkedin_premium_end_date: "LinkedIn Premium End Date",
   dob: "Date of Birth",
   contact: "Contact",
@@ -786,7 +792,8 @@ const dateFields = [
   "deposit_date",
   "joining_date",
   "assigned_date",
-  "due_date"
+  "due_date",
+  "target_end_date"
 ];
 
 export function EditModal({
@@ -822,6 +829,7 @@ export function EditModal({
     []
   );
   const [candidatesWithInterviews, setCandidatesWithInterviews] = useState<{ id: number; full_name: string }[]>([]);
+  const [projects, setProjects] = useState<{ id: number; name: string }[]>([]);
 
 
   // Detect the modal context
@@ -845,6 +853,7 @@ export function EditModal({
   const isPreparationModal = title.toLowerCase().includes("preparation");
   const isEmployeeModal = title.toLowerCase().includes("employee") && !title.toLowerCase().includes("task");
   const isEmployeeTaskModal = title.toLowerCase().includes("employee task");
+  const isProjectModal = title.toLowerCase().includes("project") && !isEmployeeTaskModal;
   const isLeadModal = title.toLowerCase().includes("lead");
   const isCandidateModal =
     title.toLowerCase().includes("candidate") && !isPreparationModal;
@@ -1058,9 +1067,20 @@ export function EditModal({
       }
     };
 
+    const fetchProjects = async () => {
+      try {
+        const res = await apiFetch("/projects");
+        const data = res?.data ?? res;
+        setProjects(data);
+      } catch (error) {
+        console.error("Failed to fetch projects:", error);
+      }
+    };
+
     fetchCourses();
     fetchSubjects();
     fetchEmployees();
+    fetchProjects();
     if (isOpen && isJobActivityLogModal) {
       fetchJobTypes();
     }
@@ -1202,7 +1222,14 @@ export function EditModal({
   // Reset form data when the modal opens
   useEffect(() => {
     if (data && isOpen) {
-      const flattenedData = flattenData(data);
+      let flattenedData = flattenData(data);
+      if (isAddMode && isProjectModal) {
+        if (!flattenedData.start_date) {
+          flattenedData.start_date = new Date().toISOString().split("T")[0];
+        }
+        if (!flattenedData.status) flattenedData.status = "Planned";
+        if (!flattenedData.priority) flattenedData.priority = "Medium";
+      }
       setFormData(flattenedData);
       // Use setTimeout to defer reset to next tick, preventing blocking
       setTimeout(() => {
@@ -1215,7 +1242,7 @@ export function EditModal({
         }
       }, 0);
     }
-  }, [data, isOpen, reset, isJobTypeModal, setValue]);
+  }, [data, isOpen, reset, isJobTypeModal, setValue, isAddMode, isProjectModal]);
 
   // Special effect to resync job owners when employees list changes (async fetch)
   useEffect(() => {
@@ -1358,6 +1385,7 @@ export function EditModal({
   };
 
   const toLabel = (key: string) => {
+    if (isProjectModal && key === 'name') return 'Project Name';
     if (labelOverrides[key]) return labelOverrides[key];
     return key
       .replace(/([A-Z])/g, " $1")
@@ -1406,6 +1434,26 @@ export function EditModal({
     if (isEmployeeTaskModal) {
       if (keyLower === "status") return enumOptions.employee_task_status;
       if (keyLower === "priority") return enumOptions.employee_task_priority;
+    }
+
+    if (isProjectModal) {
+      if (keyLower === "status") {
+        return [
+          { value: "Planned", label: "Planned" },
+          { value: "In Progress", label: "In Progress" },
+          { value: "Completed", label: "Completed" },
+          { value: "On Hold", label: "On Hold" },
+          { value: "Cancelled", label: "Cancelled" },
+        ];
+      }
+      if (keyLower === "priority") {
+        return [
+          { value: "Low", label: "Low" },
+          { value: "Medium", label: "Medium" },
+          { value: "High", label: "High" },
+          { value: "Critical", label: "Critical" },
+        ];
+      }
     }
 
     if (isEmployeeModal) {
@@ -2740,7 +2788,8 @@ export function EditModal({
                               );
                             }
 
-                            if (key === 'employee_name') {
+                            if (key === 'employee_name' || key === 'employee_id') {
+                              if (key === 'employee_id' && !isEmployeeTaskModal) return null;
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5">
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
@@ -2750,11 +2799,48 @@ export function EditModal({
                                     )}
                                   </label>
                                   <select
-                                    {...register(key, { required: "Employee Name is required" })}
+                                    {...register(key, { required: "Employee is required" })}
+                                    value={currentFormValues[key] || formData[key] || ""}
+                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      if (key === 'employee_id') {
+                                        const emp = employees.find(e => e.id.toString() === val);
+                                        setValue('employee_id', val);
+                                        if (emp) setValue('employee_name', emp.name);
+                                      } else {
+                                        const emp = employees.find(e => e.name === val);
+                                        setValue('employee_name', val);
+                                        if (emp) setValue('employee_id', emp.id.toString());
+                                      }
+                                    }}
+                                  >
+                                    <option value="">Select an employee</option>
+                                    {employees.map((emp) => (
+                                      <option key={emp.id} value={key === 'employee_id' ? emp.id.toString() : emp.name}>
+                                        {emp.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              );
+                            }
+
+                            if (key === 'owner' && isProjectModal) {
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && (
+                                      <span className="text-red-700"> *</span>
+                                    )}
+                                  </label>
+                                  <select
+                                    {...register(key, { required: "Owner is required" })}
                                     value={currentFormValues[key] || formData[key] || ""}
                                     className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
-                                    <option value="" disabled>Select an employee</option>
+                                    <option value="">Select an employee</option>
                                     {employees.map((emp) => (
                                       <option key={emp.id} value={emp.name}>
                                         {emp.name}
@@ -2765,7 +2851,35 @@ export function EditModal({
                               );
                             }
 
-                            if (key === 'task') {
+                            if (key === 'project_name' && isEmployeeTaskModal) {
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    Project
+                                  </label>
+                                  <select
+                                    {...register('project_id')}
+                                    value={currentFormValues.project_id || formData.project_id || ""}
+                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                    onChange={(e) => {
+                                      const selectedId = e.target.value;
+                                      const selectedProject = projects.find(p => p.id.toString() === selectedId);
+                                      setValue('project_id', selectedId ? parseInt(selectedId) : null);
+                                      setValue('project_name', selectedProject?.name || '');
+                                    }}
+                                  >
+                                    <option value="">No Project</option>
+                                    {projects.map((proj) => (
+                                      <option key={proj.id} value={proj.id.toString()}>
+                                        {proj.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              );
+                            }
+
+                            if (key === 'task' || (key === 'description' && isProjectModal)) {
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5 col-span-full">
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">

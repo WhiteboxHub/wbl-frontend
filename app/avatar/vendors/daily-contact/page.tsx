@@ -384,6 +384,18 @@ export default function VendorContactsGrid() {
         valueFormatter: (params) => formatDateFromDB(params.value),
       },
       {
+        field: "notes",
+        headerName: "Notes",
+        width: 250,
+        editable: true,
+      },
+      {
+        field: "job_source",
+        headerName: "Job Source",
+        width: 250,
+        editable: true,
+      },
+      {
         field: "internal_linkedin_id",
         headerName: "Internal LinkedIn ID",
         width: 200,

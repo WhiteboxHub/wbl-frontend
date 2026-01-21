@@ -75,6 +75,11 @@ interface AGGridTableProps {
   skipDeleteConfirmation?: boolean;
   onFilterChanged?: () => void;
   onGridReady?: (params: any) => void;
+  isFullWidthRow?: (params: any) => boolean;
+  fullWidthCellRenderer?: any;
+  getRowHeight?: (params: any) => number;
+  domLayout?: "autoHeight" | "normal" | "print";
+  hideToolbar?: boolean;
 }
 
 interface RowData {
@@ -110,6 +115,11 @@ export function AGGridTable({
   skipDeleteConfirmation = false,
   onFilterChanged,
   onGridReady: onGridReadyProp,
+  isFullWidthRow,
+  fullWidthCellRenderer,
+  getRowHeight,
+  domLayout,
+  hideToolbar = false,
 }: AGGridTableProps) {
   // Refs and State
   const gridRef = useRef<AgGridReact>(null);
@@ -416,76 +426,86 @@ export function AGGridTable({
 
   return (
     <div className="mx-auto w-full max-w-7xl flex-row-reverse space-y-4">
-      <div className="flex items-center justify-end justify-between">
-        {title && (
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            {title}
-          </h3>
-        )}
-        <div className="ml-auto flex items-center  space-x-2">
-          {!shouldHideAddButton && showAddButton !== false && (
+      {!hideToolbar && (
+        <div className="flex items-center justify-end justify-between">
+          {title && (
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              {title}
+            </h3>
+          )}
+          <div className="ml-auto flex items-center  space-x-2">
+            {!shouldHideAddButton && showAddButton !== false && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleAdd}
+                className="flex h-8 w-8 items-center justify-center p-0 font-bold text-green-600 hover:text-blue-700 dark:text-green-400"
+                title="Add New"
+              >
+                +
+              </Button>
+            )}
+
+            {onRowUpdated && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsColumnModalOpen(true)}
+                className="h-8 w-8 p-0 "
+                title="Toggle Columns"
+              >
+                <SettingsIcon className="h-4 w-4" />
+              </Button>
+            )}
+
+            {onRowUpdated && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleView}
+                disabled={!selectedRowData || selectedRowData.length === 0}
+                className="h-8 w-8 p-0"
+                title="View"
+              >
+                <EyeIcon className="h-4 w-4" />
+              </Button>
+            )}
+            {onRowUpdated && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleEdit}
+                disabled={!selectedRowData || selectedRowData.length === 0}
+                className="h-8 w-8 p-0"
+                title="Edit"
+              >
+                <EditIcon className="h-4 w-4" />
+              </Button>
+            )}
+            {onRowDeleted && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDelete}
+                disabled={!selectedRowData || selectedRowData.length === 0}
+                className="h-8 w-8 p-0 text-red-600 hover:text-red-700 dark:text-red-400"
+                title="Delete"
+              >
+                <TrashIcon className="h-4 w-4" />
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
-              onClick={handleAdd}
-              className="flex h-8 w-8 items-center justify-center p-0 font-bold text-green-600 hover:text-blue-700 dark:text-green-400"
-              title="Add New"
+              onClick={handleDownload}
+              className="h-8 w-8 p-0 text-green-600 hover:text-green-700 dark:text-green-400"
+              title="Download CSV"
             >
-              +
+              <DownloadIcon className="h-4 w-4" />
             </Button>
-          )}
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsColumnModalOpen(true)}
-            className="h-8 w-8 p-0 "
-            title="Toggle Columns"
-          >
-            <SettingsIcon className="h-4 w-4" />
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleView}
-            disabled={!selectedRowData || selectedRowData.length === 0}
-            className="h-8 w-8 p-0"
-            title="View"
-          >
-            <EyeIcon className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleEdit}
-            disabled={!selectedRowData || selectedRowData.length === 0}
-            className="h-8 w-8 p-0"
-            title="Edit"
-          >
-            <EditIcon className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleDelete}
-            disabled={!selectedRowData || selectedRowData.length === 0}
-            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 dark:text-red-400"
-            title="Delete"
-          >
-            <TrashIcon className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleDownload}
-            className="h-8 w-8 p-0 text-green-600 hover:text-green-700 dark:text-green-400"
-            title="Download CSV"
-          >
-            <DownloadIcon className="h-4 w-4" />
-          </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="flex justify-center">
         <div
@@ -523,10 +543,10 @@ export function AGGridTable({
             rowSelection="multiple"
             theme={"legacy"}
             suppressRowClickSelection={false}
-            pagination={true}
+            pagination={!hideToolbar}
             paginationPageSize={50}
-            paginationPageSizeSelector={[10, 25, 50, 100]}
-            paginationNumberFormatter={paginationNumberFormatter}
+            paginationPageSizeSelector={hideToolbar ? undefined : [10, 25, 50, 100]}
+            paginationNumberFormatter={hideToolbar ? undefined : paginationNumberFormatter}
             maintainColumnOrder={true}
             getRowId={getRowNodeId || ((params: any) => {
               return params.data.unique_id || params.data.id || params.data.leadid || params.data.candidateid || params.data.batchid || params.data.sessionid;
@@ -534,6 +554,10 @@ export function AGGridTable({
             isRowSelectable={(node) => {
               return node.displayed;
             }}
+            isFullWidthRow={isFullWidthRow}
+            fullWidthCellRenderer={fullWidthCellRenderer}
+            getRowHeight={getRowHeight}
+            domLayout={domLayout}
           />
         </div>
       </div>
