@@ -36,11 +36,13 @@ jobs:
       #     echo "NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY=$NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY"
       #     echo "NEXT_PUBLIC_GOOGLE_CALENDAR_ID=$NEXT_PUBLIC_GOOGLE_CALENDAR_ID"
       #     echo "NEXTAUTH_URL=$NEXTAUTH_URL"
+      #     echo "NEXT_PUBLIC_RECAPTCHA_SITE_KEY=$NEXT_PUBLIC_RECAPTCHA_SITE_KEY"
       #   env:
       #     NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
       #     NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY }}
       #     NEXT_PUBLIC_GOOGLE_CALENDAR_ID: ${{ secrets.NEXT_PUBLIC_GOOGLE_CALENDAR_ID }}
       #     NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
+      #     NEXT_PUBLIC_RECAPTCHA_SITE_KEY: ${{ secrets.NEXT_PUBLIC_RECAPTCHA_SITE_KEY }}
 
       #Docker build
       - name: Build Docker Image
@@ -50,6 +52,7 @@ jobs:
             --build-arg NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY="${{ secrets.NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY }}" \
             --build-arg NEXT_PUBLIC_GOOGLE_CALENDAR_ID="${{ secrets.NEXT_PUBLIC_GOOGLE_CALENDAR_ID }}" \
             --build-arg NEXTAUTH_URL="${{ secrets.NEXTAUTH_URL }}" \
+            --build-arg NEXT_PUBLIC_RECAPTCHA_SITE_KEY="${{ secrets.NEXT_PUBLIC_RECAPTCHA_SITE_KEY }}" \
             -t $IMAGE .
 
       - name: Push Docker Image
