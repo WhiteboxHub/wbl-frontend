@@ -529,7 +529,15 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     if (["visa_status", "workstatus"].includes(lowerKey)) return <Badge className={getVisaColor(value)}>{value}</Badge>;
     if (["feepaid", "feedue", "salary0", "salary6", "salary12"].includes(lowerKey)) return <p>${Number(value).toLocaleString()}</p>;
     if (lowerKey.includes("rating")) return <p>{value} </p>;
-    if (["notes", "task"].includes(lowerKey)) return <div dangerouslySetInnerHTML={{ __html: value }} />;
+    if (["notes", "task", "description", "job_description"].includes(lowerKey)) {
+      return (
+        <div
+          className="whitespace-pre-wrap min-h-[40px] max-h-[300px] overflow-y-auto"
+          dangerouslySetInnerHTML={{ __html: value }}
+        />
+      );
+    }
+
     if (lowerKey === "linkedin_id" || lowerKey === "linkedin" || lowerKey === "interviewer_linkedin") {
       let url = (value || "").trim();
 
@@ -587,14 +595,6 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
         >
           {value}
         </a>
-      );
-    }
-
-    if (lowerKey === "description") {
-      return (
-        <div className="whitespace-pre-wrap min-h-[60px] max-h-[300px] overflow-y-auto">
-          {value}
-        </div>
       );
     }
 
