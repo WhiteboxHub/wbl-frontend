@@ -1187,7 +1187,10 @@ export function EditModal({
     }
     if (data.is_immigration_team !== undefined && data.is_immigration_team !== null) {
       flattened.is_immigration_team = String(data.is_immigration_team);
+    }
 
+    if (isEmployeeTaskModal) {
+      flattened.project_name = data.project_name || "No Project";
     }
 
     return flattened;
@@ -1381,6 +1384,19 @@ export function EditModal({
         reconstructedData.instructor3_id = null;
       }
     }
+
+    if (isEmployeeTaskModal) {
+      if (formData.employee_name) {
+        const selectedEmployee = employees.find(emp => emp.name === formData.employee_name);
+        if (selectedEmployee) reconstructedData.employee_id = selectedEmployee.id;
+      }
+      if (formData.project_name) {
+        const selectedProject = projects.find(p => p.name === formData.project_name);
+        if (selectedProject) reconstructedData.project_id = selectedProject.id;
+        else if (formData.project_name === "No Project") reconstructedData.project_id = null;
+      }
+    }
+
     onSave(reconstructedData);
   };
 
@@ -1544,6 +1560,11 @@ export function EditModal({
       if (!allowedJobTypeFields.includes(key)) {
         return;
       }
+    }
+
+
+    if (isEmployeeTaskModal && (key === "employee_name" || key === "project_name")) {
+      return;
     }
 
     // Existing filters
@@ -1801,6 +1822,43 @@ export function EditModal({
                               </div>
                             </div>
                           )}
+                        {/* Add Project and Employee Dropdowns for Employee Tasks */}
+                        {section === "Basic Information" && isEmployeeTaskModal && (
+                          <div className="space-y-3">
+                            <div className="space-y-1 sm:space-y-1.5">
+                              <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                Employee Name <span className="text-red-700">*</span>
+                              </label>
+                              <select
+                                {...register("employee_name", { required: "Employee is required" })}
+                                className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                              >
+                                <option value="">Select Employee</option>
+                                {employees.map((emp) => (
+                                  <option key={emp.id} value={emp.name}>
+                                    {emp.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="space-y-1 sm:space-y-1.5">
+                              <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                Project
+                              </label>
+                              <select
+                                {...register("project_name")}
+                                className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                              >
+                                <option value="No Project">No Project</option>
+                                {projects.map((p) => (
+                                  <option key={p.id} value={p.name}>
+                                    {p.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        )}
                         {isCourseMaterialModal &&
                           section === "Professional Information" && (
                             <div className="space-y-1 sm:space-y-1.5">
