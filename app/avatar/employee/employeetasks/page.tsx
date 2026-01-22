@@ -218,11 +218,15 @@ const TasksList = ({ projectId, employeeId, readOnly = false }: { projectId?: nu
   const fetchTasks = useCallback(async () => {
     try {
       setLoading(true);
-      const params: any = {};
-      if (projectId) params.project_id = projectId;
-      if (employeeId) params.employee_id = employeeId;
+      let url = "/employee-tasks/";
+      const queryParams = [];
+      if (projectId) queryParams.push(`project_id=${projectId}`);
+      if (employeeId) queryParams.push(`employee_id=${employeeId}`);
+      if (queryParams.length > 0) {
+        url += `?${queryParams.join("&")}`;
+      }
 
-      const res = await api.get("/employee-tasks/", { params });
+      const res = await api.get(url);
       const data = res?.data ?? res;
       const normalizedData = (Array.isArray(data) ? data : []).map((task: any) => ({
         ...task,
