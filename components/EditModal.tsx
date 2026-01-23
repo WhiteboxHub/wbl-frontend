@@ -1069,7 +1069,7 @@ export function EditModal({
 
     const fetchProjects = async () => {
       try {
-        const res = await apiFetch("/projects");
+        const res = await apiFetch("/projects/");
         const data = res?.data ?? res;
         setProjects(data);
       } catch (error) {
@@ -1226,12 +1226,27 @@ export function EditModal({
   useEffect(() => {
     if (data && isOpen) {
       let flattenedData = flattenData(data);
+      if (isAddMode && isEmployeeTaskModal) {
+        if (!flattenedData.assigned_date) {
+          flattenedData.assigned_date = new Date().toISOString().split("T")[0];
+        }
+        if (!flattenedData.due_date) {
+          const assigned = new Date(flattenedData.assigned_date);
+          const due = new Date(assigned);
+          due.setDate(assigned.getDate() + 7);
+          flattenedData.due_date = due.toISOString().split("T")[0];
+        }
+      }
       if (isAddMode && isProjectModal) {
         if (!flattenedData.start_date) {
           flattenedData.start_date = new Date().toISOString().split("T")[0];
         }
-        if (!flattenedData.status) flattenedData.status = "Planned";
-        if (!flattenedData.priority) flattenedData.priority = "Medium";
+        if (!flattenedData.target_end_date) {
+          const start = new Date(flattenedData.start_date);
+          const target = new Date(start);
+          target.setDate(start.getDate() + 7);
+          flattenedData.target_end_date = target.toISOString().split("T")[0];
+        }
       }
       setFormData(flattenedData);
       // Use setTimeout to defer reset to next tick, preventing blocking
@@ -1245,7 +1260,7 @@ export function EditModal({
         }
       }, 0);
     }
-  }, [data, isOpen, reset, isJobTypeModal, setValue, isAddMode, isProjectModal]);
+  }, [data, isOpen, reset, isJobTypeModal, setValue, isAddMode, isProjectModal, isEmployeeTaskModal]);
 
   // Special effect to resync job owners when employees list changes (async fetch)
   useEffect(() => {
@@ -1254,7 +1269,13 @@ export function EditModal({
       if (data.job_owner_2) setValue("job_owner_2", data.job_owner_2.toString());
       if (data.job_owner_3) setValue("job_owner_3", data.job_owner_3.toString());
     }
-  }, [employees, isOpen, isJobTypeModal, data, setValue]);
+    if (isOpen && isEmployeeTaskModal && data && employees.length > 0) {
+      if (!getValues("employee_name") && data.employee_id) {
+        const emp = employees.find(e => e.id === data.employee_id);
+        if (emp) setValue("employee_name", emp.name);
+      }
+    }
+  }, [employees, isOpen, isJobTypeModal, isEmployeeTaskModal, data, setValue, getValues]);
 
 
   // Handle form submission
@@ -1831,6 +1852,8 @@ export function EditModal({
                               </label>
                               <select
                                 {...register("employee_name", { required: "Employee is required" })}
+                                value={watch("employee_name") || formData.employee_name || ""}
+                                onChange={(e) => setValue("employee_name", e.target.value)}
                                 className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                               >
                                 <option value="">Select Employee</option>
@@ -1847,6 +1870,8 @@ export function EditModal({
                               </label>
                               <select
                                 {...register("project_name")}
+                                value={watch("project_name") || formData.project_name || "No Project"}
+                                onChange={(e) => setValue("project_name", e.target.value)}
                                 className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                               >
                                 <option value="No Project">No Project</option>
@@ -3278,109 +3303,113 @@ export function EditModal({
                       </div>
                     ))}
                 </div>
-                {sectionedFields["Notes"].length > 0 && (
-                  <div className="mt-4 border-t border-blue-200 pt-3 sm:mt-6 sm:pt-4">
-                    <div className="space-y-6">
-                      {sectionedFields["Notes"].map(({ key, value }) => (
-                        <div key={key} className="space-y-1">
-                          <div className="flex items-center justify-between">
-                            <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                              {toLabel(key)}
-                              {isFieldRequired(
-                                toLabel(key),
-                                title,
-                                isAddMode
-                              ) && <span className="text-red-700"> *</span>}
-                            </label>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const timestamp = `[${new Date().toLocaleString()}]: `;
-                                const existingContent =
-                                  currentFormValues.notes ||
-                                  formData.notes ||
-                                  "";
-                                const newContent =
-                                  isJobTypeModal || isJobActivityLogModal
-                                    ? `${timestamp}\n\n${existingContent}`
-                                    : `<p><strong>${timestamp}</strong></p><p><br></p>${existingContent}`;
+                {
+                  sectionedFields["Notes"].length > 0 && (
+                    <div className="mt-4 border-t border-blue-200 pt-3 sm:mt-6 sm:pt-4">
+                      <div className="space-y-6">
+                        {sectionedFields["Notes"].map(({ key, value }) => (
+                          <div key={key} className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                                {toLabel(key)}
+                                {isFieldRequired(
+                                  toLabel(key),
+                                  title,
+                                  isAddMode
+                                ) && <span className="text-red-700"> *</span>}
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const timestamp = `[${new Date().toLocaleString()}]: `;
+                                  const existingContent =
+                                    currentFormValues.notes ||
+                                    formData.notes ||
+                                    "";
+                                  const newContent =
+                                    isJobTypeModal || isJobActivityLogModal
+                                      ? `${timestamp}\n\n${existingContent}`
+                                      : `<p><strong>${timestamp}</strong></p><p><br></p>${existingContent}`;
 
-                                setValue("notes", newContent);
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  notes: newContent,
-                                }));
+                                  setValue("notes", newContent);
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    notes: newContent,
+                                  }));
 
-                                setShouldDisableBold(true);
+                                  setShouldDisableBold(true);
 
-                                setTimeout(() => {
-                                  const editor = document.querySelector(
-                                    ".ql-editor"
-                                  ) as any;
-                                  if (editor && editor.parentElement) {
-                                    const quill = (editor.parentElement as any)
-                                      .__quill;
-                                    if (quill) {
-                                      quill.focus();
-                                      const timestampLength = timestamp.length;
-                                      quill.setSelection(timestampLength, 0);
-                                      quill.format('bold', false);
-                                      setShouldDisableBold(false);
+                                  setTimeout(() => {
+                                    const editor = document.querySelector(
+                                      ".ql-editor"
+                                    ) as any;
+                                    if (editor && editor.parentElement) {
+                                      const quill = (editor.parentElement as any)
+                                        .__quill;
+                                      if (quill) {
+                                        quill.focus();
+                                        const timestampLength = timestamp.length;
+                                        quill.setSelection(timestampLength, 0);
+                                        quill.format('bold', false);
+                                        setShouldDisableBold(false);
+                                      }
                                     }
-                                  }
-                                }, 150);
-                              }}
-                              className="px-2 sm:px-2 py-1 sm:py-1 text-xs sm:text-sm font-medium text-black hover:text-blue-800 hover:underline"
-                            >
-                              + New Entry
-                            </button>
-                          </div>
-                          {isJobTypeModal || isJobActivityLogModal ? (
-                            <textarea
-                              {...register("notes")}
-                              defaultValue={currentFormValues.notes || formData.notes || ""}
-                              rows={4}
-                              className="w-full resize-none rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                              placeholder="Enter notes..."
-                              onChange={(e) => {
-                                setValue("notes", e.target.value);
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  notes: e.target.value,
-                                }));
-                              }}
-                            />
-                          ) : (
-                            <ReactQuill
-                              theme="snow"
-                              value={
-                                currentFormValues.notes || formData.notes || ""
-                              }
-                              onChange={(content) => {
-                                setValue("notes", content);
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  notes: content,
-                                }));
-                                if (shouldDisableBold) {
-                                  setShouldDisableBold(false);
+                                  }, 150);
+                                }}
+                                className="px-2 sm:px-2 py-1 sm:py-1 text-xs sm:text-sm font-medium text-black hover:text-blue-800 hover:underline"
+                              >
+                                + New Entry
+                              </button>
+                            </div>
+                            {isJobTypeModal || isJobActivityLogModal ? (
+                              <textarea
+                                {...register("notes")}
+                                defaultValue={currentFormValues.notes || formData.notes || ""}
+                                rows={4}
+                                className="w-full resize-none rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                placeholder="Enter notes..."
+                                onChange={(e) => {
+                                  setValue("notes", e.target.value);
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    notes: e.target.value,
+                                  }));
+                                }}
+                              />
+                            ) : (
+                              <ReactQuill
+                                theme="snow"
+                                value={
+                                  currentFormValues.notes || formData.notes || ""
                                 }
-                              }}
-                              className="bg-white dark:bg-gray-800"
-                            />
-                          )}
-                        </div>
-                      ))}
+                                onChange={(content) => {
+                                  setValue("notes", content);
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    notes: content,
+                                  }));
+                                  if (shouldDisableBold) {
+                                    setShouldDisableBold(false);
+                                  }
+                                }}
+                                className="bg-white dark:bg-gray-800"
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )
+                }
 
-                {title.toLowerCase().includes('placement fee') && (
-                  <>
-                    <input type="hidden" {...register("id")} value={data?.id || ""} />
-                    <input type="hidden" {...register("originalId")} value={data?.originalId || ""} />
-                  </>
-                )}
+                {
+                  title.toLowerCase().includes('placement fee') && (
+                    <>
+                      <input type="hidden" {...register("id")} value={data?.id || ""} />
+                      <input type="hidden" {...register("originalId")} value={data?.originalId || ""} />
+                    </>
+                  )
+                }
 
                 <div className="mt-3 flex justify-end border-t border-blue-200 pt-2 sm:mt-4 sm:pt-3 md:mt-6 md:pt-4">
                   <button
