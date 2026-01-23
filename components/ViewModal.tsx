@@ -603,8 +603,10 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
 
   const flattenData = (data: Record<string, any>) => {
     const flattened: Record<string, any> = { ...data };
-    if (data.candidate) flattened.candidate_full_name = data.candidate.full_name;
-
+    if (data.candidate) {
+      flattened.candidate_full_name = data.candidate.full_name;
+      flattened.workstatus = data.candidate.workstatus || data.workstatus || "";
+    }
     flattened.instructor1_id = data.instructor1?.id || data.instructor1_id || "";
     flattened.instructor1_name = data.instructor1?.name || data.instructor1_name || "";
     flattened.instructor2_id = data.instructor2?.id || data.instructor2_id || "";
