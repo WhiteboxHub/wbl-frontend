@@ -539,9 +539,9 @@ const ProjectsView = () => {
     { field: "owner", headerName: "Owner", width: 150 },
     { field: "status", headerName: "Status", cellRenderer: StatusRenderer, width: 130 },
     { field: "priority", headerName: "Priority", cellRenderer: PriorityRenderer, width: 130 },
-    { field: "start_date", headerName: "Start Date", cellRenderer: DateFormatter, width: 120, hide: true },
-    { field: "target_end_date", headerName: "Target End Date", cellRenderer: DateFormatter, width: 120, hide: true },
-    { field: "description", headerName: "Description", cellRenderer: HtmlRenderer, hide: true },
+    { field: "start_date", headerName: "Start Date", cellRenderer: DateFormatter, width: 120},
+    { field: "target_end_date", headerName: "Target End Date", cellRenderer: DateFormatter, width: 120},
+    { field: "description", headerName: "Description", cellRenderer: HtmlRenderer },
   ];
 
   const fullWidthCellRenderer = useCallback((params: any) => {
