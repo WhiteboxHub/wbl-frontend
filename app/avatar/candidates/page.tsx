@@ -41,6 +41,8 @@ type Candidate = {
   candidate_folder?: string | null;
   notes?: string | null;
   batch?: Batch | null;
+  is_in_prep?: string;
+  is_in_marketing?: string;
 };
 
 type FormData = {
@@ -721,6 +723,36 @@ export default function CandidatesPage() {
           renderOption: (option: string) => <StatusRenderer value={option} />,
           getOptionValue: (option: string) => option,
           getOptionKey: (option: string) => option,
+        },
+      },
+      {
+        field: "is_in_prep",
+        headerName: "In Prep",
+        width: 120,
+        sortable: true,
+        filter: "agTextColumnFilter",
+        cellRenderer: (params: any) => {
+          const value = params.value || "No";
+          return (
+            <Badge className={value === "Yes" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
+              {value}
+            </Badge>
+          );
+        },
+      },
+      {
+        field: "is_in_marketing",
+        headerName: "In Marketing",
+        width: 140,
+        sortable: true,
+        filter: "agTextColumnFilter",
+        cellRenderer: (params: any) => {
+          const value = params.value || "No";
+          return (
+            <Badge className={value === "Yes" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
+              {value}
+            </Badge>
+          );
         },
       },
       {
