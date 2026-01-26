@@ -6,8 +6,22 @@ import Layout from "@/components/Common/Layout";
 import ResourcesTable from "@/components/Common/resourcesTable";
 import CourseNavigation from "@/components/Common/CourseNavigation";
 
+import {
+  Presentation,
+  Youtube,
+  FileText,
+  BookOpen,
+  Network,
+  Sparkles,
+  Library,
+  Mail,
+  Cpu,
+  ClipboardList,
+} from "lucide-react";
+
 type ComponentType =
   | "Presentations"
+  | "Must See Youtube Videos"
   | "Cheatsheets"
   | "Study Guides"
   | "Diagrams"
@@ -17,24 +31,34 @@ type ComponentType =
   | "Softwares"
   | "Assignments";
 
-export default function Presentation() {
+export default function PresentationPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+
   const [course, setCourse] = useState("ML");
   const [loading, setLoading] = useState(true);
   const [activeComponent, setActiveComponent] =
     useState<ComponentType>("Presentations");
 
   const buttons = [
-    { type: "Presentations", label: "Presentations" },
-    { type: "Cheatsheets", label: "Cheatsheets" },
-    { type: "Study Guides", label: "Study Guides" },
-    { type: "Diagrams", label: "Diagrams" },
-    { type: "Softwares", label: "Softwares" },
-    { type: "Interactive Visual Explainers", label: "Visual_Intuition" },
-    { type: "Books", label: "Books" },
-    { type: "Newsletters", label: "Newsletters" },
-    { type: "Assignments", label: "Assignments" },
+    { type: "Presentations", label: "Presentations", icon: Presentation },
+    {
+      type: "Must See Youtube Videos",
+      label: "Must See Youtube Videos",
+      icon: Youtube,
+    },
+    { type: "Cheatsheets", label: "Cheatsheets", icon: FileText },
+    { type: "Study Guides", label: "Study Guides", icon: BookOpen },
+    {
+      type: "Interactive Visual Explainers",
+      label: "Visual Intuition",
+      icon: Sparkles,
+    },
+    { type: "Books", label: "O'Reilly Playlist", icon: Library },
+    { type: "Diagrams", label: "Diagrams", icon: Network },
+    { type: "Softwares", label: "Softwares", icon: Cpu },
+    { type: "Newsletters", label: "Newsletters", icon: Mail },
+    { type: "Assignments", label: "Assignments", icon: ClipboardList },
   ];
 
   const handleButtonClick = (component: ComponentType) => {
@@ -57,7 +81,7 @@ export default function Presentation() {
           setCourse(selectedCourse);
           setLoading(false);
         }
-      } catch (error) {
+      } catch {
         router.push("/login");
       }
     };
@@ -89,25 +113,42 @@ export default function Presentation() {
         <CourseNavigation />
 
         <section className="mb-8 flex flex-col justify-start sm:flex-row">
+          {/* SIDEBAR */}
           <div className="mt-10 flex justify-center sm:w-1/4">
             <div className="flex flex-col">
-              {buttons.map((button) => (
-                <button
-                  key={button.type}
-                  className={`mb-1 w-full rounded-md px-4 py-2 font-bold text-black hover:bg-gradient-to-tl hover:from-primary hover:to-blue-300 sm:w-36 ${
-                    activeComponent === button.type
-                      ? "border-2 border-blue-600 bg-gradient-to-br from-primary to-blue-400 text-white shadow-lg"
-                      : "bg-gradient-to-br from-primary to-blue-300"
-                  }`}
-                  onClick={() =>
-                    handleButtonClick(button.type as ComponentType)
-                  }
-                >
-                  {button.label}
-                </button>
-              ))}
+              {buttons.map(({ type, label, icon: Icon }) => {
+                const isActive = activeComponent === type;
+
+                return (
+                  <button
+                    key={type}
+                    onClick={() =>
+                      handleButtonClick(type as ComponentType)
+                    }
+                    className={`mb-1 w-full rounded-md px-4 font-bold text-black
+                      hover:bg-gradient-to-tl hover:from-primary hover:to-blue-300
+                      sm:w-44
+                      ${
+                        isActive
+                          ? "border-2 border-blue-600 bg-gradient-to-br from-primary to-blue-400 text-white shadow-lg"
+                          : "bg-gradient-to-br from-primary to-blue-300"
+                      }`}
+                  >
+                    <div className="flex h-[56px] items-center gap-3">
+                      <span className="flex w-6 shrink-0 justify-center">
+                        <Icon size={16} />
+                      </span>
+                      <span className="text-left text-sm leading-tight whitespace-normal break-words">
+                        {label}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
+
+          {/* CONTENT */}
           <div className="mt-10 flex justify-center sm:-mt-10 sm:w-4/5">
             <ResourcesTable course={course} type={activeComponent} />
           </div>

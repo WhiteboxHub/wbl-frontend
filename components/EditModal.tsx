@@ -372,6 +372,7 @@ const genericStatusOptions = [
 
 const materialTypeOptions = [
   { value: "P", label: "Presentations" },
+  { value: "Y", label: "Must See Youtube Videos" },
   { value: "C", label: "Cheatsheets" },
   { value: "SG", label: "Study Guides" },
   { value: "D", label: "Diagrams" },

@@ -636,6 +636,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
 
     const typeMap: Record<string, string> = {
       'P': 'Presentations',
+      'Y': 'Must See Youtube Videos',
       'C': 'Cheatsheets',
       'SG': 'Study Guides',
       'D': 'Diagrams',
