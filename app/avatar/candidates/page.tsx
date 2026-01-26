@@ -41,6 +41,8 @@ type Candidate = {
   candidate_folder?: string | null;
   notes?: string | null;
   batch?: Batch | null;
+  is_in_prep?: string;
+  is_in_marketing?: string;
 };
 
 type FormData = {
@@ -222,18 +224,46 @@ const StatusRenderer = ({ value }: { value?: string }) => {
 };
 
 const WorkStatusRenderer = ({ value }: { value?: string }) => {
-  const workstatus = value?.toLowerCase() || "";
+  if (!value) return null;
+  const statusKey = value.toUpperCase().replace(/\s+/g, "_");
   const variantMap: Record<string, string> = {
-    citizen: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
-    visa: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-    "permanent resident": "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
-    ead: "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300",
-    "waiting for status": "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
-    default: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
+    US_CITIZEN: "bg-blue-100 text-blue-800",
+    GREEN_CARD: "bg-emerald-100 text-emerald-800",
+    GC_EAD: "bg-teal-100 text-teal-800",
+    I485_EAD: "bg-teal-100 text-teal-800",
+    I140_APPROVED: "bg-cyan-100 text-cyan-800",
+    F1: "bg-pink-100 text-pink-800",
+    F1_OPT: "bg-pink-100 text-pink-800",
+    F1_CPT: "bg-pink-100 text-pink-800",
+    J1: "bg-amber-100 text-amber-800",
+    J1_AT: "bg-amber-100 text-amber-800",
+    H1B: "bg-indigo-100 text-indigo-800",
+    H1B_TRANSFER: "bg-indigo-100 text-indigo-800",
+    H1B_CAP_EXEMPT: "bg-indigo-100 text-indigo-800",
+    H4: "bg-purple-100 text-purple-800",
+    H4_EAD: "bg-purple-100 text-purple-800",
+    L1A: "bg-violet-100 text-violet-800",
+    L1B: "bg-violet-100 text-violet-800",
+    L2: "bg-violet-100 text-violet-800",
+    L2_EAD: "bg-violet-100 text-violet-800",
+    O1: "bg-fuchsia-100 text-fuchsia-800",
+    TN: "bg-sky-100 text-sky-800",
+    E3: "bg-lime-100 text-lime-800",
+    E3_EAD: "bg-lime-100 text-lime-800",
+    E2: "bg-lime-100 text-lime-800",
+    E2_EAD: "bg-lime-100 text-lime-800",
+    TPS_EAD: "bg-yellow-100 text-yellow-800",
+    ASYLUM_EAD: "bg-orange-100 text-orange-800",
+    REFUGEE_EAD: "bg-orange-100 text-orange-800",
+    DACA_EAD: "bg-orange-100 text-orange-800",
+    CITIZEN: "bg-blue-100 text-blue-800",
+    VISA: "bg-purple-100 text-purple-800",
+    PERMANENT_RESIDENT: "bg-emerald-100 text-emerald-800",
+    WAITING_FOR_STATUS: "bg-orange-100 text-orange-800",
   };
   return (
-    <Badge className={`${variantMap[workstatus] || variantMap.default} capitalize`}>
-      {value || "N/A"}
+    <Badge className={`${variantMap[statusKey] || "bg-gray-100 text-gray-800"} capitalize`}>
+      {value}
     </Badge>
   );
 };
@@ -696,6 +726,36 @@ export default function CandidatesPage() {
         },
       },
       {
+        field: "is_in_prep",
+        headerName: "In Prep",
+        width: 120,
+        sortable: true,
+        filter: "agTextColumnFilter",
+        cellRenderer: (params: any) => {
+          const value = params.value || "No";
+          return (
+            <Badge className={value === "Yes" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
+              {value}
+            </Badge>
+          );
+        },
+      },
+      {
+        field: "is_in_marketing",
+        headerName: "In Marketing",
+        width: 140,
+        sortable: true,
+        filter: "agTextColumnFilter",
+        cellRenderer: (params: any) => {
+          const value = params.value || "No";
+          return (
+            <Badge className={value === "Yes" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
+              {value}
+            </Badge>
+          );
+        },
+      },
+      {
         field: "workstatus",
         headerName: "Work Status",
         width: 150,
@@ -704,9 +764,39 @@ export default function CandidatesPage() {
         suppressHeaderMenuButton: true,
         valueGetter: (params) => params.data?.workstatus || "",
         comparator: (valueA, valueB) => {
-          const order = ["waiting for status", "citizen", "permanent resident", "ead", "visa"];
-          const indexA = order.indexOf(valueA.toLowerCase());
-          const indexB = order.indexOf(valueB.toLowerCase());
+          const order = [
+            "US_CITIZEN",
+            "GREEN_CARD",
+            "GC_EAD",
+            "I485_EAD",
+            "I140_APPROVED",
+            "H1B",
+            "H1B_TRANSFER",
+            "H1B_CAP_EXEMPT",
+            "H4_EAD",
+            "L1A",
+            "L1B",
+            "L2_EAD",
+            "F1_OPT",
+            "F1_CPT",
+            "F1",
+            "J1",
+            "J1_AT",
+            "H4",
+            "L2",
+            "O1",
+            "TN",
+            "E3",
+            "E3_EAD",
+            "E2",
+            "E2_EAD",
+            "TPS_EAD",
+            "ASYLUM_EAD",
+            "REFUGEE_EAD",
+            "DACA_EAD",
+          ];
+          const indexA = order.indexOf(valueA);
+          const indexB = order.indexOf(valueB);
           if (indexA === -1 && indexB === -1) return valueA.localeCompare(valueB);
           if (indexA === -1) return 1;
           if (indexB === -1) return -1;
@@ -721,7 +811,7 @@ export default function CandidatesPage() {
           label: "Work Status",
           displayName: "Work Status",
           color: "green",
-          renderOption: (option: string) => option,
+          renderOption: (option: string) => <WorkStatusRenderer value={option} />,
           getOptionValue: (option: string) => option,
           getOptionKey: (option: string) => option,
         },
@@ -959,6 +1049,15 @@ export default function CandidatesPage() {
             </a>
           );
         },
+      },
+      {
+        field: "move_to_prep",
+        headerName: "Move to Prep",
+        width: 150,
+        editable: true,
+        sortable: true,
+        valueGetter: (params) => params.data.move_to_prep !== undefined ? params.data.move_to_prep : false,
+        cellRenderer: (params: any) => <span>{params.value ? "Yes" : "No"}</span>,
       },
     ],
     [selectedStatuses, selectedWorkStatuses, selectedBatches, mlBatches]

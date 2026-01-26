@@ -63,7 +63,6 @@ const fieldSections: Record<string, string> = {
   phone_number: "Basic Information",
   secondary_phone: "Contact Information",
   last_mod_datetime: "Contact Information",
-  location: "Contact Information",
   agreement: "Professional Information",
   subject_id: "Basic Information",
   subjectid: "Professional Information",
@@ -187,6 +186,12 @@ const fieldSections: Record<string, string> = {
   is_active: "Basic Information",
   created_at: "Professional Information",
   updated_at: "Professional Information",
+  job_title: "Professional Information",
+  location: "Professional Information",
+  extraction_date: "Professional Information",
+  is_immigration_team: "Basic Information",
+  is_in_prep: "Basic Information",
+  is_in_marketing: "Professional Information",
 };
 
 const workVisaStatusOptions = [
@@ -281,6 +286,9 @@ const labelOverrides: Record<string, string> = {
   job_owner_1_name: "Job Owner 1",
   job_owner_2_name: "Job Owner 2",
   job_owner_3_name: "Job Owner 3",
+  is_immigration_team: "Immigration Team",
+  is_in_marketing: "In Marketing",
+  is_in_prep: "In Prep",
 };
 
 const dateFields = [
@@ -491,6 +499,16 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       }
     }
 
+    if (lowerKey === 'is_immigration_team') {
+      const isTrue = value === true || value === 'true' || value === 'yes' || value === 1 || value === '1';
+      const displayValue = isTrue ? 'YES' : 'NO';
+      return (
+        <Badge className={isTrue ? "bg-indigo-100 text-indigo-800" : "bg-gray-100 text-gray-800"}>
+          {displayValue}
+        </Badge>
+      );
+    }
+
     if (lowerKey.includes("rating") || lowerKey.includes("communication")) {
       const normalizedValue = String(value).toLowerCase();
       const displayValue = ratingLabelMap[normalizedValue] || value;
@@ -515,7 +533,15 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     if (["visa_status", "workstatus"].includes(lowerKey)) return <Badge className={getVisaColor(value)}>{value}</Badge>;
     if (["feepaid", "feedue", "salary0", "salary6", "salary12"].includes(lowerKey)) return <p>${Number(value).toLocaleString()}</p>;
     if (lowerKey.includes("rating")) return <p>{value} </p>;
-    if (["notes", "task"].includes(lowerKey)) return <div dangerouslySetInnerHTML={{ __html: value }} />;
+    if (["notes", "task", "description", "job_description"].includes(lowerKey)) {
+      return (
+        <div
+          className="whitespace-pre-wrap min-h-[40px] max-h-[300px] overflow-y-auto"
+          dangerouslySetInnerHTML={{ __html: value }}
+        />
+      );
+    }
+
     if (lowerKey === "linkedin_id" || lowerKey === "linkedin" || lowerKey === "interviewer_linkedin") {
       let url = (value || "").trim();
 
@@ -576,21 +602,15 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       );
     }
 
-    if (lowerKey === "description") {
-      return (
-        <div className="whitespace-pre-wrap min-h-[60px] max-h-[300px] overflow-y-auto">
-          {value}
-        </div>
-      );
-    }
-
     return <p className="break-words">{String(value)}</p>;
   };
 
   const flattenData = (data: Record<string, any>) => {
     const flattened: Record<string, any> = { ...data };
-    if (data.candidate) flattened.candidate_full_name = data.candidate.full_name;
-
+    if (data.candidate) {
+      flattened.candidate_full_name = data.candidate.full_name;
+      flattened.workstatus = data.candidate.workstatus || data.workstatus || "";
+    }
     flattened.instructor1_id = data.instructor1?.id || data.instructor1_id || "";
     flattened.instructor1_name = data.instructor1?.name || data.instructor1_name || "";
     flattened.instructor2_id = data.instructor2?.id || data.instructor2_id || "";

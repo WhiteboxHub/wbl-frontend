@@ -59,6 +59,10 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "false", label: "No" },
     { value: "true", label: "Yes" },
   ],
+  is_immigration_team: [
+    { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
+  ],
   priority: [
     { value: "", label: "Select" },
     { value: "1", label: "1" },
@@ -83,38 +87,10 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "Average", label: "Average" },
     { value: "Need to Improve", label: "Need to Improve" },
   ],
-  work_status: [
-    { value: "US_CITIZEN", label: "US Citizen" },
-    { value: "GREEN_CARD", label: "Green Card" },
-    { value: "GC_EAD", label: "GC EAD" },
-    { value: "I485_EAD", label: "I485 EAD" },
-    { value: "I140_APPROVED", label: "I140 Approved" },
-    { value: "F1", label: "F1" },
-    { value: "F1_OPT", label: "F1 OPT" },
-    { value: "F1_CPT", label: "F1 CPT" },
-    { value: "J1", label: "J1" },
-    { value: "J1_AT", label: "J1 AT" },
-    { value: "H1B", label: "H1B" },
-    { value: "H1B_TRANSFER", label: "H1B Transfer" },
-    { value: "H1B_CAP_EXEMPT", label: "H1B Cap Exempt" },
-    { value: "H4", label: "H4" },
-    { value: "H4_EAD", label: "H4 EAD" },
-    { value: "L1A", label: "L1A" },
-    { value: "L1B", label: "L1B" },
-    { value: "L2", label: "L2" },
-    { value: "L2_EAD", label: "L2 EAD" },
-    { value: "O1", label: "O1" },
-    { value: "TN", label: "TN" },
-    { value: "E3", label: "E3" },
-    { value: "E3_EAD", label: "E3 EAD" },
-    { value: "E2", label: "E2" },
-    { value: "E2_EAD", label: "E2 EAD" },
-    { value: "TPS_EAD", label: "TPS EAD" },
-    { value: "ASYLUM_EAD", label: "Asylum EAD" },
-    { value: "REFUGEE_EAD", label: "Refugee EAD" },
-    { value: "DACA_EAD", label: "DACA EAD" },
-  ],
+
+
   workstatus: [
+    { value: "", label: "Waiting for Status" },
     { value: "US_CITIZEN", label: "US Citizen" },
     { value: "GREEN_CARD", label: "Green Card" },
     { value: "GC_EAD", label: "GC EAD" },
@@ -145,7 +121,9 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "REFUGEE_EAD", label: "Refugee EAD" },
     { value: "DACA_EAD", label: "DACA EAD" },
   ],
+
   visa_status: [
+    { value: "", label: "Waiting for Status" },
     { value: "US_CITIZEN", label: "US Citizen" },
     { value: "GREEN_CARD", label: "Green Card" },
     { value: "GC_EAD", label: "GC EAD" },
@@ -357,6 +335,7 @@ const requiredFieldsConfig: Record<string, string[]> = {
   authuser: ["Phone", "Email", "Full Name", "Registered Date", "Passwd"],
   employee: ["Full Name", "Email", "Phone", "Date of Birth", "Aadhaar"],
   placement: ["Placement ID", 'Deposit Date'],
+  project: ["Project Name", "Owner", "Start Date"],
 };
 
 // Helper function to check if a field is required based on modal type and mode
@@ -464,6 +443,15 @@ const excludedFields = [
   "isExpanded",
   "totalDeposit",
   "originalId",
+  "paidCount",
+  "totalCount",
+  "collectedAmount",
+  "pendingAmount",
+  "lastDepositDate",
+  "placement_id",
+  "end_date",
+  "project_id",
+  "project"
 ];
 
 // Field visibility configuration
@@ -529,7 +517,6 @@ const fieldSections: Record<string, string> = {
   phone_number: "Basic Information",
   secondary_phone: "Contact Information",
   last_mod_datetime: "Contact Information",
-  location: "Contact Information",
   agreement: "Professional Information",
   subject_id: "Basic Information",
   subjectid: "Professional Information",
@@ -641,9 +628,15 @@ const fieldSections: Record<string, string> = {
   keywords: "Professional Information",
   match_type: "Basic Information",
   action: "Basic Information",
+  is_immigration_team: "Basic Information",
   context: "Professional Information",
   created_at: "Professional Information",
   updated_at: "Professional Information",
+  job_title: "Professional Information",
+  location: "Professional Information",
+  extraction_date: "Professional Information",
+  is_in_prep: "Basic Information",
+  is_in_marketing: "Professional Information",
 };
 
 // Override field labels for better readability
@@ -670,6 +663,8 @@ const labelOverrides: Record<string, string> = {
   lastmod_user_name: "Last Modified By",
   candidate_role: "Candidate Role",
   google_voice_number: "Google Voice Number",
+  target_end_date: "Target End Date",
+  due_date: "Due Date",
   linkedin_premium_end_date: "LinkedIn Premium End Date",
   dob: "Date of Birth",
   contact: "Contact",
@@ -772,8 +767,11 @@ const labelOverrides: Record<string, string> = {
   action: "Action",
   context: "Context",
   is_active: "Is Active",
+  is_immigration_team: "Immigration Team",
   created_at: "Created At",
   updated_at: "Updated At",
+  is_in_prep: "In Prep",
+  is_in_marketing: "In Marketing",
 };
 
 const dateFields = [
@@ -799,7 +797,8 @@ const dateFields = [
   "deposit_date",
   "joining_date",
   "assigned_date",
-  "due_date"
+  "due_date",
+  "target_end_date"
 ];
 
 export function EditModal({
@@ -835,6 +834,7 @@ export function EditModal({
     []
   );
   const [candidatesWithInterviews, setCandidatesWithInterviews] = useState<{ id: number; full_name: string }[]>([]);
+  const [projects, setProjects] = useState<{ id: number; name: string }[]>([]);
 
 
   // Detect the modal context
@@ -858,6 +858,7 @@ export function EditModal({
   const isPreparationModal = title.toLowerCase().includes("preparation");
   const isEmployeeModal = title.toLowerCase().includes("employee") && !title.toLowerCase().includes("task");
   const isEmployeeTaskModal = title.toLowerCase().includes("employee task");
+  const isProjectModal = title.toLowerCase().includes("project") && !isEmployeeTaskModal;
   const isLeadModal = title.toLowerCase().includes("lead");
   const isCandidateModal =
     title.toLowerCase().includes("candidate") && !isPreparationModal;
@@ -1071,9 +1072,20 @@ export function EditModal({
       }
     };
 
+    const fetchProjects = async () => {
+      try {
+        const res = await apiFetch("/projects/");
+        const data = res?.data ?? res;
+        setProjects(data);
+      } catch (error) {
+        console.error("Failed to fetch projects:", error);
+      }
+    };
+
     fetchCourses();
     fetchSubjects();
     fetchEmployees();
+    fetchProjects();
     if (isOpen && isJobActivityLogModal) {
       fetchJobTypes();
     }
@@ -1083,6 +1095,7 @@ export function EditModal({
     const flattened: Record<string, any> = { ...data };
     if (data.candidate) {
       flattened.candidate_full_name = data.candidate.full_name;
+      flattened.workstatus = data.candidate.workstatus || data.workstatus || "";
       if (isJobActivityLogModal) {
         flattened.candidate_name = data.candidate.full_name;
         flattened.candidate_id = data.candidate.id?.toString();
@@ -1102,15 +1115,6 @@ export function EditModal({
       data.instructor3?.id || data.instructor3_id || "";
     flattened.instructor3_name =
       data.instructor3?.name || data.instructor3_name || "";
-    if (data.visa_status) {
-      flattened.visa_status = String(data.visa_status).toLowerCase();
-    }
-    if (data.workstatus) {
-      flattened.workstatus = String(data.workstatus);
-    }
-    if (data.work_status) {
-      flattened.work_status = String(data.work_status);
-    }
     if (data.type) {
       flattened.material_type = data.type;
     }
@@ -1184,7 +1188,15 @@ export function EditModal({
       flattened.status = String(data.status);
     }
     if (data.instructor !== undefined && data.instructor !== null) {
-      flattened.instructor = String(data.instructor); 
+      flattened.instructor = String(data.instructor);
+
+    }
+    if (data.is_immigration_team !== undefined && data.is_immigration_team !== null) {
+      flattened.is_immigration_team = String(data.is_immigration_team);
+    }
+
+    if (isEmployeeTaskModal) {
+      flattened.project_name = data.project_name || "No Project";
     }
 
     return flattened;
@@ -1219,7 +1231,29 @@ export function EditModal({
   // Reset form data when the modal opens
   useEffect(() => {
     if (data && isOpen) {
-      const flattenedData = flattenData(data);
+      let flattenedData = flattenData(data);
+      if (isAddMode && isEmployeeTaskModal) {
+        if (!flattenedData.assigned_date) {
+          flattenedData.assigned_date = new Date().toISOString().split("T")[0];
+        }
+        if (!flattenedData.due_date) {
+          const assigned = new Date(flattenedData.assigned_date);
+          const due = new Date(assigned);
+          due.setDate(assigned.getDate() + 7);
+          flattenedData.due_date = due.toISOString().split("T")[0];
+        }
+      }
+      if (isAddMode && isProjectModal) {
+        if (!flattenedData.start_date) {
+          flattenedData.start_date = new Date().toISOString().split("T")[0];
+        }
+        if (!flattenedData.target_end_date) {
+          const start = new Date(flattenedData.start_date);
+          const target = new Date(start);
+          target.setDate(start.getDate() + 7);
+          flattenedData.target_end_date = target.toISOString().split("T")[0];
+        }
+      }
       setFormData(flattenedData);
       // Use setTimeout to defer reset to next tick, preventing blocking
       setTimeout(() => {
@@ -1232,7 +1266,7 @@ export function EditModal({
         }
       }, 0);
     }
-  }, [data, isOpen, reset, isJobTypeModal, setValue]);
+  }, [data, isOpen, reset, isJobTypeModal, setValue, isAddMode, isProjectModal, isEmployeeTaskModal]);
 
   // Special effect to resync job owners when employees list changes (async fetch)
   useEffect(() => {
@@ -1241,7 +1275,13 @@ export function EditModal({
       if (data.job_owner_2) setValue("job_owner_2", data.job_owner_2.toString());
       if (data.job_owner_3) setValue("job_owner_3", data.job_owner_3.toString());
     }
-  }, [employees, isOpen, isJobTypeModal, data, setValue]);
+    if (isOpen && isEmployeeTaskModal && data && employees.length > 0) {
+      if (!getValues("employee_name") && data.employee_id) {
+        const emp = employees.find(e => e.id === data.employee_id);
+        if (emp) setValue("employee_name", emp.name);
+      }
+    }
+  }, [employees, isOpen, isJobTypeModal, isEmployeeTaskModal, data, setValue, getValues]);
 
 
   // Handle form submission
@@ -1371,10 +1411,24 @@ export function EditModal({
         reconstructedData.instructor3_id = null;
       }
     }
+
+    if (isEmployeeTaskModal) {
+      if (formData.employee_name) {
+        const selectedEmployee = employees.find(emp => emp.name === formData.employee_name);
+        if (selectedEmployee) reconstructedData.employee_id = selectedEmployee.id;
+      }
+      if (formData.project_name) {
+        const selectedProject = projects.find(p => p.name === formData.project_name);
+        if (selectedProject) reconstructedData.project_id = selectedProject.id;
+        else if (formData.project_name === "No Project") reconstructedData.project_id = null;
+      }
+    }
+
     onSave(reconstructedData);
   };
 
   const toLabel = (key: string) => {
+    if (isProjectModal && key === 'name') return 'Project Name';
     if (labelOverrides[key]) return labelOverrides[key];
     return key
       .replace(/([A-Z])/g, " $1")
@@ -1395,18 +1449,18 @@ export function EditModal({
       if (keyLower === "feedback") return enumOptions.feedback;
     }
 
-    if (keyLower === "work_status" || keyLower === "workstatus") {
-      return enumOptions.work_status;
+    // if (keyLower === "work_status" || keyLower === "workstatus") {
+    //   return enumOptions.work_status;
+    // }
+    if (keyLower === "workstatus") {
+      return enumOptions.workstatus;
     }
+
     if (isPreparationModal && keyLower === "status") {
       return [
         { value: "active", label: "Active" },
         { value: "inactive", label: "Inactive" },
       ];
-    }
-
-    if (keyLower === "work_status" || keyLower === "workstatus") {
-      return enumOptions.work_status;
     }
 
     if (isMarketingModal && keyLower === "status")
@@ -1423,6 +1477,26 @@ export function EditModal({
     if (isEmployeeTaskModal) {
       if (keyLower === "status") return enumOptions.employee_task_status;
       if (keyLower === "priority") return enumOptions.employee_task_priority;
+    }
+
+    if (isProjectModal) {
+      if (keyLower === "status") {
+        return [
+          { value: "Planned", label: "Planned" },
+          { value: "In Progress", label: "In Progress" },
+          { value: "Completed", label: "Completed" },
+          { value: "On Hold", label: "On Hold" },
+          { value: "Cancelled", label: "Cancelled" },
+        ];
+      }
+      if (keyLower === "priority") {
+        return [
+          { value: "Low", label: "Low" },
+          { value: "Medium", label: "Medium" },
+          { value: "High", label: "High" },
+          { value: "Critical", label: "Critical" },
+        ];
+      }
     }
 
     if (isEmployeeModal) {
@@ -1446,7 +1520,12 @@ export function EditModal({
       if (keyLower === "intro_call") return enumOptions.vendor_intro_call;
     }
 
-    if (isCandidateModal || isPreparationModal) {
+    if (isPreparationModal || isMarketingModal) {
+      if (keyLower === "status") return enumOptions.marketing_status;
+      if (keyLower === "workstatus") return enumOptions.workstatus;
+    }
+
+    if (isCandidateModal) {
       if (keyLower === "status") return enumOptions.candidate_status;
       if (keyLower === "workstatus") return enumOptions.workstatus;
     }
@@ -1513,6 +1592,11 @@ export function EditModal({
       if (!allowedJobTypeFields.includes(key)) {
         return;
       }
+    }
+
+
+    if (isEmployeeTaskModal && (key === "employee_name" || key === "project_name")) {
+      return;
     }
 
     // Existing filters
@@ -1770,6 +1854,47 @@ export function EditModal({
                               </div>
                             </div>
                           )}
+                        {/* Add Project and Employee Dropdowns for Employee Tasks */}
+                        {section === "Basic Information" && isEmployeeTaskModal && (
+                          <div className="space-y-3">
+                            <div className="space-y-1 sm:space-y-1.5">
+                              <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                Employee Name <span className="text-red-700">*</span>
+                              </label>
+                              <select
+                                {...register("employee_name", { required: "Employee is required" })}
+                                value={watch("employee_name") || formData.employee_name || ""}
+                                onChange={(e) => setValue("employee_name", e.target.value)}
+                                className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                              >
+                                <option value="">Select Employee</option>
+                                {employees.map((emp) => (
+                                  <option key={emp.id} value={emp.name}>
+                                    {emp.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="space-y-1 sm:space-y-1.5">
+                              <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                Project
+                              </label>
+                              <select
+                                {...register("project_name")}
+                                value={watch("project_name") || formData.project_name || "No Project"}
+                                onChange={(e) => setValue("project_name", e.target.value)}
+                                className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                              >
+                                <option value="No Project">No Project</option>
+                                {projects.map((p) => (
+                                  <option key={p.id} value={p.name}>
+                                    {p.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        )}
                         {isCourseMaterialModal &&
                           section === "Professional Information" && (
                             <div className="space-y-1 sm:space-y-1.5">
@@ -2118,7 +2243,6 @@ export function EditModal({
 
                             if (
                               isPlacementModal &&
-
                               key.toLowerCase() === "candidate_name"
                             ) {
                               return (
@@ -2140,7 +2264,7 @@ export function EditModal({
                             }
 
                             if (
-                              (isPreparationModal || isMarketingModal) &&
+                              isPrepOrMarketing &&
                               isBatchNameField
                             ) {
                               return (
@@ -2161,34 +2285,9 @@ export function EditModal({
                               );
                             }
 
-
-
-
                             if (
-                              isPlacementModal &&
-                              key.toLowerCase() === "candidate_name"
-                            ) {
-                              return (
-                                <div
-                                  key={key}
-                                  className="space-y-1 sm:space-y-1.5"
-                                >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                                    {toLabel(key)}
-                                  </label>
-                                  <input
-                                    type="text"
-                                    value={formData[key] || ""}
-                                    readOnly
-                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
-                                  />
-                                </div>
-                              );
-                            }
-
-                            if (
-                              (isPreparationModal || isMarketingModal) &&
-                              isBatchNameField
+                              isPrepOrMarketing &&
+                              isWorkStatusField
                             ) {
                               return (
                                 <div
@@ -2211,7 +2310,7 @@ export function EditModal({
 
 
 
-                           
+
                             if (
                               isJobActivityLogModal &&
                               !isAddMode &&
@@ -2323,7 +2422,7 @@ export function EditModal({
                               );
                             }
 
-                   
+
                             if (
                               isJobActivityLogModal &&
                               key.toLowerCase() === "employee_name"
@@ -2391,7 +2490,7 @@ export function EditModal({
                                     className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                     onChange={(e) => {
                                       const selectedSubject = e.target.value;
-                                      let courseid = "3"; 
+                                      let courseid = "3";
                                       if (selectedSubject === "QA")
                                         courseid = "1";
                                       else if (selectedSubject === "UI")
@@ -2416,13 +2515,13 @@ export function EditModal({
                                 </div>
                               );
                             }
-                           
+
                             if (isCourseIdField && isBatchesModal) {
                               const currentSubject =
                                 currentFormValues.subject ||
                                 formData.subject ||
                                 "ML";
-                              let defaultCourseId = "3"; 
+                              let defaultCourseId = "3";
                               if (currentSubject === "QA")
                                 defaultCourseId = "1";
                               else if (currentSubject === "UI")
@@ -2462,7 +2561,7 @@ export function EditModal({
 
 
 
-                            
+
                             if (isSpecialModal && isCandidateFullName) {
                               return (
                                 <div
@@ -2490,12 +2589,8 @@ export function EditModal({
                               );
                             }
 
-                           
-                            if (
-                              key === "lastmod_user_id" ||
-                              key === "lastmod_user_name" ||
-                              key === "last_mod_date"
-                            ) {
+
+                            if (key === "lastmod_user_id" || key === "lastmod_user_name" || key === "last_mod_date" || key === "is_in_prep" || key === "is_in_marketing") {
                               return (
                                 <div
                                   key={key}
@@ -2523,31 +2618,7 @@ export function EditModal({
                               );
                             }
 
-                            
-                            if (
-                              key === "lastmod_user_id" ||
-                              key === "lastmod_user_name" ||
-                              key === "last_mod_date"
-                            ) {
-                              return (
-                                <div
-                                  key={key}
-                                  className="space-y-1 sm:space-y-1.5"
-                                >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                                    {toLabel(key)}
-                                  </label>
-                                  <input
-                                    type="text"
-                                    value={formData[key] || ""}
-                                    readOnly
-                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
-                                  />
-                                </div>
-                              );
-                            }
 
-                            
                             if (
                               isSpecialModal &&
                               isLinkedInField &&
@@ -2613,47 +2684,7 @@ export function EditModal({
                               );
                             }
 
-                          
-                            if (
-                              isStatusField &&
-                              isPrepOrMarketing &&
-                              !isAddMode
-                            ) {
-                              const statusValue = formData[key] || "";
-                              const displayValue = statusValue.toUpperCase();
-                              const normalized = statusValue.toLowerCase();
-                              const isActive = normalized === "active";
 
-                              return (
-                                <div
-                                  key={key}
-                                  className="space-y-1 sm:space-y-1.5"
-                                >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                                    {toLabel(key)}
-                                    {isFieldRequired(
-                                      toLabel(key),
-                                      title,
-                                      isAddMode
-                                    ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
-                                  </label>
-                                  <div
-                                    className={`w-full rounded-lg border border-blue-200 bg-white px-2 py-1 text-xs shadow-sm sm:px-3 sm:py-2 sm:text-sm`}
-                                  >
-                                    <span
-                                      className={`rounded-full px-2.5 py-1 font-semibold ${isActive
-                                        ? "bg-green-100 text-green-700"
-                                        : "bg-red-100 text-red-800"
-                                        }`}
-                                    >
-                                      {displayValue}
-                                    </span>
-                                  </div>
-                                </div>
-                              );
-                            }
 
                             const fieldEnumOptions = getEnumOptions(key);
                             if (fieldEnumOptions) {
@@ -2757,7 +2788,8 @@ export function EditModal({
                               );
                             }
 
-                            if (key === 'employee_name') {
+                            if (key === 'employee_name' || key === 'employee_id') {
+                              if (key === 'employee_id' && !isEmployeeTaskModal) return null;
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5">
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
@@ -2767,11 +2799,48 @@ export function EditModal({
                                     )}
                                   </label>
                                   <select
-                                    {...register(key, { required: "Employee Name is required" })}
+                                    {...register(key, { required: "Employee is required" })}
+                                    value={currentFormValues[key] || formData[key] || ""}
+                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      if (key === 'employee_id') {
+                                        const emp = employees.find(e => e.id.toString() === val);
+                                        setValue('employee_id', val);
+                                        if (emp) setValue('employee_name', emp.name);
+                                      } else {
+                                        const emp = employees.find(e => e.name === val);
+                                        setValue('employee_name', val);
+                                        if (emp) setValue('employee_id', emp.id.toString());
+                                      }
+                                    }}
+                                  >
+                                    <option value="">Select an employee</option>
+                                    {employees.map((emp) => (
+                                      <option key={emp.id} value={key === 'employee_id' ? emp.id.toString() : emp.name}>
+                                        {emp.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              );
+                            }
+
+                            if (key === 'owner' && isProjectModal) {
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && (
+                                      <span className="text-red-700"> *</span>
+                                    )}
+                                  </label>
+                                  <select
+                                    {...register(key, { required: "Owner is required" })}
                                     value={currentFormValues[key] || formData[key] || ""}
                                     className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
-                                    <option value="" disabled>Select an employee</option>
+                                    <option value="">Select an employee</option>
                                     {employees.map((emp) => (
                                       <option key={emp.id} value={emp.name}>
                                         {emp.name}
@@ -2782,7 +2851,35 @@ export function EditModal({
                               );
                             }
 
-                            if (key === 'task') {
+                            if (key === 'project_name' && isEmployeeTaskModal) {
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    Project
+                                  </label>
+                                  <select
+                                    {...register('project_id')}
+                                    value={currentFormValues.project_id || formData.project_id || ""}
+                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                    onChange={(e) => {
+                                      const selectedId = e.target.value;
+                                      const selectedProject = projects.find(p => p.id.toString() === selectedId);
+                                      setValue('project_id', selectedId ? parseInt(selectedId) : null);
+                                      setValue('project_name', selectedProject?.name || '');
+                                    }}
+                                  >
+                                    <option value="">No Project</option>
+                                    {projects.map((proj) => (
+                                      <option key={proj.id} value={proj.id.toString()}>
+                                        {proj.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              );
+                            }
+
+                            if (key === 'task' || (key === 'description' && isProjectModal)) {
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5 col-span-full">
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
@@ -2804,40 +2901,6 @@ export function EditModal({
                                       }}
                                     />
                                   </div>
-                                </div>
-                              );
-                            }
-                            if (isStatusField && !isVendorModal) {
-                              return (
-                                <div
-                                  key={key}
-                                  className="space-y-1 sm:space-y-1.5"
-                                >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                                    {toLabel(key)}
-                                    {isFieldRequired(
-                                      toLabel(key),
-                                      title,
-                                      isAddMode
-                                    ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
-                                  </label>
-                                  <select
-                                    {...register(key)}
-                                    value={
-                                      currentFormValues[key] ||
-                                      formData[key] ||
-                                      ""
-                                    }
-                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                                  >
-                                    {genericStatusOptions.map((opt) => (
-                                      <option key={opt.value} value={opt.value}>
-                                        {opt.label}
-                                      </option>
-                                    ))}
-                                  </select>
                                 </div>
                               );
                             }
@@ -2897,7 +2960,24 @@ export function EditModal({
                                   </label>
                                   <input
                                     type="date"
-                                    {...register(key)}
+                                    {...(() => {
+                                      const { onChange, ...rest } = register(key);
+                                      return {
+                                        ...rest,
+                                        onChange: (e: any) => {
+                                          onChange(e);
+                                          if (isAddMode && key === "assigned_date") {
+                                            const val = e.target.value;
+                                            if (val) {
+                                              const dateObj = new Date(val);
+                                              dateObj.setDate(dateObj.getDate() + 7);
+                                              const dueStr = dateObj.toISOString().split("T")[0];
+                                              setValue("due_date", dueStr);
+                                            }
+                                          }
+                                        },
+                                      };
+                                    })()}
                                     defaultValue={formData[key] || ""}
                                     className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   />
@@ -3106,109 +3186,113 @@ export function EditModal({
                       </div>
                     ))}
                 </div>
-                {sectionedFields["Notes"].length > 0 && (
-                  <div className="mt-4 border-t border-blue-200 pt-3 sm:mt-6 sm:pt-4">
-                    <div className="space-y-6">
-                      {sectionedFields["Notes"].map(({ key, value }) => (
-                        <div key={key} className="space-y-1">
-                          <div className="flex items-center justify-between">
-                            <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                              {toLabel(key)}
-                              {isFieldRequired(
-                                toLabel(key),
-                                title,
-                                isAddMode
-                              ) && <span className="text-red-700"> *</span>}
-                            </label>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const timestamp = `[${new Date().toLocaleString()}]: `;
-                                const existingContent =
-                                  currentFormValues.notes ||
-                                  formData.notes ||
-                                  "";
-                                const newContent =
-                                  isJobTypeModal || isJobActivityLogModal
-                                    ? `${timestamp}\n\n${existingContent}`
-                                    : `<p><strong>${timestamp}</strong></p><p><br></p>${existingContent}`;
+                {
+                  sectionedFields["Notes"].length > 0 && (
+                    <div className="mt-4 border-t border-blue-200 pt-3 sm:mt-6 sm:pt-4">
+                      <div className="space-y-6">
+                        {sectionedFields["Notes"].map(({ key, value }) => (
+                          <div key={key} className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                                {toLabel(key)}
+                                {isFieldRequired(
+                                  toLabel(key),
+                                  title,
+                                  isAddMode
+                                ) && <span className="text-red-700"> *</span>}
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const timestamp = `[${new Date().toLocaleString()}]: `;
+                                  const existingContent =
+                                    currentFormValues.notes ||
+                                    formData.notes ||
+                                    "";
+                                  const newContent =
+                                    isJobTypeModal || isJobActivityLogModal
+                                      ? `${timestamp}\n\n${existingContent}`
+                                      : `<p><strong>${timestamp}</strong></p><p><br></p>${existingContent}`;
 
-                                setValue("notes", newContent);
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  notes: newContent,
-                                }));
+                                  setValue("notes", newContent);
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    notes: newContent,
+                                  }));
 
-                                setShouldDisableBold(true);
+                                  setShouldDisableBold(true);
 
-                                setTimeout(() => {
-                                  const editor = document.querySelector(
-                                    ".ql-editor"
-                                  ) as any;
-                                  if (editor && editor.parentElement) {
-                                    const quill = (editor.parentElement as any)
-                                      .__quill;
-                                    if (quill) {
-                                      quill.focus();
-                                      const timestampLength = timestamp.length;
-                                      quill.setSelection(timestampLength, 0);
-                                      quill.format('bold', false);
-                                      setShouldDisableBold(false);
+                                  setTimeout(() => {
+                                    const editor = document.querySelector(
+                                      ".ql-editor"
+                                    ) as any;
+                                    if (editor && editor.parentElement) {
+                                      const quill = (editor.parentElement as any)
+                                        .__quill;
+                                      if (quill) {
+                                        quill.focus();
+                                        const timestampLength = timestamp.length;
+                                        quill.setSelection(timestampLength, 0);
+                                        quill.format('bold', false);
+                                        setShouldDisableBold(false);
+                                      }
                                     }
-                                  }
-                                }, 150);
-                              }}
-                              className="px-2 sm:px-2 py-1 sm:py-1 text-xs sm:text-sm font-medium text-black hover:text-blue-800 hover:underline"
-                            >
-                              + New Entry
-                            </button>
-                          </div>
-                          {isJobTypeModal || isJobActivityLogModal ? (
-                            <textarea
-                              {...register("notes")}
-                              defaultValue={currentFormValues.notes || formData.notes || ""}
-                              rows={4}
-                              className="w-full resize-none rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                              placeholder="Enter notes..."
-                              onChange={(e) => {
-                                setValue("notes", e.target.value);
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  notes: e.target.value,
-                                }));
-                              }}
-                            />
-                          ) : (
-                            <ReactQuill
-                              theme="snow"
-                              value={
-                                currentFormValues.notes || formData.notes || ""
-                              }
-                              onChange={(content) => {
-                                setValue("notes", content);
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  notes: content,
-                                }));
-                                if (shouldDisableBold) {
-                                  setShouldDisableBold(false);
+                                  }, 150);
+                                }}
+                                className="px-2 sm:px-2 py-1 sm:py-1 text-xs sm:text-sm font-medium text-black hover:text-blue-800 hover:underline"
+                              >
+                                + New Entry
+                              </button>
+                            </div>
+                            {isJobTypeModal || isJobActivityLogModal ? (
+                              <textarea
+                                {...register("notes")}
+                                defaultValue={currentFormValues.notes || formData.notes || ""}
+                                rows={4}
+                                className="w-full resize-none rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                placeholder="Enter notes..."
+                                onChange={(e) => {
+                                  setValue("notes", e.target.value);
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    notes: e.target.value,
+                                  }));
+                                }}
+                              />
+                            ) : (
+                              <ReactQuill
+                                theme="snow"
+                                value={
+                                  currentFormValues.notes || formData.notes || ""
                                 }
-                              }}
-                              className="bg-white dark:bg-gray-800"
-                            />
-                          )}
-                        </div>
-                      ))}
+                                onChange={(content) => {
+                                  setValue("notes", content);
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    notes: content,
+                                  }));
+                                  if (shouldDisableBold) {
+                                    setShouldDisableBold(false);
+                                  }
+                                }}
+                                className="bg-white dark:bg-gray-800"
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )
+                }
 
-                {title.toLowerCase().includes('placement fee') && (
-                  <>
-                    <input type="hidden" {...register("id")} value={data?.id || ""} />
-                    <input type="hidden" {...register("originalId")} value={data?.originalId || ""} />
-                  </>
-                )}
+                {
+                  title.toLowerCase().includes('placement fee') && (
+                    <>
+                      <input type="hidden" {...register("id")} value={data?.id || ""} />
+                      <input type="hidden" {...register("originalId")} value={data?.originalId || ""} />
+                    </>
+                  )
+                }
 
                 <div className="mt-3 flex justify-end border-t border-blue-200 pt-2 sm:mt-4 sm:pt-3 md:mt-6 md:pt-4">
                   <button

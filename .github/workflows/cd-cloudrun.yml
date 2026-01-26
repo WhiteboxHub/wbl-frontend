@@ -1,8 +1,13 @@
-name: CD - Frontend (Cloud Run)
+name: CD - Frontend (Cloud Run - Container)
 
 on:
   push:
     branches: [ main ]
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: us-central1
+  IMAGE: us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/wbl/wbl-frontend
 
 jobs:
   deploy:
@@ -21,13 +26,43 @@ jobs:
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
+      - name: Configure Docker
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev
+
+      #DEBUG: PRINT ACTUAL VALUES (masked by GitHub)
+      # - name: DEBUG – Print Build-Time Env Values
+      #   run: |
+      #     echo "NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL"
+      #     echo "NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY=$NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY"
+      #     echo "NEXT_PUBLIC_GOOGLE_CALENDAR_ID=$NEXT_PUBLIC_GOOGLE_CALENDAR_ID"
+      #     echo "NEXTAUTH_URL=$NEXTAUTH_URL"
+      #     echo "NEXT_PUBLIC_RECAPTCHA_SITE_KEY=$NEXT_PUBLIC_RECAPTCHA_SITE_KEY"
+      #   env:
+      #     NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+      #     NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY }}
+      #     NEXT_PUBLIC_GOOGLE_CALENDAR_ID: ${{ secrets.NEXT_PUBLIC_GOOGLE_CALENDAR_ID }}
+      #     NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
+      #     NEXT_PUBLIC_RECAPTCHA_SITE_KEY: ${{ secrets.NEXT_PUBLIC_RECAPTCHA_SITE_KEY }}
+
+      #Docker build
+      - name: Build Docker Image
+        run: |
+          docker build \
+            --build-arg NEXT_PUBLIC_API_URL="${{ secrets.NEXT_PUBLIC_API_URL }}" \
+            --build-arg NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY="${{ secrets.NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY }}" \
+            --build-arg NEXT_PUBLIC_GOOGLE_CALENDAR_ID="${{ secrets.NEXT_PUBLIC_GOOGLE_CALENDAR_ID }}" \
+            --build-arg NEXTAUTH_URL="${{ secrets.NEXTAUTH_URL }}" \
+            --build-arg NEXT_PUBLIC_RECAPTCHA_SITE_KEY="${{ secrets.NEXT_PUBLIC_RECAPTCHA_SITE_KEY }}" \
+            -t $IMAGE .
+
+      - name: Push Docker Image
+        run: docker push $IMAGE
+
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy wbl-frontend \
-            --source . \
-            --region us-central1 \
+            --image $IMAGE \
+            --region $REGION \
             --platform managed \
             --allow-unauthenticated \
-            --port 8080 \
-            --set-env-vars NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }},NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY }},NEXT_PUBLIC_GOOGLE_CALENDAR_ID=${{ secrets.NEXT_PUBLIC_GOOGLE_CALENDAR_ID }} \
             --quiet

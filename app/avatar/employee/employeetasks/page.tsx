@@ -1,18 +1,22 @@
 "use client";
 import { useEffect, useState, useMemo, useRef, forwardRef, useImperativeHandle, useCallback } from "react";
 import { Toaster, toast } from "sonner";
-import { ColDef } from "ag-grid-community";
-import { SearchIcon } from "lucide-react";
-import AGGridTable from "@/components/AGGridTable";
+import { ColDef, ModuleRegistry, ClientSideRowModelModule, ValidationModule } from "ag-grid-community";
+import { AgGridReact } from "ag-grid-react";
+import { SearchIcon, ChevronRight, ChevronDown, Plus } from "lucide-react";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/admin_ui/tabs";
+import AGGridTable from "@/components/AGGridTable";
 import "react-datepicker/dist/react-datepicker.css";
 import "react-quill/dist/quill.snow.css";
+import "ag-grid-community/styles/ag-grid.css";
+import "ag-grid-community/styles/ag-theme-alpine.css";
 import api from "@/lib/api";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
-import { EditModal } from "@/components/EditModal";
+ModuleRegistry.registerModules([ClientSideRowModelModule, ValidationModule]);
 
 interface EmployeeTask {
   id: number;
@@ -24,6 +28,8 @@ interface EmployeeTask {
   status: string;
   priority: string;
   notes: string;
+  project_id?: number;
+  project_name?: string;
 }
 
 interface FilterOption {
@@ -87,12 +93,12 @@ const FilterHeaderComponent = ({
   }, []);
 
   return (
-    <div className="relative flex items-center w-full" ref={filterButtonRef}>
-      <span className="mr-2">{columnName}</span>
+    <div className="relative flex items-center w-full h-full" ref={filterButtonRef}>
+      <span className="truncate">{columnName}</span>
       <svg
-        onClick={toggleFilter}
+        onClick={(e) => { e.stopPropagation(); toggleFilter(); }}
         xmlns="http://www.w3.org/2000/svg"
-        className="h-4 w-4 cursor-pointer text-gray-500 hover:text-gray-700"
+        className="h-4 w-4 ml-1 cursor-pointer text-gray-500 hover:text-gray-700 shrink-0"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -131,31 +137,12 @@ const FilterHeaderComponent = ({
   );
 };
 
-const RichTextCellEditor = forwardRef((props: any, ref) => {
-  const [value, setValue] = useState(props.value || "");
-
-  useImperativeHandle(ref, () => ({
-    getValue: () => value,
-  }));
-
-  return (
-    <div style={{ minWidth: "200px" }}>
-      <ReactQuill
-        theme="snow"
-        value={value}
-        onChange={(val) => setValue(val)}
-        style={{ height: "120px" }}
-      />
-    </div>
-  );
-});
-
-// -------------------- Renderers & Formatters --------------------
 const DateFormatter = (params: any) => {
   if (!params.value) return "";
   try {
-    const [year, month, day] = params.value.split("-");
-    return `${month}/${day}/${year}`;
+    const date = new Date(params.value);
+    if (isNaN(date.getTime())) return params.value;
+    return date.toLocaleDateString();
   } catch {
     return params.value;
   }
@@ -176,10 +163,7 @@ const StatusRenderer = (params: any) => {
     blocked: "Blocked",
   };
   return (
-    <span
-      className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[status] || "bg-gray-100 text-gray-800"
-        }`}
-    >
+    <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[status] || "bg-gray-100 text-gray-800"}`}>
       {textMap[status] || params.value}
     </span>
   );
@@ -194,24 +178,28 @@ const PriorityRenderer = (params: any) => {
     urgent: "bg-purple-100 text-purple-800",
   };
   return (
-    <span
-      className={`px-2 py-1 rounded-full text-xs font-medium ${priorityColors[priority] || "bg-gray-100 text-gray-800"
-        }`}
-    >
-      {params.value}
+    <span className={`px-2 py-1 rounded-full text-xs font-medium ${priorityColors[priority] || "bg-gray-100 text-gray-800"}`}>
+      {priority.charAt(0).toUpperCase() + priority.slice(1)}
     </span>
   );
 };
 
+const HtmlRenderer = (params: any) => {
+  return (
+    <div
+      dangerouslySetInnerHTML={{ __html: params.value || "" }}
+      className="truncate max-w-full"
+    />
+  );
+};
 
-export default function EmployeeTasksPage() {
+// --- Reusable Tasks List Component using AGGridTable ---
+const TasksList = ({ projectId, employeeId, readOnly = false }: { projectId?: number; employeeId?: number; readOnly?: boolean }) => {
   const [tasks, setTasks] = useState<EmployeeTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
-  const [error, setError] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const statusOptions = [
     { value: "pending", label: "Pending" },
@@ -230,322 +218,520 @@ export default function EmployeeTasksPage() {
   const fetchTasks = useCallback(async () => {
     try {
       setLoading(true);
-      setError("");
-      const res = await api.get("/employee-tasks");
-      const data = res?.data ?? res;
+      let url = "/employee-tasks/";
+      const queryParams = [];
+      if (projectId) queryParams.push(`project_id=${projectId}`);
+      if (employeeId) queryParams.push(`employee_id=${employeeId}`);
+      if (queryParams.length > 0) {
+        url += `?${queryParams.join("&")}`;
+      }
 
-      // Normalize data to ensure status and priority are lowercase
+      const res = await api.get(url);
+      const data = res?.data ?? res;
       const normalizedData = (Array.isArray(data) ? data : []).map((task: any) => ({
         ...task,
         status: task.status?.toLowerCase() || "pending",
         priority: task.priority?.toLowerCase() || "medium"
       }));
-
       setTasks(normalizedData);
     } catch (err: any) {
       console.error("Failed to load tasks:", err);
-      setError("Failed to load tasks.");
       toast.error("Failed to load tasks.");
+    } finally {
+      setLoading(false);
+    }
+  }, [projectId, employeeId]);
+
+  useEffect(() => {
+    fetchTasks();
+  }, [fetchTasks]);
+
+  const filteredTasks = useMemo(() => {
+    let filtered = [...tasks];
+    if (selectedStatuses.length > 0) {
+      const lowerSelectedStatuses = selectedStatuses.map(v => v.toLowerCase());
+      filtered = filtered.filter(task => task.status && lowerSelectedStatuses.includes(task.status.toLowerCase()));
+    }
+    if (selectedPriorities.length > 0) {
+      const lowerSelectedPriorities = selectedPriorities.map(v => v.toLowerCase());
+      filtered = filtered.filter(task => task.priority && lowerSelectedPriorities.includes(task.priority.toLowerCase()));
+    }
+    if (selectedStatuses.length === 0) {
+      filtered = filtered.filter(task => task.status?.toLowerCase() !== 'completed');
+    }
+    if (searchTerm.trim() !== "") {
+      const lower = searchTerm.toLowerCase();
+      filtered = filtered.filter((task) => {
+        return (
+          task.task?.toLowerCase().includes(lower) ||
+          task.employee_name?.toLowerCase().includes(lower) ||
+          task.notes?.toLowerCase().includes(lower)
+        );
+      });
+    }
+    return filtered;
+  }, [tasks, searchTerm, selectedStatuses, selectedPriorities]);
+
+  const handleUpdate = async (data: any) => {
+    try {
+      await api.put(`/employee-tasks/${data.id}`, data);
+      toast.success("Task updated");
+      fetchTasks();
+    } catch (e) { toast.error("Failed to update task"); }
+  };
+
+  const handleAdd = async (data: any) => {
+    try {
+      const payload = {
+        ...data,
+        project_id: projectId || data.project_id,
+        employee_id: employeeId || data.employee_id
+      };
+      await api.post("/employee-tasks/", payload);
+      toast.success("Task created");
+      fetchTasks();
+    } catch (e) { toast.error("Failed to create task"); }
+  };
+
+  const handleDelete = async (id: string | number) => {
+    try {
+      await api.delete(`/employee-tasks/${id}`);
+      toast.success("Task deleted");
+      fetchTasks();
+    } catch (e) { toast.error("Failed to delete task"); }
+  };
+
+  const columnDefs = useMemo<ColDef[]>(() => [
+    { field: "employee_name", headerName: "Employee Name", width: 150 },
+    { field: "task", headerName: "Task", flex: 2, minWidth: 200, cellRenderer: HtmlRenderer },
+    { field: "project_name", headerName: "Project", width: 150, hide: !!projectId },
+    {
+      field: "status",
+      headerName: "Status",
+      headerComponent: FilterHeaderComponent,
+      headerComponentParams: {
+        columnName: "Status",
+        options: statusOptions,
+        selectedValues: selectedStatuses,
+        setSelectedValues: setSelectedStatuses
+      },
+      cellRenderer: StatusRenderer,
+      width: 140
+    },
+    {
+      field: "priority",
+      headerName: "Priority",
+      headerComponent: FilterHeaderComponent,
+      headerComponentParams: {
+        columnName: "Priority",
+        options: priorityOptions,
+        selectedValues: selectedPriorities,
+        setSelectedValues: setSelectedPriorities
+      },
+      cellRenderer: PriorityRenderer,
+      width: 130
+    },
+    { field: "due_date", headerName: "Due Date", cellRenderer: DateFormatter, width: 130 },
+    { field: "assigned_date", headerName: "Assigned Date", cellRenderer: DateFormatter, width: 130 },
+    {
+      field: "notes",
+      headerName: "Notes",
+      flex: 1,
+      cellRenderer: HtmlRenderer
+    }
+  ], [projectId, selectedStatuses, selectedPriorities]);
+
+  return (
+    <div className="flex flex-col space-y-2">
+      {!readOnly && (
+        <div className="flex justify-between items-center px-1">
+          <div className="relative max-w-sm w-full">
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search tasks..."
+              className="pl-9"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
+      )}
+      {readOnly ? (
+        <div className="w-full">
+          {loading ? (
+            <div className="text-center py-8 text-gray-500">Loading tasks...</div>
+          ) : filteredTasks.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">No tasks found for this project</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b-2 border-blue-200">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Task</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      {projectId ? "Employee Name" : "Project Name"}
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Priority</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Due Date</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredTasks.map((task, index) => (
+                    <tr key={task.id} className={`hover:bg-blue-50/50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        <div dangerouslySetInnerHTML={{ __html: task.task || '' }} className="line-clamp-2" />
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
+                        {projectId ? task.employee_name : task.project_name}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <StatusRenderer value={task.status} />
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <PriorityRenderer value={task.priority} />
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
+                        <DateFormatter value={task.due_date} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : (
+        <AGGridTable
+          rowData={filteredTasks}
+          columnDefs={columnDefs}
+          loading={loading}
+          onRowUpdated={readOnly ? undefined : handleUpdate}
+          onRowAdded={readOnly ? undefined : handleAdd}
+          onRowDeleted={readOnly ? undefined : handleDelete}
+          title={readOnly ? "" : "Employee Task"}
+          batches={[]}
+          showAddButton={!readOnly}
+          height={readOnly ? "auto" : "calc(100vh - 350px)"}
+          domLayout={readOnly ? "autoHeight" : undefined}
+          hideToolbar={readOnly}
+        />
+      )}
+    </div>
+  );
+};
+
+// --- Projects Nested View ---
+const ProjectsView = () => {
+  const [projects, setProjects] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedIds, setExpandedIds] = useState<number[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const fetchProjects = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await api.get("/projects/");
+      setProjects(res.data);
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to load projects");
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
+    fetchProjects();
+  }, [fetchProjects]);
 
-  const filterData = useCallback(() => {
-    let filtered = [...tasks];
-
-    if (selectedStatuses.length > 0) {
-      const lowerSelectedStatuses = selectedStatuses.map(v => v.toLowerCase());
-      filtered = filtered.filter(task =>
-        task.status && lowerSelectedStatuses.includes(task.status.toLowerCase())
-      );
-    } else {
-      filtered = filtered.filter(task =>
-        task.status && task.status.toLowerCase() !== "completed"
-      );
-    }
-
-    if (selectedPriorities.length > 0) {
-      const lowerSelectedPriorities = selectedPriorities.map(v => v.toLowerCase());
-      filtered = filtered.filter(task =>
-        task.priority && lowerSelectedPriorities.includes(task.priority.toLowerCase())
-      );
-    }
-
-    if (searchTerm.trim() !== "") {
-      const lower = searchTerm.toLowerCase();
-      filtered = filtered.filter((task) => {
-        if (task.employee_name?.toLowerCase().includes(lower)) return true;
-        if (task.task?.toLowerCase().includes(lower)) return true;
-        if (task.status?.toLowerCase().includes(lower)) return true;
-        if (task.priority?.toLowerCase().includes(lower)) return true;
-        if (task.notes?.toLowerCase().includes(lower)) return true;
-        return false;
-      });
-    }
-
-    return filtered;
-  }, [tasks, searchTerm, selectedStatuses, selectedPriorities]);
-
-  const filteredTasks = useMemo(() => filterData(), [
-    tasks,
-    searchTerm,
-    selectedStatuses,
-    selectedPriorities
-  ]);
-
-  const handleTaskAdded = (newTask: EmployeeTask) =>
-    setTasks((prev) => [newTask, ...prev]);
-
-  const handleRowUpdated = async (updatedTask: EmployeeTask) => {
+  const handleUpdate = async (data: any) => {
     try {
-      const payload = {
-        ...updatedTask,
-        employee_name: updatedTask.employee_name,
-        status: updatedTask.status?.toLowerCase(),
-        priority: updatedTask.priority?.toLowerCase(),
-      };
-      console.log("Updating task with payload:", payload);
+      console.log("Updating project with data:", data);
 
-      const res = await api.put(`/employee-tasks/${updatedTask.id}`, payload);
-      const updatedData = res.data;
+      // Clean data - only send valid project fields
+      const validFields = ['name', 'description', 'owner', 'start_date', 'target_end_date', 'end_date', 'priority', 'status'];
+      const cleanData: any = {};
+      validFields.forEach(f => { if (data[f] && data[f] !== '') cleanData[f] = data[f]; });
 
-      const normalizedUpdatedData = {
-        ...updatedData,
-        status: updatedData.status?.toLowerCase(),
-        priority: updatedData.priority?.toLowerCase(),
-      };
-
-      setTasks((prev) =>
-        prev.map((task) => (task.id === updatedTask.id ? { ...task, ...normalizedUpdatedData } : task))
-      );
-      toast.success("Task updated successfully!");
-    } catch (err: any) {
-      console.error("Failed to update task:", err);
-      toast.error(err.response?.data?.detail || err.response?.data?.message || "Failed to update task.");
+      await api.put(`/projects/${data.id}`, cleanData);
+      toast.success("Project updated");
+      fetchProjects();
+    } catch (e: any) {
+      console.error("Failed to update project:", e);
+      const errorMsg = e?.response?.data?.detail || e?.message || "Failed to update project";
+      toast.error(errorMsg);
     }
   };
 
-  const handleRowDeleted = async (taskId: number) => {
+  const handleCreate = async (data: any) => {
     try {
-      if (!taskId) {
-        toast.error("Cannot delete task: missing ID");
-        return;
+      console.log("Creating project with data:", data);
+
+      // Clean data - only send valid project fields
+      const validFields = ['name', 'description', 'owner', 'start_date', 'target_end_date', 'end_date', 'priority', 'status'];
+      const cleanData: any = {};
+      validFields.forEach(f => { if (data[f] && data[f] !== '') cleanData[f] = data[f]; });
+
+      await api.post("/projects/", cleanData);
+      toast.success("Project created");
+      fetchProjects();
+    } catch (e: any) {
+      console.error("Failed to create project:", e);
+      const errorMsg = e?.response?.data?.detail || e?.message || "Failed to create project";
+      toast.error(errorMsg);
+    }
+  };
+
+  const handleDelete = async (id: string | number) => {
+    try {
+      await api.delete(`/projects/${id}`);
+      toast.success("Project deleted");
+      fetchProjects();
+    } catch (e) { toast.error("Failed to delete project"); }
+  };
+
+  // Filter projects based on search term
+  const filteredProjects = useMemo(() => {
+    if (!searchTerm.trim()) return projects;
+    const lower = searchTerm.toLowerCase();
+    return projects.filter(p =>
+      p.name?.toLowerCase().includes(lower) ||
+      p.owner?.toLowerCase().includes(lower) ||
+      p.description?.toLowerCase().includes(lower)
+    );
+  }, [projects, searchTerm]);
+
+  const gridData = useMemo(() => {
+    const rows: any[] = [];
+    filteredProjects.forEach(p => {
+      rows.push(p);
+      if (expandedIds.includes(p.id)) {
+        rows.push({ _isDetail: true, _master: p });
       }
-      console.log("Deleting task ID:", taskId);
-      await api.delete(`/employee-tasks/${taskId}`);
-      setTasks((prev) => prev.filter((task) => task.id !== taskId));
-      toast.success("Task deleted successfully!");
-    } catch (err: any) {
-      console.error("Failed to delete task:", err);
-      toast.error(err.response?.data?.detail || "Failed to delete task.");
-    }
+    });
+    return rows;
+  }, [filteredProjects, expandedIds]);
+
+  const toggleExpand = (id: number) => {
+    setExpandedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
-
-  const columnDefs = useMemo<ColDef[]>(() => [
-    { headerName: "ID", field: "id", width: 80 },
+  const colDefs: ColDef[] = [
     {
-      headerName: "Employee",
-      field: "employee_name",
-      width: 180,
-      editable: true,
-      cellEditor: "agTextCellEditor",
-    },
-    {
-      headerName: "Task",
-      field: "task",
-      flex: 2,
-      editable: true,
-      cellEditor: false,
-      autoHeight: true,
-      cellRenderer: (params: any) => (
-        <div
-          style={{ whiteSpace: "normal" }}
-          dangerouslySetInnerHTML={{ __html: params.value || "" }}
-        />
-      ),
-    },
-    {
-      headerName: "Notes",
-      field: "notes",
+      field: "name",
+      headerName: "Project Name",
       flex: 1,
-      editable: true,
-      hide: true,
-      cellEditor: false,
-      autoHeight: true,
       cellRenderer: (params: any) => (
-        <div
-          className="prose prose-sm max-w-none"
-          dangerouslySetInnerHTML={{ __html: params.value || "" }}
-        />
-      ),
+        <div className="flex items-center gap-2 h-full">
+          {!params.data._isDetail && (
+            <div
+              onClick={(e) => { e.stopPropagation(); toggleExpand(params.data.id); }}
+              className="cursor-pointer hover:bg-gray-100 p-1 rounded-full transition-colors"
+            >
+              {expandedIds.includes(params.data.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </div>
+          )}
+          <span className="font-medium text-gray-700">{params.value}</span>
+        </div>
+      )
     },
-    {
-      headerName: "Assigned Date",
-      field: "assigned_date",
-      width: 130,
-      valueFormatter: DateFormatter,
-      editable: true,
-      cellEditor: "agDateStringCellEditor",
-    },
-    {
-      headerName: "Due Date",
-      field: "due_date",
-      width: 130,
-      valueFormatter: DateFormatter,
-      editable: true,
-      cellEditor: "agDateStringCellEditor",
-    },
-    {
-      headerName: "Status",
-      field: "status",
-      width: 130,
-      cellRenderer: StatusRenderer,
-      editable: true,
-      cellEditor: "agSelectCellEditor",
-      cellEditorParams: {
-        values: ["pending", "in_progress", "completed", "blocked"],
-      },
-      headerComponent: FilterHeaderComponent,
-      headerComponentParams: {
-        columnName: "Status",
-        options: statusOptions,
-        selectedValues: selectedStatuses,
-        setSelectedValues: setSelectedStatuses,
-      },
-    },
-    {
-      headerName: "Priority",
-      field: "priority",
-      width: 110,
-      cellRenderer: PriorityRenderer,
-      editable: true,
-      cellEditor: "agSelectCellEditor",
-      cellEditorParams: {
-        values: ["low", "medium", "high", "urgent"],
-      },
-      headerComponent: FilterHeaderComponent,
-      headerComponentParams: {
-        columnName: "Priority",
-        options: priorityOptions,
-        selectedValues: selectedPriorities,
-        setSelectedValues: setSelectedPriorities,
-      },
-    },
-  ], [selectedStatuses, selectedPriorities]);
+    { field: "owner", headerName: "Owner", width: 150 },
+    { field: "status", headerName: "Status", cellRenderer: StatusRenderer, width: 130 },
+    { field: "priority", headerName: "Priority", cellRenderer: PriorityRenderer, width: 130 },
+    { field: "start_date", headerName: "Start Date", cellRenderer: DateFormatter, width: 120, hide: true },
+    { field: "target_end_date", headerName: "Target End Date", cellRenderer: DateFormatter, width: 120, hide: true },
+    { field: "description", headerName: "Description", cellRenderer: HtmlRenderer, hide: true },
+  ];
 
-  return (
-    <div className="space-y-6 p-4">
-      <Toaster position="top-center" richColors />
-
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Employee Task Management
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Manage and track employee tasks and assignments
-          </p>
+  const fullWidthCellRenderer = useCallback((params: any) => {
+    return (
+      <div className="bg-gradient-to-r from-gray-50 to-blue-50/30 border-t border-b border-gray-200">
+        <div className="px-6 py-4">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <TasksList projectId={params.data._master.id} readOnly={true} />
+          </div>
         </div>
       </div>
+    );
+  }, []);
 
-      <div className="max-w-md">
-        <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          Search Tasks
-        </Label>
-        <div className="relative mt-1">
-          <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+  return (
+    <div className="flex flex-col space-y-4">
+      <div className="flex justify-between items-center px-1">
+        <div className="relative max-w-sm w-full">
+          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
-            id="search"
-            type="text"
+            placeholder="Search projects..."
+            className="pl-9"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by employee, task, status..."
-            className="pl-10"
+            onChange={e => setSearchTerm(e.target.value)}
           />
         </div>
       </div>
-
-
-      <EditModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        data={{
-          employee_name: "",
-          task: "",
-          assigned_date: new Date().toISOString().split("T")[0],
-          due_date: "",
-          status: "pending",
-          priority: "medium",
-          notes: "",
-        }}
-        title="Employee Task"
-        onSave={async (taskData) => {
-          try {
-            const payload = {
-              employee_name: taskData.employee_name?.trim(),
-              task: taskData.task?.trim(),
-              assigned_date: taskData.assigned_date,
-              due_date: taskData.due_date || null,
-              status: taskData.status?.toLowerCase() || "pending",
-              priority: taskData.priority?.toLowerCase() || "medium",
-              notes: taskData.notes || "",
-            };
-
-            console.log("Creating task with payload:", payload);
-
-            const res = await api.post(`/employee-tasks`, payload);
-            const newTask = {
-              ...res.data,
-              status: res.data.status?.toLowerCase(),
-              priority: res.data.priority?.toLowerCase(),
-            };
-
-            handleTaskAdded(newTask);
-            toast.success("Task created successfully");
-            setIsModalOpen(false);
-          } catch (err: any) {
-            console.error("Error creating task:", err);
-            const errorMessage = err.response?.data?.detail
-              ? Array.isArray(err.response.data.detail)
-                ? err.response.data.detail.map((d: any) => d.msg).join(", ")
-                : String(err.response.data.detail)
-              : err.response?.data?.message || "Failed to create task";
-            toast.error(errorMessage);
-          }
-        }}
+      <AGGridTable
+        rowData={gridData}
+        columnDefs={colDefs}
+        loading={loading}
+        onRowUpdated={handleUpdate}
+        onRowAdded={handleCreate}
+        onRowDeleted={handleDelete}
+        title="Project"
         batches={[]}
-        isAddMode={true}
+        showAddButton={true}
+        height="calc(100vh - 350px)"
+        isFullWidthRow={(p: any) => p.rowNode.data._isDetail}
+        fullWidthCellRenderer={fullWidthCellRenderer}
+        getRowHeight={(p: any) => p.node.data._isDetail ? 600 : 50}
       />
+    </div>
+  );
+};
 
+// --- Employees Nested View ---
+const EmployeesView = () => {
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedIds, setExpandedIds] = useState<number[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
 
-      {loading ? (
-        <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-8">
-          Loading tasks...
-        </p>
-      ) : error ? (
-        <p className="text-center mt-8 text-red-500">{error}</p>
-      ) : (
-        <div className="flex flex-col items-center w-full space-y-4">
-          <div className="w-full max-w-7xl">
-            <AGGridTable
-              rowData={filteredTasks}
-              columnDefs={columnDefs}
-              title="Employee Tasks Tracker"
-              height="500px"
-              showSearch={false}
-              onAddClick={() => setIsModalOpen(true)}
-              onRowUpdated={handleRowUpdated}
-              onRowDeleted={handleRowDeleted}
-            />
+  const fetchEmployees = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await api.get("/employees");
+      const activeEmployees = res.data.filter((emp: any) => emp.status === 1);
+      setEmployees(activeEmployees);
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to load employees");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchEmployees();
+  }, [fetchEmployees]);
+
+  // Filter employees based on search term
+  const filteredEmployees = useMemo(() => {
+    if (!searchTerm.trim()) return employees;
+    const lower = searchTerm.toLowerCase();
+    return employees.filter(e =>
+      e.name?.toLowerCase().includes(lower) ||
+      e.email?.toLowerCase().includes(lower) ||
+      e.phone?.toLowerCase().includes(lower)
+    );
+  }, [employees, searchTerm]);
+
+  const gridData = useMemo(() => {
+    const rows: any[] = [];
+    filteredEmployees.forEach(e => {
+      rows.push(e);
+      if (expandedIds.includes(e.id)) {
+        rows.push({ _isDetail: true, _master: e });
+      }
+    });
+    return rows;
+  }, [filteredEmployees, expandedIds]);
+
+  const toggleExpand = (id: number) => {
+    setExpandedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const colDefs: ColDef[] = [
+    {
+      field: "name",
+      headerName: "Employee Name",
+      width: 250,
+      cellRenderer: (params: any) => (
+        <div className="flex items-center gap-1 h-full">
+          {!params.data._isDetail && (
+            <div
+              onClick={(e) => { e.stopPropagation(); toggleExpand(params.data.id); }}
+              className="cursor-pointer hover:bg-gray-100 p-1 rounded-full transition-colors"
+            >
+              {expandedIds.includes(params.data.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </div>
+          )}
+          <span className="font-medium text-gray-700">{params.value}</span>
+        </div>
+      )
+    },
+    { field: "email", headerName: "Email", width: 250 },
+    { field: "phone", headerName: "Phone", width: 150 },
+  ];
+
+  const fullWidthCellRenderer = useCallback((params: any) => {
+    return (
+      <div className="bg-gradient-to-r from-gray-50 to-blue-50/30 border-t border-b border-gray-200">
+        <div className="px-6 py-4">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <TasksList employeeId={params.data._master.id} readOnly={true} />
           </div>
         </div>
-      )}
+      </div>
+    );
+  }, []);
+
+  return (
+    <div className="flex flex-col space-y-4">
+      <div className="flex justify-between items-center px-1">
+        <div className="relative max-w-sm w-full">
+          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search employees..."
+            className="pl-9"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+          />
+        </div>
+      </div>
+      <AGGridTable
+        rowData={gridData}
+        columnDefs={colDefs}
+        loading={loading}
+        title="Employee"
+        batches={[]}
+        showAddButton={false}
+        height="calc(100vh - 350px)"
+        isFullWidthRow={(p: any) => p.rowNode.data._isDetail}
+        fullWidthCellRenderer={fullWidthCellRenderer}
+        getRowHeight={(p: any) => p.node.data._isDetail ? 600 : 50}
+      />
+    </div>
+  );
+};
+
+// --- Main Page Component ---
+export default function EmployeeTasksPage() {
+  return (
+    <div className="p-6 space-y-6 min-h-screen bg-gray-50/50">
+      <div className="flex flex-col space-y-1">
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900">Task Management</h1>
+        <p className="text-sm text-gray-500">Manage, organize and track employee tasks across projects.</p>
+      </div>
+
+      <Tabs defaultValue="all" className="w-full">
+        <TabsList className="mb-4 bg-white/50 p-1 border">
+          <TabsTrigger value="all" className="px-6 py-2">All Tasks</TabsTrigger>
+          <TabsTrigger value="projects" className="px-6 py-2">By Project</TabsTrigger>
+          <TabsTrigger value="employees" className="px-6 py-2">By Employee</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="all" className="mt-0 outline-none">
+          <TasksList />
+        </TabsContent>
+
+        <TabsContent value="projects" className="mt-0 outline-none">
+          <ProjectsView />
+        </TabsContent>
+
+        <TabsContent value="employees" className="mt-0 outline-none">
+          <EmployeesView />
+        </TabsContent>
+      </Tabs>
+      <Toaster position="top-right" richColors />
     </div>
   );
 }
