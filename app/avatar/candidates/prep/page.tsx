@@ -686,6 +686,21 @@ export default function CandidatesPrepPage() {
         cellRenderer: (params: any) => <span>{params.value ? "Yes" : "No"}</span>,
       },
       {
+        field: "is_in_marketing",
+        headerName: "In Marketing",
+        width: 150,
+        sortable: true,
+        filter: "agTextColumnFilter",
+        cellRenderer: (params: any) => {
+          const value = params.value || "No";
+          return (
+            <Badge className={value === "Yes" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}>
+              {value}
+            </Badge>
+          );
+        },
+      },
+      {
         field: "notes",
         headerName: "Notes",
         minWidth: 100,

@@ -190,6 +190,8 @@ const fieldSections: Record<string, string> = {
   location: "Professional Information",
   extraction_date: "Professional Information",
   is_immigration_team: "Basic Information",
+  is_in_prep: "Basic Information",
+  is_in_marketing: "Professional Information",
 };
 
 const workVisaStatusOptions = [
@@ -285,6 +287,8 @@ const labelOverrides: Record<string, string> = {
   job_owner_2_name: "Job Owner 2",
   job_owner_3_name: "Job Owner 3",
   is_immigration_team: "Immigration Team",
+  is_in_marketing: "In Marketing",
+  is_in_prep: "In Prep",
 };
 
 const dateFields = [
