@@ -634,6 +634,8 @@ const fieldSections: Record<string, string> = {
   job_title: "Professional Information",
   location: "Professional Information",
   extraction_date: "Professional Information",
+  is_in_prep: "Basic Information",
+  is_in_marketing: "Professional Information",
 };
 
 // Override field labels for better readability
@@ -767,6 +769,8 @@ const labelOverrides: Record<string, string> = {
   is_immigration_team: "Immigration Team",
   created_at: "Created At",
   updated_at: "Updated At",
+  is_in_prep: "In Prep",
+  is_in_marketing: "In Marketing",
 };
 
 const dateFields = [
@@ -2585,11 +2589,7 @@ export function EditModal({
                             }
 
 
-                            if (
-                              key === "lastmod_user_id" ||
-                              key === "lastmod_user_name" ||
-                              key === "last_mod_date"
-                            ) {
+                            if (key === "lastmod_user_id" || key === "lastmod_user_name" || key === "last_mod_date" || key === "is_in_prep" || key === "is_in_marketing") {
                               return (
                                 <div
                                   key={key}
