@@ -152,12 +152,28 @@ export default function EmployeeDashboard() {
     useEffect(() => {
         const fetchMetrics = async () => {
             try {
+                console.log("🔄 Fetching employee dashboard data...");
                 setLoading(true);
+                setError(null);
+
                 const metrics = await apiFetch("/metrics/employee");
+                console.log("✅ Employee dashboard data received:", metrics);
+
                 setData(metrics);
             } catch (err: any) {
-                setError(err?.message || "Failed to fetch employee dashboard data");
-                console.error("Dashboard error:", err);
+                console.error("❌ Dashboard error:", err);
+                console.error("Error details:", {
+                    message: err?.message,
+                    status: err?.status,
+                    body: err?.body
+                });
+
+                const errorMessage = err?.body?.detail
+                    || err?.body?.message
+                    || err?.message
+                    || "Failed to fetch employee dashboard data";
+
+                setError(errorMessage);
             } finally {
                 setLoading(false);
             }
@@ -169,8 +185,11 @@ export default function EmployeeDashboard() {
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
-                <div className="text-xl font-semibold animate-pulse text-gray-500 flex items-center gap-3">
-                    <Activity className="animate-spin text-blue-500" /> Connecting to Core Systems...
+                <div className="text-center">
+                    <div className="text-xl font-semibold animate-pulse text-gray-500 flex items-center gap-3 justify-center mb-4">
+                        <Activity className="animate-spin text-blue-500" /> Loading Dashboard...
+                    </div>
+                    <p className="text-sm text-gray-400">Please wait while we fetch your data</p>
                 </div>
             </div>
         );
@@ -180,9 +199,15 @@ export default function EmployeeDashboard() {
         return (
             <div className="p-8 text-center text-red-600 bg-red-50 rounded-3xl border-2 border-red-100 max-w-2xl mx-auto mt-12">
                 <h2 className="text-2xl font-black mb-4 flex items-center justify-center gap-2">
-                    <Award size={32} /> Access Interrupted
+                    <Award size={32} /> Unable to Load Dashboard
                 </h2>
-                <p className="font-medium">{error || "No data available"}</p>
+                <p className="font-medium mb-4">{error || "No data available"}</p>
+                <button
+                    onClick={() => window.location.reload()}
+                    className="px-6 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-semibold"
+                >
+                    Retry
+                </button>
             </div>
         );
     }
