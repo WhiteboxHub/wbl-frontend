@@ -54,7 +54,7 @@ export default function SessionsPage() {
 
   useEffect(() => {
     fetchSessions();
-  }, []); 
+  }, []);
 
   // Derived filtered list
   const filteredSessions = useMemo(() => {
@@ -115,6 +115,28 @@ export default function SessionsPage() {
           );
         },
       },
+      {
+        field: "backup_url",
+        headerName: "Backup URL",
+        width: 250,
+        editable: true,
+        cellRenderer: (params: any) => {
+          if (!params.value) return "";
+          return (
+            <a
+              href={params.value}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 underline hover:text-blue-800"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Open
+            </a>
+          );
+        },
+      },
+      { field: "notes", headerName: "Notes", width: 160, editable: true },
+
     ],
     []
   );
@@ -126,11 +148,13 @@ export default function SessionsPage() {
         title: updatedRow.title,
         status: updatedRow.status || "active",
         link: updatedRow.link,
+        backup_url: updatedRow.backup_url,
         videoid: updatedRow.videoid,
         type: updatedRow.type,
         sessiondate: updatedRow.sessiondate,
         subject_id: updatedRow.subject_id,
         subject: updatedRow.subject,
+        notes: updatedRow.notes,
       };
       const updatedSession = await smartUpdate(
         "session",
