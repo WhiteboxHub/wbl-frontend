@@ -444,30 +444,69 @@ export default function EmployeeDashboard() {
 
                 {/* Tasks Tab */}
                 <TabsContent value="tasks" className="outline-none">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {pending_tasks.map(task => (
-                            <div key={task.id} className="group p-8 rounded-[32px] bg-white border-2 border-gray-100 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 flex flex-col justify-between min-h-[280px]">
-                                <div>
-                                    <div className="flex justify-between items-start mb-6">
-                                        <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-lg ${task.priority === 'high' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
-                                            {task.priority} Priority
-                                        </span>
-                                        <div className={`p-3 rounded-xl ${task.status === 'in_progress' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'}`}>
-                                            <ClipboardList size={18} />
-                                        </div>
-                                    </div>
-                                    <h3 className="text-xl font-black text-gray-800 leading-tight mb-4 group-hover:text-blue-600 transition-colors">{task.task}</h3>
-                                </div>
-                                <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-tighter text-gray-400 pt-6 border-t border-dashed">
-                                    <div className="flex items-center gap-2">
-                                        <Calendar size={12} />
-                                        {task.due_date ? `Deadline: ${task.due_date}` : 'No deadline'}
-                                    </div>
-                                    <span className="opacity-40">#{task.id}</span>
+                    <Card className="rounded-[32px] border-2 border-gray-100 shadow-xl overflow-hidden bg-white/70 backdrop-blur-sm">
+                        <CardHeader className="bg-blue-50/50 p-8 border-b border-blue-100">
+                            <CardTitle className="text-2xl font-black text-blue-800 italic flex items-center gap-3">
+                                <ClipboardList className="text-blue-600" /> My Tasks
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <div className="overflow-x-auto">
+                                <table className="w-full table-fixed">
+                                    <thead className="sticky top-0 bg-white border-b text-xs font-black uppercase text-gray-400 tracking-widest">
+                                        <tr>
+                                            <th className="text-left p-6 w-2/5">Task Name</th>
+                                            <th className="text-left p-6 w-1/5">Status</th>
+                                            <th className="text-left p-6 w-1/5">Priority</th>
+                                            <th className="text-right p-6 w-1/5">Due Date</th>
+                                        </tr>
+                                    </thead>
+                                </table>
+                                <div className="overflow-y-auto max-h-[500px]">
+                                    <table className="w-full table-fixed">
+                                        <tbody className="divide-y divide-gray-50">
+                                            {pending_tasks.length > 0 ? (
+                                                pending_tasks.map(task => (
+                                                    <tr key={task.id} className="hover:bg-blue-50/30 transition-colors">
+                                                        <td className="p-6 font-bold text-gray-800 w-2/5">{task.task}</td>
+                                                        <td className="p-6 w-1/5">
+                                                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${task.status === 'in_progress'
+                                                                    ? 'bg-amber-100 text-amber-700'
+                                                                    : task.status === 'completed'
+                                                                        ? 'bg-green-100 text-green-700'
+                                                                        : 'bg-blue-100 text-blue-700'
+                                                                }`}>
+                                                                {task.status.replace('_', ' ')}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-6 w-1/5">
+                                                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${task.priority === 'high'
+                                                                    ? 'bg-red-100 text-red-700'
+                                                                    : task.priority === 'medium'
+                                                                        ? 'bg-orange-100 text-orange-700'
+                                                                        : 'bg-gray-100 text-gray-700'
+                                                                }`}>
+                                                                {task.priority}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-6 text-right font-medium text-gray-400 w-1/5">
+                                                            {task.due_date || 'No deadline'}
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan={4} className="p-12 text-center text-gray-400 font-medium italic">
+                                                        No pending tasks
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
-                        ))}
-                    </div>
+                        </CardContent>
+                    </Card>
                 </TabsContent>
 
                 {/* Placements Tab */}
