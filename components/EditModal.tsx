@@ -372,6 +372,7 @@ const genericStatusOptions = [
 
 const materialTypeOptions = [
   { value: "P", label: "Presentations" },
+  { value: "Y", label: "Must See Youtube Videos" },
   { value: "C", label: "Cheatsheets" },
   { value: "SG", label: "Study Guides" },
   { value: "D", label: "Diagrams" },
@@ -634,6 +635,8 @@ const fieldSections: Record<string, string> = {
   job_title: "Professional Information",
   location: "Professional Information",
   extraction_date: "Professional Information",
+  is_in_prep: "Basic Information",
+  is_in_marketing: "Professional Information",
 };
 
 // Override field labels for better readability
@@ -767,6 +770,8 @@ const labelOverrides: Record<string, string> = {
   is_immigration_team: "Immigration Team",
   created_at: "Created At",
   updated_at: "Updated At",
+  is_in_prep: "In Prep",
+  is_in_marketing: "In Marketing",
 };
 
 const dateFields = [
@@ -1045,6 +1050,8 @@ export function EditModal({
         const res = await apiFetch("/employees");
         const data = res?.data ?? res;
         const activeEmployees = data.filter((emp: any) => emp.status === 1);
+        // Sort employees alphabetically by name
+        activeEmployees.sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
         setEmployees(activeEmployees);
       } catch (error: any) {
         console.error(
@@ -1090,6 +1097,7 @@ export function EditModal({
     const flattened: Record<string, any> = { ...data };
     if (data.candidate) {
       flattened.candidate_full_name = data.candidate.full_name;
+      flattened.workstatus = data.candidate.workstatus || data.workstatus || "";
       if (isJobActivityLogModal) {
         flattened.candidate_name = data.candidate.full_name;
         flattened.candidate_id = data.candidate.id?.toString();
@@ -1514,7 +1522,12 @@ export function EditModal({
       if (keyLower === "intro_call") return enumOptions.vendor_intro_call;
     }
 
-    if (isCandidateModal || isPreparationModal) {
+    if (isPreparationModal || isMarketingModal) {
+      if (keyLower === "status") return enumOptions.marketing_status;
+      if (keyLower === "workstatus") return enumOptions.workstatus;
+    }
+
+    if (isCandidateModal) {
       if (keyLower === "status") return enumOptions.candidate_status;
       if (keyLower === "workstatus") return enumOptions.workstatus;
     }
@@ -2232,7 +2245,6 @@ export function EditModal({
 
                             if (
                               isPlacementModal &&
-
                               key.toLowerCase() === "candidate_name"
                             ) {
                               return (
@@ -2254,7 +2266,7 @@ export function EditModal({
                             }
 
                             if (
-                              (isPreparationModal || isMarketingModal) &&
+                              isPrepOrMarketing &&
                               isBatchNameField
                             ) {
                               return (
@@ -2275,34 +2287,9 @@ export function EditModal({
                               );
                             }
 
-
-
-
                             if (
-                              isPlacementModal &&
-                              key.toLowerCase() === "candidate_name"
-                            ) {
-                              return (
-                                <div
-                                  key={key}
-                                  className="space-y-1 sm:space-y-1.5"
-                                >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                                    {toLabel(key)}
-                                  </label>
-                                  <input
-                                    type="text"
-                                    value={formData[key] || ""}
-                                    readOnly
-                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
-                                  />
-                                </div>
-                              );
-                            }
-
-                            if (
-                              (isPreparationModal || isMarketingModal) &&
-                              isBatchNameField
+                              isPrepOrMarketing &&
+                              isWorkStatusField
                             ) {
                               return (
                                 <div
@@ -2605,11 +2592,7 @@ export function EditModal({
                             }
 
 
-                            if (
-                              key === "lastmod_user_id" ||
-                              key === "lastmod_user_name" ||
-                              key === "last_mod_date"
-                            ) {
+                            if (key === "lastmod_user_id" || key === "lastmod_user_name" || key === "last_mod_date" || key === "is_in_prep" || key === "is_in_marketing") {
                               return (
                                 <div
                                   key={key}
@@ -2626,30 +2609,6 @@ export function EditModal({
                                         <span className="text-red-700"> *</span>
                                       )}
 
-                                  </label>
-                                  <input
-                                    type="text"
-                                    value={formData[key] || ""}
-                                    readOnly
-                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
-                                  />
-                                </div>
-                              );
-                            }
-
-
-                            if (
-                              key === "lastmod_user_id" ||
-                              key === "lastmod_user_name" ||
-                              key === "last_mod_date"
-                            ) {
-                              return (
-                                <div
-                                  key={key}
-                                  className="space-y-1 sm:space-y-1.5"
-                                >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                                    {toLabel(key)}
                                   </label>
                                   <input
                                     type="text"
@@ -2728,46 +2687,6 @@ export function EditModal({
                             }
 
 
-                            if (
-                              isStatusField &&
-                              isPrepOrMarketing &&
-                              !isAddMode
-                            ) {
-                              const statusValue = formData[key] || "";
-                              const displayValue = statusValue.toUpperCase();
-                              const normalized = statusValue.toLowerCase();
-                              const isActive = normalized === "active";
-
-                              return (
-                                <div
-                                  key={key}
-                                  className="space-y-1 sm:space-y-1.5"
-                                >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                                    {toLabel(key)}
-                                    {isFieldRequired(
-                                      toLabel(key),
-                                      title,
-                                      isAddMode
-                                    ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
-                                  </label>
-                                  <div
-                                    className={`w-full rounded-lg border border-blue-200 bg-white px-2 py-1 text-xs shadow-sm sm:px-3 sm:py-2 sm:text-sm`}
-                                  >
-                                    <span
-                                      className={`rounded-full px-2.5 py-1 font-semibold ${isActive
-                                        ? "bg-green-100 text-green-700"
-                                        : "bg-red-100 text-red-800"
-                                        }`}
-                                    >
-                                      {displayValue}
-                                    </span>
-                                  </div>
-                                </div>
-                              );
-                            }
 
                             const fieldEnumOptions = getEnumOptions(key);
                             if (fieldEnumOptions) {
@@ -2984,40 +2903,6 @@ export function EditModal({
                                       }}
                                     />
                                   </div>
-                                </div>
-                              );
-                            }
-                            if (isStatusField && !isVendorModal) {
-                              return (
-                                <div
-                                  key={key}
-                                  className="space-y-1 sm:space-y-1.5"
-                                >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                                    {toLabel(key)}
-                                    {isFieldRequired(
-                                      toLabel(key),
-                                      title,
-                                      isAddMode
-                                    ) && (
-                                        <span className="text-red-700"> *</span>
-                                      )}
-                                  </label>
-                                  <select
-                                    {...register(key)}
-                                    value={
-                                      currentFormValues[key] ||
-                                      formData[key] ||
-                                      ""
-                                    }
-                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                                  >
-                                    {genericStatusOptions.map((opt) => (
-                                      <option key={opt.value} value={opt.value}>
-                                        {opt.label}
-                                      </option>
-                                    ))}
-                                  </select>
                                 </div>
                               );
                             }

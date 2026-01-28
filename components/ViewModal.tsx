@@ -190,6 +190,8 @@ const fieldSections: Record<string, string> = {
   location: "Professional Information",
   extraction_date: "Professional Information",
   is_immigration_team: "Basic Information",
+  is_in_prep: "Basic Information",
+  is_in_marketing: "Professional Information",
 };
 
 const workVisaStatusOptions = [
@@ -285,6 +287,8 @@ const labelOverrides: Record<string, string> = {
   job_owner_2_name: "Job Owner 2",
   job_owner_3_name: "Job Owner 3",
   is_immigration_team: "Immigration Team",
+  is_in_marketing: "In Marketing",
+  is_in_prep: "In Prep",
 };
 
 const dateFields = [
@@ -603,8 +607,10 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
 
   const flattenData = (data: Record<string, any>) => {
     const flattened: Record<string, any> = { ...data };
-    if (data.candidate) flattened.candidate_full_name = data.candidate.full_name;
-
+    if (data.candidate) {
+      flattened.candidate_full_name = data.candidate.full_name;
+      flattened.workstatus = data.candidate.workstatus || data.workstatus || "";
+    }
     flattened.instructor1_id = data.instructor1?.id || data.instructor1_id || "";
     flattened.instructor1_name = data.instructor1?.name || data.instructor1_name || "";
     flattened.instructor2_id = data.instructor2?.id || data.instructor2_id || "";
@@ -630,6 +636,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
 
     const typeMap: Record<string, string> = {
       'P': 'Presentations',
+      'Y': 'Must See Youtube Videos',
       'C': 'Cheatsheets',
       'SG': 'Study Guides',
       'D': 'Diagrams',
