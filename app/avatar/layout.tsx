@@ -16,11 +16,11 @@ export default function AvatarSectionLayout({ children }: { children: React.Reac
       const auth = await isAuthenticated();
       const role = getUserTeamRole();
 
-      // If not authenticated or not admin, redirect
-      if (!auth.valid || role !== "admin") {
-        router.replace("/"); 
+      // If not authenticated or not admin/employee, redirect
+      if (!auth.valid || (role !== "admin" && role !== "employee")) {
+        router.replace("/");
       } else {
-        setLoading(false); 
+        setLoading(false);
       }
     })();
   }, [router]);
