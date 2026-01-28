@@ -31,6 +31,7 @@ interface Placement {
 
 interface Candidate {
     id: number;
+    candidate_id: number;
     candidate_name?: string;
     full_name?: string;
     status: string;
@@ -369,67 +370,62 @@ export default function EmployeeDashboard() {
 
                 {/* Candidates Tab */}
                 <TabsContent value="candidates" className="outline-none">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <Card className="rounded-[32px] border-2 border-gray-100 shadow-xl overflow-hidden bg-white/70 backdrop-blur-sm h-[600px] flex flex-col">
-                            <CardHeader className="bg-purple-50/50 p-8 border-b border-purple-100">
-                                <CardTitle className="text-2xl font-black text-purple-800 italic flex items-center gap-3">
-                                    <GraduationCap className="text-purple-600" /> Prep Force
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="flex-1 overflow-y-auto p-0">
-                                <table className="w-full">
-                                    <thead className="sticky top-0 bg-white border-b text-xs font-black uppercase text-gray-400 tracking-widest uppercase">
+                    <Card className="rounded-[32px] border-2 border-gray-100 shadow-xl overflow-hidden bg-white/70 backdrop-blur-sm">
+                        <CardHeader className="bg-purple-50/50 p-8 border-b border-purple-100">
+                            <CardTitle className="text-2xl font-black text-purple-800 italic flex items-center gap-3">
+                                <GraduationCap className="text-purple-600" /> Prep Candidates
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <div className="overflow-x-auto">
+                                <table className="w-full table-fixed">
+                                    <thead className="sticky top-0 bg-white border-b text-xs font-black uppercase text-gray-400 tracking-widest">
                                         <tr>
-                                            <th className="text-left p-6">Candidate</th>
-                                            <th className="text-left p-6">Status</th>
-                                            <th className="text-right p-6">Joined</th>
+                                            <th className="text-left p-6 w-1/4">Candidate</th>
+                                            <th className="text-left p-6 w-1/4">Prep Status</th>
+                                            <th className="text-left p-6 w-1/4">Marketing Status</th>
+                                            <th className="text-right p-6 w-1/4">Joined</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-50">
-                                        {assigned_prep_candidates.map(c => (
-                                            <tr key={c.id} className="hover:bg-purple-50/30 transition-colors">
-                                                <td className="p-6 font-bold text-gray-800">{c.full_name || c.candidate_name}</td>
-                                                <td className="p-6">
-                                                    <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-[10px] font-black uppercase">{c.status}</span>
-                                                </td>
-                                                <td className="p-6 text-right font-medium text-gray-400">{c.start_date || 'N/A'}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
                                 </table>
-                            </CardContent>
-                        </Card>
+                                <div className="overflow-y-auto max-h-[500px]">
+                                    <table className="w-full table-fixed">
+                                        <tbody className="divide-y divide-gray-50">
+                                            {assigned_prep_candidates.map(c => {
+                                                // Check if this candidate is in marketing
+                                                const inMarketing = assigned_marketing_candidates.some(
+                                                    mc => mc.candidate_id === c.candidate_id
+                                                );
 
-                        <Card className="rounded-[32px] border-2 border-gray-100 shadow-xl overflow-hidden bg-white/70 backdrop-blur-sm h-[600px] flex flex-col">
-                            <CardHeader className="bg-green-50/50 p-8 border-b border-green-100">
-                                <CardTitle className="text-2xl font-black text-green-800 italic flex items-center gap-3">
-                                    <Target className="text-green-600" /> Market Front
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="flex-1 overflow-y-auto p-0">
-                                <table className="w-full">
-                                    <thead className="sticky top-0 bg-white border-b text-xs font-black uppercase text-gray-400 tracking-widest uppercase">
-                                        <tr>
-                                            <th className="text-left p-6">Candidate</th>
-                                            <th className="text-left p-6">Status</th>
-                                            <th className="text-right p-6">Engaged</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-50">
-                                        {assigned_marketing_candidates.map(c => (
-                                            <tr key={c.id} className="hover:bg-green-50/30 transition-colors">
-                                                <td className="p-6 font-bold text-gray-800">{c.full_name || c.candidate_name}</td>
-                                                <td className="p-6">
-                                                    <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-[10px] font-black uppercase">{c.status}</span>
-                                                </td>
-                                                <td className="p-6 text-right font-medium text-gray-400">{c.start_date || 'N/A'}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </CardContent>
-                        </Card>
-                    </div>
+                                                return (
+                                                    <tr key={c.id} className="hover:bg-purple-50/30 transition-colors">
+                                                        <td className="p-6 font-bold text-gray-800 w-1/4">{c.full_name || c.candidate_name || 'N/A'}</td>
+                                                        <td className="p-6 w-1/4">
+                                                            <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-[10px] font-black uppercase">
+                                                                {c.status}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-6 w-1/4">
+                                                            {inMarketing ? (
+                                                                <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-[10px] font-black uppercase">
+                                                                    In Marketing
+                                                                </span>
+                                                            ) : (
+                                                                <span className="px-3 py-1 bg-gray-100 text-gray-500 rounded-full text-[10px] font-black uppercase">
+                                                                    Not in Marketing
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                        <td className="p-6 text-right font-medium text-gray-400 w-1/4">{c.start_date || 'N/A'}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </TabsContent>
 
                 {/* Tasks Tab */}
