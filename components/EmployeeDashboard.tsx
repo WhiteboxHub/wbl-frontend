@@ -225,6 +225,10 @@ export default function EmployeeDashboard() {
         is_birthday
     } = data;
 
+    // Debug: Log the data to see structure
+    console.log("📊 Prep Candidates:", assigned_prep_candidates);
+    console.log("📊 Marketing Candidates:", assigned_marketing_candidates);
+
     return (
         <div className="max-w-7xl mx-auto space-y-8 animate-fadeIn pb-12">
             {/* ==================== WELCOME BANNER (Matches Candidate Dashboard) ==================== */}
@@ -394,8 +398,18 @@ export default function EmployeeDashboard() {
                                             {assigned_prep_candidates.map(c => {
                                                 // Check if this candidate is in marketing
                                                 const inMarketing = assigned_marketing_candidates.some(
-                                                    mc => mc.candidate_id === c.candidate_id
+                                                    mc => {
+                                                        // Convert both to numbers for comparison to handle type mismatches
+                                                        const mcId = Number(mc.candidate_id);
+                                                        const cId = Number(c.candidate_id);
+                                                        return mcId === cId;
+                                                    }
                                                 );
+
+                                                // Debug logging
+                                                if (c.full_name) {
+                                                    console.log(`${c.full_name} (ID: ${c.candidate_id}): ${inMarketing ? 'IN MARKETING' : 'NOT IN MARKETING'}`);
+                                                }
 
                                                 return (
                                                     <tr key={c.id} className="hover:bg-purple-50/30 transition-colors">
