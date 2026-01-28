@@ -28,6 +28,8 @@ interface CandidateData {
   login_access: any;
   miscellaneous: any;
   session_records?: any[];
+  sessions_took?: any[];
+  sessions_attended?: any[];
   placement_fee_collection?: any[];
 }
 
@@ -209,7 +211,8 @@ export default function CandidateSearchPage() {
 
       setSelectedCandidate({
         ...data,
-        session_records: sessionData.sessions || []
+        sessions_took: sessionData.sessions_took || [],
+        sessions_attended: sessionData.sessions_attended || []
       });
     } catch (error) {
       console.error("Failed to fetch candidate details:", error);
@@ -242,7 +245,8 @@ export default function CandidateSearchPage() {
 
       setSelectedCandidate({
         ...data,
-        session_records: sessionData.sessions || []
+        sessions_took: sessionData.sessions_took || [],
+        sessions_attended: sessionData.sessions_attended || []
       });
 
     } catch (error) {
@@ -433,9 +437,9 @@ export default function CandidateSearchPage() {
                     <th
                       key={column}
                       className={`text-left p-2 font-semibold text-black-700 dark:text-black-300 ${column.toLowerCase().includes('email') ? 'w-48' :
-                          column === 'recording_link' ? 'w-20' :
-                            column.toLowerCase().includes('date') ? 'w-24' :
-                              'w-auto'
+                        column === 'recording_link' ? 'w-20' :
+                          column.toLowerCase().includes('date') ? 'w-24' :
+                            'w-auto'
                         }`}
                     >
                       {displayColumn}
@@ -562,8 +566,8 @@ export default function CandidateSearchPage() {
                     <th
                       key={column}
                       className={`text-left p-2 font-semibold text-black-700 dark:text-black-300 ${column.toLowerCase().includes('email') ? 'w-48' :
-                          column.toLowerCase().includes('date') ? 'w-24' :
-                            'w-auto'
+                        column.toLowerCase().includes('date') ? 'w-24' :
+                          'w-auto'
                         }`}
                     >
                       {displayColumn}
@@ -828,15 +832,18 @@ export default function CandidateSearchPage() {
                 <div className="flex items-center gap-2">
                   <Eye className="h-5 w-5 text-black-600 dark:text-black-400" />
                   <span className="font-medium text-black-900 dark:text-black-100">Sessions</span>
-                  <Badge variant="secondary">{selectedCandidate.session_records?.length || 0}</Badge>
+                  <Badge variant="secondary">
+                    {(selectedCandidate.sessions_took?.length || 0) + (selectedCandidate.sessions_attended?.length || 0)}
+                  </Badge>
                 </div>
                 <span className="text-xl font-bold text-black-400">
                   {openSections['sessions'] ? '−' : '+'}
                 </span>
               </button>
               {openSections['sessions'] && (
-                <div className="px-6 pb-4">
-                  {renderSessionsTable("Session Records", <Eye className="h-4 w-4" />, selectedCandidate.session_records || [])}
+                <div className="px-6 pb-4 space-y-4">
+                  {renderSessionsTable("Sessions Took", <Eye className="h-4 w-4" />, selectedCandidate.sessions_took || [])}
+                  {renderSessionsTable("Sessions Attended", <Eye className="h-4 w-4" />, selectedCandidate.sessions_attended || [])}
                 </div>
               )}
             </div>

@@ -1050,6 +1050,8 @@ export function EditModal({
         const res = await apiFetch("/employees");
         const data = res?.data ?? res;
         const activeEmployees = data.filter((emp: any) => emp.status === 1);
+        // Sort employees alphabetically by name
+        activeEmployees.sort((a: any, b: any) => (a.name || "").localeCompare(b.name || ""));
         setEmployees(activeEmployees);
       } catch (error: any) {
         console.error(
