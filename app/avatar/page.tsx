@@ -270,11 +270,7 @@ export default function Index() {
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
-  useEffect(() => {
-    if (userRole === "employee") {
-      router.push("/avatar/employee/employee_dashboard");
-    }
-  }, [userRole, router]);
+
   useEffect(() => {
     if (metrics?.employee_name && !loading) {
       // If we have an employee name but we are on the global dashboard, 
