@@ -8,7 +8,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { isTokenExpired, fetchUserRole } from "./auth";
+import { isTokenExpired, fetchUserRole, getUserTeamRole } from "./auth";
 
 const AuthContext = createContext();
 
@@ -94,9 +94,10 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
+    const teamRole = getUserTeamRole(token);
     setAuthToken(token);
     setIsAuthenticated(true);
-    setUserRole(role || "candidate");
+    setUserRole(teamRole || role || "candidate");
     // optionally open sidebar if logged in
     setSidebarOpen(true);
   };
@@ -125,11 +126,13 @@ export const AuthProvider = ({ children }) => {
         return { success: false, message: "Account is inactive. Please contact admin." };
       }
 
+      const teamRole = getUserTeamRole(token);
+
       // Store token and update auth state
       localStorage.setItem("access_token", token);
       setAuthToken(token);
       setIsAuthenticated(true);
-      setUserRole(role || "candidate");
+      setUserRole(teamRole || role || "candidate");
       setSidebarOpen(true);
       return { success: true };
     } catch (error) {

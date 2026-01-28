@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "lib/utils";
 import { useState, useEffect, useRef } from "react";
+import { useAuth } from "@/utils/AuthContext";
 
 interface AvatarLayoutProps {
   children: React.ReactNode;
@@ -23,6 +24,7 @@ interface AvatarLayoutProps {
 
 export function AvatarLayout({ children }: AvatarLayoutProps) {
   const pathname = usePathname();
+  const { userRole } = useAuth() as { userRole: string };
 
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -52,8 +54,9 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
     document.documentElement.classList.toggle("dark", isDark);
   }, []);
 
-  const sidebarItems = [
+  const allSidebarItems = [
     { title: "Dashboard", href: "/avatar", icon: HomeIcon, exact: true },
+    { title: "Employee Dashboard", href: "/avatar/employee/employee_dashboard", icon: Briefcase, role: "employee" },
     { title: "Leads", href: "/avatar/leads", icon: UsersIcon },
     {
       title: "Training",
@@ -139,6 +142,18 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       ],
     },
   ];
+
+  const sidebarItems = allSidebarItems.filter(item => {
+    if (userRole === "employee") {
+      // Employees should see their specific dashboard and basic features
+      // but maybe keep all for now if they are "power users"
+      // The user wants it to "display in home page" but likely still needs navigation.
+      return true;
+    }
+    // Remove employee-only items from admin view if needed
+    if (item.role === "employee" && userRole !== "employee") return false;
+    return true;
+  });
 
   const handleItemClick = (href: string, hasChildren: boolean) => {
     if (hasChildren) {

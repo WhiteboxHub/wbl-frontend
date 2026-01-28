@@ -80,7 +80,7 @@ export const getUserTeamRole = (token = null) => {
   if (uname.toLowerCase() === "admin") return "admin";
 
   // backend sets is_employee True for employee logins
-  if (decoded.is_employee === true || decoded.is_employee === "true") return "admin";
+  if (decoded.is_employee === true || decoded.is_employee === "true") return "employee";
 
   // fallback to candidate
   return "candidate";
