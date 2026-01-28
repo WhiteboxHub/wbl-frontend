@@ -225,10 +225,6 @@ export default function EmployeeDashboard() {
         is_birthday
     } = data;
 
-    // Debug: Log the data to see structure
-    console.log("📊 Prep Candidates:", assigned_prep_candidates);
-    console.log("📊 Marketing Candidates:", assigned_marketing_candidates);
-
     return (
         <div className="max-w-7xl mx-auto space-y-8 animate-fadeIn pb-12">
             {/* ==================== WELCOME BANNER (Matches Candidate Dashboard) ==================== */}
@@ -406,11 +402,6 @@ export default function EmployeeDashboard() {
                                                     }
                                                 );
 
-                                                // Debug logging
-                                                if (c.full_name) {
-                                                    console.log(`${c.full_name} (ID: ${c.candidate_id}): ${inMarketing ? 'IN MARKETING' : 'NOT IN MARKETING'}`);
-                                                }
-
                                                 return (
                                                     <tr key={c.id} className="hover:bg-purple-50/30 transition-colors">
                                                         <td className="p-6 font-bold text-gray-800 w-1/4">{c.full_name || c.candidate_name || 'N/A'}</td>
@@ -471,20 +462,20 @@ export default function EmployeeDashboard() {
                                                         <td className="p-6 font-bold text-gray-800 w-2/5">{task.task}</td>
                                                         <td className="p-6 w-1/5">
                                                             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${task.status === 'in_progress'
-                                                                    ? 'bg-amber-100 text-amber-700'
-                                                                    : task.status === 'completed'
-                                                                        ? 'bg-green-100 text-green-700'
-                                                                        : 'bg-blue-100 text-blue-700'
+                                                                ? 'bg-amber-100 text-amber-700'
+                                                                : task.status === 'completed'
+                                                                    ? 'bg-green-100 text-green-700'
+                                                                    : 'bg-blue-100 text-blue-700'
                                                                 }`}>
                                                                 {task.status.replace('_', ' ')}
                                                             </span>
                                                         </td>
                                                         <td className="p-6 w-1/5">
                                                             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${task.priority === 'high'
-                                                                    ? 'bg-red-100 text-red-700'
-                                                                    : task.priority === 'medium'
-                                                                        ? 'bg-orange-100 text-orange-700'
-                                                                        : 'bg-gray-100 text-gray-700'
+                                                                ? 'bg-red-100 text-red-700'
+                                                                : task.priority === 'medium'
+                                                                    ? 'bg-orange-100 text-orange-700'
+                                                                    : 'bg-gray-100 text-gray-700'
                                                                 }`}>
                                                                 {task.priority}
                                                             </span>
