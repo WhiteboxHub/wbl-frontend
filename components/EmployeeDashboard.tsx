@@ -365,65 +365,6 @@ export default function EmployeeDashboard() {
                             status="active"
                         />
                     </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        {/* Summary List Card */}
-                        <Card className="rounded-[32px] border-2 border-gray-100 shadow-xl overflow-hidden bg-white/70 backdrop-blur-sm">
-                            <CardHeader className="p-8 border-b border-gray-100 bg-gray-50/50">
-                                <CardTitle className="flex items-center gap-3 text-xl font-black italic">
-                                    <div className="p-2 bg-blue-500 text-white rounded-xl shadow-lg shadow-blue-200"><Bell size={20} /></div>
-                                    Priority Missions
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-8">
-                                <div className="space-y-4">
-                                    {pending_tasks.length > 0 ? (
-                                        pending_tasks.slice(0, 4).map(task => (
-                                            <div key={task.id} className="group p-4 rounded-2xl bg-gray-50/50 border border-gray-200 hover:border-blue-400 hover:bg-white hover:shadow-lg transition-all duration-300">
-                                                <div className="flex justify-between items-center">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={`w-2 h-2 rounded-full ${task.priority === 'high' ? 'bg-red-500' : 'bg-blue-500'}`}></div>
-                                                        <h4 className="font-bold text-gray-800">{task.task}</h4>
-                                                    </div>
-                                                    <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-lg ${task.priority === 'high' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
-                                                        {task.priority}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <div className="text-center py-12 text-gray-400 font-medium italic">All clear! No pending missions.</div>
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Recent Impact Card */}
-                        <div className="bg-gradient-to-br from-indigo-600 to-purple-800 rounded-[32px] p-8 text-white shadow-2xl relative overflow-hidden group min-h-[400px]">
-                            <div className="absolute top-0 right-0 p-12 opacity-10 group-hover:scale-110 transition-transform duration-700">
-                                <TrendingUp size={240} />
-                            </div>
-                            <div className="relative z-10">
-                                <h3 className="text-3xl font-black italic mb-10 tracking-tighter">Your Legacy</h3>
-                                <div className="space-y-10">
-                                    <div className="flex items-center gap-8">
-                                        <div className="w-20 h-20 bg-white/20 backdrop-blur-md rounded-[28px] flex items-center justify-center text-4xl shadow-inner border border-white/20">🏆</div>
-                                        <div>
-                                            <p className="text-5xl font-black tracking-tighter leading-none mb-1">{placements.length}</p>
-                                            <p className="text-xs font-black opacity-60 tracking-[0.2em] uppercase">Candidates Placed</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-8">
-                                        <div className="w-20 h-20 bg-white/20 backdrop-blur-md rounded-[28px] flex items-center justify-center text-4xl shadow-inner border border-white/20">💫</div>
-                                        <div>
-                                            <p className="text-5xl font-black tracking-tighter leading-none mb-1">{job_help_candidates.length}</p>
-                                            <p className="text-xs font-black opacity-60 tracking-[0.2em] uppercase">Active Support Sessions</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </TabsContent>
 
                 {/* Candidates Tab */}
