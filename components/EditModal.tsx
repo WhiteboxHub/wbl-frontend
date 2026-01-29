@@ -6,6 +6,7 @@ import axios from "axios";
 import dynamic from "next/dynamic";
 const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
 import "react-quill/dist/quill.snow.css";
+import { QuillWithMentions } from "@/components/QuillWithMentions";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -3262,7 +3263,7 @@ export function EditModal({
                                 }}
                               />
                             ) : (
-                              <ReactQuill
+                              <QuillWithMentions
                                 theme="snow"
                                 value={
                                   currentFormValues.notes || formData.notes || ""
