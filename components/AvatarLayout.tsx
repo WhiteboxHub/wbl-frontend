@@ -136,6 +136,10 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
           title: "Automation Keywords",
           href: "/avatar/job-activity/automation-keywords",
         },
+        {
+          title: "Positions",
+          href: "/avatar/positions",
+        },
       ],
     },
   ];
