@@ -300,6 +300,31 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "true", label: "Active" },
     { value: "false", label: "Inactive" },
   ],
+  position_type: [
+    { value: "full_time", label: "Full Time" },
+    { value: "contract", label: "Contract" },
+    { value: "contract_to_hire", label: "Contract to Hire" },
+    { value: "internship", label: "Internship" },
+  ],
+  employment_mode: [
+    { value: "onsite", label: "Onsite" },
+    { value: "hybrid", label: "Hybrid" },
+    { value: "remote", label: "Remote" },
+  ],
+  position_status: [
+    { value: "open", label: "Open" },
+    { value: "closed", label: "Closed" },
+    { value: "on_hold", label: "On Hold" },
+    { value: "duplicate", label: "Duplicate" },
+    { value: "invalid", label: "Invalid" },
+  ],
+  source: [
+    { value: "linkedin", label: "LinkedIn" },
+    { value: "job_board", label: "Job Board" },
+    { value: "vendor", label: "Vendor" },
+    { value: "email", label: "Email" },
+    { value: "scraper", label: "Scraper" },
+  ],
 };
 
 // Vendor type options
@@ -637,6 +662,16 @@ const fieldSections: Record<string, string> = {
   extraction_date: "Professional Information",
   is_in_prep: "Basic Information",
   is_in_marketing: "Professional Information",
+  normalized_title: "Basic Information",
+  position_type: "Basic Information",
+  employment_mode: "Basic Information",
+  confidence_score: "Professional Information",
+  contact_email: "Contact Information",
+  contact_phone: "Contact Information",
+  contact_linkedin: "Contact Information",
+  job_url: "Professional Information",
+  description: "Professional Information",
+  source_uid: "Professional Information",
 };
 
 // Override field labels for better readability
@@ -772,6 +807,16 @@ const labelOverrides: Record<string, string> = {
   updated_at: "Updated At",
   is_in_prep: "In Prep",
   is_in_marketing: "In Marketing",
+  normalized_title: "Normalized Title",
+  position_type: "Position Type",
+  employment_mode: "Employment Mode",
+  confidence_score: "Confidence Score",
+  contact_email: "Contact Email",
+  contact_phone: "Contact Phone",
+  contact_linkedin: "Contact LinkedIn",
+  job_url: "Job URL",
+  source_uid: "Source UID",
+  company_id: "Company ID",
   installment_id: "Installment",
   company_name: "Company"
 };
@@ -872,6 +917,7 @@ export function EditModal({
     .includes("job activity log");
   const isJobTypeModal = title.toLowerCase().includes("job type");
   const isAutomationKeywordModal = title.toLowerCase().includes("automation keyword");
+  const isPositionsModal = title.toLowerCase().includes("position");
 
   // Field visibility for current modal
   const showInstructorFields =
@@ -1388,11 +1434,18 @@ export function EditModal({
         }
       }
     }
+
     if (formData.candidate_full_name) {
       reconstructedData.candidate = {
         ...data.candidate,
         full_name: formData.candidate_full_name,
       };
+    }
+
+    if (isPositionsModal) {
+      // Ensure required fields for positions
+      if (!reconstructedData.source) reconstructedData.source = "linkedin";
+      if (!reconstructedData.status) reconstructedData.status = "open";
     }
 
     // Handle instructor fields - send null if "Select Instructor" is chosen
@@ -1459,6 +1512,14 @@ export function EditModal({
     if (keyLower === "workstatus") {
       return enumOptions.workstatus;
     }
+
+    if (title === "Job Positions" && keyLower === "status") {
+      return enumOptions.position_status;
+    }
+
+    if (keyLower === "position_type") return enumOptions.position_type;
+    if (keyLower === "employment_mode") return enumOptions.employment_mode;
+    if (keyLower === "source") return enumOptions.source;
 
     if (isPreparationModal && keyLower === "status") {
       return [

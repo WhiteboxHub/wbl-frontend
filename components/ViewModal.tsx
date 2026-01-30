@@ -184,14 +184,21 @@ const fieldSections: Record<string, string> = {
   action: "Basic Information",
   context: "Professional Information",
   is_active: "Basic Information",
-  created_at: "Professional Information",
-  updated_at: "Professional Information",
   job_title: "Professional Information",
   location: "Professional Information",
   extraction_date: "Professional Information",
   is_immigration_team: "Basic Information",
   is_in_prep: "Basic Information",
   is_in_marketing: "Professional Information",
+  normalized_title: "Basic Information",
+  position_type: "Basic Information",
+  employment_mode: "Basic Information",
+  confidence_score: "Professional Information",
+  contact_email: "Contact Information",
+  contact_phone: "Contact Information",
+  contact_linkedin: "Contact Information",
+  job_url: "Professional Information",
+  source_uid: "Professional Information",
 };
 
 const workVisaStatusOptions = [
