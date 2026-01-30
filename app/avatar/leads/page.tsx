@@ -59,7 +59,7 @@ const initialFormData: FormData = {
   full_name: "",
   email: "",
   phone: "",
-  workstatus: "Waiting for Status",
+  workstatus: "",
   address: "",
   status: "Open",
   moved_to_candidate: false,
@@ -640,7 +640,7 @@ export default function LeadsPage() {
         updatedData.status = updatedData.moved_to_candidate ? "Closed" : "Open";
       }
       if (!updatedData.workstatus || updatedData.workstatus === '') {
-        updatedData.workstatus = 'Waiting for Status';
+        updatedData.workstatus = '';
       }
       const booleanFields = ['moved_to_candidate', 'massemail_email_sent', 'massemail_unsubscribe'];
       booleanFields.forEach(field => {
@@ -1020,7 +1020,7 @@ export default function LeadsPage() {
                 full_name: newRow.full_name || "",
                 email: newRow.email || "",
                 phone: newRow.phone || "",
-                workstatus: newRow.workstatus || "Waiting for Status",
+                workstatus: newRow.workstatus || "",
                 address: newRow.address || "",
                 secondary_email: newRow.secondary_email || "",
                 secondary_phone: newRow.secondary_phone || "",
