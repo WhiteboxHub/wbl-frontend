@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/utils/AuthContext";
 import {
   Users, Layers3, CalendarDays, GraduationCap, UserPlus, CalendarPlus, PieChart as PieChartIcon, Wallet, Banknote, TrendingUp, Briefcase, Award, CheckCircle2, Clock, Mic, BarChart2,
   ClipboardList, XCircle, Target, CakeIcon, PiggyBank, Handshake, Trophy, NotebookIcon, Pen, PencilOff,
@@ -237,6 +239,9 @@ function useCounter(target: number, duration = 1000) {
 }
 
 export default function Index() {
+  const router = useRouter();
+  const { userRole } = useAuth() as { userRole: string };
+
   const [data, setData] = useState<CandidateInterviewPerformance[]>([]);
   const [time, setTime] = useState<Date | null>(null);
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
@@ -264,6 +269,15 @@ export default function Index() {
     window.addEventListener('resize', checkScreenSize);
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
+
+
+  useEffect(() => {
+    if (metrics?.employee_name && !loading) {
+      // If we have an employee name but we are on the global dashboard, 
+      // we might want to stay here if it's mixed, but the user requested 
+      // to display the employee dashboard on login.
+    }
+  }, [metrics, loading]);
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
