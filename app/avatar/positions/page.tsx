@@ -367,7 +367,7 @@ export default function PositionsPage() {
             const id = updatedData.id;
             const dataToSave = getPositionPayload(updatedData);
 
-            const response = await api.put(`/positions/${id}/`, dataToSave);
+            const response = await api.put(`/positions/${id}`, dataToSave);
             const updatedRecord = response.data;
 
             setAllPositions((prev) =>
@@ -391,7 +391,7 @@ export default function PositionsPage() {
 
     const handleRowDeleted = async (id: string | number) => {
         try {
-            await api.delete(`/positions/${id}/`);
+            await api.delete(`/positions/${id}`);
             setAllPositions((prev) => prev.filter((row) => row.id !== id));
             toast.success("Position deleted successfully");
         } catch (error: any) {

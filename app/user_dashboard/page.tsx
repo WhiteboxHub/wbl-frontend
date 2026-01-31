@@ -1,99 +1,92 @@
 
 "use client";
-import React, { useState, useEffect } from "react";
+
+import React from "react";
+import { useAuth } from "@/utils/AuthContext";
+import EmployeeDashboard from "@/components/EmployeeDashboard";
+import CandidateDashboard from "@/components/CandidateDashboard";
 import { User, Phone, Mail, Activity, Clock } from "lucide-react";
 
-
 interface UserProfile {
-  uname: string;        // email
+  uname: string;
   full_name: string;
   phone: string;
   login_count: number;
 }
 
-export default function UserDashboard() {
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(false);
+export default function UserDashboardPage() {
+  const { userRole, isAuthenticated } = useAuth();
+  const [userProfile, setUserProfile] = React.useState<UserProfile | null>(null);
+  const [loading, setLoading] = React.useState(false);
 
-  useEffect(() => {
-    loadUserProfile();
-  }, []);
+  React.useEffect(() => {
+    // If regular user (not candidate/employee), load profile
+    if (isAuthenticated && !["employee", "candidate"].includes(userRole || "")) {
+      loadUserProfile();
+    }
+  }, [isAuthenticated, userRole]);
 
   const loadUserProfile = async () => {
     try {
       setLoading(true);
-
       const token = localStorage.getItem("access_token");
-      if (!token) {
-        throw new Error("No token found. Please log in.");
-      }
+      if (!token) throw new Error("No token found");
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user_dashboard`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!res.ok) {
-        throw new Error("Failed to fetch user dashboard");
-      }
-
+      if (!res.ok) throw new Error("Failed to fetch user dashboard");
       const data = await res.json();
       setUserProfile(data);
     } catch (error) {
       console.error(error);
-      setUserProfile(null);
     } finally {
       setLoading(false);
     }
   };
 
+  if (!isAuthenticated) {
+    return <div className="min-h-screen flex items-center justify-center">Please log in to view this page.</div>;
+  }
+
+  // Render Role-Based Dashboards
+  if (userRole === "employee") {
+    return (
+      <div className="pt-24 pb-12 bg-gray-50 dark:bg-gray-900 min-h-screen">
+        <EmployeeDashboard />
+      </div>
+    );
+  }
+
+  if (userRole === "candidate") {
+    return (
+      <div className="pt-24 pb-12 bg-gray-50 dark:bg-gray-900 min-h-screen">
+        <CandidateDashboard />
+      </div>
+    );
+  }
+
+  // Fallback: Default User Dashboard (Profile View)
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="relative mb-6">
-          </div>
-          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-2">Loading Profile</h2>
-          <div className="flex items-center justify-center space-x-1">
-            <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
-            <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-            <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-          </div>
+        <div className="text-xl font-semibold text-gray-800 dark:text-gray-100 animate-pulse">
+          Loading Profile...
         </div>
       </div>
     );
   }
 
   if (!userProfile) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-lg p-8 text-center max-w-md">
-          <div className="w-16 h-16 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center mx-auto mb-6">
-            <User className="h-8 w-8 text-red-500 dark:text-red-400" />
-          </div>
-          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3">Connection Failed</h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">Unable to retrieve your profile data. Please check your connection and try again.</p>
-          <button
-            onClick={loadUserProfile}
-            className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl hover:from-blue-600 hover:to-purple-600 transition-all duration-300 transform hover:scale-105 font-semibold"
-          >
-            Retry Connection
-          </button>
-        </div>
-      </div>
-    );
-  };
+    return null;
+  }
 
-  const getFirstName = (fullName: string) => {
-    return fullName.split(' ')[0];
-  };
+  const getFirstName = (fullName: string) => fullName.split(' ')[0];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pt-24">
-      
       <div className="max-w-4xl mx-auto px-6 py-8">
-        
         <div className="mb-8">
           <div className="flex items-center space-x-4 mb-6">
             <div className="relative">
@@ -107,15 +100,10 @@ export default function UserDashboard() {
             <div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Hello, {getFirstName(userProfile.full_name)}!</h2>
               <p className="text-gray-600 dark:text-gray-400">Here's your account overview</p>
-              <div className="flex items-center space-x-2 mt-1">
-                <Clock className="h-3 w-3 text-blue-500" />
-                <span className="text-xs text-blue-500">Last updated: Just now</span>
-              </div>
             </div>
           </div>
         </div>
 
-        
         <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl shadow-lg p-8">
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Profile Details</h2>
@@ -123,7 +111,6 @@ export default function UserDashboard() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-           
             <div className="space-y-6">
               <div className="flex items-center space-x-4 p-6 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-100 dark:border-gray-600 hover:shadow-md transition-all duration-300">
                 <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-xl flex items-center justify-center">
@@ -134,7 +121,6 @@ export default function UserDashboard() {
                   <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{userProfile.full_name}</p>
                 </div>
               </div>
-
               <div className="flex items-center space-x-4 p-6 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-100 dark:border-gray-600 hover:shadow-md transition-all duration-300">
                 <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-xl flex items-center justify-center">
                   <Mail className="h-6 w-6 text-green-600 dark:text-green-400" />
@@ -146,7 +132,6 @@ export default function UserDashboard() {
               </div>
             </div>
 
-            
             <div className="space-y-6">
               <div className="flex items-center space-x-4 p-6 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-100 dark:border-gray-600 hover:shadow-md transition-all duration-300">
                 <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-xl flex items-center justify-center">
@@ -157,7 +142,6 @@ export default function UserDashboard() {
                   <p className="text-xl font-bold text-gray-900 dark:text-gray-100">{userProfile.phone}</p>
                 </div>
               </div>
-
               <div className="flex items-center space-x-4 p-6 bg-gray-50 dark:bg-gray-700 rounded-2xl border border-gray-100 dark:border-gray-600 hover:shadow-md transition-all duration-300">
                 <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-xl flex items-center justify-center">
                   <Activity className="h-6 w-6 text-orange-600 dark:text-orange-400" />
@@ -173,5 +157,4 @@ export default function UserDashboard() {
       </div>
     </div>
   );
-  
 }

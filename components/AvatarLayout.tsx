@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "lib/utils";
 import { useState, useEffect, useRef } from "react";
+import { useAuth } from "@/utils/AuthContext";
 
 interface AvatarLayoutProps {
   children: React.ReactNode;
@@ -23,6 +24,7 @@ interface AvatarLayoutProps {
 
 export function AvatarLayout({ children }: AvatarLayoutProps) {
   const pathname = usePathname();
+  const { userRole } = useAuth() as { userRole: string };
 
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -52,7 +54,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
     document.documentElement.classList.toggle("dark", isDark);
   }, []);
 
-  const sidebarItems = [
+  const allSidebarItems = [
     { title: "Dashboard", href: "/avatar", icon: HomeIcon, exact: true },
     { title: "Leads", href: "/avatar/leads", icon: UsersIcon },
     {
@@ -143,6 +145,8 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       ],
     },
   ];
+
+  const sidebarItems = allSidebarItems;
 
   const handleItemClick = (href: string, hasChildren: boolean) => {
     if (hasChildren) {
