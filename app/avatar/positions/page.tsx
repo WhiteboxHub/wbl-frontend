@@ -516,8 +516,8 @@ export default function PositionsPage() {
                 }
             },
             { field: "location", headerName: "Location", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true },
-            { field: "city", headerName: "City", width: 120, sortable: true, filter: "agTextColumnFilter", editable: true, hide: true },
-            { field: "state", headerName: "State", width: 100, sortable: true, filter: "agTextColumnFilter", editable: true, hide: true },
+            { field: "city", headerName: "City", width: 120, sortable: true, filter: "agTextColumnFilter", editable: true },
+            { field: "state", headerName: "State", width: 100, sortable: true, filter: "agTextColumnFilter", editable: true },
             {
                 field: "contact_email",
                 headerName: "Contact Email",
@@ -538,14 +538,14 @@ export default function PositionsPage() {
                     );
                 }
             },
-            { field: "contact_phone", headerName: "Contact Phone", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true, hide: true },
+            { field: "contact_phone", headerName: "Contact Phone", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "contact_linkedin", headerName: "Contact LinkedIn", width: 220, sortable: true, filter: "agTextColumnFilter", editable: true, cellRenderer: LinkCellRenderer },
             { field: "job_url", headerName: "Job URL", width: 250, sortable: true, filter: "agTextColumnFilter", editable: true, cellRenderer: LinkCellRenderer },
-            { field: "normalized_title", headerName: "Normalized Title", width: 200, sortable: true, filter: "agTextColumnFilter", editable: true, hide: true },
-            { field: "company_id", headerName: "Company ID", width: 130, sortable: true, filter: "agNumberColumnFilter", editable: true, hide: true },
-            { field: "confidence_score", headerName: "Conf. Score", width: 130, sortable: true, filter: "agNumberColumnFilter", editable: true, hide: true },
-            // { field: "created_at", headerName: "Created At", width: 160, sortable: true, valueFormatter: (params) => params.value ? new Date(params.value).toLocaleString() : "", hide: true },
-            { field: "notes", headerName: "Notes", width: 300, sortable: true, filter: "agTextColumnFilter", editable: true, hide: true },
+            { field: "normalized_title", headerName: "Normalized Title", width: 200, sortable: true, filter: "agTextColumnFilter", editable: true },
+            { field: "company_id", headerName: "Company ID", width: 130, sortable: true, filter: "agNumberColumnFilter", editable: true },
+            { field: "confidence_score", headerName: "Conf. Score", width: 130, sortable: true, filter: "agNumberColumnFilter", editable: true },
+            { field: "description", headerName: "Description", width: 300, sortable: true, filter: "agTextColumnFilter", editable: true },
+            { field: "notes", headerName: "Notes", width: 300, sortable: true, filter: "agTextColumnFilter", editable: true },
         ],
         [selectedStatuses, selectedTypes, selectedModes, selectedSources]
     );
