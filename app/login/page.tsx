@@ -72,7 +72,7 @@ const SigninPage = () => {
             router.push("/avatar");
           } else {
             // Redirect employees and candidates to home dashboard
-            router.push("/");
+            router.push("/user_dashboard");
           }
         }, 500);
       } else {
@@ -97,7 +97,7 @@ const SigninPage = () => {
     } else if (session?.user?.status === "active") {
       setGoogleMessage("Logged in successfully!");
       setGoogleStatus("success");
-      router.push("/");
+      router.push("/user_dashboard");
     }
   }, [session, router]);
 
@@ -146,7 +146,7 @@ const SigninPage = () => {
         } else {
           // Employees and Candidates redirect to home dashboard
           setTimeout(() => {
-            router.push("/");
+            router.push("/user_dashboard");
           }, 500);
         }
       } else {
@@ -188,7 +188,7 @@ const SigninPage = () => {
       if (role === "admin") {
         router.push("/avatar");
       } else {
-        router.push("/");
+        router.push("/user_dashboard");
       }
     }
   }, [router]);
@@ -200,7 +200,7 @@ const SigninPage = () => {
     if (role === "admin") {
       router.push("/avatar");
     } else {
-      router.push("/");
+      router.push("/user_dashboard");
     }
     return null;
   }
