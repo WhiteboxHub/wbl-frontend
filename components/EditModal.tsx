@@ -825,8 +825,7 @@ const labelOverrides: Record<string, string> = {
   source_uid: "Source UID",
   company_id: "Company ID",
   installment_id: "Installment",
-  company_name: "Company",
-  position_id: "Linked Position",
+  company_name: "Company"
 };
 
 const dateFields = [
@@ -1699,6 +1698,7 @@ export function EditModal({
     }
 
     // Hide company_name and candidate_name in add mode for placement fee modals
+    const isPlacementFeeModal = title.toLowerCase().includes("placement fee");
     if (isPlacementFeeModal && isAddMode && (key === "company_name" || key === "candidate_name")) {
       return;
     }
@@ -3350,7 +3350,7 @@ export function EditModal({
                             }
 
                             // Make company_name read-only in edit mode for placement fees
-                            if (key === "company_name" && !isAddMode && isPlacementFeeModal) {
+                            if (key === "company_name" && !isAddMode) {
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5">
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
@@ -3361,59 +3361,6 @@ export function EditModal({
                                     value={formData[key] || ""}
                                     readOnly
                                     className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
-                                  />
-                                </div>
-                              );
-                            }
-
-                            if (key === "location" || key === "address") {
-                              return (
-                                <div key={key} className="space-y-1 sm:space-y-1.5">
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                                    {toLabel(key)}
-                                    {isFieldRequired(toLabel(key), title, isAddMode) && (
-                                      <span className="text-red-700"> *</span>
-                                    )}
-                                  </label>
-                                  <AddressAutocomplete
-                                    value={currentFormValues[key] || formData[key] || ""}
-                                    onChange={(val, details) => {
-                                      setValue(key, val);
-                                      setFormData((prev) => ({ ...prev, [key]: val }));
-                                      if (details && details.address) {
-                                        const addr = details.address;
-                                        const updates: Record<string, any> = {};
-
-                                        const updateIfExists = (fieldNames: string[], value: any) => {
-                                          const found = fieldNames.find(f => f in formData);
-                                          if (found) {
-                                            setValue(found, value);
-                                            updates[found] = value;
-                                          }
-                                        };
-
-                                        // Handle City
-                                        const cityVal = addr.city || addr.town || addr.village || "";
-                                        updateIfExists(["city"], cityVal);
-
-                                        // Handle State
-                                        const stateVal = addr.state || "";
-                                        updateIfExists(["state"], stateVal);
-
-                                        // Handle Zip/Postcode
-                                        const zipVal = addr.postcode || "";
-                                        updateIfExists(["zip", "zip_code", "postal_code"], zipVal);
-
-                                        // Handle Country
-                                        const countryVal = addr.country || "";
-                                        updateIfExists(["country"], countryVal);
-
-                                        if (Object.keys(updates).length > 0) {
-                                          setFormData((prev) => ({ ...prev, ...updates }));
-                                        }
-                                      }
-                                    }}
-                                    placeholder={`Search ${toLabel(key)}...`}
                                   />
                                 </div>
                               );
