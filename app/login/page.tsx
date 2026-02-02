@@ -69,10 +69,10 @@ const SigninPage = () => {
         // Redirect based on role
         setTimeout(() => {
           if (role === "admin") {
-            router.push("/avatar");
+            router.push("/");
           } else {
-            // Redirect employees and candidates to home dashboard
-            router.push("/user_dashboard");
+            // Redirect candidates to dashboard
+            router.push("/dashboard");
           }
         }, 500);
       } else {
@@ -97,7 +97,7 @@ const SigninPage = () => {
     } else if (session?.user?.status === "active") {
       setGoogleMessage("Logged in successfully!");
       setGoogleStatus("success");
-      router.push("/user_dashboard");
+      router.push("/dashboard");
     }
   }, [session, router]);
 
@@ -138,15 +138,16 @@ const SigninPage = () => {
         setResponseStatus("success");
 
         // Redirect based on role
+        // Redirect based on role
         if (role === "admin") {
-          // Admin redirects to avatar dashboard
+          // Admin redirects to home
           setTimeout(() => {
-            router.push("/avatar");
+            router.push("/");
           }, 500);
         } else {
-          // Employees and Candidates redirect to home dashboard
+          // Candidates redirect to dashboard
           setTimeout(() => {
-            router.push("/user_dashboard");
+            router.push("/dashboard");
           }, 500);
         }
       } else {
@@ -186,9 +187,9 @@ const SigninPage = () => {
     if (accessToken) {
       const role = getUserTeamRole(accessToken);
       if (role === "admin") {
-        router.push("/avatar");
+        router.push("/");
       } else {
-        router.push("/user_dashboard");
+        router.push("/dashboard");
       }
     }
   }, [router]);
@@ -198,9 +199,9 @@ const SigninPage = () => {
     const accessToken = localStorage.getItem("access_token");
     const role = getUserTeamRole(accessToken || "");
     if (role === "admin") {
-      router.push("/avatar");
+      router.push("/");
     } else {
-      router.push("/user_dashboard");
+      router.push("/dashboard");
     }
     return null;
   }
@@ -499,11 +500,10 @@ const SigninPage = () => {
                   )}
                   {googleMessage && (
                     <div
-                      className={`${
-                        googleStatus === "success"
+                      className={`${googleStatus === "success"
                           ? "border-green-400 bg-green-100 text-green-700"
                           : "border-red-400 bg-red-100 text-red-700"
-                      } relative mt-4 flex items-center justify-between rounded-xl px-2 py-1 text-sm sm:px-3 sm:py-1 sm:text-base`}
+                        } relative mt-4 flex items-center justify-between rounded-xl px-2 py-1 text-sm sm:px-3 sm:py-1 sm:text-base`}
                       role="alert"
                     >
                       <div>
