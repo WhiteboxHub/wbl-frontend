@@ -105,11 +105,10 @@ const FilterHeaderComponent = ({
                 <button
                   key={value}
                   onClick={() => handleValueChange(value)}
-                  className={`block w-full text-left px-4 py-2 text-sm ${
-                    selectedValues.includes(value)
-                      ? "bg-blue-50 text-blue-700"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`}
+                  className={`block w-full text-left px-4 py-2 text-sm ${selectedValues.includes(value)
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-gray-700 hover:bg-gray-100"
+                    }`}
                 >
                   {label}
                 </button>
@@ -166,8 +165,8 @@ const StatusRenderer = (params: any) => {
     v === "cleared"
       ? "bg-green-100 text-green-800"
       : v === "rejected"
-      ? "bg-red-100 text-red-800"
-      : "bg-gray-100 text-gray-800";
+        ? "bg-red-100 text-red-800"
+        : "bg-gray-100 text-gray-800";
   return <Badge className={classes}>{params.value}</Badge>;
 };
 
@@ -238,6 +237,7 @@ type InterviewFormData = {
   backup_recording_url?: string;
   job_posting_url?: string;
   feedback?: string;
+  position_id?: number | string;
 };
 
 const initialFormData: InterviewFormData = {
@@ -256,6 +256,7 @@ const initialFormData: InterviewFormData = {
   backup_recording_url: "",
   job_posting_url: "",
   feedback: "Pending",
+  position_id: "",
 };
 
 export default function CandidatesInterviews() {
@@ -305,53 +306,53 @@ export default function CandidatesInterviews() {
   ];
 
 
-const EmailRenderer = (params: any) => {
-  const value = params.value;
-  if (!value) return <span className="text-gray-500">No Email</span>;
+  const EmailRenderer = (params: any) => {
+    const value = params.value;
+    if (!value) return <span className="text-gray-500">No Email</span>;
 
-  const emails = String(value)
-    .split(/[\s,]+/)
-    .map((e) => e.trim())
-    .filter(Boolean);
+    const emails = String(value)
+      .split(/[\s,]+/)
+      .map((e) => e.trim())
+      .filter(Boolean);
 
-  return (
-    <div className="flex flex-col space-y-1">
-      {emails.map((email: string, idx: number) => (
-        <a
-          key={idx}
-          href={`mailto:${email}`}
-          className="text-blue-600 underline hover:text-blue-800"
-        >
-          {email}
-        </a>
-      ))}
-    </div>
-  );
-};
+    return (
+      <div className="flex flex-col space-y-1">
+        {emails.map((email: string, idx: number) => (
+          <a
+            key={idx}
+            href={`mailto:${email}`}
+            className="text-blue-600 underline hover:text-blue-800"
+          >
+            {email}
+          </a>
+        ))}
+      </div>
+    );
+  };
 
-const PhoneRenderer = (params: any) => {
-  const value = params.value;
-  if (!value) return <span className="text-gray-500">No Phone</span>;
+  const PhoneRenderer = (params: any) => {
+    const value = params.value;
+    if (!value) return <span className="text-gray-500">No Phone</span>;
 
-  const phones = String(value)
-    .split(/[\s,]+/)
-    .map((p) => p.trim())
-    .filter(Boolean);
+    const phones = String(value)
+      .split(/[\s,]+/)
+      .map((p) => p.trim())
+      .filter(Boolean);
 
-  return (
-    <div className="flex flex-col space-y-1">
-      {phones.map((phone: string, idx: number) => (
-        <a
-          key={idx}
-          href={`tel:${phone.replace(/[^+\d]/g, "")}`}
-          className="text-blue-600 underline hover:text-blue-800"
-        >
-          {phone}
-        </a>
-      ))}
-    </div>
-  );
-};
+    return (
+      <div className="flex flex-col space-y-1">
+        {phones.map((phone: string, idx: number) => (
+          <a
+            key={idx}
+            href={`tel:${phone.replace(/[^+\d]/g, "")}`}
+            className="text-blue-600 underline hover:text-blue-800"
+          >
+            {phone}
+          </a>
+        ))}
+      </div>
+    );
+  };
 
   const fetchInterviews = useCallback(async (pageNum: number, perPageNum: number) => {
     setLoading(true);
@@ -515,6 +516,7 @@ const PhoneRenderer = (params: any) => {
         backup_recording_url: data.backup_recording_url || null,
         job_posting_url: data.job_posting_url || null,
         feedback: data.feedback || null,
+        position_id: data.position_id ? Number(data.position_id) : null,
       };
       const res = await api.post(`/interviews`, payload);
       setInterviews((prev) => [res.data, ...prev]);
@@ -551,80 +553,81 @@ const PhoneRenderer = (params: any) => {
     return () => window.removeEventListener("keydown", handleEsc);
   }, []);
 
-const columnDefs = useMemo<ColDef[]>(() => [
-  { field: "id", headerName: "ID", pinned: "left", width: 80 },
-  {
-    field: "candidate.full_name",
-    headerName: "Full Name",
-    cellRenderer: CandidateNameRenderer,
-    sortable: true,
-    width: 200,
-    editable: false,
-  },
-  { field: "company", headerName: "Company", sortable: true, width: 160, editable: true },
-  {
-    field: "mode_of_interview",
-    headerName: "Mode",
-    width: 120,
-    editable: true,
-    cellRenderer: ModeRenderer,
-    headerComponent: FilterHeaderComponent,
-    headerComponentParams: {
-      columnName: "Mode",
-      options: modeOfInterviewOptions,
-      selectedValues: selectedModes,
-      setSelectedValues: setSelectedModes,
+  const columnDefs = useMemo<ColDef[]>(() => [
+    { field: "id", headerName: "ID", pinned: "left", width: 80 },
+    {
+      field: "candidate.full_name",
+      headerName: "Full Name",
+      cellRenderer: CandidateNameRenderer,
+      sortable: true,
+      width: 200,
+      editable: false,
     },
-  },
-  {
-    field: "type_of_interview",
-    headerName: "Type",
-    width: 150,
-    editable: true,
-    headerComponent: FilterHeaderComponent,
-    headerComponentParams: {
-      columnName: "Type",
-      options: typeOfInterviewOptions,
-      selectedValues: selectedTypes,
-      setSelectedValues: setSelectedTypes,
+    { field: "company", headerName: "Company", sortable: true, width: 160, editable: true },
+    { field: "position_title", headerName: "Position Title", width: 180 },
+    {
+      field: "mode_of_interview",
+      headerName: "Mode",
+      width: 120,
+      editable: true,
+      cellRenderer: ModeRenderer,
+      headerComponent: FilterHeaderComponent,
+      headerComponentParams: {
+        columnName: "Mode",
+        options: modeOfInterviewOptions,
+        selectedValues: selectedModes,
+        setSelectedValues: setSelectedModes,
+      },
     },
-    cellRenderer: TypeRenderer,
-  },
-  {
-    field: "company_type",
-    headerName: "Company Type",
-    width: 170,
-    editable: true,
-    headerComponent: FilterHeaderComponent,
-    headerComponentParams: {
-      columnName: "Company Type",
-      options: companyTypeOptions,
-      selectedValues: selectedCompanyTypes,
-      setSelectedValues: setSelectedCompanyTypes,
+    {
+      field: "type_of_interview",
+      headerName: "Type",
+      width: 150,
+      editable: true,
+      headerComponent: FilterHeaderComponent,
+      headerComponentParams: {
+        columnName: "Type",
+        options: typeOfInterviewOptions,
+        selectedValues: selectedTypes,
+        setSelectedValues: setSelectedTypes,
+      },
+      cellRenderer: TypeRenderer,
     },
-    cellRenderer: CompanyTypeRenderer,
-  },
-  { field: "interview_date", headerName: "Date", width: 120, editable: true },
-  { field: "interviewer_emails", headerName: "Interviewer Email",cellRenderer: EmailRenderer,  width: 190, editable: true },
-  { field: "interviewer_contact", headerName: "Interviewer Phone", cellRenderer: PhoneRenderer,  width: 190, editable: true },
-  { field: "interviewer_linkedin", headerName: "Interviewer Linkedin",cellRenderer: LinkRenderer, width: 190, editable: true },
-  { field: "recording_link", headerName: "Recording", cellRenderer: LinkRenderer, width: 120, editable: true },
-  { field: "transcript", headerName: "Transcript", cellRenderer: LinkRenderer, width: 120, editable: true },
-  { field: "backup_recording_url", headerName: "Backup Recording", cellRenderer: LinkRenderer, width: 140, editable: true },
-  { field: "job_posting_url", headerName: "Job Posting URL", cellRenderer: LinkRenderer, width: 140, editable: true },
-  { field: "instructor1_name", headerName: "Instructor 1", width: 150 },
-  { field: "instructor2_name", headerName: "Instructor 2", width: 150 },
-  { field: "instructor3_name", headerName: "Instructor 3", width: 150 },
-  { field: "feedback", headerName: "Feedback", cellRenderer: FeedbackRenderer, width: 120, editable: true },
-  {
-    field: "notes",
-    headerName: "Notes",
-    width: 300,
-    sortable: true,
-    cellRenderer: (params: any) =>
-      params.value ? <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: params.value }} /> : "",
-  },
-], [selectedModes, selectedTypes, selectedCompanyTypes]);
+    {
+      field: "company_type",
+      headerName: "Company Type",
+      width: 170,
+      editable: true,
+      headerComponent: FilterHeaderComponent,
+      headerComponentParams: {
+        columnName: "Company Type",
+        options: companyTypeOptions,
+        selectedValues: selectedCompanyTypes,
+        setSelectedValues: setSelectedCompanyTypes,
+      },
+      cellRenderer: CompanyTypeRenderer,
+    },
+    { field: "interview_date", headerName: "Date", width: 120, editable: true },
+    { field: "interviewer_emails", headerName: "Interviewer Email", cellRenderer: EmailRenderer, width: 190, editable: true },
+    { field: "interviewer_contact", headerName: "Interviewer Phone", cellRenderer: PhoneRenderer, width: 190, editable: true },
+    { field: "interviewer_linkedin", headerName: "Interviewer Linkedin", cellRenderer: LinkRenderer, width: 190, editable: true },
+    { field: "recording_link", headerName: "Recording", cellRenderer: LinkRenderer, width: 120, editable: true },
+    { field: "transcript", headerName: "Transcript", cellRenderer: LinkRenderer, width: 120, editable: true },
+    { field: "backup_recording_url", headerName: "Backup Recording", cellRenderer: LinkRenderer, width: 140, editable: true },
+    { field: "job_posting_url", headerName: "Job Posting URL", cellRenderer: LinkRenderer, width: 140, editable: true },
+    { field: "instructor1_name", headerName: "Instructor 1", width: 150 },
+    { field: "instructor2_name", headerName: "Instructor 2", width: 150 },
+    { field: "instructor3_name", headerName: "Instructor 3", width: 150 },
+    { field: "feedback", headerName: "Feedback", cellRenderer: FeedbackRenderer, width: 120, editable: true },
+    {
+      field: "notes",
+      headerName: "Notes",
+      width: 300,
+      sortable: true,
+      cellRenderer: (params: any) =>
+        params.value ? <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: params.value }} /> : "",
+    },
+  ], [selectedModes, selectedTypes, selectedCompanyTypes]);
 
 
   return (
@@ -673,6 +676,7 @@ const columnDefs = useMemo<ColDef[]>(() => [
                     backup_recording_url: newRow.backup_recording_url || (newRow.backup_url || null),
                     job_posting_url: newRow.job_posting_url || (newRow.url || null),
                     feedback: newRow.feedback || null,
+                    position_id: newRow.position_id ? Number(newRow.position_id) : null,
                   };
                   if (!payload.candidate_id || !payload.company) {
                     toast.error("Candidate and Company are required!");
