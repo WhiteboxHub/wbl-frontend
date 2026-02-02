@@ -586,6 +586,52 @@ export default function CandidatesMarketingPage() {
     );
   };
 
+  const CreateJobRenderer = (params: any) => {
+    const [loading, setLoading] = useState(false);
+
+    const handleCreateJob = async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      // Basic validation: Intro is required for Mass Email
+      if (!params.data.candidate_intro) {
+        toast.error("Cannot create job: Candidate Intro is missing.");
+        return;
+      }
+
+      if (!confirm(`Create a MASS EMAIL job request for ${params.data.candidate?.full_name || "this candidate"}?`)) {
+        return;
+      }
+
+      try {
+        setLoading(true);
+        await api.post("/job-request", {
+          candidate_marketing_id: params.data.id,
+          job_type: "MASS_EMAIL",
+          status: "PENDING"
+        });
+        toast.success("Job Request Created! Please go to 'Job Automation > Requests' to approve it.");
+      } catch (err: any) {
+        console.error(err);
+        if (err.status === 409) {
+          toast.info("A pending job request already exists for this candidate.");
+        } else {
+          toast.error("Failed: " + (err.response?.data?.message || err.message));
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    return (
+      <button
+        className={`px-3 py-1 rounded text-xs font-medium border transition-colors ${loading ? "bg-gray-100 text-gray-500 cursor-not-allowed" : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"}`}
+        onClick={handleCreateJob}
+        disabled={loading}
+      >
+        {loading ? "Creating..." : "Create Job"}
+      </button>
+    );
+  };
+
   const columnDefs: ColDef[] = useMemo(
     () => [
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
@@ -597,6 +643,15 @@ export default function CandidatesMarketingPage() {
         editable: true,
         cellRenderer: CandidateNameRenderer,
         valueGetter: (params) => params.data.candidate?.full_name || "N/A",
+      },
+      {
+        field: "job_actions",
+        headerName: "Job Actions",
+        width: 140,
+        editable: false,
+        sortable: false,
+        filter: false,
+        cellRenderer: CreateJobRenderer,
       },
       {
         field: "workstatus",
@@ -753,6 +808,26 @@ export default function CandidatesMarketingPage() {
         ),
       },
       {
+        field: "mass_email",
+        headerName: "Mass Email",
+        width: 120,
+        editable: true,
+        cellRenderer: (params: any) => (
+          <span>{params.value ? "Yes" : "No"}</span>
+        ),
+        cellEditor: "agCheckboxCellEditor",
+      },
+      {
+        field: "candidate_intro",
+        headerName: "Candidate Intro",
+        width: 300,
+        editable: true,
+        cellEditor: "agLargeTextCellEditor",
+        cellEditorParams: {
+          maxLength: 10000,
+        },
+      },
+      {
         field: "notes",
         headerName: "Notes",
         width: 300,
@@ -778,6 +853,7 @@ export default function CandidatesMarketingPage() {
       return;
     }
     const payload = { ...updatedRow };
+
     Object.keys(payload).forEach((key) => {
       if (payload[key] === "") {
         payload[key] = null;
@@ -892,18 +968,16 @@ export default function CandidatesMarketingPage() {
       ) : error ? (
         <p className="text-center text-red-500">{error}</p>
       ) : (
-        <div className="flex w-full justify-center">
-          <div className="w-full max-w-7xl">
-            <AGGridTable
-              rowData={filteredCandidates}
-              columnDefs={columnDefs}
-              title={`Marketing Phase (${filteredCandidates.length})`}
-              height="calc(70vh)"
-              showSearch={false}
-              onRowDeleted={handleRowDeleted}
-              onRowUpdated={handleRowUpdated}
-            />
-          </div>
+        <div className="w-full">
+          <AGGridTable
+            rowData={filteredCandidates}
+            columnDefs={columnDefs}
+            title={`Marketing Phase (${filteredCandidates.length})`}
+            height="calc(70vh)"
+            showSearch={false}
+            onRowDeleted={handleRowDeleted}
+            onRowUpdated={handleRowUpdated}
+          />
         </div>
       )}
     </div>

@@ -80,6 +80,7 @@ interface AGGridTableProps {
   getRowHeight?: (params: any) => number;
   domLayout?: "autoHeight" | "normal" | "print";
   hideToolbar?: boolean;
+  context?: any;
 }
 
 interface RowData {
@@ -117,9 +118,10 @@ export function AGGridTable({
   onGridReady: onGridReadyProp,
   isFullWidthRow,
   fullWidthCellRenderer,
-  getRowHeight,
+  getRowHeight: getRowHeightProp,
   domLayout,
   hideToolbar = false,
+  context,
 }: AGGridTableProps) {
   // Refs and State
   const gridRef = useRef<AgGridReact>(null);
@@ -425,7 +427,7 @@ export function AGGridTable({
   }, [title]);
 
   return (
-    <div className="mx-auto w-full max-w-7xl flex-row-reverse space-y-4">
+    <div className="w-full space-y-4">
       {!hideToolbar && (
         <div className="flex items-center justify-end justify-between">
           {title && (
@@ -527,6 +529,7 @@ export function AGGridTable({
             onCellValueChanged={onCellValueChanged}
             animateRows={true}
             loading={loading}
+            context={context}
             suppressSetFilterByDefault={true}
             overlayNoRowsTemplate={overlayNoRowsTemplate}
             defaultColDef={{
@@ -556,7 +559,7 @@ export function AGGridTable({
             }}
             isFullWidthRow={isFullWidthRow}
             fullWidthCellRenderer={fullWidthCellRenderer}
-            getRowHeight={getRowHeight}
+            getRowHeight={getRowHeightProp}
             domLayout={domLayout}
           />
         </div>

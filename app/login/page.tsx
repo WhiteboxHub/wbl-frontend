@@ -478,8 +478,8 @@ const SigninPage = () => {
                   {message && (
                     <div
                       className={`${responseStatus === "success"
-                        ? "border-green-400 bg-green-100 text-green-700"
-                        : "border-red-400 bg-red-100 text-red-700"
+                          ? "border-green-400 bg-green-100 text-green-700"
+                          : "border-red-400 bg-red-100 text-red-700"
                         } relative mt-4 flex items-center justify-between rounded-xl px-2 py-1 text-sm sm:px-3 sm:py-1 sm:text-base`}
                       role="alert"
                     >
@@ -499,10 +499,11 @@ const SigninPage = () => {
                   )}
                   {googleMessage && (
                     <div
-                      className={`${googleStatus === "success"
-                        ? "border-green-400 bg-green-100 text-green-700"
-                        : "border-red-400 bg-red-100 text-red-700"
-                        } relative mt-4 flex items-center justify-between rounded-xl px-2 py-1 text-sm sm:px-3 sm:py-1 sm:text-base`}
+                      className={`${
+                        googleStatus === "success"
+                          ? "border-green-400 bg-green-100 text-green-700"
+                          : "border-red-400 bg-red-100 text-red-700"
+                      } relative mt-4 flex items-center justify-between rounded-xl px-2 py-1 text-sm sm:px-3 sm:py-1 sm:text-base`}
                       role="alert"
                     >
                       <div>
