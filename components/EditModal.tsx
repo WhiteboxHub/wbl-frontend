@@ -819,6 +819,7 @@ const labelOverrides: Record<string, string> = {
   company_id: "Company ID",
   installment_id: "Installment",
   company_name: "Company"
+
 };
 
 const dateFields = [
