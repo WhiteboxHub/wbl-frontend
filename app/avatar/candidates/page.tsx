@@ -803,6 +803,11 @@ export default function CandidatesPage() {
           return indexA - indexB;
         },
         cellRenderer: WorkStatusRenderer,
+        editable: true,
+        cellEditor: "agSelectCellEditor",
+        cellEditorParams: {
+          values: workStatusOptions,
+        },
         headerComponent: FilterHeaderComponent,
         headerComponentParams: {
           selectedItems: selectedWorkStatuses,
@@ -1212,8 +1217,9 @@ export default function CandidatesPage() {
         secondaryphone: data.secondaryphone ? cleanPhoneNumber(data.secondaryphone) : "",
         emergcontactphone: data.emergcontactphone ? cleanPhoneNumber(data.emergcontactphone) : "",
         enrolled_date: data.enrolled_date || new Date().toISOString().split("T")[0],
+        payment_date: data.fee_paid > 0 ? new Date().toISOString().split("T")[0] : null,
         status: data.status || "active",
-        workstatus: data.workstatus || "",
+        workstatus: (data.workstatus && data.workstatus !== "" && data.workstatus !== "waiting") ? data.workstatus : null,
         agreement: data.agreement || "N",
         fee_paid: data.fee_paid || 0,
       };
@@ -1417,7 +1423,7 @@ export default function CandidatesPage() {
                 dob: newRow.dob || newRow.date_of_birth || null,
                 batchid: Number(newRow.batchid) || 0,
                 status: newRow.status || "active",
-                workstatus: newRow.workstatus || "",
+                workstatus: (newRow.workstatus && newRow.workstatus !== "" && newRow.workstatus !== "waiting") ? newRow.workstatus : null,
                 enrolled_date: newRow.enrolled_date || new Date().toISOString().split("T")[0],
                 education: newRow.education || "",
                 workexperience: newRow.workexperience || "",

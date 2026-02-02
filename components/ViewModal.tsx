@@ -309,6 +309,8 @@ const labelOverrides: Record<string, string> = {
   is_immigration_team: "Immigration Team",
   is_in_marketing: "In Marketing",
   is_in_prep: "In Prep",
+  installment_id: "Installment",
+  placement_id: "Placement ID"
 };
 
 const dateFields = [

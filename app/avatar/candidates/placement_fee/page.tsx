@@ -26,6 +26,7 @@ interface PlacementFee {
     lastmod_user_name?: string | null;
     last_mod_date?: string | null;
     candidate_name?: string | null;
+    company_name?: string | null;
     isGroup?: boolean;
     isExpanded?: boolean;
     totalDeposit?: number;
@@ -93,9 +94,14 @@ export default function PlacementFeeCollectionPage() {
                 ? paidDates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0]
                 : null;
 
+            // Collect unique companies
+            const uniqueCompanies = Array.from(new Set(children.map(c => c.company_name).filter(Boolean)));
+            const companyDisplay = uniqueCompanies.join(", ");
+
             newGridRows.push({
                 id: `group-${candidateName}`,
                 candidate_name: candidateName,
+                company_name: companyDisplay,
                 isGroup: true,
                 isExpanded: isExpanded,
                 totalDeposit: total,
@@ -158,7 +164,12 @@ export default function PlacementFeeCollectionPage() {
                 </div>
             );
         } else {
-            return <div className="pl-6 text-gray-500 text-sm"></div>;
+            // Individual row - show only company name
+            return (
+                <div className="pl-6 text-sm text-gray-600">
+                    {data.company_name || <span className="text-gray-400">N/A</span>}
+                </div>
+            );
         }
     };
 
@@ -257,6 +268,7 @@ export default function PlacementFeeCollectionPage() {
                 const res = await api.get("/placement-fee");
                 const body = res?.data ?? res?.raw ?? [];
                 const fees = Array.isArray(body) ? body : Array.isArray(body.data) ? body.data : body.data ?? [];
+
                 setRawFees(fees);
 
                 if (fees.length > 0) {
@@ -402,10 +414,14 @@ export default function PlacementFeeCollectionPage() {
 
             if (!payload.amount_collected) payload.amount_collected = "no";
 
-            const res = await api.post("/placement-fee", payload);
-            const created = res.data ?? res;
+            await api.post("/placement-fee", payload);
 
-            setRawFees(prev => [created, ...prev]);
+            // Refetch data to ensure proper sorting
+            const res = await api.get("/placement-fee");
+            const body = res?.data ?? res?.raw ?? [];
+            const fees = Array.isArray(body) ? body : Array.isArray(body.data) ? body.data : body.data ?? [];
+            setRawFees(fees);
+
             toast.success("Added successfully");
         } catch (err: any) {
             console.error(err);
