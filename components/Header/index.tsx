@@ -50,27 +50,27 @@ const Header = ({
   };
 
   const display_user_dashboard = () => {
-
-    router.push("/user_dashboard");
-   
+    if (userRole === "employee") {
+      router.push("/employee_dashboard");
+    } else {
+      router.push("/user_dashboard");
+    }
   };
 
   return (
     <header
-      className={`header left-0 top-0 z-40 flex w-full items-center bg-transparent ${
-        sticky
-          ? "!fixed !z-[9999] !bg-white !bg-opacity-80 shadow-sticky backdrop-blur-sm !transition dark:!bg-primary dark:!bg-opacity-20"
-          : "absolute"
-      }`}
+      className={`header left-0 top-0 z-40 flex w-full items-center bg-transparent ${sticky
+        ? "!fixed !z-[9999] !bg-white !bg-opacity-80 shadow-sticky backdrop-blur-sm !transition dark:!bg-primary dark:!bg-opacity-20"
+        : "absolute"
+        }`}
     >
       <div className="container mt-5">
         <div className="relative -mx-4 flex items-center justify-between">
           <div className="max-w-full px-4 xl:mr-12">
             <Link
               href="/"
-              className={`header-logo block w-full ${
-                sticky ? "py-3 lg:py-1" : "py-0"
-              }`}
+              className={`header-logo block w-full ${sticky ? "py-3 lg:py-1" : "py-0"
+                }`}
             >
               <Image
                 src={WBLdark}
@@ -99,29 +99,25 @@ const Header = ({
                 className="absolute right-4 top-1/2 block translate-y-[-50%] rounded-lg px-0 py-1 focus:outline-none lg:hidden"
               >
                 <span
-                  className={`relative my-1.5 block h-0.5 w-[30px] bg-black transition-all duration-300 dark:bg-white ${
-                    navbarOpen ? "top-[7px] rotate-45" : ""
-                  }`}
+                  className={`relative my-1.5 block h-0.5 w-[30px] bg-black transition-all duration-300 dark:bg-white ${navbarOpen ? "top-[7px] rotate-45" : ""
+                    }`}
                 />
                 <span
-                  className={`relative my-1.5 block h-0.5 w-[30px] bg-black transition-all duration-300 dark:bg-white ${
-                    navbarOpen ? "opacity-0" : ""
-                  }`}
+                  className={`relative my-1.5 block h-0.5 w-[30px] bg-black transition-all duration-300 dark:bg-white ${navbarOpen ? "opacity-0" : ""
+                    }`}
                 />
                 <span
-                  className={`relative my-1.5 block h-0.5 w-[30px] bg-black transition-all duration-300 dark:bg-white ${
-                    navbarOpen ? "top-[-8px] -rotate-45" : ""
-                  }`}
+                  className={`relative my-1.5 block h-0.5 w-[30px] bg-black transition-all duration-300 dark:bg-white ${navbarOpen ? "top-[-8px] -rotate-45" : ""
+                    }`}
                 />
               </button>
 
               <nav
                 id="navbarCollapse"
-                className={`navbar -[.5px] -body-color/50 dark:-body-color/20 lg:-none absolute right-0 z-30 w-[250px] rounded bg-white px-6 py-4 duration-300 dark:bg-dark lg:visible lg:static lg:w-auto lg:!bg-transparent lg:p-0 lg:opacity-100 ${
-                  navbarOpen
-                    ? "visible top-full opacity-100"
-                    : "invisible top-[120%] opacity-0"
-                }`}
+                className={`navbar -[.5px] -body-color/50 dark:-body-color/20 lg:-none absolute right-0 z-30 w-[250px] rounded bg-white px-6 py-4 duration-300 dark:bg-dark lg:visible lg:static lg:w-auto lg:!bg-transparent lg:p-0 lg:opacity-100 ${navbarOpen
+                  ? "visible top-full opacity-100"
+                  : "invisible top-[120%] opacity-0"
+                  }`}
               >
                 <ul className="block lg:flex lg:space-x-12">
                   {menuData.map((menuItem, index) => (
@@ -151,19 +147,17 @@ const Header = ({
                             </span>
                           </div>
                           <div
-                            className={`submenu relative left-0 top-full rounded-md bg-white transition-[top] duration-300 group-hover:opacity-100 dark:bg-dark lg:invisible lg:absolute lg:top-[110%] lg:block lg:w-[250px] lg:p-4 lg:opacity-0 lg:shadow-lg lg:group-hover:visible lg:group-hover:top-full ${
-                              openIndex === index ? "block" : "hidden"
-                            }`}
+                            className={`submenu relative left-0 top-full rounded-md bg-white transition-[top] duration-300 group-hover:opacity-100 dark:bg-dark lg:invisible lg:absolute lg:top-[110%] lg:block lg:w-[250px] lg:p-4 lg:opacity-0 lg:shadow-lg lg:group-hover:visible lg:group-hover:top-full ${openIndex === index ? "block" : "hidden"
+                              }`}
                           >
                             {menuItem.submenu.map((submenuItem) => (
                               <Link
                                 href={submenuItem.path}
                                 key={submenuItem.id}
-                                className={`block rounded py-2.5 text-center text-sm font-semibold text-dark duration-500 hover:bg-gray-200 hover:font-semibold dark:text-white dark:hover:bg-black/70 sm:text-base lg:px-5 ${
-                                  submenuItem.title === "Resume"
-                                    ? "hidden lg:block"
-                                    : ""
-                                }`}
+                                className={`block rounded py-2.5 text-center text-sm font-semibold text-dark duration-500 hover:bg-gray-200 hover:font-semibold dark:text-white dark:hover:bg-black/70 sm:text-base lg:px-5 ${submenuItem.title === "Resume"
+                                  ? "hidden lg:block"
+                                  : ""
+                                  }`}
                                 onClick={closeNavbar}
                               >
                                 {submenuItem.title}
@@ -184,7 +178,7 @@ const Header = ({
                         }}
                         className="my-3 block w-full rounded-3xl bg-gradient-to-tl from-indigo-900 to-purple-400 px-3 py-2 text-center text-sm font-bold text-white hover:bg-gradient-to-br sm:text-base"
                       >
-                        My Profile
+                        {userRole === "employee" ? "Dashboard" : "My Profile"}
                       </button>
                     </li>
                   )}
@@ -244,7 +238,7 @@ const Header = ({
                       onClick={display_user_dashboard}
                       className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
                     >
-                      My Profile
+                      {userRole === "employee" ? "Dashboard" : "My Profile"}
                     </button>
                   }
                   <button
@@ -294,7 +288,7 @@ const Header = ({
                       onClick={display_user_dashboard}
                       className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-3 py-2 text-xs font-bold text-white sm:text-sm"
                     >
-                      My Profile
+                      {userRole === "employee" ? "Dashboard" : "My Profile"}
                     </button>
                     <button
                       onClick={handleLogout}
