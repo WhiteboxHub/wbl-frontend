@@ -825,7 +825,7 @@ const labelOverrides: Record<string, string> = {
   source_uid: "Source UID",
   company_id: "Company ID",
   installment_id: "Installment",
-  company_name: "Company"
+  company_name: "Company",
   position_id: "Linked Position",
 };
 
