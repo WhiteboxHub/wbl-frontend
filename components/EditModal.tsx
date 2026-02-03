@@ -301,12 +301,14 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "false", label: "Inactive" },
   ],
   position_type: [
+    {value: "", label: "Select" },
     { value: "full_time", label: "Full Time" },
     { value: "contract", label: "Contract" },
     { value: "contract_to_hire", label: "Contract to Hire" },
     { value: "internship", label: "Internship" },
   ],
   employment_mode: [
+    {value: "", label: "Select" },
     { value: "onsite", label: "Onsite" },
     { value: "hybrid", label: "Hybrid" },
     { value: "remote", label: "Remote" },
@@ -476,7 +478,11 @@ const excludedFields = [
   "lastDepositDate",
   "end_date",
   "project_id",
-  "project"
+  "project",
+  "position_company",
+  "position_title",
+  "position_id",
+  "created_from_raw_id"
 ];
 
 // Field visibility configuration
@@ -672,6 +678,7 @@ const fieldSections: Record<string, string> = {
   job_url: "Professional Information",
   description: "Professional Information",
   source_uid: "Professional Information",
+  position_id: "Basic Information",
 };
 
 // Override field labels for better readability
@@ -819,7 +826,7 @@ const labelOverrides: Record<string, string> = {
   company_id: "Company ID",
   installment_id: "Installment",
   company_name: "Company"
-
+  position_id: "Linked Position",
 };
 
 const dateFields = [
@@ -883,6 +890,10 @@ export function EditModal({
   );
   const [candidatesWithInterviews, setCandidatesWithInterviews] = useState<{ id: number; full_name: string }[]>([]);
   const [projects, setProjects] = useState<{ id: number; name: string }[]>([]);
+  const [positionSuggestions, setPositionSuggestions] = useState<any[]>([]);
+  const [isSearchingPositions, setIsSearchingPositions] = useState(false);
+  const [positionSearchTerm, setPositionSearchTerm] = useState("");
+  const positionDropdownRef = useRef<HTMLDivElement>(null);
 
 
   // Detect the modal context
@@ -1141,6 +1152,40 @@ export function EditModal({
       fetchJobTypes();
     }
   }, [isCourseMaterialModal, isJobActivityLogModal, isOpen]);
+
+  // Handle position search
+  useEffect(() => {
+    if (!positionSearchTerm || positionSearchTerm.length < 2) {
+      setPositionSuggestions([]);
+      return;
+    }
+
+    const delayDebounceFn = setTimeout(async () => {
+      setIsSearchingPositions(true);
+      try {
+        const res = await apiFetch(`/positions/search?term=${encodeURIComponent(positionSearchTerm)}`);
+        const data = Array.isArray(res) ? res : res?.data ?? [];
+        setPositionSuggestions(data);
+      } catch (error) {
+        console.error("Failed to search positions:", error);
+      } finally {
+        setIsSearchingPositions(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [positionSearchTerm]);
+
+  // Click outside to close position dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (positionDropdownRef.current && !positionDropdownRef.current.contains(event.target as Node)) {
+        setPositionSuggestions([]);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const flattenData = (data: Record<string, any>) => {
     const flattened: Record<string, any> = { ...data };
@@ -1737,6 +1782,15 @@ export function EditModal({
     });
   }
 
+  if (isInterviewModal) {
+    const interviewManualFields = ["position_id", "position_title", "position_company"];
+    Object.keys(sectionedFields).forEach((section) => {
+      sectionedFields[section] = sectionedFields[section].filter(
+        (item) => !interviewManualFields.includes(item.key)
+      );
+    });
+  }
+
 
   const visibleSections = Object.keys(sectionedFields).filter(
     (section) => sectionedFields[section]?.length > 0 && section !== "Notes"
@@ -2291,6 +2345,10 @@ export function EditModal({
                               return null;
                             }
 
+                            if (isInterviewModal && key === "position_id") {
+                              return null; // Handled below with company
+                            }
+
 
                             if (
                               isPlacementModal &&
@@ -2404,6 +2462,91 @@ export function EditModal({
                                     className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
                                   />
                                 </div>
+                              );
+                            }
+                            if (isInterviewModal && key === "company") {
+                              return (
+                                <React.Fragment key="interview_fields_wrapper">
+                                  <div className="relative space-y-1 sm:space-y-1.5" ref={positionDropdownRef}>
+                                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                      Company <span className="text-red-700">*</span>
+                                    </label>
+                                    <div className="relative">
+                                      <input
+                                        type="text"
+                                        placeholder="Search company or position..."
+                                        value={positionSearchTerm !== ""
+                                          ? positionSearchTerm
+                                          : (watch("company") || "")}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          setPositionSearchTerm(val);
+                                          setValue("company", val);
+                                          if (!val) {
+                                            setValue("position_id", null);
+                                            setValue("position_title", "");
+                                            setFormData(prev => ({ ...prev, position_id: null, position_title: null, position_company: null }));
+                                          }
+                                        }}
+                                        className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                      />
+                                      {isSearchingPositions && (
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
+                                        </div>
+                                      )}
+                                    </div>
+                                    {positionSuggestions.length > 0 && (
+                                      <div className="absolute z-[100] mt-1 max-h-60 w-full overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                                        {positionSuggestions.map((pos) => (
+                                          <div
+                                            key={pos.id}
+                                            className="cursor-pointer px-4 py-2 hover:bg-blue-50 dark:hover:bg-blue-900"
+                                            onClick={() => {
+                                              setValue("position_id", pos.id);
+                                              setValue("company", pos.company_name);
+                                              setValue("position_title", pos.title);
+
+                                              // Auto-fill interviewer contact fields from position data
+                                              if (pos.contact_email) setValue("interviewer_emails", pos.contact_email);
+                                              if (pos.contact_phone) setValue("interviewer_contact", pos.contact_phone);
+                                              if (pos.contact_linkedin) setValue("interviewer_linkedin", pos.contact_linkedin);
+
+                                              setFormData({
+                                                ...formData,
+                                                position_id: pos.id,
+                                                position_title: pos.title,
+                                                position_company: pos.company_name,
+                                                company: pos.company_name,
+                                                interviewer_emails: pos.contact_email || formData.interviewer_emails,
+                                                interviewer_contact: pos.contact_phone || formData.interviewer_contact,
+                                                interviewer_linkedin: pos.contact_linkedin || formData.interviewer_linkedin,
+                                              });
+                                              setPositionSearchTerm(pos.company_name);
+                                              setPositionSuggestions([]);
+                                            }}
+                                          >
+                                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{pos.company_name}</div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400">{pos.title} - {pos.location}</div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="space-y-1 sm:space-y-1.5">
+                                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                      Position Title
+                                    </label>
+                                    <input
+                                      type="text"
+                                      readOnly
+                                      value={watch("position_title") || formData.position_title || ""}
+                                      className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
+                                    />
+                                  </div>
+                                  <input type="hidden" {...register("position_id")} />
+                                  <input type="hidden" {...register("position_title")} />
+                                </React.Fragment>
                               );
                             }
 
