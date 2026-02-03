@@ -144,6 +144,37 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
         },
       ],
     },
+    {
+      title: "Job Automation",
+      href: "/avatar/job-automation/job-definition",
+      icon: Briefcase,
+      children: [
+        {
+          title: "Job Definitions",
+          href: "/avatar/job-automation/job-definition",
+        },
+        {
+          title: "Job Schedules",
+          href: "/avatar/job-automation/job-schedule",
+        },
+        {
+          title: "Job Runs",
+          href: "/avatar/job-automation/job-run",
+        },
+        {
+          title: "Job Requests",
+          href: "/avatar/job-automation/job-request",
+        },
+        {
+          title: "Email Engines",
+          href: "/avatar/job-automation/email-engine",
+        },
+        {
+          title: "Outreach Contacts",
+          href: "/avatar/job-automation/outreach-contact",
+        },
+      ],
+    },
   ];
 
   const sidebarItems = allSidebarItems;
