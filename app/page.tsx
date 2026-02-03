@@ -15,12 +15,11 @@ export default function Home() {
   const { isAuthenticated, userRole } = useAuth();
 
   useEffect(() => {
-    // If you want to auto-redirect admins, uncomment below
-    // if (isAuthenticated) {
-    //   if (userRole === "admin") {
-    //     router.push("/avatar");
-    //   }
-    // }
+    if (isAuthenticated) {
+      if (userRole === "admin") {
+        router.push("/avatar");
+      }
+    }
   }, [isAuthenticated, userRole, router]);
 
 

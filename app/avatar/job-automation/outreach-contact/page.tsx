@@ -88,28 +88,55 @@ export default function OutreachContactPage() {
     const columnDefs: ColDef[] = useMemo(() => [
         { field: "id", headerName: "ID", width: 80 },
         { field: "email", headerName: "Email", flex: 1, editable: true },
-        { field: "source_type", headerName: "Source", width: 120, editable: true },
-        { field: "status", headerName: "Status", width: 120, editable: true },
+        {
+            field: "source_type",
+            headerName: "Source",
+            width: 120,
+            editable: true
+        },
+        {
+            field: "status",
+            headerName: "Status",
+            width: 120,
+            editable: true,
+            cellEditor: 'agSelectCellEditor',
+            cellEditorParams: {
+                values: ['active', 'unsubscribed', 'bounced', 'complaint']
+            }
+        },
         {
             field: "unsubscribe_flag",
             headerName: "Unsub",
-            width: 100,
+            width: 90,
             editable: true,
             cellRenderer: (p: any) => p.value ? "✅" : "❌"
         },
         {
             field: "bounce_flag",
             headerName: "Bounce",
-            width: 100,
+            width: 90,
             editable: true,
             cellRenderer: (p: any) => p.value ? "✅" : "❌"
         },
         {
+            field: "complaint_flag",
+            headerName: "Spam",
+            width: 90,
+            editable: true,
+            cellRenderer: (p: any) => p.value ? "✅" : "❌"
+        },
+        {
+            field: "unsubscribe_reason",
+            headerName: "Unsub Reason",
+            width: 150,
+            editable: true
+        },
+        {
             headerName: "Actions",
-            width: 100,
+            width: 80,
             cellRenderer: (params: any) => (
-                <button onClick={() => handleRowDeleted(params.data.id)} className="p-2 text-red-600">
-                    <Trash2 size={18} />
+                <button onClick={() => handleRowDeleted(params.data.id)} className="p-1 text-red-600 hover:bg-red-50 rounded">
+                    <Trash2 size={16} />
                 </button>
             )
         }
@@ -138,10 +165,45 @@ export default function OutreachContactPage() {
                     <div className="bg-white rounded-xl p-6 w-full max-w-md">
                         <h2 className="text-xl font-bold mb-4">Add Outreach Contact</h2>
                         <form onSubmit={handleCreate} className="space-y-4">
-                            <Input placeholder="Email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required />
-                            <div className="flex gap-3">
-                                <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-                                <Button type="submit">Save</Button>
+                            <div className="space-y-2">
+                                <Label htmlFor="email">Email Address</Label>
+                                <Input
+                                    id="email"
+                                    placeholder="email@example.com"
+                                    value={formData.email}
+                                    onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                    required
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="source">Source Type</Label>
+                                <Input
+                                    id="source"
+                                    placeholder="e.g. CAMPAIGN"
+                                    value={formData.source_type}
+                                    onChange={e => setFormData({ ...formData, source_type: e.target.value })}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="status">Status</Label>
+                                <select
+                                    id="status"
+                                    className="w-full p-2 border rounded-md"
+                                    value={formData.status}
+                                    onChange={e => setFormData({ ...formData, status: e.target.value })}
+                                >
+                                    <option value="active">Active</option>
+                                    <option value="unsubscribed">Unsubscribed</option>
+                                    <option value="bounced">Bounced</option>
+                                    <option value="complaint">Complaint</option>
+                                </select>
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
+                                <Button type="button" variant="outline" className="flex-1" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+                                <Button type="submit" className="flex-1">Save Contact</Button>
                             </div>
                         </form>
                     </div>

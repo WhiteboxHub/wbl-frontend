@@ -69,10 +69,10 @@ const SigninPage = () => {
         // Redirect based on role
         setTimeout(() => {
           if (role === "admin") {
-            router.push("/");
+            router.push("/avatar");
           } else {
-            // Redirect candidates to dashboard
-            router.push("/dashboard");
+            // Redirect employees and candidates to home dashboard
+            router.push("/user_dashboard");
           }
         }, 500);
       } else {
@@ -97,7 +97,7 @@ const SigninPage = () => {
     } else if (session?.user?.status === "active") {
       setGoogleMessage("Logged in successfully!");
       setGoogleStatus("success");
-      router.push("/dashboard");
+      router.push("/user_dashboard");
     }
   }, [session, router]);
 
@@ -138,16 +138,15 @@ const SigninPage = () => {
         setResponseStatus("success");
 
         // Redirect based on role
-        // Redirect based on role
         if (role === "admin") {
-          // Admin redirects to home
+          // Admin redirects to avatar dashboard
           setTimeout(() => {
-            router.push("/");
+            router.push("/avatar");
           }, 500);
         } else {
-          // Candidates redirect to dashboard
+          // Employees and Candidates redirect to home dashboard
           setTimeout(() => {
-            router.push("/dashboard");
+            router.push("/user_dashboard");
           }, 500);
         }
       } else {
@@ -187,9 +186,9 @@ const SigninPage = () => {
     if (accessToken) {
       const role = getUserTeamRole(accessToken);
       if (role === "admin") {
-        router.push("/");
+        router.push("/avatar");
       } else {
-        router.push("/dashboard");
+        router.push("/user_dashboard");
       }
     }
   }, [router]);
@@ -199,9 +198,9 @@ const SigninPage = () => {
     const accessToken = localStorage.getItem("access_token");
     const role = getUserTeamRole(accessToken || "");
     if (role === "admin") {
-      router.push("/");
+      router.push("/avatar");
     } else {
-      router.push("/dashboard");
+      router.push("/user_dashboard");
     }
     return null;
   }
@@ -479,8 +478,8 @@ const SigninPage = () => {
                   {message && (
                     <div
                       className={`${responseStatus === "success"
-                          ? "border-green-400 bg-green-100 text-green-700"
-                          : "border-red-400 bg-red-100 text-red-700"
+                        ? "border-green-400 bg-green-100 text-green-700"
+                        : "border-red-400 bg-red-100 text-red-700"
                         } relative mt-4 flex items-center justify-between rounded-xl px-2 py-1 text-sm sm:px-3 sm:py-1 sm:text-base`}
                       role="alert"
                     >
@@ -501,8 +500,8 @@ const SigninPage = () => {
                   {googleMessage && (
                     <div
                       className={`${googleStatus === "success"
-                          ? "border-green-400 bg-green-100 text-green-700"
-                          : "border-red-400 bg-red-100 text-red-700"
+                        ? "border-green-400 bg-green-100 text-green-700"
+                        : "border-red-400 bg-red-100 text-red-700"
                         } relative mt-4 flex items-center justify-between rounded-xl px-2 py-1 text-sm sm:px-3 sm:py-1 sm:text-base`}
                       role="alert"
                     >
