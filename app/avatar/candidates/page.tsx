@@ -29,6 +29,7 @@ type Candidate = {
   secondaryemail?: string | null;
   secondaryphone?: string | null;
   address?: string | null;
+  zip_code?: string | null;
   linkedin_id?: string | null;
   dob?: string | Date | null;
   emergcontactname?: string | null;
@@ -59,6 +60,7 @@ type FormData = {
   secondaryemail: string;
   secondaryphone: string;
   address: string;
+  zip_code: string;
   linkedin_id: string;
   dob?: string;
   emergcontactname: string;
@@ -129,6 +131,7 @@ const initialFormData: FormData = {
   secondaryemail: "",
   secondaryphone: "",
   address: "",
+  zip_code: "",
   linkedin_id: "",
   emergcontactname: "",
   emergcontactemail: "",
@@ -803,6 +806,11 @@ export default function CandidatesPage() {
           return indexA - indexB;
         },
         cellRenderer: WorkStatusRenderer,
+        editable: true,
+        cellEditor: "agSelectCellEditor",
+        cellEditorParams: {
+          values: workStatusOptions,
+        },
         headerComponent: FilterHeaderComponent,
         headerComponentParams: {
           selectedItems: selectedWorkStatuses,
@@ -900,6 +908,14 @@ export default function CandidatesPage() {
         sortable: true,
         filter: "agTextColumnFilter",
       },
+      {
+        field: "zip_code",
+        headerName: "Zip Code",
+        width: 120,
+        sortable: true,
+        filter: "agTextColumnFilter",
+      },
+
       {
         field: "linkedin_id",
         headerName: "LinkedIn ID",
@@ -1212,8 +1228,9 @@ export default function CandidatesPage() {
         secondaryphone: data.secondaryphone ? cleanPhoneNumber(data.secondaryphone) : "",
         emergcontactphone: data.emergcontactphone ? cleanPhoneNumber(data.emergcontactphone) : "",
         enrolled_date: data.enrolled_date || new Date().toISOString().split("T")[0],
+        payment_date: data.fee_paid > 0 ? new Date().toISOString().split("T")[0] : null,
         status: data.status || "active",
-        workstatus: data.workstatus || "",
+        workstatus: (data.workstatus && data.workstatus !== "" && data.workstatus !== "waiting") ? data.workstatus : null,
         agreement: data.agreement || "N",
         fee_paid: data.fee_paid || 0,
       };
@@ -1417,7 +1434,7 @@ export default function CandidatesPage() {
                 dob: newRow.dob || newRow.date_of_birth || null,
                 batchid: Number(newRow.batchid) || 0,
                 status: newRow.status || "active",
-                workstatus: newRow.workstatus || "",
+                workstatus: (newRow.workstatus && newRow.workstatus !== "" && newRow.workstatus !== "waiting") ? newRow.workstatus : null,
                 enrolled_date: newRow.enrolled_date || new Date().toISOString().split("T")[0],
                 education: newRow.education || "",
                 workexperience: newRow.workexperience || "",
@@ -1426,6 +1443,7 @@ export default function CandidatesPage() {
                 secondaryemail: newRow.secondaryemail || newRow.secondary_email || "",
                 secondaryphone: cleanPhoneNumber(newRow.secondaryphone || newRow.secondary_phone || ""),
                 address: newRow.address || "",
+                zip_code: newRow.zip_code || "",
                 linkedin_id: newRow.linkedin_id || newRow.linkedin || "",
                 emergcontactname: toPascalCase(newRow.emergcontactname || ""),
                 emergcontactemail: newRow.emergcontactemail || "",
@@ -1789,6 +1807,30 @@ export default function CandidatesPage() {
                       className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     />
                   </div>
+
+                  {/* Zip Code */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                      Zip Code
+                    </label>
+                    <input
+                      type="text"
+                      {...register("zip_code", {
+                        pattern: {
+                          value: /^\d{5}(-\d{4})?$/,
+                          message: "Invalid ZIP code",
+                        },
+                      })}
+                      placeholder="12345 or 12345-6789"
+                      className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm
+               transition hover:border-blue-300 focus:outline-none focus:ring-2
+               focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    />
+                    {errors.zip_code && (
+                      <p className="mt-1 text-xs text-red-600">{errors.zip_code.message}</p>
+                    )}
+                  </div>
+
 
                   {/* Emergency Contact Address */}
                   <div className="space-y-1 sm:space-y-1.5 lg:col-span-2">

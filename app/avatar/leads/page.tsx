@@ -627,20 +627,19 @@ export default function LeadsPage() {
     setFormSaveLoading(true);
     try {
       const updatedData = { ...formData };
-      if (!updatedData.status || updatedData.status === '') {
-        updatedData.status = 'waiting for status';
-      }
-      if (!updatedData.workstatus || updatedData.workstatus === '') {
-        updatedData.workstatus = 'waiting';
+      if (!updatedData.status || updatedData.status === '' || updatedData.status === 'waiting for status') {
+        updatedData.status = 'Open';
       }
       if (updatedData.moved_to_candidate) {
         updatedData.status = "Closed";
       }
-      if (!updatedData.status || updatedData.status === '') {
+      if (updatedData.status === '') {
         updatedData.status = updatedData.moved_to_candidate ? "Closed" : "Open";
       }
-      if (!updatedData.workstatus || updatedData.workstatus === '') {
-        updatedData.workstatus = '';
+
+      // Ensure workstatus is null if empty (required for Pydantic Enum validation)
+      if (!updatedData.workstatus || updatedData.workstatus === "waiting" || updatedData.workstatus.trim() === "") {
+        (updatedData as any).workstatus = null;
       }
       const booleanFields = ['moved_to_candidate', 'massemail_email_sent', 'massemail_unsubscribe'];
       booleanFields.forEach(field => {
@@ -650,6 +649,7 @@ export default function LeadsPage() {
       });
       const payload = {
         ...updatedData,
+        workstatus: (!updatedData.workstatus || updatedData.workstatus === "waiting" || updatedData.workstatus.trim() === "") ? null : updatedData.workstatus,
         entry_date: new Date().toISOString(),
         closed_date: updatedData.status === "Closed" ? new Date().toISOString().split('T')[0] : null,
       };
@@ -863,6 +863,11 @@ export default function LeadsPage() {
         headerName: "Work Status",
         width: 200,
         sortable: true,
+        editable: true,
+        cellEditor: "agSelectCellEditor",
+        cellEditorParams: {
+          values: workStatusOptions,
+        },
         cellRenderer: WorkStatusRenderer,
         headerComponent: WorkStatusFilterHeaderComponent,
         headerComponentParams: { selectedWorkStatuses, setSelectedWorkStatuses },
@@ -1020,7 +1025,7 @@ export default function LeadsPage() {
                 full_name: newRow.full_name || "",
                 email: newRow.email || "",
                 phone: newRow.phone || "",
-                workstatus: newRow.workstatus || "",
+                workstatus: (!newRow.workstatus || newRow.workstatus.trim() === "") ? null : newRow.workstatus,
                 address: newRow.address || "",
                 secondary_email: newRow.secondary_email || "",
                 secondary_phone: newRow.secondary_phone || "",

@@ -370,6 +370,11 @@ export default function AuthUsersPage() {
       delete dataToSend.id;
       delete dataToSend.googleId;
 
+      // Ensure visa_status is null if empty (required for Enum validation)
+      if (!dataToSend.visa_status || dataToSend.visa_status.trim() === "") {
+        dataToSend.visa_status = null;
+      }
+
       // Send POST request to create new user
       const response = await api.post("/user", dataToSend);
 

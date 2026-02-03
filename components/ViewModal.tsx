@@ -21,10 +21,12 @@ const excludedFields = [
   "instructor3_id", "enddate", "candidate_id", "batch", "job_id", "employee_id", "job_owner", "job_owner_id",
   "job_owner_1", "job_owner_2", "job_owner_3",
   "isGroup", "isExpanded", "totalDeposit", "originalId",
+  "position_id", "position_company",
 ];
 
 const fieldSections: Record<string, string> = {
   candidate_full_name: "Basic Information",
+  position_title: "Basic Information",
   instructor1_name: "Professional Information",
   instructor2_name: "Professional Information",
   instructor3_name: "Professional Information",
@@ -316,6 +318,8 @@ const labelOverrides: Record<string, string> = {
   is_immigration_team: "Immigration Team",
   is_in_marketing: "In Marketing",
   is_in_prep: "In Prep",
+  installment_id: "Installment",
+  placement_id: "Placement ID"
 };
 
 const dateFields = [
