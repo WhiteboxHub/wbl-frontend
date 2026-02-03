@@ -476,7 +476,6 @@ const excludedFields = [
   "collectedAmount",
   "pendingAmount",
   "lastDepositDate",
-  "placement_id",
   "end_date",
   "project_id",
   "project",
@@ -825,6 +824,8 @@ const labelOverrides: Record<string, string> = {
   job_url: "Job URL",
   source_uid: "Source UID",
   company_id: "Company ID",
+  installment_id: "Installment",
+  company_name: "Company",
   position_id: "Linked Position",
 };
 
@@ -1693,6 +1694,12 @@ export function EditModal({
 
     // ADD THIS - Hide Candidate Name for LinkedIn Activity Log
     if (isLinkedInActivityModal && key.toLowerCase() === "candidate_name") {
+      return;
+    }
+
+    // Hide company_name and candidate_name in add mode for placement fee modals
+    const isPlacementFeeModal = title.toLowerCase().includes("placement fee");
+    if (isPlacementFeeModal && isAddMode && (key === "company_name" || key === "candidate_name")) {
       return;
     }
 
@@ -3337,6 +3344,23 @@ export function EditModal({
                                     }}
                                     style={{ minHeight: key.toLowerCase() === "context" ? '60px' : '48px' }}
                                     className="w-full resize rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                  />
+                                </div>
+                              );
+                            }
+
+                            // Make company_name read-only in edit mode for placement fees
+                            if (key === "company_name" && !isAddMode) {
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    {toLabel(key)}
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={formData[key] || ""}
+                                    readOnly
+                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
                                   />
                                 </div>
                               );
