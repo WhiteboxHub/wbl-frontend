@@ -332,17 +332,33 @@ export default function PositionsPage() {
     const getPositionPayload = (data: any) => {
         const allowedFields = [
             "title", "normalized_title", "company_name", "company_id",
-            "position_type", "employment_mode", "source", "source_uid",
+            "position_type", "employment_mode", "source",
             "location", "city", "state", "zip", "country",
             "contact_email", "contact_phone", "contact_linkedin",
             "job_url", "description", "notes", "status",
             "confidence_score", "created_from_raw_id"
         ];
 
+        // Helper to check if HTML content is effectively empty
+        const isEmptyHtml = (html: string): boolean => {
+            if (!html) return true;
+            // Remove all HTML tags and check if there's any actual content
+            const textContent = html.replace(/<[^>]*>/g, '').trim();
+            return textContent === '';
+        };
+
         const payload: Record<string, any> = {};
         allowedFields.forEach(field => {
             if (field in data) {
-                const value = data[field];
+                let value = data[field];
+
+                // Sanitize HTML fields (description, notes)
+                if ((field === 'description' || field === 'notes') && typeof value === 'string') {
+                    if (isEmptyHtml(value)) {
+                        value = null;
+                    }
+                }
+
                 if (value === "" || value === undefined) {
                     const requiredFields = ["title", "company_name", "source"];
                     if (!requiredFields.includes(field)) {
@@ -518,6 +534,8 @@ export default function PositionsPage() {
             { field: "location", headerName: "Location", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "city", headerName: "City", width: 120, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "state", headerName: "State", width: 100, sortable: true, filter: "agTextColumnFilter", editable: true },
+            { field: "zip", headerName: "Zip", width: 100, sortable: true, filter: "agTextColumnFilter", editable: true },
+            { field: "country", headerName: "Country", width: 120, sortable: true, filter: "agTextColumnFilter", editable: true },
             {
                 field: "contact_email",
                 headerName: "Contact Email",

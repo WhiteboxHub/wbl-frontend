@@ -21,7 +21,7 @@ const excludedFields = [
   "instructor3_id", "enddate", "candidate_id", "batch", "job_id", "employee_id", "job_owner", "job_owner_id",
   "job_owner_1", "job_owner_2", "job_owner_3",
   "isGroup", "isExpanded", "totalDeposit", "originalId",
-  "position_id", "position_company",
+  "position_id", "position_company", "source_uid",
 ];
 
 const fieldSections: Record<string, string> = {
@@ -176,7 +176,7 @@ const fieldSections: Record<string, string> = {
   lastmod_user_name: "Professional Information",
   lastmod_date_time: "Professional Information",
   last_mod_date: "Professional Information",
-  description: "Professional Information",
+  description: "Notes",
   job_owner_1_name: "Basic Information",
   job_owner_2_name: "Basic Information",
   job_owner_3_name: "Basic Information",
