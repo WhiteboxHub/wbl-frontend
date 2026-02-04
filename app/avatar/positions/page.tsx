@@ -421,6 +421,8 @@ export default function PositionsPage() {
             const dataWithDefaults = {
                 source: "linkedin",
                 status: "open",
+                position_type: "full_time",
+                employment_mode: "hybrid",
                 ...newData
             };
             const dataToSave = getPositionPayload(dataWithDefaults);
