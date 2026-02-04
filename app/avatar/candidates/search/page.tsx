@@ -272,7 +272,8 @@ export default function CandidateSearchPage() {
 
           let displayValue = value;
 
-          if ((key === 'Last Login' && value) || (key === 'Last Modified' && value)) {
+          const isDateTime = ['last_login', 'registered_date', 'last_mod_datetime', 'last_modified', 'Last Login', 'Last Modified'].includes(key);
+          if (isDateTime && value) {
             const date = new Date(value as string | number | Date);
             displayValue = date.toLocaleString('en-US', {
               year: 'numeric',
@@ -456,7 +457,7 @@ export default function CandidateSearchPage() {
 
                     if (column.toLowerCase().includes('date')) {
                       value = DateFormatter(value);
-                    } else if (column === 'Last Modified' && value) {
+                    } else if (['Last Modified', 'Last Login', 'last_login', 'last_modified'].includes(column) && value) {
                       const date = new Date(value as string | number | Date);
                       value = date.toLocaleString('en-US', {
                         year: 'numeric',
