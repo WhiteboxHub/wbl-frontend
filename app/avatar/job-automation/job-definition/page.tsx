@@ -431,6 +431,7 @@ export default function JobDefinitionPage() {
                 onRowUpdated={handleRowUpdated}
                 onRowDeleted={handleRowDeleted}
                 loading={loading}
+                showTotalCount={true}
             />
         </div>
     );

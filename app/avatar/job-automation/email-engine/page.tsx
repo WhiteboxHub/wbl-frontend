@@ -3,6 +3,8 @@
 import { useMemo, useState, useEffect } from "react";
 import { ColDef } from "ag-grid-community";
 import { AGGridTable } from "@/components/AGGridTable";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+
 import { Badge } from "@/components/admin_ui/badge";
 import { Button } from "@/components/admin_ui/button";
 import { Input } from "@/components/admin_ui/input";
@@ -33,7 +35,10 @@ export default function EmailEnginePage() {
         credentials_json: "{}"
     });
 
+    const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+
     const fetchEngines = async () => {
+
         try {
             setLoading(true);
             const response = await api.get("/email-engine");
@@ -62,14 +67,20 @@ export default function EmailEnginePage() {
     };
 
     const handleRowDeleted = async (id: number) => {
-        if (!confirm("Are you sure you want to delete this email engine?")) return;
+        setDeleteConfirmId(id);
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteConfirmId) return;
         try {
-            await api.delete(`/email-engine/${id}`);
+            await api.delete(`/email-engine/${deleteConfirmId}`);
             toast.success("Email engine deleted successfully");
             fetchEngines();
         } catch (error) {
             console.error("Error deleting email engine:", error);
             toast.error("Failed to delete email engine");
+        } finally {
+            setDeleteConfirmId(null);
         }
     };
 
@@ -209,6 +220,7 @@ export default function EmailEnginePage() {
                         height="calc(100vh - 250px)"
                         onRowUpdated={handleRowUpdated}
                         loading={loading}
+                        showTotalCount={true}
                     />
                 </div>
             </div>
@@ -290,6 +302,15 @@ export default function EmailEnginePage() {
                     </div>
                 </div>
             )}
+
+            <ConfirmDialog
+                isOpen={deleteConfirmId !== null}
+                onClose={() => setDeleteConfirmId(null)}
+                onConfirm={confirmDelete}
+                title="Delete Email Engine"
+                message="Are you sure you want to delete this email engine?"
+                confirmText="Delete"
+            />
         </div>
     );
 }

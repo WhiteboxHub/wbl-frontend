@@ -23,6 +23,7 @@ import { MutableRefObject } from "react";
 import { ViewModal } from "./ViewModal";
 import { EditModal } from "@/components/EditModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { Badge } from "@/components/admin_ui/badge";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 import "@/styles/admin.css";
@@ -81,6 +82,7 @@ interface AGGridTableProps {
   domLayout?: "autoHeight" | "normal" | "print";
   hideToolbar?: boolean;
   context?: any;
+  showTotalCount?: boolean;
 }
 
 interface RowData {
@@ -122,6 +124,7 @@ export function AGGridTable({
   domLayout,
   hideToolbar = false,
   context,
+  showTotalCount = false,
 }: AGGridTableProps) {
   // Refs and State
   const gridRef = useRef<AgGridReact>(null);
@@ -431,9 +434,16 @@ export function AGGridTable({
       {!hideToolbar && (
         <div className="flex items-center justify-end justify-between">
           {title && (
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              {title}
-            </h3>
+            <div className="flex items-center gap-3">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                {title}
+              </h3>
+              {showTotalCount && (
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800">
+                  Total: {rowData.length}
+                </Badge>
+              )}
+            </div>
           )}
           <div className="ml-auto flex items-center  space-x-2">
             {!shouldHideAddButton && showAddButton !== false && (

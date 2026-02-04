@@ -256,9 +256,6 @@ export default function JobRequestPage() {
                     <Button onClick={() => setNewJobForm(!newJobForm)}>
                         {newJobForm ? "Cancel" : "New Job Request"}
                     </Button>
-                    <Badge variant="outline" className="text-sm">
-                        Total: {jobRequests.length}
-                    </Badge>
                     <Badge className="bg-yellow-100 text-yellow-800">
                         Pending: {jobRequests.filter(r => r.status === 'PENDING').length}
                     </Badge>
@@ -326,6 +323,7 @@ export default function JobRequestPage() {
                 onRowUpdated={handleRowUpdated}
                 onRowDeleted={handleRowDeleted}
                 loading={loading}
+                showTotalCount={true}
                 context={{ componentParent: { fetchJobRequests } }}
             />
         </div>

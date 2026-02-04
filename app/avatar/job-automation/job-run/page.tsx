@@ -213,9 +213,6 @@ export default function JobRunPage() {
             <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-bold">Job Runs</h1>
                 <div className="flex gap-2">
-                    <Badge variant="outline" className="text-sm">
-                        Total: {jobRuns.length}
-                    </Badge>
                     <Badge className="bg-blue-100 text-blue-800">
                         Running: {jobRuns.filter(r => r.run_status === 'RUNNING').length}
                     </Badge>
@@ -256,6 +253,7 @@ export default function JobRunPage() {
                 onRowUpdated={handleRowUpdated}
                 onRowDeleted={handleRowDeleted}
                 loading={loading}
+                showTotalCount={true}
             />
         </div>
     );

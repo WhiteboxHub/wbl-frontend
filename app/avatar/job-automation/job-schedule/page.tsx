@@ -10,6 +10,8 @@ import { toast, Toaster } from "sonner";
 import { AGGridTable } from "@/components/AGGridTable";
 import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { apiFetch } from "@/lib/api";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+
 
 type JobSchedule = {
     id: number;
@@ -80,10 +82,11 @@ const ExecutionStatusRenderer = (params: any) => {
 
 const ScheduleActionsRenderer = (params: any) => {
     const [loading, setLoading] = useState(false);
+    const [confirmRunNowOpen, setConfirmRunNowOpen] = useState(false);
+    const [confirmStopOpen, setConfirmStopOpen] = useState(false);
     const isArmed = params.data.manually_triggered;
 
     const handleRunNow = async () => {
-        if (!confirm("Are you sure you want to ARM this job for immediate execution?")) return;
         setLoading(true);
         try {
             await apiFetch(`/job-schedule/${params.data.id}/run-now`, { method: "POST" });
@@ -97,7 +100,6 @@ const ScheduleActionsRenderer = (params: any) => {
     };
 
     const handleStop = async () => {
-        if (!confirm("Are you sure you want to STOP this job? This will Disable the schedule.")) return;
         setLoading(true);
         try {
             await apiFetch(`/job-schedule/${params.data.id}`, {
@@ -113,31 +115,49 @@ const ScheduleActionsRenderer = (params: any) => {
         }
     };
 
-    if (isArmed) {
-        return (
-            <Button
-                size="sm"
-                variant="destructive"
-                className="h-7 text-xs flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white"
-                onClick={handleStop}
-                disabled={loading}
-            >
-                {loading ? "Stopping..." : "Stop"}
-            </Button>
-        );
-    }
-
     return (
-        <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-xs flex items-center gap-1"
-            onClick={handleRunNow}
-            disabled={loading}
-        >
-            <RefreshCw className={loading ? "animate-spin w-3 h-3" : "w-3 h-3"} />
-            {loading ? "Starting..." : "Run Now"}
-        </Button>
+        <>
+            {isArmed ? (
+                <Button
+                    size="sm"
+                    variant="destructive"
+                    className="h-7 text-xs flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white"
+                    onClick={() => setConfirmStopOpen(true)}
+                    disabled={loading}
+                >
+                    {loading ? "Stopping..." : "Stop"}
+                </Button>
+            ) : (
+                <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs flex items-center gap-1"
+                    onClick={() => setConfirmRunNowOpen(true)}
+                    disabled={loading}
+                >
+                    <RefreshCw className={loading ? "animate-spin w-3 h-3" : "w-3 h-3"} />
+                    {loading ? "Starting..." : "Run Now"}
+                </Button>
+            )}
+
+            <ConfirmDialog
+                isOpen={confirmRunNowOpen}
+                onClose={() => setConfirmRunNowOpen(false)}
+                onConfirm={handleRunNow}
+                title="Run Job Now"
+                message="Are you sure you want to ARM this job for immediate execution?"
+                confirmText="Run Now"
+            />
+
+            <ConfirmDialog
+                isOpen={confirmStopOpen}
+                onClose={() => setConfirmStopOpen(false)}
+                onConfirm={handleStop}
+                title="Stop Job"
+                message="Are you sure you want to STOP this job? This will Disable the schedule."
+                confirmText="Stop"
+            />
+        </>
     );
 };
 
@@ -518,6 +538,7 @@ export default function JobSchedulePage() {
                 onRowUpdated={handleRowUpdated}
                 onRowDeleted={handleRowDeleted}
                 loading={loading}
+                showTotalCount={true}
                 context={{ componentParent: { fetchJobSchedules } }}
             />
         </div>

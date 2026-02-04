@@ -3,6 +3,8 @@
 import { useMemo, useState, useEffect } from "react";
 import { ColDef } from "ag-grid-community";
 import { AGGridTable } from "@/components/AGGridTable";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+
 import { Badge } from "@/components/admin_ui/badge";
 import { Button } from "@/components/admin_ui/button";
 import { Input } from "@/components/admin_ui/input";
@@ -25,7 +27,10 @@ export default function OutreachContactPage() {
         complaint_flag: false
     });
 
+    const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+
     const fetchContacts = async () => {
+
         try {
             setLoading(true);
             const response = await api.get("/outreach-contact");
@@ -55,13 +60,19 @@ export default function OutreachContactPage() {
     };
 
     const handleRowDeleted = async (id: number) => {
-        if (!confirm("Are you sure?")) return;
+        setDeleteConfirmId(id);
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteConfirmId) return;
         try {
-            await api.delete(`/outreach-contact/${id}`);
+            await api.delete(`/outreach-contact/${deleteConfirmId}`);
             toast.success("Contact deleted");
             fetchContacts();
         } catch (error) {
             toast.error("Failed to delete contact");
+        } finally {
+            setDeleteConfirmId(null);
         }
     };
 
@@ -109,27 +120,45 @@ export default function OutreachContactPage() {
             headerName: "Unsub",
             width: 90,
             editable: true,
-            cellRenderer: (p: any) => p.value ? "✅" : "❌"
+            cellRenderer: (p: any) => p.value ? "true" : "false"
         },
         {
             field: "bounce_flag",
             headerName: "Bounce",
             width: 90,
             editable: true,
-            cellRenderer: (p: any) => p.value ? "✅" : "❌"
+            cellRenderer: (p: any) => p.value ? "true" : "false"
         },
         {
             field: "complaint_flag",
             headerName: "Spam",
             width: 90,
             editable: true,
-            cellRenderer: (p: any) => p.value ? "✅" : "❌"
+            cellRenderer: (p: any) => p.value ? "true" : "false"
         },
         {
             field: "unsubscribe_reason",
             headerName: "Unsub Reason",
             width: 150,
             editable: true
+        },
+        {
+            field: "created_at",
+            headerName: "Created At",
+            width: 180,
+            valueFormatter: (params: any) => {
+                if (!params.value) return "";
+                return new Date(params.value).toLocaleString();
+            },
+        },
+        {
+            field: "updated_at",
+            headerName: "Last Modified",
+            width: 180,
+            valueFormatter: (params: any) => {
+                if (!params.value) return "";
+                return new Date(params.value).toLocaleString();
+            },
         },
         {
             headerName: "Actions",
@@ -158,6 +187,7 @@ export default function OutreachContactPage() {
                 columnDefs={columnDefs}
                 onRowUpdated={handleRowUpdated}
                 loading={loading}
+                showTotalCount={true}
             />
 
             {isModalOpen && (
@@ -209,6 +239,15 @@ export default function OutreachContactPage() {
                     </div>
                 </div>
             )}
+
+            <ConfirmDialog
+                isOpen={deleteConfirmId !== null}
+                onClose={() => setDeleteConfirmId(null)}
+                onConfirm={confirmDelete}
+                title="Delete Contact"
+                message="Are you sure you want to delete this outreach contact?"
+                confirmText="Delete"
+            />
         </div>
     );
 }
