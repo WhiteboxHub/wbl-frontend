@@ -9,6 +9,7 @@ import "react-quill/dist/quill.snow.css";
 import { QuillWithMentions } from "@/components/QuillWithMentions";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
 // Enum options for various fields
 const enumOptions: Record<string, { value: string; label: string }[]> = {
@@ -301,14 +302,14 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "false", label: "Inactive" },
   ],
   position_type: [
-    {value: "", label: "Select" },
+    { value: "", label: "Select" },
     { value: "full_time", label: "Full Time" },
     { value: "contract", label: "Contract" },
     { value: "contract_to_hire", label: "Contract to Hire" },
     { value: "internship", label: "Internship" },
   ],
   employment_mode: [
-    {value: "", label: "Select" },
+    { value: "", label: "Select" },
     { value: "onsite", label: "Onsite" },
     { value: "hybrid", label: "Hybrid" },
     { value: "remote", label: "Remote" },
@@ -482,7 +483,8 @@ const excludedFields = [
   "position_company",
   "position_title",
   "position_id",
-  "created_from_raw_id"
+  "created_from_raw_id",
+  "source_uid"
 ];
 
 // Field visibility configuration
@@ -676,7 +678,7 @@ const fieldSections: Record<string, string> = {
   contact_phone: "Contact Information",
   contact_linkedin: "Contact Information",
   job_url: "Professional Information",
-  description: "Professional Information",
+  description: "Notes",
   source_uid: "Professional Information",
   position_id: "Basic Information",
 };
@@ -3094,7 +3096,7 @@ export function EditModal({
                               );
                             }
 
-                            if (key === 'task' || (key === 'description' && isProjectModal)) {
+                            if (key === 'task' || (key === 'description' && (isProjectModal || isPositionsModal))) {
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5 col-span-full">
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
@@ -3366,6 +3368,59 @@ export function EditModal({
                               );
                             }
 
+                            if (key === "location" || key === "address") {
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    {toLabel(key)}
+                                    {isFieldRequired(toLabel(key), title, isAddMode) && (
+                                      <span className="text-red-700"> *</span>
+                                    )}
+                                  </label>
+                                  <AddressAutocomplete
+                                    value={currentFormValues[key] || formData[key] || ""}
+                                    onChange={(val, details) => {
+                                      setValue(key, val);
+                                      setFormData((prev) => ({ ...prev, [key]: val }));
+                                      if (details && details.address) {
+                                        const addr = details.address;
+                                        const updates: Record<string, any> = {};
+
+                                        // Handle City
+                                        const cityVal = addr.city || addr.town || addr.village || "";
+                                        setValue("city", cityVal);
+                                        updates.city = cityVal;
+
+                                        // Handle State
+                                        const stateVal = addr.state || "";
+                                        setValue("state", stateVal);
+                                        updates.state = stateVal;
+
+                                        // Handle Zip/Postcode
+                                        const zipVal = addr.postcode || "";
+                                        setValue("zip", zipVal);
+                                        updates.zip = zipVal;
+                                        setValue("zip_code", zipVal);
+                                        updates.zip_code = zipVal;
+                                        setValue("postal_code", zipVal);
+                                        updates.postal_code = zipVal;
+
+                                        // Handle Country
+                                        const countryVal = addr.country || "";
+                                        setValue("country", countryVal);
+                                        updates.country = countryVal;
+
+                                        if (Object.keys(updates).length > 0) {
+                                          setFormData((prev) => ({ ...prev, ...updates }));
+                                        }
+                                      }
+                                    }}
+                                    placeholder={`Search ${toLabel(key)}...`}
+                                  />
+                                </div>
+                              );
+                            }
+
                             return (
                               <div
                                 key={key}
@@ -3425,7 +3480,7 @@ export function EditModal({
                         {sectionedFields["Notes"].map(({ key, value }) => (
                           <div key={key} className="space-y-1">
                             <div className="flex items-center justify-between">
-                              <label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                              <label className={key === 'description' ? 'block text-xs font-bold text-blue-700 sm:text-sm' : 'text-sm font-medium text-gray-600 dark:text-gray-400'}>
                                 {toLabel(key)}
                                 {isFieldRequired(
                                   toLabel(key),
@@ -3433,61 +3488,63 @@ export function EditModal({
                                   isAddMode
                                 ) && <span className="text-red-700"> *</span>}
                               </label>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const timestamp = `[${new Date().toLocaleString()}]: `;
-                                  const existingContent =
-                                    currentFormValues.notes ||
-                                    formData.notes ||
-                                    "";
-                                  const newContent =
-                                    isJobTypeModal || isJobActivityLogModal
-                                      ? `${timestamp}\n\n${existingContent}`
-                                      : `<p><strong>${timestamp}</strong></p><p><br></p>${existingContent}`;
+                              {key === 'notes' && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const timestamp = `[${new Date().toLocaleString()}]: `;
+                                    const existingContent =
+                                      currentFormValues[key] ||
+                                      formData[key] ||
+                                      "";
+                                    const newContent =
+                                      isJobTypeModal || isJobActivityLogModal
+                                        ? `${timestamp}\n\n${existingContent}`
+                                        : `<p><strong>${timestamp}</strong></p><p><br></p>${existingContent}`;
 
-                                  setValue("notes", newContent);
-                                  setFormData((prev) => ({
-                                    ...prev,
-                                    notes: newContent,
-                                  }));
+                                    setValue(key, newContent);
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      [key]: newContent,
+                                    }));
 
-                                  setShouldDisableBold(true);
+                                    setShouldDisableBold(true);
 
-                                  setTimeout(() => {
-                                    const editor = document.querySelector(
-                                      ".ql-editor"
-                                    ) as any;
-                                    if (editor && editor.parentElement) {
-                                      const quill = (editor.parentElement as any)
-                                        .__quill;
-                                      if (quill) {
-                                        quill.focus();
-                                        const timestampLength = timestamp.length;
-                                        quill.setSelection(timestampLength, 0);
-                                        quill.format('bold', false);
-                                        setShouldDisableBold(false);
+                                    setTimeout(() => {
+                                      const editor = document.querySelector(
+                                        ".ql-editor"
+                                      ) as any;
+                                      if (editor && editor.parentElement) {
+                                        const quill = (editor.parentElement as any)
+                                          .__quill;
+                                        if (quill) {
+                                          quill.focus();
+                                          const timestampLength = timestamp.length;
+                                          quill.setSelection(timestampLength, 0);
+                                          quill.format('bold', false);
+                                          setShouldDisableBold(false);
+                                        }
                                       }
-                                    }
-                                  }, 150);
-                                }}
-                                className="px-2 sm:px-2 py-1 sm:py-1 text-xs sm:text-sm font-medium text-black hover:text-blue-800 hover:underline"
-                              >
-                                + New Entry
-                              </button>
+                                    }, 150);
+                                  }}
+                                  className="px-2 sm:px-2 py-1 sm:py-1 text-xs sm:text-sm font-medium text-black hover:text-blue-800 hover:underline"
+                                >
+                                  + New Entry
+                                </button>
+                              )}
                             </div>
                             {isJobTypeModal || isJobActivityLogModal ? (
                               <textarea
-                                {...register("notes")}
-                                defaultValue={currentFormValues.notes || formData.notes || ""}
+                                {...register(key)}
+                                defaultValue={currentFormValues[key] || formData[key] || ""}
                                 rows={4}
                                 className="w-full resize-none rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                                placeholder="Enter notes..."
+                                placeholder={`Enter ${toLabel(key).toLowerCase()}...`}
                                 onChange={(e) => {
-                                  setValue("notes", e.target.value);
+                                  setValue(key, e.target.value);
                                   setFormData((prev) => ({
                                     ...prev,
-                                    notes: e.target.value,
+                                    [key]: e.target.value,
                                   }));
                                 }}
                               />
@@ -3495,13 +3552,13 @@ export function EditModal({
                               <QuillWithMentions
                                 theme="snow"
                                 value={
-                                  currentFormValues.notes || formData.notes || ""
+                                  currentFormValues[key] || formData[key] || ""
                                 }
                                 onChange={(content) => {
-                                  setValue("notes", content);
+                                  setValue(key, content);
                                   setFormData((prev) => ({
                                     ...prev,
-                                    notes: content,
+                                    [key]: content,
                                   }));
                                   if (shouldDisableBold) {
                                     setShouldDisableBold(false);
