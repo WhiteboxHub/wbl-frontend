@@ -302,16 +302,14 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "false", label: "Inactive" },
   ],
   position_type: [
-    { value: "", label: "Select" },
     { value: "full_time", label: "Full Time" },
     { value: "contract", label: "Contract" },
     { value: "contract_to_hire", label: "Contract to Hire" },
     { value: "internship", label: "Internship" },
   ],
   employment_mode: [
-    { value: "", label: "Select" },
-    { value: "onsite", label: "Onsite" },
     { value: "hybrid", label: "Hybrid" },
+    { value: "onsite", label: "Onsite" },
     { value: "remote", label: "Remote" },
   ],
   position_status: [
@@ -932,6 +930,7 @@ export function EditModal({
   const isJobTypeModal = title.toLowerCase().includes("job type");
   const isAutomationKeywordModal = title.toLowerCase().includes("automation keyword");
   const isPositionsModal = title.toLowerCase().includes("position");
+  const isPlacementFeeModal = title.toLowerCase().includes("placement fee");
 
   // Field visibility for current modal
   const showInstructorFields =
@@ -1700,7 +1699,6 @@ export function EditModal({
     }
 
     // Hide company_name and candidate_name in add mode for placement fee modals
-    const isPlacementFeeModal = title.toLowerCase().includes("placement fee");
     if (isPlacementFeeModal && isAddMode && (key === "company_name" || key === "candidate_name")) {
       return;
     }
@@ -3352,7 +3350,7 @@ export function EditModal({
                             }
 
                             // Make company_name read-only in edit mode for placement fees
-                            if (key === "company_name" && !isAddMode) {
+                            if (key === "company_name" && !isAddMode && isPlacementFeeModal) {
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5">
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
@@ -3386,29 +3384,29 @@ export function EditModal({
                                         const addr = details.address;
                                         const updates: Record<string, any> = {};
 
+                                        const updateIfExists = (fieldNames: string[], value: any) => {
+                                          const found = fieldNames.find(f => f in formData);
+                                          if (found) {
+                                            setValue(found, value);
+                                            updates[found] = value;
+                                          }
+                                        };
+
                                         // Handle City
                                         const cityVal = addr.city || addr.town || addr.village || "";
-                                        setValue("city", cityVal);
-                                        updates.city = cityVal;
+                                        updateIfExists(["city"], cityVal);
 
                                         // Handle State
                                         const stateVal = addr.state || "";
-                                        setValue("state", stateVal);
-                                        updates.state = stateVal;
+                                        updateIfExists(["state"], stateVal);
 
                                         // Handle Zip/Postcode
                                         const zipVal = addr.postcode || "";
-                                        setValue("zip", zipVal);
-                                        updates.zip = zipVal;
-                                        setValue("zip_code", zipVal);
-                                        updates.zip_code = zipVal;
-                                        setValue("postal_code", zipVal);
-                                        updates.postal_code = zipVal;
+                                        updateIfExists(["zip", "zip_code", "postal_code"], zipVal);
 
                                         // Handle Country
                                         const countryVal = addr.country || "";
-                                        setValue("country", countryVal);
-                                        updates.country = countryVal;
+                                        updateIfExists(["country"], countryVal);
 
                                         if (Object.keys(updates).length > 0) {
                                           setFormData((prev) => ({ ...prev, ...updates }));
