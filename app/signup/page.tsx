@@ -605,7 +605,7 @@ const SignupPage = () => {
                   <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                     <div className="mb-4 sm:mb-6 flex-1">
                       <label htmlFor="visaStatus " className="mb-2 block font-bold  text-[13px] text-dark dark:text-white">
-                        Work Authorization<span className="text-"></span>
+                        Work Authorization<span className="text-[red]">*</span>
                       </label>
                       <select
                         id="visaStatus"
