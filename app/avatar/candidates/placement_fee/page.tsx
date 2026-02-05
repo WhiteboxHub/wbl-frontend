@@ -14,6 +14,8 @@ import { ColDef } from "ag-grid-community";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { toast, Toaster } from "sonner";
 import api from "@/lib/api";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 interface PlacementFee {
     id?: number | string;
@@ -44,6 +46,7 @@ export default function PlacementFeeCollectionPage() {
     const [gridRows, setGridRows] = useState<PlacementFee[]>([]);
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(false);
+    const showLoader = useMinimumLoadingTime(loading);
     const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
 
 
@@ -455,8 +458,8 @@ export default function PlacementFeeCollectionPage() {
                 </div>
             </div>
 
-            {loading && rawFees.length === 0 ? (
-                <p className="text-center text-gray-500">Loading...</p>
+            {showLoader ? (
+                <Loader />
             ) : (
                 <div className="w-full flex justify-center">
                     <div className="w-full max-w-7xl">

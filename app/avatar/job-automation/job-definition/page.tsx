@@ -10,6 +10,8 @@ import { toast, Toaster } from "sonner";
 import { AGGridTable } from "@/components/AGGridTable";
 import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { apiFetch } from "@/lib/api";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 type JobDefinition = {
     id: number;
@@ -55,7 +57,8 @@ const StatusRenderer = ({ value }: { value?: string }) => {
 export default function JobDefinitionPage() {
     const [jobDefinitions, setJobDefinitions] = useState<JobDefinition[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const showLoader = useMinimumLoadingTime(loading);
     const [error, setError] = useState<string | null>(null);
 
     const apiEndpoint = "/job-definition";
@@ -282,16 +285,19 @@ export default function JobDefinitionPage() {
                 </div>
             </div>
 
-            <AGGridTable
-                title={`Job Definitions (${filteredData.length})`}
-                rowData={filteredData}
-                columnDefs={columnDefs}
-                onRowUpdated={handleRowUpdated}
-                onRowAdded={handleRowAdded}
-                onRowDeleted={handleRowDeleted}
-                loading={loading}
-                showAddButton={true}
-            />
+            {showLoader ? (
+                <Loader />
+            ) : (
+                <AGGridTable
+                    title={`Job Definitions (${filteredData.length})`}
+                    rowData={filteredData}
+                    columnDefs={columnDefs}
+                    onRowUpdated={handleRowUpdated}
+                    onRowAdded={handleRowAdded}
+                    onRowDeleted={handleRowDeleted}
+                    showAddButton={true}
+                />
+            )}
         </div>
     );
 }

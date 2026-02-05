@@ -10,6 +10,8 @@ import { Badge } from "@/components/admin_ui/badge";
 import { SearchIcon } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { apiFetch, smartUpdate } from "@/lib/api.js";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 const StatusRenderer = (params: any) => {
     const isActive = params.value;
@@ -53,6 +55,7 @@ export default function JobAutomationKeywordsPage() {
     const [keywords, setKeywords] = useState<any[]>([]);
     const [filteredKeywords, setFilteredKeywords] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const showLoader = useMinimumLoadingTime(loading);
     const [error, setError] = useState("");
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
@@ -300,7 +303,7 @@ export default function JobAutomationKeywordsPage() {
         };
     };
 
-    if (loading) return <p className="mt-8 text-center">Loading...</p>;
+    if (showLoader) return <Loader />;
     if (error) return <p className="mt-8 text-center text-red-600">{error}</p>;
 
     return (

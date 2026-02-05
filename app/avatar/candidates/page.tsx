@@ -4,7 +4,7 @@ import { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon, RefreshCw, X } from "lucide-react";
+import { SearchIcon, RefreshCw, X, Linkedin } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { toast, Toaster } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -13,6 +13,8 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import api from "@/lib/api";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 type Candidate = {
   id: number;
@@ -501,7 +503,8 @@ export default function CandidatesPage() {
 
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const showLoader = useMinimumLoadingTime(loading);
   const [error, setError] = useState<string | null>(null);
   const [searchBy, setSearchBy] = useState("all");
   const [sortModel, setSortModel] = useState([{ colId: "enrolled_date", sort: "desc" as "desc" }]);
@@ -934,9 +937,10 @@ export default function CandidatesPage() {
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 underline hover:text-purple-800 text-sm sm:text-base font-medium"
+              className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              title="View LinkedIn Profile"
             >
-              {params.value}
+              <Linkedin className="h-4 w-4 text-[#0a66c2]" />
             </a>
           );
         },
@@ -1342,6 +1346,8 @@ export default function CandidatesPage() {
     setSelectedWorkStatuses([]);
     setSelectedBatches([]);
   };
+
+  if (showLoader) return <Loader />;
 
   if (error) {
     return (

@@ -11,11 +11,15 @@ import { useMemo, useState, useEffect } from "react";
 import { toast, Toaster } from "sonner";
 import api, { smartUpdate } from "@/lib/api";
 
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
+
 export default function SessionsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const showLoader = useMinimumLoadingTime(loading);
 
   // Debounce search input
   useEffect(() => {
@@ -231,8 +235,8 @@ export default function SessionsPage() {
         </div>
       </div>
       {/* AG Grid Table */}
-      {loading ? (
-        <p className="text-center mt-8">Loading...</p>
+      {showLoader ? (
+        <Loader />
       ) : sessions.length === 0 ? (
         <p className="text-center mt-8 text-gray-500">No sessions found.</p>
       ) : (

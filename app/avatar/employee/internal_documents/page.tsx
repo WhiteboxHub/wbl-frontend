@@ -9,6 +9,8 @@ import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { apiFetch } from "@/lib/api.js";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 interface InternalDocument {
   id: number;
@@ -22,6 +24,7 @@ export default function InternalDocumentsPage() {
   const [documents, setDocuments] = useState<InternalDocument[]>([]);
   const [filteredDocuments, setFilteredDocuments] = useState<InternalDocument[]>([]);
   const [loading, setLoading] = useState(true);
+  const showLoader = useMinimumLoadingTime(loading);
   const [error, setError] = useState("");
 
   const columnDefs: ColDef[] = [
@@ -143,7 +146,7 @@ export default function InternalDocumentsPage() {
 
   const handleRowAdded = async (newRow: InternalDocument) => {
     try {
-      const { id, ...docData } = newRow; 
+      const { id, ...docData } = newRow;
       const createdDoc = await apiFetch("/api/internal-documents/", {
         method: "POST",
         body: docData,
@@ -175,12 +178,7 @@ export default function InternalDocumentsPage() {
     }
   };
 
-  if (loading)
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="text-lg">Loading documents...</div>
-      </div>
-    );
+  if (showLoader) return <Loader />;
 
   if (error)
     return (

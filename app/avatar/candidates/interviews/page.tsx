@@ -14,6 +14,8 @@ import { toast, Toaster } from "sonner";
 import { useForm } from "react-hook-form";
 import api from "@/lib/api";
 import { createPortal } from "react-dom";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 // --- Generic Filter Component ---
 interface FilterOption {
@@ -263,6 +265,7 @@ export default function CandidatesInterviews() {
   const [searchTerm, setSearchTerm] = useState("");
   const [interviews, setInterviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const showLoader = useMinimumLoadingTime(loading);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(50);
@@ -646,8 +649,8 @@ export default function CandidatesInterviews() {
           <Input id="search" type="text" value={searchTerm} placeholder="Search..." onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
         </div>
       </div>
-      {loading ? (
-        <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-8">Loading...</p>
+      {showLoader ? (
+        <Loader />
       ) : error ? (
         <p className="text-center mt-8 text-red-500">{error}</p>
       ) : (

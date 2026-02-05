@@ -14,6 +14,8 @@ import { ColDef } from "ag-grid-community";
 import { useState, useEffect } from "react";
 import { toast, Toaster } from "sonner";
 import api from "@/lib/api";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 interface Placement {
   id?: number;
@@ -46,6 +48,7 @@ export default function CandidatesPlacements() {
   const [filteredPlacements, setFilteredPlacements] = useState<Placement[]>([]);
   const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
   const [loading, setLoading] = useState(false);
+  const showLoader = useMinimumLoadingTime(loading);
   const [error, setError] = useState<string | null>(null);
 
   // Status Renderer
@@ -129,8 +132,8 @@ export default function CandidatesPlacements() {
         const placements = Array.isArray(body)
           ? body
           : Array.isArray(body.data)
-          ? body.data
-          : body.data ?? [];
+            ? body.data
+            : body.data ?? [];
 
         const placementsWithJoiningDate = placements.map((p: any) => ({
           ...p,
@@ -317,8 +320,8 @@ export default function CandidatesPlacements() {
         </div>
       </div>
 
-      {loading ? (
-        <p className="text-center text-gray-500">Loading...</p>
+      {showLoader ? (
+        <Loader />
       ) : (
         <div className="w-full flex justify-center">
           <div className="w-full max-w-7xl">

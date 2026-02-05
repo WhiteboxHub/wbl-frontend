@@ -8,11 +8,14 @@ import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { apiFetch } from "@/lib/api.js";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 export default function CourseContentPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [contents, setContents] = useState<any[]>([]);
   const [filteredContents, setFilteredContents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const showLoader = useMinimumLoadingTime(loading);
   const [error, setError] = useState("");
 
   const fetchContents = async () => {
@@ -103,11 +106,11 @@ export default function CourseContentPage() {
     }
   };
 
-  if (loading) return <p className="mt-8 text-center">Loading...</p>;
+  if (showLoader) return <Loader />;
   if (error) return <p className="mt-8 text-center text-red-600">{error}</p>;
 
   return (
-     <div className="space-y-6">
+    <div className="space-y-6">
       <Toaster position="top-center" />
       {/* Header + Search Section - Updated for left-side search */}
       <div className="flex flex-col gap-4 sm:flex-col md:flex-row md:items-center md:justify-between">
@@ -117,7 +120,7 @@ export default function CourseContentPage() {
             <h1 className="text-2xl font-bold">Course Contents</h1>
             <p>Manage course contents for Fundamentals, AIML, UI, QE.</p>
           </div>
-          
+
           {/* Search Box - Now on LEFT side under title */}
           <div className="max-w-md">
             <div className="relative">
@@ -150,11 +153,11 @@ export default function CourseContentPage() {
             if (!payload.AIML) { toast.error("AIML is required"); return; }
             const res = await apiFetch("/course-contents", { method: "POST", body: payload });
             const created = Array.isArray(res) ? res : (res?.data ?? res);
-            const updated = [created, ...contents].slice().sort((a:any,b:any)=>b.id-a.id);
+            const updated = [created, ...contents].slice().sort((a: any, b: any) => b.id - a.id);
             setContents(updated);
             setFilteredContents(updated);
             toast.success("Course Content created");
-          } catch (e:any) {
+          } catch (e: any) {
             const msg = e?.body || e?.message || "Failed to create Course Content";
             toast.error(typeof msg === 'string' ? msg : JSON.stringify(msg));
           }

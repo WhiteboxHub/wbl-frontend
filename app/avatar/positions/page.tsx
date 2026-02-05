@@ -5,10 +5,12 @@ import { ColDef } from "ag-grid-community";
 import { Badge } from "@/components/admin_ui/badge";
 import { toast, Toaster } from "sonner";
 import { AGGridTable } from "@/components/AGGridTable";
-import { Check, Filter, X, SearchIcon } from "lucide-react";
+import { Check, Filter, X, SearchIcon, Linkedin } from "lucide-react";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import api from "@/lib/api";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 type Position = {
     id: number;
@@ -244,7 +246,7 @@ const FilterHeaderComponent = ({
 const LinkCellRenderer = (params: any) => {
     let url = (params.value || "").trim();
 
-    if (!url) return <span className="text-gray-500">N/A</span>;
+    if (!url) return <span className="text-gray-400 opacity-60">N/A</span>;
     if (!/^https?:\/\//i.test(url)) {
         url = `https://${url}`;
     }
@@ -254,10 +256,32 @@ const LinkCellRenderer = (params: any) => {
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-600 hover:underline"
+            className="text-blue-600 hover:underline flex items-center gap-1"
             onClick={(e) => e.stopPropagation()}
         >
-            Click Here
+            View Link
+        </a>
+    );
+};
+
+const LinkedinCellRenderer = (params: any) => {
+    let url = (params.value || "").trim();
+
+    if (!url) return <span className="text-gray-400 opacity-60">N/A</span>;
+    if (!/^https?:\/\//i.test(url)) {
+        url = `https://${url}`;
+    }
+
+    return (
+        <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            title="View LinkedIn Profile"
+            onClick={(e) => e.stopPropagation()}
+        >
+            <Linkedin className="h-4 w-4 text-[#0a66c2]" />
         </a>
     );
 };
@@ -265,7 +289,8 @@ const LinkCellRenderer = (params: any) => {
 export default function PositionsPage() {
     const [allPositions, setAllPositions] = useState<Position[]>([]);
     const [filteredPositions, setFilteredPositions] = useState<Position[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const showLoader = useMinimumLoadingTime(loading);
 
     // Filter states
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
@@ -559,7 +584,7 @@ export default function PositionsPage() {
                 }
             },
             { field: "contact_phone", headerName: "Contact Phone", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true },
-            { field: "contact_linkedin", headerName: "Contact LinkedIn", width: 220, sortable: true, filter: "agTextColumnFilter", editable: true, cellRenderer: LinkCellRenderer },
+            { field: "contact_linkedin", headerName: "Contact LinkedIn", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true, cellRenderer: LinkedinCellRenderer },
             { field: "job_url", headerName: "Job URL", width: 250, sortable: true, filter: "agTextColumnFilter", editable: true, cellRenderer: LinkCellRenderer },
             { field: "normalized_title", headerName: "Normalized Title", width: 200, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "company_id", headerName: "Company ID", width: 130, sortable: true, filter: "agNumberColumnFilter", editable: true },
@@ -595,16 +620,19 @@ export default function PositionsPage() {
                 </div>
             </div>
 
-            <AGGridTable
-                rowData={filteredPositions}
-                columnDefs={columnDefs}
-                loading={loading}
-                onRowUpdated={handleRowUpdated}
-                onRowDeleted={handleRowDeleted}
-                onRowAdded={handleRowAdded}
-                title="Job Positions"
-                showAddButton={true}
-            />
+            {showLoader ? (
+                <Loader />
+            ) : (
+                <AGGridTable
+                    rowData={filteredPositions}
+                    columnDefs={columnDefs}
+                    onRowUpdated={handleRowUpdated}
+                    onRowDeleted={handleRowDeleted}
+                    onRowAdded={handleRowAdded}
+                    title="Job Positions"
+                    showAddButton={true}
+                />
+            )}
         </div>
     );
 }

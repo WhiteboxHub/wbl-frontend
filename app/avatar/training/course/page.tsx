@@ -8,12 +8,15 @@ import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { apiFetch } from "@/lib/api.js";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 export default function CoursePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [courses, setCourses] = useState<any[]>([]);
   const [filteredCourses, setFilteredCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const showLoader = useMinimumLoadingTime(loading);
   const [error, setError] = useState("");
 
   const columnDefs: ColDef[] = [
@@ -128,7 +131,7 @@ export default function CoursePage() {
     }
   };
 
-  if (loading) return <p className="text-center mt-8">Loading...</p>;
+  if (showLoader) return <Loader />;
   if (error) return <p className="text-center mt-8 text-red-600">{error}</p>;
 
   return (
@@ -173,11 +176,11 @@ export default function CoursePage() {
             if (!payload.name) { toast.error("Name is required"); return; }
             const res = await apiFetch("/courses", { method: "POST", body: payload });
             const created = Array.isArray(res) ? res : (res?.data ?? res);
-            const updated = [created, ...courses].slice().sort((a:any,b:any)=>b.id-a.id);
+            const updated = [created, ...courses].slice().sort((a: any, b: any) => b.id - a.id);
             setCourses(updated);
             setFilteredCourses(updated);
             toast.success("Course created");
-          } catch (e:any) {
+          } catch (e: any) {
             const msg = e?.body || e?.message || "Failed to create course";
             toast.error(typeof msg === 'string' ? msg : JSON.stringify(msg));
           }

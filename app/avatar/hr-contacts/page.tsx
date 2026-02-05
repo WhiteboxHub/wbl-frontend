@@ -11,6 +11,8 @@ import { SearchIcon } from "lucide-react";
 import { createPortal } from "react-dom";
 import { apiFetch } from "@/lib/api.js";
 import { toast, Toaster } from "sonner";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 const AGGridTable = dynamic(() => import("@/components/AGGridTable"), { ssr: false });
 
@@ -66,6 +68,7 @@ export default function HRContactPage() {
     const selectedRowsRef = useRef<any[]>([]);
     const [contacts, setContacts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const showLoader = useMinimumLoadingTime(loading);
     const [error, setError] = useState("");
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedRows, setSelectedRows] = useState<any[]>([]);
@@ -207,6 +210,7 @@ export default function HRContactPage() {
         });
     }, [fetchContacts, getVisibleSelectedRows]);
 
+    if (showLoader) return <Loader />;
     if (error) return <p className="text-center mt-8 text-red-600">{error}</p>;
 
     return (
