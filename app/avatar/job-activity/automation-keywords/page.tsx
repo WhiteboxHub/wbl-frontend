@@ -309,34 +309,34 @@ export default function JobAutomationKeywordsPage() {
 
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold">Job Automation Keywords</h1>
-                    <p>.</p>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                        Job Automation Keywords
+                    </h1>
+                    <div className="max-w-md">
+                        <div className="relative mt-1">
+                            <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                            <Input
+                                type="text"
+                                placeholder="Search by category, keywords, or context..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-10 w-96"
+                            />
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div className="max-w-md">
-                <Label htmlFor="search">Search</Label>
-                <div className="relative mt-1">
-                    <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <Input
-                        id="search"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Search by category, keywords, or context..."
-                        className="pl-10"
-                    />
-                </div>
-            </div>
 
             <AGGridTable
                 rowData={filteredKeywords}
                 columnDefs={columnDefs}
-                title={`Automation Keyword (${filteredKeywords.length})`}
+                title={`Job Automation Keywords (${filteredKeywords.length})`}
                 height="calc(70vh)"
+                showAddButton={true}
                 onAddClick={handleAddKeyword}
                 onRowUpdated={handleEditSave}
                 onRowDeleted={handleRowDeleted}
-                showSearch={false}
             />
 
             {isAddModalOpen && (

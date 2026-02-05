@@ -3,6 +3,8 @@
 import { useMemo, useState, useEffect } from "react";
 import { ColDef } from "ag-grid-community";
 import { AGGridTable } from "@/components/AGGridTable";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+
 import { Badge } from "@/components/admin_ui/badge";
 import { Button } from "@/components/admin_ui/button";
 import { Input } from "@/components/admin_ui/input";
@@ -33,7 +35,10 @@ export default function EmailEnginePage() {
         credentials_json: "{}"
     });
 
+    const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+
     const fetchEngines = async () => {
+
         try {
             setLoading(true);
             const response = await api.get("/email-engine");
@@ -62,14 +67,20 @@ export default function EmailEnginePage() {
     };
 
     const handleRowDeleted = async (id: number) => {
-        if (!confirm("Are you sure you want to delete this email engine?")) return;
+        setDeleteConfirmId(id);
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteConfirmId) return;
         try {
-            await api.delete(`/email-engine/${id}`);
+            await api.delete(`/email-engine/${deleteConfirmId}`);
             toast.success("Email engine deleted successfully");
             fetchEngines();
         } catch (error) {
             console.error("Error deleting email engine:", error);
             toast.error("Failed to delete email engine");
+        } finally {
+            setDeleteConfirmId(null);
         }
     };
 
@@ -150,19 +161,6 @@ export default function EmailEnginePage() {
                 return new Date(params.value).toLocaleString();
             },
         },
-        {
-            headerName: "Actions",
-            width: 100,
-            pinned: "right",
-            cellRenderer: (params: any) => (
-                <button
-                    onClick={() => handleRowDeleted(params.data.id)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
-                >
-                    <Trash2 size={18} />
-                </button>
-            )
-        }
     ], []);
 
     const filteredEngines = engines.filter(e =>
@@ -174,41 +172,39 @@ export default function EmailEnginePage() {
         <div className="p-6 space-y-6">
             <Toaster richColors position="top-center" />
 
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                         <Server className="text-blue-600" />
                         Email Sender Engines
                     </h1>
-                    <p className="text-gray-500">Manage email service configurations and priorities</p>
-                </div>
-
-                <div className="flex items-center gap-3">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                        <Input
-                            placeholder="Search engines..."
-                            className="pl-10 w-64"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+                    <div className="max-w-md">
+                        <div className="relative mt-1">
+                            <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                            <Input
+                                type="text"
+                                placeholder="Search engines..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-10 w-96"
+                            />
+                        </div>
                     </div>
-                    <Button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2">
-                        <Plus size={18} />
-                        Add Engine
-                    </Button>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="md:col-span-3">
                     <AGGridTable
-                        title="Email Engines"
+                        title={`Email Engines (${filteredEngines.length})`}
                         rowData={filteredEngines}
                         columnDefs={columnDefs}
                         height="calc(100vh - 250px)"
                         onRowUpdated={handleRowUpdated}
+                        onRowDeleted={handleRowDeleted}
                         loading={loading}
+                        showAddButton={true}
+                        onAddClick={() => setIsModalOpen(true)}
                     />
                 </div>
             </div>
@@ -290,6 +286,15 @@ export default function EmailEnginePage() {
                     </div>
                 </div>
             )}
+
+            <ConfirmDialog
+                isOpen={deleteConfirmId !== null}
+                onClose={() => setDeleteConfirmId(null)}
+                onConfirm={confirmDelete}
+                title="Delete Email Engine"
+                message="Are you sure you want to delete this email engine?"
+                confirmText="Delete"
+            />
         </div>
     );
 }
