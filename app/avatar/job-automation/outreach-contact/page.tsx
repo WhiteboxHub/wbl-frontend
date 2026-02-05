@@ -265,8 +265,8 @@ export default function OutreachContactPage() {
                 <Loader />
             ) : (
                 <AGGridTable
-                    title={`Outreach Contacts (${filtered.length})`}
-                    rowData={filtered}
+                    title={`Outreach Contacts (${contacts.length})`}
+                    rowData={contacts}
                     columnDefs={columnDefs}
                     onRowUpdated={handleRowUpdated}
                     onRowDeleted={handleRowDeleted}
