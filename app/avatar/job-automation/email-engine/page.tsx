@@ -21,10 +21,13 @@ import {
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import api from "@/lib/api";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 export default function EmailEnginePage() {
     const [engines, setEngines] = useState([]);
     const [loading, setLoading] = useState(true);
+    const showLoader = useMinimumLoadingTime(loading);
     const [searchTerm, setSearchTerm] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [formData, setFormData] = useState({
@@ -195,17 +198,20 @@ export default function EmailEnginePage() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="md:col-span-3">
-                    <AGGridTable
-                        title={`Email Engines (${filteredEngines.length})`}
-                        rowData={filteredEngines}
-                        columnDefs={columnDefs}
-                        height="calc(100vh - 250px)"
-                        onRowUpdated={handleRowUpdated}
-                        onRowDeleted={handleRowDeleted}
-                        loading={loading}
-                        showAddButton={true}
-                        onAddClick={() => setIsModalOpen(true)}
-                    />
+                    {showLoader ? (
+                        <Loader />
+                    ) : (
+                        <AGGridTable
+                            title={`Email Engines (${filteredEngines.length})`}
+                            rowData={filteredEngines}
+                            columnDefs={columnDefs}
+                            height="calc(100vh - 250px)"
+                            onRowUpdated={handleRowUpdated}
+                            onRowDeleted={handleRowDeleted}
+                            showAddButton={true}
+                            onAddClick={() => setIsModalOpen(true)}
+                        />
+                    )}
                 </div>
             </div>
 

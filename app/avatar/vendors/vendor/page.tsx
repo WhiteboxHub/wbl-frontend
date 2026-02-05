@@ -11,6 +11,8 @@ import { SearchIcon } from "lucide-react";
 import { createPortal } from "react-dom";
 import { apiFetch } from "@/lib/api.js";
 import { toast, Toaster } from "sonner";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 const AGGridTable = dynamic(() => import("@/components/AGGridTable"), { ssr: false });
 
@@ -402,6 +404,7 @@ export default function VendorPage() {
   const selectedRowsRef = useRef<any[]>([]);
   const [vendors, setVendors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const showLoader = useMinimumLoadingTime(loading);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
@@ -653,61 +656,64 @@ export default function VendorPage() {
 
       <div className="flex w-full justify-center">
         <div className="w-full max-w-7xl">
-          <AGGridTable
-            loading={loading}
-            rowData={filteredVendors}
-            columnDefs={columnDefs}
-            title={`All Vendors (${filteredVendors.length})`}
-            height="calc(70vh)"
-            onRowUpdated={handleRowUpdated}
-            onRowDeleted={handleRowDeleted}
-            skipDeleteConfirmation={true}
-            showSearch={false}
-            onFilterChanged={() => {
-              if (gridRef.current?.api) {
-                gridRef.current.api.deselectAll();
-              }
-              setSelectedRows([]);
-              selectedRowsRef.current = [];
-            }}
-            onSelectionChanged={(rows: any[]) => {
-              selectedRowsRef.current = rows;
-              setSelectedRows(rows);
-            }}
-            onRowAdded={async (newRow: any) => {
-              try {
-                const payload = {
-                  full_name: newRow.full_name || newRow.name || "",
-                  phone_number: newRow.phone_number || newRow.phone || null,
-                  secondary_phone: newRow.secondary_phone || null,
-                  email: newRow.email || null,
-                  linkedin_id: newRow.linkedin_id || newRow.linkedin || null,
-                  type: newRow.type || newRow.vendor_type || "client",
-                  status: newRow.status || "active",
-                  company_name: newRow.company_name || newRow.company || null,
-                  city: newRow.city || null,
-                  postal_code: newRow.postal_code || null,
-                  address: newRow.address || null,
-                  country: newRow.country || null,
-                  location: newRow.location || null,
-                  linkedin_connected: (newRow.linkedin_connected || "NO").toString().toUpperCase(),
-                  intro_email_sent: (newRow.intro_email_sent || "NO").toString().toUpperCase(),
-                  intro_call: (newRow.intro_call || "NO").toString().toUpperCase(),
-                  notes: newRow.notes || null,
-                  linkedin_internal_id: newRow.linkedin_internal_id || null,
-                };
-                if (!payload.full_name) { console.warn('Vendor name required'); return; }
-                const res = await apiFetch("/vendors", { method: "POST", body: payload });
-                const created = Array.isArray(res) ? res : (res?.data ?? res);
-                console.log("[onRowAdded] Successfully created vendor:", created);
-                setVendors((prev) => [created, ...prev]);
-                toast.success("Vendor created successfully");
-              } catch (e: any) {
-                console.error('Failed to create vendor', e);
-                toast.error(e?.message || "Failed to create vendor");
-              }
-            }}
-          />
+          {showLoader ? (
+            <Loader />
+          ) : (
+            <AGGridTable
+              rowData={filteredVendors}
+              columnDefs={columnDefs}
+              title={`All Vendors (${filteredVendors.length})`}
+              height="calc(70vh)"
+              onRowUpdated={handleRowUpdated}
+              onRowDeleted={handleRowDeleted}
+              skipDeleteConfirmation={true}
+              showSearch={false}
+              onFilterChanged={() => {
+                if (gridRef.current?.api) {
+                  gridRef.current.api.deselectAll();
+                }
+                setSelectedRows([]);
+                selectedRowsRef.current = [];
+              }}
+              onSelectionChanged={(rows: any[]) => {
+                selectedRowsRef.current = rows;
+                setSelectedRows(rows);
+              }}
+              onRowAdded={async (newRow: any) => {
+                try {
+                  const payload = {
+                    full_name: newRow.full_name || newRow.name || "",
+                    phone_number: newRow.phone_number || newRow.phone || null,
+                    secondary_phone: newRow.secondary_phone || null,
+                    email: newRow.email || null,
+                    linkedin_id: newRow.linkedin_id || newRow.linkedin || null,
+                    type: newRow.type || newRow.vendor_type || "client",
+                    status: newRow.status || "active",
+                    company_name: newRow.company_name || newRow.company || null,
+                    city: newRow.city || null,
+                    postal_code: newRow.postal_code || null,
+                    address: newRow.address || null,
+                    country: newRow.country || null,
+                    location: newRow.location || null,
+                    linkedin_connected: (newRow.linkedin_connected || "NO").toString().toUpperCase(),
+                    intro_email_sent: (newRow.intro_email_sent || "NO").toString().toUpperCase(),
+                    intro_call: (newRow.intro_call || "NO").toString().toUpperCase(),
+                    notes: newRow.notes || null,
+                    linkedin_internal_id: newRow.linkedin_internal_id || null,
+                  };
+                  if (!payload.full_name) { console.warn('Vendor name required'); return; }
+                  const res = await apiFetch("/vendors", { method: "POST", body: payload });
+                  const created = Array.isArray(res) ? res : (res?.data ?? res);
+                  console.log("[onRowAdded] Successfully created vendor:", created);
+                  setVendors((prev) => [created, ...prev]);
+                  toast.success("Vendor created successfully");
+                } catch (e: any) {
+                  console.error('Failed to create vendor', e);
+                  toast.error(e?.message || "Failed to create vendor");
+                }
+              }}
+            />
+          )}
 
           {/* Confirmation Dialog */}
           {confirmDialog.isOpen && (

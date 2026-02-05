@@ -8,6 +8,8 @@ import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { apiFetch } from "@/lib/api.js";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 interface CourseSubject {
   subject_id: number;
@@ -55,6 +57,7 @@ export default function CourseSubjectPage() {
   const [filteredCourseSubjects, setFilteredCourseSubjects] = useState<CourseSubject[]>([]);
   const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
   const [loading, setLoading] = useState(true);
+  const showLoader = useMinimumLoadingTime(loading);
   const [error, setError] = useState("");
   const [courses, setCourses] = useState<Course[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -176,15 +179,7 @@ export default function CourseSubjectPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[400px] items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  if (showLoader) return <Loader />;
 
   if (error && courseSubjects.length === 0) {
     return (
@@ -209,7 +204,7 @@ export default function CourseSubjectPage() {
               {courseSubjects.length}
             </p>
           </div>
-          
+
           {/* Search Box - Now on LEFT side under title */}
           <div className="max-w-md">
             <div className="relative">
@@ -246,7 +241,7 @@ export default function CourseSubjectPage() {
             setCourseSubjects(updated);
             setFilteredCourseSubjects(updated);
             toast.success("Mapping created");
-          } catch (e:any) {
+          } catch (e: any) {
             toast.error(getErrorMessage(e));
           }
         }}

@@ -9,6 +9,8 @@ import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { apiFetch } from "@/lib/api.js";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 const JobNameRenderer = (params: any) => {
   const name = params.value;
@@ -36,6 +38,7 @@ export default function JobTypesPage() {
   const [filteredJobTypes, setFilteredJobTypes] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const showLoader = useMinimumLoadingTime(loading);
   const [error, setError] = useState("");
 
   const getEmployeeName = (value: any, list?: any[]) => {
@@ -189,7 +192,7 @@ export default function JobTypesPage() {
       editable: false,
     },
     {
-      
+
       field: "notes",
       headerName: "Notes",
       width: 250,
@@ -208,7 +211,7 @@ export default function JobTypesPage() {
       const owner1Name = row.job_owner_1_name || getEmployeeName(row.job_owner_1);
       const owner2Name = row.job_owner_2_name || getEmployeeName(row.job_owner_2);
       const owner3Name = row.job_owner_3_name || getEmployeeName(row.job_owner_3);
-      const ownerMatch = 
+      const ownerMatch =
         owner1Name.toLowerCase().includes(lower) ||
         owner2Name.toLowerCase().includes(lower) ||
         owner3Name.toLowerCase().includes(lower);
@@ -303,7 +306,7 @@ export default function JobTypesPage() {
       toast.success(
         isEdit ? "Job type updated successfully" : "Job type created successfully"
       );
-      
+
       if (!isEdit) {
         setIsAddModalOpen(false);
       }
@@ -329,7 +332,7 @@ export default function JobTypesPage() {
     };
   };
 
-  if (loading) return <p className="mt-8 text-center">Loading...</p>;
+  if (showLoader) return <Loader />;
   if (error) return <p className="mt-8 text-center text-red-600">{error}</p>;
 
   return (

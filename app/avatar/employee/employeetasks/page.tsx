@@ -17,6 +17,8 @@ import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
 ModuleRegistry.registerModules([ClientSideRowModelModule, ValidationModule]);
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 interface EmployeeTask {
   id: number;
@@ -197,6 +199,7 @@ const HtmlRenderer = (params: any) => {
 const TasksList = ({ projectId, employeeId, readOnly = false }: { projectId?: number; employeeId?: number; readOnly?: boolean }) => {
   const [tasks, setTasks] = useState<EmployeeTask[]>([]);
   const [loading, setLoading] = useState(true);
+  const showLoader = useMinimumLoadingTime(loading);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
@@ -358,8 +361,8 @@ const TasksList = ({ projectId, employeeId, readOnly = false }: { projectId?: nu
       )}
       {readOnly ? (
         <div className="w-full">
-          {loading ? (
-            <div className="text-center py-8 text-gray-500">Loading tasks...</div>
+          {showLoader ? (
+            <Loader />
           ) : filteredTasks.length === 0 ? (
             <div className="text-center py-8 text-gray-500">No tasks found for this project</div>
           ) : (
@@ -401,11 +404,12 @@ const TasksList = ({ projectId, employeeId, readOnly = false }: { projectId?: nu
             </div>
           )}
         </div>
+      ) : showLoader ? (
+        <Loader />
       ) : (
         <AGGridTable
           rowData={filteredTasks}
           columnDefs={columnDefs}
-          loading={loading}
           onRowUpdated={readOnly ? undefined : handleUpdate}
           onRowAdded={readOnly ? undefined : handleAdd}
           onRowDeleted={readOnly ? undefined : handleDelete}
@@ -425,6 +429,7 @@ const TasksList = ({ projectId, employeeId, readOnly = false }: { projectId?: nu
 const ProjectsView = () => {
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const showLoader = useMinimumLoadingTime(loading);
   const [expandedIds, setExpandedIds] = useState<number[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -539,8 +544,8 @@ const ProjectsView = () => {
     { field: "owner", headerName: "Owner", width: 150 },
     { field: "status", headerName: "Status", cellRenderer: StatusRenderer, width: 130 },
     { field: "priority", headerName: "Priority", cellRenderer: PriorityRenderer, width: 130 },
-    { field: "start_date", headerName: "Start Date", cellRenderer: DateFormatter, width: 120},
-    { field: "target_end_date", headerName: "Target End Date", cellRenderer: DateFormatter, width: 120},
+    { field: "start_date", headerName: "Start Date", cellRenderer: DateFormatter, width: 120 },
+    { field: "target_end_date", headerName: "Target End Date", cellRenderer: DateFormatter, width: 120 },
     { field: "description", headerName: "Description", cellRenderer: HtmlRenderer },
   ];
 
@@ -569,21 +574,24 @@ const ProjectsView = () => {
           />
         </div>
       </div>
-      <AGGridTable
-        rowData={gridData}
-        columnDefs={colDefs}
-        loading={loading}
-        onRowUpdated={handleUpdate}
-        onRowAdded={handleCreate}
-        onRowDeleted={handleDelete}
-        title="Project"
-        batches={[]}
-        showAddButton={true}
-        height="calc(100vh - 350px)"
-        isFullWidthRow={(p: any) => p.rowNode.data._isDetail}
-        fullWidthCellRenderer={fullWidthCellRenderer}
-        getRowHeight={(p: any) => p.node.data._isDetail ? 600 : 50}
-      />
+      {showLoader ? (
+        <Loader />
+      ) : (
+        <AGGridTable
+          rowData={gridData}
+          columnDefs={colDefs}
+          onRowUpdated={handleUpdate}
+          onRowAdded={handleCreate}
+          onRowDeleted={handleDelete}
+          title="Project"
+          batches={[]}
+          showAddButton={true}
+          height="calc(100vh - 350px)"
+          isFullWidthRow={(p: any) => p.rowNode.data._isDetail}
+          fullWidthCellRenderer={fullWidthCellRenderer}
+          getRowHeight={(p: any) => p.node.data._isDetail ? 600 : 50}
+        />
+      )}
     </div>
   );
 };
@@ -592,6 +600,7 @@ const ProjectsView = () => {
 const EmployeesView = () => {
   const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const showLoader = useMinimumLoadingTime(loading);
   const [expandedIds, setExpandedIds] = useState<number[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -687,18 +696,21 @@ const EmployeesView = () => {
           />
         </div>
       </div>
-      <AGGridTable
-        rowData={gridData}
-        columnDefs={colDefs}
-        loading={loading}
-        title="Employee"
-        batches={[]}
-        showAddButton={false}
-        height="calc(100vh - 350px)"
-        isFullWidthRow={(p: any) => p.rowNode.data._isDetail}
-        fullWidthCellRenderer={fullWidthCellRenderer}
-        getRowHeight={(p: any) => p.node.data._isDetail ? 600 : 50}
-      />
+      {showLoader ? (
+        <Loader />
+      ) : (
+        <AGGridTable
+          rowData={gridData}
+          columnDefs={colDefs}
+          title="Employee"
+          batches={[]}
+          showAddButton={false}
+          height="calc(100vh - 350px)"
+          isFullWidthRow={(p: any) => p.rowNode.data._isDetail}
+          fullWidthCellRenderer={fullWidthCellRenderer}
+          getRowHeight={(p: any) => p.node.data._isDetail ? 600 : 50}
+        />
+      )}
     </div>
   );
 };

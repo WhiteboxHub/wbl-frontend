@@ -9,6 +9,8 @@ import { SearchIcon } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { apiFetch } from "@/lib/api.js";
 import { useForm } from "react-hook-form";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 interface CourseMaterial {
   id: number;
@@ -74,6 +76,7 @@ export default function CourseMaterialPage() {
   const [materials, setMaterials] = useState<CourseMaterial[]>([]);
   const [filteredMaterials, setFilteredMaterials] = useState<CourseMaterial[]>([]);
   const [loading, setLoading] = useState(true);
+  const showLoader = useMinimumLoadingTime(loading);
   const [error, setError] = useState("");
   const [courses, setCourses] = useState<Course[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -185,12 +188,12 @@ export default function CourseMaterialPage() {
   }, [searchTerm, materials, subjects, courses]);
 
   const columnDefs: ColDef[] = useMemo<ColDef[]>(() => [
-    { 
-      field: "id", 
-      headerName: "ID", 
-      width: 130, 
-      pinned: "left", 
-      editable: false 
+    {
+      field: "id",
+      headerName: "ID",
+      width: 130,
+      pinned: "left",
+      editable: false
     },
     {
       field: "subjectid",
@@ -203,8 +206,8 @@ export default function CourseMaterialPage() {
       cellEditor: "agRichSelectCellEditor",
       cellEditorParams: {
         values: [
-          0,  
-          ...subjects.map(s => s.id) 
+          0,
+          ...subjects.map(s => s.id)
         ],
         formatValue: (value: number) => {
           return getSubjectDisplayName(value);
@@ -223,7 +226,7 @@ export default function CourseMaterialPage() {
       cellEditor: "agRichSelectCellEditor",
       cellEditorParams: {
         values: [
-          0,  
+          0,
           ...courses.map(c => c.id)
         ],
         formatValue: (value: number) => {
@@ -232,17 +235,17 @@ export default function CourseMaterialPage() {
       },
       cellEditorPopup: true,
     },
-    { 
-      field: "name", 
-      headerName: "Material Name", 
-      width: 250, 
-      editable: true 
+    {
+      field: "name",
+      headerName: "Material Name",
+      width: 250,
+      editable: true
     },
-    { 
-      field: "description", 
-      headerName: "Description", 
-      width: 230, 
-      editable: true 
+    {
+      field: "description",
+      headerName: "Description",
+      width: 230,
+      editable: true
     },
     {
       field: "type",
@@ -254,7 +257,7 @@ export default function CourseMaterialPage() {
       },
       cellEditor: "agRichSelectCellEditor",
       cellEditorParams: {
-        values: Object.keys(TYPE_MAPPING), 
+        values: Object.keys(TYPE_MAPPING),
         formatValue: (value: string) => {
           return getTypeDisplayName(value);
         }
@@ -280,10 +283,10 @@ export default function CourseMaterialPage() {
         );
       },
     },
-    { 
-      field: "sortorder", 
-      headerName: "Sort Order", 
-      width: 140, 
+    {
+      field: "sortorder",
+      headerName: "Sort Order",
+      width: 140,
       editable: true,
       valueParser: (params) => Number(params.newValue)
     },
@@ -315,7 +318,7 @@ export default function CourseMaterialPage() {
     }
   };
 
-  if (loading) return <p className="mt-8 text-center">Loading...</p>;
+  if (showLoader) return <Loader />;
   if (error) return <p className="mt-8 text-center text-red-600">{error}</p>;
 
   return (
@@ -334,12 +337,12 @@ export default function CourseMaterialPage() {
             <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">Search</Label>
             <div className="relative mt-1">
               <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <Input 
-                id="search" 
-                value={searchTerm} 
-                onChange={(e) => setSearchTerm(e.target.value)} 
-                placeholder="Search by ID, name, type..." 
-                className="w-full pl-10 text-sm sm:text-base" 
+              <Input
+                id="search"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by ID, name, type..."
+                className="w-full pl-10 text-sm sm:text-base"
               />
             </div>
             {searchTerm && <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{filteredMaterials.length} results found</p>}
@@ -386,14 +389,14 @@ export default function CourseMaterialPage() {
               return;
             }
 
-            const payload = { courseid: Number(courseid), subjectid: Number(subjectid||0), name, description, type, link, sortorder };
+            const payload = { courseid: Number(courseid), subjectid: Number(subjectid || 0), name, description, type, link, sortorder };
             const res = await apiFetch("/course-materials", { method: "POST", body: payload });
             const created = Array.isArray(res) ? res : (res?.data ?? res);
-            const updated = [created, ...materials].slice().sort((a:any,b:any)=>b.id-a.id);
+            const updated = [created, ...materials].slice().sort((a: any, b: any) => b.id - a.id);
             setMaterials(updated);
             setFilteredMaterials(updated);
             toast.success("Course Material created", { position: 'top-center' });
-          } catch (e:any) {
+          } catch (e: any) {
             const msg = e?.body || e?.message || "Failed to create Course Material";
             toast.error(typeof msg === 'string' ? msg : JSON.stringify(msg), { position: 'top-center' });
           }

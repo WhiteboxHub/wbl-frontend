@@ -6,12 +6,14 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon } from "lucide-react";
+import { SearchIcon, Linkedin, FileText, Github } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { toast, Toaster } from "sonner";
 import api from "@/lib/api";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 const StatusRenderer = (params: any) => {
   const status = (params?.value || "").toString().toLowerCase();
@@ -419,6 +421,7 @@ export default function CandidatesPrepPage() {
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(["active"]);
   const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const showLoader = useMinimumLoadingTime(loading);
   const [error, setError] = useState("");
   const [instructors, setInstructors] = useState<any[]>([]);
 
@@ -542,25 +545,37 @@ export default function CandidatesPrepPage() {
     );
   };
 
-  const LinkCellRenderer = (params: any) => {
-    let url = (params.value || "").trim();
-
-    if (!url) return <span className="text-gray-500">N/A</span>;
+  // Standardized Renderers
+  const IconCellRenderer = ({ value, icon: Icon, title, colorClass = "text-blue-600" }: any) => {
+    let url = (value || "").trim();
+    if (!url) return <span className="text-gray-400 opacity-60">N/A</span>;
     if (!/^https?:\/\//i.test(url)) {
       url = `https://${url}`;
     }
-
     return (
       <a
         href={url}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-blue-600 hover:underline"
+        className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+        title={title}
       >
-        Click Here
+        <Icon className={`h-4 w-4 ${colorClass}`} />
       </a>
     );
   };
+
+  const LinkedinCellRenderer = (params: any) => (
+    <IconCellRenderer value={params.value} icon={Linkedin} title="View LinkedIn Profile" colorClass="text-[#0a66c2]" />
+  );
+
+  const ResumeCellRenderer = (params: any) => (
+    <IconCellRenderer value={params.value} icon={FileText} title="View Resume" colorClass="text-blue-600" />
+  );
+
+  const GithubCellRenderer = (params: any) => (
+    <IconCellRenderer value={params.value} icon={Github} title="View GitHub Profile" colorClass="text-gray-700 dark:text-gray-300" />
+  );
 
 
   const formatEnumValue = (value: string) => {
@@ -648,14 +663,14 @@ export default function CandidatesPrepPage() {
         field: "github_url",
         headerName: "GitHub",
         minWidth: 150,
-        cellRenderer: LinkCellRenderer,
+        cellRenderer: GithubCellRenderer,
       },
-      { field: "resume_url", headerName: "Resume", minWidth: 150, cellRenderer: LinkCellRenderer },
+      { field: "resume_url", headerName: "Resume", minWidth: 150, cellRenderer: ResumeCellRenderer },
       {
         headerName: "LinkedIn",
         minWidth: 150,
         valueGetter: (params) => params.data?.candidate?.linkedin_id || null,
-        cellRenderer: LinkCellRenderer,
+        cellRenderer: LinkedinCellRenderer,
       },
       {
         field: "target_date",
@@ -775,6 +790,9 @@ export default function CandidatesPrepPage() {
       toast.error(errorMessage);
     }
   };
+
+  if (showLoader) return <Loader />;
+  if (error) return <p className="mt-8 text-center text-red-600">{error}</p>;
 
   return (
     <div className="space-y-6 p-4">

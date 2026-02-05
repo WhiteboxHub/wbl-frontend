@@ -8,6 +8,8 @@ import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { apiFetch } from "@/lib/api.js";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 export default function RecordingBatchPage() {
     const [searchTerm, setSearchTerm] = useState("");
@@ -16,6 +18,7 @@ export default function RecordingBatchPage() {
     const [recordings, setRecordings] = useState<any[]>([]);
     const [batches, setBatches] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const showLoader = useMinimumLoadingTime(loading);
     const [error, setError] = useState("");
 
     const columnDefs: ColDef[] = [
@@ -124,7 +127,7 @@ export default function RecordingBatchPage() {
         }
     };
 
-    if (loading) return <p className="text-center mt-8">Loading...</p>;
+    if (showLoader) return <Loader />;
     if (error) return <p className="text-center mt-8 text-red-600">{error}</p>;
 
     return (

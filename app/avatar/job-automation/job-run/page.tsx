@@ -10,6 +10,8 @@ import { toast, Toaster } from "sonner";
 import { AGGridTable } from "@/components/AGGridTable";
 import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { apiFetch } from "@/lib/api";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 type JobRun = {
     id: number;
@@ -44,7 +46,8 @@ export default function JobRunPage() {
     const searchInputRef = useRef<HTMLInputElement>(null);
     const [jobRuns, setJobRuns] = useState<JobRun[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const showLoader = useMinimumLoadingTime(loading);
     const [error, setError] = useState<string | null>(null);
 
     const apiEndpoint = useMemo(() => "/job-run", []);
@@ -231,14 +234,17 @@ export default function JobRunPage() {
             </div>
 
 
-            <AGGridTable
-                title={`Job Runs (${filteredData.length})`}
-                rowData={filteredData}
-                columnDefs={columnDefs}
-                onRowUpdated={handleRowUpdated}
-                onRowDeleted={handleRowDeleted}
-                loading={loading}
-            />
+            {showLoader ? (
+                <Loader />
+            ) : (
+                <AGGridTable
+                    title={`Job Runs (${filteredData.length})`}
+                    rowData={filteredData}
+                    columnDefs={columnDefs}
+                    onRowUpdated={handleRowUpdated}
+                    onRowDeleted={handleRowDeleted}
+                />
+            )}
         </div>
     );
 }
