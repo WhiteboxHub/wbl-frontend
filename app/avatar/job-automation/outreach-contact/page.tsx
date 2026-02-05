@@ -3,6 +3,8 @@
 import { useMemo, useState, useEffect } from "react";
 import { ColDef } from "ag-grid-community";
 import { AGGridTable } from "@/components/AGGridTable";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+
 import { Badge } from "@/components/admin_ui/badge";
 import { Button } from "@/components/admin_ui/button";
 import { Input } from "@/components/admin_ui/input";
@@ -25,7 +27,10 @@ export default function OutreachContactPage() {
         complaint_flag: false
     });
 
+    const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+
     const fetchContacts = async () => {
+
         try {
             setLoading(true);
             const response = await api.get("/outreach-contact");
@@ -44,7 +49,7 @@ export default function OutreachContactPage() {
 
     const handleRowUpdated = async (updatedRow: any) => {
         try {
-            const { id, created_at, updated_at, email_lc, ...payload } = updatedRow;
+            const { id, created_at, email_lc, ...payload } = updatedRow;
             await api.put(`/outreach-contact/${id}`, payload);
             toast.success("Contact updated successfully");
             fetchContacts();
@@ -55,13 +60,19 @@ export default function OutreachContactPage() {
     };
 
     const handleRowDeleted = async (id: number) => {
-        if (!confirm("Are you sure?")) return;
+        setDeleteConfirmId(id);
+    };
+
+    const confirmDelete = async () => {
+        if (!deleteConfirmId) return;
         try {
-            await api.delete(`/outreach-contact/${id}`);
+            await api.delete(`/outreach-contact/${deleteConfirmId}`);
             toast.success("Contact deleted");
             fetchContacts();
         } catch (error) {
             toast.error("Failed to delete contact");
+        } finally {
+            setDeleteConfirmId(null);
         }
     };
 
@@ -109,21 +120,21 @@ export default function OutreachContactPage() {
             headerName: "Unsub",
             width: 90,
             editable: true,
-            cellRenderer: (p: any) => p.value ? "✅" : "❌"
+            cellRenderer: (p: any) => p.value ? "true" : "false"
         },
         {
             field: "bounce_flag",
             headerName: "Bounce",
             width: 90,
             editable: true,
-            cellRenderer: (p: any) => p.value ? "✅" : "❌"
+            cellRenderer: (p: any) => p.value ? "true" : "false"
         },
         {
             field: "complaint_flag",
             headerName: "Spam",
             width: 90,
             editable: true,
-            cellRenderer: (p: any) => p.value ? "✅" : "❌"
+            cellRenderer: (p: any) => p.value ? "true" : "false"
         },
         {
             field: "unsubscribe_reason",
@@ -132,14 +143,23 @@ export default function OutreachContactPage() {
             editable: true
         },
         {
-            headerName: "Actions",
-            width: 80,
-            cellRenderer: (params: any) => (
-                <button onClick={() => handleRowDeleted(params.data.id)} className="p-1 text-red-600 hover:bg-red-50 rounded">
-                    <Trash2 size={16} />
-                </button>
-            )
-        }
+            field: "created_at",
+            headerName: "Created At",
+            width: 180,
+            valueFormatter: (params: any) => {
+                if (!params.value) return "";
+                return new Date(params.value).toLocaleString();
+            },
+        },
+        {
+            field: "updated_at",
+            headerName: "Last Modified",
+            width: 180,
+            valueFormatter: (params: any) => {
+                if (!params.value) return "";
+                return new Date(params.value).toLocaleString();
+            },
+        },
     ], []);
 
     const filtered = contacts.filter(c => c.email.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -147,17 +167,36 @@ export default function OutreachContactPage() {
     return (
         <div className="p-6 space-y-6">
             <Toaster richColors position="top-center" />
-            <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold flex items-center gap-2"><Users /> Outreach Contacts</h1>
-                <Button onClick={() => setIsModalOpen(true)}>Add Contact</Button>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-3">
+                        <Users className="text-blue-600 w-7 h-7" />
+                        Outreach Contacts
+                    </h1>
+                    <div className="max-w-md">
+                        <div className="relative mt-1">
+                            <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                            <Input
+                                type="text"
+                                placeholder="Search contacts..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-10 w-96"
+                            />
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <AGGridTable
-                title="Outreach Contacts"
+                title={`Outreach Contacts (${filtered.length})`}
                 rowData={filtered}
                 columnDefs={columnDefs}
                 onRowUpdated={handleRowUpdated}
+                onRowDeleted={handleRowDeleted}
                 loading={loading}
+                showAddButton={true}
+                onAddClick={() => setIsModalOpen(true)}
             />
 
             {isModalOpen && (
@@ -209,6 +248,15 @@ export default function OutreachContactPage() {
                     </div>
                 </div>
             )}
+
+            <ConfirmDialog
+                isOpen={deleteConfirmId !== null}
+                onClose={() => setDeleteConfirmId(null)}
+                onConfirm={confirmDelete}
+                title="Delete Contact"
+                message="Are you sure you want to delete this outreach contact?"
+                confirmText="Delete"
+            />
         </div>
     );
 }

@@ -14,6 +14,8 @@ import { createPortal } from "react-dom";
 import { toast, Toaster } from "sonner";
 import api, { smartUpdate } from "@/lib/api";
 import { format } from "date-fns";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+
 
 const StatusRenderer = (params: any) => {
   const status = params.value?.toLowerCase();
@@ -588,19 +590,9 @@ export default function CandidatesMarketingPage() {
 
   const CreateJobRenderer = (params: any) => {
     const [loading, setLoading] = useState(false);
+    const [confirmOpen, setConfirmOpen] = useState(false);
 
-    const handleCreateJob = async (e: React.MouseEvent) => {
-      e.stopPropagation();
-      // Basic validation: Intro is required for Mass Email
-      if (!params.data.candidate_intro) {
-        toast.error("Cannot create job: Candidate Intro is missing.");
-        return;
-      }
-
-      if (!confirm(`Create a MASS EMAIL job request for ${params.data.candidate?.full_name || "this candidate"}?`)) {
-        return;
-      }
-
+    const handleCreateJob = async () => {
       try {
         setLoading(true);
         await api.post("/job-request", {
@@ -618,17 +610,36 @@ export default function CandidatesMarketingPage() {
         }
       } finally {
         setLoading(false);
+        setConfirmOpen(false);
       }
     };
 
     return (
-      <button
-        className={`px-3 py-1 rounded text-xs font-medium border transition-colors ${loading ? "bg-gray-100 text-gray-500 cursor-not-allowed" : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"}`}
-        onClick={handleCreateJob}
-        disabled={loading}
-      >
-        {loading ? "Creating..." : "Create Job"}
-      </button>
+      <>
+        <button
+          className={`px-3 py-1 rounded text-xs font-medium border transition-colors ${loading ? "bg-gray-100 text-gray-500 cursor-not-allowed" : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!params.data.candidate_intro) {
+              toast.error("Cannot create job: Candidate Intro is missing.");
+              return;
+            }
+            setConfirmOpen(true);
+          }}
+          disabled={loading}
+        >
+          {loading ? "Creating..." : "Create Job"}
+        </button>
+
+        <ConfirmDialog
+          isOpen={confirmOpen}
+          onClose={() => setConfirmOpen(false)}
+          onConfirm={handleCreateJob}
+          title="Create Job Request"
+          message={`Create a MASS EMAIL job request for ${params.data.candidate?.full_name || "this candidate"}?`}
+          confirmText="Create Job"
+        />
+      </>
     );
   };
 
