@@ -32,11 +32,20 @@ export default function OutreachContactPage() {
 
     const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
-    const fetchContacts = async () => {
+    const [dateFrom, setDateFrom] = useState("");
+    const [dateTo, setDateTo] = useState("");
 
+    const fetchContacts = async () => {
         try {
             setLoading(true);
-            const response = await api.get("/outreach-contact");
+            const params = new URLSearchParams();
+            if (searchTerm) params.append("search", searchTerm);
+            if (dateFrom) params.append("date_from", dateFrom);
+            if (dateTo) params.append("date_to", dateTo);
+
+            const queryString = params.toString();
+            const endpoint = queryString ? `/outreach-contact?${queryString}` : "/outreach-contact";
+            const response = await api.get(endpoint);
             setContacts(response.data);
         } catch (error) {
             console.error("Error fetching contacts:", error);
@@ -48,7 +57,7 @@ export default function OutreachContactPage() {
 
     useEffect(() => {
         fetchContacts();
-    }, []);
+    }, [searchTerm, dateFrom, dateTo]);
 
     const handleRowUpdated = async (updatedRow: any) => {
         try {
@@ -165,27 +174,88 @@ export default function OutreachContactPage() {
         },
     ], []);
 
-    const filtered = contacts.filter(c => c.email.toLowerCase().includes(searchTerm.toLowerCase()));
-
     return (
         <div className="p-6 space-y-6">
             <Toaster richColors position="top-center" />
             <div className="flex items-center justify-between">
-                <div>
+                <div className="flex-1">
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-3">
                         <Users className="text-blue-600 w-7 h-7" />
                         Outreach Contacts
                     </h1>
-                    <div className="max-w-md">
-                        <div className="relative mt-1">
+
+                    <div className="flex gap-4 mt-4">
+                        {/* Search by Email */}
+                        <div className="relative">
                             <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                             <Input
                                 type="text"
-                                placeholder="Search contacts..."
+                                placeholder="Search by email..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-10 w-96"
+                                className="pl-10 w-64"
                             />
+                        </div>
+
+                        {/* Date From */}
+                        <div className="flex items-center gap-2">
+                            <Label className="text-sm text-gray-600">From:</Label>
+                            <Input
+                                type="date"
+                                value={dateFrom}
+                                onChange={(e) => setDateFrom(e.target.value)}
+                                className="w-40"
+                            />
+                        </div>
+
+                        {/* Date To */}
+                        <div className="flex items-center gap-2">
+                            <Label className="text-sm text-gray-600">To:</Label>
+                            <Input
+                                type="date"
+                                value={dateTo}
+                                onChange={(e) => setDateTo(e.target.value)}
+                                className="w-40"
+                            />
+                        </div>
+
+                        {/* Quick Filters */}
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    const today = new Date().toISOString().split('T')[0];
+                                    setDateFrom(today);
+                                    setDateTo(today);
+                                }}
+                            >
+                                Today
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    const today = new Date();
+                                    const weekAgo = new Date(today);
+                                    weekAgo.setDate(today.getDate() - 7);
+                                    setDateFrom(weekAgo.toISOString().split('T')[0]);
+                                    setDateTo(today.toISOString().split('T')[0]);
+                                }}
+                            >
+                                This Week
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    setDateFrom("");
+                                    setDateTo("");
+                                    setSearchTerm("");
+                                }}
+                            >
+                                Clear
+                            </Button>
                         </div>
                     </div>
                 </div>
