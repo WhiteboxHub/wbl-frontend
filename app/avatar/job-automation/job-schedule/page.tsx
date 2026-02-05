@@ -11,6 +11,12 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { apiFetch } from "@/lib/api";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/admin_ui/dialog";
 
 
 type JobSchedule = {
@@ -391,154 +397,155 @@ export default function JobSchedulePage() {
         <div className="p-6 space-y-4">
             <Toaster position="top-right" richColors />
 
-            <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold">Job Schedules</h1>
-                <Button onClick={() => setNewJobForm(!newJobForm)}>
-                    {newJobForm ? "Cancel" : "New Job Schedule"}
-                </Button>
-            </div>
-
-            {newJobForm && (
-                <form onSubmit={handleFormSubmit} className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="p-4 border rounded-md bg-blue-50/50 dark:bg-blue-900/10 col-span-2 space-y-4">
-                            <h3 className="text-sm font-semibold border-b border-blue-100 pb-2 flex items-center gap-2">
-                                ⏱️ Scheduling Strategy
-                            </h3>
-                            <div className="grid grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-xs font-semibold uppercase text-gray-500 mb-2">Repeat Frequency</label>
-                                    <select
-                                        name="frequency"
-                                        value={formData.frequency}
-                                        onChange={handleFormChange}
-                                        className="w-full h-10 border rounded-md px-3 py-2 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                                    >
-                                        <option value="ONCE">🚀 Once (One-time Run)</option>
-                                        <option value="HOURLY">🕒 Hourly (Repeats every X hours)</option>
-                                        <option value="DAILY">📅 Daily (Repeats every X days)</option>
-                                        <option value="WEEKLY">🗓️ Weekly (Repeats every X weeks)</option>
-                                        <option value="MONTHLY">🌑 Monthly (Repeats every X months)</option>
-                                    </select>
-                                    {formData.frequency && (
-                                        <p className="mt-1 text-[10px] text-gray-400 italic">
-                                            {formData.frequency === "ONCE" && "Run once at the scheduled time and then disable."}
-                                            {formData.frequency === "HOURLY" && "Great for sending small batches throughout the day."}
-                                            {formData.frequency === "DAILY" && "Standard daily outreach strategy."}
-                                        </p>
-                                    )}
-                                </div>
-
-                                {formData.frequency !== "ONCE" && (
-                                    <div>
-                                        <label className="block text-xs font-semibold uppercase text-gray-500 mb-2">
-                                            Repeat Every
-                                        </label>
-                                        <div className="flex items-center gap-3">
-                                            <Input
-                                                name="interval_value"
-                                                type="number"
-                                                value={formData.interval_value}
-                                                onChange={handleFormChange}
-                                                className="w-24 h-10"
-                                                min="1"
-                                                required
-                                            />
-                                            <span className="text-sm font-medium text-gray-600">
-                                                {formData.frequency === "HOURLY" && (formData.interval_value === 1 ? "Hour" : "Hours")}
-                                                {formData.frequency === "DAILY" && (formData.interval_value === 1 ? "Day" : "Days")}
-                                                {formData.frequency === "WEEKLY" && (formData.interval_value === 1 ? "Week" : "Weeks")}
-                                                {formData.frequency === "MONTHLY" && (formData.interval_value === 1 ? "Month" : "Months")}
-                                            </span>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Job Definition ID</label>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                        Job Schedules
+                    </h1>
+                    <div className="max-w-md">
+                        <div className="relative mt-1">
+                            <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                             <Input
-                                name="job_definition_id"
-                                type="number"
-                                value={formData.job_definition_id}
-                                onChange={handleFormChange}
-                                required
+                                type="text"
+                                placeholder="Search job schedules..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-10 w-96"
                             />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Timezone</label>
-                            <Input
-                                name="timezone"
-                                value={formData.timezone}
-                                onChange={handleFormChange}
-                                required
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium mb-1">First Execution Time (Start At)</label>
-                            <Input
-                                name="next_run_at"
-                                type="datetime-local"
-                                value={formData.next_run_at}
-                                onChange={handleFormChange}
-                                required
-                            />
-                        </div>
-
-                        <div className="flex items-center pt-6">
-                            <label className="flex items-center gap-2 cursor-pointer group">
-                                <div className={`w-10 h-5 rounded-full transition-colors flex items-center px-1 ${formData.enabled ? 'bg-green-500' : 'bg-gray-300'}`}>
-                                    <div className={`bg-white w-3 h-3 rounded-full transition-transform ${formData.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
-                                </div>
-                                <input
-                                    type="checkbox"
-                                    name="enabled"
-                                    checked={formData.enabled}
-                                    onChange={handleFormChange}
-                                    className="hidden"
-                                />
-                                <span className="text-sm font-semibold group-hover:text-blue-500 transition-colors">Enabled</span>
-                            </label>
                         </div>
                     </div>
-                    <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold h-12" disabled={formSaveLoading}>
-                        {formSaveLoading ? "🚀 Creating Schedule..." : "✅ Confirm & Start Schedule"}
-                    </Button>
-                </form>
-            )}
-
-            <div className="flex gap-4 items-center">
-                <div className="relative flex-1">
-                    <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                    <Input
-                        ref={searchInputRef}
-                        type="text"
-                        placeholder="Search job schedules..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10"
-                    />
                 </div>
-                <Button
-                    onClick={() => fetchJobSchedules(true)}
-                    variant="outline"
-                    size="icon"
-                >
-                    <RefreshCw className={loading ? "animate-spin" : ""} size={20} />
-                </Button>
             </div>
 
+            <Dialog open={newJobForm} onOpenChange={setNewJobForm}>
+                <DialogContent className="max-w-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-0 overflow-hidden border border-gray-200 dark:border-gray-700">
+                    <DialogHeader className="p-6 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+                        <DialogTitle>Create New Schedule</DialogTitle>
+                    </DialogHeader>
+                    <div className="p-6 max-h-[80vh] overflow-y-auto">
+                        <form onSubmit={handleFormSubmit} className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="p-4 border rounded-md bg-blue-50/50 dark:bg-blue-900/10 col-span-2 space-y-4">
+                                    <h3 className="text-sm font-semibold border-b border-blue-100 pb-2 flex items-center gap-2">
+                                        ⏱️ Scheduling Strategy
+                                    </h3>
+                                    <div className="grid grid-cols-2 gap-6">
+                                        <div>
+                                            <label className="block text-xs font-semibold uppercase text-gray-500 mb-2">Repeat Frequency</label>
+                                            <select
+                                                name="frequency"
+                                                value={formData.frequency}
+                                                onChange={handleFormChange}
+                                                className="w-full h-10 border rounded-md px-3 py-2 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                            >
+                                                <option value="ONCE">🚀 Once (One-time Run)</option>
+                                                <option value="HOURLY">🕒 Hourly (Repeats every X hours)</option>
+                                                <option value="DAILY">📅 Daily (Repeats every X days)</option>
+                                                <option value="WEEKLY">🗓️ Weekly (Repeats every X weeks)</option>
+                                                <option value="MONTHLY">🌑 Monthly (Repeats every X months)</option>
+                                            </select>
+                                            {formData.frequency && (
+                                                <p className="mt-1 text-[10px] text-gray-400 italic">
+                                                    {formData.frequency === "ONCE" && "Run once at the scheduled time and then disable."}
+                                                    {formData.frequency === "HOURLY" && "Great for sending small batches throughout the day."}
+                                                    {formData.frequency === "DAILY" && "Standard daily outreach strategy."}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        {formData.frequency !== "ONCE" && (
+                                            <div>
+                                                <label className="block text-xs font-semibold uppercase text-gray-500 mb-2">
+                                                    Repeat Every
+                                                </label>
+                                                <div className="flex items-center gap-3">
+                                                    <Input
+                                                        name="interval_value"
+                                                        type="number"
+                                                        value={formData.interval_value}
+                                                        onChange={handleFormChange}
+                                                        className="w-24 h-10"
+                                                        min="1"
+                                                        required
+                                                    />
+                                                    <span className="text-sm font-medium text-gray-600">
+                                                        {formData.frequency === "HOURLY" && (formData.interval_value === 1 ? "Hour" : "Hours")}
+                                                        {formData.frequency === "DAILY" && (formData.interval_value === 1 ? "Day" : "Days")}
+                                                        {formData.frequency === "WEEKLY" && (formData.interval_value === 1 ? "Week" : "Weeks")}
+                                                        {formData.frequency === "MONTHLY" && (formData.interval_value === 1 ? "Month" : "Months")}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Job Definition ID</label>
+                                    <Input
+                                        name="job_definition_id"
+                                        type="number"
+                                        value={formData.job_definition_id}
+                                        onChange={handleFormChange}
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Timezone</label>
+                                    <Input
+                                        name="timezone"
+                                        value={formData.timezone}
+                                        onChange={handleFormChange}
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">First Execution Time (Start At)</label>
+                                    <Input
+                                        name="next_run_at"
+                                        type="datetime-local"
+                                        value={formData.next_run_at}
+                                        onChange={handleFormChange}
+                                        required
+                                    />
+                                </div>
+
+                                <div className="flex items-center pt-6">
+                                    <label className="flex items-center gap-2 cursor-pointer group">
+                                        <div className={`w-10 h-5 rounded-full transition-colors flex items-center px-1 ${formData.enabled ? 'bg-green-500' : 'bg-gray-300'}`}>
+                                            <div className={`bg-white w-3 h-3 rounded-full transition-transform ${formData.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                                        </div>
+                                        <input
+                                            type="checkbox"
+                                            name="enabled"
+                                            checked={formData.enabled}
+                                            onChange={handleFormChange}
+                                            className="hidden"
+                                        />
+                                        <span className="text-sm font-semibold group-hover:text-blue-500 transition-colors">Enabled</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold h-12" disabled={formSaveLoading}>
+                                {formSaveLoading ? "🚀 Creating Schedule..." : "✅ Confirm & Start Schedule"}
+                            </Button>
+                        </form>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+
             <AGGridTable
-                title="Job Schedules"
+                title={`Job Schedules (${filteredData.length})`}
                 rowData={filteredData}
                 columnDefs={columnDefs}
                 onRowUpdated={handleRowUpdated}
                 onRowDeleted={handleRowDeleted}
                 loading={loading}
-                showTotalCount={true}
+                showAddButton={true}
+                onAddClick={() => setNewJobForm(!newJobForm)}
                 context={{ componentParent: { fetchJobSchedules } }}
             />
         </div>

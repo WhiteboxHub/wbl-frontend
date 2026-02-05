@@ -210,50 +210,34 @@ export default function JobRunPage() {
         <div className="p-6 space-y-4">
             <Toaster position="top-right" richColors />
 
-            <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold">Job Runs</h1>
-                <div className="flex gap-2">
-                    <Badge className="bg-blue-100 text-blue-800">
-                        Running: {jobRuns.filter(r => r.run_status === 'RUNNING').length}
-                    </Badge>
-                    <Badge className="bg-green-100 text-green-800">
-                        Completed: {jobRuns.filter(r => r.run_status === 'COMPLETED').length}
-                    </Badge>
-                    <Badge className="bg-red-100 text-red-800">
-                        Failed: {jobRuns.filter(r => r.run_status === 'FAILED').length}
-                    </Badge>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                        Job Runs
+                    </h1>
+                    <div className="max-w-md">
+                        <div className="relative mt-1">
+                            <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                            <Input
+                                type="text"
+                                placeholder="Search job runs..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-10 w-96"
+                            />
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div className="flex gap-4 items-center">
-                <div className="relative flex-1">
-                    <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                    <Input
-                        ref={searchInputRef}
-                        type="text"
-                        placeholder="Search job runs..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10"
-                    />
-                </div>
-                <Button
-                    onClick={() => fetchJobRuns(true)}
-                    variant="outline"
-                    size="icon"
-                >
-                    <RefreshCw className={loading ? "animate-spin" : ""} size={20} />
-                </Button>
-            </div>
 
             <AGGridTable
-                title="Job Runs"
+                title={`Job Runs (${filteredData.length})`}
                 rowData={filteredData}
                 columnDefs={columnDefs}
                 onRowUpdated={handleRowUpdated}
                 onRowDeleted={handleRowDeleted}
                 loading={loading}
-                showTotalCount={true}
             />
         </div>
     );

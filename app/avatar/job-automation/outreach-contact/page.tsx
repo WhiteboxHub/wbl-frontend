@@ -49,7 +49,7 @@ export default function OutreachContactPage() {
 
     const handleRowUpdated = async (updatedRow: any) => {
         try {
-            const { id, created_at, updated_at, email_lc, ...payload } = updatedRow;
+            const { id, created_at, email_lc, ...payload } = updatedRow;
             await api.put(`/outreach-contact/${id}`, payload);
             toast.success("Contact updated successfully");
             fetchContacts();
@@ -160,15 +160,6 @@ export default function OutreachContactPage() {
                 return new Date(params.value).toLocaleString();
             },
         },
-        {
-            headerName: "Actions",
-            width: 80,
-            cellRenderer: (params: any) => (
-                <button onClick={() => handleRowDeleted(params.data.id)} className="p-1 text-red-600 hover:bg-red-50 rounded">
-                    <Trash2 size={16} />
-                </button>
-            )
-        }
     ], []);
 
     const filtered = contacts.filter(c => c.email.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -176,18 +167,36 @@ export default function OutreachContactPage() {
     return (
         <div className="p-6 space-y-6">
             <Toaster richColors position="top-center" />
-            <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold flex items-center gap-2"><Users /> Outreach Contacts</h1>
-                <Button onClick={() => setIsModalOpen(true)}>Add Contact</Button>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-3">
+                        <Users className="text-blue-600 w-7 h-7" />
+                        Outreach Contacts
+                    </h1>
+                    <div className="max-w-md">
+                        <div className="relative mt-1">
+                            <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                            <Input
+                                type="text"
+                                placeholder="Search contacts..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-10 w-96"
+                            />
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <AGGridTable
-                title="Outreach Contacts"
+                title={`Outreach Contacts (${filtered.length})`}
                 rowData={filtered}
                 columnDefs={columnDefs}
                 onRowUpdated={handleRowUpdated}
+                onRowDeleted={handleRowDeleted}
                 loading={loading}
-                showTotalCount={true}
+                showAddButton={true}
+                onAddClick={() => setIsModalOpen(true)}
             />
 
             {isModalOpen && (

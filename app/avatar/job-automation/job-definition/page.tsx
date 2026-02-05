@@ -16,6 +16,7 @@ type JobDefinition = {
     job_type: string;
     status: string;
     candidate_marketing_id: number;
+    email_engine_id?: number | null;
     config_json?: string | null;
     created_at: string;
     updated_at?: string | null;
@@ -25,6 +26,7 @@ type FormData = {
     job_type: string;
     status: string;
     candidate_marketing_id: number;
+    email_engine_id?: number;
     config_json: string;
 };
 
@@ -32,6 +34,7 @@ const initialFormData: FormData = {
     job_type: "",
     status: "ACTIVE",
     candidate_marketing_id: 0,
+    email_engine_id: undefined,
     config_json: "",
 };
 
@@ -50,25 +53,56 @@ const StatusRenderer = ({ value }: { value?: string }) => {
 };
 
 export default function JobDefinitionPage() {
-    const searchInputRef = useRef<HTMLInputElement>(null);
     const [jobDefinitions, setJobDefinitions] = useState<JobDefinition[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [newJobForm, setNewJobForm] = useState(false);
-    const [formData, setFormData] = useState<FormData>(initialFormData);
-    const [formSaveLoading, setFormSaveLoading] = useState(false);
 
-    const apiEndpoint = useMemo(() => "/job-definition", []);
+    const apiEndpoint = "/job-definition";
+
+    // Data Transformations
+    const transformToUI = useCallback((job: any) => {
+        let config: any = {};
+        try {
+            config = typeof job.config_json === "string" ? JSON.parse(job.config_json) : (job.config_json || {});
+        } catch (e) {
+            console.warn("Failed to parse config for job", job.id);
+        }
+        return {
+            ...job,
+            recipient_source: config.recipient_source || "CSV",
+            date_filter: config.date_filter || "ALL_ACTIVE",
+            lookback_days: config.lookback_days || 0,
+            batch_size: config.batch_size || 200,
+            csv_offset: config.csv_offset || 0,
+        };
+    }, []);
+
+    const transformFromUI = (data: any) => {
+        const { recipient_source, date_filter, lookback_days, batch_size, csv_offset, ...rest } = data;
+        const config = {
+            recipient_source,
+            date_filter,
+            lookback_days: parseInt(lookback_days || 0),
+            batch_size: parseInt(batch_size || 200),
+            csv_offset: parseInt(csv_offset || 0),
+        };
+        return {
+            ...rest,
+            status: rest.status || "ACTIVE",
+            config_json: JSON.stringify(config),
+            candidate_marketing_id: rest.candidate_marketing_id ? parseInt(rest.candidate_marketing_id) : null,
+            email_engine_id: rest.email_engine_id ? parseInt(rest.email_engine_id) : null,
+        };
+    };
 
     const fetchJobDefinitions = useCallback(
         async (forceRefresh: boolean = false) => {
             setLoading(true);
             try {
-                const url = apiEndpoint;
-                const data = forceRefresh ? await apiFetch(url) : await cachedApiFetch(url);
+                const data = forceRefresh ? await apiFetch(apiEndpoint) : await cachedApiFetch(apiEndpoint);
                 const jobsData = Array.isArray(data) ? data : (data?.data || []);
-                setJobDefinitions(jobsData);
+                setJobDefinitions(jobsData.map(transformToUI));
             } catch (err) {
                 const error = err instanceof Error ? err.message : "Failed to load job definitions";
                 setError(error);
@@ -77,53 +111,53 @@ export default function JobDefinitionPage() {
                 setLoading(false);
             }
         },
-        [apiEndpoint]
+        [apiEndpoint, transformToUI]
     );
 
     useEffect(() => {
         fetchJobDefinitions();
     }, [fetchJobDefinitions]);
 
-    const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-    };
-
-    const handleFormSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setFormSaveLoading(true);
-        try {
-            await apiFetch(apiEndpoint, { method: "POST", body: formData });
-            await invalidateCache(apiEndpoint);
-            await fetchJobDefinitions(true);
-            toast.success("Job definition created successfully!");
-            setNewJobForm(false);
-            setFormData(initialFormData);
-        } catch (error) {
-            toast.error("Failed to create job definition");
-            console.error("Error creating job definition:", error);
-        } finally {
-            setFormSaveLoading(false);
-        }
-    };
-
     const handleRowUpdated = useCallback(
-        async (updatedRow: JobDefinition) => {
+        async (updatedRow: any) => {
+            const id = updatedRow.id;
+            console.log("Updating job definition:", id, updatedRow);
+
+            if (!id) {
+                console.warn("Attempted to update row without ID:", updatedRow);
+                return;
+            }
+
             try {
-                const { id, created_at, updated_at, ...payload } = updatedRow;
+                const { id: _id, created_at, updated_at, ...uiFields } = updatedRow;
+                const payload = transformFromUI(uiFields);
+                console.log("PUT Payload:", payload);
                 await apiFetch(`${apiEndpoint}/${id}`, { method: "PUT", body: payload });
-                setJobDefinitions(prevJobs =>
-                    prevJobs.map(job =>
-                        job.id === id ? { ...job, ...payload } : job
-                    )
-                );
                 toast.success("Job definition updated successfully");
+                fetchJobDefinitions(true);
             } catch (error) {
                 toast.error("Failed to update job definition");
-                console.error(error);
+                console.error("Update error:", error);
             }
         },
-        [apiEndpoint]
+        [apiEndpoint, fetchJobDefinitions]
+    );
+
+    const handleRowAdded = useCallback(
+        async (newRow: any) => {
+            console.log("Adding job definition:", newRow);
+            try {
+                const payload = transformFromUI(newRow);
+                console.log("POST Payload:", payload);
+                await apiFetch(apiEndpoint, { method: "POST", body: payload });
+                toast.success("Job definition created successfully");
+                fetchJobDefinitions(true);
+            } catch (error) {
+                toast.error("Failed to create job definition");
+                console.error("Create error:", error);
+            }
+        },
+        [apiEndpoint, fetchJobDefinitions]
     );
 
     const handleRowDeleted = useCallback(
@@ -147,14 +181,13 @@ export default function JobDefinitionPage() {
                 headerName: "ID",
                 width: 80,
                 pinned: "left",
-                filter: "agNumberColumnFilter",
+                editable: false,
             },
             {
                 field: "job_type",
                 headerName: "Job Type",
                 width: 150,
                 editable: true,
-                filter: "agTextColumnFilter",
             },
             {
                 field: "status",
@@ -162,75 +195,48 @@ export default function JobDefinitionPage() {
                 width: 120,
                 editable: true,
                 cellRenderer: StatusRenderer,
-                cellEditor: "agSelectCellEditor",
-                cellEditorParams: {
-                    values: ["ACTIVE", "INACTIVE", "PAUSED"],
-                },
             },
             {
-                headerName: "Progress (Offset)",
-                width: 150,
+                field: "recipient_source",
+                headerName: "Source",
+                width: 130,
                 editable: true,
-                valueGetter: (params: any) => {
-                    try {
-                        const config = typeof params.data.config_json === 'string'
-                            ? JSON.parse(params.data.config_json)
-                            : params.data.config_json;
-                        return config?.csv_offset || 0;
-                    } catch { return 0; }
-                },
-                valueSetter: (params: any) => {
-                    try {
-                        let config = typeof params.data.config_json === 'string'
-                            ? JSON.parse(params.data.config_json)
-                            : (params.data.config_json || {});
-                        config.csv_offset = parseInt(params.newValue);
-                        params.data.config_json = JSON.stringify(config);
-                        return true;
-                    } catch { return false; }
-                },
-                cellStyle: { fontWeight: 'bold', color: '#3b82f6' }
+                cellStyle: { fontWeight: "bold" },
             },
             {
-                headerName: "Batch Size",
-                width: 120,
+                field: "date_filter",
+                headerName: "Filter",
+                width: 130,
                 editable: true,
-                valueGetter: (params: any) => {
-                    try {
-                        const config = typeof params.data.config_json === 'string'
-                            ? JSON.parse(params.data.config_json)
-                            : params.data.config_json;
-                        return config?.batch_size || 10;
-                    } catch { return 10; }
-                },
-                valueSetter: (params: any) => {
-                    try {
-                        let config = typeof params.data.config_json === 'string'
-                            ? JSON.parse(params.data.config_json)
-                            : (params.data.config_json || {});
-                        config.batch_size = parseInt(params.newValue);
-                        params.data.config_json = JSON.stringify(config);
-                        return true;
-                    } catch { return false; }
-                }
+            },
+            {
+                field: "batch_size",
+                headerName: "Batch",
+                width: 100,
+                editable: true,
+            },
+            {
+                field: "csv_offset",
+                headerName: "Progress",
+                width: 100,
+                editable: true,
+                cellStyle: { color: "#3b82f6", fontWeight: "bold" },
             },
             {
                 field: "candidate_marketing_id",
-                headerName: "Candidate ID",
+                headerName: "Candidate",
                 width: 120,
                 editable: true,
-                filter: "agNumberColumnFilter",
             },
             {
-                field: "config_json",
-                headerName: "Config JSON",
-                width: 300,
+                field: "email_engine_id",
+                headerName: "Engine",
+                width: 100,
                 editable: true,
-                filter: "agTextColumnFilter",
             },
             {
                 field: "updated_at",
-                headerName: "Last Progress",
+                headerName: "Last Active",
                 width: 180,
                 valueFormatter: (params: any) => {
                     if (!params.value) return "";
@@ -255,183 +261,36 @@ export default function JobDefinitionPage() {
         <div className="p-6 space-y-4">
             <Toaster position="top-right" richColors />
 
-            <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold">Job Definitions</h1>
-                <Button onClick={() => setNewJobForm(!newJobForm)}>
-                    {newJobForm ? "Cancel" : "New Job Definition"}
-                </Button>
-            </div>
-
-            {newJobForm && (
-                <form onSubmit={handleFormSubmit} className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Job Type</label>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                        <RefreshCw className="w-6 h-6 text-blue-600" />
+                        Job Definitions
+                    </h1>
+                    <div className="max-w-md">
+                        <div className="relative mt-1">
+                            <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                             <Input
-                                name="job_type"
-                                value={formData.job_type}
-                                onChange={handleFormChange}
-                                placeholder="e.g. MASS_EMAIL"
-                                required
+                                type="text"
+                                placeholder="Search job definitions..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-10 w-96 font-medium"
                             />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Status</label>
-                            <select
-                                name="status"
-                                value={formData.status}
-                                onChange={handleFormChange}
-                                className="w-full h-10 border rounded-md px-3 py-2 bg-background"
-                            >
-                                <option value="ACTIVE">ACTIVE</option>
-                                <option value="INACTIVE">INACTIVE</option>
-                                <option value="PAUSED">PAUSED</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Candidate Marketing ID</label>
-                            <Input
-                                name="candidate_marketing_id"
-                                type="number"
-                                value={formData.candidate_marketing_id}
-                                onChange={handleFormChange}
-                                required
-                            />
-                        </div>
-
-                        <div className="p-4 border rounded-md bg-gray-50/50 dark:bg-gray-900/20 space-y-4 col-span-2">
-                            <h3 className="text-sm font-semibold border-b pb-2">🎯 Smart Config Builder</h3>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-medium uppercase text-gray-500 mb-1">Recipient Source</label>
-                                    <select
-                                        className="w-full h-9 border rounded px-3 py-1 text-sm bg-white dark:bg-gray-800"
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            try {
-                                                const config = formData.config_json ? JSON.parse(formData.config_json) : {};
-                                                config.recipient_source = val;
-                                                if (val === "CSV") delete config.date_filter;
-                                                setFormData({ ...formData, config_json: JSON.stringify(config, null, 2) });
-                                            } catch {
-                                                setFormData({ ...formData, config_json: JSON.stringify({ recipient_source: val }, null, 2) });
-                                            }
-                                        }}
-                                        defaultValue="CSV"
-                                    >
-                                        <option value="CSV">Local CSV File (Standard)</option>
-                                        <option value="OUTREACH_DB">Live Outreach Database (Smart)</option>
-                                    </select>
-                                </div>
-
-                                {(() => {
-                                    try {
-                                        const config = JSON.parse(formData.config_json || "{}");
-                                        if (config.recipient_source === "OUTREACH_DB") {
-                                            return (
-                                                <>
-                                                    <div>
-                                                        <label className="block text-xs font-medium uppercase text-gray-500 mb-1">Date Filter</label>
-                                                        <select
-                                                            className="w-full h-9 border rounded px-3 py-1 text-sm bg-white dark:bg-gray-800"
-                                                            onChange={(e) => {
-                                                                config.date_filter = e.target.value;
-                                                                setFormData({ ...formData, config_json: JSON.stringify(config, null, 2) });
-                                                            }}
-                                                            value={config.date_filter || "ALL_ACTIVE"}
-                                                        >
-                                                            <option value="ALL_ACTIVE">All Active Contacts</option>
-                                                            <option value="TODAY">Added Today Only</option>
-                                                            <option value="LAST_N_DAYS">Added in Last N Days</option>
-                                                        </select>
-                                                    </div>
-                                                    {config.date_filter === "LAST_N_DAYS" && (
-                                                        <div>
-                                                            <label className="block text-xs font-medium uppercase text-gray-500 mb-1">Lookback Days</label>
-                                                            <Input
-                                                                type="number"
-                                                                className="h-9"
-                                                                value={config.lookback_days || 7}
-                                                                onChange={(e) => {
-                                                                    config.lookback_days = parseInt(e.target.value);
-                                                                    setFormData({ ...formData, config_json: JSON.stringify(config, null, 2) });
-                                                                }}
-                                                            />
-                                                        </div>
-                                                    )}
-                                                </>
-                                            );
-                                        }
-                                    } catch { return null; }
-                                })()}
-
-                                <div>
-                                    <label className="block text-xs font-medium uppercase text-gray-500 mb-1">Batch Size</label>
-                                    <Input
-                                        type="number"
-                                        className="h-9"
-                                        placeholder="200"
-                                        onChange={(e) => {
-                                            try {
-                                                const config = formData.config_json ? JSON.parse(formData.config_json) : {};
-                                                config.batch_size = parseInt(e.target.value);
-                                                setFormData({ ...formData, config_json: JSON.stringify(config, null, 2) });
-                                            } catch {
-                                                setFormData({ ...formData, config_json: JSON.stringify({ batch_size: parseInt(e.target.value) }, null, 2) });
-                                            }
-                                        }}
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-medium uppercase text-gray-500 mb-1">Generated Config (Raw JSON)</label>
-                                <textarea
-                                    name="config_json"
-                                    value={formData.config_json}
-                                    onChange={handleFormChange}
-                                    className="w-full border rounded-md px-3 py-2 font-mono text-xs bg-gray-50 dark:bg-gray-900/50"
-                                    rows={3}
-                                    placeholder='{"recipient_source": "CSV"}'
-                                />
-                            </div>
                         </div>
                     </div>
-                    <Button type="submit" className="w-full" disabled={formSaveLoading}>
-                        {formSaveLoading ? "Creating..." : "🚀 Create Job Definition"}
-                    </Button>
-                </form>
-            )}
-
-            <div className="flex gap-4 items-center">
-                <div className="relative flex-1">
-                    <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                    <Input
-                        ref={searchInputRef}
-                        type="text"
-                        placeholder="Search job definitions..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10"
-                    />
                 </div>
-                <Button
-                    onClick={() => fetchJobDefinitions(true)}
-                    variant="outline"
-                    size="icon"
-                >
-                    <RefreshCw className={loading ? "animate-spin" : ""} size={20} />
-                </Button>
             </div>
 
             <AGGridTable
-                title="Job Definitions"
+                title={`Job Definitions (${filteredData.length})`}
                 rowData={filteredData}
                 columnDefs={columnDefs}
                 onRowUpdated={handleRowUpdated}
+                onRowAdded={handleRowAdded}
                 onRowDeleted={handleRowDeleted}
                 loading={loading}
-                showTotalCount={true}
+                showAddButton={true}
             />
         </div>
     );

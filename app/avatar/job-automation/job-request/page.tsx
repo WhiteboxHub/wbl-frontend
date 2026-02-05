@@ -81,23 +81,18 @@ const ApproveButtonRenderer = (params: any) => {
 };
 
 export default function JobRequestPage() {
-    const searchInputRef = useRef<HTMLInputElement>(null);
     const [jobRequests, setJobRequests] = useState<JobRequest[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [newJobForm, setNewJobForm] = useState(false);
-    const [formData, setFormData] = useState<FormData>(initialFormData);
-    const [formSaveLoading, setFormSaveLoading] = useState(false);
 
-    const apiEndpoint = useMemo(() => "/job-request", []);
+    const apiEndpoint = "/job-request";
 
     const fetchJobRequests = useCallback(
         async (forceRefresh: boolean = false) => {
             setLoading(true);
             try {
-                const url = apiEndpoint;
-                const data = forceRefresh ? await apiFetch(url) : await cachedApiFetch(url);
+                const data = forceRefresh ? await apiFetch(apiEndpoint) : await cachedApiFetch(apiEndpoint);
                 const requestsData = Array.isArray(data) ? data : (data?.data || []);
                 setJobRequests(requestsData);
             } catch (err) {
@@ -115,50 +110,43 @@ export default function JobRequestPage() {
         fetchJobRequests();
     }, [fetchJobRequests]);
 
-    const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { name, value, type } = e.target;
-        if (type === 'number') {
-            setFormData(prev => ({ ...prev, [name]: parseInt(value) || 0 }));
-        } else {
-            setFormData(prev => ({ ...prev, [name]: value }));
-        }
-    };
-
-    const handleFormSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setFormSaveLoading(true);
-        try {
-            await apiFetch(apiEndpoint, { method: "POST", body: formData });
-            await invalidateCache(apiEndpoint);
-            await fetchJobRequests(true);
-            toast.success("Job request created successfully!");
-            setNewJobForm(false);
-            setFormData(initialFormData);
-        } catch (error) {
-            toast.error("Failed to create job request");
-            console.error("Error creating job request:", error);
-        } finally {
-            setFormSaveLoading(false);
-        }
+    const transformFromUI = (data: any) => {
+        return {
+            ...data,
+            candidate_marketing_id: data.candidate_marketing_id ? parseInt(data.candidate_marketing_id) : null,
+        };
     };
 
     const handleRowUpdated = useCallback(
-        async (updatedRow: JobRequest) => {
+        async (updatedRow: any) => {
+            const id = updatedRow.id;
             try {
-                const { id, requested_at, ...payload } = updatedRow;
+                const { id: _id, requested_at, processed_at, ...uiFields } = updatedRow;
+                const payload = transformFromUI(uiFields);
                 await apiFetch(`${apiEndpoint}/${id}`, { method: "PUT", body: payload });
-                setJobRequests(prevRequests =>
-                    prevRequests.map(request =>
-                        request.id === id ? { ...request, ...payload } : request
-                    )
-                );
                 toast.success("Job request updated successfully");
+                fetchJobRequests(true);
             } catch (error) {
                 toast.error("Failed to update job request");
                 console.error(error);
             }
         },
-        [apiEndpoint]
+        [apiEndpoint, fetchJobRequests]
+    );
+
+    const handleRowAdded = useCallback(
+        async (newRow: any) => {
+            try {
+                const payload = transformFromUI(newRow);
+                await apiFetch(apiEndpoint, { method: "POST", body: payload });
+                toast.success("Job request created successfully");
+                fetchJobRequests(true);
+            } catch (error) {
+                toast.error("Failed to create job request");
+                console.error(error);
+            }
+        },
+        [apiEndpoint, fetchJobRequests]
     );
 
     const handleRowDeleted = useCallback(
@@ -182,19 +170,19 @@ export default function JobRequestPage() {
                 headerName: "ID",
                 width: 80,
                 pinned: "left",
-                filter: "agNumberColumnFilter",
+                editable: false,
             },
             {
                 field: "job_type",
                 headerName: "Job Type",
                 width: 200,
-                filter: "agTextColumnFilter",
+                editable: true,
             },
             {
                 field: "candidate_marketing_id",
-                headerName: "Candidate Marketing ID",
-                width: 200,
-                filter: "agNumberColumnFilter",
+                headerName: "Candidate",
+                width: 150,
+                editable: true,
             },
             {
                 field: "status",
@@ -202,16 +190,6 @@ export default function JobRequestPage() {
                 width: 150,
                 editable: true,
                 cellRenderer: StatusRenderer,
-                cellEditor: "agSelectCellEditor",
-                cellEditorParams: {
-                    values: ["PENDING", "APPROVED", "PROCESSING", "PROCESSED", "FAILED"],
-                },
-            },
-            {
-                headerName: "Action",
-                width: 100,
-                cellRenderer: ApproveButtonRenderer,
-                pinned: "right",
             },
             {
                 field: "requested_at",
@@ -226,7 +204,6 @@ export default function JobRequestPage() {
                 field: "processed_at",
                 headerName: "Processed At",
                 width: 180,
-                editable: true,
                 valueFormatter: (params: any) => {
                     if (!params.value) return "Not Processed";
                     return new Date(params.value).toLocaleString();
@@ -250,81 +227,36 @@ export default function JobRequestPage() {
         <div className="p-6 space-y-4">
             <Toaster position="top-right" richColors />
 
-            <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold">Job Requests</h1>
-                <div className="flex gap-2">
-                    <Button onClick={() => setNewJobForm(!newJobForm)}>
-                        {newJobForm ? "Cancel" : "New Job Request"}
-                    </Button>
-                    <Badge className="bg-yellow-100 text-yellow-800">
-                        Pending: {jobRequests.filter(r => r.status === 'PENDING').length}
-                    </Badge>
-                    <Badge className="bg-blue-100 text-blue-800">
-                        Approved: {jobRequests.filter(r => r.status === 'APPROVED').length}
-                    </Badge>
-                </div>
-            </div>
-
-            {newJobForm && (
-                <form onSubmit={handleFormSubmit} className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Job Type</label>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-3">
+                        <RefreshCw className="w-7 h-7 text-blue-600" />
+                        Job Requests
+                    </h1>
+                    <div className="max-w-md">
+                        <div className="relative mt-1">
+                            <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                             <Input
-                                name="job_type"
-                                value={formData.job_type}
-                                onChange={handleFormChange}
-                                required
-                                placeholder="e.g., EMAIL_EXTRACTION, LINKEDIN_CONNECTION"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Candidate Marketing ID</label>
-                            <Input
-                                name="candidate_marketing_id"
-                                type="number"
-                                value={formData.candidate_marketing_id}
-                                onChange={handleFormChange}
-                                required
+                                type="text"
+                                placeholder="Search job requests..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-10 w-96 font-medium shadow-sm"
                             />
                         </div>
                     </div>
-                    <Button type="submit" disabled={formSaveLoading}>
-                        {formSaveLoading ? "Creating..." : "Create Job Request"}
-                    </Button>
-                </form>
-            )}
-
-            <div className="flex gap-4 items-center">
-                <div className="relative flex-1">
-                    <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                    <Input
-                        ref={searchInputRef}
-                        type="text"
-                        placeholder="Search job requests..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10"
-                    />
                 </div>
-                <Button
-                    onClick={() => fetchJobRequests(true)}
-                    variant="outline"
-                    size="icon"
-                >
-                    <RefreshCw className={loading ? "animate-spin" : ""} size={20} />
-                </Button>
             </div>
 
             <AGGridTable
-                title="Job Requests"
+                title={`Job Requests (${filteredData.length})`}
                 rowData={filteredData}
                 columnDefs={columnDefs}
                 onRowUpdated={handleRowUpdated}
+                onRowAdded={handleRowAdded}
                 onRowDeleted={handleRowDeleted}
                 loading={loading}
-                showTotalCount={true}
-                context={{ componentParent: { fetchJobRequests } }}
+                showAddButton={true}
             />
         </div>
     );

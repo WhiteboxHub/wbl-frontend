@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
 // Enum options for various fields
-const enumOptions: Record<string, { value: string; label: string }[]> = {
+const enumOptions: Record<string, { value: any; label: string }[]> = {
   move_to_prep: [
     { value: "false", label: "No" },
     { value: "true", label: "Yes" },
@@ -62,8 +62,17 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "true", label: "Yes" },
   ],
   is_immigration_team: [
-    { value: "false", label: "No" },
-    { value: "true", label: "Yes" },
+    { value: false, label: "No" },
+    { value: true, label: "Yes" },
+  ],
+  recipient_source: [
+    { value: "CSV", label: "Local CSV File" },
+    { value: "OUTREACH_DB", label: "Outreach Database" },
+  ],
+  date_filter: [
+    { value: "ALL_ACTIVE", label: "All Active" },
+    { value: "TODAY", label: "Today" },
+    { value: "LAST_N_DAYS", label: "Last N Days" },
   ],
   priority: [
     { value: "", label: "Select" },
@@ -88,6 +97,18 @@ const enumOptions: Record<string, { value: string; label: string }[]> = {
     { value: "Good", label: "Good" },
     { value: "Average", label: "Average" },
     { value: "Need to Improve", label: "Need to Improve" },
+  ],
+  job_request_status: [
+    { value: "PENDING", label: "Pending" },
+    { value: "APPROVED", label: "Approved" },
+    { value: "PROCESSING", label: "Processing" },
+    { value: "PROCESSED", label: "Processed" },
+    { value: "FAILED", label: "Failed" },
+  ],
+  request_job_type: [
+    { value: "EMAIL_EXTRACTION", label: "Email Extraction" },
+    { value: "LINKEDIN_CONNECTION", label: "LinkedIn Connection" },
+    { value: "LEAD_GENERATION", label: "Lead Generation" },
   ],
 
 
@@ -435,6 +456,7 @@ const excludedFields = [
   "instructor2",
   "instructor3",
   "id",
+  "config_json",
   "sessionid",
   "vendor_type",
   "last_mod_datetime",
@@ -464,8 +486,6 @@ const excludedFields = [
   "job_owner_id",
   "job_owner_name",
   "lastmod_date",
-  "created_at",
-  "updated_at",
   "isGroup",
   "isExpanded",
   "totalDeposit",
@@ -476,6 +496,9 @@ const excludedFields = [
   "pendingAmount",
   "lastDepositDate",
   "end_date",
+  "requested_at",
+  "processed_at",
+  "marketing_id",
   "project_id",
   "project",
   "position_company",
@@ -537,6 +560,11 @@ const fieldSections: Record<string, string> = {
   batchname: "Basic Information",
   move_to_prep: "Basic Information",
   move_to_mrkt: "Basic Information",
+  recipient_source: "Basic Information",
+  date_filter: "Basic Information",
+  lookback_days: "Basic Information",
+  batch_size: "Basic Information",
+  csv_offset: "Basic Information",
   linkedin_id: "Contact Information",
   enrolled_date: "Professional Information",
   startdate: "Professional Information",
@@ -810,8 +838,13 @@ const labelOverrides: Record<string, string> = {
   context: "Context",
   is_active: "Is Active",
   is_immigration_team: "Immigration Team",
-  created_at: "Created At",
-  updated_at: "Updated At",
+  created_at: "Created On",
+  updated_at: "Last Modified",
+  recipient_source: "Recipient Source",
+  date_filter: "Date Filter",
+  lookback_days: "Lookback Days",
+  batch_size: "Batch Size",
+  csv_offset: "CSV Progress (Offset)",
   is_in_prep: "In Prep",
   is_in_marketing: "In Marketing",
   normalized_title: "Normalized Title",
@@ -848,6 +881,7 @@ const dateFields = [
   "linkedin_premium_end_date",
   "registereddate",
   "extraction_date",
+  "updated_at",
   "activity_date",
   "deposit_date",
   "joining_date",
@@ -930,6 +964,8 @@ export function EditModal({
   const isJobTypeModal = title.toLowerCase().includes("job type");
   const isAutomationKeywordModal = title.toLowerCase().includes("automation keyword");
   const isPositionsModal = title.toLowerCase().includes("position");
+  const isJobDefinitionModal = title.toLowerCase().includes("job definition");
+  const isJobRequestModal = title.toLowerCase().includes("job request");
   const isPlacementFeeModal = title.toLowerCase().includes("placement fee");
 
   // Field visibility for current modal
@@ -1647,7 +1683,21 @@ export function EditModal({
       if (keyLower === "category" || keyLower === "priority") return undefined;
     }
 
+    if (isJobRequestModal) {
+      if (keyLower === "status") return enumOptions.job_request_status;
+      if (keyLower === "job_type") return enumOptions.request_job_type;
+    }
+
     if (keyLower === "priority") return undefined;
+
+    // Generic Boolean Dropdown Support
+    if (keyLower.endsWith("_flag") || keyLower.startsWith("is_") || keyLower === "moved_to_candidate") {
+      return [
+        { value: true, label: "Yes" },
+        { value: false, label: "No" },
+      ];
+    }
+
     return enumOptions[keyLower];
   };
 
@@ -1701,6 +1751,20 @@ export function EditModal({
     // Hide company_name and candidate_name in add mode for placement fee modals
     if (isPlacementFeeModal && isAddMode && (key === "company_name" || key === "candidate_name")) {
       return;
+    }
+
+    // Job Definition specific conditional visibility
+    if (isJobDefinitionModal) {
+      const recipientSource = formValues.recipient_source || formData.recipient_source;
+      const dateFilter = formValues.date_filter || formData.date_filter;
+
+      if (recipientSource === "CSV") {
+        if (key === "date_filter" || key === "lookback_days") return;
+      }
+
+      if (dateFilter !== "LAST_N_DAYS" && key === "lookback_days") {
+        return;
+      }
     }
 
     // Job Type specific filtering - only show relevant fields
@@ -1847,9 +1911,9 @@ export function EditModal({
                 >
                   {visibleSections
                     .filter((section) => section !== "Notes")
-                    .map((section) => (
-                      <div key={section} className="space-y-3 sm:space-y-4">
-                        <h3 className="border-b border-blue-200 pb-1.5 text-xs font-semibold text-blue-700 sm:pb-2 sm:text-sm">
+                    .map((section, _, arr) => (
+                      <div key={section} className={arr.length === 1 ? "grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3" : "space-y-3 sm:space-y-4"}>
+                        <h3 className={`border-b border-blue-200 pb-1.5 text-xs font-semibold text-blue-700 sm:pb-2 sm:text-sm ${arr.length === 1 ? "col-span-full" : ""}`}>
                           {section}
                         </h3>
                         {/* Add Candidate Input Field for Preparation and Marketing in Add Mode */}
@@ -2904,7 +2968,7 @@ export function EditModal({
                             const fieldEnumOptions = getEnumOptions(key);
                             if (fieldEnumOptions) {
                               const currentValue =
-                                currentFormValues[key] || formData[key] || "";
+                                currentFormValues[key] ?? formData[key] ?? "";
                               return (
                                 <div
                                   key={key}
@@ -3015,7 +3079,7 @@ export function EditModal({
                                   </label>
                                   <select
                                     {...register(key, { required: "Employee is required" })}
-                                    value={currentFormValues[key] || formData[key] || ""}
+                                    value={currentFormValues[key] ?? formData[key] ?? ""}
                                     className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                     onChange={(e) => {
                                       const val = e.target.value;
@@ -3052,7 +3116,7 @@ export function EditModal({
                                   </label>
                                   <select
                                     {...register(key, { required: "Owner is required" })}
-                                    value={currentFormValues[key] || formData[key] || ""}
+                                    value={currentFormValues[key] ?? formData[key] ?? ""}
                                     className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
                                     <option value="">Select an employee</option>
@@ -3106,7 +3170,7 @@ export function EditModal({
                                   <div className="bg-white dark:bg-gray-800">
                                     <ReactQuill
                                       theme="snow"
-                                      value={currentFormValues[key] || formData[key] || ""}
+                                      value={currentFormValues[key] ?? formData[key] ?? ""}
                                       onChange={(content) => {
                                         setValue(key, content);
                                         setFormData((prev) => ({
@@ -3232,7 +3296,7 @@ export function EditModal({
                             const fieldEnumOpts = getEnumOptions(key);
                             if (fieldEnumOpts) {
                               const currentValue =
-                                currentFormValues[key] || formData[key] || "";
+                                currentFormValues[key] ?? formData[key] ?? "";
                               return (
                                 <div
                                   key={key}
@@ -3376,7 +3440,7 @@ export function EditModal({
                                     )}
                                   </label>
                                   <AddressAutocomplete
-                                    value={currentFormValues[key] || formData[key] || ""}
+                                    value={currentFormValues[key] ?? formData[key] ?? ""}
                                     onChange={(val, details) => {
                                       setValue(key, val);
                                       setFormData((prev) => ({ ...prev, [key]: val }));
@@ -3534,7 +3598,7 @@ export function EditModal({
                             {isJobTypeModal || isJobActivityLogModal ? (
                               <textarea
                                 {...register(key)}
-                                defaultValue={currentFormValues[key] || formData[key] || ""}
+                                defaultValue={currentFormValues[key] ?? formData[key] ?? ""}
                                 rows={4}
                                 className="w-full resize-none rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                 placeholder={`Enter ${toLabel(key).toLowerCase()}...`}
@@ -3550,7 +3614,7 @@ export function EditModal({
                               <QuillWithMentions
                                 theme="snow"
                                 value={
-                                  currentFormValues[key] || formData[key] || ""
+                                  currentFormValues[key] ?? formData[key] ?? ""
                                 }
                                 onChange={(content) => {
                                   setValue(key, content);
