@@ -10,6 +10,8 @@ import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon, User, Phone, DollarSign, BookOpen, Briefcase, Mail, Eye, Settings } from "lucide-react";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 interface CandidateSuggestion {
   id: number;
   name: string;
@@ -91,8 +93,9 @@ export default function CandidateSearchPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [suggestions, setSuggestions] = useState<CandidateSuggestion[]>([]);
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateData | null>(null);
-  const [showSuggestions, setShowSuggestions] = useState(false);
   const [loading, setLoading] = useState(false);
+  const showLoader = useMinimumLoadingTime(loading);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [urlParamLoading, setUrlParamLoading] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     basic: true,
@@ -666,10 +669,9 @@ export default function CandidateSearchPage() {
           />
         )}
 
-        {loading && (
-          <div className="mt-2 flex items-center gap-2">
-            <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-blue-500 dark:text-blue-400">Loading candidate details...</p>
+        {showLoader && (
+          <div className="mt-4">
+            <Loader text="Loading candidate details..." />
           </div>
         )}
 

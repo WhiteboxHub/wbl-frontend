@@ -12,6 +12,8 @@ import {
   Briefcase,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 // ---------------------- TYPES ----------------------
 type Employee = {
@@ -91,6 +93,7 @@ export default function EmployeeSearchPage() {
   const [employeeTasks, setEmployeeTasks] = useState<Task[]>([]);
   const [employeePlacements, setEmployeePlacements] = useState<Placements | null>(null);
   const [loading, setLoading] = useState(false);
+  const showLoader = useMinimumLoadingTime(loading);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [loadingJobs, setLoadingJobs] = useState(false);
@@ -397,7 +400,7 @@ export default function EmployeeSearchPage() {
           </div>
         )}
 
-        {loading && <p className="text-sm text-blue-500 mt-2">Searching employees...</p>}
+        {showLoader && <div className="mt-4"><Loader /></div>}
       </div>
 
       {/* Employee Details */}
@@ -447,7 +450,7 @@ export default function EmployeeSearchPage() {
               onToggle={() => toggleSection("candidates")}
             >
               {loadingCandidates ? (
-                <Loader text="Loading candidate details..." />
+                <Loader />
               ) : candidates ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {renderCandidateSection(
@@ -478,7 +481,7 @@ export default function EmployeeSearchPage() {
               onToggle={() => toggleSection("placements")}
             >
               {loadingPlacements ? (
-                <Loader text="Loading placements..." />
+                <Loader />
               ) : employeePlacements ? (
                 renderCandidateSection(
                   "Placed Candidates",
@@ -500,7 +503,7 @@ export default function EmployeeSearchPage() {
               isOpen={openSections.tasks}
               onToggle={() => toggleSection("tasks")}
             >
-              {loadingTasks ? <Loader text="Loading tasks..." /> : renderTasksSection(employeeTasks)}
+              {loadingTasks ? <Loader /> : renderTasksSection(employeeTasks)}
             </AccordionSection>
 
             {/* Jobs */}
@@ -511,7 +514,7 @@ export default function EmployeeSearchPage() {
               onToggle={() => toggleSection("jobs")}
             >
               {loadingJobs ? (
-                <Loader text="Loading jobs..." />
+                <Loader />
               ) : employeeJobs ? (
                 renderCandidateSection(
                   "Job Assignments",
@@ -534,7 +537,7 @@ export default function EmployeeSearchPage() {
               onToggle={() => toggleSection("teaching")}
             >
               {loadingSessions ? (
-                <Loader text="Loading session/class data..." />
+                <Loader />
               ) : sessionClassData ? (
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -571,12 +574,7 @@ export default function EmployeeSearchPage() {
 }
 
 // ---------------------- SUB COMPONENTS ----------------------
-const Loader = ({ text }: { text: string }) => (
-  <div className="flex items-center justify-center py-8">
-    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-    <p className="ml-2 text-blue-500">{text}</p>
-  </div>
-);
+
 
 const AccordionSection = ({
   title,

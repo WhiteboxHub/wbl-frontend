@@ -20,12 +20,15 @@ import {
 import { toast, Toaster } from "sonner";
 
 import { apiFetch } from "@/lib/api.js";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 export default function BatchPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
   const [batches, setBatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const showLoader = useMinimumLoadingTime(loading);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newBatch, setNewBatch] = useState({
@@ -75,7 +78,7 @@ export default function BatchPage() {
   useEffect(() => {
     fetchBatches();
   }, [debouncedSearch]);
-  
+
 
 
   // Date formatter for AG Grid (safe)
@@ -84,7 +87,7 @@ export default function BatchPage() {
     if (!params.value) return "";
 
     // Handle ISO or raw YYYY-MM-DD safely
-    const dateStr = params.value.split("T")[0]; 
+    const dateStr = params.value.split("T")[0];
     const [year, month, day] = dateStr.split("-");
 
     const dateObj = new Date(Number(year), Number(month) - 1, Number(day));
@@ -98,20 +101,20 @@ export default function BatchPage() {
 
 
   // Add this useEffect after your existing useEffects
-useEffect(() => {
-  const handleEscKey = (event: KeyboardEvent) => {
-    if (event.key === 'Escape') {
-      setIsModalOpen(false);
-    }
-  };
-
-  if (isModalOpen) {
-    document.addEventListener('keydown', handleEscKey);
-    return () => {
-      document.removeEventListener('keydown', handleEscKey);
+  useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsModalOpen(false);
+      }
     };
-  }
-}, [isModalOpen]);
+
+    if (isModalOpen) {
+      document.addEventListener('keydown', handleEscKey);
+      return () => {
+        document.removeEventListener('keydown', handleEscKey);
+      };
+    }
+  }, [isModalOpen]);
 
 
   // Subject badge renderer
@@ -217,8 +220,8 @@ useEffect(() => {
 
       {/* Table */}
 
-      {loading ? (
-        <p className="text-center mt-8">Loading...</p>
+      {showLoader ? (
+        <Loader />
       ) : batches.length === 0 ? (
         <p className="text-center mt-8 text-gray-500">No batches found.</p>
       ) : (

@@ -8,6 +8,8 @@ import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { apiFetch } from "@/lib/api.js";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 
 export default function SubjectPage() {
@@ -16,6 +18,7 @@ export default function SubjectPage() {
   const [filteredSubjects, setFilteredSubjects] = useState<any[]>([]);
   const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
   const [loading, setLoading] = useState(true);
+  const showLoader = useMinimumLoadingTime(loading);
   const [error, setError] = useState("");
 
   const fetchSubjects = async () => {
@@ -93,7 +96,7 @@ export default function SubjectPage() {
     }
   };
 
-  if (loading) return <p className="text-center mt-8">Loading...</p>;
+  if (showLoader) return <Loader />;
   if (error) return <p className="text-center mt-8 text-red-600">{error}</p>;
 
   return (
@@ -136,11 +139,11 @@ export default function SubjectPage() {
             if (!payload.name) { toast.error("Name is required"); return; }
             const res = await apiFetch("/subjects", { method: "POST", body: payload });
             const created = Array.isArray(res) ? res : (res?.data ?? res);
-            const updated = [created, ...subjects].slice().sort((a:any,b:any)=>b.id-a.id);
+            const updated = [created, ...subjects].slice().sort((a: any, b: any) => b.id - a.id);
             setSubjects(updated);
             setFilteredSubjects(updated);
             toast.success("Subject created");
-          } catch (e:any) {
+          } catch (e: any) {
             const msg = e?.body || e?.message || "Failed to create subject";
             toast.error(typeof msg === 'string' ? msg : JSON.stringify(msg));
           }

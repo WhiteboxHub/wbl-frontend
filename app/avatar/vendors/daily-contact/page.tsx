@@ -18,6 +18,8 @@ import { SearchIcon, UserPlus, Trash2, ArrowRight } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import dynamic from "next/dynamic";
 import { toast, Toaster } from "sonner";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 const AGGridTable = dynamic(() => import("@/components/AGGridTable"), {
   ssr: false,
@@ -70,6 +72,7 @@ export default function VendorContactsGrid() {
   const [searchTerm, setSearchTerm] = useState("");
   const [contacts, setContacts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const showLoader = useMinimumLoadingTime(loading);
   const [deleting, setDeleting] = useState(false);
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -464,30 +467,33 @@ export default function VendorContactsGrid() {
       {/* Grid */}
       <div className="flex w-full justify-center">
         <div className="w-full max-w-7xl">
-          <AGGridTable
-            rowData={filteredContacts}
-            columnDefs={columnDefs}
-            defaultColDef={defaultColDef}
-            loading={loading}
-            height="600px"
-            title={`Daily Contacts (${filteredContacts.length})`}
-            showSearch={false}
-            onRowAdded={handleRowAdded}
-            onRowUpdated={handleRowUpdated}
-            onRowDeleted={handleRowDeleted}
-            skipDeleteConfirmation={true}
-            onFilterChanged={() => {
-              if (gridRef.current?.api) {
-                gridRef.current.api.deselectAll();
-              }
-              setSelectedRows([]);
-              selectedRowsRef.current = [];
-            }}
-            onSelectionChanged={(rows: any[]) => {
-              selectedRowsRef.current = rows;
-              setSelectedRows(rows);
-            }}
-          />
+          {showLoader ? (
+            <Loader />
+          ) : (
+            <AGGridTable
+              rowData={filteredContacts}
+              columnDefs={columnDefs}
+              defaultColDef={defaultColDef}
+              height="600px"
+              title={`Daily Contacts (${filteredContacts.length})`}
+              showSearch={false}
+              onRowAdded={handleRowAdded}
+              onRowUpdated={handleRowUpdated}
+              onRowDeleted={handleRowDeleted}
+              skipDeleteConfirmation={true}
+              onFilterChanged={() => {
+                if (gridRef.current?.api) {
+                  gridRef.current.api.deselectAll();
+                }
+                setSelectedRows([]);
+                selectedRowsRef.current = [];
+              }}
+              onSelectionChanged={(rows: any[]) => {
+                selectedRowsRef.current = rows;
+                setSelectedRows(rows);
+              }}
+            />
+          )}
         </div>
 
         {/* Confirmation Dialog */}

@@ -6,7 +6,7 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon, CalendarIcon } from "lucide-react";
+import { SearchIcon, CalendarIcon, Linkedin, FileText } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect, useRef } from "react";
 import axios from "axios";
@@ -15,6 +15,8 @@ import { toast, Toaster } from "sonner";
 import api, { smartUpdate } from "@/lib/api";
 import { format } from "date-fns";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 
 const StatusRenderer = (params: any) => {
@@ -442,6 +444,7 @@ export default function CandidatesMarketingPage() {
   ]);
   const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const showLoader = useMinimumLoadingTime(loading);
   const [error, setError] = useState("");
 
   const fetchCandidates = async () => {
@@ -472,7 +475,7 @@ export default function CandidatesMarketingPage() {
   const LinkCellRenderer = (params: any) => {
     let url = (params.value || "").trim();
 
-    if (!url) return <span className="text-gray-500">N/A</span>;
+    if (!url) return <span className="text-gray-400 opacity-60">N/A</span>;
     if (!/^https?:\/\//i.test(url)) {
       url = `https://${url}`;
     }
@@ -482,9 +485,10 @@ export default function CandidatesMarketingPage() {
         href={url}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-blue-600 hover:underline"
+        className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+        title="View LinkedIn Profile"
       >
-        Click Here
+        <Linkedin className="h-4 w-4 text-[#0a66c2]" />
       </a>
     );
   };
@@ -518,12 +522,13 @@ export default function CandidatesMarketingPage() {
           href={params.value}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-blue-600 hover:underline"
+          className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          title="View Resume"
         >
-          View
+          <FileText className="h-4 w-4 text-blue-600" />
         </a>
       ) : (
-        <span className="text-gray-400">N/A</span>
+        <span className="text-gray-400 opacity-60">N/A</span>
       )}
       <input
         type="file"
@@ -932,6 +937,9 @@ export default function CandidatesMarketingPage() {
     }
   };
   // ---------------- Render ----------------
+  if (showLoader) return <Loader />;
+  if (error) return <p className="mt-8 text-center text-red-600">{error}</p>;
+
   return (
     <div className="space-y-6">
       <Toaster richColors position="top-center" />

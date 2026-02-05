@@ -14,6 +14,8 @@ import { createPortal } from "react-dom";
 import { AgGridReact } from "ag-grid-react";
 import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { apiFetch, smartUpdate } from "@/lib/api";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 
 
@@ -512,6 +514,7 @@ export default function LeadsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [totalLeads, setTotalLeads] = useState(0);
   const [loading, setLoading] = useState(false);
+  const showLoader = useMinimumLoadingTime(loading);
   const [error, setError] = useState<string | null>(null);
   const [searchBy, setSearchBy] = useState("full_name");
   const [sortModel, setSortModel] = useState([{ colId: 'entry_date', sort: 'desc' }]);
@@ -948,6 +951,9 @@ export default function LeadsPage() {
     ],
     [selectedStatuses, selectedWorkStatuses]
   );
+
+  // Handle loading
+  if (showLoader) return <Loader />;
 
   // Handle errors
   if (error) {

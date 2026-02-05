@@ -11,6 +11,8 @@ import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect } from "react";
 import { toast, Toaster } from "sonner";
 import api, { smartUpdate } from "@/lib/api";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 // Authentication helper (now redundant, but kept for reference)
 const getAuthToken = (): string | null => {
@@ -111,6 +113,7 @@ export default function AuthUsersPage() {
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const showLoader = useMinimumLoadingTime(loading);
 
   // Debounce search
   useEffect(() => {
@@ -440,11 +443,8 @@ export default function AuthUsersPage() {
         </div>
       </div>
       {/* AG Grid Table */}
-      {loading ? (
-        <div className="flex justify-center items-center mt-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <span className="ml-2">Loading users...</span>
-        </div>
+      {showLoader ? (
+        <Loader />
       ) : filteredUsers.length === 0 ? (
         <div className="text-center mt-8 p-8 border-2 border-dashed border-gray-300 rounded-lg">
           <p className="text-gray-500 text-lg">No users found</p>

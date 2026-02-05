@@ -12,10 +12,13 @@ import { Label } from "@/components/admin_ui/label";
 import { Plus, Search, Users, Trash2 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import api from "@/lib/api";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 export default function OutreachContactPage() {
     const [contacts, setContacts] = useState([]);
     const [loading, setLoading] = useState(true);
+    const showLoader = useMinimumLoadingTime(loading);
     const [searchTerm, setSearchTerm] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [formData, setFormData] = useState({
@@ -258,16 +261,19 @@ export default function OutreachContactPage() {
                 </div>
             </div>
 
-            <AGGridTable
-                title={`Outreach Contacts (${contacts.length})`}
-                rowData={contacts}
-                columnDefs={columnDefs}
-                onRowUpdated={handleRowUpdated}
-                onRowDeleted={handleRowDeleted}
-                loading={loading}
-                showAddButton={true}
-                onAddClick={() => setIsModalOpen(true)}
-            />
+            {showLoader ? (
+                <Loader />
+            ) : (
+                <AGGridTable
+                    title={`Outreach Contacts (${contacts.length})`}
+                    rowData={contacts}
+                    columnDefs={columnDefs}
+                    onRowUpdated={handleRowUpdated}
+                    onRowDeleted={handleRowDeleted}
+                    showAddButton={true}
+                    onAddClick={() => setIsModalOpen(true)}
+                />
+            )}
 
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">

@@ -54,7 +54,7 @@ export default function PresentationPage() {
       label: "Visual Intuition",
       icon: Sparkles,
     },
-    { type: "Books", label: "O'Reilly Playlist", icon: Library },
+    { type: "Books", label: "O'Reilly Books", icon: Library },
     { type: "Diagrams", label: "Diagrams", icon: Network },
     { type: "Softwares", label: "Softwares", icon: Cpu },
     { type: "Newsletters", label: "Newsletters", icon: Mail },

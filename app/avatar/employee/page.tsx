@@ -12,13 +12,15 @@ import { useForm } from "react-hook-form";
 import { toast, Toaster } from "sonner";
 import { createPortal } from "react-dom";
 import { Badge } from "@/components/admin_ui/badge";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 
 const DateFormatter = (params: any) => {
   if (!params.value) return "";
 
   const [year, month, day] = params.value.split("-");
-  return `${month}/${day}/${year}`; 
+  return `${month}/${day}/${year}`;
 };
 
 
@@ -500,6 +502,7 @@ export default function EmployeesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const showLoader = useMinimumLoadingTime(isLoading);
   const [error, setError] = useState<string | null>(null);
   const [showEmployeeForm, setShowEmployeeForm] = useState(false);
   const [formSaveLoading, setFormSaveLoading] = useState(false);
@@ -711,56 +714,56 @@ export default function EmployeesPage() {
   };
 
 
-const handleRowAdded = async (newRow: any) => {
-  try {
-    const formattedName = toInitCap(newRow.full_name || newRow.name || "");
+  const handleRowAdded = async (newRow: any) => {
+    try {
+      const formattedName = toInitCap(newRow.full_name || newRow.name || "");
 
-    const payload = {
-      name: formattedName,
-      email: newRow.email ?? null,
-      phone: newRow.phone ? parsePhoneNumber(newRow.phone) : null,
-      address: newRow.address ?? null,
-      dob: newRow.dob ?? null,
-      startdate: newRow.startdate ?? null,
-      enddate: newRow.enddate ?? null,
-      instructor:
-        newRow.instructor !== undefined ? Number(newRow.instructor) : null,
-      status:
-        newRow.status !== undefined ? Number(newRow.status) : 1,
-      notes: newRow.notes ?? null,
-      state: newRow.state ?? null,
-      aadhaar: newRow.aadhaar
-        ? newRow.aadhaar.replace(/\D/g, "")
-        : null,
-    };
+      const payload = {
+        name: formattedName,
+        email: newRow.email ?? null,
+        phone: newRow.phone ? parsePhoneNumber(newRow.phone) : null,
+        address: newRow.address ?? null,
+        dob: newRow.dob ?? null,
+        startdate: newRow.startdate ?? null,
+        enddate: newRow.enddate ?? null,
+        instructor:
+          newRow.instructor !== undefined ? Number(newRow.instructor) : null,
+        status:
+          newRow.status !== undefined ? Number(newRow.status) : 1,
+        notes: newRow.notes ?? null,
+        state: newRow.state ?? null,
+        aadhaar: newRow.aadhaar
+          ? newRow.aadhaar.replace(/\D/g, "")
+          : null,
+      };
 
-    const created = await apiFetch("/api/employees", {
-      method: "POST",
-      body: payload,
-    });
+      const created = await apiFetch("/api/employees", {
+        method: "POST",
+        body: payload,
+      });
 
-    const newEmployee = {
-      ...created,
-      full_name: formattedName,
-      phone: created.phone ? formatPhoneNumber(created.phone) : "",
-    };
+      const newEmployee = {
+        ...created,
+        full_name: formattedName,
+        phone: created.phone ? formatPhoneNumber(created.phone) : "",
+      };
 
-    setEmployees((prev) => [newEmployee, ...prev]);
-    setFilteredEmployees((prev) => [newEmployee, ...prev]);
+      setEmployees((prev) => [newEmployee, ...prev]);
+      setFilteredEmployees((prev) => [newEmployee, ...prev]);
 
-    toast.success("Employee created successfully");
+      toast.success("Employee created successfully");
 
-  } catch (err: any) {
-    console.error("Failed to add employee:", err);
+    } catch (err: any) {
+      console.error("Failed to add employee:", err);
 
 
-    if (err?.status === 409) {
-      toast.error("Employee with this email already exists");
-    } else {
-      toast.error("Failed to create employee");
+      if (err?.status === 409) {
+        toast.error("Employee with this email already exists");
+      } else {
+        toast.error("Failed to create employee");
+      }
     }
-  }
-};
+  };
 
 
 
@@ -778,53 +781,53 @@ const handleRowAdded = async (newRow: any) => {
     }
   };
 
-const handleFormSubmit = async (data: EmployeeFormData) => {
-  if (!validateForm(data)) return;
+  const handleFormSubmit = async (data: EmployeeFormData) => {
+    if (!validateForm(data)) return;
 
-  setFormSaveLoading(true);
+    setFormSaveLoading(true);
 
-  try {
-    const formattedName = toInitCap(data.name);
+    try {
+      const formattedName = toInitCap(data.name);
 
-    const payload = {
-      ...data,
-      name: formattedName,
-      phone: data.phone ? parsePhoneNumber(data.phone) : null,
-      aadhaar: data.aadhaar ? data.aadhaar.replace(/\D/g, "") : null,
-    };
+      const payload = {
+        ...data,
+        name: formattedName,
+        phone: data.phone ? parsePhoneNumber(data.phone) : null,
+        aadhaar: data.aadhaar ? data.aadhaar.replace(/\D/g, "") : null,
+      };
 
-    const created = await apiFetch("/api/employees", {
-      method: "POST",
-      body: payload,
-    });
+      const created = await apiFetch("/api/employees", {
+        method: "POST",
+        body: payload,
+      });
 
-    const newEmployee = {
-      ...created,
-      full_name: formattedName,
-      phone: created.phone ? formatPhoneNumber(created.phone) : "",
-    };
+      const newEmployee = {
+        ...created,
+        full_name: formattedName,
+        phone: created.phone ? formatPhoneNumber(created.phone) : "",
+      };
 
-    setEmployees((prev) => [newEmployee, ...prev]);
-    setFilteredEmployees((prev) => [newEmployee, ...prev]);
+      setEmployees((prev) => [newEmployee, ...prev]);
+      setFilteredEmployees((prev) => [newEmployee, ...prev]);
 
-    toast.success("Employee created successfully");
-    reset();
-    setShowEmployeeForm(false);
-    setFormErrors({});
+      toast.success("Employee created successfully");
+      reset();
+      setShowEmployeeForm(false);
+      setFormErrors({});
 
-  } catch (err: any) {
-    console.error("Failed to add employee:", err);
+    } catch (err: any) {
+      console.error("Failed to add employee:", err);
 
-    if (err?.status === 409) {
-      toast.error("Employee with this email already exists");
-      setFormErrors({ email: "Email already exists" });
-    } else {
-      toast.error("Failed to create employee");
+      if (err?.status === 409) {
+        toast.error("Employee with this email already exists");
+        setFormErrors({ email: "Email already exists" });
+      } else {
+        toast.error("Failed to create employee");
+      }
+    } finally {
+      setFormSaveLoading(false);
     }
-  } finally {
-    setFormSaveLoading(false);
-  }
-};
+  };
 
 
   const columnDefs: ColDef[] = [
@@ -1161,8 +1164,8 @@ const handleFormSubmit = async (data: EmployeeFormData) => {
       )}
 
       {/* Table */}
-      {loading ? (
-        <p className="text-gray-500">Loading employees...</p>
+      {showLoader ? (
+        <Loader />
       ) : error ? (
         <p className="text-red-500">Error: {error}</p>
       ) : (

@@ -9,6 +9,8 @@ import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { apiFetch } from "@/lib/api.js";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 /**
  * @param error
@@ -121,6 +123,7 @@ export default function JobActivityLogPage() {
   const [logs, setLogs] = useState<JobActivityLog[]>([]);
   const [filteredLogs, setFilteredLogs] = useState<JobActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const showLoader = useMinimumLoadingTime(loading);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [jobTypes, setJobTypes] = useState<JobType[]>([]);
@@ -504,7 +507,7 @@ export default function JobActivityLogPage() {
     };
   };
 
-  if (loading) return <p className="mt-8 text-center">Loading...</p>;
+  if (showLoader) return <Loader />;
   if (error) return <p className="mt-8 text-center text-red-600">{error}</p>;
 
   return (

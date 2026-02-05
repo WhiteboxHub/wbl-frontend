@@ -11,11 +11,15 @@ import { useMemo, useState, useEffect } from "react";
 import { toast, Toaster } from "sonner";
 import api, { smartUpdate } from "@/lib/api";
 
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
+
 export default function RecordingsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
   const [recordings, setRecordings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const showLoader = useMinimumLoadingTime(loading);
 
   // Debounce search input
   useEffect(() => {
@@ -78,7 +82,7 @@ export default function RecordingsPage() {
           );
         },
       },
-        {
+      {
         field: "backup_url",
         headerName: "Backup Url",
         width: 150,
@@ -185,8 +189,8 @@ export default function RecordingsPage() {
         </div>
       </div>
       {/* Table */}
-      {loading ? (
-        <p className="text-center mt-8">Loading...</p>
+      {showLoader ? (
+        <Loader />
       ) : recordings.length === 0 ? (
         <p className="text-center mt-8 text-gray-500">No recordings found.</p>
       ) : (

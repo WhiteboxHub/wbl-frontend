@@ -15,6 +15,8 @@ import {
 } from "recharts";
 import axios from "axios";
 import { apiFetch } from "@/lib/api";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 function formatDateFromDB(dateStr: string | null | undefined) {
   if (!dateStr) return "";
@@ -247,6 +249,7 @@ export default function Index() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [upcomingBatches, setUpcomingBatches] = useState<UpcomingBatch[]>([]);
   const [loading, setLoading] = useState(true);
+  const showLoader = useMinimumLoadingTime(loading);
   const [error, setError] = useState<string | null>(null);
   const [birthdays, setBirthdays] = useState<BirthdayResponse>({
     today: [],
@@ -500,12 +503,8 @@ export default function Index() {
   // Calculate derived metrics
   const averageFeePerCandidate = metrics ? Math.round((metrics.financial_metrics.total_fee_current_batch / Math.max(1, metrics.batch_metrics.enrolled_candidates_current))) : 0;
 
-  if (loading) {
-    return (
-      <div className="mx-auto max-w-screen-2xl space-y-6 p-4">
-        <div className="text-center">Loading dashboard data...</div>
-      </div>
-    );
+  if (showLoader) {
+    return <Loader />;
   }
 
   if (error) {

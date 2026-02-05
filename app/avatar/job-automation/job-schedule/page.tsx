@@ -10,6 +10,8 @@ import { toast, Toaster } from "sonner";
 import { AGGridTable } from "@/components/AGGridTable";
 import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { apiFetch } from "@/lib/api";
+import { Loader } from "@/components/admin_ui/loader";
+import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import {
     Dialog,
@@ -171,7 +173,8 @@ export default function JobSchedulePage() {
     const searchInputRef = useRef<HTMLInputElement>(null);
     const [jobSchedules, setJobSchedules] = useState<JobSchedule[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const showLoader = useMinimumLoadingTime(loading);
     const [error, setError] = useState<string | null>(null);
     const [newJobForm, setNewJobForm] = useState(false);
     const [formData, setFormData] = useState<FormData>(initialFormData);
@@ -537,17 +540,20 @@ export default function JobSchedulePage() {
             </Dialog>
 
 
-            <AGGridTable
-                title={`Job Schedules (${filteredData.length})`}
-                rowData={filteredData}
-                columnDefs={columnDefs}
-                onRowUpdated={handleRowUpdated}
-                onRowDeleted={handleRowDeleted}
-                loading={loading}
-                showAddButton={true}
-                onAddClick={() => setNewJobForm(!newJobForm)}
-                context={{ componentParent: { fetchJobSchedules } }}
-            />
+            {showLoader ? (
+                <Loader />
+            ) : (
+                <AGGridTable
+                    title={`Job Schedules (${filteredData.length})`}
+                    rowData={filteredData}
+                    columnDefs={columnDefs}
+                    onRowUpdated={handleRowUpdated}
+                    onRowDeleted={handleRowDeleted}
+                    showAddButton={true}
+                    onAddClick={() => setNewJobForm(!newJobForm)}
+                    context={{ componentParent: { fetchJobSchedules } }}
+                />
+            )}
         </div>
     );
 }
