@@ -37,9 +37,29 @@ const MovedToVendorRenderer = ({ value }: { value?: boolean }) => {
   return <Badge className={badgeClass}>{status}</Badge>;
 };
 
-function formatDateFromDB(dateStr: string | null | undefined) {
+function formatDateTime(dateStr: string | null | undefined) {
   if (!dateStr) return "";
-  return dateStr.slice(0, 10);
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return dateStr;
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+function formatDate(dateStr: string | null | undefined) {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return dateStr;
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 const EmailRenderer = ({ value }: { value?: string }) => {
@@ -154,9 +174,14 @@ export default function VendorContactsGrid() {
         c.email?.toLowerCase().includes(term) ||
         c.phone?.toLowerCase().includes(term) ||
         c.linkedin_id?.toLowerCase().includes(term) ||
-        c.internal_linkedin_id?.toLowerCase().includes(term) ||
+        c.linkedin_internal_id?.toLowerCase().includes(term) ||
         c.company_name?.toLowerCase().includes(term) ||
-        c.location?.toLowerCase().includes(term)
+        c.location?.toLowerCase().includes(term) ||
+        c.notes?.toLowerCase().includes(term) ||
+        c.job_source?.toLowerCase().includes(term) ||
+        c.extraction_date?.toLowerCase().includes(term) ||
+        c.last_modified_datetime?.toLowerCase().includes(term) ||
+        c.created_at?.toLowerCase().includes(term)
     );
   }, [searchTerm, contacts]);
 
@@ -344,9 +369,9 @@ export default function VendorContactsGrid() {
       {
         field: "extraction_date",
         headerName: "Extraction Date",
-        width: 150,
+        width: 140,
         filter: "agDateColumnFilter",
-        valueFormatter: (params) => formatDateFromDB(params.value),
+        valueFormatter: (params) => formatDate(params.value),
         editable: true,
       },
       {
@@ -382,9 +407,22 @@ export default function VendorContactsGrid() {
       {
         field: "created_at",
         headerName: "Created At",
-        width: 180,
+        width: 200,
         filter: "agDateColumnFilter",
-        valueFormatter: (params) => formatDateFromDB(params.value),
+        valueFormatter: (params) => formatDateTime(params.value),
+      },
+
+      {
+        field: "job_source",
+        headerName: "Job Source",
+        width: 250,
+        editable: true,
+      },
+      {
+        field: "linkedin_internal_id",
+        headerName: "LinkedIn Internal ID",
+        width: 200,
+        editable: true,
       },
       {
         field: "notes",
@@ -393,15 +431,10 @@ export default function VendorContactsGrid() {
         editable: true,
       },
       {
-        field: "job_source",
-        headerName: "Job Source",
-        width: 250,
-        editable: true,
-      },
-      {
-        field: "internal_linkedin_id",
-        headerName: "Internal LinkedIn ID",
+        field: "last_modified_datetime",
+        headerName: "Last Modified",
         width: 200,
+        valueFormatter: (params) => formatDateTime(params.value),
         editable: true,
       },
     ],
