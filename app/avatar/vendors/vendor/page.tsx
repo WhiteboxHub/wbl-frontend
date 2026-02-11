@@ -79,7 +79,30 @@ const SelectEditor = (props: any) => {
   );
 };
 
-const DateFormatter = (params: any) => (params.value ? new Date(params.value).toLocaleDateString() : "");
+const DateFormatter = (params: any) => {
+  if (!params.value) return "";
+  const date = new Date(params.value);
+  if (isNaN(date.getTime())) return params.value;
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
+const DateTimeFormatter = (params: any) => {
+  if (!params.value) return "";
+  const date = new Date(params.value);
+  if (isNaN(date.getTime())) return params.value;
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
 const PhoneRenderer = (params: any) =>
   params.value ? <a href={`tel:${params.value}`} className="text-blue-600 hover:underline">{params.value}</a> : "";
 const EmailRenderer = (params: any) =>
@@ -531,7 +554,8 @@ export default function VendorPage() {
       cellEditor: SelectEditor,
       cellEditorParams: { options: ["YES", "NO"] },
     },
-    { field: "created_at", headerName: "Created At", width: 180, valueFormatter: DateFormatter, filter: "agDateColumnFilter", editable: false },
+    { field: "created_at", headerName: "Created At", width: 200, valueFormatter: DateTimeFormatter, filter: "agDateColumnFilter", editable: false },
+    { field: "linkedin_internal_id", headerName: "LinkedIn Internal ID", width: 200, editable: true },
     {
       field: "notes",
       headerName: "Notes",
@@ -546,8 +570,8 @@ export default function VendorPage() {
           />
         );
       },
-    },
-    { field: "linkedin_internal_id", headerName: "LinkedIn Internal ID", width: 200, editable: true },
+    }, 
+    { field: "last_modified_datetime", headerName: "Last Modified", width: 200, valueFormatter: DateTimeFormatter, editable: false }, 
   ], []);
 
   const handleRowUpdated = async (updatedRow: any) => {
