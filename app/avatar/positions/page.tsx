@@ -22,6 +22,7 @@ type Position = {
     employment_mode?: string | null;
     source: string;
     source_uid?: string | null;
+    source_job_id?: string | null;
     location?: string | null;
     city?: string | null;
     state?: string | null;
@@ -358,6 +359,7 @@ export default function PositionsPage() {
         const allowedFields = [
             "title", "normalized_title", "company_name", "company_id",
             "position_type", "employment_mode", "source",
+            "source_uid", "source_job_id",
             "location", "city", "state", "zip", "country",
             "contact_email", "contact_phone", "contact_linkedin",
             "job_url", "description", "notes", "status",
@@ -589,6 +591,7 @@ export default function PositionsPage() {
             { field: "contact_phone", headerName: "Contact Phone", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "contact_linkedin", headerName: "Contact LinkedIn", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true, cellRenderer: LinkedinCellRenderer },
             { field: "job_url", headerName: "Job URL", width: 250, sortable: true, filter: "agTextColumnFilter", editable: true, cellRenderer: LinkCellRenderer },
+            { field: "source_job_id", headerName: "Source Job ID", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "normalized_title", headerName: "Normalized Title", width: 200, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "company_id", headerName: "Company ID", width: 130, sortable: true, filter: "agNumberColumnFilter", editable: true },
             { field: "confidence_score", headerName: "Conf. Score", width: 130, sortable: true, filter: "agNumberColumnFilter", editable: true },
