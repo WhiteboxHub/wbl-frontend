@@ -385,7 +385,7 @@ export default function PositionsPage() {
                 }
 
                 if (value === "" || value === undefined) {
-                    const requiredFields = ["title", "company_name", "source"];
+                    const requiredFields = ["title", "company_name", "source", "position_type", "employment_mode", "status"];
                     if (!requiredFields.includes(field)) {
                         payload[field] = null;
                     }
@@ -443,12 +443,15 @@ export default function PositionsPage() {
 
     const handleRowAdded = async (newData: any) => {
         try {
+            const filteredNewData = Object.fromEntries(
+                Object.entries(newData).filter(([_, v]) => v !== "" && v !== undefined)
+            );
             const dataWithDefaults = {
                 source: "linkedin",
                 status: "open",
                 position_type: "full_time",
                 employment_mode: "hybrid",
-                ...newData
+                ...filteredNewData
             };
             const dataToSave = getPositionPayload(dataWithDefaults);
             const response = await api.post("/positions/", dataToSave);
