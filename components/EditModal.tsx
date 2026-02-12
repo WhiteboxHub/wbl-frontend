@@ -384,14 +384,15 @@ const requiredFieldsConfig: Record<string, string[]> = {
   employee: ["Full Name", "Email", "Phone", "Date of Birth", "Aadhaar"],
   placement: ["Placement ID", 'Deposit Date'],
   project: ["Project Name", "Owner", "Start Date"],
+  positions: ["Title", "Company"],
 };
 
 // Helper function to check if a field is required based on modal type and mode
 
 const isFieldRequired = (fieldName: string, modalType: string, isAddMode: boolean): boolean => {
-  if (!isAddMode) return false;
-
   const modalKey = modalType.toLowerCase();
+  if (!isAddMode && !modalKey.includes("position")) return false;
+
   const fieldConfigMap: Record<string, string[]> = {};
 
   Object.entries(requiredFieldsConfig).forEach(([key, fields]) => {
@@ -1376,6 +1377,12 @@ export function EditModal({
           flattenedData.due_date = due.toISOString().split("T")[0];
         }
       }
+      if (isAddMode && isPositionsModal) {
+        if (!flattenedData.position_type) flattenedData.position_type = "full_time";
+        if (!flattenedData.employment_mode) flattenedData.employment_mode = "hybrid";
+        if (!flattenedData.source) flattenedData.source = "linkedin";
+        if (!flattenedData.status) flattenedData.status = "open";
+      }
       if (isAddMode && isProjectModal) {
         if (!flattenedData.start_date) {
           flattenedData.start_date = new Date().toISOString().split("T")[0];
@@ -1399,7 +1406,7 @@ export function EditModal({
         }
       }, 0);
     }
-  }, [data, isOpen, reset, isJobTypeModal, setValue, isAddMode, isProjectModal, isEmployeeTaskModal]);
+  }, [data, isOpen, reset, isJobTypeModal, setValue, isAddMode, isProjectModal, isEmployeeTaskModal, isPositionsModal]);
 
   // Special effect to resync job owners when employees list changes (async fetch)
   useEffect(() => {
@@ -1529,6 +1536,8 @@ export function EditModal({
       // Ensure required fields for positions
       if (!reconstructedData.source) reconstructedData.source = "linkedin";
       if (!reconstructedData.status) reconstructedData.status = "open";
+      if (!reconstructedData.position_type) reconstructedData.position_type = "full_time";
+      if (!reconstructedData.employment_mode) reconstructedData.employment_mode = "hybrid";
     }
 
     // Handle instructor fields - send null if "Select Instructor" is chosen
@@ -2345,6 +2354,9 @@ export function EditModal({
                                   : []),
                                 ...(isJobTypeModal
                                   ? ["job_owner"]
+                                  : []),
+                                ...(isPositionsModal
+                                  ? ["created_at", "updated_at"]
                                   : []),
                               ].includes(key)
                           )
