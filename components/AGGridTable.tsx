@@ -142,11 +142,11 @@ export function AGGridTable({
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
   const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [displayedRowCount, setDisplayedRowCount] = useState(rowData.length);
+  const [displayedRowCount, setDisplayedRowCount] = useState(rowData?.length ?? 0);
 
   // Update count when rowData changes
   useEffect(() => {
-    setDisplayedRowCount(rowData.length);
+    setDisplayedRowCount(rowData?.length ?? 0);
   }, [rowData]);
 
   // Detect dark mode

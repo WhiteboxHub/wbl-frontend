@@ -1428,7 +1428,7 @@ export default function CandidatesPage() {
 
         <AGGridTable
           key={`grid-${selectedStatuses.join(",")}-${selectedWorkStatuses.join(",")}-${selectedBatches.map((b) => b.batchid).join(",")}`}
-          rowData={loading ? undefined : filteredCandidates}
+          rowData={loading ? [] : filteredCandidates}
           title={`Candidates (${displayCount}${hasActiveFilters ? ` of ${totalCount}` : ""})`}
           columnDefs={columnDefs}
           onRowAdded={async (newRow: any) => {
