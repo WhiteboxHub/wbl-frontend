@@ -22,9 +22,12 @@ import {
     Search,
     ExternalLink,
     MessageSquare,
+    Video,
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/utils/AuthContext";
+import CandidateGrid from "./CandidateGrid";
+import { ColDef } from "ag-grid-community";
 
 interface DashboardData {
     basic_info: {
@@ -41,13 +44,13 @@ interface DashboardData {
         enrolled: { completed: boolean; date: string; days_since: number };
         preparation: { completed: boolean; active: boolean; start_date: string; duration_days: number };
         marketing: { completed: boolean; active: boolean; start_date: string; duration_days: number };
-        placement: { completed: boolean; active: boolean; company: string; position: string };
+        placement: { completed: boolean; active: boolean; company: string; position: string; date?: string };
     };
     phase_metrics: {
         enrolled: { date: string; batch_name: string; status: string };
         preparation?: { status: string; rating: string; communication: string; duration_days: number };
         marketing?: { total_interviews: number; positive_interviews: number; success_rate: number; duration_days: number };
-        placement?: { company: string; position: string; base_salary: number };
+        placement?: { company: string; position: string; base_salary: number; placement_date?: string };
     };
     team_info: {
         preparation: { instructors: Array<{ name: string; email: string; role: string }> };
@@ -60,11 +63,12 @@ interface DashboardData {
         negative: number;
         success_rate: number;
     };
-    recent_interviews: Array<{
+    interviews: Array<{
         company: string;
         interview_date: string;
         type_of_interview: string;
         feedback: string;
+        source_job_id?: string;
     }>;
     alerts: Array<{ type: string; phase: string; message: string }>;
 }
@@ -98,11 +102,108 @@ interface ApiError {
     status?: number;
 }
 
-type TabType = 'overview' | 'journey' | 'team' | 'sessions' | 'interviews' | 'statistics';
+type TabType = 'overview' | 'journey' | 'team' | 'sessions' | 'interviews' | 'jobs';
 
 const extractErrorMessage = (err: ApiError, defaultMessage: string): string => {
     return err.body?.detail || err.body?.message || err.detail || err.message || defaultMessage;
 };
+
+const interviewColumnDefs: ColDef[] = [
+    {
+        field: "company",
+        headerName: "Company",
+        flex: 2,
+        minWidth: 200,
+        pinned: 'left',
+        cellRenderer: (params: any) => (
+            <div className="flex items-center h-full">
+                <span className="font-bold text-gray-900 dark:text-gray-100 text-[13px]">{params.value}</span>
+            </div>
+        )
+    },
+    {
+        field: "type_of_interview",
+        headerName: "Interview Round",
+        flex: 1.5,
+        minWidth: 160,
+        cellRenderer: (params: any) => (
+            <div className="flex items-center h-full gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center flex-shrink-0">
+                    <Target className="w-3.5 h-3.5 text-gray-400" />
+                </div>
+                <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">{params.value || "Technical Round"}</span>
+            </div>
+        )
+    },
+    {
+        field: "interview_date",
+        headerName: "Schedule",
+        flex: 1.5,
+        minWidth: 160,
+        cellRenderer: (params: any) => {
+            if (!params.value) return (
+                <div className="flex items-center h-full text-gray-400 text-xs italic">Not set</div>
+            );
+            try {
+                const dateStr = format(parseISO(params.value), "MMM dd, yyyy");
+                return (
+                    <div className="flex items-center h-full gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-blue-50/50 dark:bg-blue-900/10 flex items-center justify-center flex-shrink-0">
+                            <Calendar className="w-3.5 h-3.5 text-blue-500" />
+                        </div>
+                        <span className="text-xs font-bold text-gray-800 dark:text-gray-200">{dateStr}</span>
+                    </div>
+                );
+            } catch (e) {
+                return <div className="flex items-center h-full text-xs font-medium">{params.value}</div>;
+            }
+        }
+    },
+    {
+        field: "mode_of_interview",
+        headerName: "Mode",
+        flex: 1,
+        minWidth: 130,
+        cellRenderer: (params: any) => (
+            <div className="flex items-center h-full gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center flex-shrink-0">
+                    <Video className="w-3.5 h-3.5 text-gray-400" />
+                </div>
+                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{params.value || "Virtual"}</span>
+            </div>
+        )
+    },
+];
+
+const jobColumnDefs: ColDef[] = [
+    { field: "source_job_id", headerName: "LinkedIn Job ID", flex: 1.5, minWidth: 160, pinned: 'left' },
+    { field: "title", headerName: "Position", flex: 2, minWidth: 200 },
+    { field: "company_name", headerName: "Company", flex: 1.5, minWidth: 150 },
+    { field: "location", headerName: "Location", flex: 1.5, minWidth: 150 },
+    { field: "source", headerName: "Source", flex: 1, minWidth: 100 },
+    {
+        field: "source_job_id",
+        headerName: "Link",
+        flex: 1,
+        minWidth: 100,
+        cellRenderer: (params: any) => {
+            if (!params.value) return <span className="text-gray-400">-</span>;
+            return (
+                <div className="flex items-center h-full">
+                    <a
+                        href={params.data.job_url || `https://www.linkedin.com/jobs/view/${params.value}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center space-x-1 text-blue-500 hover:text-blue-700 transition-colors"
+                    >
+                        <ExternalLink className="w-4 h-4" />
+                        <span className="text-xs">View</span>
+                    </a>
+                </div>
+            );
+        }
+    }
+];
 
 export default function CandidateDashboard() {
     const router = useRouter();
@@ -119,6 +220,10 @@ export default function CandidateDashboard() {
     const [sessions, setSessions] = useState<Session[]>([]);
     const [sessionsLoading, setSessionsLoading] = useState(false);
     const [sessionSearchTerm, setSessionSearchTerm] = useState("");
+
+    // Jobs state
+    const [positions, setPositions] = useState<any[]>([]);
+    const [positionsLoading, setPositionsLoading] = useState(false);
 
     const loadUserProfile = async () => {
         try {
@@ -240,6 +345,29 @@ export default function CandidateDashboard() {
         }
     };
 
+    const loadPositions = async () => {
+        try {
+            setPositionsLoading(true);
+            const token = localStorage.getItem("access_token") || localStorage.getItem("token");
+            const posData = await apiFetch("positions/?limit=500", {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            // Filter to only show jobs with a numeric LinkedIn Job ID AND source is linkedin
+            const filteredData = (posData || []).filter((pos: any) =>
+                pos.source_job_id &&
+                /^\d+$/.test(String(pos.source_job_id)) &&
+                pos.source?.toLowerCase() === 'linkedin'
+            );
+
+            setPositions(filteredData);
+        } catch (err) {
+            console.error("Error loading positions:", err);
+        } finally {
+            setPositionsLoading(false);
+        }
+    };
+
 
     const loadDashboard = async (retryCount = 0) => {
         try {
@@ -302,6 +430,12 @@ export default function CandidateDashboard() {
     }, [data, sessionSearchTerm]);
 
     useEffect(() => {
+        if (activeTab === 'jobs' && positions.length === 0) {
+            loadPositions();
+        }
+    }, [activeTab]);
+
+    useEffect(() => {
         loadDashboard();
     }, []);
 
@@ -347,11 +481,11 @@ export default function CandidateDashboard() {
         { id: 'team' as TabType, name: 'My Team', icon: Users },
         { id: 'sessions' as TabType, name: 'Sessions', icon: PlayCircle },
         { id: 'interviews' as TabType, name: 'Interviews', icon: MessageSquare },
-        { id: 'statistics' as TabType, name: 'Statistics', icon: BarChart3 },
+        { id: 'jobs' as TabType, name: 'LinkedIn Jobs', icon: Briefcase },
     ];
 
     return (
-        <div className="w-full">
+        <div className="w-full overflow-x-hidden">
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* ==================== ALERTS ==================== */}
                 {data.alerts && data.alerts.length > 0 && (
@@ -375,64 +509,59 @@ export default function CandidateDashboard() {
                 )}
 
                 {/* ==================== PROFILE CARD ==================== */}
-                <div className="mb-8 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-2xl shadow-2xl overflow-hidden">
-                    <div className="relative">
-                        <div className="absolute inset-0 bg-black/10"></div>
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent"></div>
+                <div className="mb-6 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden transition-all duration-300">
+                    <div className="p-6">
+                        <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6">
+                            <div className="relative">
+                                <div className="w-24 h-24 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center text-blue-600 dark:text-blue-400 text-3xl font-bold shadow-inner border border-blue-100 dark:border-blue-800">
+                                    {data.basic_info.full_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                                </div>
+                                <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-green-500 rounded-full border-4 border-white dark:border-gray-800 flex items-center justify-center shadow-md">
+                                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                                </div>
+                            </div>
 
-                        <div className="relative p-8">
-                            <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6">
-                                <div className="relative">
-                                    <div className="w-28 h-28 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center text-white text-3xl font-bold shadow-xl border-4 border-white/30">
-                                        {data.basic_info.full_name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                            <div className="flex-1 text-center lg:text-left">
+                                <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                                    Welcome back, {firstName}! 👋
+                                </h1>
+
+                                <div className="flex flex-col lg:flex-row gap-4 mb-4 text-gray-500 dark:text-gray-400">
+                                    <div className="flex items-center justify-center lg:justify-start gap-2">
+                                        <Mail size={16} className="text-blue-500" />
+                                        <span className="text-sm font-medium">{data.basic_info.email}</span>
                                     </div>
-                                    <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-green-500 rounded-full border-4 border-white dark:border-gray-900 flex items-center justify-center">
-                                        <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                                    <div className="flex items-center justify-center lg:justify-start gap-2">
+                                        <Phone size={16} className="text-blue-500" />
+                                        <span className="text-sm font-medium">{data.basic_info.phone}</span>
                                     </div>
                                 </div>
 
-                                <div className="flex-1 text-center lg:text-left">
-                                    <h1 className="text-3xl lg:text-4xl font-bold text-white mb-2">
-                                        Welcome back, {firstName}! 👋
-                                    </h1>
-
-                                    <div className="flex flex-col lg:flex-row gap-4 mb-4 text-white/90">
-                                        <div className="flex items-center justify-center lg:justify-start gap-2">
-                                            <Mail size={16} />
-                                            <span className="text-sm">{data.basic_info.email}</span>
+                                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                                    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 border border-gray-100 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all group">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <Award className="w-4 h-4 text-yellow-500 transition-transform group-hover:scale-110" />
+                                            <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Batch</p>
                                         </div>
-                                        <div className="flex items-center justify-center lg:justify-start gap-2">
-                                            <Phone size={16} />
-                                            <span className="text-sm">{data.basic_info.phone}</span>
-                                        </div>
+                                        <p className="text-md font-bold text-gray-900 dark:text-gray-100">{data.basic_info.batch_name || "N/A"}</p>
                                     </div>
 
-                                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-                                        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <Award className="w-4 h-4 text-yellow-300" />
-                                                <p className="text-xs text-white/70 font-medium">Batch</p>
-                                            </div>
-                                            <p className="text-lg font-bold text-white">{data.basic_info.batch_name || "N/A"}</p>
+                                    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 border border-gray-100 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all group">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <Calendar className="w-4 h-4 text-blue-500 transition-transform group-hover:scale-110" />
+                                            <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Enrolled</p>
                                         </div>
+                                        <p className="text-md font-bold text-gray-900 dark:text-gray-100">
+                                            {data.basic_info.enrolled_date ? format(parseISO(data.basic_info.enrolled_date), "MMM dd, yyyy") : "N/A"}
+                                        </p>
+                                    </div>
 
-                                        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <Calendar className="w-4 h-4 text-blue-300" />
-                                                <p className="text-xs text-white/70 font-medium">Enrolled</p>
-                                            </div>
-                                            <p className="text-sm font-bold text-white">
-                                                {data.basic_info.enrolled_date ? format(parseISO(data.basic_info.enrolled_date), "MMM dd, yyyy") : "N/A"}
-                                            </p>
+                                    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 border border-gray-100 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all group">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <Activity className="w-4 h-4 text-green-500 transition-transform group-hover:scale-110" />
+                                            <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-wider">Login Count</p>
                                         </div>
-
-                                        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 hover:bg-white/15 transition-all">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <Activity className="w-4 h-4 text-green-300" />
-                                                <p className="text-xs text-white/70 font-medium">Login Count</p>
-                                            </div>
-                                            <p className="text-2xl font-bold text-white">{userProfile?.login_count || 0}</p>
-                                        </div>
+                                        <p className="text-md font-bold text-gray-900 dark:text-gray-100">{userProfile?.login_count || 0}</p>
                                     </div>
                                 </div>
                             </div>
@@ -441,8 +570,8 @@ export default function CandidateDashboard() {
                 </div>
 
                 {/* ==================== NAVIGATION TABS ==================== */}
-                <div className="mb-6 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 p-2">
-                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                <div className="mb-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-1.5">
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-1">
                         {tabs.map((tab) => {
                             const Icon = tab.icon;
                             const isActive = activeTab === tab.id;
@@ -451,13 +580,13 @@ export default function CandidateDashboard() {
                                 <button
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
-                                    className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 sm:py-3 rounded-xl text-xs sm:text-sm font-medium transition-all duration-300 ${isActive
-                                        ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-md"
-                                        : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                                    className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-2 rounded-lg text-xs font-semibold transition-all duration-200 ${isActive
+                                        ? "bg-blue-600 text-white shadow-sm"
+                                        : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                                         }`}
                                 >
-                                    <Icon className="w-4 h-4" />
-                                    <span className="text-center">{tab.name}</span>
+                                    <Icon className={`w-3.5 h-3.5 ${isActive ? "text-white" : "text-gray-400"}`} />
+                                    <span className="truncate">{tab.name}</span>
                                 </button>
                             );
                         })}
@@ -472,187 +601,217 @@ export default function CandidateDashboard() {
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                                 <PhaseCard
                                     title="Enrolled"
-                                    icon={<CheckCircle className="w-6 h-6" />}
-                                    color="blue"
+                                    icon={<CheckCircle className="w-5 h-5" />}
+                                    color="gray"
                                     completed={data.journey.enrolled.completed}
                                     daysSince={data.journey.enrolled.days_since}
                                     batchName={data.basic_info.batch_name}
+                                    date={data.journey.enrolled.date ? format(parseISO(data.journey.enrolled.date), "MMM dd, yyyy") : undefined}
                                 />
                                 <PhaseCard
                                     title="Preparation"
-                                    icon={<Target className="w-6 h-6" />}
-                                    color="purple"
+                                    icon={<Target className="w-5 h-5" />}
+                                    color="gray"
                                     active={data.journey.preparation.active}
                                     completed={data.journey.preparation.completed}
                                     durationDays={data.journey.preparation.duration_days}
                                 />
                                 <PhaseCard
                                     title="Marketing"
-                                    icon={<TrendingUp className="w-6 h-6" />}
-                                    color="green"
+                                    icon={<TrendingUp className="w-5 h-5" />}
+                                    color="gray"
                                     active={data.journey.marketing.active}
                                     completed={data.journey.marketing.completed}
                                     durationDays={data.journey.marketing.duration_days}
-                                    interviews={data.phase_metrics.marketing?.total_interviews}
-                                    successRate={data.phase_metrics.marketing?.success_rate}
                                 />
                                 <PhaseCard
                                     title="Placement"
-                                    icon={<Briefcase className="w-6 h-6" />}
-                                    color="orange"
+                                    icon={<Briefcase className="w-5 h-5" />}
+                                    color="gray"
                                     active={data.journey.placement.active}
                                     completed={data.journey.placement.completed}
                                     company={data.phase_metrics.placement?.company}
+                                    date={data.journey.placement.date ? format(parseISO(data.journey.placement.date), "MMM dd, yyyy") : undefined}
                                 />
                             </div>
                         </div>
                     )}
 
                     {/* JOURNEY TAB */}
+                    {/* JOURNEY TAB */}
                     {activeTab === 'journey' && (
-                        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
-                            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6 flex items-center">
-                                <TrendingUp className="w-5 h-5 mr-2 text-blue-500" />
-                                Journey Timeline
-                            </h2>
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 md:p-8">
+                            <div className="mb-10 text-center">
+                                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                                    Your Career Journey
+                                </h2>
+                                <p className="text-sm text-gray-500 max-w-lg mx-auto">
+                                    Track your progress from enrollment to your dream job placement.
+                                </p>
+                            </div>
 
-                            <div className="space-y-4">
-                                <div className="flex items-start">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${data.journey.enrolled.completed ? 'bg-green-500' : 'bg-gray-300'}`}>
-                                        <CheckCircle className="w-5 h-5 text-white" />
-                                    </div>
-                                    <div className="ml-4 flex-1">
-                                        <h4 className="font-medium text-gray-900 dark:text-gray-100">Enrolled</h4>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                                            {data.journey.enrolled.date ? format(parseISO(data.journey.enrolled.date), "MMM dd, yyyy") : "N/A"}
-                                        </p>
-                                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{data.journey.enrolled.days_since} days ago</p>
-                                    </div>
-                                </div>
+                            <div className="relative max-w-4xl mx-auto px-4 py-8">
+                                {/* Connecting Line Background */}
+                                <div className="hidden md:block absolute top-[26px] left-8 right-8 h-1 bg-gray-100 dark:bg-gray-700 rounded-full z-0"></div>
 
-                                <div className="ml-4 border-l-2 border-gray-200 dark:border-gray-700 h-8"></div>
+                                {/* Active Progress Line (Dynamic width based on completed steps) */}
+                                <div
+                                    className="hidden md:block absolute top-[26px] left-8 h-1 bg-blue-500 rounded-full z-0 transition-all duration-1000 ease-out"
+                                    style={{
+                                        width: `calc(${(data.journey.placement.completed ? 100 :
+                                            data.journey.placement.active ? 87.5 :
+                                                data.journey.marketing.completed ? 75 :
+                                                    data.journey.marketing.active ? 62.5 :
+                                                        data.journey.preparation.completed ? 50 :
+                                                            data.journey.preparation.active ? 37.5 :
+                                                                data.journey.enrolled.completed ? 25 : 0)
+                                            }% - 4rem)`
+                                    }}
+                                ></div>
 
-                                <div className="flex items-start">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${data.journey.preparation.active ? 'bg-blue-500' :
-                                        data.journey.preparation.completed ? 'bg-green-500' : 'bg-gray-300'
-                                        }`}>
-                                        {data.journey.preparation.active ? (
-                                            <Clock className="w-5 h-5 text-white animate-pulse" />
-                                        ) : data.journey.preparation.completed ? (
-                                            <CheckCircle className="w-5 h-5 text-white" />
-                                        ) : (
-                                            <Clock className="w-5 h-5 text-white" />
-                                        )}
-                                    </div>
-                                    <div className="ml-4 flex-1">
-                                        <h4 className="font-medium text-gray-900 dark:text-gray-100">Preparation</h4>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                                            {data.journey.preparation.start_date ? format(parseISO(data.journey.preparation.start_date), "MMM dd, yyyy") : "Not Started"}
-                                        </p>
-                                        {data.journey.preparation.active && (
-                                            <span className="inline-block mt-1 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full">
-                                                Active - {data.journey.preparation.duration_days} days
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-8 relative z-10">
+                                    {[
+                                        {
+                                            id: 'enrolled',
+                                            title: 'Enrolled',
+                                            date: data.journey.enrolled.date,
+                                            status: (data.journey.enrolled.completed || data.journey.preparation.active || data.journey.preparation.completed) ? 'completed' : 'active',
+                                            icon: CheckCircle,
+                                            description: data.basic_info.batch_name
+                                        },
+                                        {
+                                            id: 'preparation',
+                                            title: 'Preparation',
+                                            date: data.journey.preparation.start_date,
+                                            status: (data.journey.preparation.completed || data.journey.marketing.active || data.journey.marketing.completed) ? 'completed' : data.journey.preparation.active ? 'active' : 'upcoming',
+                                            icon: Target,
+                                            duration: data.journey.preparation.duration_days
+                                        },
+                                        {
+                                            id: 'marketing',
+                                            title: 'Marketing',
+                                            date: data.journey.marketing.start_date,
+                                            status: (data.journey.marketing.completed || data.journey.placement.active || data.journey.placement.completed) ? 'completed' : data.journey.marketing.active ? 'active' : 'upcoming',
+                                            icon: TrendingUp,
+                                            duration: data.journey.marketing.duration_days
+                                        },
+                                        {
+                                            id: 'placement',
+                                            title: 'Placement',
+                                            date: data.journey.placement.date,
+                                            status: data.journey.placement.completed ? 'completed' : data.journey.placement.active ? 'active' : 'upcoming',
+                                            icon: Briefcase,
+                                            company: data.phase_metrics?.placement?.company
+                                        }
+                                    ].map((step, idx) => (
+                                        <div key={idx} className="flex flex-row md:flex-col items-center group relative">
+                                            {/* Vertical Line for Mobile */}
+                                            {idx !== 3 && (
+                                                <div className="md:hidden absolute left-[19px] top-10 bottom-[-32px] w-0.5 bg-gray-100 dark:bg-gray-700 -z-10"></div>
+                                            )}
 
-                                <div className="ml-4 border-l-2 border-gray-200 dark:border-gray-700 h-8"></div>
+                                            {/* Icon Circle */}
+                                            <div
+                                                className={`w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-300 shadow-sm border-4 ${step.status === 'completed'
+                                                    ? 'bg-blue-500 border-blue-100 dark:border-blue-900/30 text-white transform group-hover:scale-110'
+                                                    : step.status === 'active'
+                                                        ? 'bg-white dark:bg-gray-800 border-blue-500 text-blue-500 shadow-blue-200 dark:shadow-blue-900/20 shadow-lg ring-4 ring-blue-50 dark:ring-blue-900/10'
+                                                        : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 text-gray-300 dark:text-gray-600'
+                                                    }`}
+                                            >
+                                                <step.icon className={`w-6 h-6 ${step.status === 'active' ? 'animate-pulse' : ''}`} />
+                                            </div>
 
-                                <div className="flex items-start">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${data.journey.marketing.active ? 'bg-orange-500' :
-                                        data.journey.marketing.completed ? 'bg-green-500' : 'bg-gray-300'
-                                        }`}>
-                                        {data.journey.marketing.active ? (
-                                            <Target className="w-5 h-5 text-white animate-pulse" />
-                                        ) : data.journey.marketing.completed ? (
-                                            <CheckCircle className="w-5 h-5 text-white" />
-                                        ) : (
-                                            <Clock className="w-5 h-5 text-white" />
-                                        )}
-                                    </div>
-                                    <div className="ml-4 flex-1">
-                                        <h4 className="font-medium text-gray-900 dark:text-gray-100">Marketing</h4>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                                            {data.journey.marketing.start_date ? format(parseISO(data.journey.marketing.start_date), "MMM dd, yyyy") : "Not Started"}
-                                        </p>
-                                        {data.journey.marketing.active && (
-                                            <span className="inline-block mt-1 px-2 py-0.5 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 text-xs rounded-full">
-                                                Active - {data.journey.marketing.duration_days} days
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
+                                            {/* Text Content */}
+                                            <div className="ml-6 md:ml-0 md:mt-6 text-left md:text-center flex-1">
+                                                <div className={`text-xs font-bold uppercase tracking-widest mb-1 ${step.status === 'completed' ? 'text-blue-600 dark:text-blue-400' :
+                                                    step.status === 'active' ? 'text-blue-500' : 'text-gray-400'
+                                                    }`}>
+                                                    Step 0{idx + 1}
+                                                </div>
+                                                <h3 className={`text-lg font-bold mb-1 ${step.status === 'upcoming' ? 'text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'
+                                                    }`}>
+                                                    {step.title}
+                                                </h3>
 
-                                <div className="ml-4 border-l-2 border-gray-200 dark:border-gray-700 h-8"></div>
+                                                <div className="min-h-[40px] flex flex-col justify-start md:justify-center">
+                                                    {step.date ? (
+                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 text-xs font-medium text-gray-600 dark:text-gray-400 mx-auto">
+                                                            <Calendar className="w-3 h-3" />
+                                                            {format(parseISO(step.date), "MMM dd, yyyy")}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-xs text-gray-400 italic">
+                                                            {step.status === 'upcoming' ? 'Upcoming' : 'Pending'}
+                                                        </span>
+                                                    )}
 
-                                <div className="flex items-start">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${data.journey.placement.completed ? 'bg-green-500' : 'bg-gray-300'}`}>
-                                        {data.journey.placement.completed ? (
-                                            <Briefcase className="w-5 h-5 text-white" />
-                                        ) : (
-                                            <Clock className="w-5 h-5 text-white" />
-                                        )}
-                                    </div>
-                                    <div className="ml-4 flex-1">
-                                        <h4 className="font-medium text-gray-900 dark:text-gray-100">Placement</h4>
-                                        {data.journey.placement.completed ? (
-                                            <>
-                                                <p className="text-sm text-gray-900 dark:text-gray-100 font-medium">{data.journey.placement.company}</p>
-                                                <p className="text-xs text-gray-500 dark:text-gray-400">{data.journey.placement.position}</p>
-                                            </>
-                                        ) : (
-                                            <p className="text-sm text-gray-500 dark:text-gray-400">Not Placed Yet</p>
-                                        )}
-                                    </div>
+                                                    {/* Extra Metadata */}
+                                                    {step.status === 'active' && step.duration && (
+                                                        <span className="mt-1 text-[10px] font-bold text-orange-500 uppercase tracking-wide">
+                                                            Day {step.duration}
+                                                        </span>
+                                                    )}
+                                                    {step.company && (
+                                                        <span className="mt-1 text-xs font-bold text-blue-600 dark:text-blue-400">
+                                                            {step.company}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>
                     )}
 
                     {activeTab === 'team' && (
-                        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
-                            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6 flex items-center">
-                                <Users className="w-5 h-5 mr-2 text-blue-500" />
-                                My Team
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 md:p-8">
+                            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-8 border-b border-gray-100 dark:border-gray-700 pb-4">
+                                My Professional Team
                             </h2>
 
-                            <div className="space-y-4">
-                                <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 mb-3">Preparation Team</h3>
-                                {data.team_info.preparation.instructors.map((instructor, idx) => (
-                                    <div key={idx} className="flex items-center space-x-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:shadow-md transition-all">
-                                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold text-lg">
-                                            {instructor.name.split(' ').map(n => n[0]).join('')}
-                                        </div>
-                                        <div className="flex-1">
-                                            <h4 className="font-medium text-gray-900 dark:text-gray-100">{instructor.name}</h4>
-                                            <p className="text-sm text-gray-500 dark:text-gray-400">{instructor.role}</p>
-                                            <p className="text-xs text-gray-400 dark:text-gray-500">{instructor.email}</p>
-                                        </div>
+                            <div className="space-y-8">
+                                <div>
+                                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6">Preparation & Training</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        {data.team_info.preparation.instructors.map((instructor, idx) => (
+                                            <div key={idx} className="flex items-center space-x-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-blue-200 transition-all">
+                                                <div className="w-12 h-12 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full flex items-center justify-center text-gray-400 font-bold text-lg shadow-sm">
+                                                    {instructor.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">{instructor.name}</h4>
+                                                    <p className="text-xs text-gray-500 font-medium truncate">{instructor.role}</p>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
+                                </div>
 
                                 {data.team_info.marketing.manager && (
-                                    <>
-                                        <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 mb-3 mt-6">Marketing Team</h3>
-                                        <div className="flex items-center space-x-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg hover:shadow-md transition-all">
-                                            <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center text-white font-semibold text-lg">
-                                                {data.team_info.marketing.manager.name.split(' ').map(n => n[0]).join('')}
-                                            </div>
-                                            <div className="flex-1">
-                                                <h4 className="font-medium text-gray-900 dark:text-gray-100">{data.team_info.marketing.manager.name}</h4>
-                                                <p className="text-sm text-gray-500 dark:text-gray-400">Marketing Manager</p>
-                                                <p className="text-xs text-gray-400 dark:text-gray-500">{data.team_info.marketing.manager.email}</p>
+                                    <div>
+                                        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6">Marketing & Placement</h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                            <div className="flex items-center space-x-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-blue-200 transition-all">
+                                                <div className="w-12 h-12 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full flex items-center justify-center text-gray-400 font-bold text-lg shadow-sm">
+                                                    {data.team_info.marketing.manager.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">{data.team_info.marketing.manager.name}</h4>
+                                                    <p className="text-xs text-gray-500 font-medium truncate">Marketing Manager</p>
+                                                </div>
                                             </div>
                                         </div>
-                                    </>
+                                    </div>
                                 )}
                             </div>
                         </div>
                     )}
 
                     {activeTab === 'sessions' && (
-                        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
+                        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-4 md:p-6">
                             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
                                 <PlayCircle className="w-5 h-5 mr-2 text-blue-500" />
                                 My Sessions & Videos
@@ -742,81 +901,82 @@ export default function CandidateDashboard() {
                     )}
 
                     {activeTab === 'interviews' && (
-                        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
-                            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6 flex items-center">
-                                <Activity className="w-5 h-5 mr-2 text-blue-500" />
-                                Interview History
-                            </h2>
+                        <div className="space-y-6">
+                            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 md:p-6">
+                                {/* <div>
+                                    <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                                        <MessageSquare className="w-5 h-5 text-blue-500" />
+                                        Interviews
+                                    </h2>
+                                    <p className="text-sm text-gray-500 mt-1">Manage and track your interview rounds</p>
+                                </div> */}
 
-                            <div className="space-y-3 max-h-96 overflow-y-auto">
-                                {data.recent_interviews.length > 0 ? (
-                                    data.recent_interviews.map((interview, idx) => (
-                                        <div key={idx} className="flex items-start space-x-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:shadow-md transition-all">
-                                            <div className={`w-3 h-3 rounded-full mt-2 ${interview.feedback === 'Positive' ? 'bg-green-500' :
-                                                interview.feedback === 'Negative' ? 'bg-red-500' : 'bg-yellow-500'
-                                                }`}></div>
-                                            <div className="flex-1">
-                                                <h4 className="font-medium text-gray-900 dark:text-gray-100">{interview.company}</h4>
-                                                <p className="text-sm text-gray-500 dark:text-gray-400">{interview.type_of_interview}</p>
-                                                <div className="flex items-center justify-between mt-2">
-                                                    <span className="text-xs text-gray-400 dark:text-gray-500">
-                                                        {format(parseISO(interview.interview_date), "MMM dd, yyyy")}
-                                                    </span>
-                                                    <span className={`text-xs px-3 py-1 rounded-full ${interview.feedback === 'Positive' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' :
-                                                        interview.feedback === 'Negative' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
-                                                            'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300'
-                                                        }`}>
-                                                        {interview.feedback}
+                                <div className="space-y-8">
+                                    {/* Upcoming Interviews Section */}
+                                    {data.interviews.filter(i => i.interview_date && new Date(i.interview_date) >= new Date(new Date().setHours(0, 0, 0, 0))).length > 0 && (
+                                        <div>
+                                            <div className="flex items-center gap-2 mb-4">
+                                                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                                <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Upcoming Rounds</h3>
+                                            </div>
+                                            <div className="h-[300px]">
+                                                <CandidateGrid
+                                                    rowData={data.interviews.filter(i => i.interview_date && new Date(i.interview_date) >= new Date(new Date().setHours(0, 0, 0, 0))).sort((a, b) => new Date(a.interview_date).getTime() - new Date(b.interview_date).getTime())}
+                                                    columnDefs={interviewColumnDefs}
+                                                    height="300px"
+                                                    rowHeight={60}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="relative">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h3 className="text-sm font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Interview History</h3>
+
+                                            {/* Stats moved to header to avoid pagination overlap */}
+                                            <div className="hidden sm:flex items-center gap-5">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Upcoming</span>
+                                                    <span className={`text-sm font-bold ${data.interviews.filter(i => i.interview_date && new Date(i.interview_date) >= new Date(new Date().setHours(0, 0, 0, 0))).length > 0 ? "text-green-600" : "text-gray-400"}`}>
+                                                        {data.interviews.filter(i => i.interview_date && new Date(i.interview_date) >= new Date(new Date().setHours(0, 0, 0, 0))).length}
                                                     </span>
                                                 </div>
                                             </div>
                                         </div>
-                                    ))
-                                ) : (
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">No recent interviews</p>
-                                )}
-                            </div>
-                        </div>
-                    )}
 
-                    {activeTab === 'statistics' && (
-                        <div className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl p-6 text-white shadow-lg">
-                                    <div className="text-4xl font-bold mb-2">{data.interview_stats.total}</div>
-                                    <div className="text-sm opacity-90">Total Interviews</div>
-                                </div>
-
-                                <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-2xl p-6 text-white shadow-lg">
-                                    <div className="text-4xl font-bold mb-2">{data.interview_stats.success_rate}%</div>
-                                    <div className="text-sm opacity-90">Success Rate</div>
-                                </div>
-
-                                <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
-                                    <div className="text-4xl font-bold mb-2">
-                                        {data.journey.placement.completed ? '100%' : '0%'}
+                                        <div className="h-[400px]">
+                                            <CandidateGrid
+                                                rowData={data.interviews.filter(i => !i.interview_date || new Date(i.interview_date) < new Date(new Date().setHours(0, 0, 0, 0))).sort((a, b) => new Date(b.interview_date).getTime() - new Date(a.interview_date).getTime())}
+                                                columnDefs={interviewColumnDefs}
+                                                height="400px"
+                                                rowHeight={60}
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="text-sm opacity-90">Placement Status</div>
-                                </div>
-
-                                <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl p-6 text-white shadow-lg">
-                                    <div className="text-4xl font-bold mb-2">{data.interview_stats.positive}</div>
-                                    <div className="text-sm opacity-90">Positive Interviews</div>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="bg-green-50 dark:bg-green-900/20 rounded-2xl p-6 text-center border-2 border-green-200 dark:border-green-800">
-                                    <div className="text-5xl font-bold text-green-600 dark:text-green-400 mb-2">{data.interview_stats.positive}</div>
-                                    <div className="text-gray-600 dark:text-gray-400 font-medium">Positive Feedbacks</div>
-                                </div>
-                                <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-2xl p-6 text-center border-2 border-yellow-200 dark:border-yellow-800">
-                                    <div className="text-5xl font-bold text-yellow-600 dark:text-yellow-400 mb-2">{data.interview_stats.pending}</div>
-                                    <div className="text-gray-600 dark:text-gray-400 font-medium">Pending Results</div>
                                 </div>
                             </div>
                         </div>
                     )}
+
+                    {activeTab === 'jobs' && (
+                        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-4 md:p-6">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6 flex items-center">
+                                <Briefcase className="w-5 h-5 mr-2 text-blue-500" />
+                                LinkedIn Job Board
+                            </h2>
+
+                            <div className="h-[500px]">
+                                <CandidateGrid
+                                    rowData={positions}
+                                    columnDefs={jobColumnDefs}
+                                    loading={positionsLoading}
+                                    height="500px"
+                                />
+                            </div>
+                        </div>
+                    )}
+
                 </div>
             </main>
         </div>
@@ -824,87 +984,59 @@ export default function CandidateDashboard() {
 }
 
 const PhaseCard = ({
-    title, icon, color, completed, active, daysSince, durationDays, batchName, rating, interviews, successRate, company,
+    title, icon, color, completed, active, daysSince, durationDays, batchName, rating, company, date,
 }: {
     title: string; icon: React.ReactNode; color: string; completed?: boolean; active?: boolean; daysSince?: number;
-    durationDays?: number; batchName?: string; rating?: string; interviews?: number; successRate?: number; company?: string;
+    durationDays?: number; batchName?: string; rating?: string; company?: string; date?: string;
 }) => {
-    const colorClasses: Record<string, { bg: string; border: string; icon: string; badge: string }> = {
-        blue: {
-            bg: "bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20",
-            border: "border-blue-200 dark:border-blue-800",
-            icon: "bg-blue-500 text-white",
-            badge: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-        },
-        purple: {
-            bg: "bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20",
-            border: "border-purple-200 dark:border-purple-800",
-            icon: "bg-purple-500 text-white",
-            badge: "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
-        },
-        green: {
-            bg: "bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20",
-            border: "border-green-200 dark:border-green-800",
-            icon: "bg-green-500 text-white",
-            badge: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-        },
-        orange: {
-            bg: "bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20",
-            border: "border-orange-200 dark:border-orange-800",
-            icon: "bg-orange-500 text-white",
-            badge: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300"
-        },
-    };
-
-    const colors = colorClasses[color] || colorClasses.blue;
+    // Highly simplified color mapping - just for the icon/line color
+    const accentColor = active ? "text-blue-600 dark:text-blue-400" : "text-gray-400 dark:text-gray-500";
+    const borderColor = active ? "border-blue-200 dark:border-blue-800" : "border-gray-100 dark:border-gray-800";
 
     return (
-        <div className={`${colors.bg} ${colors.border} border-2 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105`}>
-            <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">{title}</h3>
-                <div className={`p-3 rounded-xl ${colors.icon} shadow-md`}>{icon}</div>
+        <div className={`bg-white dark:bg-gray-800 border ${borderColor} rounded-xl p-6 shadow-sm transition-all duration-200`}>
+            <div className="flex items-center gap-4 mb-4">
+                <div className={`${accentColor}`}>{icon}</div>
+                <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 tracking-tight">{title}</h3>
             </div>
 
-            <div className="space-y-2">
-                {active && (
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${colors.badge}`}>
-                        <div className="w-2 h-2 bg-current rounded-full mr-2 animate-pulse"></div>
-                        Active
-                    </span>
-                )}
-                {completed && !active && (
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
-                        <CheckCircle className="w-3 h-3 mr-1" />
-                        Completed
-                    </span>
-                )}
-                {!active && !completed && (
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-                        Pending
-                    </span>
-                )}
+            <div className="space-y-3">
+                <div className="flex items-center h-5">
+                    {active ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                            Current Stage
+                        </span>
+                    ) : completed ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gray-50 dark:bg-gray-800 text-gray-400 dark:text-gray-500">
+                            Done
+                        </span>
+                    ) : (
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-300 dark:text-gray-600">
+                            Upcoming
+                        </span>
+                    )}
+                </div>
 
-                {daysSince !== undefined && daysSince !== null && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{daysSince} days since start</p>
-                )}
-                {durationDays !== undefined && durationDays !== null && (
-                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{durationDays} days in phase</p>
-                )}
-                {batchName && <p className="text-sm text-gray-600 dark:text-gray-400">📚 {batchName}</p>}
-                {rating && (
-                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">⭐ Rating: {rating}</p>
-                )}
-                {interviews !== undefined && interviews !== null && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400">🎯 {interviews} interviews</p>
-                )}
-                {successRate !== undefined && successRate !== null && (
-                    <p className="text-sm font-bold text-green-600 dark:text-green-400">
-                        {successRate.toFixed(1)}% success
-                    </p>
-                )}
-                {company && (
-                    <p className="text-sm font-bold text-gray-900 dark:text-gray-100">🏢 {company}</p>
-                )}
+                <div className="pt-2 border-t border-gray-50 dark:border-gray-700 space-y-1.5">
+                    {daysSince !== undefined && daysSince !== null && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{daysSince} days total</p>
+                    )}
+                    {durationDays !== undefined && durationDays !== null && (
+                        <p className="text-xs font-medium text-gray-700 dark:text-gray-300">{durationDays} days in phase</p>
+                    )}
+                    {date && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                            <Calendar className="w-3 h-3" />
+                            {date}
+                        </p>
+                    )}
+                    {batchName && <p className="text-xs text-gray-500 dark:text-gray-400">📚 {batchName}</p>}
+                    {company && (
+                        <p className="text-xs font-bold text-gray-900 dark:text-gray-100 mt-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                            🏢 {company}
+                        </p>
+                    )}
+                </div>
             </div>
         </div>
     );

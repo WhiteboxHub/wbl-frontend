@@ -460,7 +460,7 @@ export default function VendorPage() {
   // Date filter configuration with timezone-aware comparator
   const dateFilterParams = useMemo(() => ({
     browserDatePicker: true,
-    defaultOption: 'inRange',
+    defaultOption: 'equals',
     suppressAndOrCondition: true,
     comparator: (filterLocalDateAtMidnight: Date, cellValue: string) => {
       if (cellValue == null) return -1;
