@@ -2,8 +2,9 @@
 import { AGGridTable } from "@/components/AGGridTable";
 import { Badge } from "@/components/admin_ui/badge";
 import { ColDef } from "ag-grid-community";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import api from "@/lib/api";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { toast, Toaster } from "sonner";
 import { Loader } from "@/components/admin_ui/loader";
 
@@ -28,20 +29,20 @@ export default function OutreachContactsPage() {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        fetchData();
-    }, []);
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
-            const res = await api.get("/outreach-contact/");
-            setData(res.data);
+            const data = await cachedApiFetch("/outreach-contact/");
+            setData(data);
         } catch (err) {
             toast.error("Failed to fetch outreach contacts");
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
     const columnDefs: ColDef[] = useMemo(() => [
         { field: "id", headerName: "ID", width: 80, sortable: true },
@@ -62,6 +63,7 @@ export default function OutreachContactsPage() {
                 return;
             }
             const res = await api.post("/outreach-contact/", newRow);
+            await invalidateCache("/outreach-contact/");
             setData((prev: any) => [res.data, ...prev]);
             toast.success("Outreach contact added successfully");
         } catch (err: any) {
@@ -72,6 +74,7 @@ export default function OutreachContactsPage() {
     const handleRowUpdated = async (row: any) => {
         try {
             await api.put(`/outreach-contact/${row.id}`, row);
+            await invalidateCache("/outreach-contact/");
             toast.success("Outreach contact updated");
         } catch (err) {
             toast.error("Update failed");
@@ -81,6 +84,7 @@ export default function OutreachContactsPage() {
     const handleRowDeleted = async (id: any) => {
         try {
             await api.delete(`/outreach-contact/${id}`);
+            await invalidateCache("/outreach-contact/");
             setData(prev => prev.filter((item: any) => item.id !== id));
             toast.success("Outreach contact deleted");
         } catch (err) {
