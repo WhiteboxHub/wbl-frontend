@@ -142,6 +142,12 @@ export function AGGridTable({
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
   const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [displayedRowCount, setDisplayedRowCount] = useState(rowData.length);
+
+  // Update count when rowData changes
+  useEffect(() => {
+    setDisplayedRowCount(rowData.length);
+  }, [rowData]);
 
   // Detect dark mode
   useEffect(() => {
@@ -207,6 +213,7 @@ export function AGGridTable({
 
   const onGridReady = useCallback((params: GridReadyEvent) => {
     gridApiRef.current = params.api;
+    setDisplayedRowCount(params.api.getDisplayedRowCount());
     onGridReadyProp?.(params);
   }, [onGridReadyProp]);
 
@@ -439,9 +446,8 @@ export function AGGridTable({
                 {title}
               </h3>
               {showTotalCount && (
-                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800">
-                  Total: {rowData.length}
-                </Badge>
+                <span className="text-sm font-medium text-gray-500">
+                </span>
               )}
             </div>
           )}
@@ -533,6 +539,9 @@ export function AGGridTable({
             onRowClicked={onRowClickedHandler}
             onSelectionChanged={handleRowSelection}
             onFilterChanged={() => {
+              if (gridApiRef.current) {
+                setDisplayedRowCount(gridApiRef.current.getDisplayedRowCount());
+              }
               onFilterChanged?.();
             }}
             onColumnMoved={onColumnMoved}
