@@ -475,6 +475,8 @@ const excludedFields = [
   "instructor1_id",
   "instructor2_id",
   "instructor3_id",
+  "company",
+  "contact",
   "candidate_id",
   "batch",
   "lastSync",
@@ -506,7 +508,9 @@ const excludedFields = [
   "position_title",
   "position_id",
   "created_from_raw_id",
-  "source_uid"
+  "source_uid",
+  "created_datetime",
+  "lastmod_datetime"
 ];
 
 // Field visibility configuration
@@ -708,6 +712,15 @@ const fieldSections: Record<string, string> = {
   description: "Notes",
   source_uid: "Professional Information",
   position_id: "Basic Information",
+  address1: "Contact Information",
+  address2: "Contact Information",
+  postal_code: "Contact Information",
+  phone_ext: "Contact Information",
+  domain: "Basic Information",
+  linkedin_internal_id: "Professional Information",
+  company_id: "Basic Information",
+  created_datetime: "Professional Information",
+  lastmod_datetime: "Professional Information",
 };
 
 // Override field labels for better readability
@@ -798,6 +811,12 @@ const labelOverrides: Record<string, string> = {
   link: "Link",
   videoid: "Video ID",
   address: "Address",
+  address1: "Address 1",
+  address2: "Address 2",
+  postal_code: "Postal Code",
+  phone_ext: "Phone Ext",
+  domain: "Domain",
+  linkedin_internal_id: "LinkedIn Internal ID",
   candidate_folder: "Candidate Folder",
   city: "City",
   state: "State",
@@ -861,6 +880,8 @@ const labelOverrides: Record<string, string> = {
   installment_id: "Installment",
   company_name: "Company",
   position_id: "Linked Position",
+  created_datetime: "Created On",
+  lastmod_datetime: "Last Modified",
 };
 
 const dateFields = [
@@ -879,6 +900,8 @@ const dateFields = [
   "interview_date",
   "placement_date",
   "marketing_start_date",
+  "created_datetime",
+  "lastmod_datetime",
   "linkedin_premium_end_date",
   "registereddate",
   "extraction_date",
