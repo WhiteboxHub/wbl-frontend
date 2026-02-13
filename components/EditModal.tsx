@@ -1746,10 +1746,11 @@ export function EditModal({
   const formValues = watch();
   Object.entries(formData).forEach(([key, value]) => {
 
-    // Skip excluded fields, but allow batch for prep and marketing modals
+    // Skip excluded fields, but allow batch for prep and marketing modals, and company for interviews
     if (excludedFields.includes(key)) {
       const isBatch = key === 'batch';
-      if (!(isBatch && (isPreparationModal || isMarketingModal))) {
+      const isCompanyForInterview = key === 'company' && isInterviewModal;
+      if (!(isBatch && (isPreparationModal || isMarketingModal)) && !isCompanyForInterview) {
         return;
       }
     }
@@ -2581,10 +2582,16 @@ export function EditModal({
                                           const val = e.target.value;
                                           setPositionSearchTerm(val);
                                           setValue("company", val);
-                                          if (!val) {
+
+                                          if (val !== formData.position_company) {
                                             setValue("position_id", null);
                                             setValue("position_title", "");
-                                            setFormData(prev => ({ ...prev, position_id: null, position_title: null, position_company: null }));
+                                            setFormData(prev => ({
+                                              ...prev,
+                                              position_id: null,
+                                              position_title: null,
+                                              position_company: null
+                                            }));
                                           }
                                         }}
                                         className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
