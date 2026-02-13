@@ -471,9 +471,10 @@ export default function CandidatesInterviews() {
         payload.job_posting_url = (updatedRow as any).url;
       }
       if (updatedRow.id) {
-        await api.put(`/interviews/${updatedRow.id}`, payload);
+        const res = await api.put(`/interviews/${updatedRow.id}`, payload);
+        const updated = res?.data ?? res;
         setInterviews((prev) =>
-          prev.map((row) => (row.id === updatedRow.id ? { ...row, ...updatedRow } : row))
+          prev.map((row) => (row.id === updatedRow.id ? updated : row))
         );
         toast.success("Interview updated successfully!");
       }
