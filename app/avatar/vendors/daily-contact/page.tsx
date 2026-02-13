@@ -357,7 +357,7 @@ export default function VendorContactsGrid() {
     // Enable the native browser date picker for better UX
     browserDatePicker: true,
     // Set InRange as the default option (most common use case)
-    defaultOption: 'inRange',
+    defaultOption: 'equals',
     // Disable AND/OR condition to show only one filter at a time
     suppressAndOrCondition: true,
     // Robust comparator for ISO String comparison
