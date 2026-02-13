@@ -81,6 +81,19 @@ const SelectEditor = (props: any) => {
 
 const DateFormatter = (params: any) => {
   if (!params.value) return "";
+
+  // For date-only strings (YYYY-MM-DD), parse without timezone conversion
+  if (/^\d{4}-\d{2}-\d{2}$/.test(params.value)) {
+    const [year, month, day] = params.value.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+
+  // For datetime strings, use normal parsing
   const date = new Date(params.value);
   if (isNaN(date.getTime())) return params.value;
   return date.toLocaleDateString("en-US", {
@@ -423,7 +436,6 @@ const TypeFilterHeaderComponent = (props: any) => {
 };
 
 export default function VendorPage() {
-  const gridRef = useRef<any>(null);
   const selectedRowsRef = useRef<any[]>([]);
   const [vendors, setVendors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -444,6 +456,44 @@ export default function VendorPage() {
     message: '',
     onConfirm: () => { },
   });
+
+  // Date filter configuration with timezone-aware comparator
+  const dateFilterParams = useMemo(() => ({
+    browserDatePicker: true,
+    defaultOption: 'inRange',
+    suppressAndOrCondition: true,
+    comparator: (filterLocalDateAtMidnight: Date, cellValue: string) => {
+      if (cellValue == null) return -1;
+
+      let cellDate: Date;
+
+      // For date-only strings (YYYY-MM-DD), parse without timezone conversion
+      if (/^\d{4}-\d{2}-\d{2}$/.test(cellValue)) {
+        const [year, month, day] = cellValue.split('-').map(Number);
+        cellDate = new Date(year, month - 1, day);
+      } else {
+        // For datetime strings, use normal parsing
+        cellDate = new Date(cellValue);
+      }
+
+      if (isNaN(cellDate.getTime())) return -1;
+
+      // Create date at midnight for comparison
+      const cellDateOnly = new Date(
+        cellDate.getFullYear(),
+        cellDate.getMonth(),
+        cellDate.getDate()
+      );
+
+      if (cellDateOnly.getTime() === filterLocalDateAtMidnight.getTime()) {
+        return 0;
+      }
+      if (cellDateOnly < filterLocalDateAtMidnight) {
+        return -1;
+      }
+      return 1;
+    },
+  }), []);
 
   const fetchVendors = async () => {
     try {
@@ -554,7 +604,15 @@ export default function VendorPage() {
       cellEditor: SelectEditor,
       cellEditorParams: { options: ["YES", "NO"] },
     },
-    { field: "created_at", headerName: "Created At", width: 200, valueFormatter: DateTimeFormatter, filter: "agDateColumnFilter", editable: false },
+    {
+      field: "created_at",
+      headerName: "Created At",
+      width: 200,
+      valueFormatter: DateTimeFormatter,
+      filter: "agDateColumnFilter",
+      filterParams: dateFilterParams,
+      editable: false
+    },
     { field: "linkedin_internal_id", headerName: "LinkedIn Internal ID", width: 200, editable: true },
     {
       field: "notes",
@@ -570,9 +628,9 @@ export default function VendorPage() {
           />
         );
       },
-    }, 
-    { field: "last_modified_datetime", headerName: "Last Modified", width: 200, valueFormatter: DateTimeFormatter, editable: false }, 
-  ], []);
+    },
+    { field: "last_modified_datetime", headerName: "Last Modified", width: 200, valueFormatter: DateTimeFormatter, editable: false },
+  ], [dateFilterParams]);
 
   const handleRowUpdated = async (updatedRow: any) => {
     const normalizeYesNo = (val: any) => (!val ? "NO" : val.toString().toUpperCase());
@@ -598,16 +656,8 @@ export default function VendorPage() {
   const getVisibleSelectedRows = useCallback(() => {
     const currentSelectedRows = selectedRowsRef.current;
     if (!currentSelectedRows || currentSelectedRows.length === 0) return [];
-    if (!gridRef.current?.api) return currentSelectedRows;
-
-    // Get IDs of visible rows after AG Grid filters
-    const visibleRowIds = new Set();
-    gridRef.current.api.forEachNodeAfterFilter((node: any) => {
-      if (node.data?.id) visibleRowIds.add(node.data.id);
-    });
-
-    // Return only selected rows that are visible
-    return currentSelectedRows.filter((row: any) => visibleRowIds.has(row.id));
+    // Since we don't have access to gridRef, return all selected rows
+    return currentSelectedRows;
   }, []);
 
   const handleRowDeleted = useCallback(async (vendorId: number | string) => {
@@ -693,9 +743,6 @@ export default function VendorPage() {
               skipDeleteConfirmation={true}
               showSearch={false}
               onFilterChanged={() => {
-                if (gridRef.current?.api) {
-                  gridRef.current.api.deselectAll();
-                }
                 setSelectedRows([]);
                 selectedRowsRef.current = [];
               }}
