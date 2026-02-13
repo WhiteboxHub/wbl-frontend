@@ -39,9 +39,26 @@ export default function CompaniesPage() {
     const fetchCompanies = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await api.get("/companies/");
-            setAllCompanies(response.data);
-            setFilteredCompanies(response.data);
+            const pageSize = 5000;
+            let allData: Company[] = [];
+            let currentPage = 1;
+            let hasNext = true;
+
+            while (hasNext) {
+                const response = await api.get(`/companies/paginated?page=${currentPage}&page_size=${pageSize}`);
+                const { data, has_next } = response.data;
+
+                allData = [...allData, ...data];
+
+                hasNext = has_next;
+                currentPage++;
+
+                // Safety break to prevent infinite loops if something goes wrong
+                if (currentPage > 100) break;
+            }
+
+            setAllCompanies(allData);
+            setFilteredCompanies(allData);
         } catch (error) {
             console.error("Error fetching companies:", error);
             toast.error("Failed to load companies");

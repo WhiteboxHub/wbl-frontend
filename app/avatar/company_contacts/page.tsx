@@ -63,9 +63,26 @@ export default function CompanyContactsPage() {
     const fetchContacts = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await api.get("/company-contacts/");
-            setAllContacts(response.data);
-            setFilteredContacts(response.data);
+            const pageSize = 5000;
+            let allData: CompanyContact[] = [];
+            let currentPage = 1;
+            let hasNext = true;
+
+            while (hasNext) {
+                const response = await api.get(`/company-contacts/paginated?page=${currentPage}&page_size=${pageSize}`);
+                const { data, has_next } = response.data;
+
+                allData = [...allData, ...data];
+
+                hasNext = has_next;
+                currentPage++;
+
+                // Safety break to prevent infinite loops (40 pages for 200k records at 5k/page, 100 is safe)
+                if (currentPage > 100) break;
+            }
+
+            setAllContacts(allData);
+            setFilteredContacts(allData);
         } catch (error) {
             console.error("Error fetching company contacts:", error);
             toast.error("Failed to load company contacts");
