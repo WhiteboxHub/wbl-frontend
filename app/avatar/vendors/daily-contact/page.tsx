@@ -1,4 +1,3 @@
-
 "use client";
 import React, {
   useEffect,
@@ -53,6 +52,20 @@ function formatDateTime(dateStr: string | null | undefined) {
 
 function formatDate(dateStr: string | null | undefined) {
   if (!dateStr) return "";
+
+  // For date-only strings (YYYY-MM-DD), parse without timezone conversion
+  // to avoid dates shifting due to UTC offset
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day); // month is 0-indexed
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+
+  // For datetime strings, use normal parsing
   const date = new Date(dateStr);
   if (isNaN(date.getTime())) return dateStr;
   return date.toLocaleDateString("en-US", {
@@ -188,7 +201,7 @@ export default function VendorContactsGrid() {
   //  SIMPLIFIED: Update handler
   const handleRowUpdated = useCallback(async (updatedData: any) => {
     try {
-      await apiFetch(`/vendor_contact/${updatedData.id}`, {
+      await apiFetch(`/vendor_contact_extracts/${updatedData.id}`, {
         method: "PUT",
         body: updatedData,
       });
@@ -202,16 +215,11 @@ export default function VendorContactsGrid() {
 
   const handleRowAdded = async (newContact: any) => {
     try {
-
-      // Send POST request to create new vendor contact
-      const response = await apiFetch("/vendor_contact", {
+      // Send POST request to create new vendor contact extract
+      const response = await apiFetch("/vendor_contact_extracts", {
         method: "POST",
-        body: JSON.stringify(newContact),
-        headers: {
-          "Content-Type": "application/json",
-        },
+        body: newContact,
       });
-
 
       // Refresh the contacts list
       fetchContacts();
@@ -259,7 +267,7 @@ export default function VendorContactsGrid() {
             const contactIds = visibleSelectedRows.map((row: any) => row.id);
             const queryString = contactIds.map(id => `contact_ids=${id}`).join('&');
 
-            const result = await apiFetch(`/vendor_contact/bulk?${queryString}`, {
+            const result = await apiFetch(`/vendor_contact_extracts/bulk?${queryString}`, {
               method: "DELETE",
             });
 
@@ -273,7 +281,7 @@ export default function VendorContactsGrid() {
         } else {
           // Single delete
           try {
-            await apiFetch(`/vendor_contact/${contactId}`, {
+            await apiFetch(`/vendor_contact_extracts/${contactId}`, {
               method: "DELETE",
             });
             toast.success("Deleted 1 contact");
@@ -320,11 +328,12 @@ export default function VendorContactsGrid() {
           const contactIds = unmovedContacts.map((row: any) => row.id);
 
           // Use POST with request body instead of query string to avoid URL length limits
-          const result = await api.post(`/vendor_contact/move-to-vendor`, {
-            contact_ids: contactIds
+          const result = await apiFetch(`/vendor_contact_extracts/move-to-vendor`, {
+            method: "POST",
+            body: { contact_ids: contactIds }
           });
 
-          toast.success(result.data?.message || `Successfully moved ${unmovedContacts.length} contact${unmovedContacts.length > 1 ? 's' : ''} to vendor`);
+          toast.success(result?.message || `Successfully moved ${unmovedContacts.length} contact${unmovedContacts.length > 1 ? 's' : ''} to vendor`);
           setSelectedRows([]);
           await fetchContacts();
         } catch (err: any) {
@@ -341,6 +350,52 @@ export default function VendorContactsGrid() {
   useEffect(() => {
     fetchContacts();
   }, [fetchContacts]);
+
+  // --- CUSTOM DATE FILTER CONFIGURATION ---
+  // This comparator handles ISO strings (e.g., "2023-10-27T...") correctly against the Date picker
+  const dateFilterParams = useMemo(() => ({
+    // Enable the native browser date picker for better UX
+    browserDatePicker: true,
+    // Set InRange as the default option (most common use case)
+    defaultOption: 'inRange',
+    // Disable AND/OR condition to show only one filter at a time
+    suppressAndOrCondition: true,
+    // Robust comparator for ISO String comparison
+    comparator: (filterLocalDateAtMidnight: Date, cellValue: string) => {
+      if (cellValue == null) return -1;
+
+      let cellDate: Date;
+
+      // For date-only strings (YYYY-MM-DD), parse without timezone conversion
+      if (/^\d{4}-\d{2}-\d{2}$/.test(cellValue)) {
+        const [year, month, day] = cellValue.split('-').map(Number);
+        cellDate = new Date(year, month - 1, day); // month is 0-indexed
+      } else {
+        // For datetime strings, use normal parsing
+        cellDate = new Date(cellValue);
+      }
+
+      // Check for invalid date
+      if (isNaN(cellDate.getTime())) return -1;
+
+      // Create a date object at midnight for the cell value to ignore time components
+      // This ensures that "10/27/2023 14:00" matches a filter for "10/27/2023"
+      const cellDateOnly = new Date(
+        cellDate.getFullYear(),
+        cellDate.getMonth(),
+        cellDate.getDate()
+      );
+
+      // Compare the timestamps
+      if (cellDateOnly.getTime() === filterLocalDateAtMidnight.getTime()) {
+        return 0;
+      }
+      if (cellDateOnly < filterLocalDateAtMidnight) {
+        return -1;
+      }
+      return 1;
+    },
+  }), []);
 
   // Column definitions
   const columnDefs: ColDef[] = useMemo<ColDef[]>(
@@ -370,7 +425,8 @@ export default function VendorContactsGrid() {
         field: "extraction_date",
         headerName: "Extraction Date",
         width: 140,
-        filter: "agDateColumnFilter",
+        filter: "agDateColumnFilter", // Explicitly set type
+        filterParams: dateFilterParams, // Apply custom params
         valueFormatter: (params) => formatDate(params.value),
         editable: true,
       },
@@ -408,7 +464,8 @@ export default function VendorContactsGrid() {
         field: "created_at",
         headerName: "Created At",
         width: 200,
-        filter: "agDateColumnFilter",
+        filter: "agDateColumnFilter", // Explicitly set type
+        filterParams: dateFilterParams, // Apply custom params
         valueFormatter: (params) => formatDateTime(params.value),
       },
 
@@ -434,11 +491,13 @@ export default function VendorContactsGrid() {
         field: "last_modified_datetime",
         headerName: "Last Modified",
         width: 200,
+        filter: "agDateColumnFilter", // Explicitly set type
+        filterParams: dateFilterParams, // Apply custom params
         valueFormatter: (params) => formatDateTime(params.value),
         editable: true,
       },
     ],
-    []
+    [dateFilterParams]
   );
 
   const defaultColDef = useMemo(
@@ -515,9 +574,6 @@ export default function VendorContactsGrid() {
               onRowDeleted={handleRowDeleted}
               skipDeleteConfirmation={true}
               onFilterChanged={() => {
-                if (gridRef.current?.api) {
-                  gridRef.current.api.deselectAll();
-                }
                 setSelectedRows([]);
                 selectedRowsRef.current = [];
               }}
