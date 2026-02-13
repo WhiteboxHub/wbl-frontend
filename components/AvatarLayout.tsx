@@ -127,6 +127,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
           href: "/avatar/vendors/daily-contact",
         },
         { title: "Vendor", href: "/avatar/vendors/vendor" },
+        { title: "Outreach Contacts", href: "/avatar/vendors/outreach-contacts" },
       ],
     },
     { title: "HR Contacts", href: "/avatar/hr-contacts", icon: UsersIcon },
@@ -160,33 +161,29 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       ],
     },
     {
-      title: "Job Automation",
-      href: "/avatar/job-automation/job-definition",
+      title: "Automation Workflow",
+      href: "/avatar/workflow/automation-workflows",
       icon: Briefcase,
       children: [
         {
-          title: "Job Definitions",
-          href: "/avatar/job-automation/job-definition",
+          title: "Workflows",
+          href: "/avatar/workflow/automation-workflows",
         },
         {
-          title: "Job Schedules",
-          href: "/avatar/job-automation/job-schedule",
+          title: "Schedules",
+          href: "/avatar/workflow/automation-workflow-schedules",
         },
         {
-          title: "Job Runs",
-          href: "/avatar/job-automation/job-run",
+          title: "Logs",
+          href: "/avatar/workflow/automation-workflow-logs",
         },
         {
-          title: "Job Requests",
-          href: "/avatar/job-automation/job-request",
+          title: "Email Templates",
+          href: "/avatar/workflow/email-templates",
         },
         {
-          title: "Email Engines",
-          href: "/avatar/job-automation/email-engine",
-        },
-        {
-          title: "Outreach Contacts",
-          href: "/avatar/job-automation/outreach-contact",
+          title: "Delivery Engines",
+          href: "/avatar/workflow/delivery-engines",
         },
       ],
     },

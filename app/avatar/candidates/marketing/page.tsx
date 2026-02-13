@@ -593,61 +593,6 @@ export default function CandidatesMarketingPage() {
     );
   };
 
-  const CreateJobRenderer = (params: any) => {
-    const [loading, setLoading] = useState(false);
-    const [confirmOpen, setConfirmOpen] = useState(false);
-
-    const handleCreateJob = async () => {
-      try {
-        setLoading(true);
-        await api.post("/job-request", {
-          candidate_marketing_id: params.data.id,
-          job_type: "MASS_EMAIL",
-          status: "PENDING"
-        });
-        toast.success("Job Request Created! Please go to 'Job Automation > Requests' to approve it.");
-      } catch (err: any) {
-        console.error(err);
-        if (err.status === 409) {
-          toast.info("A pending job request already exists for this candidate.");
-        } else {
-          toast.error("Failed: " + (err.response?.data?.message || err.message));
-        }
-      } finally {
-        setLoading(false);
-        setConfirmOpen(false);
-      }
-    };
-
-    return (
-      <>
-        <button
-          className={`px-3 py-1 rounded text-xs font-medium border transition-colors ${loading ? "bg-gray-100 text-gray-500 cursor-not-allowed" : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (!params.data.candidate_intro) {
-              toast.error("Cannot create job: Candidate Intro is missing.");
-              return;
-            }
-            setConfirmOpen(true);
-          }}
-          disabled={loading}
-        >
-          {loading ? "Creating..." : "Create Job"}
-        </button>
-
-        <ConfirmDialog
-          isOpen={confirmOpen}
-          onClose={() => setConfirmOpen(false)}
-          onConfirm={handleCreateJob}
-          title="Create Job Request"
-          message={`Create a MASS EMAIL job request for ${params.data.candidate?.full_name || "this candidate"}?`}
-          confirmText="Create Job"
-        />
-      </>
-    );
-  };
-
   const columnDefs: ColDef[] = useMemo(
     () => [
       { field: "id", headerName: "ID", pinned: "left", width: 80 },
@@ -659,15 +604,6 @@ export default function CandidatesMarketingPage() {
         editable: true,
         cellRenderer: CandidateNameRenderer,
         valueGetter: (params) => params.data.candidate?.full_name || "N/A",
-      },
-      {
-        field: "job_actions",
-        headerName: "Job Actions",
-        width: 140,
-        editable: false,
-        sortable: false,
-        filter: false,
-        cellRenderer: CreateJobRenderer,
       },
       {
         field: "workstatus",
@@ -842,6 +778,26 @@ export default function CandidatesMarketingPage() {
         cellEditorParams: {
           maxLength: 10000,
         },
+      },
+      {
+        field: "run_daily_workflow",
+        headerName: "Run Daily Workflow",
+        width: 150,
+        editable: true,
+        cellRenderer: (params: any) => (
+          <span>{params.value ? "Yes" : "No"}</span>
+        ),
+        cellEditor: "agCheckboxCellEditor",
+      },
+      {
+        field: "run_weekly_workflow",
+        headerName: "Run Weekly Workflow",
+        width: 160,
+        editable: true,
+        cellRenderer: (params: any) => (
+          <span>{params.value ? "Yes" : "No"}</span>
+        ),
+        cellEditor: "agCheckboxCellEditor",
       },
       {
         field: "notes",
