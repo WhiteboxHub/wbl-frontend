@@ -510,7 +510,8 @@ const excludedFields = [
   "created_from_raw_id",
   "source_uid",
   "created_datetime",
-  "lastmod_datetime"
+  "lastmod_datetime",
+  "last_modified_datetime"
 ];
 
 // Field visibility configuration
