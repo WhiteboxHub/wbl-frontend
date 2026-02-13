@@ -443,6 +443,12 @@ export default function VendorContactsGrid() {
         editable: true,
       },
       {
+        field: "job_source",
+        headerName: "Job Source",
+        width: 250,
+        editable: true,
+      },
+      {
         field: "company_name",
         headerName: "Company Name",
         width: 200,
@@ -461,25 +467,18 @@ export default function VendorContactsGrid() {
         editable: true,
       },
       {
+        field: "linkedin_internal_id",
+        headerName: "LinkedIn Internal ID",
+        width: 200,
+        editable: true,
+      },
+      {
         field: "created_at",
         headerName: "Created At",
         width: 200,
         filter: "agDateColumnFilter", // Explicitly set type
         filterParams: dateFilterParams, // Apply custom params
         valueFormatter: (params) => formatDateTime(params.value),
-      },
-
-      {
-        field: "job_source",
-        headerName: "Job Source",
-        width: 250,
-        editable: true,
-      },
-      {
-        field: "linkedin_internal_id",
-        headerName: "LinkedIn Internal ID",
-        width: 200,
-        editable: true,
       },
       {
         field: "notes",
