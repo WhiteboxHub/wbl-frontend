@@ -15,8 +15,8 @@ interface ViewModalProps {
 
 const excludedFields = [
   "candidate", "instructor1", "instructor2", "instructor3", "id", "sessionid",
-  "vendor_type", "last_mod_datetime", "last_modified", "logincount", "googleId",
-  "subject_id", "lastmoddatetime", "course_id", "new_subject_id", "instructor_1id",
+  "vendor_type", "last_modified", "logincount", "googleId",
+  "subject_id", "course_id", "new_subject_id", "instructor_1id",
   "instructor_2id", "instructor_3id", "instructor1_id", "instructor2_id",
   "instructor3_id", "enddate", "candidate_id", "batch", "job_id", "employee_id", "job_owner", "job_owner_id",
   "job_owner_1", "job_owner_2", "job_owner_3",
@@ -201,6 +201,8 @@ const fieldSections: Record<string, string> = {
   contact_linkedin: "Contact Information",
   job_url: "Professional Information",
   source_uid: "Professional Information",
+  created_datetime: "Professional Information",
+  lastmod_datetime: "Professional Information",
 };
 
 const workVisaStatusOptions = [
@@ -319,7 +321,9 @@ const labelOverrides: Record<string, string> = {
   is_in_marketing: "In Marketing",
   is_in_prep: "In Prep",
   installment_id: "Installment",
-  placement_id: "Placement ID"
+  placement_id: "Placement ID",
+  created_datetime: "Created On",
+  lastmod_datetime: "Last Modified",
 };
 
 const dateFields = [
@@ -336,6 +340,8 @@ const dateFields = [
   "interview_date",
   "placement_date",
   "target_date_of_marketing",
+  "created_datetime",
+  "lastmod_datetime",
 ];
 
 const courseMaterialHiddenFields = ["subjectid", "courseid", "type"];
