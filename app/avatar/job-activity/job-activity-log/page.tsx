@@ -76,9 +76,26 @@ const JobNameRenderer = (params: any) => {
 
 const DateFormatter = (params: any) => {
   if (!params.value) return "";
-  const dateStr = params.value?.slice(0, 10);
-  if (!dateStr) return "";
-  return dateStr.replace(/-/g, "/");
+
+  // For date-only strings (YYYY-MM-DD), parse without timezone conversion
+  if (/^\d{4}-\d{2}-\d{2}$/.test(params.value)) {
+    const [year, month, day] = params.value.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+
+  // For datetime strings, use normal parsing
+  const date = new Date(params.value);
+  if (isNaN(date.getTime())) return params.value;
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 };
 
 
@@ -196,6 +213,44 @@ export default function JobActivityLogPage() {
     fetchCandidates();
   }, []);
 
+  // Date filter configuration with timezone-aware comparator
+  const dateFilterParams = React.useMemo(() => ({
+    browserDatePicker: true,
+    defaultOption: 'inRange',
+    suppressAndOrCondition: true,
+    comparator: (filterLocalDateAtMidnight: Date, cellValue: string) => {
+      if (cellValue == null) return -1;
+
+      let cellDate: Date;
+
+      // For date-only strings (YYYY-MM-DD), parse without timezone conversion
+      if (/^\d{4}-\d{2}-\d{2}$/.test(cellValue)) {
+        const [year, month, day] = cellValue.split('-').map(Number);
+        cellDate = new Date(year, month - 1, day);
+      } else {
+        // For datetime strings, use normal parsing
+        cellDate = new Date(cellValue);
+      }
+
+      if (isNaN(cellDate.getTime())) return -1;
+
+      // Create date at midnight for comparison
+      const cellDateOnly = new Date(
+        cellDate.getFullYear(),
+        cellDate.getMonth(),
+        cellDate.getDate()
+      );
+
+      if (cellDateOnly.getTime() === filterLocalDateAtMidnight.getTime()) {
+        return 0;
+      }
+      if (cellDateOnly < filterLocalDateAtMidnight) {
+        return -1;
+      }
+      return 1;
+    },
+  }), []);
+
   useEffect(() => {
     const term = searchTerm.trim().toLowerCase();
     if (!term) {
@@ -268,6 +323,7 @@ export default function JobActivityLogPage() {
         width: 150,
         valueFormatter: DateFormatter,
         filter: "agDateColumnFilter",
+        filterParams: dateFilterParams,
         editable: false,
       },
       {
@@ -295,6 +351,7 @@ export default function JobActivityLogPage() {
         valueFormatter: DateFormatter,
         editable: false,
         filter: "agDateColumnFilter",
+        filterParams: dateFilterParams,
       },
       {
         field: "lastmod_user_name",
@@ -315,7 +372,7 @@ export default function JobActivityLogPage() {
         },
       },
     ],
-    [jobTypes]
+    [jobTypes, dateFilterParams]
   );
 
   const handleRowUpdated = async (updatedRow: JobActivityLog) => {
