@@ -180,7 +180,7 @@ const jobColumnDefs: ColDef[] = [
     { field: "title", headerName: "Position", flex: 2, minWidth: 200 },
     { field: "company_name", headerName: "Company", flex: 1.5, minWidth: 150 },
     { field: "location", headerName: "Location", flex: 1.5, minWidth: 150 },
-    { field: "source", headerName: "Source", flex: 1, minWidth: 100 },
+
     {
         field: "source_job_id",
         headerName: "Link",
@@ -783,7 +783,6 @@ export default function CandidateDashboard() {
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">{instructor.name}</h4>
-                                                    <p className="text-xs text-gray-500 font-medium truncate">{instructor.role}</p>
                                                 </div>
                                             </div>
                                         ))}
