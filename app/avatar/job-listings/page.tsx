@@ -12,7 +12,7 @@ import api from "@/lib/api";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
-type Position = {
+type JobListing = {
     id: number;
     title: string;
     normalized_title?: string | null;
@@ -287,9 +287,9 @@ const LinkedinCellRenderer = (params: any) => {
     );
 };
 
-export default function PositionsPage() {
-    const [allPositions, setAllPositions] = useState<Position[]>([]);
-    const [filteredPositions, setFilteredPositions] = useState<Position[]>([]);
+export default function JobListingsPage() {
+    const [allJobListings, setAllJobListings] = useState<JobListing[]>([]);
+    const [filteredJobListings, setFilteredJobListings] = useState<JobListing[]>([]);
     const [loading, setLoading] = useState(true);
     const showLoader = useMinimumLoadingTime(loading);
 
@@ -305,25 +305,42 @@ export default function PositionsPage() {
     const modeOptions = ['onsite', 'hybrid', 'remote'];
     const sourceOptions = ['linkedin', 'job_board', 'vendor', 'email', 'scraper'];
 
-    const fetchPositions = useCallback(async () => {
+    const fetchJobListings = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await api.get("/positions/");
-            setAllPositions(response.data);
+            const pageSize = 5000;
+            let allData: JobListing[] = [];
+            let currentPage = 1;
+            let hasNext = true;
+
+            while (hasNext) {
+                const response = await api.get(`/positions/paginated?page=${currentPage}&page_size=${pageSize}`);
+                const { data, has_next } = response.data;
+
+                allData = [...allData, ...data];
+
+                hasNext = has_next;
+                currentPage++;
+
+                // Safety break to prevent infinite loops if something goes wrong
+                if (currentPage > 100) break;
+            }
+
+            setAllJobListings(allData);
         } catch (error) {
-            console.error("Error fetching positions:", error);
-            toast.error("Failed to load positions");
+            console.error("Error fetching job listings:", error);
+            toast.error("Failed to load job listings");
         } finally {
             setLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        fetchPositions();
-    }, [fetchPositions]);
+        fetchJobListings();
+    }, [fetchJobListings]);
 
     useEffect(() => {
-        let filtered = [...allPositions];
+        let filtered = [...allJobListings];
 
         if (selectedStatuses.length > 0) {
             filtered = filtered.filter(p => selectedStatuses.includes(p.status));
@@ -351,11 +368,11 @@ export default function PositionsPage() {
             });
         }
 
-        setFilteredPositions(filtered);
-    }, [allPositions, selectedStatuses, selectedTypes, selectedModes, selectedSources, searchTerm]);
+        setFilteredJobListings(filtered);
+    }, [allJobListings, selectedStatuses, selectedTypes, selectedModes, selectedSources, searchTerm]);
 
-    // Helper to filter to only valid position fields
-    const getPositionPayload = (data: any) => {
+    // Helper to filter to only valid job listing fields
+    const getJobListingPayload = (data: any) => {
         const allowedFields = [
             "title", "normalized_title", "company_name", "company_id",
             "position_type", "employment_mode", "source",
@@ -408,18 +425,18 @@ export default function PositionsPage() {
     const handleRowUpdated = async (updatedData: any) => {
         try {
             const id = updatedData.id;
-            const dataToSave = getPositionPayload(updatedData);
+            const dataToSave = getJobListingPayload(updatedData);
 
             const response = await api.put(`/positions/${id}`, dataToSave);
             const updatedRecord = response.data;
 
-            setAllPositions((prev) =>
+            setAllJobListings((prev) =>
                 prev.map((row) => (row.id === id ? { ...row, ...updatedRecord } : row))
             );
-            toast.success("Position updated successfully");
+            toast.success("Job listing updated successfully");
         } catch (error: any) {
-            console.error("Error updating position:", error);
-            let errorMessage = "Failed to update position";
+            console.error("Error updating job listing:", error);
+            let errorMessage = "Failed to update job listing";
             if (error?.response?.data?.detail) {
                 const detail = error.response.data.detail;
                 if (Array.isArray(detail)) {
@@ -435,11 +452,11 @@ export default function PositionsPage() {
     const handleRowDeleted = async (id: string | number) => {
         try {
             await api.delete(`/positions/${id}`);
-            setAllPositions((prev) => prev.filter((row) => row.id !== id));
-            toast.success("Position deleted successfully");
+            setAllJobListings((prev) => prev.filter((row) => row.id !== id));
+            toast.success("Job listing deleted successfully");
         } catch (error: any) {
-            console.error("Error deleting position:", error);
-            toast.error("Failed to delete position");
+            console.error("Error deleting job listing:", error);
+            toast.error("Failed to delete job listing");
         }
     };
 
@@ -455,14 +472,14 @@ export default function PositionsPage() {
                 employment_mode: "hybrid",
                 ...filteredNewData
             };
-            const dataToSave = getPositionPayload(dataWithDefaults);
+            const dataToSave = getJobListingPayload(dataWithDefaults);
             const response = await api.post("/positions/", dataToSave);
             const addedRecord = response.data;
-            setAllPositions((prev) => [addedRecord, ...prev]);
-            toast.success("Position added successfully");
+            setAllJobListings((prev) => [addedRecord, ...prev]);
+            toast.success("Job listing added successfully");
         } catch (error: any) {
-            console.error("Error adding position:", error);
-            let errorMessage = "Failed to add position";
+            console.error("Error adding job listing:", error);
+            let errorMessage = "Failed to add job listing";
             if (error?.response?.data?.detail) {
                 const detail = error.response.data.detail;
                 if (Array.isArray(detail)) {
@@ -606,8 +623,8 @@ export default function PositionsPage() {
             <Toaster position="top-center" richColors />
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Positions</h1>
-                    <p className="text-muted-foreground">Manage job positions and their details.</p>
+                    <h1 className="text-3xl font-bold tracking-tight">Job Listings</h1>
+                    <p className="text-muted-foreground">Manage job listings and their details.</p>
                 </div>
             </div>
 
@@ -630,12 +647,12 @@ export default function PositionsPage() {
                 <Loader />
             ) : (
                 <AGGridTable
-                    rowData={filteredPositions}
+                    rowData={filteredJobListings}
                     columnDefs={columnDefs}
                     onRowUpdated={handleRowUpdated}
                     onRowDeleted={handleRowDeleted}
                     onRowAdded={handleRowAdded}
-                    title="Job Positions"
+                    title={`Job Listings (${filteredJobListings.length})`}
                     showAddButton={true}
                 />
             )}

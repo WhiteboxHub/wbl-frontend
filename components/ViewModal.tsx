@@ -18,10 +18,10 @@ const excludedFields = [
   "vendor_type", "last_modified", "logincount", "googleId",
   "subject_id", "course_id", "new_subject_id", "instructor_1id",
   "instructor_2id", "instructor_3id", "instructor1_id", "instructor2_id",
-  "instructor3_id", "enddate", "candidate_id", "batch", "job_id", "employee_id", "job_owner", "job_owner_id",
+  "instructor3_id", "enddate", "batch", "job_id", "employee_id", "job_owner", "job_owner_id",
   "job_owner_1", "job_owner_2", "job_owner_3",
   "isGroup", "isExpanded", "totalDeposit", "originalId",
-  "position_id", "position_company", "source_uid",
+  "position_id", "position_company",
 ];
 
 const fieldSections: Record<string, string> = {
@@ -203,6 +203,18 @@ const fieldSections: Record<string, string> = {
   source_uid: "Professional Information",
   created_datetime: "Professional Information",
   lastmod_datetime: "Professional Information",
+  // Raw Job Listing fields
+  raw_title: "Basic Information",
+  raw_company: "Basic Information",
+  processing_status: "Basic Information",
+  extractor_version: "Professional Information",
+  extracted_at: "Professional Information",
+  raw_location: "Contact Information",
+  raw_contact_info: "Contact Information",
+  raw_zip: "Contact Information",
+  raw_description: "Notes",
+  raw_payload: "Notes",
+  raw_notes: "Notes",
 };
 
 const workVisaStatusOptions = [
@@ -324,6 +336,20 @@ const labelOverrides: Record<string, string> = {
   placement_id: "Placement ID",
   created_datetime: "Created On",
   lastmod_datetime: "Last Modified",
+  // Raw Job Listing field labels
+  raw_title: "Raw Title",
+  raw_company: "Raw Company",
+  raw_location: "Raw Location",
+  raw_zip: "Raw ZIP",
+  raw_description: "Raw Description",
+  raw_contact_info: "Raw Contact Info",
+  raw_notes: "Raw Notes",
+  raw_payload: "Raw Payload",
+  processing_status: "Processing Status",
+  extractor_version: "Extractor Version",
+  extracted_at: "Extracted At",
+  processed_at: "Processed At",
+  error_message: "Error Message",
 };
 
 const dateFields = [
@@ -552,6 +578,26 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       return <p>{displayValue}</p>;
     }
 
+    // Handle raw_payload JSON field - MUST come before generic object handler
+    if (lowerKey === "raw_payload") {
+      let displayValue = value;
+      if (typeof value === 'object' && value !== null) {
+        displayValue = JSON.stringify(value, null, 2);
+      } else if (typeof value === 'string') {
+        try {
+          const parsed = JSON.parse(value);
+          displayValue = JSON.stringify(parsed, null, 2);
+        } catch {
+          displayValue = value;
+        }
+      }
+      return (
+        <pre className="whitespace-pre-wrap min-h-[40px] max-h-[300px] overflow-y-auto bg-gray-50 dark:bg-gray-800 p-2 rounded text-xs font-mono">
+          {displayValue}
+        </pre>
+      );
+    }
+
     if (typeof value === "object" && value !== null) {
       if (key.includes("candidate") && value.full_name) return <p>{value.full_name}</p>;
       if (key.includes("instructor") && value.name) return <p>{value.name}</p>;
@@ -570,6 +616,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     if (["visa_status", "workstatus"].includes(lowerKey)) return <Badge className={getVisaColor(value)}>{value}</Badge>;
     if (["feepaid", "feedue", "salary0", "salary6", "salary12"].includes(lowerKey)) return <p>${Number(value).toLocaleString()}</p>;
     if (lowerKey.includes("rating")) return <p>{value} </p>;
+
     if (["notes", "task", "description", "job_description"].includes(lowerKey)) {
       return (
         <div
@@ -695,6 +742,11 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       flattened.material_type = typeMap[data.material_type];
     }
 
+    // Preserve raw_payload as object (don't convert to string)
+    if (data.raw_payload !== undefined && data.raw_payload !== null) {
+      flattened.raw_payload = data.raw_payload;
+    }
+
     return flattened;
   };
 
@@ -809,6 +861,27 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     }
   }
 
+  // Custom ordering for Notes section in raw job listings
+  if (sectionedFields["Notes"]?.length > 0) {
+    const notesFieldOrder = ['raw_payload', 'raw_description', 'description', 'raw_notes', 'notes'];
+    sectionedFields["Notes"].sort((a, b) => {
+      const aIndex = notesFieldOrder.indexOf(a.key);
+      const bIndex = notesFieldOrder.indexOf(b.key);
+
+      // If both are in the order array, sort by their position
+      if (aIndex !== -1 && bIndex !== -1) {
+        return aIndex - bIndex;
+      }
+      // If only a is in the order array, it comes first
+      if (aIndex !== -1) return -1;
+      // If only b is in the order array, it comes first
+      if (bIndex !== -1) return 1;
+      // Otherwise maintain original order
+      return 0;
+    });
+  }
+
+
   const visibleSections = Object.keys(sectionedFields).filter(section => section !== "Notes" && sectionedFields[section]?.length > 0);
   const columnCount = Math.min(visibleSections.length, 4);
 
@@ -881,10 +954,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
                             {toLabel(key)}
                           </label>
                           <div className="w-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm border border-blue-200 rounded-lg bg-white min-h-[60px]">
-                            <div
-                              className="whitespace-pre-wrap"
-                              dangerouslySetInnerHTML={{ __html: value || "" }}
-                            />
+                            {renderValue(key, value) || <span className="text-gray-400">-</span>}
                           </div>
                         </div>
                       ))}
