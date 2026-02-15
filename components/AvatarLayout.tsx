@@ -140,7 +140,15 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
         { title: "Contacts", href: "/avatar/company_contacts" },
       ],
     },
-    { title: "Positions", href: "/avatar/positions", icon: Briefcase },
+    {
+      title: "Job Listings",
+      href: "/avatar/job-listings",
+      icon: Briefcase,
+      children: [
+        { title: "Job Listings", href: "/avatar/job-listings" },
+        { title: "Raw Job Listings", href: "/avatar/raw-job-listings" },
+      ],
+    },
     {
       title: "Jobs",
       href: "/avatar/job-activity/job-types",
