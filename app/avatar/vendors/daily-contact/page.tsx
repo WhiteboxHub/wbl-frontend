@@ -201,9 +201,18 @@ export default function VendorContactsGrid() {
   //  SIMPLIFIED: Update handler
   const handleRowUpdated = useCallback(async (updatedData: any) => {
     try {
-      await apiFetch(`/vendor_contact_extracts/${updatedData.id}`, {
+      // Clean up the data: remove empty strings and undefined values
+      const cleanedData = { ...updatedData };
+      Object.keys(cleanedData).forEach(key => {
+        const val = cleanedData[key];
+        if (val === "" || val === undefined || (typeof val === "string" && val.trim() === "")) {
+          delete cleanedData[key];
+        }
+      });
+
+      await apiFetch(`/vendor_contact/${updatedData.id}`, {
         method: "PUT",
-        body: updatedData,
+        body: cleanedData,
       });
       toast.success("Contact updated successfully");
       fetchContacts();
@@ -215,10 +224,19 @@ export default function VendorContactsGrid() {
 
   const handleRowAdded = async (newContact: any) => {
     try {
+      // Clean up the data: remove empty strings and undefined values that cause backend validation errors
+      const cleanedContact = { ...newContact };
+      Object.keys(cleanedContact).forEach(key => {
+        const val = cleanedContact[key];
+        if (val === "" || val === undefined || (typeof val === "string" && val.trim() === "")) {
+          delete cleanedContact[key];
+        }
+      });
+
       // Send POST request to create new vendor contact extract
-      const response = await apiFetch("/vendor_contact_extracts", {
+      const response = await apiFetch("/vendor_contact", {
         method: "POST",
-        body: newContact,
+        body: cleanedContact,
       });
 
       // Refresh the contacts list
@@ -267,7 +285,7 @@ export default function VendorContactsGrid() {
             const contactIds = visibleSelectedRows.map((row: any) => row.id);
             const queryString = contactIds.map(id => `contact_ids=${id}`).join('&');
 
-            const result = await apiFetch(`/vendor_contact_extracts/bulk?${queryString}`, {
+            const result = await apiFetch(`/vendor_contact/bulk?${queryString}`, {
               method: "DELETE",
             });
 
@@ -281,7 +299,7 @@ export default function VendorContactsGrid() {
         } else {
           // Single delete
           try {
-            await apiFetch(`/vendor_contact_extracts/${contactId}`, {
+            await apiFetch(`/vendor_contact/${contactId}`, {
               method: "DELETE",
             });
             toast.success("Deleted 1 contact");
@@ -328,7 +346,7 @@ export default function VendorContactsGrid() {
           const contactIds = unmovedContacts.map((row: any) => row.id);
 
           // Use POST with request body instead of query string to avoid URL length limits
-          const result = await apiFetch(`/vendor_contact_extracts/move-to-vendor`, {
+          const result = await apiFetch(`/vendor_contact/move-to-vendor`, {
             method: "POST",
             body: { contact_ids: contactIds }
           });

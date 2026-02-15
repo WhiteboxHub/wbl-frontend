@@ -392,6 +392,7 @@ const requiredFieldsConfig: Record<string, string[]> = {
   placement: ["Placement ID", 'Deposit Date'],
   project: ["Project Name", "Owner", "Start Date"],
   positions: ["Title", "Company"],
+  vendor_contact: ["Phone", "Email", "Full Name", "Linkedin ID"],
 };
 
 // Helper function to check if a field is required based on modal type and mode
@@ -514,16 +515,18 @@ const excludedFields = [
   "created_from_raw_id",
   "created_datetime",
   "lastmod_datetime",
-  "last_modified_datetime"
+  "last_modified_datetime",
+  "moved_at",
 ];
 
 // Fields that should be read-only (visible but not editable)
 const readonlyFields = [
-  "created_at","processed_at",,
+  "created_at", "processed_at",
   "extracted_at",
   "created_datetime",
   "updated_at",
   "lastmod_datetime",
+  "last_modified_datetime"
 ];
 
 
@@ -537,6 +540,8 @@ const fieldVisibility: Record<string, string[]> = {
     "candidate",
     "vendor",
     "client",
+    "daily contact",
+    "vendor contact",
   ],
 };
 
@@ -1030,6 +1035,7 @@ export function EditModal({
   const isJobDefinitionModal = title.toLowerCase().includes("job definition");
   const isJobRequestModal = title.toLowerCase().includes("job request");
   const isPlacementFeeModal = title.toLowerCase().includes("placement fee");
+  const isDailyContactModal = title.toLowerCase().includes("daily contact");
 
   // Field visibility for current modal
   const showInstructorFields =
@@ -1652,6 +1658,15 @@ export function EditModal({
       }
     }
 
+    // Generic cleanup: Convert empty strings, whitespace-only strings, and undefined to null 
+    // This prevents backend validation errors on optional fields (especially dates and integers)
+    Object.keys(reconstructedData).forEach(key => {
+      const val = reconstructedData[key];
+      if (val === "" || val === undefined || (typeof val === 'string' && val.trim() === "")) {
+        delete reconstructedData[key];
+      }
+    });
+
     onSave(reconstructedData);
   };
 
@@ -1802,11 +1817,13 @@ export function EditModal({
   const formValues = watch();
   Object.entries(formData).forEach(([key, value]) => {
 
-    // Skip excluded fields, but allow batch for prep and marketing modals, and company for interviews
+    // Skip excluded fields, but allow batch for prep and marketing modals, and company for interviews/daily contacts
     if (excludedFields.includes(key)) {
       const isBatch = key === 'batch';
       const isCompanyForInterview = key === 'company' && isInterviewModal;
-      if (!(isBatch && (isPreparationModal || isMarketingModal)) && !isCompanyForInterview) {
+      const isCompanyForDailyContact = (key === 'company' || key === 'contact') && isDailyContactModal;
+
+      if (!(isBatch && (isPreparationModal || isMarketingModal)) && !isCompanyForInterview && !isCompanyForDailyContact) {
         return;
       }
     }
