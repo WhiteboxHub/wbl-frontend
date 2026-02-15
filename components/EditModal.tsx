@@ -347,6 +347,13 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "email", label: "Email" },
     { value: "scraper", label: "Scraper" },
   ],
+  processing_status: [
+    { value: "new", label: "New" },
+    { value: "parsed", label: "Parsed" },
+    { value: "mapped", label: "Mapped" },
+    { value: "discarded", label: "Discarded" },
+    { value: "error", label: "Error" },
+  ],
 };
 
 // Vendor type options
@@ -477,13 +484,11 @@ const excludedFields = [
   "instructor3_id",
   "company",
   "contact",
-  "candidate_id",
   "batch",
   "lastSync",
   "synced",
   "lastmod_date_time",
   "lastmod_user_name",
-  "candidate_id",
   "job_id",
   "employee_id",
   "job_owner_id",
@@ -500,7 +505,6 @@ const excludedFields = [
   "lastDepositDate",
   "end_date",
   "requested_at",
-  "processed_at",
   "marketing_id",
   "project_id",
   "project",
@@ -508,11 +512,20 @@ const excludedFields = [
   "position_title",
   "position_id",
   "created_from_raw_id",
-  "source_uid",
   "created_datetime",
   "lastmod_datetime",
   "last_modified_datetime"
 ];
+
+// Fields that should be read-only (visible but not editable)
+const readonlyFields = [
+  "created_at","processed_at",,
+  "extracted_at",
+  "created_datetime",
+  "updated_at",
+  "lastmod_datetime",
+];
+
 
 // Field visibility configuration
 const fieldVisibility: Record<string, string[]> = {
@@ -695,7 +708,6 @@ const fieldSections: Record<string, string> = {
   action: "Basic Information",
   is_immigration_team: "Basic Information",
   context: "Professional Information",
-  created_at: "Professional Information",
   updated_at: "Professional Information",
   job_title: "Professional Information",
   location: "Professional Information",
@@ -722,6 +734,19 @@ const fieldSections: Record<string, string> = {
   company_id: "Basic Information",
   created_datetime: "Professional Information",
   lastmod_datetime: "Professional Information",
+  // Raw Job Listing fields
+  raw_title: "Basic Information",
+  raw_company: "Basic Information",
+  processing_status: "Basic Information",
+  extractor_version: "Professional Information",
+  extracted_at: "Professional Information",
+  raw_location: "Contact Information",
+  raw_contact_info: "Contact Information",
+  raw_zip: "Contact Information",
+  raw_description: "Notes",
+  raw_payload: "Notes",
+  raw_notes: "Notes",
+  candidate_id: "Basic Information",
 };
 
 // Override field labels for better readability
@@ -883,6 +908,20 @@ const labelOverrides: Record<string, string> = {
   position_id: "Linked Position",
   created_datetime: "Created On",
   lastmod_datetime: "Last Modified",
+  // Raw Job Listing field labels
+  raw_title: "Raw Title",
+  raw_company: "Raw Company",
+  raw_location: "Raw Location",
+  raw_zip: "Raw ZIP",
+  raw_description: "Raw Description",
+  raw_contact_info: "Raw Contact Info",
+  raw_notes: "Raw Notes",
+  raw_payload: "Raw Payload",
+  processing_status: "Processing Status",
+  extractor_version: "Extractor Version",
+  extracted_at: "Extracted At",
+  processed_at: "Processed At",
+  error_message: "Error Message",
 };
 
 const dateFields = [
@@ -893,7 +932,6 @@ const dateFields = [
   "enddate",
   "closed_date",
   "entry_date",
-  "created_at",
   "dob",
   "classdate",
   "sessiondate",
@@ -1349,6 +1387,23 @@ export function EditModal({
       flattened.instructor = String(data.instructor);
 
     }
+
+    // Handle raw_payload JSON field - convert to formatted string for display
+    if (data.raw_payload !== undefined && data.raw_payload !== null) {
+      if (typeof data.raw_payload === 'object') {
+        flattened.raw_payload = JSON.stringify(data.raw_payload, null, 2);
+      } else if (typeof data.raw_payload === 'string') {
+        try {
+          // Try to parse and re-stringify for formatting
+          const parsed = JSON.parse(data.raw_payload);
+          flattened.raw_payload = JSON.stringify(parsed, null, 2);
+        } catch {
+          // If it's not valid JSON, keep as is
+          flattened.raw_payload = data.raw_payload;
+        }
+      }
+    }
+
     if (data.is_immigration_team !== undefined && data.is_immigration_team !== null) {
       flattened.is_immigration_team = String(data.is_immigration_team);
     }
@@ -1871,6 +1926,26 @@ export function EditModal({
     }
   }
 
+
+  // Custom ordering for Notes section in raw job listings
+  if (sectionedFields["Notes"]?.length > 0) {
+    const notesFieldOrder = ['raw_payload', 'raw_description', 'description', 'raw_notes', 'notes'];
+    sectionedFields["Notes"].sort((a, b) => {
+      const aIndex = notesFieldOrder.indexOf(a.key);
+      const bIndex = notesFieldOrder.indexOf(b.key);
+
+      // If both are in the order array, sort by their position
+      if (aIndex !== -1 && bIndex !== -1) {
+        return aIndex - bIndex;
+      }
+      // If only a is in the order array, it comes first
+      if (aIndex !== -1) return -1;
+      // If only b is in the order array, it comes first
+      if (bIndex !== -1) return 1;
+      // Otherwise maintain original order
+      return 0;
+    });
+  }
 
   // Job Type specific filtering - skip owner fields in generic loop as they are handled manually
   if (isJobTypeModal) {
@@ -3201,7 +3276,7 @@ export function EditModal({
                               );
                             }
 
-                            if (key === 'task' || (key === 'description' && (isProjectModal || isPositionsModal))) {
+                            if (key === 'task' || key === 'raw_payload' || (key === 'description' && (isProjectModal || isPositionsModal))) {
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5 col-span-full">
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
@@ -3570,7 +3645,8 @@ export function EditModal({
                                       : false,
                                   })}
                                   defaultValue={formData[key] || ""}
-                                  className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                  readOnly={readonlyFields.includes(key)}
+                                  className={`w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm ${readonlyFields.includes(key) ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : ''}`}
                                 />
                               </div>
                             );
@@ -3585,7 +3661,7 @@ export function EditModal({
                         {sectionedFields["Notes"].map(({ key, value }) => (
                           <div key={key} className="space-y-1">
                             <div className="flex items-center justify-between">
-                              <label className={key === 'description' ? 'block text-xs font-bold text-blue-700 sm:text-sm' : 'text-sm font-medium text-gray-600 dark:text-gray-400'}>
+                              <label className={['description', 'raw_payload', 'raw_description', 'raw_notes'].includes(key) ? 'block text-xs font-bold text-blue-700 sm:text-sm' : 'text-sm font-medium text-gray-600 dark:text-gray-400'}>
                                 {toLabel(key)}
                                 {isFieldRequired(
                                   toLabel(key),
