@@ -534,6 +534,7 @@ const excludedFields = [
   "position_id",
   "created_from_raw_id",
   "moved_at",
+  "candidate_id",
 ];
 
 // Fields that should be read-only (visible but not editable)
@@ -1719,7 +1720,7 @@ export function EditModal({
     // - For Creates (isAddMode): Remove the key so backend uses default values (avoids errors on required fields).
     Object.keys(reconstructedData).forEach(key => {
       const val = reconstructedData[key];
-      if (val === "" || val === undefined || (typeof val === 'string' && val.trim() === "")) {
+      if (val === "" || val === undefined || (val === null && isAddMode) || (typeof val === 'string' && val.trim() === "")) {
         if (isAddMode) {
           delete reconstructedData[key];
         } else {
@@ -1728,6 +1729,20 @@ export function EditModal({
       }
     });
 
+    // Explicitly add quick-add fields for Interview modal if present (Post-cleanup)
+    if (isInterviewModal && isAddMode) {
+      const values = getValues();
+      // Force assignment if value exists in form state, ignoring whatever reconstructedData currently has
+      if (values.position_title) reconstructedData.position_title = values.position_title;
+      if (values.position_location) reconstructedData.position_location = values.position_location;
+
+      // Also ensure contact fields are carried over if they were set via setValue but not picked up by the loop
+      if (values.interviewer_emails && !reconstructedData.interviewer_emails) reconstructedData.interviewer_emails = values.interviewer_emails;
+      if (values.interviewer_contact && !reconstructedData.interviewer_contact) reconstructedData.interviewer_contact = values.interviewer_contact;
+      if (values.interviewer_linkedin && !reconstructedData.interviewer_linkedin) reconstructedData.interviewer_linkedin = values.interviewer_linkedin;
+    }
+
+    // console.log("DEBUG: EditModal onSubmit reconstructedData before save:", reconstructedData);
     onSave(reconstructedData);
   };
 
@@ -2793,19 +2808,93 @@ export function EditModal({
                                       </div>
                                     )}
                                   </div>
-                                  <div className="space-y-1 sm:space-y-1.5">
-                                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
-                                      Position Title
-                                    </label>
-                                    <input
-                                      type="text"
-                                      readOnly
-                                      value={watch("position_title") || formData.position_title || ""}
-                                      className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
-                                    />
-                                  </div>
+                                  {!((watch("company") || formData.company) &&
+                                    !positionSuggestions.some(p => p.company_name?.toLowerCase() === (watch("company") || formData.company)?.toLowerCase()) &&
+                                    (watch("position_id") === null || watch("position_id") === undefined)) && (
+                                      <div className="space-y-1 sm:space-y-1.5">
+                                        <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                          Position Title
+                                        </label>
+                                        <input
+                                          type="text"
+                                          readOnly
+                                          value={watch("position_title") || formData.position_title || ""}
+                                          className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
+                                        />
+                                        <input type="hidden" {...register("position_title")} />
+                                      </div>
+                                    )}
                                   <input type="hidden" {...register("position_id")} />
-                                  <input type="hidden" {...register("position_title")} />
+
+                                  {/* Quick Add Fields when Position/Company not found */}
+                                  {(watch("company") || formData.company) &&
+                                    !positionSuggestions.some(p => p.company_name?.toLowerCase() === (watch("company") || formData.company)?.toLowerCase()) &&
+                                    (watch("position_id") === null || watch("position_id") === undefined) && (
+                                      <div className="col-span-full mt-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3">
+                                        <p className="mb-2 text-xs font-medium text-yellow-800">
+                                          New Company/Position detected. Please provide basic details:
+                                        </p>
+                                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                          <div className="space-y-1">
+                                            <label className="text-xs font-bold text-blue-700">Position Title <span className="text-red-700">*</span></label>
+                                            {(() => {
+                                              const { onChange, ...rest } = register("position_title", {
+                                                required: !watch("position_id") ? "Position Title is required for new entries" : false
+                                              });
+                                              return (
+                                                <input
+                                                  type="text"
+                                                  {...rest}
+                                                  placeholder="e.g. Software Engineer"
+                                                  className="w-full rounded border border-blue-200 px-2 py-1 text-xs"
+                                                  onChange={(e) => {
+                                                    onChange(e); // Trigger react-hook-form change
+                                                    setValue("position_title", e.target.value); // Explicitly update value to be safe
+                                                    setValue("position_id", null); // Ensure position_id is cleared
+                                                  }}
+                                                />
+                                              );
+                                            })()}
+                                          </div>
+                                          <div className="space-y-1">
+                                            <label className="text-xs font-bold text-blue-700">Location</label>
+                                            <input
+                                              type="text"
+                                              {...register("position_location")}
+                                              placeholder="e.g. Remote, New York, NY"
+                                              className="w-full rounded border border-blue-200 px-2 py-1 text-xs"
+                                            />
+                                          </div>
+                                          <div className="space-y-1">
+                                            <label className="text-xs font-bold text-blue-700">Contact Email</label>
+                                            <input
+                                              type="email"
+                                              placeholder="recruiter@company.com"
+                                              className="w-full rounded border border-blue-200 px-2 py-1 text-xs"
+                                              onChange={(e) => setValue("interviewer_emails", e.target.value)}
+                                            />
+                                          </div>
+                                          <div className="space-y-1">
+                                            <label className="text-xs font-bold text-blue-700">Contact Phone</label>
+                                            <input
+                                              type="text"
+                                              placeholder="+1 555-0123"
+                                              className="w-full rounded border border-blue-200 px-2 py-1 text-xs"
+                                              onChange={(e) => setValue("interviewer_contact", e.target.value)}
+                                            />
+                                          </div>
+                                          <div className="space-y-1">
+                                            <label className="text-xs font-bold text-blue-700">Contact LinkedIn</label>
+                                            <input
+                                              type="text"
+                                              placeholder="https://linkedin.com/in/..."
+                                              className="w-full rounded border border-blue-200 px-2 py-1 text-xs"
+                                              onChange={(e) => setValue("interviewer_linkedin", e.target.value)}
+                                            />
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
                                 </React.Fragment>
                               );
                             }

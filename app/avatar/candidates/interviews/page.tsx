@@ -137,26 +137,26 @@ const ModeRenderer = (params: any) => {
 };
 
 
-  const LinkCellRenderer = (params: any) => {
-    let url = (params.value || "").trim();
+const LinkCellRenderer = (params: any) => {
+  let url = (params.value || "").trim();
 
-    if (!url) return <span className="text-gray-400 opacity-60">N/A</span>;
-    if (!/^https?:\/\//i.test(url)) {
-      url = `https://${url}`;
-    }
+  if (!url) return <span className="text-gray-400 opacity-60">N/A</span>;
+  if (!/^https?:\/\//i.test(url)) {
+    url = `https://${url}`;
+  }
 
-    return (
-      <a
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-        title="View LinkedIn Profile"
-      >
-        <Linkedin className="h-4 w-4 text-[#0a66c2]" />
-      </a>
-    );
-  };
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+      title="View LinkedIn Profile"
+    >
+      <Linkedin className="h-4 w-4 text-[#0a66c2]" />
+    </a>
+  );
+};
 
 const TypeRenderer = (params: any) => {
   const value = (params.value || "").toString().toLowerCase();
@@ -544,6 +544,8 @@ export default function CandidatesInterviews() {
         job_posting_url: data.job_posting_url || null,
         feedback: data.feedback || null,
         position_id: data.position_id ? Number(data.position_id) : null,
+        position_title: (data as any).position_title || null,
+        position_location: (data as any).position_location || null,
       };
       const res = await api.post(`/interviews`, payload);
       setInterviews((prev) => [res.data, ...prev]);
@@ -647,12 +649,12 @@ export default function CandidatesInterviews() {
     { field: "instructor3_name", headerName: "Instructor 3", width: 150 },
     { field: "feedback", headerName: "Feedback", cellRenderer: FeedbackRenderer, width: 120, editable: true },
     {
-        field: "linkedin_id",
-        headerName: "LinkedIn",
-        minWidth: 100,
-        valueGetter: (params) => params.data?.candidate?.linkedin_id || null,
-        cellRenderer: LinkCellRenderer,
-      },
+      field: "linkedin_id",
+      headerName: "LinkedIn",
+      minWidth: 100,
+      valueGetter: (params) => params.data?.candidate?.linkedin_id || null,
+      cellRenderer: LinkCellRenderer,
+    },
     {
       field: "notes",
       headerName: "Notes",
@@ -711,6 +713,8 @@ export default function CandidatesInterviews() {
                     job_posting_url: newRow.job_posting_url || (newRow.url || null),
                     feedback: newRow.feedback || null,
                     position_id: newRow.position_id ? Number(newRow.position_id) : null,
+                    position_title: newRow.position_title || null,
+                    position_location: newRow.position_location || null,
                   };
                   if (!payload.candidate_id || !payload.company) {
                     toast.error("Candidate and Company are required!");
