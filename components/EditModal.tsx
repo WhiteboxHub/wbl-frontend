@@ -354,6 +354,26 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "discarded", label: "Discarded" },
     { value: "error", label: "Error" },
   ],
+  email_invalid: [
+    { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
+  ],
+  domain_invalid: [
+    { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
+  ],
+  unsubscribe_flag: [
+    { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
+  ],
+  bounce_flag: [
+    { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
+  ],
+  complaint_flag: [
+    { value: "false", label: "No" },
+    { value: "true", label: "Yes" },
+  ],
 };
 
 // Vendor type options
@@ -513,9 +533,6 @@ const excludedFields = [
   "position_title",
   "position_id",
   "created_from_raw_id",
-  "created_datetime",
-  "lastmod_datetime",
-  "last_modified_datetime",
   "moved_at",
 ];
 
@@ -526,7 +543,9 @@ const readonlyFields = [
   "created_datetime",
   "updated_at",
   "lastmod_datetime",
-  "last_modified_datetime"
+  "last_modified_datetime", "created_datetime",
+  "lastmod_datetime",
+  "last_modified_datetime", "created_userid", "lastmod_userid",
 ];
 
 
@@ -542,6 +561,7 @@ const fieldVisibility: Record<string, string[]> = {
     "client",
     "daily contact",
     "vendor contact",
+    "personal",
   ],
 };
 
@@ -713,7 +733,7 @@ const fieldSections: Record<string, string> = {
   action: "Basic Information",
   is_immigration_team: "Basic Information",
   context: "Professional Information",
-  updated_at: "Professional Information",
+  // updated_at: "Professional Information",
   job_title: "Professional Information",
   location: "Professional Information",
   extraction_date: "Professional Information",
@@ -733,12 +753,10 @@ const fieldSections: Record<string, string> = {
   address1: "Contact Information",
   address2: "Contact Information",
   postal_code: "Contact Information",
-  phone_ext: "Contact Information",
+  phone_ext: "Professional Information",
   domain: "Basic Information",
   linkedin_internal_id: "Professional Information",
   company_id: "Basic Information",
-  created_datetime: "Professional Information",
-  lastmod_datetime: "Professional Information",
   // Raw Job Listing fields
   raw_title: "Basic Information",
   raw_company: "Basic Information",
@@ -752,6 +770,22 @@ const fieldSections: Record<string, string> = {
   raw_payload: "Notes",
   raw_notes: "Notes",
   candidate_id: "Basic Information",
+  // Outreach Email Recipient fields
+  email_invalid: "Professional Information",
+  domain_invalid: "Professional Information",
+  email_lc: "Contact Information",
+  source_type: "Basic Information",
+  source_id: "Basic Information",
+  unsubscribe_flag: "Basic Information",
+  unsubscribe_at: "Contact Information",
+  unsubscribe_reason: "Contact Information",
+  bounce_flag: "Basic Information",
+  bounce_type: "Professional Information",
+  bounce_reason: "Professional Information",
+  bounce_code: "Professional Information",
+  bounced_at: "Professional Information",
+  complaint_flag: "Contact Information",
+  complained_at: "Contact Information",
 };
 
 // Override field labels for better readability
@@ -927,6 +961,22 @@ const labelOverrides: Record<string, string> = {
   extracted_at: "Extracted At",
   processed_at: "Processed At",
   error_message: "Error Message",
+  // Outreach Email Recipient labels
+  email_invalid: "Invalid Email",
+  domain_invalid: "Invalid Domain",
+  email_lc: "Email (Lower Case)",
+  source_type: "Source Type",
+  source_id: "Source ID",
+  unsubscribe_flag: "Unsubscribed",
+  unsubscribe_at: "Unsubscribe Date",
+  unsubscribe_reason: "Unsubscribe Reason",
+  bounce_flag: "Bounced",
+  bounce_type: "Bounce Type",
+  bounce_reason: "Bounce Reason",
+  bounce_code: "Bounce Code",
+  bounced_at: "Bounced Date",
+  complaint_flag: "Complaint Flag",
+  complained_at: "Complained Date",
 };
 
 const dateFields = [
@@ -944,18 +994,20 @@ const dateFields = [
   "interview_date",
   "placement_date",
   "marketing_start_date",
-  "created_datetime",
-  "lastmod_datetime",
   "linkedin_premium_end_date",
   "registereddate",
   "extraction_date",
-  "updated_at",
+  // "updated_at",
   "activity_date",
   "deposit_date",
   "joining_date",
   "assigned_date",
   "due_date",
-  "target_end_date"
+  "target_end_date",
+  // Outreach Email Recipient date fields
+  "unsubscribe_at",
+  "bounced_at",
+  "complained_at"
 ];
 
 export function EditModal({
@@ -1658,12 +1710,17 @@ export function EditModal({
       }
     }
 
-    // Generic cleanup: Convert empty strings, whitespace-only strings, and undefined to null 
-    // This prevents backend validation errors on optional fields (especially dates and integers)
+    // Generic cleanup: Handle empty strings and undefined
+    // - For Updates (!isAddMode): Send explicitly null to notify backend to clear the field.
+    // - For Creates (isAddMode): Remove the key so backend uses default values (avoids errors on required fields).
     Object.keys(reconstructedData).forEach(key => {
       const val = reconstructedData[key];
       if (val === "" || val === undefined || (typeof val === 'string' && val.trim() === "")) {
-        delete reconstructedData[key];
+        if (isAddMode) {
+          delete reconstructedData[key];
+        } else {
+          reconstructedData[key] = null;
+        }
       }
     });
 
