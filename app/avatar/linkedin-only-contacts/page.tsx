@@ -10,21 +10,16 @@ import api from "@/lib/api";
 import { Loader } from "@/components/admin_ui/loader";
 import { formatLinkedInUrl } from "@/lib/utils";
 
-type PersonalDomainContact = {
+type LinkedinOnlyContact = {
     id: number;
     name?: string | null;
     job_title?: string | null;
-    address1?: string | null;
-    address2?: string | null;
     city?: string | null;
-    state?: string | null;
     postal_code?: string | null;
     country?: string | null;
     phone?: string | null;
-    phone_ext?: string | null;
     linkedin_id?: string | null;
     linkedin_internal_id?: string | null;
-    email: string;
     notes?: string | null;
     created_datetime: string;
     created_userid: string;
@@ -32,9 +27,9 @@ type PersonalDomainContact = {
     lastmod_userid: string;
 };
 
-export default function PersonalDomainContactsPage() {
-    const [allContacts, setAllContacts] = useState<PersonalDomainContact[]>([]);
-    const [filteredContacts, setFilteredContacts] = useState<PersonalDomainContact[]>([]);
+export default function LinkedinOnlyContactsPage() {
+    const [allContacts, setAllContacts] = useState<LinkedinOnlyContact[]>([]);
+    const [filteredContacts, setFilteredContacts] = useState<LinkedinOnlyContact[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
 
@@ -42,13 +37,13 @@ export default function PersonalDomainContactsPage() {
         setLoading(true);
         try {
             const pageSize = 5000;
-            let allData: PersonalDomainContact[] = [];
+            let allData: LinkedinOnlyContact[] = [];
             let currentPage = 1;
             let hasNext = true;
 
             // Using paginated endpoint logic from backend routing
             while (hasNext) {
-                const response = await api.get(`/personal-domain-contacts/paginated?page=${currentPage}&page_size=${pageSize}`);
+                const response = await api.get(`/linkedin-only-contacts/paginated?page=${currentPage}&page_size=${pageSize}`);
                 const { data, has_next } = response.data;
                 allData = [...allData, ...data];
                 hasNext = has_next;
@@ -78,9 +73,8 @@ export default function PersonalDomainContactsPage() {
             const filtered = allContacts.filter((c) => {
                 return (
                     (c.name?.toLowerCase().includes(lower)) ||
-                    (c.email.toLowerCase().includes(lower)) ||
                     (c.job_title?.toLowerCase().includes(lower)) ||
-                    (c.city?.toLowerCase().includes(lower))
+                    (c.linkedin_id?.toLowerCase().includes(lower))
                 );
             });
             setFilteredContacts(filtered);
@@ -92,11 +86,7 @@ export default function PersonalDomainContactsPage() {
             const id = updatedData.id;
             const { id: _, created_datetime, created_userid, lastmod_datetime, lastmod_userid, ...dataToSave } = updatedData;
 
-            // Ensure empty strings are sent as null or empty string to backend, not undefined
-            // But actually we just want to send what is there.
-            // If the user cleared it, it should be "" in updatedData.
-
-            const response = await api.put(`/personal-domain-contacts/${id}`, dataToSave);
+            const response = await api.put(`/linkedin-only-contacts/${id}`, dataToSave);
             const updatedRecord = response.data;
             setAllContacts((prev) =>
                 prev.map((row) => (row.id === id ? { ...row, ...updatedRecord } : row))
@@ -105,14 +95,13 @@ export default function PersonalDomainContactsPage() {
         } catch (error: any) {
             console.error("Error updating contact:", error);
             toast.error("Failed to update contact");
-            // Revert changes in local state if needed - but here we usually rely on fetch or manual revert
             fetchContacts();
         }
     };
 
     const handleRowDeleted = async (id: string | number) => {
         try {
-            await api.delete(`/personal-domain-contacts/${id}`);
+            await api.delete(`/linkedin-only-contacts/${id}`);
             setAllContacts((prev) => prev.filter((row) => row.id !== id));
             toast.success("Contact deleted successfully");
         } catch (error: any) {
@@ -123,7 +112,7 @@ export default function PersonalDomainContactsPage() {
 
     const handleRowAdded = async (newData: any) => {
         try {
-            const response = await api.post("/personal-domain-contacts/", newData);
+            const response = await api.post("/linkedin-only-contacts/", newData);
             const addedRecord = response.data;
             setAllContacts((prev) => [addedRecord, ...prev]);
             toast.success("Contact added successfully");
@@ -136,16 +125,11 @@ export default function PersonalDomainContactsPage() {
     const columnDefs: ColDef[] = useMemo(
         () => [
             { field: "id", headerName: "ID", width: 80, sortable: true, filter: "agNumberColumnFilter", pinned: "left" },
-            { field: "name", headerName: "Name", width: 200, sortable: true, filter: "agTextColumnFilter", editable: true },
-            { field: "email", headerName: "Email", width: 220, sortable: true, filter: "agTextColumnFilter", editable: true },
+            { field: "name", headerName: "Name", width: 200, sortable: true, filter: "agTextColumnFilter", editable: true, valueParser: (params) => params.newValue === "" ? null : params.newValue },
             { field: "job_title", headerName: "Job Title", width: 180, sortable: true, filter: "agTextColumnFilter", editable: true, valueParser: (params) => params.newValue === "" ? null : params.newValue },
             { field: "phone", headerName: "Phone", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true, valueParser: (params) => params.newValue === "" ? null : params.newValue },
-            { field: "phone_ext", headerName: "Phone Ext", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true, valueParser: (params) => params.newValue === "" ? null : params.newValue },
-            { field: "address1", headerName: "Address 1", width: 200, sortable: true, filter: "agTextColumnFilter", editable: true, valueParser: (params) => params.newValue === "" ? null : params.newValue },
-            { field: "address2", headerName: "Address 2", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true, valueParser: (params) => params.newValue === "" ? null : params.newValue },
-            { field: "postal_code", headerName: "Postal Code", width: 120, sortable: true, filter: "agTextColumnFilter", editable: true, valueParser: (params) => params.newValue === "" ? null : params.newValue },
             { field: "city", headerName: "City", width: 120, sortable: true, filter: "agTextColumnFilter", editable: true, valueParser: (params) => params.newValue === "" ? null : params.newValue },
-            { field: "state", headerName: "State", width: 100, sortable: true, filter: "agTextColumnFilter", editable: true, valueParser: (params) => params.newValue === "" ? null : params.newValue },
+            { field: "postal_code", headerName: "Postal Code", width: 120, sortable: true, filter: "agTextColumnFilter", editable: true, valueParser: (params) => params.newValue === "" ? null : params.newValue },
             { field: "country", headerName: "Country", width: 120, sortable: true, filter: "agTextColumnFilter", editable: true, valueParser: (params) => params.newValue === "" ? null : params.newValue },
             {
                 field: "linkedin_id",
@@ -177,8 +161,8 @@ export default function PersonalDomainContactsPage() {
             <Toaster position="top-center" richColors />
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Personal Domain Contacts</h1>
-                    <p className="text-muted-foreground">Manage personal domain contact details.</p>
+                    <h1 className="text-3xl font-bold tracking-tight">Linkedin Only Contacts</h1>
+                    <p className="text-muted-foreground">Manage Linkedin only contact details.</p>
                 </div>
             </div>
 
@@ -190,7 +174,7 @@ export default function PersonalDomainContactsPage() {
                         id="search"
                         type="text"
                         value={searchTerm}
-                        placeholder="Search by name, email, job title..."
+                        placeholder="Search by name, job title, linkedin..."
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="pl-10"
                     />
@@ -208,7 +192,7 @@ export default function PersonalDomainContactsPage() {
                     onRowUpdated={handleRowUpdated}
                     onRowDeleted={handleRowDeleted}
                     onRowAdded={handleRowAdded}
-                    title={`Domain Contacts (${filteredContacts.length})`}
+                    title={`Linkedin Only Contacts (${filteredContacts.length})`}
                     showAddButton={true}
                 />
             )}

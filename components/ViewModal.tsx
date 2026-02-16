@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { Badge } from "@/components/admin_ui/badge";
+import { formatLinkedInUrl } from "@/lib/utils";
 
 interface ViewModalProps {
   isOpen: boolean;
@@ -394,7 +395,7 @@ const courseMaterialHiddenFields = ["subjectid", "courseid", "type"];
 // Field visibility configuration
 const fieldVisibility: Record<string, string[]> = {
   instructor: ['preparation', 'interview', 'marketing'],
-  linkedin: ['preparation', 'interview', 'marketing', 'candidate', 'vendor', 'client']
+  linkedin: ['preparation', 'interview', 'marketing', 'candidate', 'vendor', 'client', 'linkedin only', 'domain', 'personal']
 };
 
 // Helper functions for field visibility
@@ -646,13 +647,10 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     }
 
     if (lowerKey === "linkedin_id" || lowerKey === "linkedin" || lowerKey === "interviewer_linkedin") {
-      let url = (value || "").trim();
+      const url = formatLinkedInUrl(value);
 
       if (!url) {
         return <div className="text-gray-400">N/A</div>;
-      }
-      if (!/^https?:\/\//i.test(url)) {
-        url = `https://${url}`;
       }
 
       return (
