@@ -13,6 +13,8 @@ import {
   Video,
   ChevronRight,
   Briefcase,
+  Mail,
+  List,
 } from "lucide-react";
 import { cn } from "lib/utils";
 import { useState, useEffect, useRef } from "react";
@@ -130,7 +132,8 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
         { title: "Outreach Contacts", href: "/avatar/vendors/outreach-contacts" },
       ],
     },
-    { title: "HR Contacts", href: "/avatar/hr-contacts", icon: UsersIcon },
+    { title: "Outreach Recipients", href: "/avatar/outreach-email-recipients", icon: Mail },
+    { title: "Personal Contacts", href: "/avatar/personal-domain-contacts", icon: UsersIcon },
     {
       title: "Companies",
       href: "/avatar/companies",
@@ -143,7 +146,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
     {
       title: "Job Listings",
       href: "/avatar/job-listings",
-      icon: Briefcase,
+      icon: List,
       children: [
         { title: "Job Listings", href: "/avatar/job-listings" },
         { title: "Raw Job Listings", href: "/avatar/raw-job-listings" },
