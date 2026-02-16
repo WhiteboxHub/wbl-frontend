@@ -562,6 +562,8 @@ const fieldVisibility: Record<string, string[]> = {
     "daily contact",
     "vendor contact",
     "personal",
+    "linkedin only",
+    "domain",
   ],
 };
 
@@ -748,6 +750,8 @@ const fieldSections: Record<string, string> = {
   contact_linkedin: "Contact Information",
   job_url: "Professional Information",
   description: "Notes",
+
+  // Linkedin Only Contact Fields
   source_uid: "Professional Information",
   position_id: "Basic Information",
   address1: "Contact Information",
