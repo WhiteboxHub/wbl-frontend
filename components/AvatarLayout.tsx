@@ -15,6 +15,7 @@ import {
   Briefcase,
   Mail,
   List,
+  Linkedin,
 } from "lucide-react";
 import { cn } from "lib/utils";
 import { useState, useEffect, useRef } from "react";
@@ -134,6 +135,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
     },
     { title: "Outreach Recipients", href: "/avatar/outreach-email-recipients", icon: Mail },
     { title: "Personal Contacts", href: "/avatar/personal-domain-contacts", icon: UsersIcon },
+    { title: "Linkedin Only Contacts", href: "/avatar/linkedin-only-contacts", icon: Linkedin },
     {
       title: "Companies",
       href: "/avatar/companies",

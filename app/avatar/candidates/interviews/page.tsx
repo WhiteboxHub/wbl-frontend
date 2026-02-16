@@ -4,10 +4,11 @@ import "@/styles/admin.css";
 import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable";
 import { Button } from "@/components/admin_ui/button";
+import { SearchIcon, CalendarIcon, Linkedin } from "lucide-react";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon, PlusIcon, X } from "lucide-react";
+import { PlusIcon, X } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { toast, Toaster } from "sonner";
@@ -134,6 +135,28 @@ const ModeRenderer = (params: any) => {
   else if (value === "ai interview") badgeClass = "bg-indigo-50 text-indigo-800";
   return <Badge className={badgeClass}>{params.value}</Badge>;
 };
+
+
+  const LinkCellRenderer = (params: any) => {
+    let url = (params.value || "").trim();
+
+    if (!url) return <span className="text-gray-400 opacity-60">N/A</span>;
+    if (!/^https?:\/\//i.test(url)) {
+      url = `https://${url}`;
+    }
+
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+        title="View LinkedIn Profile"
+      >
+        <Linkedin className="h-4 w-4 text-[#0a66c2]" />
+      </a>
+    );
+  };
 
 const TypeRenderer = (params: any) => {
   const value = (params.value || "").toString().toLowerCase();
@@ -623,6 +646,13 @@ export default function CandidatesInterviews() {
     { field: "instructor2_name", headerName: "Instructor 2", width: 150 },
     { field: "instructor3_name", headerName: "Instructor 3", width: 150 },
     { field: "feedback", headerName: "Feedback", cellRenderer: FeedbackRenderer, width: 120, editable: true },
+    {
+        field: "linkedin_id",
+        headerName: "LinkedIn",
+        minWidth: 100,
+        valueGetter: (params) => params.data?.candidate?.linkedin_id || null,
+        cellRenderer: LinkCellRenderer,
+      },
     {
       field: "notes",
       headerName: "Notes",
