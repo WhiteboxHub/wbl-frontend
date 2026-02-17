@@ -130,10 +130,9 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
           href: "/avatar/vendors/daily-contact",
         },
         { title: "Vendor", href: "/avatar/vendors/vendor" },
-        { title: "Outreach Contacts", href: "/avatar/vendors/outreach-contacts" },
+        { title: "Outreach Email Recipients", href: "/avatar/vendors/outreach-email-recipients" },
       ],
     },
-    { title: "Outreach Recipients", href: "/avatar/outreach-email-recipients", icon: Mail },
     { title: "Personal Contacts", href: "/avatar/personal-domain-contacts", icon: UsersIcon },
     { title: "Linkedin Only Contacts", href: "/avatar/linkedin-only-contacts", icon: Linkedin },
     {
