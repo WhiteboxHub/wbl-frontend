@@ -36,14 +36,38 @@ export default function DeliveryEnginesPage() {
     };
 
     const columnDefs: ColDef[] = useMemo(() => [
-        { field: "id", headerName: "ID", width: 80, sortable: true },
+        { field: "id", headerName: "ID", width: 80, sortable: true, pinned: "left" },
         { field: "name", headerName: "Name", width: 200, editable: true, sortable: true },
         { field: "engine_type", headerName: "Type", width: 140, editable: true, sortable: true },
+        { field: "host", headerName: "Host", width: 200, editable: true, sortable: true },
+        { field: "port", headerName: "Port", width: 100, editable: true, sortable: true },
+        { field: "username", headerName: "Username", width: 200, editable: true, sortable: true },
+        { field: "password", headerName: "Password", width: 200, editable: true, sortable: true },
+        { field: "api_key", headerName: "API Key", width: 200, editable: true, sortable: true },
         { field: "from_email", headerName: "From Email", width: 220, editable: true, sortable: true },
         { field: "from_name", headerName: "From Name", width: 180, editable: true, sortable: true },
         { field: "status", headerName: "Status", cellRenderer: StatusRenderer, width: 120, editable: true, sortable: true },
+        { field: "max_recipients_per_run", headerName: "Max Recips/Run", width: 150, editable: true, sortable: true },
         { field: "batch_size", headerName: "Batch Size", width: 120, editable: true, sortable: true },
         { field: "rate_limit_per_minute", headerName: "Rate Limit", width: 120, editable: true, sortable: true },
+        { field: "dedupe_window_minutes", headerName: "Dedupe Window", width: 150, editable: true, sortable: true },
+        {
+            field: "retry_policy",
+            headerName: "Retry Policy",
+            width: 250,
+            editable: true,
+            sortable: true,
+            valueFormatter: (p) => p.value ? JSON.stringify(p.value) : ""
+        },
+        { field: "max_retries", headerName: "Max Retries", width: 120, editable: true, sortable: true },
+        { field: "timeout_seconds", headerName: "Timeout (s)", width: 120, editable: true, sortable: true },
+        {
+            field: "created_at",
+            headerName: "Created Date",
+            width: 180,
+            sortable: true,
+            valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : ""
+        },
         {
             field: "updated_at",
             headerName: "Updated Date",

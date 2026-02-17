@@ -39,7 +39,7 @@ export default function AutomationWorkflowLogsPage() {
     };
 
     const columnDefs: ColDef[] = useMemo(() => [
-        { field: "id", headerName: "ID", width: 80, sortable: true },
+        { field: "id", headerName: "ID", width: 80, sortable: true, pinned: "left" },
         {
             field: "workflow.name",
             headerName: "Workflow",
@@ -48,13 +48,29 @@ export default function AutomationWorkflowLogsPage() {
             valueGetter: (p) => p.data.workflow?.name || "None"
         },
         { field: "run_id", headerName: "Run ID", width: 140, sortable: true },
+        { field: "schedule_id", headerName: "Schedule ID", width: 120, sortable: true },
         { field: "status", headerName: "Status", cellRenderer: StatusRenderer, width: 140, sortable: true },
         { field: "records_processed", headerName: "Processed", width: 120, sortable: true },
         { field: "records_failed", headerName: "Failed", width: 120, sortable: true },
+        {
+            field: "parameters_used",
+            headerName: "Parameters Used",
+            width: 250,
+            sortable: true,
+            valueFormatter: (p) => p.value ? JSON.stringify(p.value) : ""
+        },
+        {
+            field: "execution_metadata",
+            headerName: "Exec Metadata",
+            width: 250,
+            sortable: true,
+            valueFormatter: (p) => p.value ? JSON.stringify(p.value) : ""
+        },
+        { field: "error_summary", headerName: "Error Summary", width: 250, sortable: true },
         { field: "started_at", headerName: "Started", width: 180, sortable: true, valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : "" },
         { field: "finished_at", headerName: "Finished", width: 180, sortable: true, valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : "" },
+        { field: "created_at", headerName: "Created Date", width: 180, sortable: true, valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : "" },
         { field: "updated_at", headerName: "Updated Date", width: 180, sortable: true, valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : "" },
-        { field: "error_summary", headerName: "Error Summary", width: 250, sortable: true },
     ], []);
 
     const handleRowDeleted = async (id: any) => {

@@ -36,12 +36,31 @@ export default function EmailTemplatesPage() {
     };
 
     const columnDefs: ColDef[] = useMemo(() => [
-        { field: "id", headerName: "ID", width: 80, sortable: true },
+        { field: "id", headerName: "ID", width: 80, sortable: true, pinned: "left" },
         { field: "template_key", headerName: "Template Key", width: 180, editable: true, sortable: true },
         { field: "name", headerName: "Name", width: 220, editable: true, sortable: true },
+        { field: "description", headerName: "Description", width: 250, editable: true, sortable: true },
         { field: "subject", headerName: "Subject", width: 250, editable: true, sortable: true },
+        { field: "content_html", headerName: "HTML Content", width: 250, editable: true, sortable: true },
+        { field: "content_text", headerName: "Text Content", width: 250, editable: true, sortable: true },
+        {
+            field: "parameters",
+            headerName: "Parameters",
+            width: 250,
+            editable: true,
+            sortable: true,
+            valueFormatter: (p) => p.value ? JSON.stringify(p.value) : ""
+        },
         { field: "status", headerName: "Status", cellRenderer: StatusRenderer, width: 120, editable: true, sortable: true },
         { field: "version", headerName: "v.", width: 80, editable: true, sortable: true },
+        { field: "last_mod_user_id", headerName: "Last Mod User ID", width: 150, editable: true, sortable: true },
+        {
+            field: "created_time",
+            headerName: "Created Date",
+            width: 180,
+            sortable: true,
+            valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : ""
+        },
         {
             field: "last_mod_time",
             headerName: "Updated Date",

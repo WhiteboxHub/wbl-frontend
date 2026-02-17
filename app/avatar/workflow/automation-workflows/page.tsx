@@ -37,22 +37,45 @@ export default function AutomationWorkflowsPage() {
     };
 
     const columnDefs: ColDef[] = useMemo(() => [
-        { field: "id", headerName: "ID", width: 80, sortable: true },
+        { field: "id", headerName: "ID", width: 80, sortable: true, pinned: "left" },
         { field: "workflow_key", headerName: "Workflow Key", width: 180, editable: true, sortable: true },
         { field: "name", headerName: "Name", width: 220, editable: true, sortable: true },
+        { field: "description", headerName: "Description", width: 250, editable: true, sortable: true },
         { field: "workflow_type", headerName: "Type", width: 140, editable: true, sortable: true },
         { field: "status", headerName: "Status", cellRenderer: StatusRenderer, width: 120, editable: true, sortable: true },
+        { field: "owner_id", headerName: "Owner ID", width: 100, editable: true, sortable: true },
         {
             field: "template.name",
             headerName: "Template",
             width: 180,
             valueGetter: (p) => p.data.template?.name || "None"
         },
+        { field: "email_template_id", headerName: "Template ID", width: 120, editable: true, sortable: true },
         {
             field: "delivery_engine.name",
             headerName: "Engine",
             width: 180,
             valueGetter: (p) => p.data.delivery_engine?.name || "None"
+        },
+        { field: "delivery_engine_id", headerName: "Engine ID", width: 120, editable: true, sortable: true },
+        { field: "credentials_list_sql", headerName: "Credentials SQL", width: 250, editable: true, sortable: true },
+        { field: "recipient_list_sql", headerName: "Recipient SQL", width: 250, editable: true, sortable: true },
+        {
+            field: "parameters_config",
+            headerName: "Params Config",
+            width: 250,
+            editable: true,
+            sortable: true,
+            valueFormatter: (p) => p.value ? JSON.stringify(p.value) : ""
+        },
+        { field: "version", headerName: "Version", width: 100, editable: true, sortable: true },
+        { field: "last_mod_user_id", headerName: "Last Mod User ID", width: 150, editable: true, sortable: true },
+        {
+            field: "created_at",
+            headerName: "Created Date",
+            width: 180,
+            sortable: true,
+            valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : ""
         },
         {
             field: "updated_at",

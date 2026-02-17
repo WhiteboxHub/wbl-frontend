@@ -903,7 +903,7 @@ export default function CandidatesMarketingPage() {
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Marketing Phase Candidates
+            Candidate Marketing
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
             Candidates currently in marketing phase
@@ -947,7 +947,7 @@ export default function CandidatesMarketingPage() {
           <AGGridTable
             rowData={filteredCandidates}
             columnDefs={columnDefs}
-            title={`Marketing Phase (${filteredCandidates.length})`}
+            title={`Candidate Marketing (${filteredCandidates.length})`}
             height="calc(70vh)"
             showSearch={false}
             onRowDeleted={handleRowDeleted}
