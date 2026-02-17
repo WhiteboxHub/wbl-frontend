@@ -36,7 +36,7 @@ export default function AutomationWorkflowSchedulesPage() {
     };
 
     const columnDefs: ColDef[] = useMemo(() => [
-        { field: "id", headerName: "ID", width: 80, sortable: true },
+        { field: "id", headerName: "ID", width: 80, sortable: true, pinned: "left" },
         {
             field: "automation_workflow_id",
             headerName: "Workflow ID",
@@ -46,22 +46,33 @@ export default function AutomationWorkflowSchedulesPage() {
         },
         { field: "frequency", headerName: "Frequency", width: 140, editable: true, sortable: true },
         { field: "cron_expression", headerName: "Cron", width: 160, editable: true, sortable: true },
+        { field: "timezone", headerName: "Timezone", width: 160, editable: true, sortable: true },
+        { field: "interval_value", headerName: "Interval Value", width: 120, editable: true, sortable: true },
+        {
+            field: "run_parameters",
+            headerName: "Run Parameters",
+            width: 250,
+            editable: true,
+            sortable: true,
+            valueFormatter: (p) => p.value ? JSON.stringify(p.value) : ""
+        },
         { field: "enabled", headerName: "Status", cellRenderer: EnabledRenderer, width: 120, editable: true, sortable: true },
+        { field: "is_running", headerName: "State", width: 140, sortable: true, cellRenderer: (p: any) => p.value ? <span className="animate-pulse text-green-600 font-bold text-xs">● RUNNING</span> : <span className="text-gray-400 text-xs text-center">IDLE</span> },
         { field: "next_run_at", headerName: "Next Run", width: 180, sortable: true, valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : "Never" },
         { field: "last_run_at", headerName: "Last Run", width: 180, sortable: true, valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : "Never" },
+        {
+            field: "created_at",
+            headerName: "Created Date",
+            width: 180,
+            sortable: true,
+            valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : ""
+        },
         {
             field: "updated_at",
             headerName: "Updated Date",
             width: 180,
             sortable: true,
             valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : ""
-        },
-        {
-            field: "is_running",
-            headerName: "State",
-            width: 140,
-            sortable: true,
-            cellRenderer: (p: any) => p.value ? <span className="animate-pulse text-green-600 font-bold text-xs">● RUNNING</span> : <span className="text-gray-400 text-xs text-center">IDLE</span>
         },
     ], []);
 
