@@ -250,6 +250,20 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "YES", label: "Yes" },
     { value: "NO", label: "No" },
   ],
+  classification: [
+    { value: "company_contact", label: "Company Contact" },
+    { value: "personal_domain_contact", label: "Personal Domain Contact" },
+    { value: "linkedin_only_contact", label: "LinkedIn Only Contact" },
+    { value: "company_only", label: "Company Only" },
+    { value: "unknown", label: "Unknown" },
+  ],
+  extract_processing_status: [
+    { value: "new", label: "New" },
+    { value: "classified", label: "Classified" },
+    { value: "moved", label: "Moved" },
+    { value: "duplicate", label: "Duplicate" },
+    { value: "error", label: "Error" },
+  ],
   vendor_intro_email_sent: [
     { value: "YES", label: "Yes" },
     { value: "NO", label: "No" },
@@ -412,7 +426,6 @@ const requiredFieldsConfig: Record<string, string[]> = {
   placement: ["Placement ID", 'Deposit Date'],
   project: ["Project Name", "Owner", "Start Date"],
   positions: ["Title", "Company"],
-  "job listings": ["Title", "Company"],
   vendor_contact: ["Phone", "Email", "Full Name", "Linkedin ID"],
 };
 
@@ -420,7 +433,7 @@ const requiredFieldsConfig: Record<string, string[]> = {
 
 const isFieldRequired = (fieldName: string, modalType: string, isAddMode: boolean): boolean => {
   const modalKey = modalType.toLowerCase();
-  if (!isAddMode && !modalKey.includes("position") && !modalKey.includes("job listing")) return false;
+  if (!isAddMode && !modalKey.includes("position")) return false;
 
   const fieldConfigMap: Record<string, string[]> = {};
 
@@ -536,6 +549,13 @@ const excludedFields = [
   "created_from_raw_id",
   "moved_at",
   "candidate_id",
+  "created_at",
+  "processed_at",
+  "classification",
+  "processing_status",
+  "target_table",
+  "target_id",
+  "error_message",
 ];
 
 // Fields that should be read-only (visible but not editable)
@@ -774,7 +794,7 @@ const fieldSections: Record<string, string> = {
   raw_contact_info: "Contact Information",
   raw_zip: "Contact Information",
   raw_description: "Notes",
-  raw_payload: "Notes",
+  raw_payload: "Raw Payload",
   raw_notes: "Notes",
   candidate_id: "Basic Information",
   // Outreach Email Recipient fields
@@ -1106,7 +1126,7 @@ export function EditModal({
     .includes("automation contact extract");
   const isJobTypeModal = title.toLowerCase().includes("job type");
   const isAutomationKeywordModal = title.toLowerCase().includes("automation keyword");
-  const isPositionsModal = title.toLowerCase().includes("position") || title.toLowerCase().includes("job listing");
+  const isPositionsModal = title.toLowerCase().includes("position");
   const isJobDefinitionModal = title.toLowerCase().includes("job definition");
   const isJobRequestModal = title.toLowerCase().includes("job request");
   const isPlacementFeeModal = title.toLowerCase().includes("placement fee");
@@ -1793,13 +1813,18 @@ export function EditModal({
       return enumOptions.workstatus;
     }
 
-    if (isPositionsModal && keyLower === "status") {
+    if (title === "Job Positions" && keyLower === "status") {
       return enumOptions.position_status;
     }
 
     if (keyLower === "position_type") return enumOptions.position_type;
     if (keyLower === "employment_mode") return enumOptions.employment_mode;
     if (keyLower === "source") return enumOptions.source;
+
+    if (isAutomationContactExtractModal) {
+      if (keyLower === "processing_status") return enumOptions.extract_processing_status;
+      if (keyLower === "classification") return enumOptions.classification;
+    }
 
     if (isPreparationModal && keyLower === "status") {
       return [
