@@ -58,7 +58,7 @@ export default function AutomationWorkflowSchedulesPage() {
         },
         { field: "enabled", headerName: "Status", cellRenderer: EnabledRenderer, width: 120, editable: true, sortable: true },
         { field: "is_running", headerName: "State", width: 140, sortable: true, cellRenderer: (p: any) => p.value ? <span className="animate-pulse text-green-600 font-bold text-xs">● RUNNING</span> : <span className="text-gray-400 text-xs text-center">IDLE</span> },
-        { field: "next_run_at", headerName: "Next Run", width: 180, sortable: true, valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : "Never" },
+        { field: "next_run_at", headerName: "Next Run", width: 180, sortable: true, editable: true, valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : "Never" },
         { field: "last_run_at", headerName: "Last Run", width: 180, sortable: true, valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : "Never" },
         {
             field: "created_at",
