@@ -412,6 +412,7 @@ const requiredFieldsConfig: Record<string, string[]> = {
   placement: ["Placement ID", 'Deposit Date'],
   project: ["Project Name", "Owner", "Start Date"],
   positions: ["Title", "Company"],
+  "job listings": ["Title", "Company"],
   vendor_contact: ["Phone", "Email", "Full Name", "Linkedin ID"],
 };
 
@@ -419,7 +420,7 @@ const requiredFieldsConfig: Record<string, string[]> = {
 
 const isFieldRequired = (fieldName: string, modalType: string, isAddMode: boolean): boolean => {
   const modalKey = modalType.toLowerCase();
-  if (!isAddMode && !modalKey.includes("position")) return false;
+  if (!isAddMode && !modalKey.includes("position") && !modalKey.includes("job listing")) return false;
 
   const fieldConfigMap: Record<string, string[]> = {};
 
@@ -1088,7 +1089,7 @@ export function EditModal({
     .includes("job activity log");
   const isJobTypeModal = title.toLowerCase().includes("job type");
   const isAutomationKeywordModal = title.toLowerCase().includes("automation keyword");
-  const isPositionsModal = title.toLowerCase().includes("position");
+  const isPositionsModal = title.toLowerCase().includes("position") || title.toLowerCase().includes("job listing");
   const isJobDefinitionModal = title.toLowerCase().includes("job definition");
   const isJobRequestModal = title.toLowerCase().includes("job request");
   const isPlacementFeeModal = title.toLowerCase().includes("placement fee");
@@ -1775,7 +1776,7 @@ export function EditModal({
       return enumOptions.workstatus;
     }
 
-    if (title === "Job Positions" && keyLower === "status") {
+    if (isPositionsModal && keyLower === "status") {
       return enumOptions.position_status;
     }
 
