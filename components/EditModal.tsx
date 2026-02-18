@@ -434,7 +434,7 @@ const requiredFieldsConfig: Record<string, string[]> = {
 
 const isFieldRequired = (fieldName: string, modalType: string, isAddMode: boolean): boolean => {
   const modalKey = modalType.toLowerCase();
-  if (!isAddMode && !modalKey.includes("position") && !modalKey.includes("job listing")) return false;)
+  if (!isAddMode && !modalKey.includes("position") && !modalKey.includes("job listing")) return false;
 
   const fieldConfigMap: Record<string, string[]> = {};
 
