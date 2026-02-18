@@ -79,7 +79,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
         { title: "Course Content", href: "/avatar/training/course_content" },
         { title: "Course Material", href: "/avatar/training/course_material" },
         { title: "Batch", href: "/avatar/training/batch" },
-        { title: "Recordings Batch", href: "/avatar/training/recording_batch" },
+
       ],
     },
     {
@@ -103,6 +103,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       children: [
         { title: "Class", href: "/avatar/recordings/class" },
         { title: "Sessions", href: "/avatar/recordings/session" },
+        { title: "Recordings Batch", href: "/avatar/training/recording_batch" },
       ],
     },
     { title: "Authuser", href: "/avatar/authuser", icon: ShieldCheck },
