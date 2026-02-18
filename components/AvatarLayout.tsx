@@ -126,6 +126,10 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       icon: BuildingIcon,
       children: [
         {
+          title: "Automation Contact Extract",
+          href: "/avatar/vendors/automation-contact-extracts",
+        },
+        {
           title: "Daily Contact Extract",
           href: "/avatar/vendors/daily-contact",
         },

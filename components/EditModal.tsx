@@ -238,7 +238,7 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "sourcer", label: "Sourcer" },
     { value: "contact-from-ip", label: "Contact from IP" },
   ],
-  vendor_status: [
+  status: [
     { value: "active", label: "Active" },
     { value: "working", label: "Working" },
     { value: "not_useful", label: "Not Useful" },
@@ -268,10 +268,6 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
   activity_type: [
     { value: "extraction", label: "extraction" },
     { value: "connection", label: "connection" },
-  ],
-  status: [
-    { value: "active", label: "Active" },
-    { value: "inactive", label: "Inactive" },
   ],
   linkedin_status: [
     { value: "idle", label: "Idle" },
@@ -346,13 +342,6 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "vendor", label: "Vendor" },
     { value: "email", label: "Email" },
     { value: "scraper", label: "Scraper" },
-  ],
-  processing_status: [
-    { value: "new", label: "New" },
-    { value: "parsed", label: "Parsed" },
-    { value: "mapped", label: "Mapped" },
-    { value: "discarded", label: "Discarded" },
-    { value: "error", label: "Error" },
   ],
   email_invalid: [
     { value: "false", label: "No" },
@@ -562,6 +551,7 @@ const fieldVisibility: Record<string, string[]> = {
     "client",
     "daily contact",
     "vendor contact",
+    "automation-contact-extract",
     "personal",
     "linkedin only",
     "domain",
@@ -791,6 +781,12 @@ const fieldSections: Record<string, string> = {
   bounced_at: "Professional Information",
   complaint_flag: "Contact Information",
   complained_at: "Contact Information",
+  source_reference: "Basic Information",
+  classification: "Basic Information",
+  target_table: "Other",
+  target_id: "Other",
+  error_message: "Other",
+  processed_at: "Other",
 };
 
 // Override field labels for better readability
@@ -982,6 +978,10 @@ const labelOverrides: Record<string, string> = {
   bounced_at: "Bounced Date",
   complaint_flag: "Complaint Flag",
   complained_at: "Complained Date",
+  source_reference: "Source Reference",
+  classification: "Classification",
+  target_table: "Target Table",
+  target_id: "Target ID",
 };
 
 const dateFields = [
@@ -1012,7 +1012,10 @@ const dateFields = [
   // Outreach Email Recipient date fields
   "unsubscribe_at",
   "bounced_at",
-  "complained_at"
+  "complained_at",
+  "processed_at",
+  "created_at",
+  "created_datetime",
 ];
 
 export function EditModal({
@@ -1086,6 +1089,9 @@ export function EditModal({
   const isJobActivityLogModal = title
     .toLowerCase()
     .includes("job activity log");
+  const isAutomationContactExtractModal = title
+    .toLowerCase()
+    .includes("automation contact extract");
   const isJobTypeModal = title.toLowerCase().includes("job type");
   const isAutomationKeywordModal = title.toLowerCase().includes("automation keyword");
   const isPositionsModal = title.toLowerCase().includes("position");
