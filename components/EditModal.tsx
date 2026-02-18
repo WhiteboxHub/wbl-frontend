@@ -1013,7 +1013,9 @@ const dateFields = [
   // Outreach Email Recipient date fields
   "unsubscribe_at",
   "bounced_at",
-  "complained_at"
+  "complained_at",
+  "next_run_at",
+  "last_run_at"
 ];
 
 export function EditModal({
