@@ -19,6 +19,18 @@ const StatusRenderer = (params: any) => {
     return <Badge className={badgeClass}>{params.value?.toUpperCase()}</Badge>;
 };
 
+const JsonRenderer = (params: any) => {
+    const raw = params.value;
+    if (!raw || raw === "") return <span className="text-gray-400 text-xs">—</span>;
+    // Value is already a pre-stringified string (from fetchData processing)
+    // Just display it as-is in a scrollable code block
+    return (
+        <div className="max-h-24 overflow-y-auto font-mono text-[10px] leading-tight bg-gray-50 p-1 rounded border whitespace-pre-wrap text-gray-700">
+            {String(raw)}
+        </div>
+    );
+};
+
 export default function AutomationWorkflowLogsPage() {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -30,7 +42,23 @@ export default function AutomationWorkflowLogsPage() {
     const fetchData = async () => {
         try {
             const res = await api.get("/automation-workflow-log/");
-            setData(res.data);
+            // Pre-process: stringify any JSON object fields so the EditModal
+            // shows readable text instead of "[object Object]".
+            // The grid uses JsonRenderer for pretty display independently.
+            const processed = res.data.map((row: any) => ({
+                ...row,
+                parameters_used: row.parameters_used != null
+                    ? (typeof row.parameters_used === "object"
+                        ? JSON.stringify(row.parameters_used, null, 2)
+                        : row.parameters_used)
+                    : "",
+                execution_metadata: row.execution_metadata != null
+                    ? (typeof row.execution_metadata === "object"
+                        ? JSON.stringify(row.execution_metadata, null, 2)
+                        : row.execution_metadata)
+                    : "",
+            }));
+            setData(processed);
         } catch (err) {
             toast.error("Failed to fetch logs");
         } finally {
@@ -55,16 +83,16 @@ export default function AutomationWorkflowLogsPage() {
         {
             field: "parameters_used",
             headerName: "Parameters Used",
-            width: 250,
+            width: 300,
             sortable: true,
-            valueFormatter: (p) => p.value ? JSON.stringify(p.value) : ""
+            cellRenderer: JsonRenderer
         },
         {
             field: "execution_metadata",
             headerName: "Exec Metadata",
-            width: 250,
+            width: 400,
             sortable: true,
-            valueFormatter: (p) => p.value ? JSON.stringify(p.value) : ""
+            cellRenderer: JsonRenderer
         },
         { field: "error_summary", headerName: "Error Summary", width: 250, sortable: true },
         { field: "started_at", headerName: "Started", width: 180, sortable: true, valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : "" },
@@ -103,6 +131,7 @@ export default function AutomationWorkflowLogsPage() {
                     rowData={data}
                     columnDefs={columnDefs}
                     height="600px"
+                    getRowHeight={() => 120}
                     onRowDeleted={handleRowDeleted}
                 />
             </div>
