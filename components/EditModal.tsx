@@ -238,7 +238,7 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "sourcer", label: "Sourcer" },
     { value: "contact-from-ip", label: "Contact from IP" },
   ],
-  status: [
+  vendor_status: [
     { value: "active", label: "Active" },
     { value: "working", label: "Working" },
     { value: "not_useful", label: "Not Useful" },
@@ -268,6 +268,10 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
   activity_type: [
     { value: "extraction", label: "extraction" },
     { value: "connection", label: "connection" },
+  ],
+  status: [
+    { value: "active", label: "Active" },
+    { value: "inactive", label: "Inactive" },
   ],
   linkedin_status: [
     { value: "idle", label: "Idle" },
@@ -342,6 +346,13 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "vendor", label: "Vendor" },
     { value: "email", label: "Email" },
     { value: "scraper", label: "Scraper" },
+  ],
+  processing_status: [
+    { value: "new", label: "New" },
+    { value: "parsed", label: "Parsed" },
+    { value: "mapped", label: "Mapped" },
+    { value: "discarded", label: "Discarded" },
+    { value: "error", label: "Error" },
   ],
   email_invalid: [
     { value: "false", label: "No" },
