@@ -51,7 +51,7 @@ const Header = ({
 
   const display_user_dashboard = () => {
     if (userRole === "employee") {
-      router.push("/employee_dashboard");
+      router.push("/avatar/employee-dashboard");
     } else {
       router.push("/user_dashboard");
     }

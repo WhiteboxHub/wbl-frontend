@@ -70,8 +70,10 @@ const SigninPage = () => {
         setTimeout(() => {
           if (role === "admin") {
             router.push("/avatar");
+          } else if (role === "employee") {
+            router.push("/");
           } else {
-            // Redirect employees and candidates to home dashboard
+            // Redirect candidates to home dashboard
             router.push("/user_dashboard");
           }
         }, 500);
@@ -97,7 +99,14 @@ const SigninPage = () => {
     } else if (session?.user?.status === "active") {
       setGoogleMessage("Logged in successfully!");
       setGoogleStatus("success");
-      router.push("/user_dashboard");
+      const role = getUserTeamRole(localStorage.getItem("access_token"));
+      if (role === "admin") {
+        router.push("/avatar");
+      } else if (role === "employee") {
+        router.push("/");
+      } else {
+        router.push("/user_dashboard");
+      }
     }
   }, [session, router]);
 
@@ -143,8 +152,13 @@ const SigninPage = () => {
           setTimeout(() => {
             router.push("/avatar");
           }, 500);
+        } else if (role === "employee") {
+          // Employees redirect to landing page
+          setTimeout(() => {
+            router.push("/");
+          }, 500);
         } else {
-          // Employees and Candidates redirect to home dashboard
+          // Candidates redirect to home dashboard
           setTimeout(() => {
             router.push("/user_dashboard");
           }, 500);
@@ -187,6 +201,8 @@ const SigninPage = () => {
       const role = getUserTeamRole(accessToken);
       if (role === "admin") {
         router.push("/avatar");
+      } else if (role === "employee") {
+        router.push("/");
       } else {
         router.push("/user_dashboard");
       }
@@ -199,6 +215,8 @@ const SigninPage = () => {
     const role = getUserTeamRole(accessToken || "");
     if (role === "admin") {
       router.push("/avatar");
+    } else if (role === "employee") {
+      router.push("/");
     } else {
       router.push("/user_dashboard");
     }

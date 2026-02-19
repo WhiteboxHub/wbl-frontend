@@ -58,7 +58,12 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
   }, []);
 
   const allSidebarItems = [
-    { title: "Home", href: "/avatar", icon: HomeIcon, exact: true },
+    { title: "Home", href: "/avatar/employee-dashboard", icon: HomeIcon, exact: true },
+    {
+      title: "Analytics",
+      href: "/avatar/analytics",
+      icon: ShieldCheck,
+    },
     {
       title: "Leads",
       href: "/avatar/leads",
@@ -236,11 +241,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
         },
       ],
     },
-    {
-      title: "Analytics",
-      href: "/avatar/analytics",
-      icon: ShieldCheck,
-    },
+
     {
       title: "Misc",
       href: "/avatar/misc/authuser",
