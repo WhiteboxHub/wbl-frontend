@@ -244,6 +244,12 @@ export default function Index() {
   const router = useRouter();
   const { userRole } = useAuth() as { userRole: string };
 
+  useEffect(() => {
+    if (userRole === "employee") {
+      router.replace("/avatar/employee-dashboard");
+    }
+  }, [userRole, router]);
+
   const [data, setData] = useState<CandidateInterviewPerformance[]>([]);
   const [time, setTime] = useState<Date | null>(null);
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);

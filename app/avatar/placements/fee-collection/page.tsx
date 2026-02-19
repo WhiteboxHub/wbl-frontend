@@ -254,7 +254,7 @@ export default function PlacementFeeCollectionPage() {
         if (!placementId) return <span className="text-gray-500">N/A</span>;
         return (
             <Link
-                href={`/avatar/placements/${placementId}`}
+                href={`/avatar/placements/list`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-blue-600 underline hover:text-blue-800 font-medium"
