@@ -117,21 +117,30 @@ export default function AutomationContactExtractsPage() {
             let hasNext = true;
 
             while (hasNext) {
-                const response = await api.get(`/automation-extracts/paginated?page=${currentPage}&page_size=${pageSize}`);
-                const { data, has_next } = response.data;
+                // Using apiFetch directly to ensure standard token passing from lib/api
+                const response = await apiFetch(`/automation-extracts/paginated?page=${currentPage}&page_size=${pageSize}`);
 
-                allData = [...allData, ...data];
-                hasNext = has_next;
+                // apiFetch returns the body directly, not wrapped in {data: ...}
+                const { data, has_next } = response;
+
+                if (Array.isArray(data)) {
+                    allData = [...allData, ...data];
+                }
+                hasNext = !!has_next;
                 currentPage++;
 
-                // Safety break to prevent infinite loops if something goes wrong
                 if (currentPage > 100) break;
             }
 
             setExtracts(allData);
         } catch (err: any) {
             console.error("[fetchExtracts] Error:", err);
-            toast.error(err?.message || "Failed to load extracts");
+            // Handle auth errors consistently
+            if (err?.status === 401) {
+                toast.error("Session expired. Please log in again.");
+            } else {
+                toast.error(err?.message || "Failed to load extracts");
+            }
         } finally {
             setLoading(false);
         }
@@ -198,6 +207,7 @@ export default function AutomationContactExtractsPage() {
                 }
             });
 
+            // Using apiFetch directly to match the working ref page
             await apiFetch("/automation-extracts", {
                 method: "POST",
                 body: cleanedExtract,
@@ -238,8 +248,7 @@ export default function AutomationContactExtractsPage() {
                 if (visibleSelectedRows.length > 1) {
                     try {
                         const extractIds = visibleSelectedRows.map((row: any) => row.id);
-                        await apiFetch(`/automation-extracts/bulk`, {
-                            method: "DELETE",
+                        await api.delete(`/automation-extracts/bulk`, {
                             body: extractIds
                         });
 
@@ -252,9 +261,7 @@ export default function AutomationContactExtractsPage() {
                     }
                 } else {
                     try {
-                        await apiFetch(`/automation-extracts/${extractId}`, {
-                            method: "DELETE",
-                        });
+                        await api.delete(`/automation-extracts/${extractId}`);
                         toast.success("Deleted 1 extract");
                         fetchExtracts();
                     } catch (err: any) {
