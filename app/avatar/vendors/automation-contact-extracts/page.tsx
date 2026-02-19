@@ -111,8 +111,24 @@ export default function AutomationContactExtractsPage() {
     const fetchExtracts = useCallback(async () => {
         setLoading(true);
         try {
-            const data = await apiFetch("/automation-extracts");
-            setExtracts(Array.isArray(data) ? data : []);
+            const pageSize = 5000;
+            let allData: any[] = [];
+            let currentPage = 1;
+            let hasNext = true;
+
+            while (hasNext) {
+                const response = await api.get(`/automation-extracts/paginated?page=${currentPage}&page_size=${pageSize}`);
+                const { data, has_next } = response.data;
+
+                allData = [...allData, ...data];
+                hasNext = has_next;
+                currentPage++;
+
+                // Safety break to prevent infinite loops if something goes wrong
+                if (currentPage > 100) break;
+            }
+
+            setExtracts(allData);
         } catch (err: any) {
             console.error("[fetchExtracts] Error:", err);
             toast.error(err?.message || "Failed to load extracts");
