@@ -58,13 +58,14 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
   }, []);
 
   const allSidebarItems = [
-    { title: "Dashboard", href: "/avatar", icon: HomeIcon, exact: true },
+    { title: "Home", href: "/avatar", icon: HomeIcon, exact: true },
     {
       title: "Leads",
       href: "/avatar/leads",
       icon: UsersIcon,
       children: [
         { title: "List", href: "/avatar/leads" },
+        { title: "Search", href: "/avatar/leads/search" },
         { title: "Potential Leads", href: "/avatar/leads/potential_leads" },
       ],
     },
@@ -75,11 +76,23 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       children: [
         { title: "Course", href: "/avatar/training/course" },
         { title: "Subject", href: "/avatar/training/subject" },
-        { title: "Course Subject", href: "/avatar/training/course_subject" },
-        { title: "Course Content", href: "/avatar/training/course_content" },
-        { title: "Course Material", href: "/avatar/training/course_material" },
         { title: "Batch", href: "/avatar/training/batch" },
-
+        { title: "Course-Subject", href: "/avatar/training/course_subject" },
+        { title: "Content", href: "/avatar/training/course_content" },
+        { title: "Material", href: "/avatar/training/course_material" },
+      ],
+    },
+    {
+      title: "Recordings",
+      href: "/avatar/recordings/classes",
+      icon: Video,
+      children: [
+        { title: "Classes", href: "/avatar/recordings/classes" },
+        { title: "Sessions", href: "/avatar/recordings/session" },
+        {
+          title: "Batch Association",
+          href: "/avatar/recordings/batch_association",
+        },
       ],
     },
     {
@@ -90,23 +103,9 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
         { title: "List", href: "/avatar/candidates" },
         { title: "Search", href: "/avatar/candidates/search" },
         { title: "Prep", href: "/avatar/candidates/prep" },
-        { title: "Interviews", href: "/avatar/candidates/interviews" },
         { title: "Marketing", href: "/avatar/candidates/marketing" },
-        { title: "Placements", href: "/avatar/candidates/placements" },
-        { title: "Placements Fee", href: "/avatar/candidates/placement_fee" },
       ],
     },
-    {
-      title: "Recordings",
-      href: "/avatar/recordings/class",
-      icon: Video,
-      children: [
-        { title: "Class", href: "/avatar/recordings/class" },
-        { title: "Sessions", href: "/avatar/recordings/session" },
-        { title: "Recordings Batch", href: "/avatar/training/recording_batch" },
-      ],
-    },
-    { title: "Authuser", href: "/avatar/authuser", icon: ShieldCheck },
     {
       title: "Employees",
       href: "/avatar/employee",
@@ -115,47 +114,51 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
         { title: "List", href: "/avatar/employee" },
         { title: "Search", href: "/avatar/employee/employeesearch" },
         { title: "Tasks", href: "/avatar/employee/employeetasks" },
-        {
-          title: "Documents",
-          href: "/avatar/employee/internal_documents",
-        },
       ],
     },
     {
-      title: "Vendors",
-      href: "/avatar/vendors/daily-contact",
-      icon: BuildingIcon,
+      title: "Extraction",
+      href: "/avatar/extraction/raw-contacts",
+      icon: List,
       children: [
+        { title: "Raw Contacts", href: "/avatar/extraction/raw-contacts" },
         {
-          title: "Automation Contact Extract",
-          href: "/avatar/vendors/automation-contact-extracts",
+          title: "Raw Job Listings",
+          href: "/avatar/extraction/raw-job-listings",
         },
-        {
-          title: "Daily Contact Extract",
-          href: "/avatar/vendors/daily-contact",
-        },
-        { title: "Vendor", href: "/avatar/vendors/vendor" },
-        { title: "Outreach Email Recipients", href: "/avatar/vendors/outreach-email-recipients" },
       ],
     },
-    { title: "Personal Contacts", href: "/avatar/personal-domain-contacts", icon: UsersIcon },
-    { title: "Linkedin Only Contacts", href: "/avatar/linkedin-only-contacts", icon: Linkedin },
     {
-      title: "Companies",
+      title: "Marketing",
+      href: "/avatar/marketing/job-listings",
+      icon: Briefcase,
+      children: [
+        { title: "Job Listings", href: "/avatar/marketing/job-listings" },
+        { title: "Applications", href: "/avatar/marketing/applications" },
+        { title: "Interviews", href: "/avatar/marketing/interviews" },
+      ],
+    },
+    {
+      title: "Placements",
+      href: "/avatar/placements/list",
+      icon: UserCheckIcon,
+      children: [
+        { title: "List", href: "/avatar/placements/list" },
+        { title: "Fee Collection", href: "/avatar/placements/fee-collection" },
+        { title: "Commission", href: "/avatar/placements/commission" },
+        {
+          title: "Commission Schedule",
+          href: "/avatar/placements/commission-schedule",
+        },
+      ],
+    },
+    {
+      title: "Company",
       href: "/avatar/companies",
       icon: BuildingIcon,
       children: [
         { title: "List", href: "/avatar/companies" },
         { title: "Contacts", href: "/avatar/company_contacts" },
-      ],
-    },
-    {
-      title: "Job Listings",
-      href: "/avatar/job-listings",
-      icon: List,
-      children: [
-        { title: "Job Listings", href: "/avatar/job-listings" },
-        { title: "Raw Job Listings", href: "/avatar/raw-job-listings" },
       ],
     },
     {
@@ -171,23 +174,44 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
           title: "Logs",
           href: "/avatar/job-activity/job-activity-log",
         },
+      ],
+    },
+    {
+      title: "Vendors",
+      href: "/avatar/vendors/list",
+      icon: BuildingIcon,
+      children: [
+        { title: "List", href: "/avatar/vendors/list" },
+        { title: "Search", href: "/avatar/vendors/search" },
         {
-          title: "Automation Keywords",
-          href: "/avatar/job-activity/automation-keywords",
+          title: "Daily Contact Extract",
+          href: "/avatar/vendors/daily-contact",
+        },
+        {
+          title: "Outreach Email Recipients",
+          href: "/avatar/vendors/outreach-email-recipients",
+        },
+        {
+          title: "Personal Contacts",
+          href: "/avatar/vendors/personal-contacts",
+        },
+        {
+          title: "LinkedIn Contacts",
+          href: "/avatar/vendors/linkedin-contacts",
         },
       ],
     },
     {
-      title: "Automation Workflow",
-      href: "/avatar/workflow/automation-workflows",
+      title: "Workflows",
+      href: "/avatar/workflow/list",
       icon: Briefcase,
       children: [
         {
-          title: "Workflows",
-          href: "/avatar/workflow/automation-workflows",
+          title: "List",
+          href: "/avatar/workflow/list",
         },
         {
-          title: "Schedules",
+          title: "Schedule",
           href: "/avatar/workflow/automation-workflow-schedules",
         },
         {
@@ -206,6 +230,24 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
           title: "Email SMTP Credentials",
           href: "/avatar/workflow/email-smtp-credentials",
         },
+        {
+          title: "Automation Keywords",
+          href: "/avatar/workflow/automation-keywords",
+        },
+      ],
+    },
+    {
+      title: "Analytics",
+      href: "/avatar/analytics",
+      icon: ShieldCheck,
+    },
+    {
+      title: "Misc",
+      href: "/avatar/misc/authuser",
+      icon: ShieldCheck,
+      children: [
+        { title: "Documents", href: "/avatar/misc/documents" },
+        { title: "Authuser", href: "/avatar/misc/authuser" },
       ],
     },
   ];
