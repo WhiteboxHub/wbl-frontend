@@ -202,6 +202,10 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
           title: "Delivery Engines",
           href: "/avatar/workflow/delivery-engines",
         },
+        {
+          title: "Email SMTP Credentials",
+          href: "/avatar/workflow/email-smtp-credentials",
+        },
       ],
     },
   ];
