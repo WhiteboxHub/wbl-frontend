@@ -250,6 +250,20 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "YES", label: "Yes" },
     { value: "NO", label: "No" },
   ],
+  classification: [
+    { value: "company_contact", label: "Company Contact" },
+    { value: "personal_domain_contact", label: "Personal Domain Contact" },
+    { value: "linkedin_only_contact", label: "LinkedIn Only Contact" },
+    { value: "company_only", label: "Company Only" },
+    { value: "unknown", label: "Unknown" },
+  ],
+  extract_processing_status: [
+    { value: "new", label: "New" },
+    { value: "classified", label: "Classified" },
+    { value: "moved", label: "Moved" },
+    { value: "duplicate", label: "Duplicate" },
+    { value: "error", label: "Error" },
+  ],
   vendor_intro_email_sent: [
     { value: "YES", label: "Yes" },
     { value: "NO", label: "No" },
@@ -536,6 +550,13 @@ const excludedFields = [
   "created_from_raw_id",
   "moved_at",
   "candidate_id",
+  "created_at",
+  "processed_at",
+  "classification",
+  "processing_status",
+  "target_table",
+  "target_id",
+  "error_message",
 ];
 
 // Fields that should be read-only (visible but not editable)
@@ -563,6 +584,7 @@ const fieldVisibility: Record<string, string[]> = {
     "client",
     "daily contact",
     "vendor contact",
+    "automation-contact-extract",
     "personal",
     "linkedin only",
     "domain",
@@ -643,6 +665,7 @@ const fieldSections: Record<string, string> = {
   dob: "Basic Information",
   contact: "Basic Information",
   password: "Professional Information",
+  app_password: "Professional Information",
   secondaryemail: "Contact Information",
   ssn: "Professional Information",
   priority: "Basic Information",
@@ -773,7 +796,7 @@ const fieldSections: Record<string, string> = {
   raw_contact_info: "Contact Information",
   raw_zip: "Contact Information",
   raw_description: "Notes",
-  raw_payload: "Notes",
+  raw_payload: "Raw Payload",
   raw_notes: "Notes",
   candidate_id: "Basic Information",
   // Outreach Email Recipient fields
@@ -792,6 +815,12 @@ const fieldSections: Record<string, string> = {
   bounced_at: "Professional Information",
   complaint_flag: "Contact Information",
   complained_at: "Contact Information",
+  source_reference: "Basic Information",
+  classification: "Basic Information",
+  target_table: "Other",
+  target_id: "Other",
+  error_message: "Other",
+  processed_at: "Other",
 };
 
 // Override field labels for better readability
@@ -824,6 +853,7 @@ const labelOverrides: Record<string, string> = {
   dob: "Date of Birth",
   contact: "Contact",
   password: "Password",
+  app_password: "App Password",
   secondaryemail: "Secondary Email",
   ssn: "SSN",
   priority: "Priority",
@@ -983,6 +1013,10 @@ const labelOverrides: Record<string, string> = {
   bounced_at: "Bounced Date",
   complaint_flag: "Complaint Flag",
   complained_at: "Complained Date",
+  source_reference: "Source Reference",
+  classification: "Classification",
+  target_table: "Target Table",
+  target_id: "Target ID",
 };
 
 const dateFields = [
@@ -1014,6 +1048,9 @@ const dateFields = [
   "unsubscribe_at",
   "bounced_at",
   "complained_at",
+  "processed_at",
+  "created_at",
+  "created_datetime",
   "next_run_at",
   "last_run_at"
 ];
@@ -1089,6 +1126,9 @@ export function EditModal({
   const isJobActivityLogModal = title
     .toLowerCase()
     .includes("job activity log");
+  const isAutomationContactExtractModal = title
+    .toLowerCase()
+    .includes("automation contact extract");
   const isJobTypeModal = title.toLowerCase().includes("job type");
   const isAutomationKeywordModal = title.toLowerCase().includes("automation keyword");
   const isPositionsModal = title.toLowerCase().includes("position") || title.toLowerCase().includes("job listing");
@@ -1778,13 +1818,18 @@ export function EditModal({
       return enumOptions.workstatus;
     }
 
-    if (isPositionsModal && keyLower === "status") {
+    if (isPositionsModal && keyLower === "status")  {
       return enumOptions.position_status;
     }
 
     if (keyLower === "position_type") return enumOptions.position_type;
     if (keyLower === "employment_mode") return enumOptions.employment_mode;
     if (keyLower === "source") return enumOptions.source;
+
+    if (isAutomationContactExtractModal) {
+      if (keyLower === "processing_status") return enumOptions.extract_processing_status;
+      if (keyLower === "classification") return enumOptions.classification;
+    }
 
     if (isPreparationModal && keyLower === "status") {
       return [
