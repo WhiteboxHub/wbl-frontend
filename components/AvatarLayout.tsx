@@ -268,7 +268,9 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
     if (item.exact) return pathname === item.href;
     if (pathname === item.href) return true;
     if (item.children) {
-      return item.children.some((child) => pathname.startsWith(child.href));
+      return item.children.some(
+        (child) => pathname === child.href || pathname.startsWith(child.href + "/")
+      );
     }
     return false;
   };

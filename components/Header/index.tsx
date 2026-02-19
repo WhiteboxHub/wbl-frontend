@@ -226,7 +226,7 @@ const Header = ({
                 <div className="flex items-center gap-4">
                   {(userRole === "admin" || userRole === "employee") && (
                     <Link
-                      href="/avatar"
+                      href={userRole === "employee" ? "/avatar/employee-dashboard" : "/avatar"}
                       className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
                     >
                       Avatar
@@ -274,7 +274,7 @@ const Header = ({
                 {/* Avatar Button (Admin or Employee) */}
                 {isAuthenticated && (userRole === "admin" || userRole === "employee") && (
                   <Link
-                    href="/avatar"
+                    href={userRole === "employee" ? "/avatar/employee-dashboard" : "/avatar"}
                     className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-3 py-2 text-xs font-bold text-white sm:text-sm"
                   >
                     Avatar
