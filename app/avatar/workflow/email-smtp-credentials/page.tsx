@@ -25,7 +25,7 @@ export default function EmailSmtpCredentialsPage() {
 
     const fetchData = async () => {
         try {
-            const res = await api.get("/email-smtp-credentials/");
+            const res = await api.get("/email-smtp-credentials");
             // Inject empty password fields so EditModal renders them
             const processedData = res.data.map((item: any) => ({
                 ...item,
@@ -95,7 +95,7 @@ export default function EmailSmtpCredentialsPage() {
             if (!payload.app_password) delete payload.app_password;
             if (!payload.note) delete payload.note;
 
-            const res = await api.post("/email-smtp-credentials/", payload);
+            const res = await api.post("/email-smtp-credentials", payload);
             const savedRow = { ...res.data, password: "", app_password: "" };
             setData((prev: any) => [savedRow, ...prev]);
             toast.success("Credential added successfully");
