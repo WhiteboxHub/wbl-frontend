@@ -1049,6 +1049,8 @@ const dateFields = [
   "processed_at",
   "created_at",
   "created_datetime",
+  "next_run_at",
+  "last_run_at"
 ];
 
 export function EditModal({
