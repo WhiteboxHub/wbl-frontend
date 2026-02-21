@@ -6,6 +6,9 @@ import { useState, useEffect, useMemo } from "react";
 import api from "@/lib/api";
 import { toast, Toaster } from "sonner";
 import { Loader } from "@/components/admin_ui/loader";
+import { Input } from "@/components/admin_ui/input";
+import { Label } from "@/components/admin_ui/label";
+import { SearchIcon } from "lucide-react";
 
 const StatusRenderer = (params: any) => {
     const status = params.value?.toLowerCase();
@@ -32,7 +35,9 @@ const JsonRenderer = (params: any) => {
 };
 
 export default function AutomationWorkflowLogsPage() {
+    const [searchTerm, setSearchTerm] = useState("");
     const [data, setData] = useState([]);
+    const [filteredData, setFilteredData] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -59,12 +64,31 @@ export default function AutomationWorkflowLogsPage() {
                     : "",
             }));
             setData(processed);
+            setFilteredData(processed);
         } catch (err) {
             toast.error("Failed to fetch logs");
         } finally {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        const lower = searchTerm.trim().toLowerCase();
+        if (!lower) {
+            setFilteredData(data);
+            return;
+        }
+
+        const filtered = data.filter((row: any) => {
+            const idMatch = row.id?.toString().includes(lower);
+            const workflowMatch = row.workflow?.name?.toLowerCase().includes(lower);
+            const runIdMatch = row.run_id?.toLowerCase().includes(lower);
+            const statusMatch = row.status?.toLowerCase().includes(lower);
+            return idMatch || workflowMatch || runIdMatch || statusMatch;
+        });
+
+        setFilteredData(filtered);
+    }, [searchTerm, data]);
 
     const columnDefs: ColDef[] = useMemo(() => [
         { field: "id", headerName: "ID", width: 80, sortable: true, pinned: "left" },
@@ -125,10 +149,24 @@ export default function AutomationWorkflowLogsPage() {
                 </div>
             </div>
 
+            {/* Search bar */}
+            <div className="max-w-md">
+                <div className="relative mt-1">
+                    <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                        id="search"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Search by Workflow, ID, Status or Run ID..."
+                        className="pl-10"
+                    />
+                </div>
+            </div>
+
             <div className="flex w-full justify-center">
                 <AGGridTable
-                    title={`Execution Logs (${data.length})`}
-                    rowData={data}
+                    title={`Execution Logs (${filteredData.length})`}
+                    rowData={filteredData}
                     columnDefs={columnDefs}
                     height="600px"
                     getRowHeight={() => 120}

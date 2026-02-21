@@ -235,6 +235,10 @@ const fieldSections: Record<string, string> = {
   address2: "Contact Information",
   postal_code: "Contact Information",
   linkedin_internal_id: "Professional Information",
+  amount: "Professional Information",
+  placement_commission_id:"Basic Information",
+  installment_no:"Professional Information",
+  installment_amount:"Professional Information",
 };
 
 const workVisaStatusOptions = [
@@ -370,6 +374,7 @@ const labelOverrides: Record<string, string> = {
   extracted_at: "Extracted At",
   processed_at: "Processed At",
   error_message: "Error Message",
+  lastmod_user_id:"Last Modified By"
 };
 
 const dateFields = [
@@ -449,6 +454,11 @@ const getTitleSpecificExclusions = (title: string): string[] => {
   // placement fees
   if (lowerTitle.includes('placement')) {
     exclusions.push('batch', 'batchid', 'lastmod_user_id');
+  }
+
+  // commissions
+  if (lowerTitle.includes('commission')) {
+    exclusions.push('scheduler_entries');
   }
 
   return exclusions;

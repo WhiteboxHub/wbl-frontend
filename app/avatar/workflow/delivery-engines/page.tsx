@@ -6,6 +6,9 @@ import { useState, useEffect, useMemo } from "react";
 import api from "@/lib/api";
 import { toast, Toaster } from "sonner";
 import { Loader } from "@/components/admin_ui/loader";
+import { Input } from "@/components/admin_ui/input";
+import { Label } from "@/components/admin_ui/label";
+import { SearchIcon } from "lucide-react";
 
 const StatusRenderer = (params: any) => {
     const status = params.value?.toLowerCase();
@@ -17,7 +20,9 @@ const StatusRenderer = (params: any) => {
 };
 
 export default function DeliveryEnginesPage() {
+    const [searchTerm, setSearchTerm] = useState("");
     const [data, setData] = useState([]);
+    const [filteredData, setFilteredData] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -28,12 +33,30 @@ export default function DeliveryEnginesPage() {
         try {
             const res = await api.get("/delivery-engine/");
             setData(res.data);
+            setFilteredData(res.data);
         } catch (err) {
             toast.error("Failed to fetch delivery engines");
         } finally {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        const lower = searchTerm.trim().toLowerCase();
+        if (!lower) {
+            setFilteredData(data);
+            return;
+        }
+
+        const filtered = data.filter((row: any) => {
+            const nameMatch = row.name?.toLowerCase().includes(lower);
+            const typeMatch = row.engine_type?.toLowerCase().includes(lower);
+            const hostMatch = row.host?.toLowerCase().includes(lower);
+            return nameMatch || typeMatch || hostMatch;
+        });
+
+        setFilteredData(filtered);
+    }, [searchTerm, data]);
 
     const columnDefs: ColDef[] = useMemo(() => [
         { field: "id", headerName: "ID", width: 80, sortable: true, pinned: "left" },
@@ -120,10 +143,24 @@ export default function DeliveryEnginesPage() {
                 </div>
             </div>
 
+            {/* Search bar */}
+            <div className="max-w-md">
+                <div className="relative mt-1">
+                    <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                        id="search"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Search by Engine Name, Type or Host..."
+                        className="pl-10"
+                    />
+                </div>
+            </div>
+
             <div className="flex w-full justify-center">
                 <AGGridTable
-                    title={`Delivery Engines (${data.length})`}
-                    rowData={data}
+                    title={`Delivery Engines (${filteredData.length})`}
+                    rowData={filteredData}
                     columnDefs={columnDefs}
                     height="600px"
                     onRowAdded={handleRowAdded}
