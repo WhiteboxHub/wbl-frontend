@@ -6,6 +6,8 @@ import { useState, useEffect, useMemo } from "react";
 import api from "@/lib/api";
 import { toast, Toaster } from "sonner";
 import { Loader } from "@/components/admin_ui/loader";
+import { Input } from "@/components/admin_ui/input";
+import { SearchIcon } from "lucide-react";
 
 const ActiveRenderer = (params: any) => {
     return params.value ? (
@@ -16,7 +18,9 @@ const ActiveRenderer = (params: any) => {
 };
 
 export default function EmailSmtpCredentialsPage() {
+    const [searchTerm, setSearchTerm] = useState("");
     const [data, setData] = useState([]);
+    const [filteredData, setFilteredData] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -33,12 +37,30 @@ export default function EmailSmtpCredentialsPage() {
                 app_password: item.app_password ?? ""
             }));
             setData(processedData);
+            setFilteredData(processedData);
         } catch (err) {
             toast.error("Failed to fetch credentials");
         } finally {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        const lower = searchTerm.trim().toLowerCase();
+        if (!lower) {
+            setFilteredData(data);
+            return;
+        }
+
+        const filtered = data.filter((row: any) => {
+            const nameMatch = row.name?.toLowerCase().includes(lower);
+            const emailMatch = row.email?.toLowerCase().includes(lower);
+            const noteMatch = row.note?.toLowerCase().includes(lower);
+            return nameMatch || emailMatch || noteMatch;
+        });
+
+        setFilteredData(filtered);
+    }, [searchTerm, data]);
 
     const columnDefs: ColDef[] = useMemo(() => [
         { field: "id", headerName: "ID", pinned: "left", width: 80 },
@@ -153,10 +175,24 @@ export default function EmailSmtpCredentialsPage() {
                 </div>
             </div>
 
+            {/* Search bar */}
+            <div className="max-w-md">
+                <div className="relative mt-1">
+                    <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                        id="search"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Search by name, email or note..."
+                        className="pl-10"
+                    />
+                </div>
+            </div>
+
             <div className="flex w-full justify-center">
                 <AGGridTable
-                    title={`SMTP Credentials (${data.length})`}
-                    rowData={data}
+                    title={`SMTP Credentials (${filteredData.length})`}
+                    rowData={filteredData}
                     columnDefs={columnDefs}
                     height="600px"
                     onRowAdded={handleRowAdded}
