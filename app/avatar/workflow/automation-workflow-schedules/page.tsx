@@ -6,6 +6,9 @@ import { useState, useEffect, useMemo } from "react";
 import api from "@/lib/api";
 import { toast, Toaster } from "sonner";
 import { Loader } from "@/components/admin_ui/loader";
+import { Input } from "@/components/admin_ui/input";
+import { Label } from "@/components/admin_ui/label";
+import { SearchIcon } from "lucide-react";
 
 const EnabledRenderer = (params: any) => {
     const enabled = params.value;
@@ -17,7 +20,9 @@ const EnabledRenderer = (params: any) => {
 };
 
 export default function AutomationWorkflowSchedulesPage() {
+    const [searchTerm, setSearchTerm] = useState("");
     const [data, setData] = useState([]);
+    const [filteredData, setFilteredData] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -28,12 +33,30 @@ export default function AutomationWorkflowSchedulesPage() {
         try {
             const res = await api.get("/automation-workflow-schedule/");
             setData(res.data);
+            setFilteredData(res.data);
         } catch (err) {
             toast.error("Failed to fetch schedules");
         } finally {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        const lower = searchTerm.trim().toLowerCase();
+        if (!lower) {
+            setFilteredData(data);
+            return;
+        }
+
+        const filtered = data.filter((row: any) => {
+            const idMatch = row.automation_workflow_id?.toString().includes(lower);
+            const freqMatch = row.frequency?.toLowerCase().includes(lower);
+            const cronMatch = row.cron_expression?.toLowerCase().includes(lower);
+            return idMatch || freqMatch || cronMatch;
+        });
+
+        setFilteredData(filtered);
+    }, [searchTerm, data]);
 
     const columnDefs: ColDef[] = useMemo(() => [
         { field: "id", headerName: "ID", width: 80, sortable: true, pinned: "left" },
@@ -123,10 +146,24 @@ export default function AutomationWorkflowSchedulesPage() {
                 </div>
             </div>
 
+            {/* Search bar */}
+            <div className="max-w-md">
+                <div className="relative mt-1">
+                    <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                        id="search"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Search by Workflow ID, Frequency or Cron..."
+                        className="pl-10"
+                    />
+                </div>
+            </div>
+
             <div className="flex w-full justify-center">
                 <AGGridTable
-                    title={`Schedules (${data.length})`}
-                    rowData={data}
+                    title={`Schedules (${filteredData.length})`}
+                    rowData={filteredData}
                     columnDefs={columnDefs}
                     height="600px"
                     onRowAdded={handleRowAdded}
