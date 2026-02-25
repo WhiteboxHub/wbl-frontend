@@ -479,6 +479,13 @@ export default function AutomationContactExtractsPage() {
                 editable: false,
                 valueFormatter: (params) => params.value ? JSON.stringify(params.value) : "",
             },
+            {
+                field: "updated_at",
+                headerName: "Updated At",
+                width: 180,
+                editable: false,
+                valueFormatter: (params) => params.value ? formatDateTime(params.value) : "",
+            },
         ],
         []
     );
