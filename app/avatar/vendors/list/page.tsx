@@ -10,6 +10,7 @@ import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import { createPortal } from "react-dom";
 import { apiFetch } from "@/lib/api.js";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { toast, Toaster } from "sonner";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
@@ -498,7 +499,7 @@ export default function VendorPage() {
   const fetchVendors = async () => {
     try {
       setLoading(true);
-      const data = await apiFetch("/vendors");
+      const data = await cachedApiFetch("/vendors");
       const arr = Array.isArray(data) ? data : data?.data || [];
       console.log("[fetchVendors] Successfully loaded", arr.length, "vendors");
       setVendors(arr);
@@ -643,6 +644,7 @@ export default function VendorPage() {
     };
     try {
       await apiFetch(`/vendors/${updatedRow.id}`, { method: "PUT", body: payload });
+      await invalidateCache("/vendors");
       console.log("[handleRowUpdated] Successfully updated vendor:", updatedRow.id);
       setVendors((prev) => prev.map((row) => (row.id === updatedRow.id ? payload : row)));
       toast.success("Vendor updated successfully");
@@ -682,6 +684,7 @@ export default function VendorPage() {
               method: "POST",
               body: vendorIds,
             });
+            await invalidateCache("/vendors");
 
             console.log("[handleRowDeleted] Successfully deleted", visibleSelectedRows.length, "vendors");
             toast.success(`Deleted ${visibleSelectedRows.length} vendors`);
@@ -695,6 +698,7 @@ export default function VendorPage() {
           // Single delete
           try {
             await apiFetch(`/vendors/${vendorId}`, { method: "DELETE" });
+            await invalidateCache("/vendors");
             console.log("[handleRowDeleted] Successfully deleted vendor:", vendorId);
             toast.success("Deleted 1 vendor");
             fetchVendors();
@@ -774,6 +778,7 @@ export default function VendorPage() {
                   };
                   if (!payload.full_name) { console.warn('Vendor name required'); return; }
                   const res = await apiFetch("/vendors", { method: "POST", body: payload });
+                  await invalidateCache("/vendors");
                   const created = Array.isArray(res) ? res : (res?.data ?? res);
                   console.log("[onRowAdded] Successfully created vendor:", created);
                   setVendors((prev) => [created, ...prev]);

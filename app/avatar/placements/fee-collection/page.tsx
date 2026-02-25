@@ -13,7 +13,8 @@ import { SearchIcon, ChevronRight, ChevronDown } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { toast, Toaster } from "sonner";
-import api from "@/lib/api";
+import api, { apiFetch } from "@/lib/api";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
@@ -268,7 +269,7 @@ export default function PlacementFeeCollectionPage() {
         const fetchFees = async () => {
             setLoading(true);
             try {
-                const res = await api.get("/placement-fee");
+                const res = await cachedApiFetch("/placement-fee");
                 const body = res?.data ?? res?.raw ?? [];
                 const fees = Array.isArray(body) ? body : Array.isArray(body.data) ? body.data : body.data ?? [];
 
@@ -372,6 +373,7 @@ export default function PlacementFeeCollectionPage() {
             if (!dbId) return toast.error("Missing record ID");
 
             await api.put(`/placement-fee/${dbId}`, updatedRow);
+            await invalidateCache("/placement-fee");
 
             setRawFees(prev => prev.map(f => {
                 if (f.id === dbId) {
@@ -397,6 +399,7 @@ export default function PlacementFeeCollectionPage() {
 
         try {
             await api.delete(`/placement-fee/${dbId}`);
+            await invalidateCache("/placement-fee");
             setRawFees(prev => prev.filter(f => f.id !== dbId));
             toast.success("Successfully Deleted");
         } catch (err) {
@@ -418,9 +421,10 @@ export default function PlacementFeeCollectionPage() {
             if (!payload.amount_collected) payload.amount_collected = "no";
 
             await api.post("/placement-fee", payload);
+            await invalidateCache("/placement-fee");
 
-            // Refetch data to ensure proper sorting
-            const res = await api.get("/placement-fee");
+            // Refetch data (this will use cache validation if server hasn't changed)
+            const res = await cachedApiFetch("/placement-fee");
             const body = res?.data ?? res?.raw ?? [];
             const fees = Array.isArray(body) ? body : Array.isArray(body.data) ? body.data : body.data ?? [];
             setRawFees(fees);

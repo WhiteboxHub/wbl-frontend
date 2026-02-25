@@ -9,6 +9,7 @@ import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { apiFetch } from "@/lib/api.js";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
@@ -59,11 +60,11 @@ export default function JobTypesPage() {
       }
       setError("");
 
-      const res = await apiFetch("/api/job-types");
+      const res = await cachedApiFetch("/api/job-types");
       const arr = Array.isArray(res) ? res : res?.data ?? [];
       const sorted = (arr || []).slice().sort((a: any, b: any) => b.id - a.id);
 
-      const employeesRes = await apiFetch("/api/employees");
+      const employeesRes = await cachedApiFetch("/api/employees");
       const employeesArr = Array.isArray(employeesRes)
         ? employeesRes
         : employeesRes?.data ?? [];
@@ -245,6 +246,7 @@ export default function JobTypesPage() {
   const handleRowDeleted = async (id: number) => {
     try {
       await apiFetch(`/api/job-types/${id}`, { method: "DELETE" });
+      await invalidateCache("/api/job-types");
 
       const updated = jobTypes.filter((jt) => jt.id !== id);
       setJobTypes(updated);
@@ -301,6 +303,7 @@ export default function JobTypesPage() {
       const method = isEdit ? "PUT" : "POST";
 
       await apiFetch(url, { method, body: payload });
+      await invalidateCache("/api/job-types");
 
       await fetchData(false);
       toast.success(

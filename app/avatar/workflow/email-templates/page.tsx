@@ -3,7 +3,8 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Badge } from "@/components/admin_ui/badge";
 import { ColDef } from "ag-grid-community";
 import { useState, useEffect, useMemo } from "react";
-import api from "@/lib/api";
+import api, { apiFetch } from "@/lib/api";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { toast, Toaster } from "sonner";
 import { Loader } from "@/components/admin_ui/loader";
 import { Input } from "@/components/admin_ui/input";
@@ -31,7 +32,7 @@ export default function EmailTemplatesPage() {
 
     const fetchData = async () => {
         try {
-            const res = await api.get("/email-template/");
+            const res = await cachedApiFetch("/email-template/");
             setData(res.data);
             setFilteredData(res.data);
         } catch (err) {
@@ -100,6 +101,7 @@ export default function EmailTemplatesPage() {
                 return;
             }
             const res = await api.post("/email-template/", newRow);
+            await invalidateCache("/email-template/");
             setData((prev: any) => [res.data, ...prev]);
             toast.success("Email template created successfully");
         } catch (err: any) {
@@ -110,6 +112,7 @@ export default function EmailTemplatesPage() {
     const handleRowUpdated = async (row: any) => {
         try {
             await api.put(`/email-template/${row.id}`, row);
+            await invalidateCache("/email-template/");
             toast.success("Email template updated");
         } catch (err) {
             toast.error("Update failed");
@@ -119,6 +122,7 @@ export default function EmailTemplatesPage() {
     const handleRowDeleted = async (id: any) => {
         try {
             await api.delete(`/email-template/${id}`);
+            await invalidateCache("/email-template/");
             setData(prev => prev.filter((item: any) => item.id !== id));
             toast.success("Email template deleted");
         } catch (err) {

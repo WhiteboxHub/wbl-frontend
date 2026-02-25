@@ -9,6 +9,7 @@ import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { apiFetch } from "@/lib/api.js";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
@@ -82,8 +83,8 @@ export default function InternalDocumentsPage() {
       setLoading(true);
       setError("");
 
-      const res = await apiFetch("/api/internal-documents/");
-      const documentsArray = Array.isArray(res) ? res : [];
+      const res = await cachedApiFetch("/api/internal-documents/");
+      const documentsArray = Array.isArray(res.data) ? res.data : [];
       const sortedDocuments = documentsArray.sort(
         (a: InternalDocument, b: InternalDocument) => b.id - a.id
       );
@@ -130,6 +131,7 @@ export default function InternalDocumentsPage() {
         method: "PUT",
         body: updateData,
       });
+      await invalidateCache("/api/internal-documents/");
 
       const updatedDocuments = documents
         .map((doc) => (doc.id === updatedRow.id ? updatedRow : doc))
@@ -151,6 +153,7 @@ export default function InternalDocumentsPage() {
         method: "POST",
         body: docData,
       });
+      await invalidateCache("/api/internal-documents/");
 
       const updatedDocuments = [createdDoc, ...documents].sort(
         (a, b) => b.id - a.id
@@ -168,6 +171,7 @@ export default function InternalDocumentsPage() {
   const handleRowDeleted = async (id: number) => {
     try {
       await apiFetch(`/api/internal-documents/${id}`, { method: "DELETE" });
+      await invalidateCache("/api/internal-documents/");
       const updatedDocuments = documents.filter((doc) => doc.id !== id);
       setDocuments(updatedDocuments);
       setFilteredDocuments(updatedDocuments);

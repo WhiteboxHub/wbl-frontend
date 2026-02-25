@@ -3,7 +3,8 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Badge } from "@/components/admin_ui/badge";
 import { ColDef } from "ag-grid-community";
 import { useState, useEffect, useMemo } from "react";
-import api from "@/lib/api";
+import api, { apiFetch } from "@/lib/api";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { toast, Toaster } from "sonner";
 import { Loader } from "@/components/admin_ui/loader";
 import { Input } from "@/components/admin_ui/input";
@@ -32,7 +33,7 @@ export default function AutomationWorkflowsPage() {
 
     const fetchData = async () => {
         try {
-            const res = await api.get("/automation-workflow/");
+            const res = await cachedApiFetch("/automation-workflow/");
             setData(res.data);
             setFilteredData(res.data);
         } catch (err) {
@@ -115,6 +116,7 @@ export default function AutomationWorkflowsPage() {
                 return;
             }
             const res = await api.post("/automation-workflow/", newRow);
+            await invalidateCache("/automation-workflow/");
             setData((prev: any) => [res.data, ...prev]);
             toast.success("Automation workflow created successfully");
         } catch (err: any) {
@@ -125,6 +127,7 @@ export default function AutomationWorkflowsPage() {
     const handleRowUpdated = async (row: any) => {
         try {
             await api.put(`/automation-workflow/${row.id}`, row);
+            await invalidateCache("/automation-workflow/");
             toast.success("Workflow updated");
         } catch (err) {
             toast.error("Update failed");
@@ -134,6 +137,7 @@ export default function AutomationWorkflowsPage() {
     const handleRowDeleted = async (id: any) => {
         try {
             await api.delete(`/automation-workflow/${id}`);
+            await invalidateCache("/automation-workflow/");
             setData(prev => prev.filter((item: any) => item.id !== id));
             toast.success("Workflow deleted");
         } catch (err) {

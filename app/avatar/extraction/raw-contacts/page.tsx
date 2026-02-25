@@ -7,6 +7,7 @@ import React, {
     useCallback,
 } from "react";
 import api, { apiFetch, API_BASE_URL } from "@/lib/api";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { Badge } from "@/components/admin_ui/badge";
@@ -117,8 +118,8 @@ export default function AutomationContactExtractsPage() {
             let hasNext = true;
 
             while (hasNext) {
-                // Using apiFetch directly to ensure standard token passing from lib/api
-                const response = await apiFetch(`/automation-extracts/paginated?page=${currentPage}&page_size=${pageSize}`);
+                // Using cachedApiFetch to enable IndexedDB caching
+                const response = await cachedApiFetch(`/automation-extracts/paginated?page=${currentPage}&page_size=${pageSize}`);
 
                 // apiFetch returns the body directly, not wrapped in {data: ...}
                 const { data, has_next } = response;
@@ -189,6 +190,7 @@ export default function AutomationContactExtractsPage() {
                 method: "PUT",
                 body: cleanedData,
             });
+            await invalidateCache("/automation-extracts/paginated");
             toast.success("Extract updated successfully");
             fetchExtracts();
         } catch (err: any) {
@@ -212,6 +214,7 @@ export default function AutomationContactExtractsPage() {
                 method: "POST",
                 body: cleanedExtract,
             });
+            await invalidateCache("/automation-extracts/paginated");
 
             fetchExtracts();
             toast.success("Extract created successfully");
@@ -251,6 +254,7 @@ export default function AutomationContactExtractsPage() {
                         await api.delete(`/automation-extracts/bulk`, {
                             body: extractIds
                         });
+                        await invalidateCache("/automation-extracts/paginated");
 
                         toast.success(`Deleted ${visibleSelectedRows.length} extracts`);
                         setSelectedRows([]);
@@ -262,6 +266,7 @@ export default function AutomationContactExtractsPage() {
                 } else {
                     try {
                         await api.delete(`/automation-extracts/${extractId}`);
+                        await invalidateCache("/automation-extracts/paginated");
                         toast.success("Deleted 1 extract");
                         fetchExtracts();
                     } catch (err: any) {

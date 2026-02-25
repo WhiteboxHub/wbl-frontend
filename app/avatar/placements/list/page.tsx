@@ -13,7 +13,8 @@ import { SearchIcon } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useState, useEffect } from "react";
 import { toast, Toaster } from "sonner";
-import api from "@/lib/api";
+import api, { apiFetch } from "@/lib/api";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
@@ -127,7 +128,7 @@ export default function CandidatesPlacements() {
     const fetchPlacements = async () => {
       setLoading(true);
       try {
-        const res = await api.get("/candidate/placements?page=1&limit=1000");
+        const res = await cachedApiFetch("/candidate/placements?page=1&limit=1000");
         const body = res?.data ?? res?.raw ?? [];
         const placements = Array.isArray(body)
           ? body
@@ -271,6 +272,7 @@ export default function CandidatesPlacements() {
       if (!updatedRow.id) return toast.error("Missing placement ID");
 
       await api.put(`/candidate/placements/${updatedRow.id}`, updatedRow);
+      await invalidateCache("/candidate/placements");
 
       setAllPlacements((prev) =>
         prev.map((p) => (p.id === updatedRow.id ? updatedRow : p))
@@ -286,6 +288,7 @@ export default function CandidatesPlacements() {
   const handleRowDeleted = async (id: number) => {
     try {
       await api.delete(`/candidate/placements/${id}`);
+      await invalidateCache("/candidate/placements");
       setAllPlacements((prev) => prev.filter((p) => p.id !== id));
       toast.success("Deleted");
     } catch (err) {

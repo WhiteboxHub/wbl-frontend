@@ -8,6 +8,7 @@ import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { apiFetch } from "@/lib/api.js";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
@@ -25,7 +26,7 @@ export default function SubjectPage() {
     try {
       setLoading(true);
       setError("");
-      const res = await apiFetch("/subjects");
+      const res = await cachedApiFetch("/subjects");
       const arr = Array.isArray(res) ? res : res?.data ?? [];
       const sortedSubjects = (arr || []).slice().sort((a: any, b: any) => b.id - a.id);
       setSubjects(sortedSubjects);
@@ -74,6 +75,7 @@ export default function SubjectPage() {
   const handleRowUpdated = async (updatedRow: any) => {
     try {
       await apiFetch(`/subjects/${updatedRow.id}`, { method: "PUT", body: updatedRow });
+      await invalidateCache("/subjects");
       setFilteredSubjects((prev) => prev.map((r) => (r.id === updatedRow.id ? updatedRow : r)));
       setSubjects((prev) => prev.map((r) => (r.id === updatedRow.id ? updatedRow : r)));
       toast.success("Subject updated successfully.");
@@ -87,6 +89,7 @@ export default function SubjectPage() {
   const handleRowDeleted = async (id: number) => {
     try {
       await apiFetch(`/subjects/${id}`, { method: "DELETE" });
+      await invalidateCache("/subjects");
       setFilteredSubjects((prev) => prev.filter((row) => row.id !== id));
       setSubjects((prev) => prev.filter((row) => row.id !== id));
       toast.success(`Subject ${id} deleted.`);
@@ -137,6 +140,7 @@ export default function SubjectPage() {
             };
             if (!payload.name) { toast.error("Name is required"); return; }
             const res = await apiFetch("/subjects", { method: "POST", body: payload });
+            await invalidateCache("/subjects");
             const created = Array.isArray(res) ? res : (res?.data ?? res);
             const updated = [created, ...subjects].slice().sort((a: any, b: any) => b.id - a.id);
             setSubjects(updated);

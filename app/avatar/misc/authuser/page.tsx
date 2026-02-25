@@ -11,6 +11,7 @@ import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect } from "react";
 import { toast, Toaster } from "sonner";
 import api, { smartUpdate } from "@/lib/api";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
@@ -125,7 +126,8 @@ export default function AuthUsersPage() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const { data } = await api.get("/users");
+      const res = await cachedApiFetch("/users");
+      const data = res.data;
       let usersArray = [];
       if (Array.isArray(data)) usersArray = data;
       else if (data?.users) usersArray = data.users;
@@ -340,6 +342,7 @@ export default function AuthUsersPage() {
       delete dataToSend.registereddate;
 
       const updatedUser = await smartUpdate("user", updatedRow.id, dataToSend);
+      await invalidateCache("/users");
       setUsers((prev) => prev.map((user) => (user.id === updatedRow.id ? updatedUser : user)));
       toast.success("User updated successfully");
     } catch (err) {
@@ -379,10 +382,8 @@ export default function AuthUsersPage() {
       }
 
       // Send POST request to create new user
-      const response = await api.post("/user", dataToSend);
-
-      console.log("USER CREATED:", response);
-
+      await api.post("/user", dataToSend);
+      await invalidateCache("/users");
       // Refresh the users list
       fetchUsers();
 
@@ -397,6 +398,7 @@ export default function AuthUsersPage() {
   const handleRowDeleted = async (id: number | string) => {
     try {
       await api.delete(`/user/${id}`);
+      await invalidateCache("/users");
       setUsers((prev) => prev.filter((user) => user.id !== id));
       toast.success("User deleted successfully");
     } catch (err) {

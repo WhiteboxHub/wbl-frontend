@@ -10,7 +10,7 @@ import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect } from "react";
 import { toast, Toaster } from "sonner";
 import api, { smartUpdate } from "@/lib/api";
-
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
@@ -36,7 +36,7 @@ export default function RecordingsPage() {
       const params = debouncedSearch.trim() ? { search: debouncedSearch.trim() } : {};
       const queryString = new URLSearchParams(params).toString();
       const endpoint = `/recordings${queryString ? `?${queryString}` : ""}`;
-      const { data } = await api.get(endpoint);
+      const data = await cachedApiFetch(endpoint);
       const recordingsData = Array.isArray(data) ? data : data?.data ?? [];
       setRecordings(recordingsData);
     } catch (err) {
@@ -129,6 +129,7 @@ export default function RecordingsPage() {
   const handleRowUpdated = async (updatedRow: any) => {
     try {
       const updatedRecording = await smartUpdate("recordings", updatedRow.id, updatedRow);
+      await invalidateCache("/recordings");
       setRecordings((prev) => prev.map((r) => (r.id === updatedRow.id ? updatedRecording : r)));
       toast.success("Recording updated successfully.");
     } catch (err) {
@@ -145,6 +146,7 @@ export default function RecordingsPage() {
   const handleRowDeleted = async (id: number | string) => {
     try {
       await api.delete(`/recordings/${id}`);
+      await invalidateCache("/recordings");
       setRecordings((prev) => prev.filter((r) => r.id !== id));
       toast.success(`Recording ${id} deleted.`);
     } catch (err) {

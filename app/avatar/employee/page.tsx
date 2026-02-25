@@ -8,6 +8,7 @@ import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import AGGridTable from "@/components/AGGridTable";
 import { apiFetch } from "@/lib/api";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { useForm } from "react-hook-form";
 import { toast, Toaster } from "sonner";
 import { createPortal } from "react-dom";
@@ -524,7 +525,7 @@ export default function EmployeesPage() {
   const fetchEmployees = async () => {
     try {
       setLoading(true);
-      const data = await apiFetch("/api/employees");
+      const data = await cachedApiFetch("/api/employees");
       const rawData = Array.isArray(data) ? data : data?.data || [];
 
       const mappedData = rawData.map((emp: any) => {
@@ -690,6 +691,7 @@ export default function EmployeesPage() {
         method: "PUT",
         body: payload,
       });
+      await invalidateCache("/api/employees");
 
       const updatedList = employees.map((emp) =>
         emp.id === updatedRow.id
@@ -741,6 +743,7 @@ export default function EmployeesPage() {
         method: "POST",
         body: payload,
       });
+      await invalidateCache("/api/employees");
 
       const newEmployee = {
         ...created,
@@ -756,7 +759,6 @@ export default function EmployeesPage() {
     } catch (err: any) {
       console.error("Failed to add employee:", err);
 
-
       if (err?.status === 409) {
         toast.error("Employee with this email already exists");
       } else {
@@ -771,6 +773,7 @@ export default function EmployeesPage() {
   const handleRowDeleted = async (id: number | string) => {
     try {
       await apiFetch(`/api/employees/${id}`, { method: "DELETE" });
+      await invalidateCache("/api/employees");
 
       setEmployees((prev) => prev.filter((row) => row.id !== id));
       setFilteredEmployees((prev) => prev.filter((row) => row.id !== id));
@@ -792,7 +795,6 @@ export default function EmployeesPage() {
       const payload = {
         ...data,
         name: formattedName,
-        phone: data.phone ? parsePhoneNumber(data.phone) : null,
         aadhaar: data.aadhaar ? data.aadhaar.replace(/\D/g, "") : null,
       };
 
@@ -800,6 +802,7 @@ export default function EmployeesPage() {
         method: "POST",
         body: payload,
       });
+      await invalidateCache("/api/employees");
 
       const newEmployee = {
         ...created,
