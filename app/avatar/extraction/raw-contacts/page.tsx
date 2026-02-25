@@ -171,7 +171,13 @@ export default function AutomationContactExtractsPage() {
                 e.classification?.toLowerCase().includes(term) ||
                 e.processing_status?.toLowerCase().includes(term) ||
                 e.target_table?.toLowerCase().includes(term) ||
-                e.error_message?.toLowerCase().includes(term)
+                e.error_message?.toLowerCase().includes(term) ||
+                (e.email_invalid ? "email invalid" : "").includes(term) ||
+                (e.domain_invalid ? "domain invalid" : "").includes(term) ||
+                (e.mailbox_invalid ? "mailbox invalid" : "").includes(term) ||
+                (e.bounced_flag ? "bounced" : "").includes(term) ||
+                (e.unsubscribed_flag ? "unsubscribed" : "").includes(term) ||
+                (e.complained_flag ? "complained" : "").includes(term)
         );
     }, [searchTerm, extracts]);
 
@@ -387,6 +393,72 @@ export default function AutomationContactExtractsPage() {
                 headerName: "Error",
                 width: 250,
                 editable: true,
+            },
+            {
+                field: "email_invalid",
+                headerName: "Email Inv",
+                width: 100,
+                editable: true,
+                cellRenderer: (params: any) => params.value ? <Badge className="bg-red-100 text-red-800">YES</Badge> : <Badge className="bg-gray-100 text-gray-400">NO</Badge>
+            },
+            {
+                field: "domain_invalid",
+                headerName: "Domain Inv",
+                width: 110,
+                editable: true,
+                cellRenderer: (params: any) => params.value ? <Badge className="bg-red-100 text-red-800">YES</Badge> : <Badge className="bg-gray-100 text-gray-400">NO</Badge>
+            },
+            {
+                field: "mailbox_invalid",
+                headerName: "Mailbox Inv",
+                width: 110,
+                editable: true,
+                cellRenderer: (params: any) => params.value ? <Badge className="bg-red-100 text-red-800">YES</Badge> : <Badge className="bg-gray-100 text-gray-400">NO</Badge>
+            },
+            {
+                field: "bounced_flag",
+                headerName: "Bounced",
+                width: 100,
+                editable: true,
+                cellRenderer: (params: any) => params.value ? <Badge className="bg-red-500 text-white">BOUNCED</Badge> : null
+            },
+            {
+                field: "bounced_at",
+                headerName: "Bounced At",
+                width: 180,
+                valueFormatter: (params) => formatDateTime(params.value),
+            },
+            {
+                field: "unsubscribed_flag",
+                headerName: "Unsub",
+                width: 100,
+                editable: true,
+                cellRenderer: (params: any) => params.value ? <Badge className="bg-orange-100 text-orange-800">UNSUB</Badge> : null
+            },
+            {
+                field: "unsubscribed_at",
+                headerName: "Unsub At",
+                width: 180,
+                valueFormatter: (params) => formatDateTime(params.value),
+            },
+            {
+                field: "complained_flag",
+                headerName: "Complaint",
+                width: 110,
+                editable: true,
+                cellRenderer: (params: any) => params.value ? <Badge className="bg-red-800 text-white">COMPLAINT</Badge> : null
+            },
+            {
+                field: "complained_at",
+                headerName: "Complained At",
+                width: 180,
+                valueFormatter: (params) => formatDateTime(params.value),
+            },
+            {
+                field: "last_email_sent_at",
+                headerName: "Last Sent At",
+                width: 180,
+                valueFormatter: (params) => formatDateTime(params.value),
             },
             {
                 field: "processed_at",
