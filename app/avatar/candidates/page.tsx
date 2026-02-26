@@ -13,6 +13,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import api from "@/lib/api";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
@@ -1090,8 +1091,7 @@ export default function CandidatesPage() {
         sortable: true,
         resizable: true,
       },
-      suppressRowClickSelection: true,
-      rowSelection: "single",
+      rowSelection: { mode: "singleRow", enableClickSelection: false, checkboxes: false },
       onSortChanged: () => {
         if (gridRef.current && gridRef.current.api) {
           const sortModel = gridRef.current.api.getSortModel();
@@ -1189,7 +1189,7 @@ export default function CandidatesPage() {
         if (Object.keys(filters).length > 0) {
           url += `&filters=${encodeURIComponent(JSON.stringify(filters))}`;
         }
-        const res = await api.get(url);
+        const res = await cachedApiFetch(url);
         const payload = res.data;
         const dataArray = payload?.data ?? payload;
         if (!Array.isArray(dataArray)) {
@@ -1239,6 +1239,7 @@ export default function CandidatesPage() {
         fee_paid: data.fee_paid || 0,
       };
       const res = await api.post(apiPath, payload);
+      await invalidateCache(apiPath);
       const newId = res.data?.id ?? res.data;
       toast.success(`Candidate created successfully${newId ? ` (ID: ${newId})` : ""}`);
       handleCloseModal();
@@ -1290,6 +1291,7 @@ export default function CandidatesPage() {
         }
         const { id, ...payload } = updatedData;
         await api.put(`${apiPath}/${updatedRow.id}`, payload);
+        await invalidateCache(apiPath);
         setCandidates((prevCandidates) =>
           prevCandidates.map((candidate) =>
             candidate.id === updatedRow.id ? updatedData : candidate
@@ -1326,6 +1328,7 @@ export default function CandidatesPage() {
     async (id: number) => {
       try {
         await api.delete(`${apiPath}/${id}`);
+        await invalidateCache(apiPath);
         setCandidates((prevCandidates) =>
           prevCandidates.filter((candidate) => candidate.id !== id)
         );
@@ -1465,6 +1468,7 @@ export default function CandidatesPage() {
                 return;
               }
               await api.post(apiPath, payload);
+              await invalidateCache(apiPath);
               toast.success("Candidate created successfully");
               await fetchCandidates(searchTerm, searchBy, sortModel, filterModel);
             } catch (err: any) {

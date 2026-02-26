@@ -7,6 +7,7 @@ import { SearchIcon, Linkedin } from "lucide-react";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import api from "@/lib/api";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
@@ -69,7 +70,7 @@ export default function CompanyContactsPage() {
             let hasNext = true;
 
             while (hasNext) {
-                const response = await api.get(`/company-contacts/paginated?page=${currentPage}&page_size=${pageSize}`);
+                const response = await cachedApiFetch(`/company-contacts/paginated?page=${currentPage}&page_size=${pageSize}`);
                 const { data, has_next } = response.data;
 
                 allData = [...allData, ...data];
@@ -119,6 +120,7 @@ export default function CompanyContactsPage() {
             const { id: _, created_datetime, created_userid, lastmod_datetime, lastmod_userid, ...dataToSave } = updatedData;
 
             const response = await api.put(`/company-contacts/${id}`, dataToSave);
+            await invalidateCache("/company-contacts/paginated");
             const updatedRecord = response.data;
 
             setAllContacts((prev) =>
@@ -134,6 +136,7 @@ export default function CompanyContactsPage() {
     const handleRowDeleted = async (id: string | number) => {
         try {
             await api.delete(`/company-contacts/${id}`);
+            await invalidateCache("/company-contacts/paginated");
             setAllContacts((prev) => prev.filter((row) => row.id !== id));
             toast.success("Contact deleted successfully");
         } catch (error: any) {
@@ -145,6 +148,7 @@ export default function CompanyContactsPage() {
     const handleRowAdded = async (newData: any) => {
         try {
             const response = await api.post("/company-contacts/", newData);
+            await invalidateCache("/company-contacts/paginated");
             const addedRecord = response.data;
             setAllContacts((prev) => [addedRecord, ...prev]);
             toast.success("Contact added successfully");

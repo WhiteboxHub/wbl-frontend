@@ -3,7 +3,8 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Badge } from "@/components/admin_ui/badge";
 import { ColDef } from "ag-grid-community";
 import { useState, useEffect, useMemo } from "react";
-import api from "@/lib/api";
+import api, { apiFetch } from "@/lib/api";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { toast, Toaster } from "sonner";
 import { Loader } from "@/components/admin_ui/loader";
 import { Input } from "@/components/admin_ui/input";
@@ -46,7 +47,7 @@ export default function AutomationWorkflowLogsPage() {
 
     const fetchData = async () => {
         try {
-            const res = await api.get("/automation-workflow-log/");
+            const res = await cachedApiFetch("/automation-workflow-log/");
             // Pre-process: stringify any JSON object fields so the EditModal
             // shows readable text instead of "[object Object]".
             // The grid uses JsonRenderer for pretty display independently.
@@ -128,6 +129,7 @@ export default function AutomationWorkflowLogsPage() {
     const handleRowDeleted = async (id: any) => {
         try {
             await api.delete(`/automation-workflow-log/${id}`);
+            await invalidateCache("/automation-workflow-log/");
             setData(prev => prev.filter((item: any) => item.id !== id));
             toast.success("Log entry deleted");
         } catch (err) {

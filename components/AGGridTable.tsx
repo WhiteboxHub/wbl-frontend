@@ -562,20 +562,22 @@ export function AGGridTable({
               cellClass: "custom-cell-style",
               editable: true,
             }}
-            rowSelection="multiple"
+            rowSelection={{
+              mode: "multiRow",
+              enableClickSelection: true,
+              isRowSelectable: (node) => node.displayed,
+              checkboxes: false,
+              headerCheckbox: false,
+            }}
             theme={"legacy"}
-            suppressRowClickSelection={false}
             pagination={!hideToolbar}
             paginationPageSize={50}
             paginationPageSizeSelector={hideToolbar ? undefined : [10, 25, 50, 100]}
             paginationNumberFormatter={hideToolbar ? undefined : paginationNumberFormatter}
             maintainColumnOrder={true}
             getRowId={getRowNodeId || ((params: any) => {
-              return params.data.unique_id || params.data.id || params.data.leadid || params.data.candidateid || params.data.batchid || params.data.sessionid;
+              return String(params.data.unique_id || params.data.id || params.data.leadid || params.data.candidateid || params.data.batchid || params.data.sessionid);
             })}
-            isRowSelectable={(node) => {
-              return node.displayed;
-            }}
             isFullWidthRow={isFullWidthRow}
             fullWidthCellRenderer={fullWidthCellRenderer}
             getRowHeight={getRowHeightProp}
