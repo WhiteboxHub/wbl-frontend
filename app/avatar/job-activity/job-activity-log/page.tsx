@@ -9,6 +9,7 @@ import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { apiFetch } from "@/lib/api.js";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
@@ -153,7 +154,7 @@ export default function JobActivityLogPage() {
         setLoading(true);
       }
       setError("");
-      const data = await apiFetch("/api/job_activity_logs");
+      const data = await cachedApiFetch("/api/job_activity_logs");
       const arr = Array.isArray(data) ? data : data?.data || [];
 
       // Sort by ID descending to show newest first
@@ -178,7 +179,7 @@ export default function JobActivityLogPage() {
 
   const fetchJobTypes = async () => {
     try {
-      const data = await apiFetch("/api/job-types");
+      const data = await cachedApiFetch("/api/job-types");
       const jobTypesArray = Array.isArray(data) ? data : [];
       setJobTypes(jobTypesArray);
     } catch (e: any) {
@@ -188,7 +189,7 @@ export default function JobActivityLogPage() {
 
   const fetchEmployees = async () => {
     try {
-      const data = await apiFetch("/api/employees");
+      const data = await cachedApiFetch("/api/employees");
       const arr = Array.isArray(data) ? data : data?.data || [];
       setEmployees(arr);
     } catch (e: any) {
@@ -198,7 +199,7 @@ export default function JobActivityLogPage() {
 
   const fetchCandidates = async () => {
     try {
-      const data = await apiFetch("/api/candidates");
+      const data = await cachedApiFetch("/api/candidates");
       const arr = Array.isArray(data) ? data : data?.data || [];
       setCandidates(arr);
     } catch (e: any) {
@@ -421,6 +422,7 @@ export default function JobActivityLogPage() {
         method: "PUT",
         body: payload,
       });
+      await invalidateCache("/api/job_activity_logs");
 
       await fetchLogs(false);
       toast.success("Log updated successfully");
@@ -441,6 +443,7 @@ export default function JobActivityLogPage() {
   const handleRowDeleted = async (id: number | string) => {
     try {
       await apiFetch(`/api/job_activity_logs/${id}`, { method: "DELETE" });
+      await invalidateCache("/api/job_activity_logs");
 
       setFilteredLogs((prev) => prev.filter((row) => row.id !== id));
       setLogs((prev) => prev.filter((row) => row.id !== id));
@@ -527,6 +530,7 @@ export default function JobActivityLogPage() {
         method: "POST",
         body: payload,
       });
+      await invalidateCache("/api/job_activity_logs");
 
       await fetchLogs(false);
       toast.success("Job activity log created successfully");

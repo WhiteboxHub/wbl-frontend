@@ -3,7 +3,8 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Badge } from "@/components/admin_ui/badge";
 import { ColDef } from "ag-grid-community";
 import { useState, useEffect, useMemo } from "react";
-import api from "@/lib/api";
+import api, { apiFetch } from "@/lib/api";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { toast, Toaster } from "sonner";
 import { Loader } from "@/components/admin_ui/loader";
 import { Input } from "@/components/admin_ui/input";
@@ -31,7 +32,7 @@ export default function DeliveryEnginesPage() {
 
     const fetchData = async () => {
         try {
-            const res = await api.get("/delivery-engine/");
+            const res = await cachedApiFetch("/delivery-engine/");
             setData(res.data);
             setFilteredData(res.data);
         } catch (err) {
@@ -103,6 +104,7 @@ export default function DeliveryEnginesPage() {
     const handleRowAdded = async (newRow: any) => {
         try {
             const res = await api.post("/delivery-engine/", newRow);
+            await invalidateCache("/delivery-engine/");
             setData((prev: any) => [res.data, ...prev]);
             toast.success("Delivery engine added successfully");
         } catch (err: any) {
@@ -113,6 +115,7 @@ export default function DeliveryEnginesPage() {
     const handleRowUpdated = async (row: any) => {
         try {
             await api.put(`/delivery-engine/${row.id}`, row);
+            await invalidateCache("/delivery-engine/");
             toast.success("Delivery engine updated");
         } catch (err) {
             toast.error("Update failed");
@@ -122,6 +125,7 @@ export default function DeliveryEnginesPage() {
     const handleRowDeleted = async (id: any) => {
         try {
             await api.delete(`/delivery-engine/${id}`);
+            await invalidateCache("/delivery-engine/");
             setData(prev => prev.filter((item: any) => item.id !== id));
             toast.success("Delivery engine deleted");
         } catch (err) {

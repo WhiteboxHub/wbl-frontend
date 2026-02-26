@@ -3,7 +3,8 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Badge } from "@/components/admin_ui/badge";
 import { ColDef } from "ag-grid-community";
 import { useState, useEffect, useMemo } from "react";
-import api from "@/lib/api";
+import api, { apiFetch } from "@/lib/api";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { toast, Toaster } from "sonner";
 import { Loader } from "@/components/admin_ui/loader";
 import { Input } from "@/components/admin_ui/input";
@@ -31,7 +32,7 @@ export default function AutomationWorkflowSchedulesPage() {
 
     const fetchData = async () => {
         try {
-            const res = await api.get("/automation-workflow-schedule/");
+            const res = await cachedApiFetch("/automation-workflow-schedule/");
             setData(res.data);
             setFilteredData(res.data);
         } catch (err) {
@@ -106,6 +107,7 @@ export default function AutomationWorkflowSchedulesPage() {
                 return;
             }
             const res = await api.post("/automation-workflow-schedule/", newRow);
+            await invalidateCache("/automation-workflow-schedule/");
             setData((prev: any) => [res.data, ...prev]);
             toast.success("Schedule created successfully");
         } catch (err: any) {
@@ -116,6 +118,7 @@ export default function AutomationWorkflowSchedulesPage() {
     const handleRowUpdated = async (row: any) => {
         try {
             await api.put(`/automation-workflow-schedule/${row.id}`, row);
+            await invalidateCache("/automation-workflow-schedule/");
             toast.success("Schedule updated");
         } catch (err) {
             toast.error("Update failed");
@@ -125,6 +128,7 @@ export default function AutomationWorkflowSchedulesPage() {
     const handleRowDeleted = async (id: any) => {
         try {
             await api.delete(`/automation-workflow-schedule/${id}`);
+            await invalidateCache("/automation-workflow-schedule/");
             setData(prev => prev.filter((item: any) => item.id !== id));
             toast.success("Schedule deleted");
         } catch (err) {

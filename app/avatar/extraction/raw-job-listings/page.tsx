@@ -8,7 +8,8 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Check, SearchIcon } from "lucide-react";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import api from "@/lib/api";
+import api, { apiFetch } from "@/lib/api";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
@@ -246,7 +247,7 @@ export default function RawJobListingsPage() {
             let hasNext = true;
 
             while (hasNext) {
-                const response = await api.get(`/raw-positions/paginated?page=${currentPage}&page_size=${pageSize}`);
+                const response = await cachedApiFetch(`/raw-positions/paginated?page=${currentPage}&page_size=${pageSize}`);
                 const { data, has_next } = response.data;
 
                 allData = [...allData, ...data];
@@ -331,6 +332,7 @@ export default function RawJobListingsPage() {
             const dataToSave = getRawJobListingPayload(updatedData);
 
             const response = await api.put(`/raw-positions/${id}`, dataToSave);
+            await invalidateCache("/raw-positions/paginated");
             const updatedRecord = response.data;
 
             setAllRawJobListings((prev) =>
@@ -355,6 +357,7 @@ export default function RawJobListingsPage() {
     const handleRowDeleted = async (id: string | number) => {
         try {
             await api.delete(`/raw-positions/${id}`);
+            await invalidateCache("/raw-positions/paginated");
             setAllRawJobListings((prev) => prev.filter((row) => row.id !== id));
             toast.success("Raw job listing deleted successfully");
         } catch (error: any) {
@@ -375,6 +378,7 @@ export default function RawJobListingsPage() {
             };
             const dataToSave = getRawJobListingPayload(dataWithDefaults);
             const response = await api.post("/raw-positions/", dataToSave);
+            await invalidateCache("/raw-positions/paginated");
             const addedRecord = response.data;
             setAllRawJobListings((prev) => [addedRecord, ...prev]);
             toast.success("Raw job listing added successfully");

@@ -8,6 +8,7 @@ import { SearchIcon } from "lucide-react";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import api from "@/lib/api";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 
 
@@ -81,7 +82,7 @@ export default function OutreachEmailRecipientsPage() {
             let hasNext = true;
 
             while (hasNext) {
-                const response = await api.get(`/outreach-email-recipients/paginated?page=${currentPage}&page_size=${pageSize}`);
+                const response = await cachedApiFetch(`/outreach-email-recipients/paginated?page=${currentPage}&page_size=${pageSize}`);
                 const { data, has_next } = response.data;
                 allData = [...allData, ...data];
                 hasNext = has_next;
@@ -124,6 +125,7 @@ export default function OutreachEmailRecipientsPage() {
             const id = updatedData.id;
             const { id: _, created_at, updated_at, email_lc, ...dataToSave } = updatedData;
             const response = await api.put(`/outreach-email-recipients/${id}`, dataToSave);
+            await invalidateCache("/outreach-email-recipients/paginated");
             const updatedRecord = response.data;
             setAllRecipients((prev) =>
                 prev.map((row) => (row.id === id ? { ...row, ...updatedRecord } : row))
@@ -138,6 +140,7 @@ export default function OutreachEmailRecipientsPage() {
     const handleRowDeleted = async (id: string | number) => {
         try {
             await api.delete(`/outreach-email-recipients/${id}`);
+            await invalidateCache("/outreach-email-recipients/paginated");
             setAllRecipients((prev) => prev.filter((row) => row.id !== id));
             toast.success("Recipient deleted successfully");
         } catch (error: any) {
@@ -149,6 +152,7 @@ export default function OutreachEmailRecipientsPage() {
     const handleRowAdded = async (newData: any) => {
         try {
             const response = await api.post("/outreach-email-recipients/", newData);
+            await invalidateCache("/outreach-email-recipients/paginated");
             const addedRecord = response.data;
             setAllRecipients((prev) => [addedRecord, ...prev]);
             toast.success("Recipient added successfully");

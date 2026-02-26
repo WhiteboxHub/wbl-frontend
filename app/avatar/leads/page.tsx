@@ -546,9 +546,21 @@ export default function LeadsPage() {
         const sortParam = sortToApply.map((s) => `${s.colId}:${s.sort}`).join(",");
         params.append("sort", sortParam);
         if (params.toString()) url += `?${params.toString()}`;
-        const data = forceRefresh ? await apiFetch(url) : await cachedApiFetch(url);
-        const leadsData = Array.isArray(data) ? data : (data?.data || []);
-        console.log('[Leads] Fetched data:', leadsData.length, 'leads');
+        const res = forceRefresh ? await apiFetch(url) : await cachedApiFetch(url);
+
+        // cachedApiFetch always wraps its response in { data: <rawApiResult> }
+        // apiFetch returns the raw API result directly
+        // The raw API result is either an array or { data: [...], total: N }
+        const rawApiResult = (res && typeof res === 'object' && 'data' in res && !Array.isArray(res))
+          ? res.data
+          : res;
+
+        const leadsData: Lead[] = Array.isArray(rawApiResult)
+          ? rawApiResult
+          : Array.isArray(rawApiResult?.data)
+            ? rawApiResult.data
+            : [];
+
         setLeads(leadsData);
       } catch (err) {
         const error = err instanceof Error ? err.message : "Failed to load leads";
@@ -564,7 +576,7 @@ export default function LeadsPage() {
 
 
   useEffect(() => {
-    console.log('[Filter] useEffect triggered. Leads count:', leads.length);
+    if (!Array.isArray(leads)) return;
     let filtered = [...leads];
 
     if (selectedStatuses.length > 0) {
@@ -594,7 +606,6 @@ export default function LeadsPage() {
       );
     }
 
-    console.log('[Filter] Filtered count:', filtered.length);
     setFilteredLeads(filtered);
     setTotalLeads(filtered.length);
   }, [leads, selectedStatuses, selectedWorkStatuses, searchTerm]);
@@ -697,6 +708,7 @@ export default function LeadsPage() {
 
         // Send update to backend
         await smartUpdate('leads', id, payload);
+        await invalidateCache(apiEndpoint);
 
         // Update local state instead of full refetch
         setLeads(prevLeads =>
@@ -726,6 +738,7 @@ export default function LeadsPage() {
     async (id: number) => {
       try {
         await apiFetch(`${apiEndpoint}/${id}`, { method: "DELETE" });
+        await invalidateCache(apiEndpoint);
         setLeads(prev => prev.filter(lead => lead.id !== id));
 
         toast.success("Lead deleted successfully");
@@ -755,7 +768,7 @@ export default function LeadsPage() {
           closed_date: !Moved ? new Date().toISOString().split("T")[0] : null,
         };
         const data = await apiFetch(url, { method, body: payload });
-        await invalidateCache(`${apiEndpoint}?sort=entry_date:desc`);
+        await invalidateCache(apiEndpoint);
 
         // Update local state
         setLeads(prevLeads =>
@@ -1044,6 +1057,7 @@ export default function LeadsPage() {
               };
 
               const createdLead = await apiFetch(apiEndpoint, { method: "POST", body: payload });
+              await invalidateCache(apiEndpoint);
 
               // Update local state instead of refetch
               setLeads(prev => [createdLead, ...prev]);

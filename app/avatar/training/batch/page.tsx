@@ -20,6 +20,7 @@ import {
 import { toast, Toaster } from "sonner";
 
 import { apiFetch } from "@/lib/api.js";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
@@ -55,15 +56,15 @@ export default function BatchPage() {
       const isIdSearch = trimmed !== "" && !isNaN(Number(trimmed));
 
       if (isIdSearch) {
-        const d = await apiFetch(`/batch/${trimmed}`);
+        const d = await cachedApiFetch(`/batch/${trimmed}`);
         const single = d && !Array.isArray(d) ? d : d?.data ?? d;
         setBatches(single ? [single] : []);
       } else if (trimmed) {
-        const d = await apiFetch(`/batch?search=${encodeURIComponent(trimmed)}`);
+        const d = await cachedApiFetch(`/batch?search=${encodeURIComponent(trimmed)}`);
         const arr = Array.isArray(d) ? d : d?.data ?? [];
         setBatches(arr);
       } else {
-        const d = await apiFetch(`/batch`);
+        const d = await cachedApiFetch(`/batch`);
         const arr = Array.isArray(d) ? d : d?.data ?? [];
         setBatches(arr);
       }
@@ -146,6 +147,7 @@ export default function BatchPage() {
   const handleRowUpdated = async (updatedRow: any) => {
     try {
       await apiFetch(`/batch/${updatedRow.batchid}`, { method: "PUT", body: updatedRow });
+      await invalidateCache("/batch");
       setBatches((prev) => prev.map((r) => (r.batchid === updatedRow.batchid ? updatedRow : r)));
       toast.success("Batch updated successfully");
     } catch (err: any) {
@@ -157,6 +159,7 @@ export default function BatchPage() {
   const handleRowDeleted = async (id: number | string) => {
     try {
       await apiFetch(`/batch/${id}`, { method: "DELETE" });
+      await invalidateCache("/batch");
       setBatches((prev) => prev.filter((row) => row.batchid !== id));
       toast.success(`Batch ${id} deleted`);
     } catch (err: any) {
@@ -173,6 +176,7 @@ export default function BatchPage() {
 
     try {
       const res = await apiFetch(`/batch`, { method: "POST", body: newBatch });
+      await invalidateCache("/batch");
       const created = res && !Array.isArray(res) ? (res.data ?? res) : res;
       setBatches((prev) => [...prev, created]);
       setIsModalOpen(false);
@@ -251,6 +255,7 @@ export default function BatchPage() {
               if (!payload.batchname) { toast.error("Batch Name is required"); return; }
 
               const res = await apiFetch(`/batch`, { method: "POST", body: payload });
+              await invalidateCache("/batch");
               const created = res && !Array.isArray(res) ? (res.data ?? res) : res;
               setBatches((prev) => [...prev, created]);
               toast.success("Batch created successfully");
