@@ -393,6 +393,59 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "false", label: "No" },
     { value: "true", label: "Yes" },
   ],
+  workflow_type: [
+    { value: "email_sender", label: "Email Sender" },
+    { value: "extractor", label: "Extractor" },
+    { value: "transformer", label: "Transformer" },
+    { value: "webhook", label: "Webhook" },
+    { value: "sync", label: "Sync" },
+  ],
+  workflow_status: [
+    { value: "active", label: "Active" },
+    { value: "draft", label: "Draft" },
+    { value: "archived", label: "Archived" },
+  ],
+  frequency: [
+    { value: "once", label: "Once" },
+    { value: "daily", label: "Daily" },
+    { value: "weekly", label: "Weekly" },
+    { value: "monthly", label: "Monthly" },
+    { value: "custom", label: "Custom" },
+  ],
+  log_status: [
+    { value: "queued", label: "Queued" },
+    { value: "running", label: "Running" },
+    { value: "success", label: "Success" },
+    { value: "failed", label: "Failed" },
+    { value: "partial_success", label: "Partial Success" },
+    { value: "timed_out", label: "Timed Out" },
+  ],
+  email_template_status: [
+    { value: "draft", label: "Draft" },
+    { value: "active", label: "Active" },
+    { value: "inactive", label: "Inactive" },
+  ],
+  delivery_engine_status: [
+    { value: "active", label: "Active" },
+    { value: "inactive", label: "Inactive" },
+    { value: "deprecated", label: "Deprecated" },
+  ],
+  delivery_engine_type: [
+    { value: "smtp", label: "SMTP" },
+    { value: "mailgun", label: "Mailgun" },
+    { value: "sendgrid", label: "Sendgrid" },
+    { value: "aws_ses", label: "AWS SES" },
+    { value: "outlook_api", label: "Outlook API" },
+  ],
+  keyword_match_type: [
+    { value: "exact", label: "Exact" },
+    { value: "contains", label: "Contains" },
+    { value: "regex", label: "Regex" },
+  ],
+  keyword_action: [
+    { value: "allow", label: "Allow" },
+    { value: "block", label: "Block" },
+  ],
 };
 
 // Vendor type options
@@ -433,6 +486,14 @@ const requiredFieldsConfig: Record<string, string[]> = {
   positions: ["Title", "Company"],
   "job listings": ["Title", "Company"],
   vendor_contact: ["Phone", "Email", "Full Name", "Linkedin ID"],
+  workflows: ["Workflow Key", "Name", "Workflow Type"],
+  "workflows scheduler": ["Workflow ID", "Frequency"],
+  "workflow logs": ["Workflow ID", "Run ID", "Status"],
+  "execution logs": ["Workflow ID", "Run ID", "Status"],
+  "email templates": ["Template Key", "Name", "Subject", "Status"],
+  "delivery engines": ["Name", "Engine Type", "From Email", "Max Retries", "Timeout (s)"],
+  "smtp credentials": ["Name", "Email", "Password", "Daily Limit", "Active"],
+  "automation keywords": ["Category", "Source", "Keywords", "Match Type", "Action"],
 };
 
 // Helper function to check if a field is required based on modal type and mode
@@ -562,6 +623,10 @@ const excludedFields = [
   "target_table",
   "target_id",
   "error_message",
+  "template",
+  "delivery_engine",
+  "workflow",
+  "schedule",
 ];
 
 // Fields that should be read-only (visible but not editable)
@@ -574,6 +639,18 @@ const readonlyFields = [
   "last_modified_datetime", "created_datetime",
   "lastmod_datetime",
   "last_modified_datetime", "created_userid", "lastmod_userid",
+  "last_mod_user_id",
+  "next_run_at",
+  "last_run_at",
+  "created_time",
+  "last_mod_time",
+];
+
+// Fields that should be read-only only during edit mode (but editable during creation)
+const editOnlyReadonlyFields = [
+  "automation_workflow_id",
+  "run_id",
+  "template_key"
 ];
 
 
@@ -609,6 +686,85 @@ const shouldShowLinkedInField = (title: string): boolean => {
 
 // Map fields to their respective sections
 const fieldSections: Record<string, string> = {
+  // Workflow Specific
+  workflow_key: "Basic Information",
+  workflow_type: "Basic Information",
+  owner_id: "Basic Information",
+  email_template_id: "Professional Information",
+  delivery_engine_id: "Professional Information",
+  credentials_list_sql: "Other",
+  recipient_list_sql: "Other",
+  parameters_config: "Other",
+  version: "Basic Information",
+
+  // Workflow Schedule
+  automation_workflow_id: "Basic Information",
+  timezone: "Basic Information",
+  cron_expression: "Professional Information",
+  frequency: "Basic Information",
+  interval_value: "Basic Information",
+  run_parameters: "Other",
+  next_run_at: "Other",
+  last_run_at: "Other",
+  enabled: "Basic Information",
+  is_running: "Other",
+
+  // Email Templates
+  template_key: "Basic Information",
+  // name maps to "Basic Information" below
+  // description maps to "Notes" below
+  // subject maps to "Basic Information" below
+  content_html: "Professional Information",
+  content_text: "Professional Information",
+  parameters: "Other",
+  // status maps to "Basic Information" below
+  // version maps to "Basic Information" below
+  created_time: "Other",
+  last_mod_time: "Other",
+
+  // Delivery Engines
+  engine_type: "Basic Information",
+  host: "Professional Information",
+  port: "Professional Information",
+  api_key: "Professional Information",
+  username: "Professional Information",
+  password: "Professional Information",
+  from_email: "Basic Information",
+  from_name: "Basic Information",
+  max_recipients_per_run: "Other",
+  rate_limit_per_minute: "Other",
+  dedupe_window_minutes: "Other",
+  retry_policy: "Other",
+  max_retries: "Other",
+  timeout_seconds: "Other",
+
+  // Email SMTP Credentials
+  daily_limit: "Other",
+  note: "Notes",
+
+  // Automation Keywords
+  category: "Basic Information",
+  // source maps to generic
+  keywords: "Professional Information",
+  match_type: "Basic Information",
+  action: "Basic Information",
+  priority: "Other",
+  context: "Notes",
+  is_active: "Basic Information",
+
+  // Workflow Logs
+  workflow_id: "Basic Information",
+  schedule_id: "Basic Information",
+  run_id: "Basic Information",
+  records_processed: "Professional Information",
+  records_failed: "Professional Information",
+  error_summary: "Professional Information",
+  started_at: "Professional Information",
+  finished_at: "Professional Information",
+  error_details: "Other",
+  parameters_used: "Other",
+  execution_metadata: "Other",
+
   candidate_full_name: "Basic Information",
   instructor1_name: "Professional Information",
   instructor2_name: "Professional Information",
@@ -669,11 +825,9 @@ const fieldSections: Record<string, string> = {
   linkedin_premium_end_date: "Professional Information",
   dob: "Basic Information",
   contact: "Basic Information",
-  password: "Professional Information",
   app_password: "Professional Information",
   secondaryemail: "Contact Information",
   ssn: "Professional Information",
-  priority: "Basic Information",
   source: "Basic Information",
   subject: "Basic Information",
   title: "Basic Information",
@@ -759,12 +913,7 @@ const fieldSections: Record<string, string> = {
   activity_count: "Professional Information",
   job_owner: "Basic Information",
   assigned_date: "Basic Information",
-  category: "Professional Information",
-  keywords: "Professional Information",
-  match_type: "Basic Information",
-  action: "Basic Information",
   is_immigration_team: "Basic Information",
-  context: "Professional Information",
   // updated_at: "Professional Information",
   job_title: "Professional Information",
   location: "Professional Information",
@@ -839,6 +988,17 @@ const labelOverrides: Record<string, string> = {
   instructor1_name: "Instructor 1 Name",
   instructor2_name: "Instructor 2 Name",
   instructor3_name: "Instructor 3 Name",
+
+  // Workflows
+  workflow_key: "Workflow Key",
+  workflow_type: "Workflow Type",
+  owner_id: "Owner ID",
+  email_template_id: "Email Template ID",
+  delivery_engine_id: "Delivery Engine ID",
+  credentials_list_sql: "Credentials List SQL",
+  recipient_list_sql: "Recipient List SQL",
+  parameters_config: "Parameters Config",
+
   id: "ID",
   subject_id: "Subject ID",
   subjectid: "Subject ID",
@@ -1148,6 +1308,7 @@ export function EditModal({
   const isPlacementFeeModal = title.toLowerCase().includes("placement fee");
   const isCommissionModal = title.toLowerCase().includes("commission");
   const isDailyContactModal = title.toLowerCase().includes("daily contact");
+  const isWorkflowModal = title.toLowerCase().includes("workflow") && !title.toLowerCase().includes("schedule") && !title.toLowerCase().includes("log");
 
   // Fields to hide ONLY when adding a new Commission record
   const commissionAddExcludedFields =
@@ -1529,6 +1690,50 @@ export function EditModal({
       }
     }
 
+    // Handle parameters_config JSON field - convert to formatted string for display
+    if (data.parameters_config !== undefined && data.parameters_config !== null) {
+      if (typeof data.parameters_config === 'object') {
+        flattened.parameters_config = JSON.stringify(data.parameters_config, null, 2);
+      } else if (typeof data.parameters_config === 'string') {
+        try {
+          const parsed = JSON.parse(data.parameters_config);
+          flattened.parameters_config = JSON.stringify(parsed, null, 2);
+        } catch {
+          flattened.parameters_config = data.parameters_config;
+        }
+      }
+    }
+
+    // Handle run_parameters JSON field for schedules
+    if (data.run_parameters !== undefined && data.run_parameters !== null) {
+      if (typeof data.run_parameters === 'object') {
+        flattened.run_parameters = JSON.stringify(data.run_parameters, null, 2);
+      } else if (typeof data.run_parameters === 'string') {
+        try {
+          const parsed = JSON.parse(data.run_parameters);
+          flattened.run_parameters = JSON.stringify(parsed, null, 2);
+        } catch {
+          flattened.run_parameters = data.run_parameters;
+        }
+      }
+    }
+
+    // Handle parameters_used and execution_metadata JSON fields for logs
+    ["parameters_used", "execution_metadata", "parameters", "retry_policy"].forEach((jsonField) => {
+      if (data[jsonField] !== undefined && data[jsonField] !== null) {
+        if (typeof data[jsonField] === 'object') {
+          flattened[jsonField] = JSON.stringify(data[jsonField], null, 2);
+        } else if (typeof data[jsonField] === 'string') {
+          try {
+            const parsed = JSON.parse(data[jsonField]);
+            flattened[jsonField] = JSON.stringify(parsed, null, 2);
+          } catch {
+            flattened[jsonField] = data[jsonField];
+          }
+        }
+      }
+    });
+
     if (data.is_immigration_team !== undefined && data.is_immigration_team !== null) {
       flattened.is_immigration_team = String(data.is_immigration_team);
     }
@@ -1598,6 +1803,9 @@ export function EditModal({
           flattenedData.target_end_date = target.toISOString().split("T")[0];
         }
       }
+      if (isAddMode && title?.toLowerCase().includes("workflow")) {
+        if (!flattenedData.status) flattenedData.status = "draft";
+      }
       setFormData(flattenedData);
       // Use setTimeout to defer reset to next tick, preventing blocking
       setTimeout(() => {
@@ -1642,6 +1850,28 @@ export function EditModal({
     // Explicitly preserve ID if it exists in the original data but not in form data
     if (data.id && !reconstructedData.id) {
       reconstructedData.id = data.id;
+    }
+
+    // Explicitly strip boilerplate fields injected by generic `addInitialData` or `flattenData` functions for Workflow modals.
+    const safeTitle = (title || "").toLowerCase();
+    const workflowModalsActive = [
+      safeTitle.includes("workflow"),
+      safeTitle.includes("execution log"),
+      safeTitle.includes("email template"),
+      safeTitle.includes("delivery engine"),
+      safeTitle.includes("smtp credential"),
+      safeTitle.includes("job automation keyword")
+    ].some(Boolean);
+
+    if (workflowModalsActive) {
+      const unwantedFields = [
+        "instructor1_id", "instructor1_name", "instructor2_id", "instructor2_name", "instructor3_id", "instructor3_name",
+        "linkedin_id", "batchid", "batch", "material_type", "rating", "communication", "github_link", "cm_course", "cm_subject",
+        "candidate_full_name", "candidate_name", "candidate_id", "employee_name", "employee_id", "job_name", "job_id",
+        "project_name", "workstatus", "sessionid", "leadid"
+      ];
+      // Iteratively scrub fields that the backend strict validation models do not recognize
+      unwantedFields.forEach(key => delete reconstructedData[key]);
     }
 
     // Convert job_name to job_id for Job Activity Log modal
@@ -1934,7 +2164,9 @@ export function EditModal({
 
     // For automation keywords, category and priority are text/number fields, not enums
     if (isAutomationKeywordModal) {
-      if (keyLower === "category" || keyLower === "priority") return undefined;
+      if (keyLower === "category" || keyLower === "priority" || keyLower === "source" || keyLower === "context") return undefined;
+      if (keyLower === "match_type") return enumOptions.keyword_match_type;
+      if (keyLower === "action") return enumOptions.keyword_action;
     }
 
     if (isJobRequestModal) {
@@ -1943,6 +2175,24 @@ export function EditModal({
     }
 
     if (keyLower === "priority") return undefined;
+
+    if (isWorkflowModal) {
+      if (keyLower === "workflow_type") return enumOptions.workflow_type;
+      if (keyLower === "status") return enumOptions.workflow_status;
+    }
+
+    if (title.toLowerCase().includes("workflow log") || title.toLowerCase().includes("execution log")) {
+      if (keyLower === "status") return enumOptions.log_status;
+    }
+
+    if (title.toLowerCase().includes("email template")) {
+      if (keyLower === "status") return enumOptions.email_template_status;
+    }
+
+    if (title.toLowerCase().includes("delivery engine")) {
+      if (keyLower === "status") return enumOptions.delivery_engine_status;
+      if (keyLower === "engine_type") return enumOptions.delivery_engine_type;
+    }
 
     // Generic Boolean Dropdown Support
     if (keyLower.endsWith("_flag") || keyLower.startsWith("is_") || keyLower === "moved_to_candidate") {
@@ -3742,7 +3992,25 @@ export function EditModal({
                               );
                             }
 
-                            if (key.toLowerCase() === "description") {
+                            const isTextareaField = [
+                              "description",
+                              "parameters_config",
+                              "credentials_list_sql",
+                              "recipient_list_sql",
+                              "run_parameters",
+                              "error_details",
+                              "parameters_used",
+                              "execution_metadata",
+                              "content_html",
+                              "content_text",
+                              "parameters",
+                              "retry_policy",
+                              "note",
+                              "keywords",
+                              "context"
+                            ].includes(key.toLowerCase());
+
+                            if (isTextareaField) {
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5 col-span-full">
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
@@ -3901,8 +4169,8 @@ export function EditModal({
                                       : false,
                                   })}
                                   defaultValue={formData[key] || ""}
-                                  readOnly={readonlyFields.includes(key) || (isCommissionModal && !isAddMode && (key === "candidate_name" || key === "company_name"))}
-                                  className={`w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm ${(readonlyFields.includes(key) || (isCommissionModal && !isAddMode && (key === "candidate_name" || key === "company_name"))) ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : ''}`}
+                                  readOnly={readonlyFields.includes(key) || (!isAddMode && editOnlyReadonlyFields.includes(key)) || (isCommissionModal && !isAddMode && (key === "candidate_name" || key === "company_name"))}
+                                  className={`w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm ${(readonlyFields.includes(key) || (!isAddMode && editOnlyReadonlyFields.includes(key)) || (isCommissionModal && !isAddMode && (key === "candidate_name" || key === "company_name"))) ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : ''}`}
                                 />
                               </div>
                             );

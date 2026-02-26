@@ -118,20 +118,18 @@ export default function EmailSmtpCredentialsPage() {
             if (!payload.app_password) delete payload.app_password;
             if (!payload.note) delete payload.note;
 
-            const res = await api.post("/email-smtp-credentials", payload);
+            await api.post("/email-smtp-credentials", payload);
             await invalidateCache("/email-smtp-credentials");
-            const savedRow = { ...res.data, password: "", app_password: "" };
-            setData((prev: any) => [savedRow, ...prev]);
+            await fetchData();
             toast.success("Credential added successfully");
         } catch (err: any) {
             toast.error(err.response?.data?.detail || "Failed to add credential");
         }
-    };
+};
 
     const handleRowUpdated = async (row: any) => {
         try {
             const payload = { ...row };
-            // Only send passwords if they are not empty (meaning user changed them)
             if (!payload.password) delete payload.password;
             if (!payload.app_password) delete payload.app_password;
 
@@ -140,11 +138,9 @@ export default function EmailSmtpCredentialsPage() {
             delete payload.created_at;
             delete payload.updated_at;
 
-            const res = await api.put(`/email-smtp-credentials/${row.id}`, payload);
+            await api.put(`/email-smtp-credentials/${row.id}`, payload);
             await invalidateCache("/email-smtp-credentials");
-            // Update local state with response, resetting password fields
-            const updatedRow = { ...res.data, password: "", app_password: "" };
-            setData(prev => prev.map((item: any) => item.id === row.id ? updatedRow : item));
+            await fetchData();
 
             toast.success("Credential updated successfully");
         } catch (err: any) {
@@ -157,13 +153,12 @@ export default function EmailSmtpCredentialsPage() {
         try {
             await api.delete(`/email-smtp-credentials/${id}`);
             await invalidateCache("/email-smtp-credentials");
-            setData(prev => prev.filter((item: any) => item.id !== id));
+            await fetchData();
             toast.success("Credential deleted");
         } catch (err) {
             toast.error("Delete failed");
         }
     };
-
     if (loading) return <Loader />;
 
     return (
