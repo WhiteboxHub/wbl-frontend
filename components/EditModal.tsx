@@ -299,6 +299,11 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "yes", label: "Yes" },
   ],
 
+  payment_status: [
+    { value: "Pending", label: "Pending" },
+    { value: "Paid", label: "Paid" },
+  ],
+
   no_of_installments: [
     { value: "", label: "Select Installments" },
     { value: "1", label: "1" },
@@ -796,7 +801,7 @@ const fieldSections: Record<string, string> = {
   raw_contact_info: "Contact Information",
   raw_zip: "Contact Information",
   raw_description: "Notes",
-  raw_payload: "Raw Payload",
+  raw_payload: "Notes",
   raw_notes: "Notes",
   candidate_id: "Basic Information",
   // Outreach Email Recipient fields
@@ -821,6 +826,11 @@ const fieldSections: Record<string, string> = {
   target_id: "Other",
   error_message: "Other",
   processed_at: "Other",
+  placement_commission_id: "Basic Information",
+  installment_no: "Professional Information",
+  installment_amount: "Professional Information",
+  payment_status: "Professional Information",
+  scheduled_date: "Professional Information",
 };
 
 // Override field labels for better readability
@@ -1017,6 +1027,7 @@ const labelOverrides: Record<string, string> = {
   classification: "Classification",
   target_table: "Target Table",
   target_id: "Target ID",
+  lastmod_user_id: "Last Modified By"
 };
 
 const dateFields = [
@@ -1135,7 +1146,15 @@ export function EditModal({
   const isJobDefinitionModal = title.toLowerCase().includes("job definition");
   const isJobRequestModal = title.toLowerCase().includes("job request");
   const isPlacementFeeModal = title.toLowerCase().includes("placement fee");
+  const isCommissionModal = title.toLowerCase().includes("commission");
   const isDailyContactModal = title.toLowerCase().includes("daily contact");
+
+  // Fields to hide ONLY when adding a new Commission record
+  const commissionAddExcludedFields =
+    isCommissionModal && isAddMode
+      ? ["candidate_name", "company_name", "lastmod_user_id", "lastmod_datetime", "scheduler_entries"]
+      : [];
+
 
   // Field visibility for current modal
   const showInstructorFields =
@@ -1785,6 +1804,14 @@ export function EditModal({
       if (values.interviewer_linkedin && !reconstructedData.interviewer_linkedin) reconstructedData.interviewer_linkedin = values.interviewer_linkedin;
     }
 
+    if (reconstructedData.raw_payload && typeof reconstructedData.raw_payload === 'string') {
+      try {
+        reconstructedData.raw_payload = JSON.parse(reconstructedData.raw_payload);
+      } catch (e) {
+        console.error("Failed to parse raw_payload back to JSON:", e);
+      }
+    }
+
     // console.log("DEBUG: EditModal onSubmit reconstructedData before save:", reconstructedData);
     onSave(reconstructedData);
   };
@@ -1818,7 +1845,7 @@ export function EditModal({
       return enumOptions.workstatus;
     }
 
-    if (isPositionsModal && keyLower === "status")  {
+    if (isPositionsModal && keyLower === "status") {
       return enumOptions.position_status;
     }
 
@@ -1925,6 +1952,11 @@ export function EditModal({
       ];
     }
 
+    // payment_status dropdown (commission scheduler)
+    if (keyLower === "payment_status") {
+      return enumOptions.payment_status;
+    }
+
     return enumOptions[keyLower];
   };
 
@@ -1980,6 +2012,15 @@ export function EditModal({
 
     // Hide company_name and candidate_name in add mode for placement fee modals
     if (isPlacementFeeModal && isAddMode && (key === "company_name" || key === "candidate_name")) {
+      return;
+    }
+
+    // Hide read-only/computed fields in add mode for commission modals
+    // scheduler_entries is always hidden (add AND edit mode)
+    if (isCommissionModal && key === "scheduler_entries") {
+      return;
+    }
+    if (isCommissionModal && isAddMode && commissionAddExcludedFields.includes(key)) {
       return;
     }
 
@@ -3860,8 +3901,8 @@ export function EditModal({
                                       : false,
                                   })}
                                   defaultValue={formData[key] || ""}
-                                  readOnly={readonlyFields.includes(key)}
-                                  className={`w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm ${readonlyFields.includes(key) ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : ''}`}
+                                  readOnly={readonlyFields.includes(key) || (isCommissionModal && !isAddMode && (key === "candidate_name" || key === "company_name"))}
+                                  className={`w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm ${(readonlyFields.includes(key) || (isCommissionModal && !isAddMode && (key === "candidate_name" || key === "company_name"))) ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : ''}`}
                                 />
                               </div>
                             );
@@ -3929,16 +3970,16 @@ export function EditModal({
                                 </button>
                               )}
                             </div>
-                            {isJobTypeModal || isJobActivityLogModal ? (
+                            {isJobTypeModal || isJobActivityLogModal || key === 'raw_payload' ? (
                               <textarea
                                 {...register(key)}
                                 defaultValue={currentFormValues[key] ?? formData[key] ?? ""}
-                                rows={4}
-                                className="w-full resize-none rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                                placeholder={`Enter ${toLabel(key).toLowerCase()}...`}
+                                rows={key === 'raw_payload' ? 10 : 4}
+                                className={`w-full ${key === 'raw_payload' ? 'font-mono text-[11px]' : 'resize-none'} rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm`}
+                                placeholder={key === 'raw_payload' ? 'Enter JSON payload...' : `Enter ${toLabel(key).toLowerCase()}...`}
                                 onChange={(e) => {
                                   setValue(key, e.target.value);
-                                  setFormData((prev) => ({
+                                  setFormData((prev: any) => ({
                                     ...prev,
                                     [key]: e.target.value,
                                   }));

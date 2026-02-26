@@ -322,7 +322,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
 
             <div className="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
 
-            <Link href="/avatar">
+            <Link href="/avatar/analytics">
               <h1 className="cursor-pointer bg-gradient-to-r from-purple-600 via-purple-500 to-violet-600 bg-clip-text text-3xl font-semibold tracking-wide text-transparent">
                 Avatar
               </h1>
