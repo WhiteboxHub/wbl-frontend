@@ -445,7 +445,24 @@ export default function RawJobListingsPage() {
             { field: "raw_zip", headerName: "Zip", width: 100, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "raw_contact_info", headerName: "Contact Info", width: 200, sortable: true, filter: "agTextColumnFilter", editable: true },
             // { field: "raw_description", headerName: "Description", width: 300, sortable: true, filter: "agTextColumnFilter", editable: true },
-            { field: "raw_payload", headerName: "Payload", width: 200, sortable: true, filter: "agTextColumnFilter", editable: true },
+            {
+                field: "raw_payload",
+                headerName: "Payload",
+                width: 200,
+                sortable: true,
+                filter: "agTextColumnFilter",
+                editable: true,
+                valueFormatter: (params) => {
+                    if (params.value && typeof params.value === 'object') {
+                        try {
+                            return JSON.stringify(params.value);
+                        } catch (e) {
+                            return String(params.value);
+                        }
+                    }
+                    return params.value;
+                }
+            },
             { field: "extractor_version", headerName: "Extractor Version", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "error_message", headerName: "Error Message", width: 250, sortable: true, filter: "agTextColumnFilter", editable: true },
             {

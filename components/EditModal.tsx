@@ -801,7 +801,7 @@ const fieldSections: Record<string, string> = {
   raw_contact_info: "Contact Information",
   raw_zip: "Contact Information",
   raw_description: "Notes",
-  raw_payload: "Raw Payload",
+  raw_payload: "Notes",
   raw_notes: "Notes",
   candidate_id: "Basic Information",
   // Outreach Email Recipient fields
@@ -1027,7 +1027,7 @@ const labelOverrides: Record<string, string> = {
   classification: "Classification",
   target_table: "Target Table",
   target_id: "Target ID",
-  lastmod_user_id:"Last Modified By"
+  lastmod_user_id: "Last Modified By"
 };
 
 const dateFields = [
@@ -1802,6 +1802,14 @@ export function EditModal({
       if (values.interviewer_emails && !reconstructedData.interviewer_emails) reconstructedData.interviewer_emails = values.interviewer_emails;
       if (values.interviewer_contact && !reconstructedData.interviewer_contact) reconstructedData.interviewer_contact = values.interviewer_contact;
       if (values.interviewer_linkedin && !reconstructedData.interviewer_linkedin) reconstructedData.interviewer_linkedin = values.interviewer_linkedin;
+    }
+
+    if (reconstructedData.raw_payload && typeof reconstructedData.raw_payload === 'string') {
+      try {
+        reconstructedData.raw_payload = JSON.parse(reconstructedData.raw_payload);
+      } catch (e) {
+        console.error("Failed to parse raw_payload back to JSON:", e);
+      }
     }
 
     // console.log("DEBUG: EditModal onSubmit reconstructedData before save:", reconstructedData);
@@ -3962,16 +3970,16 @@ export function EditModal({
                                 </button>
                               )}
                             </div>
-                            {isJobTypeModal || isJobActivityLogModal ? (
+                            {isJobTypeModal || isJobActivityLogModal || key === 'raw_payload' ? (
                               <textarea
                                 {...register(key)}
                                 defaultValue={currentFormValues[key] ?? formData[key] ?? ""}
-                                rows={4}
-                                className="w-full resize-none rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
-                                placeholder={`Enter ${toLabel(key).toLowerCase()}...`}
+                                rows={key === 'raw_payload' ? 10 : 4}
+                                className={`w-full ${key === 'raw_payload' ? 'font-mono text-[11px]' : 'resize-none'} rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm`}
+                                placeholder={key === 'raw_payload' ? 'Enter JSON payload...' : `Enter ${toLabel(key).toLowerCase()}...`}
                                 onChange={(e) => {
                                   setValue(key, e.target.value);
-                                  setFormData((prev) => ({
+                                  setFormData((prev: any) => ({
                                     ...prev,
                                     [key]: e.target.value,
                                   }));
