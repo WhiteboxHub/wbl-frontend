@@ -68,7 +68,7 @@ export default function JobAutomationKeywordsPage() {
             setError("");
 
             const res = await cachedApiFetch("/api/job-automation-keywords");
-            const data = res?.keywords || [];
+            const data = res?.data?.keywords || res?.keywords || [];
             const sorted = data.slice().sort((a: any, b: any) => a.priority - b.priority || b.id - a.id);
 
             setKeywords(sorted);
