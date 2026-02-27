@@ -8,6 +8,7 @@ import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { apiFetch } from "@/lib/api.js";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
@@ -58,7 +59,7 @@ export default function CoursePage() {
     try {
       setLoading(true);
       setError("");
-      const res = await apiFetch("/courses");
+      const res = await cachedApiFetch("/courses");
       const arr = Array.isArray(res) ? res : res?.data ?? [];
       const sortedCourses = (arr || []).slice().sort((a: any, b: any) => b.id - a.id);
       setCourses(sortedCourses);
@@ -102,6 +103,7 @@ export default function CoursePage() {
         method: "PUT",
         body: updatedRow,
       });
+      await invalidateCache("/courses");
 
       const updated = courses
         .map((c) => (c.id === updatedRow.id ? updatedRow : c))
@@ -121,6 +123,7 @@ export default function CoursePage() {
   const handleRowDeleted = async (id: number) => {
     try {
       await apiFetch(`/courses/${id}`, { method: "DELETE" });
+      await invalidateCache("/courses");
       const updated = courses.filter((c) => c.id !== id);
       setCourses(updated);
       setFilteredCourses(updated);
@@ -175,6 +178,7 @@ export default function CoursePage() {
             };
             if (!payload.name) { toast.error("Name is required"); return; }
             const res = await apiFetch("/courses", { method: "POST", body: payload });
+            await invalidateCache("/courses");
             const created = Array.isArray(res) ? res : (res?.data ?? res);
             const updated = [created, ...courses].slice().sort((a: any, b: any) => b.id - a.id);
             setCourses(updated);

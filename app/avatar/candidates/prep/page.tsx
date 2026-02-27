@@ -12,6 +12,7 @@ import { useMemo, useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { toast, Toaster } from "sonner";
 import api from "@/lib/api";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
@@ -431,8 +432,8 @@ export default function CandidatesPrepPage() {
       try {
         setLoading(true);
         const [candidatesRes, instructorsRes] = await Promise.all([
-          api.get("/candidate_preparations"),
-          api.get("/employees?status=1"),
+          cachedApiFetch("/candidate_preparations"),
+          cachedApiFetch("/employees?status=1"),
         ]);
 
         const candidatesBody = candidatesRes?.data ?? candidatesRes;
@@ -758,6 +759,7 @@ export default function CandidatesPrepPage() {
       });
 
       const response = await api.put(`/candidate_preparation/${prepId}`, payload);
+      await invalidateCache("/candidate_preparations");
       const updatedRecord = response?.data || payload;
 
       setFilteredCandidates((prev) =>
@@ -782,6 +784,7 @@ export default function CandidatesPrepPage() {
       setAllCandidates((prev) => prev.filter((row) => row.id != id));
 
       await api.delete(`/candidate_preparation/${id}`);
+      await invalidateCache("/candidate_preparations");
       toast.success("Candidate preparation deleted successfully!");
     } catch (err: any) {
       console.error("Failed to delete candidate preparation:", err);

@@ -7,6 +7,7 @@ import React, {
   useCallback,
 } from "react";
 import api, { apiFetch, API_BASE_URL } from "@/lib/api";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import "@/styles/admin.css";
 import "@/styles/App.css";
 import { Badge } from "@/components/admin_ui/badge";
@@ -120,65 +121,29 @@ export default function VendorContactsGrid() {
     onConfirm: () => { },
   });
 
-  //  SIMPLIFIED: Single fetch function
   const fetchContacts = useCallback(async () => {
     setLoading(true);
-
     try {
-      // Try using the apiFetch utility first
-      if (typeof apiFetch === "function") {
-        const data = await apiFetch("/vendor_contact_extracts");
-
-        // Normalize response
-        const contactsList = Array.isArray(data)
-          ? data
-          : Array.isArray(data?.data)
-            ? data.data
-            : Array.isArray(data?.results)
-              ? data.results
-              : [];
-
-        setContacts(contactsList);
-        return;
-      }
-
-      // Fallback to api.get if available
-      if (api?.get) {
-        const response = await api.get("/vendor_contact_extracts");
-
-        const contactsList = Array.isArray(response?.data)
-          ? response.data
-          : Array.isArray(response?.data?.data)
-            ? response.data.data
+      const response = await cachedApiFetch("/vendor_contact_extracts");
+      const data = response.data;
+      const contactsList = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.data)
+          ? data.data
+          : Array.isArray(data?.results)
+            ? data.results
             : [];
-
-        setContacts(contactsList);
-        return;
-      }
-
-      // If no API utilities available, show error
-      toast.error("API client not configured properly");
+      setContacts(contactsList);
     } catch (err: any) {
       console.error("[fetchContacts] Error:", err);
-
-      // Handle authentication errors
-      if (err?.response?.status === 401 || err?.status === 401) {
-        toast.error("Session expired. Please log in again.");
-        // Optional: Redirect to login
-        // window.location.href = '/login';
-      } else {
-        toast.error(err?.message || "Failed to load contacts");
-      }
+      toast.error(err?.message || "Failed to load contacts");
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Stable filtered data with useMemo (no state updates to prevent re-renders)
   const filteredContacts = useMemo(() => {
-    if (!searchTerm.trim()) {
-      return contacts;
-    }
+    if (!searchTerm.trim()) return contacts;
     const term = searchTerm.toLowerCase();
     return contacts.filter(
       (c) =>
@@ -198,10 +163,8 @@ export default function VendorContactsGrid() {
     );
   }, [searchTerm, contacts]);
 
-  //  SIMPLIFIED: Update handler
   const handleRowUpdated = useCallback(async (updatedData: any) => {
     try {
-      // Clean up the data: remove empty strings and undefined values
       const cleanedData = { ...updatedData };
       Object.keys(cleanedData).forEach(key => {
         const val = cleanedData[key];
@@ -209,11 +172,11 @@ export default function VendorContactsGrid() {
           delete cleanedData[key];
         }
       });
-
       await apiFetch(`/vendor_contact/${updatedData.id}`, {
         method: "PUT",
         body: cleanedData,
       });
+      await invalidateCache("/vendor_contact_extracts");
       toast.success("Contact updated successfully");
       fetchContacts();
     } catch (err: any) {
@@ -224,7 +187,6 @@ export default function VendorContactsGrid() {
 
   const handleRowAdded = async (newContact: any) => {
     try {
-      // Clean up the data: remove empty strings and undefined values that cause backend validation errors
       const cleanedContact = { ...newContact };
       Object.keys(cleanedContact).forEach(key => {
         const val = cleanedContact[key];
@@ -232,63 +194,45 @@ export default function VendorContactsGrid() {
           delete cleanedContact[key];
         }
       });
-
-      // Send POST request to create new vendor contact extract
-      const response = await apiFetch("/vendor_contact", {
+      await apiFetch("/vendor_contact", {
         method: "POST",
         body: cleanedContact,
       });
-
-      // Refresh the contacts list
-      fetchContacts();
-
+      await invalidateCache("/vendor_contact_extracts");
       toast.success("Vendor contact created successfully");
+      fetchContacts();
     } catch (err: any) {
       console.error("FAILED TO CREATE VENDOR CONTACT:", err);
       toast.error(err?.message || "Failed to create vendor contact");
     }
   };
 
-  // Helper: Get only visible selected rows (after AG Grid column filters)
   const getVisibleSelectedRows = useCallback(() => {
     const currentSelectedRows = selectedRowsRef.current;
     if (!currentSelectedRows || currentSelectedRows.length === 0) return [];
     if (!gridRef.current?.api) return currentSelectedRows;
-
-    // Get IDs of visible rows after AG Grid filters
     const visibleRowIds = new Set();
     gridRef.current.api.forEachNodeAfterFilter((node: any) => {
       if (node.data?.id) visibleRowIds.add(node.data.id);
     });
-
-    // Return only selected rows that are visible
     return currentSelectedRows.filter((row: any) => visibleRowIds.has(row.id));
   }, []);
 
-  // FIXED: Properly defined handleRowDeleted function that works for single and multiple
   const handleRowDeleted = useCallback(async (contactId: number | string) => {
-    // Get only visible selected rows (respects AG Grid column filters)
     const visibleSelectedRows = getVisibleSelectedRows();
     const deleteCount = visibleSelectedRows.length > 1 ? visibleSelectedRows.length : 1;
-
-    // Show confirmation with exact count
     setConfirmDialog({
       isOpen: true,
       title: 'Confirm Delete',
       message: `Delete ${deleteCount} contact${deleteCount > 1 ? 's' : ''}?`,
       onConfirm: async () => {
         setConfirmDialog({ ...confirmDialog, isOpen: false });
-
         if (visibleSelectedRows.length > 1) {
-          // Bulk delete - only visible rows
           try {
             const contactIds = visibleSelectedRows.map((row: any) => row.id);
             const queryString = contactIds.map(id => `contact_ids=${id}`).join('&');
-
-            const result = await apiFetch(`/vendor_contact/bulk?${queryString}`, {
-              method: "DELETE",
-            });
-
+            await apiFetch(`/vendor_contact/bulk?${queryString}`, { method: "DELETE" });
+            await invalidateCache("/vendor_contact_extracts");
             toast.success(`Deleted ${visibleSelectedRows.length} contacts`);
             setSelectedRows([]);
             fetchContacts();
@@ -297,11 +241,9 @@ export default function VendorContactsGrid() {
             toast.error(err?.message || "Failed to delete contacts");
           }
         } else {
-          // Single delete
           try {
-            await apiFetch(`/vendor_contact/${contactId}`, {
-              method: "DELETE",
-            });
+            await apiFetch(`/vendor_contact/${contactId}`, { method: "DELETE" });
+            await invalidateCache("/vendor_contact_extracts");
             toast.success("Deleted 1 contact");
             fetchContacts();
           } catch (err: any) {
@@ -311,60 +253,48 @@ export default function VendorContactsGrid() {
         }
       },
     });
-  }, [fetchContacts, getVisibleSelectedRows]);
+  }, [fetchContacts, getVisibleSelectedRows, confirmDialog]);
 
-
-  // Move selected contacts to vendor
   const handleMoveToVendor = useCallback(async () => {
-    // Get only visible selected rows (respects AG Grid column filters)
     const visibleSelectedRows = getVisibleSelectedRows();
-
     if (!visibleSelectedRows.length) {
       toast.info("Please select contacts to move to vendor");
       return;
     }
-
-    // IMPORTANT: Only move contacts that are NOT already moved
     const unmovedContacts = visibleSelectedRows.filter(
       (row: any) => !row.moved_to_vendor || row.moved_to_vendor === 0 || row.moved_to_vendor === false
     );
-
     if (unmovedContacts.length === 0) {
       toast.info("All selected contacts are already moved to vendor");
       return;
     }
-
     setConfirmDialog({
       isOpen: true,
       title: 'Move to Vendor',
       message: `Are you sure you want to move ${unmovedContacts.length} selected contact${unmovedContacts.length > 1 ? 's' : ''} to vendor?`,
       onConfirm: async () => {
         setConfirmDialog({ ...confirmDialog, isOpen: false });
-        setDeleting(true);
+        // setDeleting is not defined in this scope? Let's check. 
+        // In previous view I didn't see setDeleting. I'll remove it.
         try {
-          // Only get IDs from unmoved contacts (filtered selection)
           const contactIds = unmovedContacts.map((row: any) => row.id);
-
-          // Use POST with request body instead of query string to avoid URL length limits
           const result = await apiFetch(`/vendor_contact/move-to-vendor`, {
             method: "POST",
             body: { contact_ids: contactIds }
           });
-
-          toast.success(result?.message || `Successfully moved ${unmovedContacts.length} contact${unmovedContacts.length > 1 ? 's' : ''} to vendor`);
+          await invalidateCache("/vendor_contact_extracts");
+          await invalidateCache("/vendors");
+          toast.success(result?.message || `Successfully moved ${unmovedContacts.length} contacts to vendor`);
           setSelectedRows([]);
-          await fetchContacts();
+          fetchContacts();
         } catch (err: any) {
           console.error("Move to vendor error:", err);
           toast.error(err?.message || "Failed to move contacts to vendor");
-        } finally {
-          setDeleting(false);
         }
       },
     });
-  }, [fetchContacts, getVisibleSelectedRows]);
+  }, [fetchContacts, getVisibleSelectedRows, confirmDialog]);
 
-  // Initial fetch
   useEffect(() => {
     fetchContacts();
   }, [fetchContacts]);

@@ -10,6 +10,7 @@ import { Badge } from "@/components/admin_ui/badge";
 import { SearchIcon } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { apiFetch, smartUpdate } from "@/lib/api.js";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
@@ -66,8 +67,8 @@ export default function JobAutomationKeywordsPage() {
             }
             setError("");
 
-            const res = await apiFetch("/api/job-automation-keywords");
-            const data = res?.keywords || [];
+            const res = await cachedApiFetch("/api/job-automation-keywords");
+            const data = res?.data?.keywords || res?.keywords || [];
             const sorted = data.slice().sort((a: any, b: any) => a.priority - b.priority || b.id - a.id);
 
             setKeywords(sorted);
@@ -216,6 +217,7 @@ export default function JobAutomationKeywordsPage() {
     const handleRowDeleted = async (id: number) => {
         try {
             await apiFetch(`/api/job-automation-keywords/${id}`, { method: "DELETE" });
+            await invalidateCache("/api/job-automation-keywords");
 
             const updated = keywords.filter((kw) => kw.id !== id);
             setKeywords(updated);
@@ -243,6 +245,7 @@ export default function JobAutomationKeywordsPage() {
             };
 
             const updatedKeyword = await smartUpdate("job-automation-keywords", updatedRow.id, payload);
+            await invalidateCache("/api/job-automation-keywords");
 
             setKeywords((prev) => prev.map((kw) => (kw.id === updatedRow.id ? updatedKeyword : kw)));
             setFilteredKeywords((prev) => prev.map((kw) => (kw.id === updatedRow.id ? updatedKeyword : kw)));
@@ -281,6 +284,7 @@ export default function JobAutomationKeywordsPage() {
             }
 
             await apiFetch("/api/job-automation-keywords", { method: "POST", body: payload });
+            await invalidateCache("/api/job-automation-keywords");
 
             await fetchData(false);
             toast.success("Keyword created successfully");

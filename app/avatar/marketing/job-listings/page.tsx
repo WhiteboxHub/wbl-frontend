@@ -8,7 +8,8 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Check, Filter, X, SearchIcon, Linkedin } from "lucide-react";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import api from "@/lib/api";
+import api, { apiFetch } from "@/lib/api";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
@@ -314,7 +315,7 @@ export default function JobListingsPage() {
             let hasNext = true;
 
             while (hasNext) {
-                const response = await api.get(`/positions/paginated?page=${currentPage}&page_size=${pageSize}`);
+                const response = await cachedApiFetch(`/positions/paginated?page=${currentPage}&page_size=${pageSize}`);
                 const { data, has_next } = response.data;
 
                 allData = [...allData, ...data];
@@ -428,6 +429,7 @@ export default function JobListingsPage() {
             const dataToSave = getJobListingPayload(updatedData);
 
             const response = await api.put(`/positions/${id}`, dataToSave);
+            await invalidateCache("/positions/paginated");
             const updatedRecord = response.data;
 
             setAllJobListings((prev) =>
@@ -452,6 +454,7 @@ export default function JobListingsPage() {
     const handleRowDeleted = async (id: string | number) => {
         try {
             await api.delete(`/positions/${id}`);
+            await invalidateCache("/positions/paginated");
             setAllJobListings((prev) => prev.filter((row) => row.id !== id));
             toast.success("Job listing deleted successfully");
         } catch (error: any) {
@@ -474,6 +477,7 @@ export default function JobListingsPage() {
             };
             const dataToSave = getJobListingPayload(dataWithDefaults);
             const response = await api.post("/positions/", dataToSave);
+            await invalidateCache("/positions/paginated");
             const addedRecord = response.data;
             setAllJobListings((prev) => [addedRecord, ...prev]);
             toast.success("Job listing added successfully");

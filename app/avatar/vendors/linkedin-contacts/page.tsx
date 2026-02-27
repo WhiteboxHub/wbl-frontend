@@ -7,6 +7,7 @@ import { SearchIcon } from "lucide-react";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import api from "@/lib/api";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { formatLinkedInUrl } from "@/lib/utils";
 
@@ -43,7 +44,7 @@ export default function LinkedinOnlyContactsPage() {
 
             // Using paginated endpoint logic from backend routing
             while (hasNext) {
-                const response = await api.get(`/linkedin-only-contacts/paginated?page=${currentPage}&page_size=${pageSize}`);
+                const response = await cachedApiFetch(`/linkedin-only-contacts/paginated?page=${currentPage}&page_size=${pageSize}`);
                 const { data, has_next } = response.data;
                 allData = [...allData, ...data];
                 hasNext = has_next;
@@ -87,6 +88,7 @@ export default function LinkedinOnlyContactsPage() {
             const { id: _, created_datetime, created_userid, lastmod_datetime, lastmod_userid, ...dataToSave } = updatedData;
 
             const response = await api.put(`/linkedin-only-contacts/${id}`, dataToSave);
+            await invalidateCache("/linkedin-only-contacts/paginated");
             const updatedRecord = response.data;
             setAllContacts((prev) =>
                 prev.map((row) => (row.id === id ? { ...row, ...updatedRecord } : row))
@@ -102,6 +104,7 @@ export default function LinkedinOnlyContactsPage() {
     const handleRowDeleted = async (id: string | number) => {
         try {
             await api.delete(`/linkedin-only-contacts/${id}`);
+            await invalidateCache("/linkedin-only-contacts/paginated");
             setAllContacts((prev) => prev.filter((row) => row.id !== id));
             toast.success("Contact deleted successfully");
         } catch (error: any) {
@@ -113,6 +116,7 @@ export default function LinkedinOnlyContactsPage() {
     const handleRowAdded = async (newData: any) => {
         try {
             const response = await api.post("/linkedin-only-contacts/", newData);
+            await invalidateCache("/linkedin-only-contacts/paginated");
             const addedRecord = response.data;
             setAllContacts((prev) => [addedRecord, ...prev]);
             toast.success("Contact added successfully");

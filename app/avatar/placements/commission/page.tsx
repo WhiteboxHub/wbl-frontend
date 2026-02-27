@@ -8,6 +8,7 @@ import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { apiFetch } from "@/lib/api.js";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
@@ -88,7 +89,7 @@ export default function CommissionPage() {
         try {
             setLoading(true);
             setError("");
-            const res = await apiFetch("/placement-commission");
+            const res = await cachedApiFetch("/placement-commission");
             const arr = Array.isArray(res) ? res : res?.data ?? [];
             const sorted = (arr || []).slice().sort((a: any, b: any) => b.id - a.id);
             setCommissions(sorted);
@@ -130,6 +131,7 @@ export default function CommissionPage() {
                 method: "PUT",
                 body: { amount: updatedRow.amount, employee_id: updatedRow.employee_id },
             });
+            await invalidateCache("/placement-commission");
 
             const updated = commissions
                 .map((c) => (c.id === updatedRow.id ? updatedRow : c))
@@ -149,6 +151,7 @@ export default function CommissionPage() {
     const handleRowDeleted = async (id: number) => {
         try {
             await apiFetch(`/placement-commission/${id}`, { method: "DELETE" });
+            await invalidateCache("/placement-commission");
             const updated = commissions.filter((c) => c.id !== id);
             setCommissions(updated);
             setFilteredCommissions(updated);
@@ -207,6 +210,7 @@ export default function CommissionPage() {
                             method: "POST",
                             body: payload,
                         });
+                        await invalidateCache("/placement-commission");
                         const created = Array.isArray(res) ? res : (res?.data ?? res);
                         const updated = [created, ...commissions]
                             .slice()

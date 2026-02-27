@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { AGGridTable } from "@/components/AGGridTable";
 import { AgGridReact } from "ag-grid-react";
 import { apiFetch, smartUpdate } from "@/lib/api";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
@@ -76,7 +77,8 @@ export default function PotentialLeadsPage() {
             if (search) {
                 url += `?search=${encodeURIComponent(search)}&search_by=all`;
             }
-            const data = await apiFetch(url);
+            const res = await cachedApiFetch(url);
+            const data = res.data;
             const leadsData = Array.isArray(data) ? data : (data?.data || []);
             setLeads(leadsData);
         } catch (err) {
@@ -114,6 +116,7 @@ export default function PotentialLeadsPage() {
         try {
             const { id, lastmoddatetime, entry_date, ...payload } = updatedRow;
             await smartUpdate("potential-leads", id, payload);
+            await invalidateCache(apiEndpoint);
             setLeads((prev) =>
                 prev.map((l) => (l.id === id ? { ...l, ...payload } : l))
             );
@@ -127,6 +130,7 @@ export default function PotentialLeadsPage() {
     const handleRowDeleted = useCallback(async (id: number) => {
         try {
             await apiFetch(`${apiEndpoint}/${id}`, { method: "DELETE" });
+            await invalidateCache(apiEndpoint);
             setLeads((prev) => prev.filter((l) => l.id !== id));
             toast.success("Lead deleted successfully");
         } catch (error) {
@@ -250,6 +254,7 @@ export default function PotentialLeadsPage() {
                     onRowAdded={async (newRow) => {
                         try {
                             const res = await apiFetch(apiEndpoint, { method: "POST", body: newRow });
+                            await invalidateCache(apiEndpoint);
                             setLeads((prev) => [res, ...prev]);
                             toast.success("Lead added successfully");
                         } catch (err) {

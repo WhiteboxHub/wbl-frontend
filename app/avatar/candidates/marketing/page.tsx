@@ -13,6 +13,7 @@ import axios from "axios";
 import { createPortal } from "react-dom";
 import { toast, Toaster } from "sonner";
 import api, { smartUpdate } from "@/lib/api";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { format } from "date-fns";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Loader } from "@/components/admin_ui/loader";
@@ -450,7 +451,7 @@ export default function CandidatesMarketingPage() {
   const fetchCandidates = async () => {
     try {
       setLoading(true);
-      const res = await api.get(`/candidate/marketing?page=1&limit=100`);
+      const res = await cachedApiFetch("/candidate/marketing?page=1&limit=100");
       const data = Array.isArray(res.data?.data)
         ? res.data.data
         : Array.isArray(res.data?.results)
@@ -834,6 +835,7 @@ export default function CandidatesMarketingPage() {
 
     try {
       const res = await api.put(`/candidate/marketing/${marketingId}`, payload);
+      await invalidateCache("/candidate/marketing");
 
       const updatedRecord = res.data;
 

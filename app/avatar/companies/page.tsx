@@ -6,7 +6,8 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { SearchIcon } from "lucide-react";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import api from "@/lib/api";
+import api, { apiFetch } from "@/lib/api";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
@@ -45,7 +46,7 @@ export default function CompaniesPage() {
             let hasNext = true;
 
             while (hasNext) {
-                const response = await api.get(`/companies/paginated?page=${currentPage}&page_size=${pageSize}`);
+                const response = await cachedApiFetch(`/companies/paginated?page=${currentPage}&page_size=${pageSize}`);
                 const { data, has_next } = response.data;
 
                 allData = [...allData, ...data];
@@ -96,6 +97,7 @@ export default function CompaniesPage() {
             const { id: _, created_datetime, created_userid, lastmod_datetime, lastmod_userid, ...dataToSave } = updatedData;
 
             const response = await api.put(`/companies/${id}`, dataToSave);
+            await invalidateCache("/companies/paginated");
             const updatedRecord = response.data;
 
             setAllCompanies((prev) =>
@@ -111,6 +113,7 @@ export default function CompaniesPage() {
     const handleRowDeleted = async (id: string | number) => {
         try {
             await api.delete(`/companies/${id}`);
+            await invalidateCache("/companies/paginated");
             setAllCompanies((prev) => prev.filter((row) => row.id !== id));
             toast.success("Company deleted successfully");
         } catch (error: any) {
@@ -122,6 +125,7 @@ export default function CompaniesPage() {
     const handleRowAdded = async (newData: any) => {
         try {
             const response = await api.post("/companies/", newData);
+            await invalidateCache("/companies/paginated");
             const addedRecord = response.data;
             setAllCompanies((prev) => [addedRecord, ...prev]);
             toast.success("Company added successfully");

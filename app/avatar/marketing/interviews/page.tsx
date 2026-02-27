@@ -13,7 +13,8 @@ import { ColDef } from "ag-grid-community";
 import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { toast, Toaster } from "sonner";
 import { useForm } from "react-hook-form";
-import api from "@/lib/api";
+import api, { apiFetch } from "@/lib/api";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { createPortal } from "react-dom";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
@@ -380,15 +381,14 @@ export default function CandidatesInterviews() {
     );
   };
 
-  const fetchInterviews = useCallback(async (pageNum: number, perPageNum: number) => {
+  const fetchInterviews = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const res = await api.get(`/interviews?page=${pageNum}&per_page=${perPageNum}`);
-      const body = res?.data ?? res;
-      const items = Array.isArray(body) ? body : body.data ?? [];
+      const res = await cachedApiFetch("/interviews");
+      const items = res?.data || [];
       setInterviews(items);
-      setTotal(body.total ?? items.length);
+      setTotal(items.length);
     } catch (err: any) {
       console.error("Failed to load interviews:", err);
       setError("Failed to load interviews.");
@@ -399,15 +399,15 @@ export default function CandidatesInterviews() {
   }, []);
 
   useEffect(() => {
-    fetchInterviews(page, perPage);
-  }, [fetchInterviews, page, perPage]);
+    fetchInterviews();
+  }, [fetchInterviews]);
 
   useEffect(() => {
     if (!showAddForm) return;
     let mounted = true;
     (async () => {
       try {
-        const res = await api.get("/candidate/marketing?page=1&limit=200");
+        const res = await cachedApiFetch("/candidate/marketing?page=1&limit=200");
         const body = res?.data ?? res;
         const arr = Array.isArray(body) ? body : body.data ?? [];
         const activeCandidates = (arr || []).filter((m: any) => (m?.status || "").toString().toLowerCase() === "active" && !!m.candidate);
@@ -495,6 +495,7 @@ export default function CandidatesInterviews() {
       }
       if (updatedRow.id) {
         const res = await api.put(`/interviews/${updatedRow.id}`, payload);
+        await invalidateCache("/interviews");
         const updated = res?.data ?? res;
         setInterviews((prev) =>
           prev.map((row) => (row.id === updatedRow.id ? updated : row))
@@ -514,6 +515,7 @@ export default function CandidatesInterviews() {
         return;
       }
       await api.delete(`/interviews/${interviewId}`);
+      await invalidateCache("/interviews");
       setInterviews((prev) => prev.filter((r) => r.id !== interviewId));
       toast.success("Interview deleted successfully!");
     } catch (err) {
@@ -548,6 +550,7 @@ export default function CandidatesInterviews() {
         position_location: (data as any).position_location || null,
       };
       const res = await api.post(`/interviews`, payload);
+      await invalidateCache("/interviews");
       setInterviews((prev) => [res.data, ...prev]);
       setShowAddForm(false);
       reset();
@@ -721,6 +724,7 @@ export default function CandidatesInterviews() {
                     return;
                   }
                   const res = await api.post(`/interviews`, payload);
+                  await invalidateCache("/interviews");
                   const created = res?.data ?? res;
                   setInterviews((prev) => [created, ...prev]);
                   toast.success("Interview added successfully!");

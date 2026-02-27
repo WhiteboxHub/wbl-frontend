@@ -3,7 +3,8 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Badge } from "@/components/admin_ui/badge";
 import { ColDef } from "ag-grid-community";
 import { useState, useEffect, useMemo } from "react";
-import api from "@/lib/api";
+import api, { apiFetch } from "@/lib/api";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { toast, Toaster } from "sonner";
 import { Loader } from "@/components/admin_ui/loader";
 import { Input } from "@/components/admin_ui/input";
@@ -29,7 +30,7 @@ export default function EmailSmtpCredentialsPage() {
 
     const fetchData = async () => {
         try {
-            const res = await api.get("/email-smtp-credentials");
+            const res = await cachedApiFetch("/email-smtp-credentials");
             // Inject empty password fields so EditModal renders them
             const processedData = res.data.map((item: any) => ({
                 ...item,
@@ -117,19 +118,18 @@ export default function EmailSmtpCredentialsPage() {
             if (!payload.app_password) delete payload.app_password;
             if (!payload.note) delete payload.note;
 
-            const res = await api.post("/email-smtp-credentials", payload);
-            const savedRow = { ...res.data, password: "", app_password: "" };
-            setData((prev: any) => [savedRow, ...prev]);
+            await api.post("/email-smtp-credentials", payload);
+            await invalidateCache("/email-smtp-credentials");
+            await fetchData();
             toast.success("Credential added successfully");
         } catch (err: any) {
             toast.error(err.response?.data?.detail || "Failed to add credential");
         }
-    };
+};
 
     const handleRowUpdated = async (row: any) => {
         try {
             const payload = { ...row };
-            // Only send passwords if they are not empty (meaning user changed them)
             if (!payload.password) delete payload.password;
             if (!payload.app_password) delete payload.app_password;
 
@@ -138,10 +138,9 @@ export default function EmailSmtpCredentialsPage() {
             delete payload.created_at;
             delete payload.updated_at;
 
-            const res = await api.put(`/email-smtp-credentials/${row.id}`, payload);
-            // Update local state with response, resetting password fields
-            const updatedRow = { ...res.data, password: "", app_password: "" };
-            setData(prev => prev.map((item: any) => item.id === row.id ? updatedRow : item));
+            await api.put(`/email-smtp-credentials/${row.id}`, payload);
+            await invalidateCache("/email-smtp-credentials");
+            await fetchData();
 
             toast.success("Credential updated successfully");
         } catch (err: any) {
@@ -153,13 +152,13 @@ export default function EmailSmtpCredentialsPage() {
     const handleRowDeleted = async (id: any) => {
         try {
             await api.delete(`/email-smtp-credentials/${id}`);
-            setData(prev => prev.filter((item: any) => item.id !== id));
+            await invalidateCache("/email-smtp-credentials");
+            await fetchData();
             toast.success("Credential deleted");
         } catch (err) {
             toast.error("Delete failed");
         }
     };
-
     if (loading) return <Loader />;
 
     return (
