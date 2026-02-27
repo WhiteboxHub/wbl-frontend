@@ -112,28 +112,10 @@ export default function AutomationContactExtractsPage() {
     const fetchExtracts = useCallback(async () => {
         setLoading(true);
         try {
-            const pageSize = 5000;
-            let allData: any[] = [];
-            let currentPage = 1;
-            let hasNext = true;
-
-            while (hasNext) {
-                // Using cachedApiFetch to enable IndexedDB caching
-                const response = await cachedApiFetch(`/automation-extracts/paginated?page=${currentPage}&page_size=${pageSize}`);
-
-                // apiFetch returns the body directly, not wrapped in {data: ...}
-                const { data, has_next } = response;
-
-                if (Array.isArray(data)) {
-                    allData = [...allData, ...data];
-                }
-                hasNext = !!has_next;
-                currentPage++;
-
-                if (currentPage > 100) break;
-            }
-
-            setExtracts(allData);
+            const res = await cachedApiFetch("/automation-extracts");
+            // cachedApiFetch returns { data: [...] }
+            const data = res?.data || [];
+            setExtracts(data);
         } catch (err: any) {
             console.error("[fetchExtracts] Error:", err);
             // Handle auth errors consistently
@@ -196,7 +178,7 @@ export default function AutomationContactExtractsPage() {
                 method: "PUT",
                 body: cleanedData,
             });
-            await invalidateCache("/automation-extracts/paginated");
+            await invalidateCache("/automation-extracts");
             toast.success("Extract updated successfully");
             fetchExtracts();
         } catch (err: any) {
@@ -220,7 +202,7 @@ export default function AutomationContactExtractsPage() {
                 method: "POST",
                 body: cleanedExtract,
             });
-            await invalidateCache("/automation-extracts/paginated");
+            await invalidateCache("/automation-extracts");
 
             fetchExtracts();
             toast.success("Extract created successfully");
@@ -260,7 +242,7 @@ export default function AutomationContactExtractsPage() {
                         await api.delete(`/automation-extracts/bulk`, {
                             body: extractIds
                         });
-                        await invalidateCache("/automation-extracts/paginated");
+                        await invalidateCache("/automation-extracts");
 
                         toast.success(`Deleted ${visibleSelectedRows.length} extracts`);
                         setSelectedRows([]);
@@ -272,7 +254,7 @@ export default function AutomationContactExtractsPage() {
                 } else {
                     try {
                         await api.delete(`/automation-extracts/${extractId}`);
-                        await invalidateCache("/automation-extracts/paginated");
+                        await invalidateCache("/automation-extracts");
                         toast.success("Deleted 1 extract");
                         fetchExtracts();
                     } catch (err: any) {

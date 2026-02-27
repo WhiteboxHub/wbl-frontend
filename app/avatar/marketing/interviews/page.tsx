@@ -381,15 +381,14 @@ export default function CandidatesInterviews() {
     );
   };
 
-  const fetchInterviews = useCallback(async (pageNum: number, perPageNum: number) => {
+  const fetchInterviews = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const res = await cachedApiFetch(`/interviews?page=${pageNum}&per_page=${perPageNum}`);
-      const body = res?.data ?? res;
-      const items = Array.isArray(body) ? body : body.data ?? [];
+      const res = await cachedApiFetch("/interviews");
+      const items = res?.data || [];
       setInterviews(items);
-      setTotal(body.total ?? items.length);
+      setTotal(items.length);
     } catch (err: any) {
       console.error("Failed to load interviews:", err);
       setError("Failed to load interviews.");
@@ -400,8 +399,8 @@ export default function CandidatesInterviews() {
   }, []);
 
   useEffect(() => {
-    fetchInterviews(page, perPage);
-  }, [fetchInterviews, page, perPage]);
+    fetchInterviews();
+  }, [fetchInterviews]);
 
   useEffect(() => {
     if (!showAddForm) return;
