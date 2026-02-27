@@ -3,7 +3,7 @@
 
 import React from "react";
 import { useAuth } from "@/utils/AuthContext";
-import EmployeeDashboard from "@/components/EmployeeDashboard";
+import { useRouter } from "next/navigation";
 import CandidateDashboard from "@/components/CandidateDashboard";
 import { User, Phone, Mail, Activity, Clock } from "lucide-react";
 
@@ -16,6 +16,7 @@ interface UserProfile {
 
 export default function UserDashboardPage() {
   const { userRole, isAuthenticated } = useAuth();
+  const router = useRouter();
   const [userProfile, setUserProfile] = React.useState<UserProfile | null>(null);
   const [loading, setLoading] = React.useState(false);
 
@@ -52,11 +53,8 @@ export default function UserDashboardPage() {
 
   // Render Role-Based Dashboards
   if (userRole === "employee") {
-    return (
-      <div className="pt-24 pb-12 bg-gray-50 dark:bg-gray-900 min-h-screen">
-        <EmployeeDashboard />
-      </div>
-    );
+    router.replace("/avatar/employee/employee-dashboard");
+    return null;
   }
 
   if (userRole === "candidate") {

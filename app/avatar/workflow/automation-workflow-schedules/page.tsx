@@ -106,9 +106,9 @@ export default function AutomationWorkflowSchedulesPage() {
                 toast.error("Workflow ID and Frequency are required");
                 return;
             }
-            const res = await api.post("/automation-workflow-schedule/", newRow);
+            await api.post("/automation-workflow-schedule/", newRow);
             await invalidateCache("/automation-workflow-schedule/");
-            setData((prev: any) => [res.data, ...prev]);
+            await fetchData();
             toast.success("Schedule created successfully");
         } catch (err: any) {
             toast.error(err.response?.data?.detail || "Failed to create schedule");
@@ -119,6 +119,7 @@ export default function AutomationWorkflowSchedulesPage() {
         try {
             await api.put(`/automation-workflow-schedule/${row.id}`, row);
             await invalidateCache("/automation-workflow-schedule/");
+            await fetchData();
             toast.success("Schedule updated");
         } catch (err) {
             toast.error("Update failed");
@@ -129,7 +130,7 @@ export default function AutomationWorkflowSchedulesPage() {
         try {
             await api.delete(`/automation-workflow-schedule/${id}`);
             await invalidateCache("/automation-workflow-schedule/");
-            setData(prev => prev.filter((item: any) => item.id !== id));
+            await fetchData();
             toast.success("Schedule deleted");
         } catch (err) {
             toast.error("Delete failed");

@@ -246,7 +246,7 @@ export default function Index() {
 
   useEffect(() => {
     if (userRole === "employee") {
-      router.replace("/avatar/employee-dashboard");
+      router.replace("/avatar/employee/employee-dashboard");
     }
   }, [userRole, router]);
 

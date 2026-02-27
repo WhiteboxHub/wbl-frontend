@@ -60,7 +60,7 @@ export default function AutomationWorkflowsPage() {
     }, [searchTerm, data]);
 
     const columnDefs: ColDef[] = useMemo(() => [
-        { field: "id", headerName: "ID", width: 80, sortable: true, pinned: "left" },
+        { field: "id", headerName: "ID", width: 80, editable: false, sortable: true, pinned: "left" },
         { field: "workflow_key", headerName: "Workflow Key", width: 180, editable: true, sortable: true },
         { field: "name", headerName: "Name", width: 220, editable: true, sortable: true },
         { field: "description", headerName: "Description", width: 250, editable: true, sortable: true },
@@ -92,7 +92,7 @@ export default function AutomationWorkflowsPage() {
             valueFormatter: (p) => p.value ? JSON.stringify(p.value) : ""
         },
         { field: "version", headerName: "Version", width: 100, editable: true, sortable: true },
-        { field: "last_mod_user_id", headerName: "Last Mod User ID", width: 150, editable: true, sortable: true },
+        { field: "last_mod_user_id", headerName: "Last Mod User ID", width: 150, editable: false, sortable: true },
         {
             field: "created_at",
             headerName: "Created Date",
@@ -115,9 +115,9 @@ export default function AutomationWorkflowsPage() {
                 toast.error("Workflow Key, Name, and Workflow Type are required");
                 return;
             }
-            const res = await api.post("/automation-workflow/", newRow);
+            await api.post("/automation-workflow/", newRow);
             await invalidateCache("/automation-workflow/");
-            setData((prev: any) => [res.data, ...prev]);
+            await fetchData();
             toast.success("Automation workflow created successfully");
         } catch (err: any) {
             toast.error(err.response?.data?.detail || "Failed to create workflow");
@@ -128,6 +128,7 @@ export default function AutomationWorkflowsPage() {
         try {
             await api.put(`/automation-workflow/${row.id}`, row);
             await invalidateCache("/automation-workflow/");
+            await fetchData();
             toast.success("Workflow updated");
         } catch (err) {
             toast.error("Update failed");
@@ -138,13 +139,13 @@ export default function AutomationWorkflowsPage() {
         try {
             await api.delete(`/automation-workflow/${id}`);
             await invalidateCache("/automation-workflow/");
-            setData(prev => prev.filter((item: any) => item.id !== id));
+            await fetchData();
             toast.success("Workflow deleted");
         } catch (err) {
             toast.error("Delete failed");
         }
     };
-
+   
     if (loading) return <Loader />;
 
     return (

@@ -58,7 +58,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
   }, []);
 
   const allSidebarItems = [
-    { title: "Home", href: "/avatar/employee-dashboard", icon: HomeIcon, exact: true },
+    { title: "Home", href: "/avatar/employee/employee-dashboard", icon: HomeIcon, exact: true },
     {
       title: "Analytics",
       href: "/avatar/analytics",
@@ -265,6 +265,13 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
   };
 
   const isActive = (item: (typeof sidebarItems)[number]) => {
+    // If any item has an exact match with the current pathname, only that item should be active
+    const hasExactMatch = sidebarItems.some(i => i.exact && i.href === pathname);
+
+    if (hasExactMatch) {
+      return item.exact && item.href === pathname;
+    }
+
     if (item.exact) return pathname === item.href;
     if (pathname === item.href) return true;
     if (item.children) {

@@ -96,10 +96,6 @@ export default function EmailTemplatesPage() {
 
     const handleRowAdded = async (newRow: any) => {
         try {
-            if (!newRow.template_key || !newRow.name || !newRow.subject || !newRow.content_html) {
-                toast.error("Template Key, Name, Subject, and Content HTML are required");
-                return;
-            }
             const res = await api.post("/email-template/", newRow);
             await invalidateCache("/email-template/");
             setData((prev: any) => [res.data, ...prev]);
