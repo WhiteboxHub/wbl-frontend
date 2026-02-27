@@ -444,7 +444,6 @@ export default function RawJobListingsPage() {
             { field: "candidate_id", headerName: "Candidate ID", width: 130, sortable: true, filter: "agNumberColumnFilter", editable: true },
             { field: "raw_zip", headerName: "Zip", width: 100, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "raw_contact_info", headerName: "Contact Info", width: 200, sortable: true, filter: "agTextColumnFilter", editable: true },
-            // { field: "raw_description", headerName: "Description", width: 300, sortable: true, filter: "agTextColumnFilter", editable: true },
             {
                 field: "raw_payload",
                 headerName: "Payload",
