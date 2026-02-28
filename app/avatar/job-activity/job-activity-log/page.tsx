@@ -311,7 +311,7 @@ export default function JobActivityLogPage() {
           }
           return true;
         },
-        filter: "agSetColumnFilter",
+        filter: "agTextColumnFilter",
         filterParams: {
           values: jobTypes.map(job => job.name),
           valueListGap: 0,
