@@ -4007,7 +4007,8 @@ export function EditModal({
                               "retry_policy",
                               "note",
                               "keywords",
-                              "context"
+                              "context",
+                              "candidate_json"
                             ].includes(key.toLowerCase());
 
                             if (isTextareaField) {
