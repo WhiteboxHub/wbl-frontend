@@ -318,6 +318,16 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "completed", label: "Completed" },
     { value: "blocked", label: "Blocked" },
   ],
+  outreach_connection_status: [
+    { value: "not_sent", label: "Not Sent" },
+    { value: "sent", label: "Sent" },
+    { value: "accepted", label: "Accepted" },
+  ],
+  outreach_message_status: [
+    { value: "not_sent", label: "Not Sent" },
+    { value: "sent", label: "Sent" },
+    { value: "responded", label: "Responded" },
+  ],
   employee_task_priority: [
     { value: "low", label: "Low" },
     { value: "medium", label: "Medium" },
@@ -796,6 +806,8 @@ const fieldSections: Record<string, string> = {
   lookback_days: "Basic Information",
   batch_size: "Basic Information",
   csv_offset: "Basic Information",
+  outreach_connection_status: "Contact Information",
+  outreach_message_status: "Contact Information",
   linkedin_id: "Contact Information",
   enrolled_date: "Professional Information",
   startdate: "Professional Information",
