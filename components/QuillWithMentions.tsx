@@ -3,7 +3,7 @@ import dynamic from "next/dynamic";
 import { apiFetch } from "@/lib/api";
 import "react-quill/dist/quill.snow.css";
 
-// ✅ FIX 1: Dynamic import with proper ref forwarding
+// FIX 1: Dynamic import with proper ref forwarding
 const ReactQuill = dynamic(
   async () => {
     const { default: RQ } = await import("react-quill");

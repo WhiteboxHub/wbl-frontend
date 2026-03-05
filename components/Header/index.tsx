@@ -178,7 +178,7 @@ const Header = ({
                         }}
                         className="my-3 block w-full rounded-3xl bg-gradient-to-tl from-indigo-900 to-purple-400 px-3 py-2 text-center text-sm font-bold text-white hover:bg-gradient-to-br sm:text-base"
                       >
-                        {userRole === "employee" ? "Dashboard" : "My Profile"}
+                        Dashboard
                       </button>
                     </li>
                   )}
@@ -238,7 +238,7 @@ const Header = ({
                       onClick={display_user_dashboard}
                       className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
                     >
-                      {userRole === "employee" ? "Dashboard" : "My Profile"}
+                      Dashboard
                     </button>
                   }
                   <button
@@ -269,49 +269,10 @@ const Header = ({
               </div>
             </div>
             {/* Mobile Right Section - Clean and Non-Overlapping */}
-            <div className="flex w-full items-center justify-end gap-2 pr-3 lg:hidden">
-              <div className="no-scrollbar flex items-center gap-2 overflow-x-auto">
-                {/* Avatar Button (Admin or Employee) */}
-                {isAuthenticated && (userRole === "admin" || userRole === "employee") && (
-                  <Link
-                    href={userRole === "employee" ? "/avatar/employee/employee-dashboard" : "/avatar"}
-                    className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-3 py-2 text-xs font-bold text-white sm:text-sm"
-                  >
-                    Avatar
-                  </Link>
-                )}
-
-                {/* My Profile & Logout Buttons */}
-                {isAuthenticated && (
-                  <>
-                    <button
-                      onClick={display_user_dashboard}
-                      className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-3 py-2 text-xs font-bold text-white sm:text-sm"
-                    >
-                      {userRole === "employee" ? "Dashboard" : "My Profile"}
-                    </button>
-                    <button
-                      onClick={handleLogout}
-                      className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-3 py-2 text-xs font-bold text-white sm:text-sm"
-                    >
-                      Logout
-                    </button>
-                  </>
-                )}
-
-                {/* Theme Toggler */}
-                <div className="ml-1">
-                  <ThemeToggler />
-                </div>
-
-                {/* Hamburger Menu Button */}
-                <button
-                  onClick={navbarToggleHandler}
-                  id="navbarToggler"
-                  aria-label="Mobile Menu"
-                  className="ml-1 flex flex-col items-center justify-center focus:outline-none"
-                ></button>
-              </div>
+            <div className="flex items-center justify-end gap-2 pr-4 lg:hidden">
+              <ThemeToggler />
+              {/* Note: Hamburger toggler is positioned absolute right-4 at line 95 */}
+              <div className="w-8"></div> {/* Spacer for the absolute hamburger toggler */}
             </div>
           </div>
         </div>

@@ -43,7 +43,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     return `${month}-${day}-${year}`;
   };
 
-    // Helper to extract first name from full name
+  // Helper to extract first name from full name
   const getFirstName = (fullName) => {
     if (!fullName || fullName === "Unknown Candidate") return "Unknown";
     return fullName.split(' ')[0]; // Get only the first word
@@ -67,13 +67,13 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   }, [isAuthenticated, hasCheckedLogin, setSidebarOpen]);
 
 
-    // Close sidebar when clicking outside
+  // Close sidebar when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
-        sidebarRef.current && 
+        sidebarRef.current &&
         !sidebarRef.current.contains(event.target) &&
-        toggleBtnRef.current && 
+        toggleBtnRef.current &&
         !toggleBtnRef.current.contains(event.target) &&
         sidebarOpen
       ) {
@@ -146,13 +146,11 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
       <button
         ref={toggleBtnRef}
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className={`fixed top-1/2 -translate-y-1/2 z-[9999] ${
-          isDark
+        className={`fixed top-1/2 -translate-y-1/2 z-[9999] hidden lg:block ${isDark
             ? "bg-gradient-to-r from-purple-400 to-indigo-500 text-white"
             : "bg-gradient-to-r from-purple-300 to-indigo-400 text-white"
-        } py-4 px-2 rounded-r-xl shadow-lg transform transition-all duration-500 hover:scale-110 hover:shadow-xl focus:outline-none ${
-          !sidebarOpen && showPulse && "pulse-animation"
-        } border-r-0 border-2 ${isDark ? "border-indigo-400" : "border-purple-300"}`}
+          } py-4 px-2 rounded-r-xl shadow-lg transform transition-all duration-500 hover:scale-110 hover:shadow-xl focus:outline-none ${!sidebarOpen && showPulse && "pulse-animation"
+          } border-r-0 border-2 ${isDark ? "border-indigo-400" : "border-purple-300"}`}
         aria-label="Toggle Sidebar"
         style={{ left: sidebarOpen ? "280px" : "0" }}
       >
@@ -227,7 +225,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                             {getCandidateName(interview)}
                           </h4> */}
                           <h4 className={`font-semibold ${isDark ? "text-gray-100" : "text-gray-800"}`}>
-                          {getFirstName(getCandidateName(interview))}
+                            {getFirstName(getCandidateName(interview))}
                           </h4>
                           <span className="text-sm font-semibold whitespace-nowrap">
                             {formatDateUS(interview.interview_date)}
@@ -256,7 +254,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                         <div className="flex justify-between">
                           {/* <h4 className={`font-semibold ${isDark ? "text-gray-100" : "text-gray-800"}`}>{placement.candidate_name}</h4> */}
                           <h4 className={`font-semibold ${isDark ? "text-gray-100" : "text-gray-800"}`}>
-                          {getFirstName(placement.candidate_name)}
+                            {getFirstName(placement.candidate_name)}
                           </h4>
                           <span className="text-sm font-semibold whitespace-nowrap">{formatDateUS(placement.placement_date)}</span>
                         </div>
