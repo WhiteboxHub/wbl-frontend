@@ -20,6 +20,8 @@ interface CandidateGridProps {
     height?: string;
     paginationPageSize?: number;
     rowHeight?: number;
+    onGridReady?: (params: GridReadyEvent) => void;
+    components?: Record<string, any>;
 }
 
 export const CandidateGrid: React.FC<CandidateGridProps> = ({
@@ -27,8 +29,10 @@ export const CandidateGrid: React.FC<CandidateGridProps> = ({
     columnDefs,
     loading = false,
     height = "500px",
-    paginationPageSize = 50,
-    rowHeight = 48
+    paginationPageSize = 100,
+    rowHeight = 48,
+    onGridReady,
+    components
 }) => {
     const gridRef = useRef<AgGridReact>(null);
     const [isDarkMode, setIsDarkMode] = useState(false);
@@ -48,10 +52,9 @@ export const CandidateGrid: React.FC<CandidateGridProps> = ({
     }, []);
 
     return (
-        <div className="flex justify-center w-full min-w-0">
+        <div className="w-full h-full">
             <div
-                className={`ag-theme-alpine ${isDarkMode ? "ag-grid-dark-mode" : ""} w-full rounded-lg border border-gray-200 shadow-sm dark:border-gray-700 overflow-hidden`}
-                style={{ height }}
+                className={`ag-theme-alpine ${isDarkMode ? "ag-grid-dark-mode" : ""} w-full h-full rounded-lg border border-gray-200 shadow-sm dark:border-gray-700 overflow-hidden`}
             >
                 <AgGridReact
                     ref={gridRef}
@@ -74,6 +77,8 @@ export const CandidateGrid: React.FC<CandidateGridProps> = ({
                     animateRows={true}
                     rowHeight={rowHeight}
                     theme="legacy"
+                    onGridReady={onGridReady}
+                    components={components}
                     overlayNoRowsTemplate="<span class='text-gray-500 font-medium'>No records found</span>"
                 />
             </div>

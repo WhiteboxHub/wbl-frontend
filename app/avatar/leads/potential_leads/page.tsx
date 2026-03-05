@@ -28,6 +28,8 @@ type PotentialLead = {
     location?: string | null;
     notes?: string | null;
     lastmoddatetime?: string | Date | null;
+    outreach_connection_status?: "not_sent" | "sent" | "accepted" | null;
+    outreach_message_status?: "not_sent" | "sent" | "responded" | null;
 };
 
 const workStatusOptions = [
@@ -50,11 +52,42 @@ const workStatusOptions = [
     "Other"
 ];
 
+const outreachConnectionOptions = ["not_sent", "sent", "accepted"];
+const outreachMessageOptions = ["not_sent", "sent", "responded"];
+
 const WorkStatusRenderer = ({ value }: { value?: string }) => {
     if (!value) return null;
     return (
         <Badge className="bg-blue-100 text-blue-800 capitalize">
-            {value}
+            {value.replace(/_/g, " ")}
+        </Badge>
+    );
+};
+
+const ConnectionStatusRenderer = ({ value }: { value?: string }) => {
+    if (!value) return null;
+    const colors: Record<string, string> = {
+        not_sent: "bg-gray-100 text-gray-800",
+        sent: "bg-yellow-100 text-yellow-800",
+        accepted: "bg-green-100 text-green-800",
+    };
+    return (
+        <Badge className={`${colors[value] || "bg-blue-100 text-blue-800"} capitalize`}>
+            {value.replace(/_/g, " ")}
+        </Badge>
+    );
+};
+
+const MessageStatusRenderer = ({ value }: { value?: string }) => {
+    if (!value) return null;
+    const colors: Record<string, string> = {
+        not_sent: "bg-gray-100 text-gray-800",
+        sent: "bg-yellow-100 text-yellow-800",
+        responded: "bg-green-100 text-green-800",
+    };
+    return (
+        <Badge className={`${colors[value] || "bg-blue-100 text-blue-800"} capitalize`}>
+            {value.replace(/_/g, " ")}
         </Badge>
     );
 };
@@ -106,7 +139,9 @@ export default function PotentialLeadsPage() {
                         lead.email?.toLowerCase().includes(term) ||
                         lead.phone?.toLowerCase().includes(term) ||
                         lead.profession?.toLowerCase().includes(term) ||
-                        lead.linkedin_id?.toLowerCase().includes(term)
+                        lead.linkedin_id?.toLowerCase().includes(term) ||
+                        lead.outreach_connection_status?.toLowerCase().includes(term) ||
+                        lead.outreach_message_status?.toLowerCase().includes(term)
                 )
             );
         }
@@ -202,6 +237,26 @@ export default function PotentialLeadsPage() {
                 },
             },
             { field: "work_status", headerName: "Work Status", width: 150, sortable: true, editable: true, cellEditor: "agSelectCellEditor", cellEditorParams: { values: workStatusOptions }, cellRenderer: WorkStatusRenderer },
+            {
+                field: "outreach_connection_status",
+                headerName: "Connection Status",
+                width: 160,
+                sortable: true,
+                editable: true,
+                cellEditor: "agSelectCellEditor",
+                cellEditorParams: { values: outreachConnectionOptions },
+                cellRenderer: (params: any) => <ConnectionStatusRenderer value={params.value} />
+            },
+            {
+                field: "outreach_message_status",
+                headerName: "Message Status",
+                width: 160,
+                sortable: true,
+                editable: true,
+                cellEditor: "agSelectCellEditor",
+                cellEditorParams: { values: outreachMessageOptions },
+                cellRenderer: (params: any) => <MessageStatusRenderer value={params.value} />
+            },
             { field: "location", headerName: "Location", width: 150, sortable: true, editable: true },
             {
                 field: "entry_date",

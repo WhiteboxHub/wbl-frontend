@@ -33,15 +33,15 @@ const Footer = () => {
   return (
     <>
       <footer
-        className="wow fadeInUp relative z-10 bg-primary bg-opacity-5 pt-6 shadow-2xl shadow-black md:pt-8"
+        className="wow fadeInUp relative z-10 bg-primary bg-opacity-5 pt-2 shadow-2xl shadow-black"
         data-wow-delay=".1s"
       >
         <div className="container">
           <div className="-mx-4 flex flex-wrap justify-around">
             <div className="flex w-full items-center justify-center text-center sm:w-1/2 lg:w-4/12">
-              <div className="mb-12 max-w-[360px]">
+              <div className="mb-4 max-w-[360px]">
                 <Link href="/" className="inline-block">
-                  <div className="mb-4 text-2xl font-bold text-black dark:text-white sm:mb-8">
+                  <div className="mb-2 text-xl font-bold text-black dark:text-white sm:mb-4">
                     Whitebox Learning
                   </div>
                 </Link>
@@ -99,8 +99,8 @@ const Footer = () => {
               </div>
             </div>
             <div className="hidden w-full text-center sm:w-1/2 sm:text-left md:flex md:justify-center lg:w-4/12">
-              <div className="mb-6">
-                <div className="mb-8">
+              <div className="mb-4">
+                <div className="mb-4">
                   <a
                     href={"/contact"}
                     target="_self"
@@ -151,7 +151,7 @@ const Footer = () => {
 
         {/* Copyrights note */}
 
-        <div className="flex h-10 items-center bg-gray-300 py-10 dark:bg-primary/10">
+        <div className="flex h-8 items-center bg-gray-300 py-6 dark:bg-primary/10">
           <div className="container flex">
             <div className="sm:text-md text-bl ackdark:text-white text-center text-sm font-semibold sm:w-11/12 sm:text-right lg:text-xl">
               &copy; {currentYear}{" "}
