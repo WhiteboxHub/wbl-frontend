@@ -33,3 +33,4 @@ yarn-error.log*
 .vercel
 
 frontend-env.yaml
+tsconfig.tsbuildinfo

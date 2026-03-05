@@ -801,6 +801,24 @@ export default function CandidatesMarketingPage() {
         cellEditor: "agCheckboxCellEditor",
       },
       {
+        field: "candidate_json",
+        headerName: "Candidate JSON",
+        width: 200,
+        sortable: false,
+        editable: false,
+        cellRenderer: (params: any) => {
+          if (!params.value) return <span className="text-gray-400 opacity-60">N/A</span>;
+          const preview = typeof params.value === "string"
+            ? params.value.slice(0, 60)
+            : JSON.stringify(params.value).slice(0, 60);
+          return (
+            <span className="font-mono text-xs text-gray-600" title={typeof params.value === "string" ? params.value : JSON.stringify(params.value, null, 2)}>
+              {preview}{preview.length >= 60 ? "…" : ""}
+            </span>
+          );
+        },
+      },
+      {
         field: "notes",
         headerName: "Notes",
         width: 300,
