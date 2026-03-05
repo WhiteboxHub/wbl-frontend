@@ -35,11 +35,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <Link
                   key={item.href}
                   to={item.href}
-                  className={`text-sm font-medium transition-colors hover:text-whitebox-600 ${
-                    location.pathname === item.href
+                  className={`text-sm font-medium transition-colors hover:text-whitebox-600 ${location.pathname === item.href
                       ? "text-whitebox-600"
                       : "text-gray-700"
-                  }`}
+                    }`}
                 >
                   {item.label}
                 </Link>
@@ -62,7 +61,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 asChild
                 className="bg-whitebox-600 hover:bg-whitebox-700 text-white px-4 py-2 rounded-lg"
               >
-                <Link to="/profile">My Profile</Link>
+                <Link to="/profile">Dashboard</Link>
               </Button>
 
               <Button className="bg-whitebox-500 hover:bg-whitebox-600 text-white px-4 py-2 rounded-lg">

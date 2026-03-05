@@ -40,7 +40,7 @@ const ReferralNotificationButton = () => {
     e.preventDefault();
     e.stopPropagation();
     console.log("Button clicked, navigating to /refer-and-earn");
-    
+
     // Try router.push first, then fallback to window.location
     try {
       router.push("/refer-and-earn");
@@ -56,7 +56,7 @@ const ReferralNotificationButton = () => {
   };
 
   return (
-    <div className="fixed bottom-20 right-6 z-[9999]">
+    <div className="fixed bottom-32 lg:bottom-20 right-6 z-[9999]">
       <button
         onClick={handleMainButtonClick}
         onMouseEnter={() => setIsHovered(true)}
@@ -72,10 +72,10 @@ const ReferralNotificationButton = () => {
           viewBox="0 0 24 24"
           xmlns="http://www.w3.org/2000/svg"
         >
-          <path d="M9.375 3a1.875 1.875 0 000 3.75h1.875v4.5H3.375A1.875 1.875 0 011.5 9.375v-.75c0-1.036.84-1.875 1.875-1.875h3.193A3.375 3.375 0 0112 2.753a3.375 3.375 0 015.432 3.997h3.193c1.035 0 1.875.84 1.875 1.875v.75C22.5 10.747 21.66 11.25 20.625 11.25H12.75v-4.5h1.875a1.875 1.875 0 100-3.75c-1.036 0-1.875.84-1.875 1.875v.375h-1.5V4.125C11.25 3.089 10.41 3 9.375 3z"/>
-          <path d="M11.25 12.75H3v6.75a2.25 2.25 0 002.25 2.25h6v-9zM12.75 12.75v9h6.75a2.25 2.25 0 002.25-2.25v-6.75h-9z"/>
+          <path d="M9.375 3a1.875 1.875 0 000 3.75h1.875v4.5H3.375A1.875 1.875 0 011.5 9.375v-.75c0-1.036.84-1.875 1.875-1.875h3.193A3.375 3.375 0 0112 2.753a3.375 3.375 0 015.432 3.997h3.193c1.035 0 1.875.84 1.875 1.875v.75C22.5 10.747 21.66 11.25 20.625 11.25H12.75v-4.5h1.875a1.875 1.875 0 100-3.75c-1.036 0-1.875.84-1.875 1.875v.375h-1.5V4.125C11.25 3.089 10.41 3 9.375 3z" />
+          <path d="M11.25 12.75H3v6.75a2.25 2.25 0 002.25 2.25h6v-9zM12.75 12.75v9h6.75a2.25 2.25 0 002.25-2.25v-6.75h-9z" />
         </svg>
-      
+
 
         {/* Notification Badge */}
         <div className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-red-500">

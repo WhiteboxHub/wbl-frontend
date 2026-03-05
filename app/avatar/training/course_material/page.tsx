@@ -203,17 +203,13 @@ export default function CourseMaterialPage() {
       valueFormatter: (params) => {
         return getSubjectDisplayName(params.value);
       },
-      cellEditor: "agRichSelectCellEditor",
+      cellEditor: "agSelectCellEditor",
       cellEditorParams: {
         values: [
           0,
           ...subjects.map(s => s.id)
         ],
-        formatValue: (value: number) => {
-          return getSubjectDisplayName(value);
-        }
       },
-      cellEditorPopup: true,
     },
     {
       field: "courseid",
@@ -223,17 +219,13 @@ export default function CourseMaterialPage() {
       valueFormatter: (params) => {
         return getCourseDisplayName(params.value);
       },
-      cellEditor: "agRichSelectCellEditor",
+      cellEditor: "agSelectCellEditor",
       cellEditorParams: {
         values: [
           0,
           ...courses.map(c => c.id)
         ],
-        formatValue: (value: number) => {
-          return getCourseDisplayName(value);
-        }
       },
-      cellEditorPopup: true,
     },
     {
       field: "name",
@@ -255,14 +247,10 @@ export default function CourseMaterialPage() {
       valueFormatter: (params) => {
         return getTypeDisplayName(params.value);
       },
-      cellEditor: "agRichSelectCellEditor",
+      cellEditor: "agSelectCellEditor",
       cellEditorParams: {
         values: Object.keys(TYPE_MAPPING),
-        formatValue: (value: string) => {
-          return getTypeDisplayName(value);
-        }
       },
-      cellEditorPopup: true,
     },
     {
       field: "link",
