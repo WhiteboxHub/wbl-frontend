@@ -360,47 +360,6 @@ const interviewColumnDefs: ColDef[] = [
     },
 ];
 
-const jobColumnDefs: ColDef[] = [
-
-    {
-        headerName: "Job ID",
-        flex: 1.5,
-        minWidth: 140,
-        valueGetter: (params: any) => params.data.source_job_id || params.data.source_uid
-    },
-    { field: "title", headerName: "Position", flex: 2, minWidth: 200 },
-    { field: "company_name", headerName: "Company", flex: 1.5, minWidth: 150 },
-    { field: "location", headerName: "Location", flex: 1.5, minWidth: 150 },
-    {
-        headerName: "Link",
-        flex: 1,
-        minWidth: 100,
-        cellRenderer: (params: any) => {
-            const jobId = params.data.source_job_id || params.data.source_uid;
-            if (!jobId && !params.data.job_url) return <span className="text-gray-400">-</span>;
-
-            const source = params.data.source?.toLowerCase() || "";
-            const url = params.data.job_url ||
-                (source.includes('hiring')
-                    ? `https://hiring.cafe/viewjob/${jobId}`
-                    : `https://www.linkedin.com/jobs/view/${jobId}`);
-
-            return (
-                <div className="flex items-center h-full">
-                    <a
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center space-x-1 text-blue-500 hover:text-blue-700 transition-colors"
-                    >
-                        <ExternalLink className="w-4 h-4" />
-                        <span className="text-xs font-semibold">View</span>
-                    </a>
-                </div>
-            );
-        }
-    }
-];
 
 export default function CandidateDashboard() {
     const router = useRouter();
@@ -530,15 +489,22 @@ export default function CandidateDashboard() {
         { field: "location", headerName: "Location", flex: 1.5, minWidth: 150, sortable: true, filter: "agTextColumnFilter" },
         { field: "city", headerName: "City", width: 120, sortable: true, filter: "agTextColumnFilter" },
         {
-            field: "source_job_id",
             headerName: "Apply",
             width: 100,
             cellRenderer: (params: any) => {
-                if (!params.value) return <span className="text-gray-400">-</span>;
+                const jobId = params.data.source_job_id || params.data.source_uid;
+                if (!jobId && !params.data.job_url) return <span className="text-gray-400">-</span>;
+
+                const source = params.data.source?.toLowerCase() || "";
+                const url = params.data.job_url ||
+                    (source.includes('hiring')
+                        ? `https://hiring.cafe/viewjob/${jobId}`
+                        : `https://www.linkedin.com/jobs/view/${jobId}`);
+
                 return (
                     <div className="flex items-center h-full">
                         <a
-                            href={params.data.job_url || `https://www.linkedin.com/jobs/view/${params.value}`}
+                            href={url}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center space-x-1.5 text-blue-600 hover:text-blue-800 font-bold text-xs"
