@@ -361,7 +361,6 @@ const interviewColumnDefs: ColDef[] = [
 ];
 
 
-
 export default function CandidateDashboard() {
     const router = useRouter();
     const { userRole } = useAuth() as { userRole: string };
@@ -490,15 +489,22 @@ export default function CandidateDashboard() {
         { field: "location", headerName: "Location", flex: 1.5, minWidth: 150, sortable: true, filter: "agTextColumnFilter" },
         { field: "city", headerName: "City", width: 120, sortable: true, filter: "agTextColumnFilter" },
         {
-            field: "source_job_id",
             headerName: "Apply",
             width: 100,
             cellRenderer: (params: any) => {
-                if (!params.value) return <span className="text-gray-400">-</span>;
+                const jobId = params.data.source_job_id || params.data.source_uid;
+                if (!jobId && !params.data.job_url) return <span className="text-gray-400">-</span>;
+
+                const source = params.data.source?.toLowerCase() || "";
+                const url = params.data.job_url ||
+                    (source.includes('hiring')
+                        ? `https://hiring.cafe/viewjob/${jobId}`
+                        : `https://www.linkedin.com/jobs/view/${jobId}`);
+
                 return (
                     <div className="flex items-center h-full">
                         <a
-                            href={params.data.job_url || `https://www.linkedin.com/jobs/view/${params.value}`}
+                            href={url}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center space-x-1.5 text-blue-600 hover:text-blue-800 font-bold text-xs"
@@ -679,8 +685,14 @@ export default function CandidateDashboard() {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
-            // Store all positions returned from API
-            setPositions(posData || []);
+            // Filter to show jobs from LinkedIn or Hiring Cafe (Loose matching for debug)
+            const filteredData = (posData || []).filter((pos: any) => {
+                const src = pos.source?.toLowerCase() || "";
+                return src.includes('linkedin') || src.includes('hiring') || src.includes('cafe');
+            });
+
+            console.log("Filtered positions count:", filteredData.length);
+            setPositions(filteredData);
         } catch (err) {
             console.error("Error loading positions:", err);
         } finally {
@@ -815,6 +827,7 @@ export default function CandidateDashboard() {
         { id: 'overview' as TabType, name: 'Overview', icon: Home },
         { id: 'sessions' as TabType, name: 'Sessions', icon: PlayCircle },
         { id: 'interviews' as TabType, name: 'Interviews', icon: MessageSquare },
+        { id: 'jobs' as TabType, name: 'Job Board', icon: Briefcase },
     ];
 
     return (
@@ -1314,6 +1327,25 @@ export default function CandidateDashboard() {
                                 </div>
                             </div>
                         )}
+
+                        {activeTab === 'jobs' && (
+                            <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-4 md:p-6 mt-4 mx-4 lg:mx-6">
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-6 flex items-center">
+                                    <Briefcase className="w-5 h-5 mr-2 text-blue-500" />
+                                    Recent Jobs
+                                </h2>
+
+                                <div className="h-[500px]">
+                                    <CandidateGrid
+                                        rowData={positions}
+                                        columnDefs={jobColumnDefs}
+                                        loading={positionsLoading}
+                                        height="500px"
+                                    />
+                                </div>
+                            </div>
+                        )}
+
                     </div>
                 </main>
             </div>
