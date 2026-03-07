@@ -304,7 +304,7 @@ export default function JobListingsPage() {
     const statusOptions = ['open', 'closed', 'on_hold', 'duplicate', 'invalid'];
     const typeOptions = ['full_time', 'contract', 'contract_to_hire', 'internship'];
     const modeOptions = ['onsite', 'hybrid', 'remote'];
-    const sourceOptions = ['linkedin', 'job_board', 'vendor', 'email', 'scraper'];
+    const sourceOptions = ['linkedin', 'job_board', 'vendor', 'email', 'scraper', 'hiring_cafe'];
 
     const fetchJobListings = useCallback(async () => {
         setLoading(true);
@@ -499,7 +499,35 @@ export default function JobListingsPage() {
     const columnDefs: ColDef[] = useMemo(
         () => [
             { field: "id", headerName: "ID", width: 80, sortable: true, filter: "agNumberColumnFilter", pinned: "left" },
-            { field: "title", headerName: "Title", width: 220, sortable: true, filter: "agTextColumnFilter", editable: true },
+            {
+                field: "title",
+                headerName: "Title",
+                width: 220,
+                sortable: true,
+                filter: "agTextColumnFilter",
+                editable: true,
+                cellRenderer: (params: any) => {
+                    const url = params.data.job_url;
+                    if (!url) return <span>{params.value}</span>;
+
+                    let formattedUrl = url.trim();
+                    if (!/^https?:\/\//i.test(formattedUrl)) {
+                        formattedUrl = `https://${formattedUrl}`;
+                    }
+
+                    return (
+                        <a
+                            href={formattedUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline font-medium"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {params.value}
+                        </a>
+                    );
+                }
+            },
             { field: "company_name", headerName: "Company", width: 180, sortable: true, filter: "agTextColumnFilter", editable: true },
             {
                 field: "position_type",

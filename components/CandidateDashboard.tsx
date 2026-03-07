@@ -383,7 +383,7 @@ export default function CandidateDashboard() {
     const [positions, setPositions] = useState<any[]>([]);
     const [filteredPositions, setFilteredPositions] = useState<any[]>([]);
     const [positionsLoading, setPositionsLoading] = useState(false);
-    const [selectedModes, setSelectedModes] = useState<string[]>(['Remote']);
+    const [selectedModes, setSelectedModes] = useState<string[]>([]);
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
     const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
     const [jobSearchTerm, setJobSearchTerm] = useState("");
@@ -431,25 +431,6 @@ export default function CandidateDashboard() {
                     </div>
                 );
             }
-        },
-        { field: "company_name", headerName: "Company", flex: 1.5, minWidth: 150, sortable: true, filter: "agTextColumnFilter" },
-        {
-            field: "position_type",
-            headerName: "Type",
-            width: 140,
-            sortable: true,
-            filter: false,
-            headerComponent: FilterHeaderComponent,
-            headerComponentParams: {
-                selectedItems: selectedTypes,
-                setSelectedItems: setSelectedTypes,
-                options: typeOptions,
-                label: "Type",
-                displayName: "Type",
-                color: "blue",
-                renderOption: (opt: string) => opt.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
-            },
-            valueFormatter: (params) => params.value ? params.value.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : "",
         },
         {
             field: "employment_mode",
@@ -511,8 +492,52 @@ export default function CandidateDashboard() {
                 );
             }
         },
-        { field: "location", headerName: "Location", flex: 1.5, minWidth: 150, sortable: true, filter: "agTextColumnFilter" },
-        { field: "city", headerName: "City", width: 120, sortable: true, filter: "agTextColumnFilter" },
+        { field: "company_name", headerName: "Company", flex: 1.5, minWidth: 150, sortable: true, filter: "agTextColumnFilter" },
+        {
+            field: "position_type",
+            headerName: "Type",
+            width: 140,
+            sortable: true,
+            filter: false,
+            headerComponent: FilterHeaderComponent,
+            headerComponentParams: {
+                selectedItems: selectedTypes,
+                setSelectedItems: setSelectedTypes,
+                options: typeOptions,
+                label: "Type",
+                displayName: "Type",
+                color: "blue",
+                renderOption: (opt: string) => opt.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
+            },
+            valueFormatter: (params) => params.value ? params.value.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : "",
+        },
+        {
+            headerName: "Location",
+            flex: 1.5,
+            minWidth: 150,
+            sortable: true,
+            filter: "agTextColumnFilter",
+            valueGetter: (params: any) => {
+                const city = params.data.city;
+                const loc = params.data.location;
+                if (city && loc) {
+                    if (loc.toLowerCase().includes(city.toLowerCase())) return loc;
+                    return `${city}, ${loc}`;
+                }
+                return city || loc || "";
+            }
+        },
+        {
+            field: "created_at",
+            headerName: "Date",
+            width: 120,
+            sortable: true,
+            filter: "agDateColumnFilter",
+            valueFormatter: (params) => {
+                if (!params.value) return "";
+                return new Date(params.value).toISOString().split('T')[0];
+            }
+        },
         {
             headerName: "Apply",
             width: 100,

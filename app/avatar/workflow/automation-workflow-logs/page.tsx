@@ -63,7 +63,7 @@ export default function AutomationWorkflowLogsPage() {
                         ? JSON.stringify(row.execution_metadata, null, 2)
                         : row.execution_metadata)
                     : "",
-            }));
+            })).sort((a: any, b: any) => b.id - a.id);
             setData(processed);
             setFilteredData(processed);
         } catch (err) {
@@ -92,7 +92,7 @@ export default function AutomationWorkflowLogsPage() {
     }, [searchTerm, data]);
 
     const columnDefs: ColDef[] = useMemo(() => [
-        { field: "id", headerName: "ID", width: 80, sortable: true, pinned: "left" },
+        { field: "id", headerName: "ID", width: 80, sortable: true, pinned: "left", sort: "desc" },
         {
             field: "workflow.name",
             headerName: "Workflow",
