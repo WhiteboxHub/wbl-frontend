@@ -375,6 +375,7 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "vendor", label: "Vendor" },
     { value: "email", label: "Email" },
     { value: "scraper", label: "Scraper" },
+    { value: "hiring_cafe", label: "Hiring Cafe" },
   ],
   processing_status: [
     { value: "new", label: "New" },
