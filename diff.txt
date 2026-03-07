@@ -1,0 +1,140 @@
+commit 98dd351f95f23a009b71b1ddeada12ddce4b87d0
+Author: Akhil <siripuramakhil357@gmail.com>
+Date:   Tue Mar 3 05:42:22 2026 +0530
+
+    modified candiadteDashboard
+
+M	components/CandidateDashboard.tsx
+M	package-lock.json
+
+commit 1c4795ed9ec05a80c167d6fec2fe101038fd9b54
+Merge: 4809927 82d53d7
+Author: RohithYadav-21 <rohithyadav628169@gmail.com>
+Date:   Sun Mar 1 20:25:08 2026 -0800
+
+    Merge pull request #477 from WhiteboxHub/dev
+    
+    candidate_json fixed
+
+commit 82d53d7ea6871d598015f9a2a30bf030e9d25309
+Merge: 862fda8 f7adea0
+Author: sampath-velupula <training@whitebox-learning.com>
+Date:   Sun Mar 1 20:02:35 2026 -0800
+
+    Merge pull request #476 from WhiteboxHub/mahi_dev
+    
+    work flow integration candidate_json error fixed
+
+commit f7adea0db7213357ac87c224cba6e02c2c14f6aa
+Author: Maahi1411 <mahendargoud9866@gmail.com>
+Date:   Mon Mar 2 09:20:58 2026 +0530
+
+    working code
+
+M	.gitignore
+M	components/EditModal.tsx
+M	package-lock.json
+
+commit 4809927e9de14f7d5a6d703c4575fb5753f30bb5
+Merge: 7341db8 862fda8
+Author: RohithYadav-21 <rohithyadav628169@gmail.com>
+Date:   Fri Feb 27 08:05:56 2026 -0800
+
+    Merge pull request #474 from WhiteboxHub/dev
+    
+    Dev
+    -added column candidate_json in candidate_marketing table
+
+commit 862fda8f7b1c02b64db0f14866beea1ddd6fff8e
+Merge: ea81cb7 507a379
+Author: sampath-velupula <training@whitebox-learning.com>
+Date:   Fri Feb 27 08:03:49 2026 -0800
+
+    Merge pull request #473 from WhiteboxHub/mahi_dev
+    
+    added column candidate_json in candidate_marketing table
+
+commit 507a3798a94f7ef0e4545afbb419c47bfdde7902
+Author: sampath-velupula <training@whitebox-learning.com>
+Date:   Fri Feb 27 08:01:30 2026 -0800
+
+    Delete tsconfig.tsbuildinfo
+
+D	tsconfig.tsbuildinfo
+
+commit 8206b4d644a3c5275cbe665386edbaff3e8d18da
+Author: Maahi1411 <mahendargoud9866@gmail.com>
+Date:   Fri Feb 27 21:19:25 2026 +0530
+
+    attached work flow
+
+M	app/avatar/candidates/marketing/page.tsx
+A	tsconfig.tsbuildinfo
+
+commit 7341db869a04c69339deec5e4016c9c40e65e87e
+Merge: 14f034c ea81cb7
+Author: RohithYadav-21 <rohithyadav628169@gmail.com>
+Date:   Thu Feb 26 17:09:33 2026 -0800
+
+    Merge pull request #472 from WhiteboxHub/dev
+    
+    Dev
+    -Fixed errors due to Indexed DB
+
+commit ea81cb7bb13939e118d9f1f24eb9bec26a8413b0
+Merge: cad71db 0715877
+Author: sampath-velupula <training@whitebox-learning.com>
+Date:   Thu Feb 26 17:07:23 2026 -0800
+
+    Merge pull request #471 from WhiteboxHub/jatin_dev
+    
+    Fixed errors due to Indexed DB
+
+commit 07158776d4f3704d93bcdaf3f379446c92afbf08
+Author: Jatin Thakur <t.jatinsingh27@gmail.com>
+Date:   Thu Feb 26 17:00:19 2026 -0800
+
+    Fixed errors due to Indexed DB
+
+M	app/avatar/extraction/raw-contacts/page.tsx
+M	app/avatar/marketing/interviews/page.tsx
+M	app/avatar/workflow/automation-keywords/page.tsx
+
+commit 14f034c2839c4afe7ec627fd112eec3a7fb29f7a
+Merge: c4e9af3 cad71db
+Author: RohithYadav-21 <rohithyadav628169@gmail.com>
+Date:   Thu Feb 26 16:54:04 2026 -0800
+
+    Merge pull request #470 from WhiteboxHub/dev
+    
+    Dev
+
+commit cad71db04b1608d65786d6731e320d4adca769ab
+Merge: b8b2753 5f798ca
+Author: sampath-velupula <training@whitebox-learning.com>
+Date:   Thu Feb 26 16:10:23 2026 -0800
+
+    Merge pull request #469 from WhiteboxHub/jawa_dev
+    
+    changed add & edit for workflow related grids
+
+commit b8b2753b995010d0324a6f89e7b2613882e69dd5
+Merge: 227a58f 948817b
+Author: sampath-velupula <training@whitebox-learning.com>
+Date:   Thu Feb 26 16:03:39 2026 -0800
+
+    Merge pull request #468 from WhiteboxHub/guruteja_dev
+    
+    Changes in employee dashboard UI
+
+commit 5f798ca91787034415f00672cbe377a406047551
+Author: Jawahar <reddynjawahar@gmail.com>
+Date:   Thu Feb 26 15:21:37 2026 -0800
+
+    changed add & edit for workflow related grids
+
+M	app/avatar/workflow/automation-workflow-schedules/page.tsx
+M	app/avatar/workflow/email-smtp-credentials/page.tsx
+M	app/avatar/workflow/email-templates/page.tsx
+M	app/avatar/workflow/list/page.tsx
+M	components/EditModal.tsx
