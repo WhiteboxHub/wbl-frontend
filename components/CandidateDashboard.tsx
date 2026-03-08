@@ -732,16 +732,37 @@ export default function CandidateDashboard() {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
-            // Filter to show jobs from LinkedIn or Hiring Cafe (Loose matching for debug)
+            console.log("🔍 API Response - Total jobs received:", posData?.length || 0);
+            console.log("🔍 API Response - Sample job data:", posData?.[0] || {});
+
+            // Filter to show jobs from LinkedIn or Hiring Cafe
             const filteredData = (posData || []).filter((pos: any) => {
                 const src = pos.source?.toLowerCase() || "";
-                return src.includes('linkedin') || src.includes('hiring') || src.includes('cafe');
+                const shouldInclude = src.includes('linkedin') || src.includes('hiring') || src.includes('cafe');
+                
+                if (shouldInclude) {
+                    console.log(`✅ Including job: ${pos.title} | Source: ${pos.source}`);
+                } else if (src) {
+                    console.log(`❌ Filtering out job: ${pos.title} | Source: ${pos.source}`);
+                }
+                
+                return shouldInclude;
             });
 
-            console.log("Filtered positions count:", filteredData.length);
+            console.log("📊 Final filtered positions count:", filteredData.length);
+            
+            // Debug: Show source distribution
+            const sourceCounts = filteredData.reduce((acc: any, pos: any) => {
+                const src = pos.source?.toLowerCase() || 'unknown';
+                acc[src] = (acc[src] || 0) + 1;
+                return acc;
+            }, {});
+            
+            console.log("📈 Source distribution:", sourceCounts);
+
             setPositions(filteredData);
         } catch (err) {
-            console.error("Error loading positions:", err);
+            console.error("❌ Error loading positions:", err);
         } finally {
             setPositionsLoading(false);
         }
