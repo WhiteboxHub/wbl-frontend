@@ -79,17 +79,6 @@ const FilterHeaderComponent = ({
     getOptionValue?: (option: any) => any;
     getOptionKey?: (option: any) => any;
 }) => {
-    const handleItemChange = (item: any) => {
-        const value = getOptionValue(item);
-        setSelectedItems((prev: any[]) => {
-            const isSelected = prev.some((i) => getOptionValue(i) === value);
-            return isSelected
-                ? prev.filter((i) => getOptionValue(i) !== value)
-                : [...prev, item];
-        });
-        setFilterVisible(false);
-    };
-
     const filterButtonRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
@@ -99,12 +88,36 @@ const FilterHeaderComponent = ({
         e.stopPropagation();
         if (filterButtonRef.current) {
             const rect = filterButtonRef.current.getBoundingClientRect();
+            const dropdownWidth = 220;
+            let left = rect.left;
+
+            if (left + dropdownWidth > window.innerWidth) {
+                left = window.innerWidth - dropdownWidth - 10;
+            }
+            if (left < 10) left = 10;
+
             setDropdownPos({
-                top: rect.bottom + window.scrollY,
-                left: Math.max(0, rect.left + window.scrollX - 100),
+                top: rect.bottom + 8,
+                left: left,
             });
         }
         setFilterVisible((v) => !v);
+    };
+
+    const handleItemChange = (item: any) => {
+        const value = getOptionValue(item);
+        setSelectedItems((prev: any[]) => {
+            const isSelected = prev.some((i) => getOptionValue(i) === value);
+            return isSelected
+                ? prev.filter((i) => getOptionValue(i) !== value)
+                : [...prev, item];
+        });
+    };
+
+    const clearFilters = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setSelectedItems([]);
+        setFilterVisible(false);
     };
 
     const colorMap: Record<string, string> = {
@@ -126,11 +139,8 @@ const FilterHeaderComponent = ({
                 setFilterVisible(false);
             }
         };
-        const handleScroll = (e: Event) => {
-            const target = e.target as HTMLElement;
-            if (dropdownRef.current && !dropdownRef.current.contains(target)) {
-                setFilterVisible(false);
-            }
+        const handleScroll = () => {
+            if (filterVisible) setFilterVisible(false);
         };
         if (filterVisible) {
             document.addEventListener("mousedown", handleClickOutside);
@@ -187,15 +197,15 @@ const FilterHeaderComponent = ({
                 createPortal(
                     <div
                         ref={dropdownRef}
-                        className="filter-dropdown pointer-events-auto fixed flex w-44 max-w-[20vw] flex-col rounded-xl border border-gray-200 bg-white shadow-2xl animate-in fade-in zoom-in duration-200 dark:border-gray-700 dark:bg-gray-900"
+                        className="filter-dropdown pointer-events-auto fixed flex w-70 flex-col rounded-xl border border-gray-200 bg-white shadow-2xl animate-in fade-in zoom-in duration-200 dark:border-gray-700 dark:bg-gray-900"
                         style={{
-                            top: dropdownPos.top + 8,
+                            top: dropdownPos.top,
                             left: dropdownPos.left,
                             zIndex: 99999,
                         }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="max-h-[300px] overflow-y-auto p-1.5 pt-0.5">
+                        <div className="p-1.5 h-auto">
                             {options.map((option) => {
                                 const value = getOptionValue(option);
                                 const key = getOptionKey(option);
@@ -209,14 +219,24 @@ const FilterHeaderComponent = ({
                                             : "text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
                                             }`}
                                     >
-                                        <div className="flex items-center space-x-2">
+                                        <div className="flex items-center space-x-2 truncate mr-2">
                                             {renderOption(option)}
                                         </div>
-                                        {isSelected && <Check className="h-4 w-4 animate-in zoom-in duration-300" />}
+                                        {isSelected && <Check className="h-4 w-4 flex-shrink-0 animate-in zoom-in duration-300" />}
                                     </div>
                                 );
                             })}
                         </div>
+                        {selectedItems.length > 0 && (
+                            <div className="border-t p-2 bg-gray-50 dark:bg-gray-800/50 rounded-b-xl flex justify-center">
+                                <button
+                                    onClick={clearFilters}
+                                    className="text-xs text-red-500 hover:text-red-700 font-medium py-1 w-full"
+                                >
+                                    Clear Selection
+                                </button>
+                            </div>
+                        )}
                     </div>,
                     document.body
                 )}
@@ -236,7 +256,7 @@ export default function RawJobListingsPage() {
     const [searchTerm, setSearchTerm] = useState("");
 
     const statusOptions = ['new', 'parsed', 'mapped', 'discarded', 'error'];
-    const sourceOptions = ['linkedin', 'email', 'job_board', 'scraper'];
+    const sourceOptions = ['bot_linkedin_post_contact_extractor', 'bot_linkedin_message_extraction', 'email', 'linkedin', 'job_board', 'scraper'];
 
     const fetchRawJobListings = useCallback(async () => {
         setLoading(true);
@@ -420,13 +440,13 @@ export default function RawJobListingsPage() {
                     label: "Status",
                     displayName: "Status",
                     color: "green",
-                    renderOption: (opt: string) => <StatusRenderer value={opt} />
+                    renderOption: (opt: string) => opt.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
                 }
             },
             {
                 field: "source",
                 headerName: "Source",
-                width: 130,
+                width: 220,
                 sortable: true,
                 filter: false,
                 editable: true,
