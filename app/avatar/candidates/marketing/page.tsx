@@ -801,6 +801,26 @@ export default function CandidatesMarketingPage() {
         cellEditor: "agCheckboxCellEditor",
       },
       {
+        field: "run_email_extraction",
+        headerName: "Run Email Extraction",
+        width: 170,
+        editable: true,
+        cellRenderer: (params: any) => (
+          <span>{params.value ? "Yes" : "No"}</span>
+        ),
+        cellEditor: "agCheckboxCellEditor",
+      },
+      {
+        field: "linkedin_post",
+        headerName: "LinkedIn Post",
+        width: 140,
+        editable: true,
+        cellRenderer: (params: any) => (
+          <span>{params.value ? "Yes" : "No"}</span>
+        ),
+        cellEditor: "agCheckboxCellEditor",
+      },
+      {
         field: "candidate_json",
         headerName: "Candidate JSON",
         width: 200,
