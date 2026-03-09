@@ -378,12 +378,23 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "invalid", label: "Invalid" },
   ],
   source: [
+    { value: "bot_linkedin_post_contact_extractor", label: "Bot Linkedin Post Contact Extractor" },
+    { value: "bot_linkedin_message_extraction", label: "Bot Linkedin Message Extraction" },
+    { value: "email", label: "Email" },
     { value: "linkedin", label: "LinkedIn" },
     { value: "job_board", label: "Job Board" },
-    { value: "vendor", label: "Vendor" },
-    { value: "email", label: "Email" },
     { value: "scraper", label: "Scraper" },
-    { value: "hiring_cafe", label: "Hiring Cafe" },
+    { value: "hiring.cafe", label: "Hiring Cafe" },
+    { value: "interview_modal", label: "Interview Modal" },
+    { value: "email_bot_llm_local", label: "Email Bot LLM Local" },
+  ],
+  raw_source: [
+    { value: "bot_linkedin_post_contact_extractor", label: "Bot Linkedin Post Contact Extractor" },
+    { value: "bot_linkedin_message_extraction", label: "Bot Linkedin Message Extraction" },
+    { value: "email", label: "Email" },
+    { value: "linkedin", label: "LinkedIn" },
+    { value: "job_board", label: "Job Board" },
+    { value: "scraper", label: "Scraper" }
   ],
   processing_status: [
     { value: "new", label: "New" },
@@ -1327,7 +1338,8 @@ export function EditModal({
     .includes("automation contact extract");
   const isJobTypeModal = title.toLowerCase().includes("job type");
   const isAutomationKeywordModal = title.toLowerCase().includes("automation keyword");
-  const isPositionsModal = title.toLowerCase().includes("position") || title.toLowerCase().includes("job listing");
+  const isPositionsModal = title.toLowerCase().includes("position") || (title.toLowerCase().includes("job listing") && !title.toLowerCase().includes("raw"));
+  const isRawJobListingModal = title.toLowerCase().includes("raw job listing") || title.toLowerCase().includes("raw_job_listing");
   const isJobDefinitionModal = title.toLowerCase().includes("job definition");
   const isJobRequestModal = title.toLowerCase().includes("job request");
   const isPlacementFeeModal = title.toLowerCase().includes("placement fee");
@@ -2106,7 +2118,10 @@ export function EditModal({
 
     if (keyLower === "position_type") return enumOptions.position_type;
     if (keyLower === "employment_mode") return enumOptions.employment_mode;
-    if (keyLower === "source") return enumOptions.source;
+    if (keyLower === "source") {
+      if (isRawJobListingModal) return enumOptions.raw_source;
+      return enumOptions.source;
+    }
 
     if (isAutomationContactExtractModal) {
       if (keyLower === "processing_status") return enumOptions.extract_processing_status;
