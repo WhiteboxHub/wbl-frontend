@@ -65,6 +65,14 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: false, label: "No" },
     { value: true, label: "Yes" },
   ],
+  run_email_extraction: [
+    { value: false, label: "No" },
+    { value: true, label: "Yes" },
+  ],
+  linkedin_post: [
+    { value: false, label: "No" },
+    { value: true, label: "Yes" },
+  ],
   recipient_source: [
     { value: "CSV", label: "Local CSV File" },
     { value: "OUTREACH_DB", label: "Outreach Database" },
@@ -802,6 +810,8 @@ const fieldSections: Record<string, string> = {
   batchname: "Basic Information",
   move_to_prep: "Basic Information",
   move_to_mrkt: "Basic Information",
+  run_email_extraction: "Basic Information",
+  linkedin_post: "Basic Information",
   recipient_source: "Basic Information",
   date_filter: "Basic Information",
   lookback_days: "Basic Information",
@@ -999,6 +1009,8 @@ const fieldSections: Record<string, string> = {
 const labelOverrides: Record<string, string> = {
   candidate_full_name: "Candidate Full Name",
   instructor1_name: "Instructor 1 Name",
+  run_email_extraction: "Run Email Extraction",
+  linkedin_post: "LinkedIn Post",
   instructor2_name: "Instructor 2 Name",
   instructor3_name: "Instructor 3 Name",
 
