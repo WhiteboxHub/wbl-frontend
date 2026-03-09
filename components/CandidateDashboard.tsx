@@ -361,7 +361,6 @@ const interviewColumnDefs: ColDef[] = [
 ];
 
 
-
 export default function CandidateDashboard() {
     const router = useRouter();
     const { userRole } = useAuth() as { userRole: string };
@@ -378,13 +377,13 @@ export default function CandidateDashboard() {
     // Sessions state
     const [sessions, setSessions] = useState<Session[]>([]);
     const [sessionsLoading, setSessionsLoading] = useState(false);
-    const [sessionSearchTerm, setSessionSearchTerm] = useState("");
+
 
     // Jobs state
     const [positions, setPositions] = useState<any[]>([]);
     const [filteredPositions, setFilteredPositions] = useState<any[]>([]);
     const [positionsLoading, setPositionsLoading] = useState(false);
-    const [selectedModes, setSelectedModes] = useState<string[]>(['Remote']);
+    const [selectedModes, setSelectedModes] = useState<string[]>([]);
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
     const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
     const [jobSearchTerm, setJobSearchTerm] = useState("");
@@ -402,30 +401,36 @@ export default function CandidateDashboard() {
             minWidth: 200,
             sortable: true,
             filter: "agTextColumnFilter",
-            cellRenderer: (params: any) => (
-                <div className="flex items-center h-full">
-                    <span className="font-semibold text-gray-800 dark:text-gray-200">{params.value}</span>
-                </div>
-            )
-        },
-        { field: "company_name", headerName: "Company", flex: 1.5, minWidth: 150, sortable: true, filter: "agTextColumnFilter" },
-        {
-            field: "position_type",
-            headerName: "Type",
-            width: 140,
-            sortable: true,
-            filter: false,
-            headerComponent: FilterHeaderComponent,
-            headerComponentParams: {
-                selectedItems: selectedTypes,
-                setSelectedItems: setSelectedTypes,
-                options: typeOptions,
-                label: "Type",
-                displayName: "Type",
-                color: "blue",
-                renderOption: (opt: string) => opt.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
-            },
-            valueFormatter: (params) => params.value ? params.value.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : "",
+            cellRenderer: (params: any) => {
+                const jobId = params.data.source_job_id || params.data.source_uid;
+                const source = params.data.source?.toLowerCase() || "";
+                const url = params.data.job_url ||
+                    (source.includes('hiring')
+                        ? `https://hiring.cafe/viewjob/${jobId}`
+                        : `https://www.linkedin.com/jobs/view/${jobId}`);
+
+                if (!url) {
+                    return (
+                        <div className="flex items-center h-full">
+                            <span className="font-semibold text-gray-800 dark:text-gray-200">{params.value}</span>
+                        </div>
+                    );
+                }
+
+                return (
+                    <div className="flex items-center h-full">
+                        <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-semibold text-blue-600 hover:text-blue-800 hover:underline decoration-blue-400 group flex items-center gap-1.5"
+                        >
+                            <span>{params.value}</span>
+                            <ExternalLink className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </a>
+                    </div>
+                );
+            }
         },
         {
             field: "employment_mode",
@@ -487,18 +492,69 @@ export default function CandidateDashboard() {
                 );
             }
         },
-        { field: "location", headerName: "Location", flex: 1.5, minWidth: 150, sortable: true, filter: "agTextColumnFilter" },
-        { field: "city", headerName: "City", width: 120, sortable: true, filter: "agTextColumnFilter" },
+        { field: "company_name", headerName: "Company", flex: 1.5, minWidth: 150, sortable: true, filter: "agTextColumnFilter" },
         {
-            field: "source_job_id",
+            field: "position_type",
+            headerName: "Type",
+            width: 140,
+            sortable: true,
+            filter: false,
+            headerComponent: FilterHeaderComponent,
+            headerComponentParams: {
+                selectedItems: selectedTypes,
+                setSelectedItems: setSelectedTypes,
+                options: typeOptions,
+                label: "Type",
+                displayName: "Type",
+                color: "blue",
+                renderOption: (opt: string) => opt.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
+            },
+            valueFormatter: (params) => params.value ? params.value.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : "",
+        },
+        {
+            headerName: "Location",
+            flex: 1.5,
+            minWidth: 150,
+            sortable: true,
+            filter: "agTextColumnFilter",
+            valueGetter: (params: any) => {
+                const city = params.data.city;
+                const loc = params.data.location;
+                if (city && loc) {
+                    if (loc.toLowerCase().includes(city.toLowerCase())) return loc;
+                    return `${city}, ${loc}`;
+                }
+                return city || loc || "";
+            }
+        },
+        {
+            field: "created_at",
+            headerName: "Date",
+            width: 120,
+            sortable: true,
+            filter: "agDateColumnFilter",
+            valueFormatter: (params) => {
+                if (!params.value) return "";
+                return new Date(params.value).toISOString().split('T')[0];
+            }
+        },
+        {
             headerName: "Apply",
             width: 100,
             cellRenderer: (params: any) => {
-                if (!params.value) return <span className="text-gray-400">-</span>;
+                const jobId = params.data.source_job_id || params.data.source_uid;
+                if (!jobId && !params.data.job_url) return <span className="text-gray-400">-</span>;
+
+                const source = params.data.source?.toLowerCase() || "";
+                const url = params.data.job_url ||
+                    (source.includes('hiring')
+                        ? `https://hiring.cafe/viewjob/${jobId}`
+                        : `https://www.linkedin.com/jobs/view/${jobId}`);
+
                 return (
                     <div className="flex items-center h-full">
                         <a
-                            href={params.data.job_url || `https://www.linkedin.com/jobs/view/${params.value}`}
+                            href={url}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center space-x-1.5 text-blue-600 hover:text-blue-800 font-bold text-xs"
@@ -638,10 +694,7 @@ export default function CandidateDashboard() {
         try {
             setSessionsLoading(true);
 
-            const searchQuery = sessionSearchTerm.trim()
-                ? `${firstName} ${sessionSearchTerm}`.toLowerCase()
-                : firstName.toLowerCase();
-
+            const searchQuery = firstName.toLowerCase();
             const params = new URLSearchParams({ search_title: searchQuery });
             const sessionData = await apiFetch(`session?${params}`, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -679,10 +732,37 @@ export default function CandidateDashboard() {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
-            // Store all positions returned from API
-            setPositions(posData || []);
+            console.log("🔍 API Response - Total jobs received:", posData?.length || 0);
+            console.log("🔍 API Response - Sample job data:", posData?.[0] || {});
+
+            // Filter to show jobs from LinkedIn or Hiring Cafe
+            const filteredData = (posData || []).filter((pos: any) => {
+                const src = pos.source?.toLowerCase() || "";
+                const shouldInclude = src.includes('linkedin') || src.includes('hiring') || src.includes('cafe');
+                
+                if (shouldInclude) {
+                    console.log(`✅ Including job: ${pos.title} | Source: ${pos.source}`);
+                } else if (src) {
+                    console.log(`❌ Filtering out job: ${pos.title} | Source: ${pos.source}`);
+                }
+                
+                return shouldInclude;
+            });
+
+            console.log("📊 Final filtered positions count:", filteredData.length);
+            
+            // Debug: Show source distribution
+            const sourceCounts = filteredData.reduce((acc: any, pos: any) => {
+                const src = pos.source?.toLowerCase() || 'unknown';
+                acc[src] = (acc[src] || 0) + 1;
+                return acc;
+            }, {});
+            
+            console.log("📈 Source distribution:", sourceCounts);
+
+            setPositions(filteredData);
         } catch (err) {
-            console.error("Error loading positions:", err);
+            console.error("❌ Error loading positions:", err);
         } finally {
             setPositionsLoading(false);
         }
@@ -747,7 +827,7 @@ export default function CandidateDashboard() {
 
             return () => clearTimeout(timeoutId);
         }
-    }, [data, sessionSearchTerm]);
+    }, [data]);
 
     useEffect(() => {
         if (activeTab === 'jobs' && positions.length === 0) {
@@ -866,7 +946,7 @@ export default function CandidateDashboard() {
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
                 {/* Top Bar */}
-                <header className="h-16 flex items-center justify-between px-4 lg:px-6 bg-[#f4f6f9] dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 z-20 flex-shrink-0">
+                <header className="min-h-[80px] lg:min-h-[100px] flex items-center justify-between px-4 lg:px-6 bg-[#f4f6f9] dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 z-20 flex-shrink-0 py-3">
                     <div className="flex items-center gap-4 flex-1">
                         {/* Mobile logo */}
                         <div className="lg:hidden flex items-center gap-2">
@@ -876,7 +956,7 @@ export default function CandidateDashboard() {
                         </div>
 
                         {/* Candidate Details Card */}
-                        <div className="hidden sm:flex items-center gap-6 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl px-6 py-4 shadow-sm">
+                        <div className="hidden sm:flex items-center gap-8 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl px-8 py-5 shadow-sm">
                             {/* Greeting + Name + Email */}
                             <div className="flex items-center gap-4 pr-6 border-r border-gray-100 dark:border-gray-700">
                                 <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-base flex-shrink-0 shadow-md">
@@ -1154,19 +1234,6 @@ export default function CandidateDashboard() {
                                             </h2>
                                             <p className="text-xs text-gray-400 mt-0.5">Your recorded and upcoming sessions.</p>
                                         </div>
-                                        <div className="max-w-xs w-full">
-                                            <div className="relative">
-                                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                                <Input
-                                                    id="session-search"
-                                                    type="text"
-                                                    placeholder="Search sessions..."
-                                                    value={sessionSearchTerm}
-                                                    onChange={(e) => setSessionSearchTerm(e.target.value)}
-                                                    className="pl-8 h-8 text-xs"
-                                                />
-                                            </div>
-                                        </div>
                                     </div>
 
                                     {sessionsLoading ? (
@@ -1179,9 +1246,7 @@ export default function CandidateDashboard() {
                                             <PlayCircle className="w-14 h-14 text-gray-200 dark:text-gray-700 mx-auto mb-3" />
                                             <h3 className="text-base font-bold text-gray-700 dark:text-gray-300 mb-1">No Sessions Found</h3>
                                             <p className="text-sm text-gray-400">
-                                                {sessionSearchTerm.trim()
-                                                    ? `No sessions matching "${sessionSearchTerm}"`
-                                                    : `No sessions found for ${firstName} yet`}
+                                                {`No sessions found for ${firstName} yet`}
                                             </p>
                                         </div>
                                     ) : (
