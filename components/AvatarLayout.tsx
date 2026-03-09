@@ -131,6 +131,10 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
           title: "Raw Job Listings",
           href: "/avatar/extraction/raw-job-listings",
         },
+        {
+          title: "Email Positions",
+          href: "/avatar/extraction/email-positions",
+        },
       ],
     },
     {

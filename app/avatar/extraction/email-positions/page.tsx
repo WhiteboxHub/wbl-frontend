@@ -8,27 +8,26 @@ import { AGGridTable } from "@/components/AGGridTable";
 import { Check, SearchIcon } from "lucide-react";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import api, { apiFetch } from "@/lib/api";
+import api from "@/lib/api";
 import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
-type RawJobListing = {
+type EmailPosition = {
     id: number;
     candidate_id?: number | null;
     source: string;
     source_uid?: string | null;
     extracted_at: string;
     extractor_version?: string | null;
-    raw_title?: string | null;
-    raw_company?: string | null;
-    raw_location?: string | null;
-    raw_zip?: string | null;
-    raw_description?: string | null;
-    raw_contact_info?: string | null;
-    raw_notes?: string | null;
-    raw_payload?: any;
-    processing_status: string;
+    title?: string | null;
+    company?: string | null;
+    location?: string | null;
+    zip?: string | null;
+    description?: string | null;
+    contact_info?: string | null;
+    notes?: string | null;
+    payload?: any;
     error_message?: string | null;
     processed_at?: string | null;
     created_at: string;
@@ -36,24 +35,18 @@ type RawJobListing = {
 
 const StatusRenderer = ({ value }: { value?: string }) => {
     const status = value?.toLowerCase() || "";
+    // Using simple status indicators for processed_at presence for now
+    // Since email_positions doesn't have a processing_status explicitly like raw_job_listings
+    const isProcessed = value !== null;
     const variantMap: Record<string, string> = {
+        processed: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
         new: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-        parsed: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-        mapped: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-        discarded: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
-        error: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
         default: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
     };
-    const formatted = (value || "")
-        .toString()
-        .replace(/_/g, " ")
-        .split(" ")
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join(" ");
 
     return (
-        <Badge className={`${variantMap[status] || variantMap.default} capitalize`}>
-            {formatted || "N/A"}
+        <Badge className={`${isProcessed ? variantMap.processed : variantMap.new} capitalize`}>
+            {isProcessed ? "Processed" : "New"}
         </Badge>
     );
 };
@@ -224,30 +217,28 @@ const FilterHeaderComponent = ({
     );
 };
 
-export default function RawJobListingsPage() {
-    const [allRawJobListings, setAllRawJobListings] = useState<RawJobListing[]>([]);
-    const [filteredRawJobListings, setFilteredRawJobListings] = useState<RawJobListing[]>([]);
+export default function EmailPositionsPage() {
+    const [allEmailPositions, setAllEmailPositions] = useState<EmailPosition[]>([]);
+    const [filteredEmailPositions, setFilteredEmailPositions] = useState<EmailPosition[]>([]);
     const [loading, setLoading] = useState(true);
     const showLoader = useMinimumLoadingTime(loading);
 
     // Filter states
-    const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
     const [selectedSources, setSelectedSources] = useState<string[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
 
-    const statusOptions = ['new', 'parsed', 'mapped', 'discarded', 'error'];
     const sourceOptions = ['linkedin', 'email', 'job_board', 'scraper'];
 
-    const fetchRawJobListings = useCallback(async () => {
+    const fetchEmailPositions = useCallback(async () => {
         setLoading(true);
         try {
             const pageSize = 5000;
-            let allData: RawJobListing[] = [];
+            let allData: EmailPosition[] = [];
             let currentPage = 1;
             let hasNext = true;
 
             while (hasNext) {
-                const response = await cachedApiFetch(`/raw-positions/paginated?page=${currentPage}&page_size=${pageSize}`);
+                const response = await cachedApiFetch(`/email-positions/paginated?page=${currentPage}&page_size=${pageSize}`);
                 const { data, has_next } = response.data;
 
                 allData = [...allData, ...data];
@@ -259,25 +250,22 @@ export default function RawJobListingsPage() {
                 if (currentPage > 100) break;
             }
 
-            setAllRawJobListings(allData);
+            setAllEmailPositions(allData);
         } catch (error) {
-            console.error("Error fetching raw job listings:", error);
-            toast.error("Failed to load raw job listings");
+            console.error("Error fetching email positions:", error);
+            toast.error("Failed to load email positions");
         } finally {
             setLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        fetchRawJobListings();
-    }, [fetchRawJobListings]);
+        fetchEmailPositions();
+    }, [fetchEmailPositions]);
 
     useEffect(() => {
-        let filtered = [...allRawJobListings];
+        let filtered = [...allEmailPositions];
 
-        if (selectedStatuses.length > 0) {
-            filtered = filtered.filter(p => selectedStatuses.includes(p.processing_status));
-        }
         if (selectedSources.length > 0) {
             filtered = filtered.filter(p => selectedSources.includes(p.source));
         }
@@ -286,24 +274,24 @@ export default function RawJobListingsPage() {
             const lower = searchTerm.toLowerCase();
             filtered = filtered.filter((p) => {
                 return (
-                    (p.raw_title?.toLowerCase().includes(lower)) ||
-                    (p.raw_company?.toLowerCase().includes(lower)) ||
-                    (p.raw_location?.toLowerCase().includes(lower)) ||
+                    (p.title?.toLowerCase().includes(lower)) ||
+                    (p.company?.toLowerCase().includes(lower)) ||
+                    (p.location?.toLowerCase().includes(lower)) ||
                     (p.source_uid?.toLowerCase().includes(lower)) ||
-                    (p.raw_description?.toLowerCase().includes(lower))
+                    (p.description?.toLowerCase().includes(lower))
                 );
             });
         }
 
-        setFilteredRawJobListings(filtered);
-    }, [allRawJobListings, selectedStatuses, selectedSources, searchTerm]);
+        setFilteredEmailPositions(filtered);
+    }, [allEmailPositions, selectedSources, searchTerm]);
 
-    const getRawJobListingPayload = (data: any) => {
+    const getEmailPositionPayload = (data: any) => {
         const allowedFields = [
             "candidate_id", "source", "source_uid", "extractor_version",
-            "raw_title", "raw_company", "raw_location", "raw_zip",
-            "raw_description", "raw_contact_info", "raw_notes", "raw_payload",
-            "processing_status", "error_message", "processed_at"
+            "title", "company", "location", "zip",
+            "description", "contact_info", "notes", "payload",
+            "error_message", "processed_at"
         ];
 
         const payload: Record<string, any> = {};
@@ -311,7 +299,7 @@ export default function RawJobListingsPage() {
             if (field in data) {
                 let value = data[field];
                 if (value === "" || value === undefined) {
-                    const requiredFields = ["source", "processing_status"];
+                    const requiredFields = ["source"];
                     if (!requiredFields.includes(field)) {
                         payload[field] = null;
                     }
@@ -329,19 +317,19 @@ export default function RawJobListingsPage() {
     const handleRowUpdated = async (updatedData: any) => {
         try {
             const id = updatedData.id;
-            const dataToSave = getRawJobListingPayload(updatedData);
+            const dataToSave = getEmailPositionPayload(updatedData);
 
-            const response = await api.put(`/raw-positions/${id}`, dataToSave);
-            await invalidateCache("/raw-positions/paginated");
+            const response = await api.put(`/email-positions/${id}`, dataToSave);
+            await invalidateCache("/email-positions/paginated");
             const updatedRecord = response.data;
 
-            setAllRawJobListings((prev) =>
+            setAllEmailPositions((prev) =>
                 prev.map((row) => (row.id === id ? { ...row, ...updatedRecord } : row))
             );
-            toast.success("Raw job listing updated successfully");
+            toast.success("Email position updated successfully");
         } catch (error: any) {
-            console.error("Error updating raw job listing:", error);
-            let errorMessage = "Failed to update raw job listing";
+            console.error("Error updating email position:", error);
+            let errorMessage = "Failed to update email position";
             if (error?.response?.data?.detail) {
                 const detail = error.response.data.detail;
                 if (Array.isArray(detail)) {
@@ -356,13 +344,13 @@ export default function RawJobListingsPage() {
 
     const handleRowDeleted = async (id: string | number) => {
         try {
-            await api.delete(`/raw-positions/${id}`);
-            await invalidateCache("/raw-positions/paginated");
-            setAllRawJobListings((prev) => prev.filter((row) => row.id !== id));
-            toast.success("Raw job listing deleted successfully");
+            await api.delete(`/email-positions/${id}`);
+            await invalidateCache("/email-positions/paginated");
+            setAllEmailPositions((prev) => prev.filter((row) => row.id !== id));
+            toast.success("Email position deleted successfully");
         } catch (error: any) {
-            console.error("Error deleting raw job listing:", error);
-            toast.error("Failed to delete raw job listing");
+            console.error("Error deleting email position:", error);
+            toast.error("Failed to delete email position");
         }
     };
 
@@ -372,19 +360,18 @@ export default function RawJobListingsPage() {
                 Object.entries(newData).filter(([_, v]) => v !== "" && v !== undefined)
             );
             const dataWithDefaults = {
-                source: "linkedin",
-                processing_status: "new",
+                source: "email",
                 ...filteredNewData
             };
-            const dataToSave = getRawJobListingPayload(dataWithDefaults);
-            const response = await api.post("/raw-positions/", dataToSave);
-            await invalidateCache("/raw-positions/paginated");
+            const dataToSave = getEmailPositionPayload(dataWithDefaults);
+            const response = await api.post("/email-positions/", dataToSave);
+            await invalidateCache("/email-positions/paginated");
             const addedRecord = response.data;
-            setAllRawJobListings((prev) => [addedRecord, ...prev]);
-            toast.success("Raw job listing added successfully");
+            setAllEmailPositions((prev) => [addedRecord, ...prev]);
+            toast.success("Email position added successfully");
         } catch (error: any) {
-            console.error("Error adding raw job listing:", error);
-            let errorMessage = "Failed to add raw job listing";
+            console.error("Error adding email position:", error);
+            let errorMessage = "Failed to add email position";
             if (error?.response?.data?.detail) {
                 const detail = error.response.data.detail;
                 if (Array.isArray(detail)) {
@@ -400,28 +387,16 @@ export default function RawJobListingsPage() {
     const columnDefs: ColDef[] = useMemo(
         () => [
             { field: "id", headerName: "ID", width: 80, sortable: true, filter: "agNumberColumnFilter", pinned: "left" },
-            { field: "raw_title", headerName: "Title", width: 220, sortable: true, filter: "agTextColumnFilter", editable: true },
-            { field: "raw_company", headerName: "Company", width: 180, sortable: true, filter: "agTextColumnFilter", editable: true },
-            { field: "raw_location", headerName: "Location", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true },
+            { field: "title", headerName: "Title", width: 220, sortable: true, filter: "agTextColumnFilter", editable: true },
+            { field: "company", headerName: "Company", width: 180, sortable: true, filter: "agTextColumnFilter", editable: true },
+            { field: "location", headerName: "Location", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true },
             {
-                field: "processing_status",
+                field: "processed_at",
                 headerName: "Status",
                 width: 140,
                 cellRenderer: (params: any) => <StatusRenderer value={params.value} />,
                 filter: false,
-                editable: true,
-                cellEditor: 'agSelectCellEditor',
-                cellEditorParams: { values: statusOptions },
-                headerComponent: FilterHeaderComponent,
-                headerComponentParams: {
-                    selectedItems: selectedStatuses,
-                    setSelectedItems: setSelectedStatuses,
-                    options: statusOptions,
-                    label: "Status",
-                    displayName: "Status",
-                    color: "green",
-                    renderOption: (opt: string) => <StatusRenderer value={opt} />
-                }
+                editable: false,
             },
             {
                 field: "source",
@@ -446,10 +421,10 @@ export default function RawJobListingsPage() {
             },
             { field: "source_uid", headerName: "Source UID", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "candidate_id", headerName: "Candidate ID", width: 130, sortable: true, filter: "agNumberColumnFilter", editable: true },
-            { field: "raw_zip", headerName: "Zip", width: 100, sortable: true, filter: "agTextColumnFilter", editable: true },
-            { field: "raw_contact_info", headerName: "Contact Info", width: 200, sortable: true, filter: "agTextColumnFilter", editable: true },
+            { field: "zip", headerName: "Zip", width: 100, sortable: true, filter: "agTextColumnFilter", editable: true },
+            { field: "contact_info", headerName: "Contact Info", width: 200, sortable: true, filter: "agTextColumnFilter", editable: true },
             {
-                field: "raw_payload",
+                field: "payload",
                 headerName: "Payload",
                 width: 200,
                 sortable: true,
@@ -469,6 +444,14 @@ export default function RawJobListingsPage() {
             { field: "extractor_version", headerName: "Extractor Version", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "error_message", headerName: "Error Message", width: 250, sortable: true, filter: "agTextColumnFilter", editable: true },
             {
+                field: "extracted_at",
+                headerName: "Extracted At",
+                width: 180,
+                sortable: true,
+                filter: "agDateColumnFilter",
+                valueFormatter: (params) => params.value ? new Date(params.value).toLocaleString() : ""
+            },
+            {
                 field: "processed_at",
                 headerName: "Processed At",
                 width: 180,
@@ -476,10 +459,10 @@ export default function RawJobListingsPage() {
                 filter: "agDateColumnFilter",
                 valueFormatter: (params) => params.value ? new Date(params.value).toLocaleString() : ""
             },
-            { field: "raw_description", headerName: "Description", width: 300, sortable: true, filter: "agTextColumnFilter", editable: true },
-            { field: "raw_notes", headerName: "Notes", width: 200, sortable: true, filter: "agTextColumnFilter", editable: true },
+            { field: "description", headerName: "Description", width: 300, sortable: true, filter: "agTextColumnFilter", editable: true },
+            { field: "notes", headerName: "Notes", width: 200, sortable: true, filter: "agTextColumnFilter", editable: true },
         ],
-        [selectedStatuses, selectedSources]
+        [selectedSources]
     );
 
     return (
@@ -487,8 +470,8 @@ export default function RawJobListingsPage() {
             <Toaster position="top-center" richColors />
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Raw Job Listings</h1>
-                    <p className="text-muted-foreground">Manage raw extracted job listings from various sources.</p>
+                    <h1 className="text-3xl font-bold tracking-tight">Email Positions</h1>
+                    <p className="text-muted-foreground">Manage extracted job positions from emails.</p>
                 </div>
             </div>
 
@@ -511,12 +494,12 @@ export default function RawJobListingsPage() {
                 <Loader />
             ) : (
                 <AGGridTable
-                    rowData={filteredRawJobListings}
+                    rowData={filteredEmailPositions}
                     columnDefs={columnDefs}
                     onRowUpdated={handleRowUpdated}
                     onRowDeleted={handleRowDeleted}
                     onRowAdded={handleRowAdded}
-                    title={`Raw Job Listings (${filteredRawJobListings.length})`}
+                    title={`Email Positions (${filteredEmailPositions.length})`}
                     showAddButton={true}
                 />
             )}
