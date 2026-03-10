@@ -601,7 +601,7 @@ export default function JobListingsPage() {
             {
                 field: "source",
                 headerName: "Source",
-                width: 220,
+                width: 100,
                 sortable: true,
                 filter: false,
                 editable: true,
@@ -617,6 +617,17 @@ export default function JobListingsPage() {
                     displayName: "Source",
                     color: "orange",
                     renderOption: (opt: string) => opt.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
+                }
+            },
+            {
+                field: "created_at",
+                headerName: "Date",
+                width: 120,
+                sortable: true,
+                filter: "agDateColumnFilter",
+                valueFormatter: (params) => {
+                    if (!params.value) return "";
+                    return new Date(params.value).toISOString().split('T')[0];
                 }
             },
             { field: "location", headerName: "Location", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true },
