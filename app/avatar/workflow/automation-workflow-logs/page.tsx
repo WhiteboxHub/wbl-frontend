@@ -1,7 +1,7 @@
 "use client";
 import { AGGridTable } from "@/components/AGGridTable";
 import { Badge } from "@/components/admin_ui/badge";
-import { ColDef } from "ag-grid-community";
+import { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { useState, useEffect, useMemo } from "react";
 import api, { apiFetch } from "@/lib/api";
 import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
@@ -122,8 +122,68 @@ export default function AutomationWorkflowLogsPage() {
         { field: "error_summary", headerName: "Error Summary", width: 250, sortable: true },
         { field: "started_at", headerName: "Started", width: 180, sortable: true, valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : "" },
         { field: "finished_at", headerName: "Finished", width: 180, sortable: true, valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : "" },
-        { field: "created_at", headerName: "Created Date", width: 180, sortable: true, valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : "" },
-        { field: "updated_at", headerName: "Updated Date", width: 180, sortable: true, valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : "" },
+        { 
+            field: "created_at", 
+            headerName: "Created Date", 
+            width: 180, 
+            sortable: true, 
+            filter: "agDateColumnFilter",
+            filterParams: {
+                comparator: (filterLocalDateAtMidnight: Date, cellValue: string) => {
+                    if (!cellValue) return -1;
+                    const datePart = typeof cellValue === 'string' ? cellValue.split('T')[0] : new Date(cellValue).toISOString().split('T')[0];
+                    const [year, month, day] = datePart.split('-');
+                    const cellDate = new Date(Number(year), Number(month) - 1, Number(day));
+
+                    if (filterLocalDateAtMidnight.getTime() === cellDate.getTime()) {
+                        return 0;
+                    }
+                    if (cellDate < filterLocalDateAtMidnight) {
+                        return -1;
+                    }
+                    if (cellDate > filterLocalDateAtMidnight) {
+                        return 1;
+                    }
+                },
+            },
+            valueFormatter: ({ value }: ValueFormatterParams) => {
+                if (!value) return "-";
+                const datePart = typeof value === 'string' ? value.split('T')[0] : new Date(value).toISOString().split('T')[0];
+                const [year, month, day] = datePart.split('-');
+                return `${month ?? ''}/${day ?? ''}/${year ?? ''}`;
+            }
+        },
+        { 
+            field: "updated_at", 
+            headerName: "Updated Date", 
+            width: 180, 
+            sortable: true, 
+            filter: "agDateColumnFilter",
+            filterParams: {
+                comparator: (filterLocalDateAtMidnight: Date, cellValue: string) => {
+                    if (!cellValue) return -1;
+                    const datePart = typeof cellValue === 'string' ? cellValue.split('T')[0] : new Date(cellValue).toISOString().split('T')[0];
+                    const [year, month, day] = datePart.split('-');
+                    const cellDate = new Date(Number(year), Number(month) - 1, Number(day));
+
+                    if (filterLocalDateAtMidnight.getTime() === cellDate.getTime()) {
+                        return 0;
+                    }
+                    if (cellDate < filterLocalDateAtMidnight) {
+                        return -1;
+                    }
+                    if (cellDate > filterLocalDateAtMidnight) {
+                        return 1;
+                    }
+                },
+            },
+            valueFormatter: ({ value }: ValueFormatterParams) => {
+                if (!value) return "-";
+                const datePart = typeof value === 'string' ? value.split('T')[0] : new Date(value).toISOString().split('T')[0];
+                const [year, month, day] = datePart.split('-');
+                return `${month ?? ''}/${day ?? ''}/${year ?? ''}`;
+            }
+        },
     ], []);
 
     const handleRowDeleted = async (id: any) => {
