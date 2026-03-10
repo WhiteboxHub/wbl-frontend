@@ -36,7 +36,7 @@ import { Label } from "@/components/admin_ui/label";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/utils/AuthContext";
 import CandidateGrid from "./CandidateGrid";
-import { ColDef } from "ag-grid-community";
+import { ColDef, ValueFormatterParams } from "ag-grid-community";
 
 interface DashboardData {
     basic_info: {
@@ -533,9 +533,29 @@ export default function CandidateDashboard() {
             width: 120,
             sortable: true,
             filter: "agDateColumnFilter",
-            valueFormatter: (params) => {
-                if (!params.value) return "";
-                return new Date(params.value).toISOString().split('T')[0];
+            filterParams: {
+                comparator: (filterLocalDateAtMidnight: Date, cellValue: string) => {
+                    if (!cellValue) return -1;
+                    const datePart = typeof cellValue === 'string' ? cellValue.split('T')[0] : new Date(cellValue).toISOString().split('T')[0];
+                    const [year, month, day] = datePart.split('-');
+                    const cellDate = new Date(Number(year), Number(month) - 1, Number(day));
+
+                    if (filterLocalDateAtMidnight.getTime() === cellDate.getTime()) {
+                        return 0;
+                    }
+                    if (cellDate < filterLocalDateAtMidnight) {
+                        return -1;
+                    }
+                    if (cellDate > filterLocalDateAtMidnight) {
+                        return 1;
+                    }
+                },
+            },
+            valueFormatter: ({ value }: ValueFormatterParams) => {
+                if (!value) return "-";
+                const datePart = typeof value === 'string' ? value.split('T')[0] : new Date(value).toISOString().split('T')[0];
+                const [year, month, day] = datePart.split('-');
+                return `${month ?? ''}/${day ?? ''}/${year ?? ''}`;
             }
         },
         {
