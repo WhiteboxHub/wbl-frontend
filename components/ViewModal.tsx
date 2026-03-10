@@ -158,7 +158,9 @@ const fieldSections: Record<string, string> = {
   spousephone: "Emergency Contact",
   spouseemail: "Emergency Contact",
   spouseoccupationinfo: "Emergency Contact",
+  note: "Notes",
   notes: "Notes",
+  payload: "Notes",
   course_name: "Professional Information",
   subject_name: "Basic Information",
   employee_name: "Basic Information",
@@ -202,6 +204,7 @@ const fieldSections: Record<string, string> = {
   contact_phone: "Contact Information",
   contact_linkedin: "Contact Information",
   job_url: "Professional Information",
+  contact_info: "Contact Information",
   source_uid: "Professional Information",
   // Raw Job Listing fields
   raw_title: "Basic Information",
@@ -236,9 +239,9 @@ const fieldSections: Record<string, string> = {
   postal_code: "Contact Information",
   linkedin_internal_id: "Professional Information",
   amount: "Professional Information",
-  placement_commission_id:"Basic Information",
-  installment_no:"Professional Information",
-  installment_amount:"Professional Information",
+  placement_commission_id: "Basic Information",
+  installment_no: "Professional Information",
+  installment_amount: "Professional Information",
 };
 
 const workVisaStatusOptions = [
@@ -374,7 +377,7 @@ const labelOverrides: Record<string, string> = {
   extracted_at: "Extracted At",
   processed_at: "Processed At",
   error_message: "Error Message",
-  lastmod_user_id:"Last Modified By"
+  lastmod_user_id: "Last Modified By"
 };
 
 const dateFields = [
@@ -608,8 +611,8 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       return <p>{displayValue}</p>;
     }
 
-    // Handle raw_payload JSON field - MUST come before generic object handler
-    if (lowerKey === "raw_payload") {
+    // Handle raw_payload and payload JSON fields - MUST come before generic object handler
+    if (lowerKey === "raw_payload" || lowerKey === "payload") {
       let displayValue = value;
       if (typeof value === 'object' && value !== null) {
         displayValue = JSON.stringify(value, null, 2);
@@ -769,9 +772,12 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       flattened.material_type = typeMap[data.material_type];
     }
 
-    // Preserve raw_payload as object (don't convert to string)
+    // Preserve raw_payload and payload as object (don't convert to string)
     if (data.raw_payload !== undefined && data.raw_payload !== null) {
       flattened.raw_payload = data.raw_payload;
+    }
+    if (data.payload !== undefined && data.payload !== null) {
+      flattened.payload = data.payload;
     }
 
     return flattened;
@@ -816,8 +822,12 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       const isPrep = title.toLowerCase().includes('preparation');
       const isMarketing = title.toLowerCase().includes('marketing');
       const isBatch = key === 'batch';
+      const isPositionsModal = title.toLowerCase().includes("position") || (title.toLowerCase().includes("job listing") && !title.toLowerCase().includes("raw"));
+      const isAllowedForPosition = isPositionsModal && [
+        'candidate_id', 'company', 'contact', 'error_message', 'processed_at', 'created_at'
+      ].includes(key);
 
-      if (!(isBatch && (isPrep || isMarketing))) {
+      if (!(isBatch && (isPrep || isMarketing)) && !isAllowedForPosition) {
         return;
       }
     }
@@ -890,7 +900,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
 
   // Custom ordering for Notes section in raw job listings
   if (sectionedFields["Notes"]?.length > 0) {
-    const notesFieldOrder = ['raw_payload', 'raw_description', 'description', 'raw_notes', 'notes'];
+    const notesFieldOrder = ['payload', 'raw_payload', 'raw_description', 'description', 'raw_notes', 'notes'];
     sectionedFields["Notes"].sort((a, b) => {
       const aIndex = notesFieldOrder.indexOf(a.key);
       const bIndex = notesFieldOrder.indexOf(b.key);
@@ -974,6 +984,9 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
                 {/* Notes Section */}
                 {sectionedFields["Notes"]?.length > 0 && (
                   <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-blue-200">
+                    {/* <h3 className="text-sm sm:text-base font-bold text-blue-700 border-b border-blue-200 pb-1 sm:pb-2 mb-4">
+                      Notes
+                    </h3> */}
                     <div className="space-y-2 sm:space-y-3">
                       {sectionedFields["Notes"].map(({ key, value }) => (
                         <div key={key} className="space-y-1">
