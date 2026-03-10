@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { ColDef } from "ag-grid-community";
+import { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { Badge } from "@/components/admin_ui/badge";
 import { toast, Toaster } from "sonner";
 import { AGGridTable } from "@/components/AGGridTable";
@@ -601,7 +601,7 @@ export default function JobListingsPage() {
             {
                 field: "source",
                 headerName: "Source",
-                width: 220,
+                width: 100,
                 sortable: true,
                 filter: false,
                 editable: true,
@@ -617,6 +617,37 @@ export default function JobListingsPage() {
                     displayName: "Source",
                     color: "orange",
                     renderOption: (opt: string) => opt.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
+                }
+            },
+            {
+                field: "created_at",
+                headerName: "Date",
+                width: 120,
+                sortable: true,
+                filter: "agDateColumnFilter",
+                filterParams: {
+                    comparator: (filterLocalDateAtMidnight: Date, cellValue: string) => {
+                        if (!cellValue) return -1;
+                        const datePart = typeof cellValue === 'string' ? cellValue.split('T')[0] : new Date(cellValue).toISOString().split('T')[0];
+                        const [year, month, day] = datePart.split('-');
+                        const cellDate = new Date(Number(year), Number(month) - 1, Number(day));
+
+                        if (filterLocalDateAtMidnight.getTime() === cellDate.getTime()) {
+                            return 0;
+                        }
+                        if (cellDate < filterLocalDateAtMidnight) {
+                            return -1;
+                        }
+                        if (cellDate > filterLocalDateAtMidnight) {
+                            return 1;
+                        }
+                    },
+                },
+                valueFormatter: ({ value }: ValueFormatterParams) => {
+                    if (!value) return "-";
+                    const datePart = typeof value === 'string' ? value.split('T')[0] : new Date(value).toISOString().split('T')[0];
+                    const [year, month, day] = datePart.split('-');
+                    return `${month ?? ''}/${day ?? ''}/${year ?? ''}`;
                 }
             },
             { field: "location", headerName: "Location", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true },
