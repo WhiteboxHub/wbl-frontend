@@ -392,7 +392,7 @@ export default function EmailPositionsPage() {
 
     const columnDefs: ColDef[] = useMemo(
         () => [
-            { field: "id", headerName: "ID", width: 80, sortable: true, filter: "agNumberColumnFilter", pinned: "left" },
+            { field: "id", headerName: "ID", width: 80, sortable: true, filter: "agNumberColumnFilter", pinned: "left", editable: false },
             { field: "title", headerName: "Title", width: 220, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "company", headerName: "Company", width: 180, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "location", headerName: "Location", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true },
@@ -418,7 +418,7 @@ export default function EmailPositionsPage() {
                 }
             },
             { field: "source_uid", headerName: "Source UID", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true },
-            { field: "candidate_id", headerName: "Candidate ID", width: 130, sortable: true, filter: "agNumberColumnFilter", editable: true },
+            { field: "candidate_id", headerName: "Candidate ID", width: 130, sortable: true, filter: "agNumberColumnFilter", editable: false },
             { field: "zip", headerName: "Zip", width: 100, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "contact_info", headerName: "Contact Info", width: 200, sortable: true, filter: "agTextColumnFilter", editable: true },
             {
@@ -447,6 +447,7 @@ export default function EmailPositionsPage() {
                 width: 180,
                 sortable: true,
                 filter: "agDateColumnFilter",
+                editable: false,
                 valueFormatter: (params) => params.value ? new Date(params.value).toLocaleString() : ""
             },
             {
@@ -455,6 +456,7 @@ export default function EmailPositionsPage() {
                 width: 180,
                 sortable: true,
                 filter: "agDateColumnFilter",
+                editable: false,
                 valueFormatter: (params) => params.value ? new Date(params.value).toLocaleString() : ""
             },
             { field: "description", headerName: "Description", width: 300, sortable: true, filter: "agTextColumnFilter", editable: true },

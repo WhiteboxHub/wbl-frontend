@@ -419,7 +419,7 @@ export default function RawJobListingsPage() {
 
     const columnDefs: ColDef[] = useMemo(
         () => [
-            { field: "id", headerName: "ID", width: 80, sortable: true, filter: "agNumberColumnFilter", pinned: "left" },
+            { field: "id", headerName: "ID", width: 80, sortable: true, filter: "agNumberColumnFilter", pinned: "left", editable: false },
             { field: "raw_title", headerName: "Title", width: 220, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "raw_company", headerName: "Company", width: 180, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "raw_location", headerName: "Location", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true },
@@ -494,6 +494,7 @@ export default function RawJobListingsPage() {
                 width: 180,
                 sortable: true,
                 filter: "agDateColumnFilter",
+                editable: false,
                 valueFormatter: (params) => params.value ? new Date(params.value).toLocaleString() : ""
             },
             { field: "raw_description", headerName: "Description", width: 300, sortable: true, filter: "agTextColumnFilter", editable: true },
