@@ -1032,7 +1032,7 @@ export default function CandidateDashboard() {
                             className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm"
                         >
                             <Puzzle className="w-4 h-4 text-blue-500" />
-                            Autofill
+                            Autofill Extension
                             <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isAutofillOpen ? 'rotate-180' : ''}`} />
                         </button>
 
@@ -1430,15 +1430,7 @@ export default function CandidateDashboard() {
 
                         {activeTab === 'jobs' && (
                             <div className="flex-1 flex flex-col overflow-hidden px-4 lg:px-6 mt-4 sm:mt-8 pb-10 sm:pb-32">
-                                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6 pt-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center">
-                                            <Briefcase className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                                        </div>
-                                        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                                            Jobs <span className="text-gray-400 font-medium">({positions.length})</span>
-                                        </h2>
-                                    </div>
+                                <div className="flex flex-col gap-4 sm:flex-row-reverse sm:items-center sm:justify-between mb-6 pt-4">
                                     <div className="w-full sm:max-w-md">
                                         <div className="relative">
                                             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -1451,6 +1443,14 @@ export default function CandidateDashboard() {
                                                 className="pl-10 h-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500/20 transition-all"
                                             />
                                         </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center">
+                                            <Briefcase className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                        </div>
+                                        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                                            Jobs <span className="text-gray-400 font-medium">({positions.length})</span>
+                                        </h2>
                                     </div>
                                 </div>
                                 <div className="flex-1 min-h-0 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
