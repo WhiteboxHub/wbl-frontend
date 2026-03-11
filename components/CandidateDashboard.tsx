@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, API_BASE_URL } from "@/lib/api";
 import { useAuth } from "@/utils/AuthContext";
 import CandidateGrid from "./CandidateGrid";
 import { ColDef } from "ag-grid-community";
@@ -365,6 +365,88 @@ export default function CandidateDashboard() {
     const router = useRouter();
     const { userRole } = useAuth() as { userRole: string };
 
+    // --- CLICK TRACKING LOGIC (SW EDITION) ---
+    const handleJobClick = async (jobListingId: number, url: string) => {
+        // 1. Save to local IndexedDB instantly (main thread)
+        const { trackLocalClick } = await import('@/utils/clickTracker');
+        await trackLocalClick(jobListingId);
+
+        // 2. Notify Service Worker (runs in background)
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({
+                type: 'TRACK_CLICK',
+                id: jobListingId
+            });
+        }
+
+        // 3. Open link
+        window.open(url, '_blank');
+    };
+
+    // Register SW and handle lifecycle
+    useEffect(() => {
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/api/sw.js', { scope: '/' })
+                .then(registration => {
+                    console.log('✅ Click Tracking SW Registered');
+                    setSwStatus("active");
+
+                    const token = localStorage.getItem("access_token") || localStorage.getItem("token");
+                    const config = { token, url: API_BASE_URL };
+
+                    // Function to send config to a specific worker
+                    const sendConfig = (worker: ServiceWorker | null) => {
+                        if (!worker) return;
+                        worker.postMessage({ type: 'SET_API_URL', url: config.url });
+                        if (config.token) worker.postMessage({ type: 'SET_TOKEN', token: config.token });
+                    };
+
+                    // Send to whichever worker is available
+                    sendConfig(registration.active);
+                    sendConfig(registration.waiting);
+                    sendConfig(registration.installing);
+                })
+                .catch(err => console.error('SW Registration failed:', err));
+
+            // Sync token if it changes or when SW becomes active
+            navigator.serviceWorker.oncontrollerchange = () => {
+                const token = localStorage.getItem("access_token") || localStorage.getItem("token");
+                if (navigator.serviceWorker.controller) {
+                    console.log('🔄 SW Control changed, sending config...');
+                    navigator.serviceWorker.controller.postMessage({ type: 'SET_API_URL', url: API_BASE_URL });
+                    if (token) navigator.serviceWorker.controller.postMessage({ type: 'SET_TOKEN', token });
+                }
+            };
+
+            // Periodic config sync
+            const intervalToken = setInterval(() => {
+                const token =
+                    localStorage.getItem("access_token") ||
+                    localStorage.getItem("token") ||
+                    localStorage.getItem("auth_token") ||
+                    localStorage.getItem("bearer_token");
+
+                if (navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({ type: 'SET_API_URL', url: API_BASE_URL });
+                    if (token) navigator.serviceWorker.controller.postMessage({ type: 'SET_TOKEN', token });
+                }
+            }, 30000); // every 30s
+
+            return () => clearInterval(intervalToken);
+        }
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden' && navigator.serviceWorker.controller) {
+                console.log('🔇 Visibility hidden, flushing clicks...');
+                navigator.serviceWorker.controller.postMessage({ type: 'FLUSH' });
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, []);
+    // ----------------------------
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [data, setData] = useState<DashboardData | null>(null);
@@ -387,6 +469,7 @@ export default function CandidateDashboard() {
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
     const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
     const [jobSearchTerm, setJobSearchTerm] = useState("");
+    const [swStatus, setSwStatus] = useState<string>("initializing");
 
     const statusOptions = ['open', 'closed', 'on_hold', 'duplicate', 'invalid'];
     const typeOptions = ['full_time', 'contract', 'contract_to_hire', 'internship'];
@@ -423,6 +506,10 @@ export default function CandidateDashboard() {
                             href={url}
                             target="_blank"
                             rel="noopener noreferrer"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                handleJobClick(params.data.id, url);
+                            }}
                             className="font-semibold text-blue-600 hover:text-blue-800 hover:underline decoration-blue-400 group flex items-center gap-1.5"
                         >
                             <span>{params.value}</span>
@@ -557,6 +644,10 @@ export default function CandidateDashboard() {
                             href={url}
                             target="_blank"
                             rel="noopener noreferrer"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                handleJobClick(params.data.id, url);
+                            }}
                             className="flex items-center space-x-1.5 text-blue-600 hover:text-blue-800 font-bold text-xs"
                         >
                             <span>Apply</span>
@@ -739,25 +830,25 @@ export default function CandidateDashboard() {
             const filteredData = (posData || []).filter((pos: any) => {
                 const src = pos.source?.toLowerCase() || "";
                 const shouldInclude = src.includes('linkedin') || src.includes('hiring') || src.includes('cafe');
-                
+
                 if (shouldInclude) {
                     console.log(`✅ Including job: ${pos.title} | Source: ${pos.source}`);
                 } else if (src) {
                     console.log(`❌ Filtering out job: ${pos.title} | Source: ${pos.source}`);
                 }
-                
+
                 return shouldInclude;
             });
 
             console.log("📊 Final filtered positions count:", filteredData.length);
-            
+
             // Debug: Show source distribution
             const sourceCounts = filteredData.reduce((acc: any, pos: any) => {
                 const src = pos.source?.toLowerCase() || 'unknown';
                 acc[src] = (acc[src] || 0) + 1;
                 return acc;
             }, {});
-            
+
             console.log("📈 Source distribution:", sourceCounts);
 
             setPositions(filteredData);
@@ -1354,6 +1445,14 @@ export default function CandidateDashboard() {
                                         <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                                             Jobs <span className="text-gray-400 font-medium">({positions.length})</span>
                                         </h2>
+                                        {/* Tracker Status Indicator */}
+                                        <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 rounded-xl border border-gray-100 dark:border-gray-700/50">
+                                            <div className={`w-2 h-2 rounded-full ${swStatus === 'active' ? 'bg-green-500' : 'bg-orange-500'}`}></div>
+                                            <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 tracking-widest uppercase">Sync Status</span>
+                                            <span className={`text-[10px] px-2 py-0.5 rounded-md font-extrabold uppercase ${swStatus === 'active' ? 'bg-green-100/50 text-green-600' : 'bg-orange-100/50 text-orange-600'}`}>
+                                                {swStatus}
+                                            </span>
+                                        </div>
                                     </div>
                                     <div className="w-full sm:max-w-md">
                                         <div className="relative">
