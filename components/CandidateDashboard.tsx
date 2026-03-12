@@ -870,11 +870,6 @@ export default function CandidateDashboard() {
                 const src = pos.source?.toLowerCase() || "";
                 const shouldInclude = src.includes('linkedin') || src.includes('hiring') || src.includes('cafe');
 
-                if (shouldInclude) {
-                    console.log(`✅ Including job: ${pos.title} | Source: ${pos.source}`);
-                } else if (src) {
-                    console.log(`❌ Filtering out job: ${pos.title} | Source: ${pos.source}`);
-                }
 
                 return shouldInclude;
             });
