@@ -529,7 +529,7 @@ export function AGGridTable({
         <div
           className={`ag-theme-alpine ${isDarkMode ? "ag-grid-dark-mode" : ""
             } w-full rounded-lg border border-gray-200 shadow-sm dark:border-gray-700`}
-          style={{ height: "calc(100vh - 260px)", minHeight: "400px" }}
+          style={{ height: height, minHeight: "400px" }}
         >
           <AgGridReact
             ref={gridRef}
