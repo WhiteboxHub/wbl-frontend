@@ -33,23 +33,6 @@ type EmailPosition = {
     created_at: string;
 };
 
-const StatusRenderer = ({ value }: { value?: string }) => {
-    const status = value?.toLowerCase() || "";
-    // Using simple status indicators for processed_at presence for now
-    // Since email_positions doesn't have a processing_status explicitly like raw_job_listings
-    const isProcessed = value !== null;
-    const variantMap: Record<string, string> = {
-        processed: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-        new: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-        default: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-    };
-
-    return (
-        <Badge className={`${isProcessed ? variantMap.processed : variantMap.new} capitalize`}>
-            {isProcessed ? "Processed" : "New"}
-        </Badge>
-    );
-};
 
 const FilterHeaderComponent = ({
     selectedItems,
@@ -72,17 +55,6 @@ const FilterHeaderComponent = ({
     getOptionValue?: (option: any) => any;
     getOptionKey?: (option: any) => any;
 }) => {
-    const handleItemChange = (item: any) => {
-        const value = getOptionValue(item);
-        setSelectedItems((prev: any[]) => {
-            const isSelected = prev.some((i) => getOptionValue(i) === value);
-            return isSelected
-                ? prev.filter((i) => getOptionValue(i) !== value)
-                : [...prev, item];
-        });
-        setFilterVisible(false);
-    };
-
     const filterButtonRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
@@ -92,12 +64,39 @@ const FilterHeaderComponent = ({
         e.stopPropagation();
         if (filterButtonRef.current) {
             const rect = filterButtonRef.current.getBoundingClientRect();
+            const dropdownWidth = 220; // Approximated width for calculation
+            let left = rect.left;
+
+            // Prevent going off-screen to the right
+            if (left + dropdownWidth > window.innerWidth) {
+                left = window.innerWidth - dropdownWidth - 10;
+            }
+            // Prevent going off-screen to the left
+            if (left < 10) left = 10;
+
             setDropdownPos({
-                top: rect.bottom + window.scrollY,
-                left: Math.max(0, rect.left + window.scrollX - 100),
+                top: rect.bottom + 8,
+                left: left,
             });
         }
         setFilterVisible((v) => !v);
+    };
+
+    const handleItemChange = (item: any) => {
+        const value = getOptionValue(item);
+        setSelectedItems((prev: any[]) => {
+            const isSelected = prev.some((i) => getOptionValue(i) === value);
+            return isSelected
+                ? prev.filter((i) => getOptionValue(i) !== value)
+                : [...prev, item];
+        });
+        // We don't close it immediately for multi-select
+    };
+
+    const clearFilters = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setSelectedItems([]);
+        setFilterVisible(false);
     };
 
     const colorMap: Record<string, string> = {
@@ -119,11 +118,8 @@ const FilterHeaderComponent = ({
                 setFilterVisible(false);
             }
         };
-        const handleScroll = (e: Event) => {
-            const target = e.target as HTMLElement;
-            if (dropdownRef.current && !dropdownRef.current.contains(target)) {
-                setFilterVisible(false);
-            }
+        const handleScroll = () => {
+            if (filterVisible) setFilterVisible(false);
         };
         if (filterVisible) {
             document.addEventListener("mousedown", handleClickOutside);
@@ -131,7 +127,7 @@ const FilterHeaderComponent = ({
         }
         return () => {
             document.removeEventListener("mousedown", handleClickOutside);
-            window.removeEventListener("scroll", handleScroll, true);
+            window.removeEventListener("scroll", handleScroll, { capture: true });
         };
     }, [filterVisible]);
 
@@ -180,15 +176,15 @@ const FilterHeaderComponent = ({
                 createPortal(
                     <div
                         ref={dropdownRef}
-                        className="filter-dropdown pointer-events-auto fixed flex w-44 max-w-[20vw] flex-col rounded-xl border border-gray-200 bg-white shadow-2xl animate-in fade-in zoom-in duration-200 dark:border-gray-700 dark:bg-gray-900"
+                        className="filter-dropdown pointer-events-auto fixed flex w-70 flex-col rounded-xl border border-gray-200 bg-white shadow-2xl animate-in fade-in zoom-in duration-200 dark:border-gray-700 dark:bg-gray-900"
                         style={{
-                            top: dropdownPos.top + 8,
+                            top: dropdownPos.top,
                             left: dropdownPos.left,
                             zIndex: 99999,
                         }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="max-h-[300px] overflow-y-auto p-1.5 pt-0.5">
+                        <div className="p-1.5 h-auto">
                             {options.map((option) => {
                                 const value = getOptionValue(option);
                                 const key = getOptionKey(option);
@@ -202,14 +198,24 @@ const FilterHeaderComponent = ({
                                             : "text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
                                             }`}
                                     >
-                                        <div className="flex items-center space-x-2">
+                                        <div className="flex items-center space-x-2 truncate mr-2">
                                             {renderOption(option)}
                                         </div>
-                                        {isSelected && <Check className="h-4 w-4 animate-in zoom-in duration-300" />}
+                                        {isSelected && <Check className="h-4 w-4 flex-shrink-0 animate-in zoom-in duration-300" />}
                                     </div>
                                 );
                             })}
                         </div>
+                        {selectedItems.length > 0 && (
+                            <div className="border-t p-2 bg-gray-50 dark:bg-gray-800/50 rounded-b-xl flex justify-center">
+                                <button
+                                    onClick={clearFilters}
+                                    className="text-xs text-red-500 hover:text-red-700 font-medium py-1 w-full"
+                                >
+                                    Clear Selection
+                                </button>
+                            </div>
+                        )}
                     </div>,
                     document.body
                 )}
@@ -227,7 +233,7 @@ export default function EmailPositionsPage() {
     const [selectedSources, setSelectedSources] = useState<string[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
 
-    const sourceOptions = ['linkedin', 'email', 'job_board', 'scraper'];
+    const sourceOptions = ['bot_linkedin_post_contact_extractor', 'bot_linkedin_message_extraction', 'email', 'linkedin', 'job_board', 'scraper', 'hiring.cafe', 'email_bot_llm_local'];
 
     const fetchEmailPositions = useCallback(async () => {
         setLoading(true);
@@ -386,22 +392,14 @@ export default function EmailPositionsPage() {
 
     const columnDefs: ColDef[] = useMemo(
         () => [
-            { field: "id", headerName: "ID", width: 80, sortable: true, filter: "agNumberColumnFilter", pinned: "left" },
+            { field: "id", headerName: "ID", width: 80, sortable: true, filter: "agNumberColumnFilter", pinned: "left", editable: false },
             { field: "title", headerName: "Title", width: 220, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "company", headerName: "Company", width: 180, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "location", headerName: "Location", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true },
             {
-                field: "processed_at",
-                headerName: "Status",
-                width: 140,
-                cellRenderer: (params: any) => <StatusRenderer value={params.value} />,
-                filter: false,
-                editable: false,
-            },
-            {
                 field: "source",
                 headerName: "Source",
-                width: 130,
+                width: 220,
                 sortable: true,
                 filter: false,
                 editable: true,
@@ -420,7 +418,7 @@ export default function EmailPositionsPage() {
                 }
             },
             { field: "source_uid", headerName: "Source UID", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true },
-            { field: "candidate_id", headerName: "Candidate ID", width: 130, sortable: true, filter: "agNumberColumnFilter", editable: true },
+            { field: "candidate_id", headerName: "Candidate ID", width: 130, sortable: true, filter: "agNumberColumnFilter", editable: false },
             { field: "zip", headerName: "Zip", width: 100, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "contact_info", headerName: "Contact Info", width: 200, sortable: true, filter: "agTextColumnFilter", editable: true },
             {
@@ -449,6 +447,7 @@ export default function EmailPositionsPage() {
                 width: 180,
                 sortable: true,
                 filter: "agDateColumnFilter",
+                editable: false,
                 valueFormatter: (params) => params.value ? new Date(params.value).toLocaleString() : ""
             },
             {
@@ -457,6 +456,7 @@ export default function EmailPositionsPage() {
                 width: 180,
                 sortable: true,
                 filter: "agDateColumnFilter",
+                editable: false,
                 valueFormatter: (params) => params.value ? new Date(params.value).toLocaleString() : ""
             },
             { field: "description", headerName: "Description", width: 300, sortable: true, filter: "agTextColumnFilter", editable: true },

@@ -30,13 +30,16 @@ import {
     LogOut,
     Settings,
     LayoutDashboard,
+    Download,
+    ChevronDown,
+    Puzzle,
 } from "lucide-react";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { apiFetch, API_BASE_URL } from "@/lib/api";
 import { useAuth } from "@/utils/AuthContext";
 import CandidateGrid from "./CandidateGrid";
-import { ColDef } from "ag-grid-community";
+import { ColDef, ValueFormatterParams } from "ag-grid-community";
 
 interface DashboardData {
     basic_info: {
@@ -449,6 +452,8 @@ export default function CandidateDashboard() {
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [isAutofillOpen, setIsAutofillOpen] = useState(false);
+    const autofillRef = useRef<HTMLDivElement>(null);
     const [data, setData] = useState<DashboardData | null>(null);
     const [candidateId, setCandidateId] = useState<number | null>(null);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -620,9 +625,29 @@ export default function CandidateDashboard() {
             width: 120,
             sortable: true,
             filter: "agDateColumnFilter",
-            valueFormatter: (params) => {
-                if (!params.value) return "";
-                return new Date(params.value).toISOString().split('T')[0];
+            filterParams: {
+                comparator: (filterLocalDateAtMidnight: Date, cellValue: string) => {
+                    if (!cellValue) return -1;
+                    const datePart = typeof cellValue === 'string' ? cellValue.split('T')[0] : new Date(cellValue).toISOString().split('T')[0];
+                    const [year, month, day] = datePart.split('-');
+                    const cellDate = new Date(Number(year), Number(month) - 1, Number(day));
+
+                    if (filterLocalDateAtMidnight.getTime() === cellDate.getTime()) {
+                        return 0;
+                    }
+                    if (cellDate < filterLocalDateAtMidnight) {
+                        return -1;
+                    }
+                    if (cellDate > filterLocalDateAtMidnight) {
+                        return 1;
+                    }
+                },
+            },
+            valueFormatter: ({ value }: ValueFormatterParams) => {
+                if (!value) return "-";
+                const datePart = typeof value === 'string' ? value.split('T')[0] : new Date(value).toISOString().split('T')[0];
+                const [year, month, day] = datePart.split('-');
+                return `${month ?? ''}/${day ?? ''}/${year ?? ''}`;
             }
         },
         {
@@ -714,6 +739,20 @@ export default function CandidateDashboard() {
             return null;
         }
     };
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (autofillRef.current && !autofillRef.current.contains(event.target as Node)) {
+                setIsAutofillOpen(false);
+            }
+        };
+        if (isAutofillOpen) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isAutofillOpen]);
 
     const getCandidateId = async (): Promise<number> => {
         try {
@@ -1078,7 +1117,52 @@ export default function CandidateDashboard() {
 
                     </div>
 
-                    <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                    <div className="flex items-center gap-2 ml-4 mr-20 lg:mr-32 flex-shrink-0 relative" ref={autofillRef}>
+                        <button
+                            onClick={() => setIsAutofillOpen(!isAutofillOpen)}
+                            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm"
+                        >
+                            <Puzzle className="w-4 h-4 text-blue-500" />
+                            Autofill Extension
+                            <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isAutofillOpen ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {isAutofillOpen && (
+                            <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                <div className="p-1.5">
+                                    <a
+                                        href="https://drive.google.com/file/d/1usVGPq3iaygfewTAZ8lR46rJDnLSRGtQ/view?usp=sharing"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-3 px-3 py-2.5 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-gray-700 dark:text-gray-200 rounded-xl transition-colors group"
+                                        onClick={() => setIsAutofillOpen(false)}
+                                    >
+                                        <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center group-hover:bg-blue-100 dark:group-hover:bg-blue-900/50 transition-colors">
+                                            <Download className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-bold">Download Extension</span>
+                                            <span className="text-[10px] text-gray-400 font-medium">Zip file for Chrome</span>
+                                        </div>
+                                    </a>
+                                    <a
+                                        href="https://drive.google.com/file/d/1iUcs6myGnNwetCQggxhvLabSeeLWufCF/view?usp=sharing"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-3 px-3 py-2.5 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-gray-700 dark:text-gray-200 rounded-xl transition-colors group"
+                                        onClick={() => setIsAutofillOpen(false)}
+                                    >
+                                        <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center group-hover:bg-purple-100 dark:group-hover:bg-purple-900/50 transition-colors">
+                                            <Video className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-bold">Video Guide</span>
+                                            <span className="text-[10px] text-gray-400 font-medium">How to install & use</span>
+                                        </div>
+                                    </a>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </header>
 
@@ -1445,14 +1529,6 @@ export default function CandidateDashboard() {
                                         <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                                             Jobs <span className="text-gray-400 font-medium">({positions.length})</span>
                                         </h2>
-                                        {/* Tracker Status Indicator */}
-                                        <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 rounded-xl border border-gray-100 dark:border-gray-700/50">
-                                            <div className={`w-2 h-2 rounded-full ${swStatus === 'active' ? 'bg-green-500' : 'bg-orange-500'}`}></div>
-                                            <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 tracking-widest uppercase">Sync Status</span>
-                                            <span className={`text-[10px] px-2 py-0.5 rounded-md font-extrabold uppercase ${swStatus === 'active' ? 'bg-green-100/50 text-green-600' : 'bg-orange-100/50 text-orange-600'}`}>
-                                                {swStatus}
-                                            </span>
-                                        </div>
                                     </div>
                                     <div className="w-full sm:max-w-md">
                                         <div className="relative">
@@ -1467,6 +1543,14 @@ export default function CandidateDashboard() {
                                             />
                                         </div>
                                     </div>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center">
+                                            <Briefcase className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                        </div>
+                                        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                                            Jobs <span className="text-gray-400 font-medium">({positions.length})</span>
+                                        </h2>
+                                    </div>
                                 </div>
                                 <div className="flex-1 min-h-0 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
                                     <CandidateGrid
@@ -1478,6 +1562,7 @@ export default function CandidateDashboard() {
                                 </div>
                             </div>
                         )}
+
                     </div>
                 </main>
             </div>

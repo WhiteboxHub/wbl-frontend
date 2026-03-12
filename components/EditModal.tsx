@@ -65,6 +65,14 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: false, label: "No" },
     { value: true, label: "Yes" },
   ],
+  run_email_extraction: [
+    { value: false, label: "No" },
+    { value: true, label: "Yes" },
+  ],
+  linkedin_post: [
+    { value: false, label: "No" },
+    { value: true, label: "Yes" },
+  ],
   recipient_source: [
     { value: "CSV", label: "Local CSV File" },
     { value: "OUTREACH_DB", label: "Outreach Database" },
@@ -370,12 +378,23 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "invalid", label: "Invalid" },
   ],
   source: [
+    { value: "bot_linkedin_post_contact_extractor", label: "Bot Linkedin Post Contact Extractor" },
+    { value: "bot_linkedin_message_extraction", label: "Bot Linkedin Message Extraction" },
+    { value: "email", label: "Email" },
     { value: "linkedin", label: "LinkedIn" },
     { value: "job_board", label: "Job Board" },
-    { value: "vendor", label: "Vendor" },
-    { value: "email", label: "Email" },
     { value: "scraper", label: "Scraper" },
-    { value: "hiring_cafe", label: "Hiring Cafe" },
+    { value: "hiring.cafe", label: "Hiring Cafe" },
+    { value: "interview_modal", label: "Interview Modal" },
+    { value: "email_bot_llm_local", label: "Email Bot LLM Local" },
+  ],
+  raw_source: [
+    { value: "bot_linkedin_post_contact_extractor", label: "Bot Linkedin Post Contact Extractor" },
+    { value: "bot_linkedin_message_extraction", label: "Bot Linkedin Message Extraction" },
+    { value: "email", label: "Email" },
+    { value: "linkedin", label: "LinkedIn" },
+    { value: "job_board", label: "Job Board" },
+    { value: "scraper", label: "Scraper" }
   ],
   processing_status: [
     { value: "new", label: "New" },
@@ -642,7 +661,7 @@ const excludedFields = [
 
 // Fields that should be read-only (visible but not editable)
 const readonlyFields = [
-  "created_at", "processed_at",
+  "created_at", "processed_at", "candidate_id",
   "extracted_at",
   "created_datetime",
   "updated_at",
@@ -802,6 +821,8 @@ const fieldSections: Record<string, string> = {
   batchname: "Basic Information",
   move_to_prep: "Basic Information",
   move_to_mrkt: "Basic Information",
+  run_email_extraction: "Basic Information",
+  linkedin_post: "Basic Information",
   recipient_source: "Basic Information",
   date_filter: "Basic Information",
   lookback_days: "Basic Information",
@@ -941,6 +962,7 @@ const fieldSections: Record<string, string> = {
   contact_phone: "Contact Information",
   contact_linkedin: "Contact Information",
   job_url: "Professional Information",
+  contact_info: "Contact Information",
   description: "Notes",
 
   // Linkedin Only Contact Fields
@@ -962,6 +984,7 @@ const fieldSections: Record<string, string> = {
   raw_location: "Contact Information",
   raw_contact_info: "Contact Information",
   raw_zip: "Contact Information",
+  payload: "Notes",
   raw_description: "Notes",
   raw_payload: "Notes",
   raw_notes: "Notes",
@@ -999,6 +1022,9 @@ const fieldSections: Record<string, string> = {
 const labelOverrides: Record<string, string> = {
   candidate_full_name: "Candidate Full Name",
   instructor1_name: "Instructor 1 Name",
+  run_email_extraction: "Run Email Extraction",
+  linkedin_post: "LinkedIn Post",
+  payload: "Payload",
   instructor2_name: "Instructor 2 Name",
   instructor3_name: "Instructor 3 Name",
 
@@ -1315,7 +1341,8 @@ export function EditModal({
     .includes("automation contact extract");
   const isJobTypeModal = title.toLowerCase().includes("job type");
   const isAutomationKeywordModal = title.toLowerCase().includes("automation keyword");
-  const isPositionsModal = title.toLowerCase().includes("position") || title.toLowerCase().includes("job listing");
+  const isPositionsModal = title.toLowerCase().includes("position") || (title.toLowerCase().includes("job listing") && !title.toLowerCase().includes("raw"));
+  const isRawJobListingModal = title.toLowerCase().includes("raw job listing") || title.toLowerCase().includes("raw_job_listing");
   const isJobDefinitionModal = title.toLowerCase().includes("job definition");
   const isJobRequestModal = title.toLowerCase().includes("job request");
   const isPlacementFeeModal = title.toLowerCase().includes("placement fee");
@@ -1702,6 +1729,19 @@ export function EditModal({
         }
       }
     }
+    // Handle payload JSON field - convert to formatted string for display
+    if (data.payload !== undefined && data.payload !== null) {
+      if (typeof data.payload === 'object') {
+        flattened.payload = JSON.stringify(data.payload, null, 2);
+      } else if (typeof data.payload === 'string') {
+        try {
+          const parsed = JSON.parse(data.payload);
+          flattened.payload = JSON.stringify(parsed, null, 2);
+        } catch {
+          flattened.payload = data.payload;
+        }
+      }
+    }
 
     // Handle parameters_config JSON field - convert to formatted string for display
     if (data.parameters_config !== undefined && data.parameters_config !== null) {
@@ -2054,6 +2094,13 @@ export function EditModal({
         console.error("Failed to parse raw_payload back to JSON:", e);
       }
     }
+    if (reconstructedData.payload && typeof reconstructedData.payload === 'string') {
+      try {
+        reconstructedData.payload = JSON.parse(reconstructedData.payload);
+      } catch (e) {
+        console.error("Failed to parse payload back to JSON:", e);
+      }
+    }
 
     // console.log("DEBUG: EditModal onSubmit reconstructedData before save:", reconstructedData);
     onSave(reconstructedData);
@@ -2094,7 +2141,10 @@ export function EditModal({
 
     if (keyLower === "position_type") return enumOptions.position_type;
     if (keyLower === "employment_mode") return enumOptions.employment_mode;
-    if (keyLower === "source") return enumOptions.source;
+    if (keyLower === "source") {
+      if (isRawJobListingModal) return enumOptions.raw_source;
+      return enumOptions.source;
+    }
 
     if (isAutomationContactExtractModal) {
       if (keyLower === "processing_status") return enumOptions.extract_processing_status;
@@ -2241,8 +2291,12 @@ export function EditModal({
       const isBatch = key === 'batch';
       const isCompanyForInterview = key === 'company' && isInterviewModal;
       const isCompanyForDailyContact = (key === 'company' || key === 'contact') && isDailyContactModal;
+      const isAllowedForPosition = isPositionsModal && [
+        'candidate_id', 'company', 'contact', 'error_message', 'processed_at', 'created_at'
+      ].includes(key);
 
-      if (!(isBatch && (isPreparationModal || isMarketingModal)) && !isCompanyForInterview && !isCompanyForDailyContact) {
+      if (!(isBatch && (isPreparationModal || isMarketingModal)) &&
+        !isCompanyForInterview && !isAllowedForPosition && !isCompanyForDailyContact) {
         return;
       }
     }
@@ -2374,7 +2428,7 @@ export function EditModal({
 
   // Custom ordering for Notes section in raw job listings
   if (sectionedFields["Notes"]?.length > 0) {
-    const notesFieldOrder = ['raw_payload', 'raw_description', 'description', 'raw_notes', 'notes'];
+    const notesFieldOrder = ['payload', 'raw_payload', 'raw_description', 'description', 'raw_notes', 'notes'];
     sectionedFields["Notes"].sort((a, b) => {
       const aIndex = notesFieldOrder.indexOf(a.key);
       const bIndex = notesFieldOrder.indexOf(b.key);
@@ -3894,8 +3948,10 @@ export function EditModal({
                                         },
                                       };
                                     })()}
+                                    readOnly={readonlyFields.includes(key) || (!isAddMode && editOnlyReadonlyFields.includes(key))}
                                     defaultValue={formData[key] || ""}
-                                    className="w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                    className={`w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm ${(readonlyFields.includes(key) || (!isAddMode && editOnlyReadonlyFields.includes(key))) ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : ''
+                                      }`}
                                   />
                                 </div>
                               );
@@ -4195,11 +4251,14 @@ export function EditModal({
                 {
                   sectionedFields["Notes"].length > 0 && (
                     <div className="mt-4 border-t border-blue-200 pt-3 sm:mt-6 sm:pt-4">
+                      {/* <h3 className="text-sm sm:text-base font-bold text-blue-700 border-b border-blue-200 pb-1 sm:pb-2 mb-4">
+                        Note
+                      </h3> */}
                       <div className="space-y-6">
                         {sectionedFields["Notes"].map(({ key, value }) => (
                           <div key={key} className="space-y-1">
                             <div className="flex items-center justify-between">
-                              <label className={['description', 'raw_payload', 'raw_description', 'raw_notes'].includes(key) ? 'block text-xs font-bold text-blue-700 sm:text-sm' : 'text-sm font-medium text-gray-600 dark:text-gray-400'}>
+                              <label className={['description', 'raw_payload', 'payload', 'raw_description', 'raw_notes', 'notes', 'note'].includes(key) ? 'block text-xs font-bold text-blue-700 sm:text-sm' : 'text-sm font-medium text-gray-600 dark:text-gray-400'}>
                                 {toLabel(key)}
                                 {isFieldRequired(
                                   toLabel(key),
@@ -4252,13 +4311,13 @@ export function EditModal({
                                 </button>
                               )}
                             </div>
-                            {isJobTypeModal || isJobActivityLogModal || key === 'raw_payload' ? (
+                            {isJobTypeModal || isJobActivityLogModal || key === 'raw_payload' || key === 'payload' ? (
                               <textarea
                                 {...register(key)}
                                 defaultValue={currentFormValues[key] ?? formData[key] ?? ""}
-                                rows={key === 'raw_payload' ? 10 : 4}
-                                className={`w-full ${key === 'raw_payload' ? 'font-mono text-[11px]' : 'resize-none'} rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm`}
-                                placeholder={key === 'raw_payload' ? 'Enter JSON payload...' : `Enter ${toLabel(key).toLowerCase()}...`}
+                                rows={key === 'raw_payload' || key === 'payload' ? 10 : 4}
+                                className={`w-full ${key === 'raw_payload' || key === 'payload' ? 'font-mono text-[11px]' : 'resize-none'} rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm`}
+                                placeholder={key === 'raw_payload' || key === 'payload' ? 'Enter JSON payload...' : `Enter ${toLabel(key).toLowerCase()}...`}
                                 onChange={(e) => {
                                   setValue(key, e.target.value);
                                   setFormData((prev: any) => ({

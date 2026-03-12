@@ -1,11 +1,11 @@
 "use client";
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { ColDef } from "ag-grid-community";
+import { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { Badge } from "@/components/admin_ui/badge";
 import { toast, Toaster } from "sonner";
 import { AGGridTable } from "@/components/AGGridTable";
-import { Check, Filter, X, SearchIcon, Linkedin } from "lucide-react";
+import { Check, Filter, X, SearchIcon, Linkedin, Puzzle, ChevronDown, Download, Video } from "lucide-react";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import api, { apiFetch } from "@/lib/api";
@@ -87,17 +87,6 @@ const FilterHeaderComponent = ({
     getOptionValue?: (option: any) => any;
     getOptionKey?: (option: any) => any;
 }) => {
-    const handleItemChange = (item: any) => {
-        const value = getOptionValue(item);
-        setSelectedItems((prev: any[]) => {
-            const isSelected = prev.some((i) => getOptionValue(i) === value);
-            return isSelected
-                ? prev.filter((i) => getOptionValue(i) !== value)
-                : [...prev, item];
-        });
-        setFilterVisible(false);
-    };
-
     const filterButtonRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
@@ -107,25 +96,37 @@ const FilterHeaderComponent = ({
         e.stopPropagation();
         if (filterButtonRef.current) {
             const rect = filterButtonRef.current.getBoundingClientRect();
+            const dropdownWidth = 250;
+            let left = rect.left;
+
+            if (left + dropdownWidth > window.innerWidth) {
+                left = window.innerWidth - dropdownWidth - 10;
+            }
+            if (left < 10) left = 10;
+
             setDropdownPos({
-                top: rect.bottom + window.scrollY,
-                left: Math.max(0, rect.left + window.scrollX - 100),
+                top: rect.bottom + 8,
+                left: left,
             });
         }
         setFilterVisible((v) => !v);
     };
 
-    const handleSelectAll = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (isAllSelected) {
-            setSelectedItems([]);
-        } else {
-            setSelectedItems([...options]);
-        }
+    const handleItemChange = (item: any) => {
+        const value = getOptionValue(item);
+        setSelectedItems((prev: any[]) => {
+            const isSelected = prev.some((i) => getOptionValue(i) === value);
+            return isSelected
+                ? prev.filter((i) => getOptionValue(i) !== value)
+                : [...prev, item];
+        });
     };
 
-    const isAllSelected = selectedItems.length === options.length && options.length > 0;
-    const isIndeterminate = selectedItems.length > 0 && selectedItems.length < options.length;
+    const clearFilters = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setSelectedItems([]);
+        setFilterVisible(false);
+    };
 
     const colorMap: Record<string, string> = {
         blue: "bg-blue-500",
@@ -146,11 +147,8 @@ const FilterHeaderComponent = ({
                 setFilterVisible(false);
             }
         };
-        const handleScroll = (e: Event) => {
-            const target = e.target as HTMLElement;
-            if (dropdownRef.current && !dropdownRef.current.contains(target)) {
-                setFilterVisible(false);
-            }
+        const handleScroll = () => {
+            if (filterVisible) setFilterVisible(false);
         };
         if (filterVisible) {
             document.addEventListener("mousedown", handleClickOutside);
@@ -207,16 +205,15 @@ const FilterHeaderComponent = ({
                 createPortal(
                     <div
                         ref={dropdownRef}
-                        className="filter-dropdown pointer-events-auto fixed flex w-44 max-w-[20vw] flex-col rounded-xl border border-gray-200 bg-white shadow-2xl animate-in fade-in zoom-in duration-200 dark:border-gray-700 dark:bg-gray-900"
+                        className="filter-dropdown pointer-events-auto fixed flex w-70 flex-col rounded-xl border border-gray-200 bg-white shadow-2xl animate-in fade-in zoom-in duration-200 dark:border-gray-700 dark:bg-gray-900"
                         style={{
-                            top: dropdownPos.top + 8,
+                            top: dropdownPos.top,
                             left: dropdownPos.left,
                             zIndex: 99999,
                         }}
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="max-h-[300px] overflow-y-auto p-1.5 pt-0.5">
-
+                        <div className="p-1.5 h-auto">
                             {options.map((option) => {
                                 const value = getOptionValue(option);
                                 const key = getOptionKey(option);
@@ -230,14 +227,24 @@ const FilterHeaderComponent = ({
                                             : "text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
                                             }`}
                                     >
-                                        <div className="flex items-center space-x-2">
+                                        <div className="flex items-center space-x-2 truncate mr-2">
                                             {renderOption(option)}
                                         </div>
-                                        {isSelected && <Check className="h-4 w-4 animate-in zoom-in duration-300" />}
+                                        {isSelected && <Check className="h-4 w-4 flex-shrink-0 animate-in zoom-in duration-300" />}
                                     </div>
                                 );
                             })}
                         </div>
+                        {selectedItems.length > 0 && (
+                            <div className="border-t p-2 bg-gray-50 dark:bg-gray-800/50 rounded-b-xl flex justify-center">
+                                <button
+                                    onClick={clearFilters}
+                                    className="text-xs text-red-500 hover:text-red-700 font-medium py-1 w-full"
+                                >
+                                    Clear Selection
+                                </button>
+                            </div>
+                        )}
                     </div>,
                     document.body
                 )}
@@ -300,11 +307,13 @@ export default function JobListingsPage() {
     const [selectedModes, setSelectedModes] = useState<string[]>([]);
     const [selectedSources, setSelectedSources] = useState<string[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
+    const [isAutofillOpen, setIsAutofillOpen] = useState(false);
+    const autofillRef = useRef<HTMLDivElement>(null);
 
     const statusOptions = ['open', 'closed', 'on_hold', 'duplicate', 'invalid'];
     const typeOptions = ['full_time', 'contract', 'contract_to_hire', 'internship'];
     const modeOptions = ['onsite', 'hybrid', 'remote'];
-    const sourceOptions = ['linkedin', 'job_board', 'vendor', 'email', 'scraper', 'hiring_cafe'];
+    const sourceOptions = ['bot_linkedin_post_contact_extractor', 'bot_linkedin_message_extraction', 'email', 'linkedin', 'job_board', 'scraper', 'hiring.cafe', 'interview_modal', 'email_bot_llm_local'];
 
     const fetchJobListings = useCallback(async () => {
         setLoading(true);
@@ -339,6 +348,20 @@ export default function JobListingsPage() {
     useEffect(() => {
         fetchJobListings();
     }, [fetchJobListings]);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (autofillRef.current && !autofillRef.current.contains(event.target as Node)) {
+                setIsAutofillOpen(false);
+            }
+        };
+        if (isAutofillOpen) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+        };
+    }, [isAutofillOpen]);
 
     useEffect(() => {
         let filtered = [...allJobListings];
@@ -588,13 +611,13 @@ export default function JobListingsPage() {
                     label: "Status",
                     displayName: "Status",
                     color: "green",
-                    renderOption: (opt: string) => <StatusRenderer value={opt} />
+                    renderOption: (opt: string) => opt.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
                 }
             },
             {
                 field: "source",
                 headerName: "Source",
-                width: 140,
+                width: 100,
                 sortable: true,
                 filter: false,
                 editable: true,
@@ -610,6 +633,37 @@ export default function JobListingsPage() {
                     displayName: "Source",
                     color: "orange",
                     renderOption: (opt: string) => opt.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
+                }
+            },
+            {
+                field: "created_at",
+                headerName: "Date",
+                width: 120,
+                sortable: true,
+                filter: "agDateColumnFilter",
+                filterParams: {
+                    comparator: (filterLocalDateAtMidnight: Date, cellValue: string) => {
+                        if (!cellValue) return -1;
+                        const datePart = typeof cellValue === 'string' ? cellValue.split('T')[0] : new Date(cellValue).toISOString().split('T')[0];
+                        const [year, month, day] = datePart.split('-');
+                        const cellDate = new Date(Number(year), Number(month) - 1, Number(day));
+
+                        if (filterLocalDateAtMidnight.getTime() === cellDate.getTime()) {
+                            return 0;
+                        }
+                        if (cellDate < filterLocalDateAtMidnight) {
+                            return -1;
+                        }
+                        if (cellDate > filterLocalDateAtMidnight) {
+                            return 1;
+                        }
+                    },
+                },
+                valueFormatter: ({ value }: ValueFormatterParams) => {
+                    if (!value) return "-";
+                    const datePart = typeof value === 'string' ? value.split('T')[0] : new Date(value).toISOString().split('T')[0];
+                    const [year, month, day] = datePart.split('-');
+                    return `${month ?? ''}/${day ?? ''}/${year ?? ''}`;
                 }
             },
             { field: "location", headerName: "Location", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true },
@@ -660,18 +714,68 @@ export default function JobListingsPage() {
                 </div>
             </div>
 
-            <div className="max-w-md">
-                <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">Search</Label>
-                <div className="relative mt-1">
-                    <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                        id="search"
-                        type="text"
-                        value={searchTerm}
-                        placeholder="Search by title, company, location..."
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10"
-                    />
+            <div className="flex items-end gap-64">
+                <div className="flex-1 max-w-sm">
+                    <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">Search</Label>
+                    <div className="relative mt-1">
+                        <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                            id="search"
+                            type="text"
+                            value={searchTerm}
+                            placeholder="Search by title, company, location..."
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-10 h-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500/20 transition-all shadow-sm"
+                        />
+                    </div>
+                </div>
+
+                <div className="relative" ref={autofillRef}>
+                    <button
+                        onClick={() => setIsAutofillOpen(!isAutofillOpen)}
+                        className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm h-10"
+                    >
+                        <Puzzle className="w-4 h-4 text-blue-500" />
+                        Autofill Extension
+                        <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isAutofillOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {isAutofillOpen && (
+                        <div className="absolute left-0 top-full mt-2 w-56 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                            <div className="p-1.5">
+                                <a
+                                    href="https://drive.google.com/file/d/1usVGPq3iaygfewTAZ8lR46rJDnLSRGtQ/view?usp=sharing"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-3 px-3 py-2.5 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-gray-700 dark:text-gray-200 rounded-xl transition-colors group"
+                                    onClick={() => setIsAutofillOpen(false)}
+                                >
+                                    <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center group-hover:bg-blue-100 dark:group-hover:bg-blue-900/50 transition-colors">
+                                        <Download className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-bold text-left">Download Extension</span>
+                                        <span className="text-[10px] text-gray-400 font-medium text-left">Zip file for Chrome</span>
+                                    </div>
+                                </a>
+                                <a
+                                    href="https://drive.google.com/file/d/1iUcs6myGnNwetCQggxhvLabSeeLWufCF/view?usp=sharing"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-3 px-3 py-2.5 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-gray-700 dark:text-gray-200 rounded-xl transition-colors group"
+                                    onClick={() => setIsAutofillOpen(false)}
+                                >
+                                    <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center group-hover:bg-purple-100 dark:group-hover:bg-purple-900/50 transition-colors">
+                                        <Video className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-bold text-left">Video Guide</span>
+                                        <span className="text-[10px] text-gray-400 font-medium text-left">How to install & use</span>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
