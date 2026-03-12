@@ -179,6 +179,7 @@ export default function JobClickTrackingPage() {
                         headerName: "Candidate / Company",
                         field: "full_name",
                         width: 450,
+                        editable: false,
                         cellRenderer: CandidateRenderer,
                         pinned: 'left'
                     },
@@ -186,18 +187,21 @@ export default function JobClickTrackingPage() {
                         headerName: "Job Title",
                         field: "job_title",
                         width: 466,
+                        editable: false,
                         cellRenderer: JobTitleRenderer
                     },
                     {
                         headerName: "Activity",
                         field: "click_count",
                         width: 200,
+                        editable: false,
                         cellRenderer: ActivityRenderer
                     },
                     {
                         headerName: "Last Clicked",
                         field: "last_clicked_at",
                         width: 200,
+                        editable: false,
                         cellRenderer: DateRenderer
                     }
                 ]);
