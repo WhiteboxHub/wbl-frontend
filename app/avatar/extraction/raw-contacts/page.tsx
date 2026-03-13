@@ -53,9 +53,12 @@ const ClassificationRenderer = ({ value }: { value?: string }) => {
 
 function formatDateTime(dateStr: string | null | undefined) {
     if (!dateStr) return "";
+
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) return dateStr;
+
     return date.toLocaleString("en-US", {
+        timeZone: "America/Los_Angeles",
         month: "short",
         day: "numeric",
         year: "numeric",
@@ -273,140 +276,140 @@ export default function AutomationContactExtractsPage() {
                 field: "full_name",
                 headerName: "Full Name",
                 width: 180,
-                editable: true,
+                editable: false,
             },
             {
                 field: "email",
                 headerName: "Email",
                 width: 200,
-                editable: true,
+                editable: false,
                 cellRenderer: EmailRenderer,
             },
             {
                 field: "phone",
                 headerName: "Phone",
                 width: 150,
-                editable: true,
+                editable: false,
                 cellRenderer: PhoneRenderer,
             },
             {
                 field: "linkedin_id",
                 headerName: "LinkedIn ID",
                 width: 180,
-                editable: true,
+                editable: false,
             },
             {
                 field: "linkedin_internal_id",
                 headerName: "LinkedIn Int ID",
                 width: 180,
-                editable: true,
+                editable: false,
             },
             {
                 field: "company_name",
                 headerName: "Company",
                 width: 180,
-                editable: true,
+                editable: false,
             },
             {
                 field: "job_title",
                 headerName: "Job Title",
                 width: 180,
-                editable: true,
+                editable: false,
             },
             {
                 field: "city",
                 headerName: "City",
                 width: 120,
-                editable: true,
+                editable: false,
             },
             {
                 field: "state",
                 headerName: "State",
                 width: 100,
-                editable: true,
+                editable: false,
             },
             {
                 field: "country",
                 headerName: "Country",
                 width: 120,
-                editable: true,
+                editable: false,
             },
             {
                 field: "postal_code",
                 headerName: "Postal Code",
                 width: 120,
-                editable: true,
+                editable: false,
             },
             {
                 field: "source_type",
                 headerName: "Source",
                 width: 150,
-                editable: true,
+                editable: false,
             },
             {
                 field: "source_reference",
                 headerName: "Reference",
                 width: 180,
-                editable: true,
+                editable: false,
             },
             {
                 field: "classification",
                 headerName: "Classification",
                 width: 200,
                 cellRenderer: ClassificationRenderer,
-                editable: true,
+                editable: false,
             },
             {
                 field: "processing_status",
                 headerName: "Status",
                 width: 140,
                 cellRenderer: StatusRenderer,
-                editable: true,
+                editable: false,
             },
             {
                 field: "target_table",
                 headerName: "Target Table",
                 width: 150,
-                editable: true,
+                editable: false,
             },
             {
                 field: "target_id",
                 headerName: "Target ID",
                 width: 120,
-                editable: true,
+                editable: false,
             },
             {
                 field: "error_message",
                 headerName: "Error",
                 width: 250,
-                editable: true,
+                editable: false,
             },
             {
                 field: "email_invalid",
                 headerName: "Email Inv",
                 width: 100,
-                editable: true,
+                editable: false,
                 cellRenderer: (params: any) => params.value ? <Badge className="bg-red-100 text-red-800">YES</Badge> : <Badge className="bg-gray-100 text-gray-400">NO</Badge>
             },
             {
                 field: "domain_invalid",
                 headerName: "Domain Inv",
                 width: 110,
-                editable: true,
+                editable: false,
                 cellRenderer: (params: any) => params.value ? <Badge className="bg-red-100 text-red-800">YES</Badge> : <Badge className="bg-gray-100 text-gray-400">NO</Badge>
             },
             {
                 field: "mailbox_invalid",
                 headerName: "Mailbox Inv",
                 width: 110,
-                editable: true,
+                editable: false,
                 cellRenderer: (params: any) => params.value ? <Badge className="bg-red-100 text-red-800">YES</Badge> : <Badge className="bg-gray-100 text-gray-400">NO</Badge>
             },
             {
                 field: "bounced_flag",
                 headerName: "Bounced",
                 width: 100,
-                editable: true,
+                editable: false,
                 cellRenderer: (params: any) => params.value ? <Badge className="bg-red-500 text-white">BOUNCED</Badge> : null
             },
             {
@@ -419,7 +422,7 @@ export default function AutomationContactExtractsPage() {
                 field: "unsubscribed_flag",
                 headerName: "Unsub",
                 width: 100,
-                editable: true,
+                editable: false,
                 cellRenderer: (params: any) => params.value ? <Badge className="bg-orange-100 text-orange-800">UNSUB</Badge> : null
             },
             {
@@ -432,7 +435,7 @@ export default function AutomationContactExtractsPage() {
                 field: "complained_flag",
                 headerName: "Complaint",
                 width: 110,
-                editable: true,
+                editable: false,
                 cellRenderer: (params: any) => params.value ? <Badge className="bg-red-800 text-white">COMPLAINT</Badge> : null
             },
             {
