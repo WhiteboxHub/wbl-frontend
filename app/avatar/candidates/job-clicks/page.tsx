@@ -157,11 +157,28 @@ export default function JobClickTrackingPage() {
     const DateRenderer = (params: any) => {
         const dateStr = params.value;
         if (!dateStr) return null;
-        const d = new Date(dateStr);
+        
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return <span className="text-sm">{dateStr}</span>;
+
+        const dateFormatted = date.toLocaleDateString("en-US", {
+            timeZone: "America/Los_Angeles",
+            month: "short",
+            day: "numeric",
+            year: "numeric"
+        });
+        
+        const timeFormatted = date.toLocaleTimeString("en-US", {
+            timeZone: "America/Los_Angeles",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true
+        });
+
         return (
             <div className={`flex flex-col leading-tight mt-1 ${params.data.isGroup ? 'font-medium' : 'text-sm text-gray-500'}`}>
-                <span className="text-sm">{d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                <span className="text-xs text-gray-400">{d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
+                <span className="text-sm">{dateFormatted}</span>
+                <span className="text-xs text-gray-400">{timeFormatted}</span>
             </div>
         );
     };
@@ -179,6 +196,7 @@ export default function JobClickTrackingPage() {
                         headerName: "Candidate / Company",
                         field: "full_name",
                         width: 450,
+                        editable: false,
                         cellRenderer: CandidateRenderer,
                         pinned: 'left'
                     },
@@ -186,18 +204,21 @@ export default function JobClickTrackingPage() {
                         headerName: "Job Title",
                         field: "job_title",
                         width: 466,
+                        editable: false,
                         cellRenderer: JobTitleRenderer
                     },
                     {
                         headerName: "Activity",
                         field: "click_count",
                         width: 200,
+                        editable: false,
                         cellRenderer: ActivityRenderer
                     },
                     {
                         headerName: "Last Clicked",
                         field: "last_clicked_at",
                         width: 200,
+                        editable: false,
                         cellRenderer: DateRenderer
                     }
                 ]);
