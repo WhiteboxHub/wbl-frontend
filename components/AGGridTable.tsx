@@ -83,6 +83,7 @@ interface AGGridTableProps {
   hideToolbar?: boolean;
   context?: any;
   showTotalCount?: boolean;
+  extraToolbarContent?: React.ReactNode;
 }
 
 interface RowData {
@@ -125,6 +126,7 @@ export function AGGridTable({
   hideToolbar = false,
   context,
   showTotalCount = false,
+  extraToolbarContent,
 }: AGGridTableProps) {
   // Refs and State
   const gridRef = useRef<AgGridReact>(null);
@@ -452,6 +454,7 @@ export function AGGridTable({
             </div>
           )}
           <div className="ml-auto flex items-center  space-x-2">
+            {extraToolbarContent}
             {!shouldHideAddButton && showAddButton !== false && (
               <Button
                 variant="outline"
