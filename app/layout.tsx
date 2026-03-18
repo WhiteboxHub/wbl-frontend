@@ -57,7 +57,7 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
       </head>
-      <body className="dark:bg-black" suppressHydrationWarning>
+      <body className="dark:bg-black overflow-x-hidden" suppressHydrationWarning>
         <GoogleAnalytics />
         <SessionProvider>
           <AuthProvider>
@@ -71,7 +71,7 @@ export default function RootLayout({
                     isOpen={isOpen}
                     toggleSidebar={() => setIsOpen(!isOpen)}
                   />
-                  <main className="w-full">{children}</main>
+                  <main className="w-full overflow-x-hidden">{children}</main>
                   <Footer />
                   <ScrollToTop />
                   <ReferralNotificationButton />
