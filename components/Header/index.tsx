@@ -169,6 +169,18 @@ const Header = ({
                     </li>
                   ))}
 
+                  {(isAuthenticated && (userRole === "admin" || userRole === "employee")) && (
+                    <li className="lg:hidden">
+                      <Link
+                        href={userRole === "employee" ? "/avatar/employee/employee-dashboard" : "/avatar"}
+                        className="my-3 block w-full rounded-3xl bg-gradient-to-tl from-indigo-900 to-purple-400 px-3 py-2 text-center text-sm font-bold text-white hover:bg-gradient-to-br sm:text-base"
+                        onClick={closeNavbar}
+                      >
+                        Avatar
+                      </Link>
+                    </li>
+                  )}
+
                   {isAuthenticated && (
                     <li className="lg:hidden">
                       <button

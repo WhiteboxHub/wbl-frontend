@@ -643,7 +643,7 @@ const excludedFields = [
   "position_company",
   "position_title",
   "position_id",
-  "created_from_raw_id",
+
   "moved_at",
   "candidate_id",
   "created_at",
@@ -1342,7 +1342,6 @@ export function EditModal({
   const isJobTypeModal = title.toLowerCase().includes("job type");
   const isAutomationKeywordModal = title.toLowerCase().includes("automation keyword");
   const isPositionsModal = title.toLowerCase().includes("position") || (title.toLowerCase().includes("job listing") && !title.toLowerCase().includes("raw"));
-  const isRawJobListingModal = title.toLowerCase().includes("raw job listing") || title.toLowerCase().includes("raw_job_listing");
   const isJobDefinitionModal = title.toLowerCase().includes("job definition");
   const isJobRequestModal = title.toLowerCase().includes("job request");
   const isPlacementFeeModal = title.toLowerCase().includes("placement fee");
@@ -2142,7 +2141,6 @@ export function EditModal({
     if (keyLower === "position_type") return enumOptions.position_type;
     if (keyLower === "employment_mode") return enumOptions.employment_mode;
     if (keyLower === "source") {
-      if (isRawJobListingModal) return enumOptions.raw_source;
       return enumOptions.source;
     }
 
