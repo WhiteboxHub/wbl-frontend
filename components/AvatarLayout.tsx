@@ -128,10 +128,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       icon: List,
       children: [
         { title: "Raw Contacts", href: "/avatar/extraction/raw-contacts" },
-        {
-          title: "Raw Job Listings",
-          href: "/avatar/extraction/raw-job-listings",
-        },
+
         {
           title: "Email Positions",
           href: "/avatar/extraction/email-positions",
@@ -504,7 +501,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 min-w-0 p-4 sm:p-6 overflow-x-hidden">{children}</main>
       </div>
     </div>
   );

@@ -37,7 +37,6 @@ type JobListing = {
     notes?: string | null;
     status: string;
     confidence_score?: number | null;
-    created_from_raw_id?: number | null;
     created_at: string;
     updated_at: string;
 };
@@ -404,7 +403,7 @@ export default function JobListingsPage() {
             "location", "city", "state", "zip", "country",
             "contact_email", "contact_phone", "contact_linkedin",
             "job_url", "description", "notes", "status",
-            "confidence_score", "created_from_raw_id"
+            "confidence_score"
         ];
 
         // Helper to check if HTML content is effectively empty
@@ -434,7 +433,7 @@ export default function JobListingsPage() {
                     }
                 } else {
                     payload[field] = value;
-                    if (field === "company_id" || field === "created_from_raw_id") {
+                    if (field === "company_id") {
                         payload[field] = parseInt(value) || null;
                     }
                     if (field === "confidence_score") {
