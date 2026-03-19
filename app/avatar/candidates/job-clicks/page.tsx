@@ -10,7 +10,8 @@ import { SearchIcon, ChevronRight, ChevronDown } from "lucide-react";
 import { ColDef } from "ag-grid-community";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { toast, Toaster } from "sonner";
-import { cachedApiFetch } from "@/lib/apiCache";
+import api from "@/lib/api";
+import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
@@ -112,6 +113,22 @@ export default function JobClickTrackingPage() {
         });
     }, []);
 
+    const handleRowDeleted = async (id: string | number) => {
+        try {
+            if (typeof id === 'string' && id.startsWith('group-')) {
+                toast.error("Cannot delete a candidate group directly");
+                return;
+            }
+            await api.delete(`/candidates/click-analytics/${id}`);
+            await invalidateCache("/candidates/click-analytics");
+            setRawClicks((prev) => prev.filter((row) => row.id !== id));
+            toast.success("Click record deleted successfully");
+        } catch (error: any) {
+            console.error("Error deleting click record:", error);
+            toast.error("Failed to delete click record");
+        }
+    };
+
     const CandidateRenderer = (params: any) => {
         const { data } = params;
         if (!data) return null;
@@ -187,9 +204,30 @@ export default function JobClickTrackingPage() {
         const fetchClicks = async () => {
             setLoading(true);
             try {
-                const res = await cachedApiFetch("/candidates/click-analytics");
-                const data = res?.data || res || [];
-                setRawClicks(Array.isArray(data) ? data : []);
+                const pageSize = 5000;
+                let allData: any[] = [];
+                let currentPage = 1;
+                let hasNext = true;
+
+                while (hasNext) {
+                    const res: any = await cachedApiFetch(`/candidates/click-analytics/paginated?page=${currentPage}&page_size=${pageSize}`);
+                    
+                    // The backend either wraps in .data or responds cleanly with the dict. 
+                    // Let's safely extract it:
+                    const payload = res?.data || res;
+                    const pageData = payload?.data || [];
+                    const has_next_page = payload?.has_next || false;
+
+                    allData = [...allData, ...pageData];
+
+                    hasNext = has_next_page;
+                    currentPage++;
+
+                    // Safety exit
+                    if (currentPage > 100) break;
+                }
+
+                setRawClicks(allData);
 
                 setColumnDefs([
                     {
@@ -289,7 +327,7 @@ export default function JobClickTrackingPage() {
                             columnDefs={columnDefs}
                             height="calc(100vh - 300px)"
                             showSearch={false}
-                            hideToolbar={true}
+                            onRowDeleted={handleRowDeleted}
                         />
                     )}
                 </div>
