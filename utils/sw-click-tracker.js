@@ -10,7 +10,7 @@ let cachedToken = null;
 let baseUrl = '';
 let lastClickTime = null;
 
-const SYNC_THRESHOLD_MS = 12 * 60 * 60 * 100000; // 12 hours
+const SYNC_THRESHOLD_MS = 12 * 60 * 60 * 1000; // 12 hours
 
 console.log('[SW] Service Worker v5 (12-Hour Sync + Inactivity Flush) loaded');
 
@@ -118,7 +118,7 @@ async function attemptFlush(force = false) {
             const cleanBase = baseUrl.replace(/\/+$/, '').replace(/\/api$/, '');
             const url = `${cleanBase}/api${path}`;
 
-            console.log(`[SW] 🕒 Sync Triggered (Force: ${force}). Shipping ${clicks.length} total clicks to: ${url}`);
+            console.log(`[SW]  Sync Triggered (Force: ${force}). Shipping ${clicks.length} total clicks to: ${url}`);
 
             const response = await fetch(url, {
                 method: 'POST',

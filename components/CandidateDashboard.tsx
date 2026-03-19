@@ -440,7 +440,7 @@ export default function CandidateDashboard() {
 
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible' && navigator.serviceWorker.controller) {
-                console.log('👁️ Dashboard visible (tab focused), evaluating sync...');
+                console.log(' Dashboard visible (tab focused), evaluating sync...');
                 navigator.serviceWorker.controller.postMessage({ type: 'FLUSH' });
             }
         };
