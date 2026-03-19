@@ -8,10 +8,11 @@ const STORE_NAME = 'pending_clicks';
 const META_STORE = 'sync_meta';
 let cachedToken = null;
 let baseUrl = '';
+let lastClickTime = null;
 
 const SYNC_THRESHOLD_MS = 12 * 60 * 60 * 100000; // 12 hours
 
-console.log('[SW] Service Worker v5 (12-Hour Sync) loaded');
+console.log('[SW] Service Worker v5 (12-Hour Sync + Inactivity Flush) loaded');
 
 function openDB() {
     return new Promise((resolve, reject) => {
@@ -96,7 +97,7 @@ async function clearClicks(ids) {
 }
 
 // THE FLUSH LOGIC
-async function attemptFlush() {
+async function attemptFlush(force = false) {
     if (!baseUrl || !cachedToken) {
         console.warn('[SW] Sync skipped: Config/Token not received yet');
         return;
@@ -105,8 +106,8 @@ async function attemptFlush() {
     const lastSyncedAt = await getLastSyncedAt();
     const now = Date.now();
 
-    // The core logic: If last_synced_at is null OR (now - last_synced_at) > 12 hours -> Flush
-    if (lastSyncedAt === null || (now - lastSyncedAt) > SYNC_THRESHOLD_MS) {
+    // The core logic: If force is true, OR last_synced_at is null OR (now - last_synced_at) > 12 hours -> Flush
+    if (force || lastSyncedAt === null || (now - lastSyncedAt) > SYNC_THRESHOLD_MS) {
         const clicks = await getPendingClicks();
         if (clicks.length === 0) {
             return;
@@ -117,7 +118,7 @@ async function attemptFlush() {
             const cleanBase = baseUrl.replace(/\/+$/, '').replace(/\/api$/, '');
             const url = `${cleanBase}/api${path}`;
 
-            console.log(`[SW] 🕒 12-Hour Sync Triggered. Shipping ${clicks.length} total clicks to: ${url}`);
+            console.log(`[SW] 🕒 Sync Triggered (Force: ${force}). Shipping ${clicks.length} total clicks to: ${url}`);
 
             const response = await fetch(url, {
                 method: 'POST',
@@ -145,7 +146,21 @@ async function attemptFlush() {
 }
 
 // Background polling just in case tab stays open for 12 hours
-setInterval(attemptFlush, 5 * 60 * 1000); // Check every 5 minutes
+setInterval(() => attemptFlush(false), 5 * 60 * 1000); // Check every 5 minutes
+
+// Check for 1 hour inactivity
+setInterval(async () => {
+    if (!lastClickTime) return
+    
+    const idleMs = Date.now() - lastClickTime
+    const oneHour = 60 * 60 * 1000
+
+    if (idleMs >= oneHour) {
+        console.log('[SW] 1 hour inactivity detected → flushing');
+        await attemptFlush(true);
+        lastClickTime = null;
+    }
+}, 60 * 1000);
 
 self.addEventListener('message', (event) => {
     if (event.data.type === 'SET_API_URL') {
@@ -156,17 +171,18 @@ self.addEventListener('message', (event) => {
     if (event.data.type === 'SET_TOKEN') {
         cachedToken = event.data.token;
         // On page load/auth, check if we need to flush immediately
-        attemptFlush();
+        attemptFlush(false);
     }
 
     if (event.data.type === 'TRACK_CLICK') {
         // just log it, SET_TOKEN and FLUSH already handle the sync
-        console.log(`[SW] Click for ${event.data.id} saved to DB.`);
+        lastClickTime = Date.now();
+        console.log(`[SW] Click for ${event.data.id} saved to DB. Inactivity timer reset.`);
     }
 
     if (event.data.type === 'FLUSH') {
         console.log('[SW] FLUSH event received. Evaluating sync...');
-        attemptFlush();
+        attemptFlush(true);
     }
 });
 
@@ -181,6 +197,6 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('sync', (event) => {
     if (event.tag === 'flush-job-clicks') {
-        event.waitUntil(attemptFlush());
+        event.waitUntil(attemptFlush(true));
     }
 });

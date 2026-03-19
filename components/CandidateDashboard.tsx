@@ -439,14 +439,21 @@ export default function CandidateDashboard() {
         }
 
         const handleVisibilityChange = () => {
-            if (document.visibilityState === 'hidden' && navigator.serviceWorker.controller) {
-                console.log('🔇 Visibility hidden, flushing clicks...');
+            if (document.visibilityState === 'visible' && navigator.serviceWorker.controller) {
+                console.log('👁️ Dashboard visible (tab focused), evaluating sync...');
                 navigator.serviceWorker.controller.postMessage({ type: 'FLUSH' });
             }
         };
 
         document.addEventListener('visibilitychange', handleVisibilityChange);
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, []);
+
+    // Every time dashboard loads or rerenders
+    useEffect(() => {
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({ type: 'FLUSH' });
+        }
     }, []);
     // ----------------------------
 
