@@ -172,11 +172,16 @@ export default function JobClickTrackingPage() {
     };
 
     const DateRenderer = (params: any) => {
-        const dateStr = params.value;
+        let dateStr = params.value;
         if (!dateStr) return null;
         
+        // Force UTC if the string lacks a timezone indicator (e.g. from DB)
+        if (typeof dateStr === 'string' && !dateStr.endsWith('Z') && !dateStr.match(/[+-]\d{2}:?\d{2}$/)) {
+            dateStr = dateStr.replace(' ', 'T') + 'Z';
+        }
+
         const date = new Date(dateStr);
-        if (isNaN(date.getTime())) return <span className="text-sm">{dateStr}</span>;
+        if (isNaN(date.getTime())) return <span className="text-sm">{params.value}</span>;
 
         const dateFormatted = date.toLocaleDateString("en-US", {
             timeZone: "America/Los_Angeles",
@@ -233,7 +238,7 @@ export default function JobClickTrackingPage() {
                     {
                         headerName: "Candidate / Company",
                         field: "full_name",
-                        width: 450,
+                        width: 400,
                         editable: false,
                         cellRenderer: CandidateRenderer,
                         pinned: 'left'
@@ -286,7 +291,7 @@ export default function JobClickTrackingPage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-gray-100 dark:border-gray-800">
                 <div>
                     <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 tracking-tight">
-                        Activity Tracking
+                        Job Listings Tracking
                     </h1>
                 </div>
 

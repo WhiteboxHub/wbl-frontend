@@ -51,11 +51,17 @@ const ClassificationRenderer = ({ value }: { value?: string }) => {
     return <Badge variant="outline" className={badgeClass}>{value.replace(/_/g, ' ').toUpperCase()}</Badge>;
 };
 
-function formatDateTime(dateStr: string | null | undefined) {
+function formatDateTime(params_dateStr: string | null | undefined) {
+    let dateStr = params_dateStr;
     if (!dateStr) return "";
 
+    // Force UTC if the string lacks a timezone indicator (e.g. from DB)
+    if (typeof dateStr === 'string' && !dateStr.endsWith('Z') && !dateStr.match(/[+-]\d{2}:?\d{2}$/)) {
+        dateStr = dateStr.replace(' ', 'T') + 'Z';
+    }
+
     const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return dateStr;
+    if (isNaN(date.getTime())) return params_dateStr || "";
 
     return date.toLocaleString("en-US", {
         timeZone: "America/Los_Angeles",

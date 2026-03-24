@@ -32,6 +32,32 @@ type EmailPosition = {
     processed_at?: string | null;
     created_at: string;
 };
+ 
+function formatDateTime(params_dateStr: string | null | undefined) {
+    let dateStr = params_dateStr;
+    if (!dateStr) return "";
+
+    // Force UTC if the string lacks a timezone indicator (e.g. from DB)
+    if (typeof dateStr === 'string' && !dateStr.endsWith('Z') && !dateStr.match(/[+-]\d{2}:?\d{2}$/)) {
+        dateStr = dateStr.replace(' ', 'T') + 'Z';
+    }
+
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return params_dateStr || "";
+
+    return date.toLocaleString("en-US", {
+        timeZone: "America/Los_Angeles",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+    });
+}
+
+
+
 
 
 const FilterHeaderComponent = ({
@@ -448,7 +474,7 @@ export default function EmailPositionsPage() {
                 sortable: true,
                 filter: "agDateColumnFilter",
                 editable: false,
-                valueFormatter: (params) => params.value ? new Date(params.value).toLocaleString() : ""
+                valueFormatter: (params) => formatDateTime(params.value)
             },
             {
                 field: "processed_at",
@@ -457,7 +483,7 @@ export default function EmailPositionsPage() {
                 sortable: true,
                 filter: "agDateColumnFilter",
                 editable: false,
-                valueFormatter: (params) => params.value ? new Date(params.value).toLocaleString() : ""
+                valueFormatter: (params) => formatDateTime(params.value)
             },
             { field: "description", headerName: "Description", width: 300, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "notes", headerName: "Notes", width: 200, sortable: true, filter: "agTextColumnFilter", editable: true },
