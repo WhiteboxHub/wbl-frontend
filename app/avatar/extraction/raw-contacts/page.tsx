@@ -51,11 +51,17 @@ const ClassificationRenderer = ({ value }: { value?: string }) => {
     return <Badge variant="outline" className={badgeClass}>{value.replace(/_/g, ' ').toUpperCase()}</Badge>;
 };
 
-function formatDateTime(dateStr: string | null | undefined) {
+function formatDateTime(params_dateStr: string | null | undefined) {
+    let dateStr = params_dateStr;
     if (!dateStr) return "";
 
+    // Force UTC if the string lacks a timezone indicator (e.g. from DB)
+    if (typeof dateStr === 'string' && !dateStr.endsWith('Z') && !dateStr.match(/[+-]\d{2}:?\d{2}$/)) {
+        dateStr = dateStr.replace(' ', 'T') + 'Z';
+    }
+
     const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return dateStr;
+    if (isNaN(date.getTime())) return params_dateStr || "";
 
     return date.toLocaleString("en-US", {
         timeZone: "America/Los_Angeles",
@@ -177,6 +183,14 @@ export default function AutomationContactExtractsPage() {
                 }
             });
 
+            if (typeof cleanedData.raw_payload === "string") {
+                try {
+                    cleanedData.raw_payload = JSON.parse(cleanedData.raw_payload);
+                } catch (e) {
+                    throw new Error("Raw Payload must be valid JSON");
+                }
+            }
+
             await apiFetch(`/automation-extracts/${updatedData.id}`, {
                 method: "PUT",
                 body: cleanedData,
@@ -199,6 +213,18 @@ export default function AutomationContactExtractsPage() {
                     delete cleanedExtract[key];
                 }
             });
+
+            if (typeof cleanedExtract.raw_payload === "string") {
+                try {
+                    cleanedExtract.raw_payload = JSON.parse(cleanedExtract.raw_payload);
+                } catch (e) {
+                    throw new Error("Raw Payload must be valid JSON");
+                }
+            }
+
+            if (!cleanedExtract.source_type) {
+                throw new Error("Source Type is required");
+            }
 
             // Using apiFetch directly to match the working ref page
             await apiFetch("/automation-extracts", {

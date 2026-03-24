@@ -524,6 +524,7 @@ const requiredFieldsConfig: Record<string, string[]> = {
   "delivery engines": ["Name", "Engine Type", "From Email", "Max Retries", "Timeout (s)"],
   "smtp credentials": ["Name", "Email", "Password", "Daily Limit", "Active"],
   "automation keywords": ["Category", "Source", "Keywords", "Match Type", "Action"],
+  "automation-contact-extract": ["Source Type"],
 };
 
 // Helper function to check if a field is required based on modal type and mode
@@ -1429,7 +1430,8 @@ export function EditModal({
           mlBatchesOnly = sortedAllBatches;
         }
         setMlBatches(mlBatchesOnly);
-        if (isOpen && mlBatchesOnly.length > 0 && mlBatchesOnly[0]?.batchid) {
+        const needsBatchId = isCandidateModal || isPreparationModal || isMarketingModal || isPlacementModal || isBatchesModal;
+        if (isOpen && needsBatchId && mlBatchesOnly.length > 0 && mlBatchesOnly[0]?.batchid) {
           setValue("batchid", mlBatchesOnly[0].batchid);
         }
       } catch (error) {

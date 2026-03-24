@@ -35,7 +35,7 @@ export default function Faq() {
             />
             <Accordion
               title="Where are we located?"
-              content="We are located at 6500 Dublin Blvd #214, Dublin, CA 94568."
+              content="We are located at 6500 Dublin Blvd, Suite 218 Dublin, CA 94568."
             />
             <Accordion
               title="What if I miss any of your classes?"
@@ -55,7 +55,7 @@ export default function Faq() {
             />
             <Accordion
               title="Do you charge any fee for the training?"
-              content="Enrollment fee: $725 (for training and placement services). Training fee: $6500 (corporate training). Please contact our Recruiting Team at +1 925-557-1053 for more information."
+              content="Enrollment fee: $800 (for training and placement services). Training fee: $10,000 (corporate training). Please contact our Recruiting Team at +1 925-557-1053 for more information."
             />
             <Accordion
               title="What other formalities are required to enroll in your courses?"
