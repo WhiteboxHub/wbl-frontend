@@ -177,6 +177,14 @@ export default function AutomationContactExtractsPage() {
                 }
             });
 
+            if (typeof cleanedData.raw_payload === "string") {
+                try {
+                    cleanedData.raw_payload = JSON.parse(cleanedData.raw_payload);
+                } catch (e) {
+                    throw new Error("Raw Payload must be valid JSON");
+                }
+            }
+
             await apiFetch(`/automation-extracts/${updatedData.id}`, {
                 method: "PUT",
                 body: cleanedData,
@@ -199,6 +207,18 @@ export default function AutomationContactExtractsPage() {
                     delete cleanedExtract[key];
                 }
             });
+
+            if (typeof cleanedExtract.raw_payload === "string") {
+                try {
+                    cleanedExtract.raw_payload = JSON.parse(cleanedExtract.raw_payload);
+                } catch (e) {
+                    throw new Error("Raw Payload must be valid JSON");
+                }
+            }
+
+            if (!cleanedExtract.source_type) {
+                throw new Error("Source Type is required");
+            }
 
             // Using apiFetch directly to match the working ref page
             await apiFetch("/automation-extracts", {
