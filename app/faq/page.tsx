@@ -31,11 +31,11 @@ export default function Faq() {
             />
             <Accordion
               title="Are all classes mandatory for training?"
-              content="Yes, you need to attend all our morning and afternoon classes for training. The topics covered in morning and afternoon sessions are different."
+              content="Yes, you need to attend all our morning and evening classes for training. The topics covered in morning and evening sessions are different."
             />
             <Accordion
               title="Where are we located?"
-              content="We are located at 6500 Dublin Blvd., Ste.218, Dublin, CA, 94568."
+              content="We are located at 6500 Dublin Blvd, Suite 218 Dublin, CA 94568."
             />
             <Accordion
               title="What if I miss any of your classes?"
