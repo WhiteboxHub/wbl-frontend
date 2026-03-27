@@ -312,7 +312,7 @@ export default function JobListingsPage() {
     const statusOptions = ['open', 'closed', 'on_hold', 'duplicate', 'invalid'];
     const typeOptions = ['full_time', 'contract', 'contract_to_hire', 'internship'];
     const modeOptions = ['onsite', 'hybrid', 'remote'];
-    const sourceOptions = ['bot_linkedin_post_contact_extractor', 'bot_linkedin_message_extraction', 'email', 'linkedin', 'job_board', 'scraper', 'hiring.cafe', 'interview_modal', 'email_bot_llm_local'];
+    const sourceOptions = ['bot_linkedin_post_contact_extractor', 'bot_linkedin_message_extraction', 'email', 'linkedin', 'job_board', 'scraper', 'hiring.cafe', 'trueup.io', 'interview_modal', 'email_bot_llm_local'];
 
     const fetchJobListings = useCallback(async () => {
         setLoading(true);
