@@ -1,0 +1,1922 @@
+﻿"use client";
+
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import dynamic from "next/dynamic";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import {
+  Play, Save, Trash2, Plus, Copy, Check, ChevronDown, ChevronRight,
+  FileCode2, Clock, Terminal, TestTube2, Share2, History,
+  Loader2, AlertCircle, CheckCircle2, XCircle, Code2, Settings,
+  ShieldAlert, ShieldCheck, Shield, Maximize2, EyeOff, Eye,
+  MonitorOff, Minimize2, LayoutPanelLeft, AlertTriangle,
+} from "lucide-react";
+import { toast } from "sonner";
+
+// Dynamically import Monaco to avoid SSR issues
+const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+
+function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return (
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("token") ||
+    localStorage.getItem("auth_token") ||
+    null
+  );
+}
+
+async function apiFetch(path: string, options: RequestInit = {}): Promise<any> {
+  const token = getToken();
+  const url = `${API_BASE}${path}`;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(token ? { Authtoken: token, Authorization: `Bearer ${token}` } : {}),
+    ...((options.headers as Record<string, string>) || {}),
+  };
+  const res = await fetch(url, { ...options, headers });
+  if (!res.ok) {
+    let errBody: any;
+    try { errBody = await res.json(); } catch { errBody = { detail: `HTTP ${res.status}` }; }
+    throw Object.assign(new Error(errBody?.detail || `HTTP ${res.status}`), { status: res.status, body: errBody });
+  }
+  if (res.status === 204) return {};
+  return res.json();
+}
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface TestCase {
+  input?: string;
+  expected_output: string;
+  description?: string;
+}
+
+// ─── Security Types ────────────────────────────────────────────────────────────
+
+type ViolationType =
+  | "tab_switch" | "window_blur" | "fullscreen_exit" | "window_resize" | "window_focus_restored"
+  | "paste_large" | "paste_burst" | "idle_burst" | "fast_entry";
+
+interface SecurityEvent {
+  id: number;
+  type: ViolationType;
+  message: string;
+  timestamp: Date;
+  severity: "low" | "medium" | "high";
+}
+
+const VIOLATION_META: Record<ViolationType, { label: string; severity: "low" | "medium" | "high"; color: string }> = {
+  tab_switch:           { label: "Tab Switch",         severity: "high",   color: "#f85149" },
+  window_blur:          { label: "Window Lost Focus",   severity: "high",   color: "#f0883e" },
+  fullscreen_exit:      { label: "Fullscreen Exit",     severity: "high",   color: "#f85149" },
+  window_resize:        { label: "Split-Screen",        severity: "medium", color: "#d29922" },
+  window_focus_restored:{ label: "Window Restored",     severity: "low",    color: "#3fb950" },
+  paste_large:          { label: "Large Paste",         severity: "high",   color: "#f85149" },
+  paste_burst:          { label: "Paste Burst",         severity: "high",   color: "#f85149" },
+  idle_burst:           { label: "Idle Then Burst",     severity: "high",   color: "#f0883e" },
+  fast_entry:           { label: "Abnormal Speed",      severity: "medium", color: "#d29922" },
+};
+
+interface TypingStats {
+  keystrokeCount: number;
+  backspaceCount: number;
+  pasteCount: number;
+  totalPastedChars: number;
+  currentWPM: number;
+  peakWPM: number;
+  idleSeconds: number;
+  lastPasteSize: number;
+}
+
+interface TestResult {
+  test_case_index: number;
+  input?: string;
+  expected: string;
+  actual?: string;
+  error?: string;
+  passed: boolean;
+}
+
+interface ExecutionLog {
+  id: number;
+  language: string;
+  code_executed: string;
+  status: string;
+  execution_time_ms?: number;
+  created_at: string;
+}
+
+interface CodeSnippet {
+  id: number;
+  title: string;
+  language: string;
+  description?: string;
+  code: string;
+  test_cases?: TestCase[];
+  execution_timeout: number;
+  is_shared: boolean;
+  updated_at: string;
+  last_executed_at?: string;
+}
+
+// ─── Language Config ───────────────────────────────────────────────────────────
+
+interface LangConfig {
+  label: string;
+  monaco: string;
+  color: string;
+  icon: string;
+  starter: string;
+}
+
+const LANGUAGES: Record<string, LangConfig> = {
+  python: {
+    label: "Python",
+    monaco: "python",
+    color: "#3b82f6",
+    icon: "🐍",
+    starter: `# Python\ndef solution(n):\n    return n * 2\n\nprint(solution(5))\n`,
+  },
+  javascript: {
+    label: "JavaScript",
+    monaco: "javascript",
+    color: "#f59e0b",
+    icon: "⚡",
+    starter: `// JavaScript\nfunction solution(n) {\n  return n * 2;\n}\n\nconsole.log(solution(5));\n`,
+  },
+  typescript: {
+    label: "TypeScript",
+    monaco: "typescript",
+    color: "#60a5fa",
+    icon: "📘",
+    starter: `// TypeScript\nfunction solution(n: number): number {\n  return n * 2;\n}\n\nconsole.log(solution(5));\n`,
+  },
+  java: {
+    label: "Java",
+    monaco: "java",
+    color: "#f97316",
+    icon: "☕",
+    starter: `public class Main {\n    public static int solution(int n) {\n        return n * 2;\n    }\n\n    public static void main(String[] args) {\n        System.out.println(solution(5));\n    }\n}\n`,
+  },
+  cpp: {
+    label: "C++",
+    monaco: "cpp",
+    color: "#8b5cf6",
+    icon: "⚙️",
+    starter: `#include <iostream>\nusing namespace std;\n\nint solution(int n) {\n    return n * 2;\n}\n\nint main() {\n    cout << solution(5) << endl;\n    return 0;\n}\n`,
+  },
+  c: {
+    label: "C",
+    monaco: "c",
+    color: "#6366f1",
+    icon: "🔧",
+    starter: `#include <stdio.h>\n\nint solution(int n) {\n    return n * 2;\n}\n\nint main() {\n    printf("%d\\n", solution(5));\n    return 0;\n}\n`,
+  },
+  go: {
+    label: "Go",
+    monaco: "go",
+    color: "#06b6d4",
+    icon: "🐹",
+    starter: `package main\n\nimport "fmt"\n\nfunc solution(n int) int {\n\treturn n * 2\n}\n\nfunc main() {\n\tfmt.Println(solution(5))\n}\n`,
+  },
+  rust: {
+    label: "Rust",
+    monaco: "rust",
+    color: "#f43f5e",
+    icon: "⚙️",
+    starter: `fn solution(n: i32) -> i32 {\n    n * 2\n}\n\nfn main() {\n    println!("{}", solution(5));\n}\n`,
+  },
+  bash: {
+    label: "Bash",
+    monaco: "shell",
+    color: "#10b981",
+    icon: "🖥️",
+    starter: `#!/bin/bash\n\nsolution() {\n    echo $(( $1 * 2 ))\n}\n\nsolution 5\n`,
+  },
+};
+
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+
+function timeAgo(dateStr?: string): string {
+  if (!dateStr) return "Never";
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, { icon: React.ReactNode; cls: string }> = {
+    success: { icon: <CheckCircle2 size={12} />, cls: "text-emerald-400 bg-emerald-400/10" },
+    error: { icon: <XCircle size={12} />, cls: "text-red-400 bg-red-400/10" },
+    timeout: { icon: <Clock size={12} />, cls: "text-amber-400 bg-amber-400/10" },
+  };
+  const cfg = map[status] || map.error;
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${cfg.cls}`}>
+      {cfg.icon} {status}
+    </span>
+  );
+}
+
+// ─── Security Monitor Hook ────────────────────────────────────────────────────
+
+function useSecurityMonitor(enabled: boolean) {
+  const [events, setEvents] = useState<SecurityEvent[]>([]);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [activeWarning, setActiveWarning] = useState<SecurityEvent | null>(null);
+  const eventIdRef = useRef(0);
+  const warningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const addEvent = useCallback((type: ViolationType, message: string) => {
+    if (!enabled) return;
+    const meta = VIOLATION_META[type];
+    const evt: SecurityEvent = {
+      id: ++eventIdRef.current,
+      type,
+      message,
+      timestamp: new Date(),
+      severity: meta.severity,
+    };
+    setEvents(prev => [evt, ...prev].slice(0, 100));
+    if (meta.severity !== "low") {
+      setActiveWarning(evt);
+      if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
+      warningTimerRef.current = setTimeout(() => setActiveWarning(null), 4000);
+    }
+    return evt;
+  }, [enabled]);
+
+  const requestFullscreen = useCallback(() => {
+    const el = document.documentElement;
+    if (el.requestFullscreen) el.requestFullscreen();
+  }, []);
+
+  const exitFullscreen = useCallback(() => {
+    if (document.exitFullscreen && document.fullscreenElement) document.exitFullscreen();
+  }, []);
+
+  // Fullscreen change
+  useEffect(() => {
+    if (!enabled) return;
+    const handler = () => {
+      const nowFull = !!document.fullscreenElement;
+      setIsFullscreen(nowFull);
+      if (!nowFull) addEvent("fullscreen_exit", "Exited fullscreen — this is flagged as suspicious");
+    };
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, [enabled, addEvent]);
+
+  // Tab / page visibility
+  useEffect(() => {
+    if (!enabled) return;
+    const handler = () => {
+      if (document.hidden) addEvent("tab_switch", "Switched to another tab while session was active");
+    };
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
+  }, [enabled, addEvent]);
+
+  // Window blur / focus
+  useEffect(() => {
+    if (!enabled) return;
+    const onBlur = () => addEvent("window_blur", "Browser window lost focus — possible app switch");
+    const onFocus = () => addEvent("window_focus_restored", "Window focus restored");
+    window.addEventListener("blur", onBlur);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.removeEventListener("blur", onBlur);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [enabled, addEvent]);
+
+  // Window resize — detect split screen
+  useEffect(() => {
+    if (!enabled) return;
+    let resizeTimer: ReturnType<typeof setTimeout>;
+    const handler = () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        const widthRatio = window.innerWidth / window.screen.width;
+        const heightRatio = window.innerHeight / window.screen.height;
+        if (widthRatio < 0.75 || heightRatio < 0.80) {
+          addEvent(
+            "window_resize",
+            `Possible split-screen detected — window is ${Math.round(widthRatio * 100)}% width, ${Math.round(heightRatio * 100)}% height of screen`
+          );
+        }
+      }, 500);
+    };
+    window.addEventListener("resize", handler);
+    return () => { window.removeEventListener("resize", handler); clearTimeout(resizeTimer); };
+  }, [enabled, addEvent]);
+
+  const highCount  = events.filter(e => e.severity === "high").length;
+  const medCount   = events.filter(e => e.severity === "medium").length;
+  const totalCount = events.filter(e => e.severity !== "low").length;
+
+  return {
+    events, isFullscreen, activeWarning,
+    addEvent, requestFullscreen, exitFullscreen,
+    highCount, medCount, totalCount,
+    dismissWarning: () => setActiveWarning(null),
+  };
+}
+
+// ─── Typing Analyzer Hook ─────────────────────────────────────────────────────
+
+function useTypingAnalyzer(addEvent: (type: ViolationType, msg: string) => void) {
+  const [stats, setStats] = useState<TypingStats>({
+    keystrokeCount: 0,
+    backspaceCount: 0,
+    pasteCount: 0,
+    totalPastedChars: 0,
+    currentWPM: 0,
+    peakWPM: 0,
+    idleSeconds: 0,
+    lastPasteSize: 0,
+  });
+
+  const keystampBuf  = useRef<number[]>([]);
+  const lastKeyTime  = useRef<number>(0);
+  const lastActivity = useRef<number>(Date.now());
+  const pasteHistory = useRef<number[]>([]);
+  const copyCount    = useRef<number>(0);
+  const disposables  = useRef<any[]>([]);
+  const idleFlagged  = useRef<boolean>(false);
+
+  // ── 1. Native DOM paste — fires for EVERY paste, regardless of size
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const text = e.clipboardData?.getData("text") ?? "";
+      const chars = text.length;
+      const now   = Date.now();
+
+      const idleMs  = now - lastActivity.current;
+      const wasIdle = idleMs > 30_000;
+
+      // Update paste history (rolling 60 s window)
+      pasteHistory.current = [...pasteHistory.current, now].filter(t => now - t < 60_000);
+      const freq = pasteHistory.current.length;
+
+      // Idle → burst
+      if (wasIdle && chars > 0) {
+        addEvent("idle_burst",
+          `Idle for ${Math.round(idleMs / 1000)}s, then pasted ${chars} character${chars !== 1 ? "s" : ""}`);
+        idleFlagged.current = true;
+      }
+
+      // Flag every paste — label by size
+      const sizeLabel = chars === 0
+        ? "empty clipboard"
+        : chars < 20  ? `${chars} chars (small)`
+        : chars < 100 ? `${chars} chars (medium)`
+        : `${chars} chars (⚠ large)`;
+
+      addEvent("paste_large", `Paste detected: ${sizeLabel}`);
+
+      // Burst: 3+ pastes in 60 s
+      if (freq >= 3) {
+        addEvent("paste_burst", `${freq} paste events in the last 60 seconds`);
+      }
+
+      lastActivity.current = now;
+      idleFlagged.current  = false;
+
+      setStats(prev => ({
+        ...prev,
+        pasteCount:       prev.pasteCount + 1,
+        totalPastedChars: prev.totalPastedChars + chars,
+        lastPasteSize:    chars,
+      }));
+    };
+
+    // ── 2. Native DOM copy — tracks every copy event
+    const onCopy = () => {
+      const chars = window.getSelection()?.toString().length ?? 0;
+      copyCount.current += 1;
+      lastActivity.current = Date.now();
+      addEvent("window_focus_restored",
+        `Code copied: ${chars} char${chars !== 1 ? "s" : ""} (copy #${copyCount.current})`);
+    };
+
+    document.addEventListener("paste", onPaste);
+    document.addEventListener("copy",  onCopy);
+    return () => {
+      document.removeEventListener("paste", onPaste);
+      document.removeEventListener("copy",  onCopy);
+    };
+  }, [addEvent]);
+
+  // ── 3. Monaco: keydown (WPM + backspace) + idle-burst fallback via content change
+  const setupEditor = useCallback((editor: any) => {
+    disposables.current.forEach(d => d?.dispose());
+    disposables.current = [];
+
+    // ── Content change — ONLY for idle-burst fallback (paste already caught by DOM event)
+    const d1 = editor.onDidChangeModelContent((e: any) => {
+      const now          = Date.now();
+      const timeSinceKey = now - lastKeyTime.current;
+      for (const change of e.changes) {
+        const added = change.text.length;
+        if (added === 0) continue;
+        const idleMs  = now - lastActivity.current;
+        const wasIdle = idleMs > 30_000;
+        if (wasIdle && added > 30 && timeSinceKey > 1000 && !idleFlagged.current) {
+          addEvent("idle_burst",
+            `Idle for ${Math.round(idleMs / 1000)}s then ${added} characters entered at once`);
+          idleFlagged.current = true;
+        }
+        lastActivity.current = now;
+        idleFlagged.current  = false;
+      }
+    });
+
+    // ── Keydown: typing speed + backspace tracking
+    const d2 = editor.onKeyDown((e: any) => {
+      const now = Date.now();
+      lastKeyTime.current  = now;
+      lastActivity.current = now;
+      idleFlagged.current  = false;
+
+      // Track keystroke buffer (sliding window of 20)
+      keystampBuf.current = [...keystampBuf.current.slice(-19), now];
+
+      // WPM = (chars / 5) / (elapsed minutes), min 5 keystrokes
+      if (keystampBuf.current.length >= 5) {
+        const buf = keystampBuf.current;
+        const elapsed = (buf[buf.length - 1] - buf[0]) / 60_000; // minutes
+        const wpm = elapsed > 0 ? Math.round((buf.length / 5) / elapsed) : 0;
+
+        if (wpm > 350) {
+          addEvent("fast_entry",
+            `Abnormal typing speed: ~${wpm} WPM detected (human max ~150 WPM)`);
+        }
+
+        setStats(prev => ({
+          ...prev,
+          currentWPM: wpm,
+          peakWPM: Math.max(prev.peakWPM, wpm),
+          keystrokeCount: prev.keystrokeCount + 1,
+          backspaceCount: e.keyCode === 1 ? prev.backspaceCount + 1 : prev.backspaceCount,
+        }));
+      } else {
+        setStats(prev => ({
+          ...prev,
+          keystrokeCount: prev.keystrokeCount + 1,
+          backspaceCount: e.keyCode === 1 ? prev.backspaceCount + 1 : prev.backspaceCount,
+        }));
+      }
+    });
+
+    disposables.current = [d1, d2];
+  }, [addEvent]);
+
+  // ── Idle timer: update idle seconds every 5s
+  useEffect(() => {
+    const iv = setInterval(() => {
+      const idle = Math.floor((Date.now() - lastActivity.current) / 1000);
+      setStats(prev => ({ ...prev, idleSeconds: idle }));
+    }, 5000);
+    return () => clearInterval(iv);
+  }, []);
+
+  // ── Cleanup disposables on unmount
+  useEffect(() => () => { disposables.current.forEach(d => d?.dispose()); }, []);
+
+  return { stats, setupEditor };
+}
+
+// ─── Main Component ────────────────────────────────────────────────────────────
+
+export const CoderpadEditor: React.FC = () => {
+  // ── Snippets
+  const [snippets, setSnippets] = useState<CodeSnippet[]>([]);
+  const [selectedSnippet, setSelectedSnippet] = useState<CodeSnippet | null>(null);
+  const [snippetSearch, setSnippetSearch] = useState("");
+
+  // ── Editor
+  const [code, setCode] = useState(LANGUAGES.python.starter);
+  const [language, setLanguage] = useState("python");
+  const [title, setTitle] = useState("Untitled");
+  const [description, setDescription] = useState("");
+  const [isDirty, setIsDirty] = useState(false);
+
+  // ── Execution
+  const [output, setOutput] = useState("");
+  const [error, setError] = useState("");
+  const [execStatus, setExecStatus] = useState<"idle" | "running" | "success" | "error" | "timeout">("idle");
+  const [execTime, setExecTime] = useState<number | null>(null);
+  const [executing, setExecuting] = useState(false);
+
+  // ── Input / Test Cases
+  const [inputData, setInputData] = useState("");
+  const [testCases, setTestCases] = useState<TestCase[]>([]);
+  const [testResults, setTestResults] = useState<TestResult[] | null>(null);
+
+  // ── UI Tabs (right panel)
+  const [rightTab, setRightTab] = useState<"output" | "tests" | "logs">("output");
+
+  // ── Execution logs
+  const [logs, setLogs] = useState<ExecutionLog[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+
+  // ── Modals / states
+  const [saving, setSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [languageOpen, setLanguageOpen] = useState(false);
+  const [showNewModal, setShowNewModal] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+
+  // ── Security (always on by default)
+  const [showSecurityPanel, setShowSecurityPanel] = useState(false);
+  const [secPanelTab, setSecPanelTab]   = useState<"events" | "analytics">("events");
+  const security       = useSecurityMonitor(true);
+  const typingAnalyzer = useTypingAnalyzer(security.addEvent);
+
+  const editorRef = useRef<any>(null);
+  const langDropRef = useRef<HTMLDivElement>(null);
+
+  // ── Effects ───────────────────────────────────────────────────────────────
+  useEffect(() => { fetchSnippets(); }, []);
+
+  // Auto-enter fullscreen on mount (proctoring always on)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {
+          // Browser may block if no prior interaction — will be available after first click
+        });
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (langDropRef.current && !langDropRef.current.contains(e.target as Node)) {
+        setLanguageOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // Keyboard shortcut: Ctrl+Enter / Cmd+Enter to run
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        executeCode();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        saveSnippet();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [code, language, title, description, testCases, selectedSnippet]);
+
+  // ── API calls ─────────────────────────────────────────────────────────────
+
+  const fetchSnippets = async () => {
+    try {
+      const data = await apiFetch("/coderpad/snippets");
+      setSnippets(data);
+    } catch (err: any) {
+      if (err.status !== 401) toast.error("Failed to load snippets");
+    }
+  };
+
+  const fetchLogs = async () => {
+    setLogsLoading(true);
+    try {
+      const params = selectedSnippet ? `?snippet_id=${selectedSnippet.id}&limit=20` : "?limit=20";
+      const data = await apiFetch(`/coderpad/execution-logs${params}`);
+      setLogs(data);
+    } catch {
+      /* ignore */
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  const loadSnippet = (snippet: CodeSnippet) => {
+    setSelectedSnippet(snippet);
+    setCode(snippet.code);
+    setLanguage(snippet.language);
+    setTitle(snippet.title);
+    setDescription(snippet.description || "");
+    setTestCases(snippet.test_cases || []);
+    setOutput("");
+    setError("");
+    setTestResults(null);
+    setExecStatus("idle");
+    setExecTime(null);
+    setIsDirty(false);
+  };
+
+  const createNew = (titleOverride?: string) => {
+    const cfg = LANGUAGES[language] || LANGUAGES.python;
+    setSelectedSnippet(null);
+    setCode(cfg.starter);
+    setTitle(titleOverride || "Untitled");
+    setDescription("");
+    setTestCases([]);
+    setOutput("");
+    setError("");
+    setTestResults(null);
+    setExecStatus("idle");
+    setExecTime(null);
+    setIsDirty(false);
+    setShowNewModal(false);
+    setNewTitle("");
+  };
+
+  const saveSnippet = async () => {
+    if (!title.trim()) { toast.error("Please enter a title"); return; }
+    setSaving(true);
+    try {
+      const body = { title, description, language, code, test_cases: testCases, execution_timeout: 10, is_shared: false };
+      if (selectedSnippet) {
+        const updated = await apiFetch(`/coderpad/snippets/${selectedSnippet.id}`, {
+          method: "PUT",
+          body: JSON.stringify(body),
+        });
+        setSelectedSnippet(updated);
+        toast.success("Snippet saved");
+      } else {
+        const created = await apiFetch("/coderpad/snippets", {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+        setSelectedSnippet(created);
+        toast.success("Snippet created");
+      }
+      setIsDirty(false);
+      fetchSnippets();
+    } catch (err: any) {
+      toast.error(err.message || "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const executeCode = async () => {
+    if (!code.trim()) { toast.error("Write some code first!"); return; }
+    setExecuting(true);
+    setOutput("");
+    setError("");
+    setTestResults(null);
+    setExecStatus("running");
+    setRightTab("output");
+
+    try {
+      let data: any;
+      if (selectedSnippet) {
+        const params = new URLSearchParams();
+        if (inputData) params.set("input_data", inputData);
+        params.set("run_tests", testCases.length > 0 ? "true" : "false");
+        data = await apiFetch(`/coderpad/snippets/${selectedSnippet.id}/execute?${params}`, { method: "POST" });
+      } else {
+        data = await apiFetch("/coderpad/execute", {
+          method: "POST",
+          body: JSON.stringify({ code, language, input_data: inputData || null, timeout: 10 }),
+        });
+      }
+      setOutput(data.output || "");
+      setError(data.error || "");
+      setExecTime(data.execution_time_ms ?? null);
+      setExecStatus(data.status || "error");
+      if (data.test_results) {
+        setTestResults(data.test_results);
+        setRightTab("tests");
+      }
+    } catch (err: any) {
+      const msg = err.message || "Execution failed";
+      setError(msg);
+      setExecStatus("error");
+      toast.error(msg);
+    } finally {
+      setExecuting(false);
+    }
+  };
+
+  const deleteSnippet = async () => {
+    if (!selectedSnippet) return;
+    if (!window.confirm(`Delete "${selectedSnippet.title}"?`)) return;
+    try {
+      await apiFetch(`/coderpad/snippets/${selectedSnippet.id}`, { method: "DELETE" });
+      toast.success("Snippet deleted");
+      createNew();
+      fetchSnippets();
+    } catch (err: any) {
+      toast.error("Delete failed");
+    }
+  };
+
+  const copyCode = () => {
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // ── Test Case Helpers ─────────────────────────────────────────────────────
+  const addTestCase = () => {
+    setTestCases(prev => [...prev, { input: "", expected_output: "", description: "" }]);
+    setIsDirty(true);
+  };
+  const updateTestCase = (i: number, field: keyof TestCase, val: string) => {
+    setTestCases(prev => prev.map((tc, idx) => idx === i ? { ...tc, [field]: val } : tc));
+    setIsDirty(true);
+  };
+  const removeTestCase = (i: number) => {
+    setTestCases(prev => prev.filter((_, idx) => idx !== i));
+    setIsDirty(true);
+  };
+
+  // ── Derived ───────────────────────────────────────────────────────────────
+  const langCfg = LANGUAGES[language] || LANGUAGES.python;
+  const filteredSnippets = snippets.filter(s =>
+    s.title.toLowerCase().includes(snippetSearch.toLowerCase()) ||
+    s.language.toLowerCase().includes(snippetSearch.toLowerCase())
+  );
+  const passCount = testResults?.filter(r => r.passed).length ?? 0;
+  const totalTests = testResults?.length ?? 0;
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  SECURITY HELPERS
+  // ─────────────────────────────────────────────────────────────────────────
+  const securityStatusColor = security.highCount > 0
+    ? "#f85149"
+    : security.medCount > 0
+    ? "#d29922"
+    : "#3fb950";
+
+  const securityLabel = security.totalCount === 0
+    ? "🛡 Secure"
+    : `⚠ ${security.totalCount} violation${security.totalCount !== 1 ? "s" : ""}`;
+
+  // ─────────────────────────────────────────────────────────────────────────
+  //  RENDER
+  // ─────────────────────────────────────────────────────────────────────────
+  return (
+    <div className="coderpad-root">
+
+      {/* ── VIOLATION WARNING OVERLAY ─────────────────────────────── */}
+      {security.activeWarning && (
+        <div className="sec-warning-overlay" onClick={security.dismissWarning}>
+          <div className="sec-warning-card" onClick={e => e.stopPropagation()}>
+            <div className="sec-warning-icon">
+              <ShieldAlert size={22} color="#f85149" />
+            </div>
+            <div className="sec-warning-body">
+              <div className="sec-warning-title">
+                ⚠️ Violation Detected — {VIOLATION_META[security.activeWarning.type].label}
+              </div>
+              <div className="sec-warning-msg">{security.activeWarning.message}</div>
+            </div>
+            <button className="sec-warn-close" onClick={security.dismissWarning}>✕</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── SECURITY VIOLATION PANEL ──────────────────────────────── */}
+      {showSecurityPanel && (
+        <div className="sec-panel" onClick={e => e.stopPropagation()}>
+          <div className="sec-panel-header">
+            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+              <ShieldAlert size={15} color={securityStatusColor} />
+              <span style={{ fontWeight: 600, fontSize: "0.83rem" }}>Security Log</span>
+              {security.totalCount > 0 && (
+                <span className="sec-badge-high">{security.totalCount}</span>
+              )}
+            </div>
+            <button className="btn-icon" style={{ width: 24, height: 24 }} onClick={() => setShowSecurityPanel(false)}>✕</button>
+          </div>
+          <div className="sec-panel-stats">
+            <div className="sec-stat" style={{ color: "#f85149" }}>
+              <ShieldAlert size={12} /> <span>{security.highCount} High</span>
+            </div>
+            <div className="sec-stat" style={{ color: "#d29922" }}>
+              <AlertTriangle size={12} /> <span>{security.medCount} Medium</span>
+            </div>
+            {!security.isFullscreen && (
+              <button className="sec-fs-btn" onClick={security.requestFullscreen}>
+                <Maximize2 size={11} /> Re-enter Fullscreen
+              </button>
+            )}
+          </div>
+          {/* Tab bar */}
+          <div className="sec-panel-tabs">
+            <button
+              className={`sec-panel-tab ${secPanelTab === "events" ? "active" : ""}`}
+              onClick={() => setSecPanelTab("events")}
+            >
+              Events {security.totalCount > 0 && <span className="sec-badge-high" style={{ background: securityStatusColor, marginLeft: 4 }}>{security.totalCount}</span>}
+            </button>
+            <button
+              className={`sec-panel-tab ${secPanelTab === "analytics" ? "active" : ""}`}
+              onClick={() => setSecPanelTab("analytics")}
+            >
+              Analytics
+            </button>
+          </div>
+          {secPanelTab === "events" ? (
+            <div className="sec-events-list">
+              {security.events.length === 0 ? (
+                <div className="sec-events-empty">
+                  <ShieldCheck size={28} color="#3fb950" />
+                  <span>No violations recorded</span>
+                </div>
+              ) : (
+                security.events.map(evt => {
+                  const meta = VIOLATION_META[evt.type];
+                  return (
+                    <div key={evt.id} className="sec-event-item">
+                      <div className="sec-event-dot" style={{ background: meta.color }} />
+                      <div className="sec-event-content">
+                        <div className="sec-event-type" style={{ color: meta.color }}>{meta.label}</div>
+                        <div className="sec-event-msg">{evt.message}</div>
+                        <div className="sec-event-time">{evt.timestamp.toLocaleTimeString()}</div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          ) : (
+            /* Analytics tab */
+            <div className="sec-analytics">
+              <div className="sec-analytics-grid">
+                <div className="sec-analytics-card">
+                  <div className="sec-analytics-val">{typingAnalyzer.stats.keystrokeCount}</div>
+                  <div className="sec-analytics-label">Keystrokes</div>
+                </div>
+                <div className="sec-analytics-card">
+                  <div className="sec-analytics-val" style={{ color: typingAnalyzer.stats.backspaceCount > 50 ? "#3fb950" : "#e6edf3" }}>
+                    {typingAnalyzer.stats.backspaceCount}
+                  </div>
+                  <div className="sec-analytics-label">Backspaces</div>
+                </div>
+                <div className="sec-analytics-card">
+                  <div className="sec-analytics-val" style={{ color: typingAnalyzer.stats.pasteCount > 0 ? "#f85149" : "#e6edf3" }}>
+                    {typingAnalyzer.stats.pasteCount}
+                  </div>
+                  <div className="sec-analytics-label">Pastes</div>
+                </div>
+                <div className="sec-analytics-card">
+                  <div className="sec-analytics-val" style={{ color: typingAnalyzer.stats.totalPastedChars > 200 ? "#f85149" : "#e6edf3" }}>
+                    {typingAnalyzer.stats.totalPastedChars}
+                  </div>
+                  <div className="sec-analytics-label">Chars Pasted</div>
+                </div>
+                <div className="sec-analytics-card">
+                  <div className="sec-analytics-val" style={{ color: typingAnalyzer.stats.currentWPM > 150 ? "#f85149" : typingAnalyzer.stats.currentWPM > 80 ? "#d29922" : "#e6edf3" }}>
+                    {typingAnalyzer.stats.currentWPM}
+                  </div>
+                  <div className="sec-analytics-label">WPM (current)</div>
+                </div>
+                <div className="sec-analytics-card">
+                  <div className="sec-analytics-val" style={{ color: typingAnalyzer.stats.peakWPM > 200 ? "#f85149" : "#e6edf3" }}>
+                    {typingAnalyzer.stats.peakWPM}
+                  </div>
+                  <div className="sec-analytics-label">WPM (peak)</div>
+                </div>
+                <div className="sec-analytics-card" style={{ gridColumn: "span 2" }}>
+                  <div className="sec-analytics-val" style={{ color: typingAnalyzer.stats.idleSeconds > 60 ? "#d29922" : "#e6edf3" }}>
+                    {typingAnalyzer.stats.idleSeconds}s
+                  </div>
+                  <div className="sec-analytics-label">Current Idle Time</div>
+                </div>
+              </div>
+              {typingAnalyzer.stats.lastPasteSize > 0 && (
+                <div className="sec-analytics-alert" style={{ borderColor: typingAnalyzer.stats.lastPasteSize > 150 ? "#f85149" : "#d29922" }}>
+                  <AlertTriangle size={12} color={typingAnalyzer.stats.lastPasteSize > 150 ? "#f85149" : "#d29922"} />
+                  Last paste: <strong>{typingAnalyzer.stats.lastPasteSize} chars</strong>
+                  &nbsp;— {typingAnalyzer.stats.lastPasteSize > 150 ? "⚠ High suspicion" : "Moderate suspicion"}
+                </div>
+              )}
+              <div className="sec-typing-bar-wrap">
+                <div className="sec-typing-bar-label">
+                  <span>Typing Ratio</span>
+                  <span style={{ color: "#484f58", fontSize: "0.68rem" }}>
+                    {typingAnalyzer.stats.keystrokeCount + typingAnalyzer.stats.totalPastedChars === 0
+                      ? "—"
+                      : `${Math.round((typingAnalyzer.stats.keystrokeCount / Math.max(1, typingAnalyzer.stats.keystrokeCount + typingAnalyzer.stats.totalPastedChars)) * 100)}% typed`}
+                  </span>
+                </div>
+                <div className="sec-typing-bar-track">
+                  <div className="sec-typing-bar-typed" style={{
+                    width: typingAnalyzer.stats.keystrokeCount + typingAnalyzer.stats.totalPastedChars === 0
+                      ? "100%"
+                      : `${Math.round((typingAnalyzer.stats.keystrokeCount / Math.max(1, typingAnalyzer.stats.keystrokeCount + typingAnalyzer.stats.totalPastedChars)) * 100)}%`
+                  }} />
+                </div>
+                <div className="sec-typing-bar-legend">
+                  <span><span className="sec-legend-dot typed" />Typed</span>
+                  <span><span className="sec-legend-dot pasted" />Pasted</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── NEW SNIPPET MODAL ─────────────────────────────────────── */}
+      {showNewModal && (
+        <div className="coderpad-overlay" onClick={() => setShowNewModal(false)}>
+          <div className="coderpad-modal" onClick={e => e.stopPropagation()}>
+            <h3 className="modal-title">New Snippet</h3>
+            <input
+              autoFocus
+              className="modal-input"
+              placeholder="Snippet title…"
+              value={newTitle}
+              onChange={e => setNewTitle(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") createNew(newTitle || "Untitled"); }}
+            />
+            <div className="modal-actions">
+              <button className="btn-ghost" onClick={() => setShowNewModal(false)}>Cancel</button>
+              <button className="btn-primary" onClick={() => createNew(newTitle || "Untitled")}>Create</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── SIDEBAR ──────────────────────────────────────────────── */}
+      <aside className="coderpad-sidebar">
+        <div className="sidebar-header">
+          <div className="sidebar-brand">
+            <Code2 size={18} className="brand-icon" />
+            <span className="brand-name">CoderPad</span>
+          </div>
+          <button className="btn-new" onClick={() => setShowNewModal(true)} title="New snippet">
+            <Plus size={16} />
+          </button>
+        </div>
+
+        <div className="sidebar-search-wrap">
+          <input
+            className="sidebar-search"
+            placeholder="Search snippets…"
+            value={snippetSearch}
+            onChange={e => setSnippetSearch(e.target.value)}
+          />
+        </div>
+
+        <div className="snippet-list">
+          {filteredSnippets.length === 0 ? (
+            <div className="snippet-empty">
+              <FileCode2 size={28} className="empty-icon" />
+              <p>No snippets yet</p>
+              <button className="btn-ghost-sm" onClick={() => setShowNewModal(true)}>Create one</button>
+            </div>
+          ) : (
+            filteredSnippets.map(s => {
+              const lc = LANGUAGES[s.language];
+              const active = selectedSnippet?.id === s.id;
+              return (
+                <button
+                  key={s.id}
+                  className={`snippet-item ${active ? "snippet-item--active" : ""}`}
+                  onClick={() => loadSnippet(s)}
+                >
+                  <div className="snippet-item-row">
+                    <span className="lang-dot" style={{ background: lc?.color ?? "#888" }} />
+                    <span className="snippet-title">{s.title}</span>
+                  </div>
+                  <div className="snippet-meta">
+                    <span className="lang-badge">{lc?.label ?? s.language}</span>
+                    <span className="time-badge"><Clock size={10} />{timeAgo(s.updated_at)}</span>
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </aside>
+
+      {/* ── MAIN AREA ─────────────────────────────────────────────── */}
+      <div className="coderpad-main">
+        {/* ── TOP BAR ────────────────────────────── */}
+        <header className="coderpad-topbar">
+          <div className="topbar-left">
+            {/* Title */}
+            <input
+              className="snippet-title-input"
+              value={title}
+              onChange={e => { setTitle(e.target.value); setIsDirty(true); }}
+              placeholder="Untitled"
+            />
+            {isDirty && <span className="dirty-dot" title="Unsaved changes" />}
+          </div>
+
+          <div className="topbar-center">
+            {/* Language dropdown */}
+            <div className="lang-dropdown" ref={langDropRef}>
+              <button className="lang-selector" onClick={() => setLanguageOpen(v => !v)}>
+                <span className="lang-icon">{langCfg.icon}</span>
+                <span className="lang-label">{langCfg.label}</span>
+                <ChevronDown size={14} className={`lang-chevron ${languageOpen ? "open" : ""}`} />
+              </button>
+              {languageOpen && (
+                <div className="lang-menu">
+                  {Object.entries(LANGUAGES).map(([key, lc]) => (
+                    <button
+                      key={key}
+                      className={`lang-option ${language === key ? "lang-option--active" : ""}`}
+                      onClick={() => {
+                        if (language !== key && !selectedSnippet) {
+                          setCode(lc.starter);
+                        }
+                        setLanguage(key);
+                        setLanguageOpen(false);
+                        setIsDirty(true);
+                      }}
+                    >
+                      <span>{lc.icon}</span>
+                      <span>{lc.label}</span>
+                      {language === key && <Check size={12} className="ml-auto" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="topbar-right">
+            {/* ── Security Badge ── */}
+            <button
+              className="sec-status-badge"
+              style={{ borderColor: securityStatusColor + "50", color: securityStatusColor }}
+              onClick={() => setShowSecurityPanel(v => !v)}
+              title="Security monitor"
+            >
+                {security.highCount > 0
+                  ? <ShieldAlert size={13} />
+                  : <ShieldCheck size={13} />}
+                <span>{securityLabel}</span>
+                {security.totalCount > 0 && (
+                  <span className="sec-badge-high" style={{ background: securityStatusColor }}>{security.totalCount}</span>
+                )}
+              </button>
+            {/* ── Fullscreen toggle ── */}
+            <button
+              className="btn-icon"
+              onClick={security.isFullscreen ? security.exitFullscreen : security.requestFullscreen}
+              title={security.isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+            >
+              {security.isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            </button>
+            <button className="btn-icon" onClick={copyCode} title="Copy code">
+              {copied ? <Check size={15} className="text-emerald-400" /> : <Copy size={15} />}
+            </button>
+            {selectedSnippet && (
+              <button className="btn-icon btn-danger-hover" onClick={deleteSnippet} title="Delete snippet">
+                <Trash2 size={15} />
+              </button>
+            )}
+            <button
+              className="btn-save"
+              onClick={saveSnippet}
+              disabled={saving}
+              title="Save (Ctrl+S)"
+            >
+              {saving ? <Loader2 size={15} className="spin" /> : <Save size={15} />}
+              <span>Save</span>
+            </button>
+            <button
+              className="btn-run"
+              onClick={executeCode}
+              disabled={executing}
+              title="Run (Ctrl+Enter)"
+            >
+              {executing ? <Loader2 size={15} className="spin" /> : <Play size={15} />}
+              <span>{executing ? "Running…" : "Run"}</span>
+            </button>
+          </div>
+        </header>
+
+        {/* ── STATUS BAR ─────────────────────────── */}
+        <div className="coderpad-statusbar">
+          <span className="status-lang">{langCfg.icon} {langCfg.label}</span>
+          {execStatus !== "idle" && <StatusBadge status={execStatus} />}
+          {execTime !== null && (
+            <span className="status-time"><Clock size={11} />{execTime}ms</span>
+          )}
+          {testResults && (
+            <span className={`status-tests ${passCount === totalTests ? "pass" : "fail"}`}>
+              <TestTube2 size={11} />{passCount}/{totalTests} tests
+            </span>
+          )}
+          <span className="status-hint">Ctrl+Enter to run • Ctrl+S to save</span>
+        </div>
+
+        {/* ── RESIZABLE PANELS ───────────────────── */}
+        <div className="coderpad-panels">
+          <PanelGroup direction="horizontal">
+            {/* Editor Panel */}
+            <Panel defaultSize={60} minSize={30}>
+              <div className="editor-panel">
+                <div className="editor-header">
+                  <FileCode2 size={14} />
+                  <span>{title || "Untitled"}.{language === "cpp" ? "cpp" : language === "javascript" ? "js" : language === "typescript" ? "ts" : language}</span>
+                </div>
+                <div className="editor-body">
+                  <MonacoEditor
+                    height="100%"
+                    language={langCfg.monaco}
+                    value={code}
+                    theme="vs-dark"
+                    onChange={(val) => { setCode(val || ""); setIsDirty(true); }}
+                    onMount={(editor) => {
+                      editorRef.current = editor;
+                      typingAnalyzer.setupEditor(editor);
+                    }}
+                    options={{
+                      fontSize: 14,
+                      fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
+                      fontLigatures: true,
+                      minimap: { enabled: false },
+                      lineNumbers: "on",
+                      renderLineHighlight: "all",
+                      scrollBeyondLastLine: false,
+                      tabSize: 4,
+                      insertSpaces: true,
+                      wordWrap: "on",
+                      automaticLayout: true,
+                      padding: { top: 16, bottom: 16 },
+                      smoothScrolling: true,
+                      cursorBlinking: "smooth",
+                      cursorSmoothCaretAnimation: "on",
+                      bracketPairColorization: { enabled: true },
+                      guides: { bracketPairs: true },
+                      suggestOnTriggerCharacters: true,
+                    }}
+                  />
+                </div>
+
+                {/* stdin input at bottom of editor panel */}
+                <div className="stdin-panel">
+                  <div className="stdin-header">
+                    <Terminal size={13} />
+                    <span>stdin (custom input)</span>
+                  </div>
+                  <textarea
+                    className="stdin-input"
+                    value={inputData}
+                    onChange={e => setInputData(e.target.value)}
+                    placeholder="Enter input for your program here…"
+                    rows={3}
+                    spellCheck={false}
+                  />
+                </div>
+              </div>
+            </Panel>
+
+            <PanelResizeHandle className="resize-handle">
+              <div className="resize-handle-bar" />
+            </PanelResizeHandle>
+
+            {/* Output / Tests / Logs Panel */}
+            <Panel defaultSize={40} minSize={20}>
+              <div className="output-panel">
+                {/* Tab bar */}
+                <div className="output-tabs">
+                  <button
+                    className={`output-tab ${rightTab === "output" ? "active" : ""}`}
+                    onClick={() => setRightTab("output")}
+                  >
+                    <Terminal size={13} /> Output
+                  </button>
+                  <button
+                    className={`output-tab ${rightTab === "tests" ? "active" : ""}`}
+                    onClick={() => setRightTab("tests")}
+                  >
+                    <TestTube2 size={13} />
+                    Tests
+                    {testResults && (
+                      <span className={`tab-badge ${passCount === totalTests ? "tab-badge--pass" : "tab-badge--fail"}`}>
+                        {passCount}/{totalTests}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    className={`output-tab ${rightTab === "logs" ? "active" : ""}`}
+                    onClick={() => { setRightTab("logs"); fetchLogs(); }}
+                  >
+                    <History size={13} /> Logs
+                  </button>
+                </div>
+
+                {/* Tab content */}
+                <div className="output-content">
+
+                  {/* ── OUTPUT TAB ── */}
+                  {rightTab === "output" && (
+                    <div className="output-body">
+                      {executing ? (
+                        <div className="output-running">
+                          <Loader2 size={20} className="spin text-blue-400" />
+                          <span>Executing…</span>
+                        </div>
+                      ) : (!output && !error) ? (
+                        <div className="output-idle">
+                          <Play size={32} className="idle-icon" />
+                          <p>Hit <kbd>Ctrl+Enter</kbd> or click <strong>Run</strong> to execute your code</p>
+                        </div>
+                      ) : (
+                        <>
+                          {output && (
+                            <div className="output-section">
+                              <div className="output-section-label stdout">stdout</div>
+                              <pre className="output-pre stdout-text">{output}</pre>
+                            </div>
+                          )}
+                          {error && (
+                            <div className="output-section">
+                              <div className="output-section-label stderr">stderr / error</div>
+                              <pre className="output-pre stderr-text">{error}</pre>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── TESTS TAB ── */}
+                  {rightTab === "tests" && (
+                    <div className="tests-body">
+                      <div className="tests-header">
+                        <span className="tests-count">{testCases.length} test case{testCases.length !== 1 ? "s" : ""}</span>
+                        <button className="btn-ghost-sm" onClick={addTestCase}>
+                          <Plus size={13} /> Add Test
+                        </button>
+                      </div>
+                      <div className="tests-list">
+                        {testCases.length === 0 ? (
+                          <div className="tests-empty">
+                            <TestTube2 size={28} className="empty-icon" />
+                            <p>No test cases</p>
+                            <button className="btn-ghost-sm" onClick={addTestCase}>Add first test</button>
+                          </div>
+                        ) : (
+                          testCases.map((tc, i) => {
+                            const result = testResults?.[i];
+                            const passed = result?.passed;
+                            return (
+                              <div key={i} className={`test-case ${result ? (passed ? "test-pass" : "test-fail") : ""}`}>
+                                <div className="test-case-header">
+                                  <div className="test-case-num">
+                                    {result ? (
+                                      passed
+                                        ? <CheckCircle2 size={14} className="text-emerald-400" />
+                                        : <XCircle size={14} className="text-red-400" />
+                                    ) : (
+                                      <span className="test-num-badge">{i + 1}</span>
+                                    )}
+                                    <input
+                                      className="test-desc-input"
+                                      value={tc.description || ""}
+                                      placeholder={`Test case ${i + 1}`}
+                                      onChange={e => updateTestCase(i, "description", e.target.value)}
+                                    />
+                                  </div>
+                                  <button className="btn-remove" onClick={() => removeTestCase(i)}>✕</button>
+                                </div>
+                                <div className="test-case-fields">
+                                  <div className="test-field">
+                                    <label>Input</label>
+                                    <textarea
+                                      className="test-textarea"
+                                      value={tc.input || ""}
+                                      placeholder="stdin input…"
+                                      rows={2}
+                                      onChange={e => updateTestCase(i, "input", e.target.value)}
+                                    />
+                                  </div>
+                                  <div className="test-field">
+                                    <label>Expected Output</label>
+                                    <textarea
+                                      className="test-textarea"
+                                      value={tc.expected_output}
+                                      placeholder="expected stdout…"
+                                      rows={2}
+                                      onChange={e => updateTestCase(i, "expected_output", e.target.value)}
+                                    />
+                                  </div>
+                                  {result && !passed && (
+                                    <div className="test-diff">
+                                      <div className="diff-row">
+                                        <span className="diff-label expected">Expected:</span>
+                                        <code className="diff-code">{result.expected}</code>
+                                      </div>
+                                      <div className="diff-row">
+                                        <span className="diff-label actual">Got:</span>
+                                        <code className="diff-code">{result.actual ?? "(no output)"}</code>
+                                      </div>
+                                      {result.error && (
+                                        <div className="diff-row">
+                                          <span className="diff-label error">Error:</span>
+                                          <code className="diff-code error-text">{result.error}</code>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── LOGS TAB ── */}
+                  {rightTab === "logs" && (
+                    <div className="logs-body">
+                      {logsLoading ? (
+                        <div className="output-running"><Loader2 size={18} className="spin text-blue-400" /><span>Loading logs…</span></div>
+                      ) : logs.length === 0 ? (
+                        <div className="output-idle"><History size={28} className="idle-icon" /><p>No execution history yet</p></div>
+                      ) : (
+                        logs.map(log => (
+                          <div key={log.id} className="log-entry">
+                            <div className="log-header">
+                              <StatusBadge status={log.status} />
+                              <span className="log-lang">{LANGUAGES[log.language]?.icon} {LANGUAGES[log.language]?.label ?? log.language}</span>
+                              {log.execution_time_ms != null && (
+                                <span className="log-time"><Clock size={10} />{log.execution_time_ms}ms</span>
+                              )}
+                              <span className="log-date">{new Date(log.created_at).toLocaleTimeString()}</span>
+                            </div>
+                            <pre className="log-code">{log.code_executed.slice(0, 150)}{log.code_executed.length > 150 ? "…" : ""}</pre>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Panel>
+          </PanelGroup>
+        </div>
+      </div>
+
+      {/* ── STYLES ──────────────────────────────────────────────────── */}
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* ──────────────── SECURITY STYLES ──────────────── */
+
+        /* Violation warning toast (top-center) */
+        .sec-warning-overlay {
+          position: fixed; top: 0; left: 0; right: 0; z-index: 300;
+          display: flex; justify-content: center;
+          padding-top: 16px;
+          pointer-events: none;
+          animation: secWarnIn .25s ease;
+        }
+        @keyframes secWarnIn {
+          from { opacity: 0; transform: translateY(-20px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .sec-warning-card {
+          pointer-events: all;
+          display: flex; align-items: center; gap: 12px;
+          background: #1c0a0a; border: 1px solid #f8514960;
+          border-radius: 12px; padding: 12px 16px;
+          box-shadow: 0 8px 32px rgba(248,81,73,.25), 0 0 0 1px rgba(248,81,73,.15);
+          max-width: 560px; width: calc(100vw - 40px);
+        }
+        .sec-warning-icon {
+          width: 40px; height: 40px; border-radius: 10px;
+          background: #f8514918; border: 1px solid #f8514940;
+          display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .sec-warning-body { flex: 1; min-width: 0; }
+        .sec-warning-title { font-size: 0.82rem; font-weight: 700; color: #f85149; margin-bottom: 3px; }
+        .sec-warning-msg   { font-size: 0.76rem; color: #8b949e; line-height: 1.4; }
+        .sec-warn-close {
+          background: transparent; border: none; color: #484f58;
+          cursor: pointer; font-size: 0.8rem; padding: 4px 6px;
+          border-radius: 4px; transition: all .15s; flex-shrink: 0;
+        }
+        .sec-warn-close:hover { color: #f85149; background: #f8514915; }
+
+        /* Security badge in topbar */
+        .sec-status-badge {
+          display: flex; align-items: center; gap: 5px;
+          padding: 5px 10px; border-radius: 20px;
+          border: 1px solid; background: transparent;
+          font-size: 0.73rem; font-weight: 600; cursor: pointer;
+          transition: all .2s; white-space: nowrap;
+        }
+        .sec-status-badge:hover { opacity: .8; }
+        .sec-badge-high {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 17px; height: 17px; border-radius: 50%;
+          font-size: 0.65rem; font-weight: 700; color: #fff;
+        }
+
+        /* Floating security panel */
+        .sec-panel {
+          position: fixed; right: 16px; top: 68px; z-index: 150;
+          width: 320px; max-height: calc(100vh - 90px);
+          background: #0d1117; border: 1px solid #30363d;
+          border-radius: 12px; display: flex; flex-direction: column;
+          box-shadow: 0 8px 32px rgba(0,0,0,.5);
+          animation: secPanelIn .2s ease;
+          overflow: hidden;
+        }
+        @keyframes secPanelIn {
+          from { opacity: 0; transform: translateX(20px) scale(.98); }
+          to   { opacity: 1; transform: translateX(0) scale(1); }
+        }
+        .sec-panel-header {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 12px 14px; border-bottom: 1px solid #21262d;
+          background: #161b22;
+        }
+        .sec-panel-stats {
+          display: flex; align-items: center; gap: 12px;
+          padding: 10px 14px; border-bottom: 1px solid #21262d;
+          background: #0d1117; font-size: 0.74rem; flex-wrap: wrap;
+        }
+        .sec-stat {
+          display: flex; align-items: center; gap: 4px; font-weight: 600;
+        }
+        .sec-fs-btn {
+          display: flex; align-items: center; gap: 5px; margin-left: auto;
+          padding: 4px 10px; border-radius: 6px; border: 1px solid #388bfd60;
+          background: #1c2a3a; color: #58a6ff; font-size: 0.71rem; cursor: pointer;
+          transition: all .15s;
+        }
+        .sec-fs-btn:hover { background: #233a52; }
+        .sec-events-list {
+          flex: 1; overflow-y: auto; padding: 8px;
+          display: flex; flex-direction: column; gap: 4px;
+        }
+        .sec-events-empty {
+          display: flex; flex-direction: column; align-items: center;
+          justify-content: center; gap: 8px; padding: 32px 16px;
+          color: #484f58; font-size: 0.8rem;
+        }
+        .sec-event-item {
+          display: flex; align-items: flex-start; gap: 10px;
+          padding: 9px 10px; border-radius: 8px; border: 1px solid #21262d;
+          background: #161b22; transition: border-color .15s;
+        }
+        .sec-event-item:hover { border-color: #30363d; }
+        .sec-event-dot {
+          width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px;
+        }
+        .sec-event-content { flex: 1; min-width: 0; }
+        .sec-event-type { font-size: 0.74rem; font-weight: 700; margin-bottom: 2px; }
+        .sec-event-msg  { font-size: 0.72rem; color: #7d8590; line-height: 1.4; word-break: break-word; }
+        .sec-event-time { font-size: 0.68rem; color: #484f58; margin-top: 3px; }
+
+        /* Security panel tabs */
+        .sec-panel-tabs {
+          display: flex; border-bottom: 1px solid #21262d; background: #0d1117; flex-shrink: 0;
+        }
+        .sec-panel-tab {
+          flex: 1; padding: 8px 10px; font-size: 0.74rem; font-weight: 500;
+          background: transparent; border: none; color: #7d8590; cursor: pointer;
+          border-bottom: 2px solid transparent; transition: all .15s;
+          display: flex; align-items: center; justify-content: center; gap: 4px;
+        }
+        .sec-panel-tab:hover { color: #e6edf3; }
+        .sec-panel-tab.active { color: #58a6ff; border-bottom-color: #58a6ff; }
+
+        /* Analytics tab */
+        .sec-analytics {
+          flex: 1; overflow-y: auto; padding: 10px; display: flex;
+          flex-direction: column; gap: 10px;
+        }
+        .sec-analytics-grid {
+          display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+        }
+        .sec-analytics-card {
+          background: #161b22; border: 1px solid #21262d; border-radius: 8px;
+          padding: 10px; text-align: center; transition: border-color .15s;
+        }
+        .sec-analytics-card:hover { border-color: #30363d; }
+        .sec-analytics-val {
+          font-size: 1.3rem; font-weight: 700; color: #e6edf3;
+          font-family: 'JetBrains Mono', monospace; line-height: 1;
+        }
+        .sec-analytics-label {
+          font-size: 0.65rem; color: #484f58; margin-top: 4px;
+          text-transform: uppercase; letter-spacing: .06em;
+        }
+        .sec-analytics-alert {
+          display: flex; align-items: center; gap: 7px; padding: 8px 10px;
+          border-radius: 8px; border: 1px solid; background: #1c1206;
+          font-size: 0.74rem; color: #8b949e;
+        }
+
+        /* Typing ratio bar */
+        .sec-typing-bar-wrap { display: flex; flex-direction: column; gap: 5px; }
+        .sec-typing-bar-label {
+          display: flex; justify-content: space-between; align-items: center;
+          font-size: 0.72rem; color: #7d8590; font-weight: 500;
+        }
+        .sec-typing-bar-track {
+          height: 8px; background: #f8514930; border-radius: 4px; overflow: hidden;
+          position: relative;
+        }
+        .sec-typing-bar-typed {
+          height: 100%; background: #3fb950; border-radius: 4px;
+          transition: width .6s ease; min-width: 3px;
+        }
+        .sec-typing-bar-legend {
+          display: flex; gap: 12px; font-size: 0.68rem; color: #484f58;
+        }
+        .sec-legend-dot {
+          display: inline-block; width: 8px; height: 8px;
+          border-radius: 50%; margin-right: 4px; vertical-align: middle;
+        }
+        .sec-legend-dot.typed  { background: #3fb950; }
+        .sec-legend-dot.pasted { background: #f85149; }
+        /* ──────────────── END SECURITY ──────────────── */
+
+        .coderpad-root {
+          display: flex;
+          height: 100vh;
+          width: 100vw;
+          background: #0d1117;
+          color: #e6edf3;
+          font-family: 'Inter', system-ui, sans-serif;
+          overflow: hidden;
+        }
+
+        /* ── OVERLAY / MODAL ── */
+        .coderpad-overlay {
+          position: fixed; inset: 0; z-index: 100;
+          background: rgba(0,0,0,0.7);
+          display: flex; align-items: center; justify-content: center;
+          animation: fadeIn .15s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .coderpad-modal {
+          background: #161b22; border: 1px solid #30363d; border-radius: 12px;
+          padding: 24px; width: 380px; display: flex; flex-direction: column; gap: 16px;
+          animation: slideUp .2s ease;
+        }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .modal-title { font-size: 1rem; font-weight: 600; color: #e6edf3; }
+        .modal-input {
+          background: #0d1117; border: 1px solid #30363d; border-radius: 8px;
+          color: #e6edf3; padding: 10px 12px; font-size: 0.875rem;
+          outline: none; transition: border-color .15s;
+        }
+        .modal-input:focus { border-color: #58a6ff; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+        /* ── SIDEBAR ── */
+        .coderpad-sidebar {
+          width: 240px; min-width: 200px; max-width: 240px;
+          background: #161b22; border-right: 1px solid #21262d;
+          display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0;
+        }
+        .sidebar-header {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 14px 16px; border-bottom: 1px solid #21262d;
+        }
+        .sidebar-brand { display: flex; align-items: center; gap: 8px; }
+        .brand-icon { color: #58a6ff; }
+        .brand-name { font-size: 0.9rem; font-weight: 700; color: #e6edf3; letter-spacing: -.02em; }
+        .btn-new {
+          width: 28px; height: 28px; border-radius: 6px; border: 1px solid #30363d;
+          background: transparent; color: #7d8590; cursor: pointer; display: flex;
+          align-items: center; justify-content: center; transition: all .15s;
+        }
+        .btn-new:hover { background: #21262d; color: #e6edf3; border-color: #58a6ff; }
+
+        .sidebar-search-wrap { padding: 10px 12px; border-bottom: 1px solid #21262d; }
+        .sidebar-search {
+          width: 100%; background: #0d1117; border: 1px solid #21262d;
+          border-radius: 6px; padding: 7px 10px; font-size: 0.78rem; color: #e6edf3;
+          outline: none; transition: border-color .15s;
+        }
+        .sidebar-search:focus { border-color: #58a6ff; }
+        .sidebar-search::placeholder { color: #484f58; }
+
+        .snippet-list { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 2px; }
+        .snippet-empty {
+          display: flex; flex-direction: column; align-items: center; gap: 8px;
+          padding: 32px 16px; color: #484f58; text-align: center; font-size: 0.8rem;
+        }
+        .empty-icon { opacity: .4; }
+
+        .snippet-item {
+          width: 100%; text-align: left; background: transparent; border: 1px solid transparent;
+          border-radius: 8px; padding: 8px 10px; cursor: pointer; transition: all .15s;
+          display: flex; flex-direction: column; gap: 5px;
+        }
+        .snippet-item:hover { background: #21262d; border-color: #30363d; }
+        .snippet-item--active { background: #1c2a3a !important; border-color: #388bfd40 !important; }
+        .snippet-item-row { display: flex; align-items: center; gap: 7px; }
+        .lang-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .snippet-title { font-size: 0.82rem; font-weight: 500; color: #e6edf3; truncate: true; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 160px; }
+        .snippet-meta { display: flex; align-items: center; gap: 8px; padding-left: 15px; }
+        .lang-badge { font-size: 0.68rem; color: #7d8590; }
+        .time-badge { display: flex; align-items: center; gap: 3px; font-size: 0.68rem; color: #484f58; }
+
+        /* ── MAIN ── */
+        .coderpad-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* ── TOP BAR ── */
+        .coderpad-topbar {
+          display: flex; align-items: center; justify-content: space-between; gap: 12px;
+          padding: 0 16px; height: 52px; background: #161b22; border-bottom: 1px solid #21262d;
+          flex-shrink: 0;
+        }
+        .topbar-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+        .topbar-center { display: flex; align-items: center; }
+        .topbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+        .snippet-title-input {
+          background: transparent; border: none; outline: none;
+          font-size: 0.9rem; font-weight: 600; color: #e6edf3;
+          max-width: 240px; font-family: 'Inter', sans-serif;
+        }
+        .snippet-title-input::placeholder { color: #484f58; }
+        .dirty-dot { width: 7px; height: 7px; border-radius: 50%; background: #f59e0b; flex-shrink: 0; }
+
+        /* Language dropdown */
+        .lang-dropdown { position: relative; }
+        .lang-selector {
+          display: flex; align-items: center; gap: 7px; padding: 6px 12px;
+          background: #21262d; border: 1px solid #30363d; border-radius: 8px; cursor: pointer;
+          color: #e6edf3; font-size: 0.82rem; font-weight: 500; transition: all .15s;
+        }
+        .lang-selector:hover { border-color: #58a6ff; }
+        .lang-icon { font-size: 1rem; }
+        .lang-label { font-size: 0.82rem; }
+        .lang-chevron { transition: transform .2s; color: #7d8590; }
+        .lang-chevron.open { transform: rotate(180deg); }
+        .lang-menu {
+          position: absolute; top: calc(100% + 6px); left: 0; z-index: 50;
+          background: #161b22; border: 1px solid #30363d; border-radius: 10px;
+          width: 170px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,.4);
+          animation: fadeIn .1s ease;
+        }
+        .lang-option {
+          display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 14px;
+          background: transparent; border: none; cursor: pointer; color: #c9d1d9;
+          font-size: 0.83rem; transition: background .12s;
+        }
+        .lang-option:hover { background: #21262d; }
+        .lang-option--active { background: #1c2a3a; color: #58a6ff; }
+
+        /* Buttons */
+        .btn-icon {
+          width: 32px; height: 32px; border-radius: 8px; border: 1px solid #30363d;
+          background: transparent; color: #7d8590; cursor: pointer; display: flex;
+          align-items: center; justify-content: center; transition: all .15s;
+        }
+        .btn-icon:hover { background: #21262d; color: #e6edf3; }
+        .btn-danger-hover:hover { color: #f85149; border-color: #f8514940; background: #f8514915; }
+        .btn-save {
+          display: flex; align-items: center; gap: 6px; padding: 7px 14px;
+          border-radius: 8px; border: 1px solid #30363d; background: #21262d;
+          color: #e6edf3; font-size: 0.82rem; font-weight: 500; cursor: pointer;
+          transition: all .15s;
+        }
+        .btn-save:hover { border-color: #58a6ff; background: #1c2a3a; }
+        .btn-save:disabled { opacity: .5; cursor: not-allowed; }
+        .btn-run {
+          display: flex; align-items: center; gap: 7px; padding: 7px 16px;
+          border-radius: 8px; border: none; background: #238636; color: #fff;
+          font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all .15s;
+        }
+        .btn-run:hover { background: #2ea043; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(35,134,54,.4); }
+        .btn-run:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-ghost {
+          padding: 7px 14px; border-radius: 8px; border: 1px solid #30363d;
+          background: transparent; color: #7d8590; font-size: 0.82rem; cursor: pointer;
+          transition: all .15s;
+        }
+        .btn-ghost:hover { background: #21262d; color: #e6edf3; }
+        .btn-ghost-sm {
+          display: flex; align-items: center; gap: 5px; padding: 5px 10px;
+          border-radius: 6px; border: 1px solid #30363d; background: transparent;
+          color: #7d8590; font-size: 0.75rem; cursor: pointer; transition: all .15s;
+        }
+        .btn-ghost-sm:hover { background: #21262d; color: #e6edf3; }
+        .btn-primary {
+          padding: 7px 16px; border-radius: 8px; border: none; background: #238636;
+          color: #fff; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all .15s;
+        }
+        .btn-primary:hover { background: #2ea043; }
+        .spin { animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── STATUS BAR ── */
+        .coderpad-statusbar {
+          display: flex; align-items: center; gap: 14px; padding: 0 16px; height: 28px;
+          background: #0d1117; border-bottom: 1px solid #21262d; font-size: 0.73rem;
+          color: #7d8590; flex-shrink: 0;
+        }
+        .status-lang { font-weight: 500; color: #8b949e; }
+        .status-time { display: flex; align-items: center; gap: 3px; }
+        .status-tests { display: flex; align-items: center; gap: 3px; }
+        .status-tests.pass { color: #3fb950; }
+        .status-tests.fail { color: #f85149; }
+        .status-hint { margin-left: auto; color: #484f58; }
+
+        /* ── PANELS ── */
+        .coderpad-panels { flex: 1; overflow: hidden; }
+        .coderpad-panels > div { height: 100%; }
+
+        .editor-panel { height: 100%; display: flex; flex-direction: column; background: #0d1117; overflow: hidden; }
+        .editor-header {
+          display: flex; align-items: center; gap: 7px; padding: 6px 14px;
+          background: #161b22; border-bottom: 1px solid #21262d;
+          font-size: 0.78rem; color: #7d8590;
+        }
+        .editor-body { flex: 1; overflow: hidden; }
+
+        .stdin-panel {
+          border-top: 1px solid #21262d; background: #161b22; flex-shrink: 0;
+        }
+        .stdin-header {
+          display: flex; align-items: center; gap: 7px; padding: 6px 12px;
+          font-size: 0.73rem; color: #7d8590; border-bottom: 1px solid #21262d;
+        }
+        .stdin-input {
+          width: 100%; background: transparent; border: none; outline: none;
+          color: #c9d1d9; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem;
+          padding: 8px 12px; resize: none; line-height: 1.5;
+        }
+        .stdin-input::placeholder { color: #484f58; }
+
+        /* Resize handle */
+        .resize-handle {
+          width: 4px; background: #21262d; cursor: col-resize; position: relative;
+          display: flex; align-items: center; justify-content: center; transition: background .15s;
+        }
+        .resize-handle:hover, .resize-handle[data-resize-handle-active] { background: #388bfd; }
+        .resize-handle-bar { width: 2px; height: 40px; border-radius: 1px; background: #30363d; }
+
+        /* ── OUTPUT PANEL ── */
+        .output-panel { height: 100%; display: flex; flex-direction: column; background: #0d1117; overflow: hidden; }
+        .output-tabs {
+          display: flex; align-items: center; background: #161b22;
+          border-bottom: 1px solid #21262d; flex-shrink: 0;
+        }
+        .output-tab {
+          display: flex; align-items: center; gap: 6px; padding: 10px 16px;
+          font-size: 0.78rem; font-weight: 500; border: none; background: transparent;
+          color: #7d8590; cursor: pointer; border-bottom: 2px solid transparent;
+          transition: all .15s; white-space: nowrap;
+        }
+        .output-tab:hover { color: #e6edf3; background: #21262d; }
+        .output-tab.active { color: #58a6ff; border-bottom-color: #58a6ff; background: transparent; }
+        .tab-badge {
+          font-size: 0.68rem; padding: 1px 5px; border-radius: 10px; font-weight: 600; margin-left: 2px;
+        }
+        .tab-badge--pass { background: #238636; color: #fff; }
+        .tab-badge--fail { background: #da3633; color: #fff; }
+
+        .output-content { flex: 1; overflow-y: auto; }
+
+        /* Output body */
+        .output-body { height: 100%; overflow-y: auto; }
+        .output-running {
+          display: flex; align-items: center; justify-content: center; gap: 12px;
+          height: 100%; color: #7d8590; font-size: 0.875rem;
+        }
+        .output-idle {
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          height: 100%; gap: 12px; color: #484f58; text-align: center; font-size: 0.82rem; padding: 24px;
+        }
+        .idle-icon { opacity: .3; }
+        .output-idle kbd {
+          display: inline-block; padding: 1px 6px; background: #21262d;
+          border: 1px solid #30363d; border-radius: 4px; font-size: 0.75rem; color: #8b949e;
+        }
+        .output-section { padding: 12px 14px; }
+        .output-section-label {
+          font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em;
+          margin-bottom: 6px;
+        }
+        .output-section-label.stdout { color: #3fb950; }
+        .output-section-label.stderr { color: #f85149; }
+        .output-pre {
+          font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;
+          white-space: pre-wrap; word-break: break-all; line-height: 1.6;
+          background: #161b22; border: 1px solid #21262d; border-radius: 8px;
+          padding: 12px 14px; overflow-x: auto;
+        }
+        .stdout-text { color: #3fb950; }
+        .stderr-text { color: #f85149; }
+
+        /* Tests body */
+        .tests-body { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+        .tests-header {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 10px 14px; border-bottom: 1px solid #21262d; flex-shrink: 0;
+          font-size: 0.78rem; color: #7d8590;
+        }
+        .tests-count { font-weight: 500; }
+        .tests-list { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+        .tests-empty {
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          height: 100%; gap: 10px; color: #484f58; font-size: 0.8rem; text-align: center;
+        }
+        .test-case {
+          background: #161b22; border: 1px solid #30363d; border-radius: 10px; overflow: hidden;
+        }
+        .test-pass { border-color: #238636; }
+        .test-fail { border-color: #da3633; }
+        .test-case-header {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 8px 12px; background: #1c2128; border-bottom: 1px solid #21262d;
+        }
+        .test-case-num { display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0; }
+        .test-num-badge {
+          width: 20px; height: 20px; border-radius: 50%; background: #21262d;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 0.7rem; font-weight: 700; color: #8b949e; flex-shrink: 0;
+        }
+        .test-desc-input {
+          background: transparent; border: none; outline: none; color: #c9d1d9;
+          font-size: 0.78rem; font-weight: 500; flex: 1; min-width: 0;
+          font-family: 'Inter', sans-serif;
+        }
+        .btn-remove {
+          background: transparent; border: none; color: #484f58; cursor: pointer;
+          font-size: 0.75rem; padding: 2px 4px; border-radius: 4px; transition: all .15s;
+        }
+        .btn-remove:hover { color: #f85149; background: #f8514915; }
+        .test-case-fields { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+        .test-field { display: flex; flex-direction: column; gap: 4px; }
+        .test-field label { font-size: 0.7rem; color: #7d8590; font-weight: 500; text-transform: uppercase; letter-spacing: .05em; }
+        .test-textarea {
+          background: #0d1117; border: 1px solid #21262d; border-radius: 6px;
+          color: #c9d1d9; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;
+          padding: 6px 8px; resize: vertical; outline: none; transition: border-color .15s;
+          min-height: 42px;
+        }
+        .test-textarea:focus { border-color: #388bfd; }
+        .test-diff {
+          background: #0d1117; border: 1px solid #21262d; border-radius: 6px;
+          padding: 8px; display: flex; flex-direction: column; gap: 4px;
+        }
+        .diff-row { display: flex; align-items: flex-start; gap: 8px; }
+        .diff-label { font-size: 0.7rem; font-weight: 600; width: 60px; flex-shrink: 0; margin-top: 2px; }
+        .diff-label.expected { color: #3fb950; }
+        .diff-label.actual { color: #f85149; }
+        .diff-label.error { color: #f0883e; }
+        .diff-code {
+          font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;
+          color: #c9d1d9; word-break: break-all;
+        }
+        .error-text { color: #f0883e; }
+
+        /* Logs body */
+        .logs-body { height: 100%; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+        .log-entry {
+          background: #161b22; border: 1px solid #21262d; border-radius: 8px; overflow: hidden;
+          transition: border-color .15s;
+        }
+        .log-entry:hover { border-color: #30363d; }
+        .log-header {
+          display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+          background: #1c2128; border-bottom: 1px solid #21262d;
+          font-size: 0.73rem; color: #7d8590;
+        }
+        .log-lang { font-weight: 500; color: #8b949e; }
+        .log-time { display: flex; align-items: center; gap: 3px; }
+        .log-date { margin-left: auto; color: #484f58; }
+        .log-code {
+          padding: 8px 12px; font-family: 'JetBrains Mono', monospace;
+          font-size: 0.73rem; color: #7d8590; white-space: pre-wrap; word-break: break-all;
+          line-height: 1.4;
+        }
+
+        /* Scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #21262d; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #30363d; }
+      `}</style>
+    </div>
+  );
+};
+
+export default CoderpadEditor;
