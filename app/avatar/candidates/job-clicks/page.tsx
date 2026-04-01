@@ -28,6 +28,7 @@ interface ClickRecord {
     isGroup?: boolean;
     isExpanded?: boolean;
     totalClicks?: number;
+    candidateCount?: number;
     jobCount?: number;
     lastActive?: string;
     dateKey?: string;
@@ -98,6 +99,9 @@ export default function JobClickTrackingPage() {
         sortedDates.forEach(dateKey => {
             const children = groups[dateKey];
             const total = children.reduce((sum, item) => sum + Number(item.click_count || 0), 0);
+            const candidateCount = new Set(
+                children.map(({ full_name, email }) => `${full_name || ""}::${email || ""}`.toLowerCase())
+            ).size;
             const isExpanded = expandedGroups.has(dateKey) || searchTerm.length > 0;
 
             // Group Row
@@ -107,6 +111,7 @@ export default function JobClickTrackingPage() {
                 isGroup: true,
                 isExpanded: isExpanded,
                 totalClicks: total,
+                candidateCount,
                 jobCount: children.length,
                 click_count: total,
                 job_title: `${children.length} Records`,
@@ -295,7 +300,9 @@ export default function JobClickTrackingPage() {
                     )}
                     <div className="flex flex-col leading-tight mt-1">
                         <span className="text-sm font-semibold">{formattedDate}</span>
-                        <span className="text-xs text-gray-500 font-normal">{data.jobCount} Candidate Interactions</span>
+                        <span className="text-xs text-gray-500 font-normal">
+                            {data.candidateCount} {data.candidateCount === 1 ? "Candidate Interaction" : "Candidate Interactions"}
+                        </span>
                     </div>
                 </div>
             );
@@ -356,7 +363,14 @@ export default function JobClickTrackingPage() {
             if (data.hideCandidateDetails) {
                 return (
                     <div className="pl-6 py-2">
-                        <div className="rounded-md border border-gray-200/80 bg-gray-50/80 px-3 py-2 dark:border-gray-700 dark:bg-gray-800/40">
+                        <div
+                            className="cursor-pointer rounded-md border border-gray-200/80 bg-gray-50/80 px-3 py-2 dark:border-gray-700 dark:bg-gray-800/40"
+                            onClick={() => {
+                                if (data.parentDateKey) {
+                                    closeWholeDateFromCandidate(data.parentDateKey);
+                                }
+                            }}
+                        >
                             <span className="block text-sm font-medium leading-5 text-gray-900 dark:text-gray-100">
                                 {data.full_name || "Unknown Candidate"}
                             </span>
