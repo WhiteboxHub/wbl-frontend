@@ -1,14 +1,15 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import {
-  Play, Save, Trash2, Plus, Copy, Check, ChevronDown, ChevronRight,
+  Play, Save, Trash2, Plus, Copy, Check, ChevronDown,
   FileCode2, Clock, Terminal, TestTube2, Share2, History,
   Loader2, AlertCircle, CheckCircle2, XCircle, Code2, Settings,
   ShieldAlert, ShieldCheck, Shield, Maximize2, EyeOff, Eye,
   MonitorOff, Minimize2, LayoutPanelLeft, AlertTriangle,
+  FolderOpen, FilePlus, FolderPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -16,6 +17,9 @@ import { toast } from "sonner";
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+
+/** Default snippet / workspace title (replaces generic "Untitled") */
+const DEFAULT_SNIPPET_TITLE = "White-box learning";
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -57,7 +61,9 @@ interface TestCase {
 
 type ViolationType =
   | "tab_switch" | "window_blur" | "fullscreen_exit" | "window_resize" | "window_focus_restored"
-  | "paste_large" | "paste_burst" | "idle_burst" | "fast_entry";
+  | "paste_small" | "paste_medium" | "paste_large" | "paste_burst" | "paste_dominant"
+  | "code_copy_small" | "code_copy" | "code_cut" | "copy_burst"
+  | "idle_burst" | "fast_entry";
 
 interface SecurityEvent {
   id: number;
@@ -68,13 +74,20 @@ interface SecurityEvent {
 }
 
 const VIOLATION_META: Record<ViolationType, { label: string; severity: "low" | "medium" | "high"; color: string }> = {
-  tab_switch:           { label: "Tab Switch",         severity: "high",   color: "#f85149" },
+  tab_switch:           { label: "Tab Switch",          severity: "high",   color: "#f85149" },
   window_blur:          { label: "Window Lost Focus",   severity: "high",   color: "#f0883e" },
   fullscreen_exit:      { label: "Fullscreen Exit",     severity: "high",   color: "#f85149" },
   window_resize:        { label: "Split-Screen",        severity: "medium", color: "#d29922" },
   window_focus_restored:{ label: "Window Restored",     severity: "low",    color: "#3fb950" },
-  paste_large:          { label: "Large Paste",         severity: "high",   color: "#f85149" },
+  paste_small:          { label: "Paste (small)",       severity: "low",    color: "#8b949e" },
+  paste_medium:         { label: "Paste (medium)",      severity: "medium", color: "#d29922" },
+  paste_large:          { label: "Paste (large)",       severity: "high",   color: "#f85149" },
   paste_burst:          { label: "Paste Burst",         severity: "high",   color: "#f85149" },
+  paste_dominant:       { label: "Paste-Heavy Session", severity: "high",   color: "#f85149" },
+  code_copy_small:      { label: "Copy (small)",        severity: "low",    color: "#8b949e" },
+  code_copy:            { label: "Copy From Editor",    severity: "medium", color: "#d29922" },
+  code_cut:             { label: "Cut From Editor",     severity: "medium", color: "#f0883e" },
+  copy_burst:           { label: "Copy Burst",          severity: "medium", color: "#d29922" },
   idle_burst:           { label: "Idle Then Burst",     severity: "high",   color: "#f0883e" },
   fast_entry:           { label: "Abnormal Speed",      severity: "medium", color: "#d29922" },
 };
@@ -84,10 +97,14 @@ interface TypingStats {
   backspaceCount: number;
   pasteCount: number;
   totalPastedChars: number;
+  copyCount: number;
+  cutCount: number;
+  totalCopiedChars: number;
   currentWPM: number;
   peakWPM: number;
   idleSeconds: number;
   lastPasteSize: number;
+  lastCopySize: number;
 }
 
 interface TestResult {
@@ -127,16 +144,39 @@ interface LangConfig {
   label: string;
   monaco: string;
   color: string;
+  /** Emoji fallback when `iconSrc` is not set */
   icon: string;
+  /** Official mark (e.g. Python logo SVG) */
+  iconSrc?: string;
   starter: string;
+}
+
+function LangIcon({ cfg, size = "md" }: { cfg?: LangConfig; size?: "sm" | "md" | "lg" }) {
+  if (!cfg) return null;
+  const dim = size === "sm" ? 14 : size === "lg" ? 20 : 18;
+  if (cfg.iconSrc) {
+    return (
+      <img
+        src={cfg.iconSrc}
+        alt=""
+        width={dim}
+        height={dim}
+        draggable={false}
+        className="lang-icon-img"
+        style={{ width: dim, height: dim }}
+      />
+    );
+  }
+  return <span className="lang-emoji">{cfg.icon}</span>;
 }
 
 const LANGUAGES: Record<string, LangConfig> = {
   python: {
     label: "Python",
     monaco: "python",
-    color: "#3b82f6",
-    icon: "🐍",
+    color: "#3776AB",
+    icon: "",
+    iconSrc: "/images/logos/python.svg",
     starter: `# Python\ndef solution(n):\n    return n * 2\n\nprint(solution(5))\n`,
   },
   javascript: {
@@ -338,21 +378,26 @@ function useTypingAnalyzer(addEvent: (type: ViolationType, msg: string) => void)
     backspaceCount: 0,
     pasteCount: 0,
     totalPastedChars: 0,
+    copyCount: 0,
+    cutCount: 0,
+    totalCopiedChars: 0,
     currentWPM: 0,
     peakWPM: 0,
     idleSeconds: 0,
     lastPasteSize: 0,
+    lastCopySize: 0,
   });
 
   const keystampBuf  = useRef<number[]>([]);
   const lastKeyTime  = useRef<number>(0);
   const lastActivity = useRef<number>(Date.now());
   const pasteHistory = useRef<number[]>([]);
-  const copyCount    = useRef<number>(0);
+  const copyHistory  = useRef<number[]>([]);
   const disposables  = useRef<any[]>([]);
   const idleFlagged  = useRef<boolean>(false);
+  const pasteDominantReported = useRef<boolean>(false);
 
-  // ── 1. Native DOM paste — fires for EVERY paste, regardless of size
+  // ── 1. Native DOM paste — severity by size + burst / idle / paste-heavy session
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
       const text = e.clipboardData?.getData("text") ?? "";
@@ -362,27 +407,31 @@ function useTypingAnalyzer(addEvent: (type: ViolationType, msg: string) => void)
       const idleMs  = now - lastActivity.current;
       const wasIdle = idleMs > 30_000;
 
-      // Update paste history (rolling 60 s window)
       pasteHistory.current = [...pasteHistory.current, now].filter(t => now - t < 60_000);
       const freq = pasteHistory.current.length;
 
-      // Idle → burst
       if (wasIdle && chars > 0) {
         addEvent("idle_burst",
           `Idle for ${Math.round(idleMs / 1000)}s, then pasted ${chars} character${chars !== 1 ? "s" : ""}`);
         idleFlagged.current = true;
       }
 
-      // Flag every paste — label by size
       const sizeLabel = chars === 0
         ? "empty clipboard"
         : chars < 20  ? `${chars} chars (small)`
         : chars < 100 ? `${chars} chars (medium)`
-        : `${chars} chars (⚠ large)`;
+        : `${chars} chars (large)`;
 
-      addEvent("paste_large", `Paste detected: ${sizeLabel}`);
+      if (chars === 0) {
+        addEvent("paste_small", `Paste attempted: ${sizeLabel}`);
+      } else if (chars < 20) {
+        addEvent("paste_small", `Paste: ${sizeLabel}`);
+      } else if (chars < 100) {
+        addEvent("paste_medium", `Paste: ${sizeLabel}`);
+      } else {
+        addEvent("paste_large", `Paste: ${sizeLabel}`);
+      }
 
-      // Burst: 3+ pastes in 60 s
       if (freq >= 3) {
         addEvent("paste_burst", `${freq} paste events in the last 60 seconds`);
       }
@@ -390,28 +439,78 @@ function useTypingAnalyzer(addEvent: (type: ViolationType, msg: string) => void)
       lastActivity.current = now;
       idleFlagged.current  = false;
 
+      setStats(prev => {
+        const nextPaste = prev.pasteCount + 1;
+        const nextTotal = prev.totalPastedChars + chars;
+        const nextKs    = prev.keystrokeCount;
+        const inputVol  = nextTotal + nextKs;
+        if (!pasteDominantReported.current && inputVol >= 400 && nextTotal / inputVol >= 0.72) {
+          pasteDominantReported.current = true;
+          const pct = Math.round((nextTotal / inputVol) * 100);
+          queueMicrotask(() =>
+            addEvent("paste_dominant",
+              `~${pct}% of input volume is from pastes (${nextTotal} pasted chars, ${nextKs} keystrokes)`));
+        }
+        return {
+          ...prev,
+          pasteCount:       nextPaste,
+          totalPastedChars: nextTotal,
+          lastPasteSize:    chars,
+        };
+      });
+    };
+
+    const onCopy = (_ev: ClipboardEvent) => {
+      const sel = window.getSelection()?.toString() ?? "";
+      const chars = sel.length;
+      const now = Date.now();
+      lastActivity.current = now;
+
+      copyHistory.current = [...copyHistory.current, now].filter(t => now - t < 60_000);
+      const copyFreq = copyHistory.current.length;
+
+      if (chars < 28) {
+        addEvent("code_copy_small",
+          `Copied ${chars} character${chars !== 1 ? "s" : ""} from editor`);
+      } else if (chars < 200) {
+        addEvent("code_copy",
+          `Copied ${chars} character${chars !== 1 ? "s" : ""} from editor${copyFreq > 1 ? ` (copy #${copyFreq} in 60s)` : ""}`);
+      } else {
+        addEvent("code_copy", `Large copy-out: ${chars} characters from editor`);
+      }
+
+      if (copyFreq >= 4) {
+        addEvent("copy_burst", `${copyFreq} copy events in the last 60 seconds`);
+      }
+
       setStats(prev => ({
         ...prev,
-        pasteCount:       prev.pasteCount + 1,
-        totalPastedChars: prev.totalPastedChars + chars,
-        lastPasteSize:    chars,
+        copyCount: prev.copyCount + 1,
+        totalCopiedChars: prev.totalCopiedChars + chars,
+        lastCopySize: chars,
       }));
     };
 
-    // ── 2. Native DOM copy — tracks every copy event
-    const onCopy = () => {
+    const onCut = () => {
       const chars = window.getSelection()?.toString().length ?? 0;
-      copyCount.current += 1;
-      lastActivity.current = Date.now();
-      addEvent("window_focus_restored",
-        `Code copied: ${chars} char${chars !== 1 ? "s" : ""} (copy #${copyCount.current})`);
+      const now = Date.now();
+      lastActivity.current = now;
+      addEvent("code_cut", `Cut ${chars} character${chars !== 1 ? "s" : ""} from editor`);
+      setStats(prev => ({
+        ...prev,
+        cutCount: prev.cutCount + 1,
+        totalCopiedChars: prev.totalCopiedChars + chars,
+        lastCopySize: chars,
+      }));
     };
 
     document.addEventListener("paste", onPaste);
-    document.addEventListener("copy",  onCopy);
+    document.addEventListener("copy", onCopy);
+    document.addEventListener("cut", onCut);
     return () => {
       document.removeEventListener("paste", onPaste);
-      document.removeEventListener("copy",  onCopy);
+      document.removeEventListener("copy", onCopy);
+      document.removeEventListener("cut", onCut);
     };
   }, [addEvent]);
 
@@ -505,7 +604,7 @@ export const CoderpadEditor: React.FC = () => {
   // ── Editor
   const [code, setCode] = useState(LANGUAGES.python.starter);
   const [language, setLanguage] = useState("python");
-  const [title, setTitle] = useState("Untitled");
+  const [title, setTitle] = useState(DEFAULT_SNIPPET_TITLE);
   const [description, setDescription] = useState("");
   const [isDirty, setIsDirty] = useState(false);
 
@@ -522,7 +621,8 @@ export const CoderpadEditor: React.FC = () => {
   const [testResults, setTestResults] = useState<TestResult[] | null>(null);
 
   // ── UI Tabs (right panel)
-  const [rightTab, setRightTab] = useState<"output" | "tests" | "logs">("output");
+  const [rightTab, setRightTab] = useState<"server" | "shell" | "console" | "logs">("shell");
+  const [autoSave, setAutoSave] = useState(true);
 
   // ── Execution logs
   const [logs, setLogs] = useState<ExecutionLog[]>([]);
@@ -628,7 +728,7 @@ export const CoderpadEditor: React.FC = () => {
     const cfg = LANGUAGES[language] || LANGUAGES.python;
     setSelectedSnippet(null);
     setCode(cfg.starter);
-    setTitle(titleOverride || "Untitled");
+    setTitle(titleOverride || DEFAULT_SNIPPET_TITLE);
     setDescription("");
     setTestCases([]);
     setOutput("");
@@ -641,8 +741,11 @@ export const CoderpadEditor: React.FC = () => {
     setNewTitle("");
   };
 
-  const saveSnippet = async () => {
-    if (!title.trim()) { toast.error("Please enter a title"); return; }
+  const saveSnippet = async (opts?: { silent?: boolean }) => {
+    if (!title.trim()) {
+      if (!opts?.silent) toast.error("Please enter a title");
+      return;
+    }
     setSaving(true);
     try {
       const body = { title, description, language, code, test_cases: testCases, execution_timeout: 10, is_shared: false };
@@ -652,23 +755,31 @@ export const CoderpadEditor: React.FC = () => {
           body: JSON.stringify(body),
         });
         setSelectedSnippet(updated);
-        toast.success("Snippet saved");
+        if (!opts?.silent) toast.success("Saved");
       } else {
         const created = await apiFetch("/coderpad/snippets", {
           method: "POST",
           body: JSON.stringify(body),
         });
         setSelectedSnippet(created);
-        toast.success("Snippet created");
+        if (!opts?.silent) toast.success("Snippet created");
       }
       setIsDirty(false);
       fetchSnippets();
     } catch (err: any) {
-      toast.error(err.message || "Save failed");
+      if (!opts?.silent) toast.error(err.message || "Save failed");
     } finally {
       setSaving(false);
     }
   };
+
+  const saveSnippetRef = useRef(saveSnippet);
+  saveSnippetRef.current = saveSnippet;
+  useEffect(() => {
+    if (!autoSave || !selectedSnippet || !isDirty) return;
+    const t = setTimeout(() => { saveSnippetRef.current({ silent: true }); }, 1600);
+    return () => clearTimeout(t);
+  }, [code, title, description, testCases, language, autoSave, selectedSnippet?.id, isDirty]);
 
   const executeCode = async () => {
     if (!code.trim()) { toast.error("Write some code first!"); return; }
@@ -677,7 +788,7 @@ export const CoderpadEditor: React.FC = () => {
     setError("");
     setTestResults(null);
     setExecStatus("running");
-    setRightTab("output");
+    setRightTab("shell");
 
     try {
       let data: any;
@@ -687,9 +798,18 @@ export const CoderpadEditor: React.FC = () => {
         params.set("run_tests", testCases.length > 0 ? "true" : "false");
         data = await apiFetch(`/coderpad/snippets/${selectedSnippet.id}/execute?${params}`, { method: "POST" });
       } else {
+        const execBody: Record<string, unknown> = {
+          code,
+          language,
+          input_data: inputData || null,
+          timeout: 10,
+        };
+        if (testCases.length > 0) {
+          execBody.test_cases = testCases;
+        }
         data = await apiFetch("/coderpad/execute", {
           method: "POST",
-          body: JSON.stringify({ code, language, input_data: inputData || null, timeout: 10 }),
+          body: JSON.stringify(execBody),
         });
       }
       setOutput(data.output || "");
@@ -698,7 +818,7 @@ export const CoderpadEditor: React.FC = () => {
       setExecStatus(data.status || "error");
       if (data.test_results) {
         setTestResults(data.test_results);
-        setRightTab("tests");
+        setRightTab("console");
       }
     } catch (err: any) {
       const msg = err.message || "Execution failed";
@@ -880,6 +1000,18 @@ export const CoderpadEditor: React.FC = () => {
                   <div className="sec-analytics-label">Chars Pasted</div>
                 </div>
                 <div className="sec-analytics-card">
+                  <div className="sec-analytics-val" style={{ color: typingAnalyzer.stats.copyCount > 0 ? "#d29922" : "#e6edf3" }}>
+                    {typingAnalyzer.stats.copyCount}
+                  </div>
+                  <div className="sec-analytics-label">Copies</div>
+                </div>
+                <div className="sec-analytics-card">
+                  <div className="sec-analytics-val" style={{ color: typingAnalyzer.stats.cutCount > 0 ? "#f0883e" : "#e6edf3" }}>
+                    {typingAnalyzer.stats.cutCount}
+                  </div>
+                  <div className="sec-analytics-label">Cuts</div>
+                </div>
+                <div className="sec-analytics-card">
                   <div className="sec-analytics-val" style={{ color: typingAnalyzer.stats.currentWPM > 150 ? "#f85149" : typingAnalyzer.stats.currentWPM > 80 ? "#d29922" : "#e6edf3" }}>
                     {typingAnalyzer.stats.currentWPM}
                   </div>
@@ -903,6 +1035,15 @@ export const CoderpadEditor: React.FC = () => {
                   <AlertTriangle size={12} color={typingAnalyzer.stats.lastPasteSize > 150 ? "#f85149" : "#d29922"} />
                   Last paste: <strong>{typingAnalyzer.stats.lastPasteSize} chars</strong>
                   &nbsp;— {typingAnalyzer.stats.lastPasteSize > 150 ? "⚠ High suspicion" : "Moderate suspicion"}
+                </div>
+              )}
+              {typingAnalyzer.stats.lastCopySize > 0 && typingAnalyzer.stats.copyCount + typingAnalyzer.stats.cutCount > 0 && (
+                <div className="sec-analytics-alert" style={{ borderColor: typingAnalyzer.stats.lastCopySize > 200 ? "#f0883e" : "#484f58" }}>
+                  <AlertTriangle size={12} color={typingAnalyzer.stats.lastCopySize > 200 ? "#f0883e" : "#8b949e"} />
+                  Last copy/cut: <strong>{typingAnalyzer.stats.lastCopySize} chars</strong>
+                  {typingAnalyzer.stats.totalCopiedChars > 0 && (
+                    <span style={{ color: "#484f58" }}>&nbsp;· {typingAnalyzer.stats.totalCopiedChars} total copied out</span>
+                  )}
                 </div>
               )}
               <div className="sec-typing-bar-wrap">
@@ -942,26 +1083,31 @@ export const CoderpadEditor: React.FC = () => {
               placeholder="Snippet title…"
               value={newTitle}
               onChange={e => setNewTitle(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter") createNew(newTitle || "Untitled"); }}
+              onKeyDown={e => { if (e.key === "Enter") createNew(newTitle || DEFAULT_SNIPPET_TITLE); }}
             />
             <div className="modal-actions">
               <button className="btn-ghost" onClick={() => setShowNewModal(false)}>Cancel</button>
-              <button className="btn-primary" onClick={() => createNew(newTitle || "Untitled")}>Create</button>
+              <button className="btn-primary" onClick={() => createNew(newTitle || DEFAULT_SNIPPET_TITLE)}>Create</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── SIDEBAR ──────────────────────────────────────────────── */}
+      {/* ── SIDEBAR (file explorer style) ───────────────────────── */}
       <aside className="coderpad-sidebar">
-        <div className="sidebar-header">
-          <div className="sidebar-brand">
-            <Code2 size={18} className="brand-icon" />
-            <span className="brand-name">CoderPad</span>
+        <div className="explorer-top">
+          <div className="explorer-files-header">
+            <FolderOpen size={14} className="explorer-files-icon" />
+            <span>Files</span>
+            <div className="explorer-files-actions">
+              <button type="button" className="explorer-icon-btn" onClick={() => setShowNewModal(true)} title="New file">
+                <FilePlus size={15} />
+              </button>
+              <button type="button" className="explorer-icon-btn" title="New folder" disabled aria-hidden>
+                <FolderPlus size={15} />
+              </button>
+            </div>
           </div>
-          <button className="btn-new" onClick={() => setShowNewModal(true)} title="New snippet">
-            <Plus size={16} />
-          </button>
         </div>
 
         <div className="sidebar-search-wrap">
@@ -973,7 +1119,7 @@ export const CoderpadEditor: React.FC = () => {
           />
         </div>
 
-        <div className="snippet-list">
+        <div className="snippet-list explorer-tree">
           {filteredSnippets.length === 0 ? (
             <div className="snippet-empty">
               <FileCode2 size={28} className="empty-icon" />
@@ -987,16 +1133,22 @@ export const CoderpadEditor: React.FC = () => {
               return (
                 <button
                   key={s.id}
-                  className={`snippet-item ${active ? "snippet-item--active" : ""}`}
+                  className={`snippet-item snippet-file ${active ? "snippet-item--active" : ""}`}
                   onClick={() => loadSnippet(s)}
                 >
-                  <div className="snippet-item-row">
-                    <span className="lang-dot" style={{ background: lc?.color ?? "#888" }} />
-                    <span className="snippet-title">{s.title}</span>
-                  </div>
-                  <div className="snippet-meta">
-                    <span className="lang-badge">{lc?.label ?? s.language}</span>
-                    <span className="time-badge"><Clock size={10} />{timeAgo(s.updated_at)}</span>
+                  <div className="snippet-item-row snippet-item-row--file">
+                    {lc?.iconSrc ? (
+                      <img src={lc.iconSrc} alt="" className="snippet-lang-logo" width={16} height={16} />
+                    ) : (
+                      <FileCode2 size={15} className="snippet-file-icon" style={{ color: lc?.color ?? "#888" }} />
+                    )}
+                    <span className="snippet-title">
+                      {s.title}
+                      <span className="snippet-ext">
+                        .{s.language === "cpp" ? "cpp" : s.language === "javascript" ? "js" : s.language === "typescript" ? "ts" : s.language}
+                      </span>
+                    </span>
+                    <span className="time-badge snippet-file-time"><Clock size={10} />{timeAgo(s.updated_at)}</span>
                   </div>
                 </button>
               );
@@ -1015,7 +1167,7 @@ export const CoderpadEditor: React.FC = () => {
               className="snippet-title-input"
               value={title}
               onChange={e => { setTitle(e.target.value); setIsDirty(true); }}
-              placeholder="Untitled"
+              placeholder={DEFAULT_SNIPPET_TITLE}
             />
             {isDirty && <span className="dirty-dot" title="Unsaved changes" />}
           </div>
@@ -1024,7 +1176,7 @@ export const CoderpadEditor: React.FC = () => {
             {/* Language dropdown */}
             <div className="lang-dropdown" ref={langDropRef}>
               <button className="lang-selector" onClick={() => setLanguageOpen(v => !v)}>
-                <span className="lang-icon">{langCfg.icon}</span>
+                <span className="lang-icon"><LangIcon cfg={langCfg} size="md" /></span>
                 <span className="lang-label">{langCfg.label}</span>
                 <ChevronDown size={14} className={`lang-chevron ${languageOpen ? "open" : ""}`} />
               </button>
@@ -1043,7 +1195,7 @@ export const CoderpadEditor: React.FC = () => {
                         setIsDirty(true);
                       }}
                     >
-                      <span>{lc.icon}</span>
+                      <span className="lang-option-icon-wrap"><LangIcon cfg={lc} size="md" /></span>
                       <span>{lc.label}</span>
                       {language === key && <Check size={12} className="ml-auto" />}
                     </button>
@@ -1086,15 +1238,6 @@ export const CoderpadEditor: React.FC = () => {
               </button>
             )}
             <button
-              className="btn-save"
-              onClick={saveSnippet}
-              disabled={saving}
-              title="Save (Ctrl+S)"
-            >
-              {saving ? <Loader2 size={15} className="spin" /> : <Save size={15} />}
-              <span>Save</span>
-            </button>
-            <button
               className="btn-run"
               onClick={executeCode}
               disabled={executing}
@@ -1108,7 +1251,7 @@ export const CoderpadEditor: React.FC = () => {
 
         {/* ── STATUS BAR ─────────────────────────── */}
         <div className="coderpad-statusbar">
-          <span className="status-lang">{langCfg.icon} {langCfg.label}</span>
+          <span className="status-lang"><LangIcon cfg={langCfg} size="sm" /> {langCfg.label}</span>
           {execStatus !== "idle" && <StatusBadge status={execStatus} />}
           {execTime !== null && (
             <span className="status-time"><Clock size={11} />{execTime}ms</span>
@@ -1121,15 +1264,36 @@ export const CoderpadEditor: React.FC = () => {
           <span className="status-hint">Ctrl+Enter to run • Ctrl+S to save</span>
         </div>
 
-        {/* ── RESIZABLE PANELS ───────────────────── */}
-        <div className="coderpad-panels">
+        {/* ── RESIZABLE PANELS (editor | preview + terminal) ───── */}
+        <div className="coderpad-panels-wrap">
           <PanelGroup direction="horizontal">
             {/* Editor Panel */}
             <Panel defaultSize={60} minSize={30}>
               <div className="editor-panel">
+                <div className="editor-toolbar-ide">
+                  <button
+                    type="button"
+                    className="btn-save-ide"
+                    onClick={() => saveSnippet()}
+                    disabled={saving}
+                    title="Save (Ctrl+S)"
+                  >
+                    {saving ? <Loader2 size={14} className="spin" /> : <Save size={14} />}
+                    Save
+                  </button>
+                  <label className="autosave-toggle">
+                    <input
+                      type="checkbox"
+                      checked={autoSave}
+                      onChange={e => setAutoSave(e.target.checked)}
+                    />
+                    <span className="autosave-track" aria-hidden />
+                    <span className="autosave-label">Auto-save files</span>
+                  </label>
+                </div>
                 <div className="editor-header">
                   <FileCode2 size={14} />
-                  <span>{title || "Untitled"}.{language === "cpp" ? "cpp" : language === "javascript" ? "js" : language === "typescript" ? "ts" : language}</span>
+                  <span>{title || DEFAULT_SNIPPET_TITLE}.{language === "cpp" ? "cpp" : language === "javascript" ? "js" : language === "typescript" ? "ts" : language}</span>
                 </div>
                 <div className="editor-body">
                   <MonacoEditor
@@ -1164,22 +1328,6 @@ export const CoderpadEditor: React.FC = () => {
                     }}
                   />
                 </div>
-
-                {/* stdin input at bottom of editor panel */}
-                <div className="stdin-panel">
-                  <div className="stdin-header">
-                    <Terminal size={13} />
-                    <span>stdin (custom input)</span>
-                  </div>
-                  <textarea
-                    className="stdin-input"
-                    value={inputData}
-                    onChange={e => setInputData(e.target.value)}
-                    placeholder="Enter input for your program here…"
-                    rows={3}
-                    spellCheck={false}
-                  />
-                </div>
               </div>
             </Panel>
 
@@ -1187,52 +1335,98 @@ export const CoderpadEditor: React.FC = () => {
               <div className="resize-handle-bar" />
             </PanelResizeHandle>
 
-            {/* Output / Tests / Logs Panel */}
-            <Panel defaultSize={40} minSize={20}>
-              <div className="output-panel">
-                {/* Tab bar */}
-                <div className="output-tabs">
-                  <button
-                    className={`output-tab ${rightTab === "output" ? "active" : ""}`}
-                    onClick={() => setRightTab("output")}
-                  >
-                    <Terminal size={13} /> Output
-                  </button>
-                  <button
-                    className={`output-tab ${rightTab === "tests" ? "active" : ""}`}
-                    onClick={() => setRightTab("tests")}
-                  >
-                    <TestTube2 size={13} />
-                    Tests
-                    {testResults && (
-                      <span className={`tab-badge ${passCount === totalTests ? "tab-badge--pass" : "tab-badge--fail"}`}>
-                        {passCount}/{totalTests}
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    className={`output-tab ${rightTab === "logs" ? "active" : ""}`}
-                    onClick={() => { setRightTab("logs"); fetchLogs(); }}
-                  >
-                    <History size={13} /> Logs
-                  </button>
-                </div>
+            {/* Preview + terminal (CoderPad-style right column) */}
+            <Panel defaultSize={40} minSize={24}>
+              <div className="ide-right-stack">
+                <PanelGroup direction="vertical">
+                  <Panel defaultSize={46} minSize={22} maxSize={65}>
+                    <div className="preview-result-only">
+                      {executing ? (
+                        <div className="preview-running">
+                          <Loader2 size={24} className="spin text-sky-400" />
+                          <span>Running…</span>
+                        </div>
+                      ) : output || error ? (
+                        <div className="preview-result">
+                          {output && <pre className="preview-stdout">{output}</pre>}
+                          {error && <pre className="preview-stderr">{error}</pre>}
+                        </div>
+                      ) : null}
+                    </div>
+                  </Panel>
+                  <PanelResizeHandle className="resize-handle resize-handle--horizontal">
+                    <div className="resize-handle-bar-h" />
+                  </PanelResizeHandle>
+                  <Panel defaultSize={54} minSize={28}>
+                    <div className="output-panel ide-terminal-panel">
+                      <div className="output-tabs ide-terminal-tabs">
+                        <button
+                          type="button"
+                          className={`output-tab ${rightTab === "server" ? "active" : ""}`}
+                          onClick={() => setRightTab("server")}
+                        >
+                          Server
+                        </button>
+                        <button
+                          type="button"
+                          className={`output-tab ${rightTab === "shell" ? "active" : ""}`}
+                          onClick={() => setRightTab("shell")}
+                        >
+                          Shell
+                        </button>
+                        <button
+                          type="button"
+                          className={`output-tab ${rightTab === "console" ? "active" : ""}`}
+                          onClick={() => setRightTab("console")}
+                        >
+                          Console
+                          {testResults && (
+                            <span className={`tab-badge ${passCount === totalTests ? "tab-badge--pass" : "tab-badge--fail"}`}>
+                              {passCount}/{totalTests}
+                            </span>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          className={`output-tab ${rightTab === "logs" ? "active" : ""}`}
+                          onClick={() => { setRightTab("logs"); fetchLogs(); }}
+                        >
+                          <History size={12} /> Logs
+                        </button>
+                      </div>
 
-                {/* Tab content */}
                 <div className="output-content">
 
-                  {/* ── OUTPUT TAB ── */}
-                  {rightTab === "output" && (
-                    <div className="output-body">
+                  {/* ── SERVER TAB ── */}
+                  {rightTab === "server" && (
+                    <div className="output-body server-tab-body">
+                      <div className="server-ready">
+                        <span className="server-ready-label">Python runner</span>
+                        <span className="server-ready-version">ready</span>
+                      </div>
+                      <p className="server-meta">
+                        {execTime != null ? (
+                          <>Last run: <strong>{execTime}ms</strong> · status <strong>{execStatus}</strong></>
+                        ) : (
+                          <>Press <kbd>Run</kbd> or <kbd>Ctrl+Enter</kbd> to execute.</>
+                        )}
+                      </p>
+                      <p className="server-hint">Stdout/stderr appear in <strong>Shell</strong>. Test results in <strong>Console</strong>.</p>
+                    </div>
+                  )}
+
+                  {/* ── SHELL TAB (terminal + stdin) ── */}
+                  {rightTab === "shell" && (
+                    <div className="output-body shell-tab-body">
                       {executing ? (
                         <div className="output-running">
                           <Loader2 size={20} className="spin text-blue-400" />
                           <span>Executing…</span>
                         </div>
                       ) : (!output && !error) ? (
-                        <div className="output-idle">
-                          <Play size={32} className="idle-icon" />
-                          <p>Hit <kbd>Ctrl+Enter</kbd> or click <strong>Run</strong> to execute your code</p>
+                        <div className="output-idle shell-idle">
+                          <Terminal size={28} className="idle-icon" />
+                          <p>Terminal output after you <strong>Run</strong></p>
                         </div>
                       ) : (
                         <>
@@ -1250,11 +1444,25 @@ export const CoderpadEditor: React.FC = () => {
                           )}
                         </>
                       )}
+                      <div className="shell-stdin-block">
+                        <div className="stdin-header">
+                          <Terminal size={13} />
+                          <span>stdin</span>
+                        </div>
+                        <textarea
+                          className="stdin-input"
+                          value={inputData}
+                          onChange={e => setInputData(e.target.value)}
+                          placeholder="Program input (stdin)…"
+                          rows={3}
+                          spellCheck={false}
+                        />
+                      </div>
                     </div>
                   )}
 
-                  {/* ── TESTS TAB ── */}
-                  {rightTab === "tests" && (
+                  {/* ── CONSOLE (tests) ── */}
+                  {rightTab === "console" && (
                     <div className="tests-body">
                       <div className="tests-header">
                         <span className="tests-count">{testCases.length} test case{testCases.length !== 1 ? "s" : ""}</span>
@@ -1353,7 +1561,7 @@ export const CoderpadEditor: React.FC = () => {
                           <div key={log.id} className="log-entry">
                             <div className="log-header">
                               <StatusBadge status={log.status} />
-                              <span className="log-lang">{LANGUAGES[log.language]?.icon} {LANGUAGES[log.language]?.label ?? log.language}</span>
+                              <span className="log-lang"><LangIcon cfg={LANGUAGES[log.language]} size="sm" /> {LANGUAGES[log.language]?.label ?? log.language}</span>
                               {log.execution_time_ms != null && (
                                 <span className="log-time"><Clock size={10} />{log.execution_time_ms}ms</span>
                               )}
@@ -1366,6 +1574,9 @@ export const CoderpadEditor: React.FC = () => {
                     </div>
                   )}
                 </div>
+                    </div>
+                  </Panel>
+                </PanelGroup>
               </div>
             </Panel>
           </PanelGroup>
@@ -1587,23 +1798,53 @@ export const CoderpadEditor: React.FC = () => {
 
         /* ── SIDEBAR ── */
         .coderpad-sidebar {
-          width: 240px; min-width: 200px; max-width: 240px;
-          background: #161b22; border-right: 1px solid #21262d;
+          width: 260px; min-width: 220px; max-width: 280px;
+          background: linear-gradient(180deg, #141a22 0%, #0f1419 100%);
+          border-right: 1px solid #21262d;
+          border-left: 3px solid #306998;
           display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0;
+          box-shadow: inset -1px 0 0 rgba(255,255,255,0.03);
         }
-        .sidebar-header {
-          display: flex; align-items: center; justify-content: space-between;
-          padding: 14px 16px; border-bottom: 1px solid #21262d;
+        .explorer-top {
+          padding: 12px 12px 10px;
+          border-bottom: 1px solid #21262d;
+          background: #121820;
         }
-        .sidebar-brand { display: flex; align-items: center; gap: 8px; }
-        .brand-icon { color: #58a6ff; }
-        .brand-name { font-size: 0.9rem; font-weight: 700; color: #e6edf3; letter-spacing: -.02em; }
-        .btn-new {
-          width: 28px; height: 28px; border-radius: 6px; border: 1px solid #30363d;
-          background: transparent; color: #7d8590; cursor: pointer; display: flex;
-          align-items: center; justify-content: center; transition: all .15s;
+        .explorer-files-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 0.72rem;
+          font-weight: 600;
+          color: #8b949e;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
         }
-        .btn-new:hover { background: #21262d; color: #e6edf3; border-color: #58a6ff; }
+        .explorer-files-icon { color: #d29922; flex-shrink: 0; }
+        .explorer-files-actions {
+          margin-left: auto;
+          display: flex;
+          gap: 4px;
+        }
+        .explorer-icon-btn {
+          width: 26px;
+          height: 26px;
+          border-radius: 6px;
+          border: 1px solid transparent;
+          background: transparent;
+          color: #7d8590;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.15s;
+        }
+        .explorer-icon-btn:hover:not(:disabled) {
+          background: #21262d;
+          border-color: #30363d;
+          color: #e6edf3;
+        }
+        .explorer-icon-btn:disabled { opacity: 0.35; cursor: default; }
 
         .sidebar-search-wrap { padding: 10px 12px; border-bottom: 1px solid #21262d; }
         .sidebar-search {
@@ -1614,6 +1855,7 @@ export const CoderpadEditor: React.FC = () => {
         .sidebar-search:focus { border-color: #58a6ff; }
         .sidebar-search::placeholder { color: #484f58; }
 
+        .explorer-tree { padding-top: 4px; }
         .snippet-list { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 2px; }
         .snippet-empty {
           display: flex; flex-direction: column; align-items: center; gap: 8px;
@@ -1629,19 +1871,29 @@ export const CoderpadEditor: React.FC = () => {
         .snippet-item:hover { background: #21262d; border-color: #30363d; }
         .snippet-item--active { background: #1c2a3a !important; border-color: #388bfd40 !important; }
         .snippet-item-row { display: flex; align-items: center; gap: 7px; }
+        .snippet-lang-logo { object-fit: contain; flex-shrink: 0; border-radius: 3px; }
         .lang-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-        .snippet-title { font-size: 0.82rem; font-weight: 500; color: #e6edf3; truncate: true; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 160px; }
-        .snippet-meta { display: flex; align-items: center; gap: 8px; padding-left: 15px; }
+        .snippet-file { flex-direction: row !important; align-items: center !important; justify-content: space-between !important; }
+        .snippet-file-icon { flex-shrink: 0; opacity: 0.9; }
+        .snippet-title { font-size: 0.8rem; font-weight: 500; color: #e6edf3; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 170px; text-align: left; }
+        .snippet-ext { opacity: 0.45; font-weight: 400; font-size: 0.72rem; }
+        .snippet-meta { display: flex; align-items: center; gap: 8px; padding-left: 0; margin-top: 0 !important; }
         .lang-badge { font-size: 0.68rem; color: #7d8590; }
         .time-badge { display: flex; align-items: center; gap: 3px; font-size: 0.68rem; color: #484f58; }
 
         /* ── MAIN ── */
-        .coderpad-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .coderpad-main {
+          flex: 1; display: flex; flex-direction: column; overflow: hidden;
+          background: radial-gradient(120% 80% at 50% -20%, rgba(56,139,253,0.08) 0%, transparent 55%), #0d1117;
+        }
 
         /* ── TOP BAR ── */
         .coderpad-topbar {
           display: flex; align-items: center; justify-content: space-between; gap: 12px;
-          padding: 0 16px; height: 52px; background: #161b22; border-bottom: 1px solid #21262d;
+          padding: 10px 16px; min-height: 54px;
+          background: linear-gradient(180deg, #1a222e 0%, #161b22 100%);
+          border-bottom: 1px solid #21262d;
+          box-shadow: 0 1px 0 rgba(255,255,255,0.04);
           flex-shrink: 0;
         }
         .topbar-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
@@ -1649,11 +1901,16 @@ export const CoderpadEditor: React.FC = () => {
         .topbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
         .snippet-title-input {
-          background: transparent; border: none; outline: none;
-          font-size: 0.9rem; font-weight: 600; color: #e6edf3;
-          max-width: 240px; font-family: 'Inter', sans-serif;
+          background: #0d1117; border: 1px solid #30363d; outline: none; border-radius: 8px;
+          padding: 8px 12px; font-size: 0.88rem; font-weight: 600; color: #e6edf3;
+          max-width: min(340px, 42vw); min-width: 160px; font-family: 'Inter', sans-serif;
+          transition: border-color .15s, box-shadow .15s;
         }
-        .snippet-title-input::placeholder { color: #484f58; }
+        .snippet-title-input::placeholder { color: #6e7681; }
+        .snippet-title-input:hover { border-color: #484f58; }
+        .snippet-title-input:focus {
+          border-color: #388bfd; box-shadow: 0 0 0 3px rgba(56,139,253,0.15);
+        }
         .dirty-dot { width: 7px; height: 7px; border-radius: 50%; background: #f59e0b; flex-shrink: 0; }
 
         /* Language dropdown */
@@ -1664,7 +1921,12 @@ export const CoderpadEditor: React.FC = () => {
           color: #e6edf3; font-size: 0.82rem; font-weight: 500; transition: all .15s;
         }
         .lang-selector:hover { border-color: #58a6ff; }
-        .lang-icon { font-size: 1rem; }
+        .lang-icon { font-size: 1rem; display: inline-flex; align-items: center; justify-content: center; }
+        .lang-icon-img { display: block; object-fit: contain; flex-shrink: 0; }
+        .lang-emoji { font-size: 1rem; line-height: 1; }
+        .lang-option-icon-wrap {
+          width: 22px; display: inline-flex; align-items: center; justify-content: center;
+        }
         .lang-label { font-size: 0.82rem; }
         .lang-chevron { transition: transform .2s; color: #7d8590; }
         .lang-chevron.open { transform: rotate(180deg); }
@@ -1731,7 +1993,10 @@ export const CoderpadEditor: React.FC = () => {
           background: #0d1117; border-bottom: 1px solid #21262d; font-size: 0.73rem;
           color: #7d8590; flex-shrink: 0;
         }
-        .status-lang { font-weight: 500; color: #8b949e; }
+        .status-lang {
+          font-weight: 500; color: #8b949e;
+          display: inline-flex; align-items: center; gap: 6px;
+        }
         .status-time { display: flex; align-items: center; gap: 3px; }
         .status-tests { display: flex; align-items: center; gap: 3px; }
         .status-tests.pass { color: #3fb950; }
@@ -1739,16 +2004,210 @@ export const CoderpadEditor: React.FC = () => {
         .status-hint { margin-left: auto; color: #484f58; }
 
         /* ── PANELS ── */
-        .coderpad-panels { flex: 1; overflow: hidden; }
-        .coderpad-panels > div { height: 100%; }
+        .coderpad-panels-wrap {
+          flex: 1;
+          overflow: hidden;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+        }
+        .coderpad-panels-wrap > div { height: 100%; min-height: 0; }
 
-        .editor-panel { height: 100%; display: flex; flex-direction: column; background: #0d1117; overflow: hidden; }
+        .resize-handle--horizontal {
+          width: 100% !important;
+          height: 6px;
+          cursor: row-resize;
+          flex-shrink: 0;
+        }
+        .resize-handle--horizontal .resize-handle-bar-h {
+          width: 48px;
+          height: 3px;
+          border-radius: 2px;
+          background: #30363d;
+          margin: 0 auto;
+        }
+        .resize-handle--horizontal:hover .resize-handle-bar-h { background: #388bfd; }
+
+
+        .editor-panel {
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          background: #0d1117;
+          overflow: hidden;
+          position: relative;
+        }
+        .editor-toolbar-ide {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          padding: 8px 14px;
+          background: #161b22;
+          border-bottom: 1px solid #21262d;
+          flex-shrink: 0;
+        }
+        .btn-save-ide {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 16px;
+          border-radius: 6px;
+          border: none;
+          background: #238636;
+          color: #fff;
+          font-size: 0.8rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.15s, transform 0.1s;
+        }
+        .btn-save-ide:hover:not(:disabled) { background: #2ea043; }
+        .btn-save-ide:disabled { opacity: 0.6; cursor: not-allowed; }
+        .autosave-toggle {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          cursor: pointer;
+          font-size: 0.78rem;
+          color: #8b949e;
+          user-select: none;
+        }
+        .autosave-toggle input {
+          position: absolute;
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
+        .autosave-track {
+          width: 36px;
+          height: 20px;
+          border-radius: 10px;
+          background: #30363d;
+          position: relative;
+          transition: background 0.2s;
+          flex-shrink: 0;
+        }
+        .autosave-track::after {
+          content: "";
+          position: absolute;
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background: #e6edf3;
+          top: 2px;
+          left: 2px;
+          transition: transform 0.2s;
+        }
+        .autosave-toggle input:checked + .autosave-track { background: #238636; }
+        .autosave-toggle input:checked + .autosave-track::after { transform: translateX(16px); }
+        .autosave-label { font-weight: 500; color: #c9d1d9; }
         .editor-header {
           display: flex; align-items: center; gap: 7px; padding: 6px 14px;
-          background: #161b22; border-bottom: 1px solid #21262d;
+          background: #0d1117; border-bottom: 1px solid #21262d;
           font-size: 0.78rem; color: #7d8590;
         }
-        .editor-body { flex: 1; overflow: hidden; }
+        .editor-body { flex: 1; overflow: hidden; min-height: 0; }
+        .ide-right-stack {
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+          background: #0d1117;
+        }
+        .ide-right-stack > div { min-height: 0; }
+
+        .preview-result-only {
+          height: 100%;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          background: #1e1e1e;
+          border-bottom: 1px solid #30363d;
+          overflow: hidden;
+        }
+        .preview-running {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          color: #8b949e;
+          font-size: 0.85rem;
+        }
+        .preview-result { padding: 14px 16px; flex: 1; overflow: auto; min-height: 0; }
+        .preview-stdout {
+          margin: 0;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 0.82rem;
+          line-height: 1.5;
+          color: #d4d4d4;
+          white-space: pre-wrap;
+          word-break: break-word;
+        }
+        .preview-stderr {
+          margin: 12px 0 0;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 0.82rem;
+          color: #f85149;
+          white-space: pre-wrap;
+        }
+
+        .ide-terminal-panel {
+          border-left: 1px solid #21262d;
+        }
+        .ide-terminal-tabs.output-tabs {
+          background: #161b22;
+          padding-left: 4px;
+        }
+        .shell-tab-body {
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+          min-height: 0;
+        }
+        .shell-idle { flex: 1; }
+        .shell-stdin-block {
+          border-top: 1px solid #21262d;
+          background: #0d1117;
+          flex-shrink: 0;
+        }
+        .server-tab-body {
+          padding: 14px 16px;
+          font-size: 0.8rem;
+          color: #8b949e;
+          line-height: 1.55;
+        }
+        .server-ready {
+          display: flex;
+          align-items: baseline;
+          gap: 8px;
+          margin-bottom: 10px;
+        }
+        .server-ready-label {
+          color: #3fb950;
+          font-weight: 700;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 0.85rem;
+        }
+        .server-ready-version { color: #58a6ff; font-weight: 600; }
+        .server-meta { margin: 0 0 8px; }
+        .server-meta kbd {
+          padding: 1px 6px;
+          background: #21262d;
+          border: 1px solid #30363d;
+          border-radius: 4px;
+          font-size: 0.72rem;
+        }
+        .server-hint { margin: 0; font-size: 0.74rem; color: #6e7681; }
+
+        .snippet-item-row--file {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+          min-width: 0;
+        }
+        .snippet-file-time { margin-left: auto; flex-shrink: 0; font-size: 0.62rem !important; }
 
         .stdin-panel {
           border-top: 1px solid #21262d; background: #161b22; flex-shrink: 0;
@@ -1900,7 +2359,10 @@ export const CoderpadEditor: React.FC = () => {
           background: #1c2128; border-bottom: 1px solid #21262d;
           font-size: 0.73rem; color: #7d8590;
         }
-        .log-lang { font-weight: 500; color: #8b949e; }
+        .log-lang {
+          font-weight: 500; color: #8b949e;
+          display: inline-flex; align-items: center; gap: 5px;
+        }
         .log-time { display: flex; align-items: center; gap: 3px; }
         .log-date { margin-left: auto; color: #484f58; }
         .log-code {
