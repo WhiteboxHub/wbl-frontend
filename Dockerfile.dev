@@ -17,6 +17,3 @@ EXPOSE 3000
 
 # Run in development mode with HMR
 CMD ["npm", "run", "dev"]
-
-
-#Dockerfile.dev
