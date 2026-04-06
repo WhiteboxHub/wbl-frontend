@@ -645,6 +645,7 @@ export default function CandidatesInterviews() {
     { field: "interviewer_linkedin", headerName: "Interviewer Linkedin", cellRenderer: LinkRenderer, width: 190, editable: true },
     { field: "recording_link", headerName: "Recording", cellRenderer: LinkRenderer, width: 120, editable: true },
     { field: "transcript", headerName: "Transcript", cellRenderer: LinkRenderer, width: 120, editable: true },
+    { field: "audio_link", headerName: "Audio", cellRenderer: LinkRenderer, width: 120, editable: true },
     { field: "backup_recording_url", headerName: "Backup Recording", cellRenderer: LinkRenderer, width: 140, editable: true },
     { field: "job_posting_url", headerName: "Job Posting URL", cellRenderer: LinkRenderer, width: 140, editable: true },
     { field: "instructor1_name", headerName: "Instructor 1", width: 150 },
