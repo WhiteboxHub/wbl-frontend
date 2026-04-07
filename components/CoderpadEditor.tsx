@@ -4,12 +4,13 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import {
-  Play, Save, Trash2, Plus, Copy, Check, ChevronDown,
+  Play, Save, Trash2, Copy, Check, ChevronDown, ChevronRight, Send,
   FileCode2, Clock, Terminal, TestTube2, Share2, History,
   Loader2, AlertCircle, CheckCircle2, XCircle, Code2, Settings,
   ShieldAlert, ShieldCheck, Shield, Maximize2, EyeOff, Eye,
   MonitorOff, Minimize2, LayoutPanelLeft, AlertTriangle,
   FolderOpen, FilePlus, FolderPlus,
+  Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -29,6 +30,23 @@ function getToken(): string | null {
     localStorage.getItem("auth_token") ||
     null
   );
+}
+
+function getLoggedInUsername(): string {
+  const token = getToken();
+  if (!token) return "User";
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    const rawName =
+      payload?.sub ||
+      payload?.username ||
+      payload?.uname ||
+      payload?.email ||
+      "User";
+    return String(rawName).trim() || "User";
+  } catch {
+    return "User";
+  }
 }
 
 async function apiFetch(path: string, options: RequestInit = {}): Promise<any> {
@@ -55,7 +73,18 @@ interface TestCase {
   input?: string;
   expected_output: string;
   description?: string;
+  locked?: boolean;
 }
+
+const DEFAULT_PROBLEM_STATEMENT =
+  "Write a recursive function factorial(n) that returns n! for a non-negative integer n. Use recursion only and print factorial(n) from stdin input.";
+
+const DEFAULT_FACTORIAL_TESTS: TestCase[] = [
+  { description: "n = 0", input: "0", expected_output: "1" },
+  { description: "n = 1", input: "1", expected_output: "1" },
+  { description: "n = 5 (hidden)", input: "5", expected_output: "120", locked: true },
+  { description: "n = 7 (hidden)", input: "7", expected_output: "5040", locked: true },
+];
 
 // ─── Security Types ────────────────────────────────────────────────────────────
 
@@ -177,7 +206,7 @@ const LANGUAGES: Record<string, LangConfig> = {
     color: "#3776AB",
     icon: "",
     iconSrc: "/images/logos/python.svg",
-    starter: `# Python\ndef solution(n):\n    return n * 2\n\nprint(solution(5))\n`,
+    starter: ``,
   },
   javascript: {
     label: "JavaScript",
@@ -596,6 +625,7 @@ function useTypingAnalyzer(addEvent: (type: ViolationType, msg: string) => void)
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export const CoderpadEditor: React.FC = () => {
+  const [loggedInUsername, setLoggedInUsername] = useState("User");
   // ── Snippets
   const [snippets, setSnippets] = useState<CodeSnippet[]>([]);
   const [selectedSnippet, setSelectedSnippet] = useState<CodeSnippet | null>(null);
@@ -605,7 +635,7 @@ export const CoderpadEditor: React.FC = () => {
   const [code, setCode] = useState(LANGUAGES.python.starter);
   const [language, setLanguage] = useState("python");
   const [title, setTitle] = useState(DEFAULT_SNIPPET_TITLE);
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState(DEFAULT_PROBLEM_STATEMENT);
   const [isDirty, setIsDirty] = useState(false);
 
   // ── Execution
@@ -613,11 +643,12 @@ export const CoderpadEditor: React.FC = () => {
   const [error, setError] = useState("");
   const [execStatus, setExecStatus] = useState<"idle" | "running" | "success" | "error" | "timeout">("idle");
   const [execTime, setExecTime] = useState<number | null>(null);
-  const [executing, setExecuting] = useState(false);
+  /** false = idle; run = Run test cases; submit = save + run */
+  const [runBusy, setRunBusy] = useState<false | "run" | "submit">(false);
 
   // ── Input / Test Cases
   const [inputData, setInputData] = useState("");
-  const [testCases, setTestCases] = useState<TestCase[]>([]);
+  const [testCases, setTestCases] = useState<TestCase[]>(DEFAULT_FACTORIAL_TESTS);
   const [testResults, setTestResults] = useState<TestResult[] | null>(null);
 
   // ── UI Tabs (right panel)
@@ -634,6 +665,10 @@ export const CoderpadEditor: React.FC = () => {
   const [languageOpen, setLanguageOpen] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  const [filesCollapsed, setFilesCollapsed] = useState(false);
+  const [testsCollapsed, setTestsCollapsed] = useState(false);
+  const [showAllTests, setShowAllTests] = useState(false);
+  const [showResultModal, setShowResultModal] = useState(false);
 
   // ── Security (always on by default)
   const [showSecurityPanel, setShowSecurityPanel] = useState(false);
@@ -646,6 +681,7 @@ export const CoderpadEditor: React.FC = () => {
 
   // ── Effects ───────────────────────────────────────────────────────────────
   useEffect(() => { fetchSnippets(); }, []);
+  useEffect(() => { setLoggedInUsername(getLoggedInUsername()); }, []);
 
   // Auto-enter fullscreen on mount (proctoring always on)
   useEffect(() => {
@@ -668,22 +704,6 @@ export const CoderpadEditor: React.FC = () => {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
-
-  // Keyboard shortcut: Ctrl+Enter / Cmd+Enter to run
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-        e.preventDefault();
-        executeCode();
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
-        e.preventDefault();
-        saveSnippet();
-      }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [code, language, title, description, testCases, selectedSnippet]);
 
   // ── API calls ─────────────────────────────────────────────────────────────
 
@@ -729,8 +749,8 @@ export const CoderpadEditor: React.FC = () => {
     setSelectedSnippet(null);
     setCode(cfg.starter);
     setTitle(titleOverride || DEFAULT_SNIPPET_TITLE);
-    setDescription("");
-    setTestCases([]);
+    setDescription(DEFAULT_PROBLEM_STATEMENT);
+    setTestCases(DEFAULT_FACTORIAL_TESTS);
     setOutput("");
     setError("");
     setTestResults(null);
@@ -741,10 +761,10 @@ export const CoderpadEditor: React.FC = () => {
     setNewTitle("");
   };
 
-  const saveSnippet = async (opts?: { silent?: boolean }) => {
+  const saveSnippet = async (opts?: { silent?: boolean }): Promise<boolean> => {
     if (!title.trim()) {
       if (!opts?.silent) toast.error("Please enter a title");
-      return;
+      return false;
     }
     setSaving(true);
     try {
@@ -766,8 +786,10 @@ export const CoderpadEditor: React.FC = () => {
       }
       setIsDirty(false);
       fetchSnippets();
+      return true;
     } catch (err: any) {
       if (!opts?.silent) toast.error(err.message || "Save failed");
+      return false;
     } finally {
       setSaving(false);
     }
@@ -781,54 +803,111 @@ export const CoderpadEditor: React.FC = () => {
     return () => clearTimeout(t);
   }, [code, title, description, testCases, language, autoSave, selectedSnippet?.id, isDirty]);
 
-  const executeCode = async () => {
+  const performExecute = async (opts?: { openModal?: boolean }) => {
+    let data: any;
+    if (selectedSnippet) {
+      const params = new URLSearchParams();
+      if (inputData) params.set("input_data", inputData);
+      params.set("run_tests", testCases.length > 0 ? "true" : "false");
+      data = await apiFetch(`/coderpad/snippets/${selectedSnippet.id}/execute?${params}`, { method: "POST" });
+    } else {
+      const execBody: Record<string, unknown> = {
+        code,
+        language,
+        input_data: inputData || null,
+        timeout: 10,
+      };
+      if (testCases.length > 0) {
+        execBody.test_cases = testCases;
+      }
+      data = await apiFetch("/coderpad/execute", {
+        method: "POST",
+        body: JSON.stringify(execBody),
+      });
+    }
+    setOutput(data.output || "");
+    setError(data.error || "");
+    setExecTime(data.execution_time_ms ?? null);
+    setExecStatus(data.status || "error");
+    if (data.test_results) {
+      setTestResults(data.test_results);
+      setRightTab("console");
+      if (opts?.openModal) {
+        setShowResultModal(true);
+      }
+    }
+  };
+
+  const runTestCases = async () => {
     if (!code.trim()) { toast.error("Write some code first!"); return; }
-    setExecuting(true);
+    setRunBusy("run");
     setOutput("");
     setError("");
     setTestResults(null);
     setExecStatus("running");
+    setShowResultModal(false);
     setRightTab("shell");
-
     try {
-      let data: any;
-      if (selectedSnippet) {
-        const params = new URLSearchParams();
-        if (inputData) params.set("input_data", inputData);
-        params.set("run_tests", testCases.length > 0 ? "true" : "false");
-        data = await apiFetch(`/coderpad/snippets/${selectedSnippet.id}/execute?${params}`, { method: "POST" });
-      } else {
-        const execBody: Record<string, unknown> = {
-          code,
-          language,
-          input_data: inputData || null,
-          timeout: 10,
-        };
-        if (testCases.length > 0) {
-          execBody.test_cases = testCases;
-        }
-        data = await apiFetch("/coderpad/execute", {
-          method: "POST",
-          body: JSON.stringify(execBody),
-        });
-      }
-      setOutput(data.output || "");
-      setError(data.error || "");
-      setExecTime(data.execution_time_ms ?? null);
-      setExecStatus(data.status || "error");
-      if (data.test_results) {
-        setTestResults(data.test_results);
-        setRightTab("console");
-      }
+      await performExecute({ openModal: false });
     } catch (err: any) {
       const msg = err.message || "Execution failed";
       setError(msg);
       setExecStatus("error");
       toast.error(msg);
     } finally {
-      setExecuting(false);
+      setRunBusy(false);
     }
   };
+
+  const submitSolution = async () => {
+    if (!code.trim()) { toast.error("Write some code first!"); return; }
+    if (!title.trim()) { toast.error("Please enter a title before submitting"); return; }
+    setRunBusy("submit");
+    setOutput("");
+    setError("");
+    setTestResults(null);
+    setExecStatus("running");
+    setShowResultModal(false);
+    setRightTab("shell");
+    try {
+      const saved = await saveSnippet({ silent: true });
+      if (!saved) {
+        setExecStatus("error");
+        return;
+      }
+      await performExecute({ openModal: true });
+      setShowResultModal(true);
+      toast.success("Solution submitted");
+    } catch (err: any) {
+      const msg = err.message || "Submit failed";
+      setError(msg);
+      setExecStatus("error");
+      setShowResultModal(true);
+      toast.error(msg);
+    } finally {
+      setRunBusy(false);
+    }
+  };
+
+  // Keyboard: Ctrl+Enter = run tests, Ctrl+Shift+Enter = submit, Ctrl+S = save
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        if (e.shiftKey) {
+          void submitSolution();
+        } else {
+          void runTestCases();
+        }
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        void saveSnippet();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [code, language, title, description, testCases, selectedSnippet, inputData]);
 
   const deleteSnippet = async () => {
     if (!selectedSnippet) return;
@@ -850,15 +929,12 @@ export const CoderpadEditor: React.FC = () => {
   };
 
   // ── Test Case Helpers ─────────────────────────────────────────────────────
-  const addTestCase = () => {
-    setTestCases(prev => [...prev, { input: "", expected_output: "", description: "" }]);
-    setIsDirty(true);
-  };
   const updateTestCase = (i: number, field: keyof TestCase, val: string) => {
     setTestCases(prev => prev.map((tc, idx) => idx === i ? { ...tc, [field]: val } : tc));
     setIsDirty(true);
   };
   const removeTestCase = (i: number) => {
+    if (testCases[i]?.locked) return;
     setTestCases(prev => prev.filter((_, idx) => idx !== i));
     setIsDirty(true);
   };
@@ -871,6 +947,20 @@ export const CoderpadEditor: React.FC = () => {
   );
   const passCount = testResults?.filter(r => r.passed).length ?? 0;
   const totalTests = testResults?.length ?? 0;
+  const visibleTestCases = showAllTests ? testCases : testCases.slice(0, 2);
+  const flaggedEvents = security.events.filter(evt => evt.severity !== "low");
+  const recentFlags = flaggedEvents.slice(0, 3);
+  const passRate = totalTests > 0 ? Math.round((passCount / totalTests) * 100) : 0;
+  const resultAssessment =
+    execStatus === "running"
+      ? "Execution in progress..."
+      : totalTests === 0
+      ? "Run the code to evaluate against test cases."
+      : passCount === totalTests
+      ? "Code passes all current test cases."
+      : passCount === 0
+      ? "Code failed all current test cases. Recheck logic and base case."
+      : `Code passed ${passCount}/${totalTests} tests. Check failing edge cases.`;
 
   // ─────────────────────────────────────────────────────────────────────────
   //  SECURITY HELPERS
@@ -1093,23 +1183,88 @@ export const CoderpadEditor: React.FC = () => {
         </div>
       )}
 
+      {/* ── RESULT MODAL (shown only after test run completes) ───────────────── */}
+      {showResultModal && (
+        <div className="coderpad-overlay" onClick={() => setShowResultModal(false)}>
+          <div className="coderpad-modal result-modal" onClick={e => e.stopPropagation()}>
+            <h3 className="modal-title">Test Results</h3>
+            <div className="result-summary-card">
+              <div className="result-summary-title">Submission Result</div>
+              <div className="result-summary-meta">
+                <span className={`summary-chip ${execStatus === "success" ? "ok" : execStatus === "error" || execStatus === "timeout" ? "bad" : ""}`}>
+                  Status: {execStatus}
+                </span>
+                <span className={`summary-chip ${passRate >= 80 ? "ok" : passRate >= 50 ? "" : "bad"}`}>
+                  Score: {passRate}/100
+                </span>
+                <span className={`summary-chip ${security.totalCount > 0 ? "bad" : "ok"}`}>
+                  Flags: {security.totalCount}
+                </span>
+              </div>
+              <p className="result-summary-text">{resultAssessment}</p>
+              <div className="result-summary-meta">
+                <span className={`summary-chip ${security.highCount > 0 ? "bad" : "ok"}`}>High violations: {security.highCount}</span>
+                <span className={`summary-chip ${security.medCount > 0 ? "bad" : "ok"}`}>Medium violations: {security.medCount}</span>
+              </div>
+              {recentFlags.length > 0 && (
+                <div className="result-flags-list">
+                  {recentFlags.map(flag => (
+                    <div key={flag.id} className="result-flag-item">
+                      <span className="result-flag-type">{VIOLATION_META[flag.type].label}:</span>
+                      <span>{flag.message}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {!testResults && (
+              <div className="tests-empty">
+                <TestTube2 size={28} className="empty-icon" />
+                <p>No test results returned</p>
+              </div>
+            )}
+            <div className="modal-actions">
+              <button className="btn-primary" onClick={() => setShowResultModal(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── SIDEBAR (file explorer style) ───────────────────────── */}
       <aside className="coderpad-sidebar">
+        <div className="sidebar-problem-card">
+          <div className="sidebar-problem-title">Problem Statement</div>
+          <p className="sidebar-problem-text">{description || DEFAULT_PROBLEM_STATEMENT}</p>
+        </div>
         <div className="explorer-top">
           <div className="explorer-files-header">
             <FolderOpen size={14} className="explorer-files-icon" />
             <span>Files</span>
             <div className="explorer-files-actions">
+              <button
+                type="button"
+                className="explorer-icon-btn"
+                onClick={() => setFilesCollapsed(v => !v)}
+                title={filesCollapsed ? "Expand files" : "Collapse files"}
+              >
+                {filesCollapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
+              </button>
+              {!filesCollapsed && (
+                <>
               <button type="button" className="explorer-icon-btn" onClick={() => setShowNewModal(true)} title="New file">
                 <FilePlus size={15} />
               </button>
               <button type="button" className="explorer-icon-btn" title="New folder" disabled aria-hidden>
                 <FolderPlus size={15} />
               </button>
+                </>
+              )}
             </div>
           </div>
         </div>
 
+        {!filesCollapsed && (
+        <>
         <div className="sidebar-search-wrap">
           <input
             className="sidebar-search"
@@ -1155,6 +1310,8 @@ export const CoderpadEditor: React.FC = () => {
             })
           )}
         </div>
+        </>
+        )}
       </aside>
 
       {/* ── MAIN AREA ─────────────────────────────────────────────── */}
@@ -1206,6 +1363,9 @@ export const CoderpadEditor: React.FC = () => {
           </div>
 
           <div className="topbar-right">
+            <span className="topbar-user-chip" title="Logged in user">
+              {loggedInUsername}
+            </span>
             {/* ── Security Badge ── */}
             <button
               className="sec-status-badge"
@@ -1239,12 +1399,21 @@ export const CoderpadEditor: React.FC = () => {
             )}
             <button
               className="btn-run"
-              onClick={executeCode}
-              disabled={executing}
-              title="Run (Ctrl+Enter)"
+              onClick={() => void runTestCases()}
+              disabled={runBusy !== false}
+              title="Run test cases (Ctrl+Enter)"
             >
-              {executing ? <Loader2 size={15} className="spin" /> : <Play size={15} />}
-              <span>{executing ? "Running…" : "Run"}</span>
+              {runBusy === "run" ? <Loader2 size={15} className="spin" /> : <Play size={15} />}
+              <span>{runBusy === "run" ? "Running…" : "Run test cases"}</span>
+            </button>
+            <button
+              className="btn-submit"
+              onClick={() => void submitSolution()}
+              disabled={runBusy !== false}
+              title="Save and run tests (Ctrl+Shift+Enter)"
+            >
+              {runBusy === "submit" ? <Loader2 size={15} className="spin" /> : <Send size={15} />}
+              <span>{runBusy === "submit" ? "Submitting…" : "Submit"}</span>
             </button>
           </div>
         </header>
@@ -1261,7 +1430,7 @@ export const CoderpadEditor: React.FC = () => {
               <TestTube2 size={11} />{passCount}/{totalTests} tests
             </span>
           )}
-          <span className="status-hint">Ctrl+Enter to run • Ctrl+S to save</span>
+          <span className="status-hint">Ctrl+Enter run tests • Ctrl+Shift+Enter submit • Ctrl+S save</span>
         </div>
 
         {/* ── RESIZABLE PANELS (editor | preview + terminal) ───── */}
@@ -1335,248 +1504,110 @@ export const CoderpadEditor: React.FC = () => {
               <div className="resize-handle-bar" />
             </PanelResizeHandle>
 
-            {/* Preview + terminal (CoderPad-style right column) */}
+            {/* Right column: test cases only */}
             <Panel defaultSize={40} minSize={24}>
               <div className="ide-right-stack">
-                <PanelGroup direction="vertical">
-                  <Panel defaultSize={46} minSize={22} maxSize={65}>
-                    <div className="preview-result-only">
-                      {executing ? (
-                        <div className="preview-running">
-                          <Loader2 size={24} className="spin text-sky-400" />
-                          <span>Running…</span>
-                        </div>
-                      ) : output || error ? (
-                        <div className="preview-result">
-                          {output && <pre className="preview-stdout">{output}</pre>}
-                          {error && <pre className="preview-stderr">{error}</pre>}
-                        </div>
-                      ) : null}
-                    </div>
-                  </Panel>
-                  <PanelResizeHandle className="resize-handle resize-handle--horizontal">
-                    <div className="resize-handle-bar-h" />
-                  </PanelResizeHandle>
-                  <Panel defaultSize={54} minSize={28}>
-                    <div className="output-panel ide-terminal-panel">
-                      <div className="output-tabs ide-terminal-tabs">
-                        <button
-                          type="button"
-                          className={`output-tab ${rightTab === "server" ? "active" : ""}`}
-                          onClick={() => setRightTab("server")}
-                        >
-                          Server
-                        </button>
-                        <button
-                          type="button"
-                          className={`output-tab ${rightTab === "shell" ? "active" : ""}`}
-                          onClick={() => setRightTab("shell")}
-                        >
-                          Shell
-                        </button>
-                        <button
-                          type="button"
-                          className={`output-tab ${rightTab === "console" ? "active" : ""}`}
-                          onClick={() => setRightTab("console")}
-                        >
-                          Console
-                          {testResults && (
-                            <span className={`tab-badge ${passCount === totalTests ? "tab-badge--pass" : "tab-badge--fail"}`}>
-                              {passCount}/{totalTests}
-                            </span>
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          className={`output-tab ${rightTab === "logs" ? "active" : ""}`}
-                          onClick={() => { setRightTab("logs"); fetchLogs(); }}
-                        >
-                          <History size={12} /> Logs
-                        </button>
-                      </div>
-
-                <div className="output-content">
-
-                  {/* ── SERVER TAB ── */}
-                  {rightTab === "server" && (
-                    <div className="output-body server-tab-body">
-                      <div className="server-ready">
-                        <span className="server-ready-label">Python runner</span>
-                        <span className="server-ready-version">ready</span>
-                      </div>
-                      <p className="server-meta">
-                        {execTime != null ? (
-                          <>Last run: <strong>{execTime}ms</strong> · status <strong>{execStatus}</strong></>
-                        ) : (
-                          <>Press <kbd>Run</kbd> or <kbd>Ctrl+Enter</kbd> to execute.</>
-                        )}
-                      </p>
-                      <p className="server-hint">Stdout/stderr appear in <strong>Shell</strong>. Test results in <strong>Console</strong>.</p>
-                    </div>
-                  )}
-
-                  {/* ── SHELL TAB (terminal + stdin) ── */}
-                  {rightTab === "shell" && (
-                    <div className="output-body shell-tab-body">
-                      {executing ? (
-                        <div className="output-running">
-                          <Loader2 size={20} className="spin text-blue-400" />
-                          <span>Executing…</span>
-                        </div>
-                      ) : (!output && !error) ? (
-                        <div className="output-idle shell-idle">
-                          <Terminal size={28} className="idle-icon" />
-                          <p>Terminal output after you <strong>Run</strong></p>
-                        </div>
-                      ) : (
-                        <>
-                          {output && (
-                            <div className="output-section">
-                              <div className="output-section-label stdout">stdout</div>
-                              <pre className="output-pre stdout-text">{output}</pre>
-                            </div>
-                          )}
-                          {error && (
-                            <div className="output-section">
-                              <div className="output-section-label stderr">stderr / error</div>
-                              <pre className="output-pre stderr-text">{error}</pre>
-                            </div>
-                          )}
-                        </>
-                      )}
-                      <div className="shell-stdin-block">
-                        <div className="stdin-header">
-                          <Terminal size={13} />
-                          <span>stdin</span>
-                        </div>
-                        <textarea
-                          className="stdin-input"
-                          value={inputData}
-                          onChange={e => setInputData(e.target.value)}
-                          placeholder="Program input (stdin)…"
-                          rows={3}
-                          spellCheck={false}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ── CONSOLE (tests) ── */}
-                  {rightTab === "console" && (
-                    <div className="tests-body">
-                      <div className="tests-header">
+                <div className="output-panel ide-terminal-panel">
+                  <div className="tests-body">
+                    <div className="tests-header">
+                      <button
+                        className="tests-collapse-btn"
+                        onClick={() => setTestsCollapsed(v => !v)}
+                        title={testsCollapsed ? "Expand tests" : "Collapse tests"}
+                      >
+                        {testsCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
                         <span className="tests-count">{testCases.length} test case{testCases.length !== 1 ? "s" : ""}</span>
-                        <button className="btn-ghost-sm" onClick={addTestCase}>
-                          <Plus size={13} /> Add Test
+                      </button>
+                      <div className="tests-header-actions">
+                        <button className="btn-ghost-sm" onClick={() => setShowAllTests(v => !v)}>
+                          {showAllTests ? "Show Fewer" : "Show All"}
                         </button>
                       </div>
-                      <div className="tests-list">
-                        {testCases.length === 0 ? (
-                          <div className="tests-empty">
-                            <TestTube2 size={28} className="empty-icon" />
-                            <p>No test cases</p>
-                            <button className="btn-ghost-sm" onClick={addTestCase}>Add first test</button>
-                          </div>
-                        ) : (
-                          testCases.map((tc, i) => {
-                            const result = testResults?.[i];
-                            const passed = result?.passed;
-                            return (
-                              <div key={i} className={`test-case ${result ? (passed ? "test-pass" : "test-fail") : ""}`}>
-                                <div className="test-case-header">
-                                  <div className="test-case-num">
-                                    {result ? (
-                                      passed
-                                        ? <CheckCircle2 size={14} className="text-emerald-400" />
-                                        : <XCircle size={14} className="text-red-400" />
-                                    ) : (
-                                      <span className="test-num-badge">{i + 1}</span>
-                                    )}
-                                    <input
-                                      className="test-desc-input"
-                                      value={tc.description || ""}
-                                      placeholder={`Test case ${i + 1}`}
-                                      onChange={e => updateTestCase(i, "description", e.target.value)}
-                                    />
-                                  </div>
-                                  <button className="btn-remove" onClick={() => removeTestCase(i)}>✕</button>
-                                </div>
-                                <div className="test-case-fields">
-                                  <div className="test-field">
-                                    <label>Input</label>
-                                    <textarea
-                                      className="test-textarea"
-                                      value={tc.input || ""}
-                                      placeholder="stdin input…"
-                                      rows={2}
-                                      onChange={e => updateTestCase(i, "input", e.target.value)}
-                                    />
-                                  </div>
-                                  <div className="test-field">
-                                    <label>Expected Output</label>
-                                    <textarea
-                                      className="test-textarea"
-                                      value={tc.expected_output}
-                                      placeholder="expected stdout…"
-                                      rows={2}
-                                      onChange={e => updateTestCase(i, "expected_output", e.target.value)}
-                                    />
-                                  </div>
-                                  {result && !passed && (
-                                    <div className="test-diff">
-                                      <div className="diff-row">
-                                        <span className="diff-label expected">Expected:</span>
-                                        <code className="diff-code">{result.expected}</code>
-                                      </div>
-                                      <div className="diff-row">
-                                        <span className="diff-label actual">Got:</span>
-                                        <code className="diff-code">{result.actual ?? "(no output)"}</code>
-                                      </div>
-                                      {result.error && (
-                                        <div className="diff-row">
-                                          <span className="diff-label error">Error:</span>
-                                          <code className="diff-code error-text">{result.error}</code>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
                     </div>
-                  )}
-
-                  {/* ── LOGS TAB ── */}
-                  {rightTab === "logs" && (
-                    <div className="logs-body">
-                      {logsLoading ? (
-                        <div className="output-running"><Loader2 size={18} className="spin text-blue-400" /><span>Loading logs…</span></div>
-                      ) : logs.length === 0 ? (
-                        <div className="output-idle"><History size={28} className="idle-icon" /><p>No execution history yet</p></div>
+                    {!testsCollapsed && (
+                    <div className="tests-list">
+                      {testCases.length === 0 ? (
+                        <div className="tests-empty">
+                          <TestTube2 size={28} className="empty-icon" />
+                          <p>No test cases</p>
+                        </div>
                       ) : (
-                        logs.map(log => (
-                          <div key={log.id} className="log-entry">
-                            <div className="log-header">
-                              <StatusBadge status={log.status} />
-                              <span className="log-lang"><LangIcon cfg={LANGUAGES[log.language]} size="sm" /> {LANGUAGES[log.language]?.label ?? log.language}</span>
-                              {log.execution_time_ms != null && (
-                                <span className="log-time"><Clock size={10} />{log.execution_time_ms}ms</span>
-                              )}
-                              <span className="log-date">{new Date(log.created_at).toLocaleTimeString()}</span>
+                        visibleTestCases.map((tc, i) => {
+                          const testIdx = i;
+                          const result = testResults?.[testIdx];
+                          const passed = result?.passed;
+                          return (
+                            <div key={testIdx} className={`test-case ${result ? (passed ? "test-pass" : "test-fail") : ""}`}>
+                              <div className="test-case-header">
+                                <div className="test-case-num">
+                                  {result ? (
+                                    passed
+                                      ? <CheckCircle2 size={14} className="text-emerald-400" />
+                                      : <XCircle size={14} className="text-red-400" />
+                                  ) : (
+                                    <span className="test-num-badge">{i + 1}</span>
+                                  )}
+                                  <input
+                                    className="test-desc-input"
+                                    value={tc.description || ""}
+                                    placeholder={`Test case ${i + 1}`}
+                                    onChange={e => updateTestCase(testIdx, "description", e.target.value)}
+                                    readOnly={!!tc.locked}
+                                  />
+                                  {tc.locked && <Lock size={12} className="test-lock-icon" />}
+                                </div>
+                                {!tc.locked && <button className="btn-remove" onClick={() => removeTestCase(testIdx)}>✕</button>}
+                              </div>
+                              <div className="test-case-fields">
+                                <div className="test-field">
+                                  <label>Input</label>
+                                  <textarea
+                                    className="test-textarea"
+                                    value={tc.locked ? "•••• hidden ••••" : (tc.input || "")}
+                                    placeholder={tc.locked ? "Locked test input" : "stdin input…"}
+                                    rows={2}
+                                    onChange={e => updateTestCase(testIdx, "input", e.target.value)}
+                                    readOnly={!!tc.locked}
+                                  />
+                                </div>
+                                <div className="test-field">
+                                  <label>Expected Output</label>
+                                  <textarea
+                                    className="test-textarea"
+                                    value={tc.locked ? "•••• hidden ••••" : tc.expected_output}
+                                    placeholder={tc.locked ? "Locked expected output" : "expected stdout…"}
+                                    rows={2}
+                                    onChange={e => updateTestCase(testIdx, "expected_output", e.target.value)}
+                                    readOnly={!!tc.locked}
+                                  />
+                                </div>
+                                {result && !passed && (
+                                  <div className="test-diff">
+                                    <div className="diff-row">
+                                      <span className="diff-label expected">Expected:</span>
+                                      <code className="diff-code">{result.expected}</code>
+                                    </div>
+                                    <div className="diff-row">
+                                      <span className="diff-label actual">Got:</span>
+                                      <code className="diff-code">{result.actual ?? "(no output)"}</code>
+                                    </div>
+                                    {result.error && (
+                                      <div className="diff-row">
+                                        <span className="diff-label error">Error:</span>
+                                        <code className="diff-code error-text">{result.error}</code>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                            <pre className="log-code">{log.code_executed.slice(0, 150)}{log.code_executed.length > 150 ? "…" : ""}</pre>
-                          </div>
-                        ))
+                          );
+                        })
                       )}
                     </div>
-                  )}
+                    )}
+                  </div>
                 </div>
-                    </div>
-                  </Panel>
-                </PanelGroup>
               </div>
             </Panel>
           </PanelGroup>
@@ -1786,6 +1817,15 @@ export const CoderpadEditor: React.FC = () => {
           padding: 24px; width: 380px; display: flex; flex-direction: column; gap: 16px;
           animation: slideUp .2s ease;
         }
+        .result-modal {
+          width: min(760px, 92vw);
+          max-height: 82vh;
+        }
+        .result-modal-tests {
+          max-height: 46vh;
+          overflow-y: auto;
+          padding: 0;
+        }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         .modal-title { font-size: 1rem; font-weight: 600; color: #e6edf3; }
         .modal-input {
@@ -1804,6 +1844,27 @@ export const CoderpadEditor: React.FC = () => {
           border-left: 3px solid #306998;
           display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0;
           box-shadow: inset -1px 0 0 rgba(255,255,255,0.03);
+        }
+        .sidebar-problem-card {
+          margin: 10px 10px 8px;
+          background: #111926;
+          border: 1px solid #2b3544;
+          border-radius: 8px;
+          padding: 10px 12px;
+        }
+        .sidebar-problem-title {
+          font-size: 0.7rem;
+          color: #8b949e;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin-bottom: 5px;
+          font-weight: 600;
+        }
+        .sidebar-problem-text {
+          font-size: 0.78rem;
+          color: #e6edf3;
+          line-height: 1.45;
+          margin: 0;
         }
         .explorer-top {
           padding: 12px 12px 10px;
@@ -1899,6 +1960,22 @@ export const CoderpadEditor: React.FC = () => {
         .topbar-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
         .topbar-center { display: flex; align-items: center; }
         .topbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+        .topbar-user-chip {
+          max-width: 180px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          display: inline-flex;
+          align-items: center;
+          height: 30px;
+          padding: 0 10px;
+          border: 1px solid #30363d;
+          border-radius: 999px;
+          background: #0d1117;
+          color: #8b949e;
+          font-size: 0.78rem;
+          font-weight: 600;
+        }
 
         .snippet-title-input {
           background: #0d1117; border: 1px solid #30363d; outline: none; border-radius: 8px;
@@ -1967,6 +2044,14 @@ export const CoderpadEditor: React.FC = () => {
         }
         .btn-run:hover { background: #2ea043; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(35,134,54,.4); }
         .btn-run:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-submit {
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 7px 14px; border-radius: 8px; font-size: 0.82rem; font-weight: 600;
+          background: #21262d; color: #e6edf3; border: 1px solid #30363d;
+          cursor: pointer; transition: all .15s;
+        }
+        .btn-submit:hover { border-color: #58a6ff; color: #58a6ff; }
+        .btn-submit:disabled { opacity: .5; cursor: not-allowed; }
         .btn-ghost {
           padding: 7px 14px; border-radius: 8px; border: 1px solid #30363d;
           background: transparent; color: #7d8590; font-size: 0.82rem; cursor: pointer;
@@ -2291,8 +2376,70 @@ export const CoderpadEditor: React.FC = () => {
           padding: 10px 14px; border-bottom: 1px solid #21262d; flex-shrink: 0;
           font-size: 0.78rem; color: #7d8590;
         }
+        .tests-collapse-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: transparent;
+          border: none;
+          color: #9aa4af;
+          cursor: pointer;
+          font-size: 0.78rem;
+        }
+        .tests-header-actions { display: inline-flex; align-items: center; gap: 6px; }
         .tests-count { font-weight: 500; }
         .tests-list { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+        .result-summary-card {
+          background: #111926;
+          border: 1px solid #2b3544;
+          border-radius: 10px;
+          padding: 10px 12px;
+        }
+        .result-summary-title {
+          font-size: 0.72rem;
+          color: #8b949e;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin-bottom: 8px;
+          font-weight: 600;
+        }
+        .result-summary-meta {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-bottom: 7px;
+        }
+        .summary-chip {
+          font-size: 0.7rem;
+          border: 1px solid #30363d;
+          border-radius: 999px;
+          padding: 2px 8px;
+          color: #c9d1d9;
+          background: #0d1117;
+        }
+        .summary-chip.ok { border-color: #238636; color: #3fb950; }
+        .summary-chip.bad { border-color: #da3633; color: #f85149; }
+        .result-summary-text {
+          margin: 0;
+          font-size: 0.78rem;
+          color: #c9d1d9;
+          line-height: 1.45;
+        }
+        .result-flags-list {
+          margin-top: 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 5px;
+        }
+        .result-flag-item {
+          font-size: 0.74rem;
+          color: #f0b0a4;
+          background: #241214;
+          border: 1px solid #4e2329;
+          border-radius: 6px;
+          padding: 6px 8px;
+        }
+        .result-flag-type { color: #f85149; font-weight: 600; margin-right: 4px; }
         .tests-empty {
           display: flex; flex-direction: column; align-items: center; justify-content: center;
           height: 100%; gap: 10px; color: #484f58; font-size: 0.8rem; text-align: center;
@@ -2317,6 +2464,7 @@ export const CoderpadEditor: React.FC = () => {
           font-size: 0.78rem; font-weight: 500; flex: 1; min-width: 0;
           font-family: 'Inter', sans-serif;
         }
+        .test-lock-icon { color: #d29922; flex-shrink: 0; }
         .btn-remove {
           background: transparent; border: none; color: #484f58; cursor: pointer;
           font-size: 0.75rem; padding: 2px 4px; border-radius: 4px; transition: all .15s;
@@ -2332,6 +2480,12 @@ export const CoderpadEditor: React.FC = () => {
           min-height: 42px;
         }
         .test-textarea:focus { border-color: #388bfd; }
+        .test-textarea[readonly] {
+          color: #8b949e;
+          background: #11151b;
+          border-color: #2a2f36;
+          cursor: not-allowed;
+        }
         .test-diff {
           background: #0d1117; border: 1px solid #21262d; border-radius: 6px;
           padding: 8px; display: flex; flex-direction: column; gap: 4px;
