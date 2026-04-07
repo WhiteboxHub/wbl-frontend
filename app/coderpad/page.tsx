@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import CoderpadEditor from "@/components/CoderpadEditor";
+
+const CoderpadEditor = dynamic(() => import("@/components/CoderpadEditor"), {
+  ssr: false,
+});
 
 export default function CoderpadPage() {
   const router = useRouter();
