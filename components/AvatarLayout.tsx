@@ -251,6 +251,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       children: [
         { title: "Documents", href: "/avatar/misc/documents" },
         { title: "Authuser", href: "/avatar/misc/authuser" },
+        { title: "Extension Keys", href: "/avatar/misc/extension-keys" },
       ],
     },
   ];
