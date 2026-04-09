@@ -23,6 +23,7 @@ export default function RootLayout({
 }) {
   const pathname = usePathname();
   const isAvatarSection = pathname.startsWith("/avatar");
+  const isCoderpad = pathname.startsWith("/coderpad");
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
@@ -62,7 +63,7 @@ export default function RootLayout({
         <SessionProvider>
           <AuthProvider>
             <Providers>
-              {isAvatarSection ? (
+              {isAvatarSection || isCoderpad ? (
                 <>{children}</>
               ) : (
                 <>
