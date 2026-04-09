@@ -5,11 +5,15 @@ import { useAuth } from "@/utils/AuthContext";
 import { useTheme } from "next-themes";
 import axios from "axios";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
-  const { isAuthenticated, sidebarOpen, setSidebarOpen, userRole } = useAuth();
-  const { theme } = useTheme();
 
+  const { isAuthenticated, sidebarOpen, setSidebarOpen, userRole } = useAuth();
+  const router = useRouter();
+  // const { isAuthenticated, sidebarOpen, setSidebarOpen } = useAuth();
+
+  const { theme } = useTheme();
   const [hasCheckedLogin, setHasCheckedLogin] = useState(false);
   const [activeSection, setActiveSection] = useState("announcements");
   const [placementsData, setPlacementsData] = useState([]);
