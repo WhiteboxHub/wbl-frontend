@@ -196,6 +196,7 @@ const fieldSections: Record<string, string> = {
   is_immigration_team: "Basic Information",
   is_in_prep: "Basic Information",
   is_in_marketing: "Professional Information",
+  run_raw_positions_workflow: "Professional Information",
   normalized_title: "Basic Information",
   position_type: "Basic Information",
   employment_mode: "Basic Information",
@@ -376,6 +377,7 @@ const labelOverrides: Record<string, string> = {
   extractor_version: "Extractor Version",
   extracted_at: "Extracted At",
   processed_at: "Processed At",
+  run_raw_positions_workflow: "Run Raw Positions Workflow",
   error_message: "Error Message",
   lastmod_user_id: "Last Modified By"
 };
