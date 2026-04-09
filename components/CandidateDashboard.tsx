@@ -1,5 +1,6 @@
 "use client";
 
+import DocumentsTab from "@/components/DocumentsTab";
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
@@ -33,6 +34,7 @@ import {
     Download,
     ChevronDown,
     Puzzle,
+    FileText,
 } from "lucide-react";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
@@ -114,7 +116,7 @@ interface ApiError {
     status?: number;
 }
 
-type TabType = 'overview' | 'sessions' | 'interviews' | 'jobs';
+type TabType = 'jobs' | 'overview' | 'sessions' | 'interviews' | 'documents';
 
 const extractErrorMessage = (err: ApiError, defaultMessage: string): string => {
     return err.body?.detail || err.body?.message || err.detail || err.message || defaultMessage;
@@ -485,6 +487,10 @@ export default function CandidateDashboard() {
     const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
     const [jobSearchTerm, setJobSearchTerm] = useState("");
     const [swStatus, setSwStatus] = useState<string>("initializing");
+    const firstName = useMemo(() => {
+        const fullName = data?.basic_info?.full_name?.trim();
+        return fullName ? fullName.split(/\s+/)[0] : "";
+    }, [data]);
 
     const statusOptions = ['open', 'closed', 'on_hold', 'duplicate', 'invalid'];
     const typeOptions = ['full_time', 'contract', 'contract_to_hire', 'internship'];
@@ -1025,15 +1031,15 @@ export default function CandidateDashboard() {
         );
     }
 
-    const firstName = data.basic_info.full_name.split(" ")[0];
-
-
     const tabs = [
-        { id: 'jobs' as TabType, name: 'Job Board', icon: Briefcase },
-        { id: 'overview' as TabType, name: 'Overview', icon: Home },
-        { id: 'sessions' as TabType, name: 'Sessions', icon: PlayCircle },
-        { id: 'interviews' as TabType, name: 'Interviews', icon: MessageSquare },
-    ];
+    { id: 'jobs' as TabType, name: 'Job Board', icon: Briefcase },
+    { id: 'overview' as TabType, name: 'Overview', icon: Home },
+    { id: 'sessions' as TabType, name: 'Sessions', icon: PlayCircle },
+    { id: 'interviews' as TabType, name: 'Interviews', icon: MessageSquare },
+
+    // ✅ ADD THIS
+    { id: 'documents' as TabType, name: 'Documents', icon: FileText },
+];
 
     return (
         <div className="flex h-screen bg-[#f4f6f9] dark:bg-gray-950 overflow-hidden">
@@ -1056,23 +1062,32 @@ export default function CandidateDashboard() {
                         <p className="px-3 mb-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Navigation</p>
                         <div className="space-y-0.5">
                             {tabs.map((tab) => {
-                                const Icon = tab.icon;
-                                const isActive = activeTab === tab.id;
-                                return (
-                                    <button
-                                        key={tab.id}
-                                        onClick={() => setActiveTab(tab.id)}
-                                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${isActive
-                                            ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-                                            : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
-                                            }`}
-                                    >
-                                        <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-blue-600 dark:text-blue-400" : "text-gray-400"}`} />
-                                        <span>{tab.name}</span>
-                                        {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500" />}
-                                    </button>
-                                );
-                            })}
+    const Icon = tab.icon;
+    const isActive = activeTab === tab.id;
+    return (
+        <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${
+                isActive
+                    ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
+            }`}
+        >
+            <Icon
+                className={`w-4 h-4 flex-shrink-0 ${
+                    isActive
+                        ? "text-blue-600 dark:text-blue-400"
+                        : "text-gray-400"
+                }`}
+            />
+            <span>{tab.name}</span>
+            {isActive && (
+                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500" />
+            )}
+        </button>
+    );
+})}
                         </div>
                     </div>
 
@@ -1174,34 +1189,7 @@ export default function CandidateDashboard() {
                     </div>
                 </header>
 
-                {showIdAlert && (
-                    <div className="px-4 lg:px-6 pt-3">
-                        <div className="mb-3 flex items-start justify-between rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-sm">
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <AlertTriangle className="h-4 w-4 text-amber-500" />
-                                    <span className="font-semibold">ID proof pending</span>
-                                </div>
-                                <p className="mt-1 text-xs text-amber-800">
-                                    Please upload a valid government ID (Aadhaar, PAN, Passport, etc.) to help us verify your profile.
-                                </p>
-                                <button
-                                    onClick={() => setOpenIdModal(true)}
-                                    className="mt-2 rounded bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-700"
-                                >
-                                    Upload ID proof
-                                </button>
-                            </div>
-                            <button
-                                onClick={() => setShowIdAlert(false)}
-                                className="ml-4 text-[11px] text-amber-700 hover:underline"
-                            >
-                                Dismiss
-                            </button>
-                        </div>
-                    </div>
-                )}
-
+                
                 {/* Mobile Tab Bar */}
                 <div className="lg:hidden flex gap-2 px-4 py-2 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 overflow-x-auto flex-shrink-0">
                     {tabs.map((tab) => {
@@ -1508,6 +1496,12 @@ export default function CandidateDashboard() {
                             </div>
                         )}
 
+{activeTab === 'documents' && (
+    <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <DocumentsTab />
+    </div>
+)}
+
                         {activeTab === 'interviews' && (
                             <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4">
                                 <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
@@ -1599,118 +1593,7 @@ export default function CandidateDashboard() {
                             </div>
                         )}
 
-{openIdModal && (
-  <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40">
-    <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">
-          Upload ID proof
-        </h2>
-        <button
-          onClick={() => setOpenIdModal(false)}
-          className="text-gray-500 hover:text-gray-700"
-        >
-          ✕
-        </button>
-      </div>
 
-      <p className="mt-2 text-sm text-gray-600">
-        Drag and drop your ID proof here, or click to select a file.
-      </p>
-
-      <label
-        htmlFor="id-proof-input"
-        className="mt-4 flex h-40 cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed border-gray-300 bg-gray-50 text-center text-sm text-gray-500 hover:border-blue-400 hover:bg-blue-50"
-        onDragOver={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
-        onDrop={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          const file = e.dataTransfer.files?.[0];
-          if (file) setSelectedIdFile(file);
-        }}
-      >
-        <span className="font-medium">
-          {selectedIdFile ? selectedIdFile.name : "Drop file here"}
-        </span>
-        <span className="mt-1 text-xs text-gray-400">
-          PDF, JPG, PNG up to 10MB
-        </span>
-        <input
-          id="id-proof-input"
-          type="file"
-          accept=".pdf,.jpg,.jpeg,.png"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0] || null;
-            setSelectedIdFile(file);
-          }}
-        />
-      </label>
-
-      <div className="mt-4 flex justify-end gap-2">
-        <button
-          onClick={() => {
-            setOpenIdModal(false);
-            setSelectedIdFile(null);
-          }}
-          className="rounded border border-gray-300 px-3 py-1 text-sm text-gray-700 hover:bg-gray-100"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={async () => {
-            if (
-              !selectedIdFile ||
-              !candidateId ||
-              !data?.basic_info?.full_name ||
-              !data?.basic_info?.email
-            ) {
-              return;
-            }
-
-            try {
-              const token =
-                localStorage.getItem("access_token") ||
-                localStorage.getItem("token");
-
-              const formData = new FormData();
-              formData.append("file", selectedIdFile);
-              formData.append("username", data.basic_info.full_name);
-              formData.append("email", data.basic_info.email);
-
-              const resp = await fetch(`${API_BASE_URL}/approval/upload`, {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                },
-                body: formData,
-              });
-
-              if (resp.ok) {
-  console.log("UPLOAD_SUCCESS");
-  setOpenIdModal(false);
-  setSelectedIdFile(null);
-  alert("Thank you! Your file has been uploaded successfully.");
-} else {
-  throw new Error(`Upload failed with status ${resp.status}`);
-}
-            } catch (err) {
-              console.error("Error uploading ID proof:", err);
-              alert("Failed to upload ID proof, please try again.");
-            }
-          }}
-          className="rounded bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
-          disabled={!selectedIdFile || !candidateId}
-        >
-          Upload
-        </button>
-      </div>
-    </div>
-  </div>
-)}
 
                     </div>
                 </main>

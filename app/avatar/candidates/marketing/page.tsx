@@ -545,10 +545,7 @@ export default function CandidatesMarketingPage() {
               `${process.env.NEXT_PUBLIC_API_URL}/candidate/marketing/${params.data.candidate_id}/resume`,
               formData,
               {
-                headers: {
-                  "Content-Type": "multipart/form-data",
-                  Authorization: `Bearer ${localStorage.getItem("token")}`,
-                },
+                
               }
             );
             const updatedResume = res.data.candidate_resume;
