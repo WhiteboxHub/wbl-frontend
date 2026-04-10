@@ -801,6 +801,16 @@ export default function CandidatesMarketingPage() {
         cellEditor: "agCheckboxCellEditor",
       },
       {
+        field: "run_raw_positions_workflow",
+        headerName: "Run Raw Positions Workflow",
+        width: 170,
+        editable: true,
+        cellRenderer: (params: any) => (
+          <span>{params.value ? "Yes" : "No"}</span>
+        ),
+        cellEditor: "agCheckboxCellEditor",
+      },
+      {
         field: "run_email_extraction",
         headerName: "Run Email Extraction",
         width: 170,
