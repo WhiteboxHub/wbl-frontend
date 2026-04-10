@@ -880,8 +880,10 @@ export default function CandidateDashboard() {
             const filteredData = (posData || []).filter((pos: any) => {
                 const src = pos.source?.toLowerCase() || "";
                 const shouldInclude = src.includes('linkedin') || src.includes('hiring') || src.includes('cafe') || src.includes('trueup');
-
-                return shouldInclude;
+                
+                // Add a check to confirm the job actually has an actionable link id or url
+                const hasLink = Boolean(pos.source_job_id || pos.source_uid || pos.job_url);
+                return shouldInclude && hasLink;
             });
 
             console.log("📊 Final filtered positions count:", filteredData.length);
