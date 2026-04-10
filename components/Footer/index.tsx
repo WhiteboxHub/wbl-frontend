@@ -47,7 +47,7 @@ const Footer = () => {
                 </Link>
                 <div className="flex items-center justify-around">
                   <a
-                    href="https://www.facebook.com/WBLAIML"
+                    href="https://www.facebook.com/whitebox.learning"
                     target="_blank"
                     rel="noreferrer"
                     aria-label="Twitter"
