@@ -3,21 +3,39 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import { getUserTeamRole } from "@/utils/auth";
 import {
-  Play, Save, Trash2, Copy, Check, ChevronDown, ChevronRight, Send,
+  Play, Save, Trash2, Copy, Check, ChevronDown, ChevronRight, Send, Plus,
   FileCode2, Clock, Terminal, TestTube2, Share2, History,
   Loader2, AlertCircle, CheckCircle2, XCircle, Code2, Settings,
-  ShieldAlert, ShieldCheck, Shield, Maximize2, EyeOff, Eye,
-  MonitorOff, Minimize2, LayoutPanelLeft, AlertTriangle,
+  ShieldAlert, ShieldCheck, Shield, EyeOff, Eye,
+  MonitorOff, LayoutPanelLeft, AlertTriangle,
   FolderOpen, FilePlus, FolderPlus,
-  Lock,
+  Lock, Search, X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { createPortal } from "react-dom";
 
 // Dynamically import Monaco to avoid SSR issues
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+
+/** Clipboard events from Monaco’s root — used to block copy/paste of code only (not test inputs / modals). */
+function isClipboardTargetMonacoEditor(e: Event): boolean {
+  const t = e.target;
+  if (!t || typeof (t as Node).nodeType !== "number") return false;
+  const el = t instanceof Element ? t : (t as Node).parentElement;
+  return !!el?.closest?.(".monaco-editor");
+}
+
+let lastCoderpadClipboardToastAt = 0;
+function toastCoderpadClipboardDenied(message: string) {
+  const t = Date.now();
+  if (t - lastCoderpadClipboardToastAt < 600) return;
+  lastCoderpadClipboardToastAt = t;
+  toast.error(message);
+}
 
 /** Default snippet / workspace title (replaces generic "Untitled") */
 const DEFAULT_SNIPPET_TITLE = "White-box learning";
@@ -74,6 +92,51 @@ interface TestCase {
   expected_output: string;
   description?: string;
   locked?: boolean;
+  /** Filled only after a test run (stdout); not persisted to API */
+  actual_output?: string | null;
+}
+
+interface AssignableCandidate {
+  id: number;
+  username: string;
+  display_name: string;
+}
+
+function normalizeTestsFromApi(raw: unknown): TestCase[] {
+  if (!raw || !Array.isArray(raw) || raw.length === 0) return DEFAULT_FACTORIAL_TESTS;
+  return raw.map((t: any) => ({
+    input: t.input ?? "",
+    expected_output: String(t.expected_output ?? ""),
+    description: t.description ?? "",
+    locked: !!t.locked,
+    actual_output: null,
+  }));
+}
+
+/** Merge per-index actual stdout from execution results; missing indices → null */
+function applyActualOutputsFromResults(cases: TestCase[], results: TestResult[] | null | undefined): TestCase[] {
+  if (!results?.length) {
+    return cases.map(tc => ({ ...tc, actual_output: null }));
+  }
+  const byIdx = new Map<number, TestResult>();
+  for (const r of results) {
+    byIdx.set(r.test_case_index, r);
+  }
+  return cases.map((tc, idx) => {
+    const r = byIdx.get(idx);
+    if (!r) return { ...tc, actual_output: null };
+    const actual = r.actual !== undefined && r.actual !== null ? String(r.actual) : null;
+    return { ...tc, actual_output: actual };
+  });
+}
+
+function testsForAssignmentApi(tcs: TestCase[]) {
+  return tcs.map(tc => ({
+    input: tc.input ?? "",
+    expected_output: tc.expected_output,
+    description: tc.description ?? "",
+    locked: tc.locked === true,
+  }));
 }
 
 const DEFAULT_PROBLEM_STATEMENT =
@@ -268,18 +331,6 @@ const LANGUAGES: Record<string, LangConfig> = {
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
-function timeAgo(dateStr?: string): string {
-  if (!dateStr) return "Never";
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const s = Math.floor(diff / 1000);
-  if (s < 60) return `${s}s ago`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
-
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { icon: React.ReactNode; cls: string }> = {
     success: { icon: <CheckCircle2 size={12} />, cls: "text-emerald-400 bg-emerald-400/10" },
@@ -302,6 +353,7 @@ function useSecurityMonitor(enabled: boolean) {
   const [activeWarning, setActiveWarning] = useState<SecurityEvent | null>(null);
   const eventIdRef = useRef(0);
   const warningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wasSplitRef = useRef(false);
 
   const addEvent = useCallback((type: ViolationType, message: string) => {
     if (!enabled) return;
@@ -373,16 +425,19 @@ function useSecurityMonitor(enabled: boolean) {
     const handler = () => {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
-        const widthRatio = window.innerWidth / window.screen.width;
-        const heightRatio = window.innerHeight / window.screen.height;
-        if (widthRatio < 0.75 || heightRatio < 0.80) {
+        const widthRatio = window.outerWidth / Math.max(window.screen.availWidth || window.screen.width, 1);
+        const heightRatio = window.outerHeight / Math.max(window.screen.availHeight || window.screen.height, 1);
+        const splitDetected = widthRatio <= 0.95 || heightRatio <= 0.95;
+        if (splitDetected && !wasSplitRef.current) {
           addEvent(
             "window_resize",
-            `Possible split-screen detected — window is ${Math.round(widthRatio * 100)}% width, ${Math.round(heightRatio * 100)}% height of screen`
+            `Split-screen is not allowed — window is ${Math.round(widthRatio * 100)}% width, ${Math.round(heightRatio * 100)}% height of screen`
           );
         }
+        wasSplitRef.current = splitDetected;
       }, 500);
     };
+    handler();
     window.addEventListener("resize", handler);
     return () => { window.removeEventListener("resize", handler); clearTimeout(resizeTimer); };
   }, [enabled, addEvent]);
@@ -429,6 +484,13 @@ function useTypingAnalyzer(addEvent: (type: ViolationType, msg: string) => void)
   // ── 1. Native DOM paste — severity by size + burst / idle / paste-heavy session
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
+      if (isClipboardTargetMonacoEditor(e)) {
+        e.preventDefault();
+        e.stopPropagation();
+        addEvent("paste_small", "Paste blocked in CoderPad");
+        toastCoderpadClipboardDenied("Paste is disabled in CoderPad");
+        return;
+      }
       const text = e.clipboardData?.getData("text") ?? "";
       const chars = text.length;
       const now   = Date.now();
@@ -490,6 +552,13 @@ function useTypingAnalyzer(addEvent: (type: ViolationType, msg: string) => void)
     };
 
     const onCopy = (_ev: ClipboardEvent) => {
+      if (isClipboardTargetMonacoEditor(_ev)) {
+        _ev.preventDefault();
+        _ev.stopPropagation();
+        addEvent("code_copy_small", "Copy blocked in CoderPad");
+        toastCoderpadClipboardDenied("Copy is disabled in CoderPad");
+        return;
+      }
       const sel = window.getSelection()?.toString() ?? "";
       const chars = sel.length;
       const now = Date.now();
@@ -520,7 +589,14 @@ function useTypingAnalyzer(addEvent: (type: ViolationType, msg: string) => void)
       }));
     };
 
-    const onCut = () => {
+    const onCut = (e: ClipboardEvent) => {
+      if (isClipboardTargetMonacoEditor(e)) {
+        e.preventDefault();
+        e.stopPropagation();
+        addEvent("code_cut", "Cut blocked in CoderPad");
+        toastCoderpadClipboardDenied("Cut is disabled in CoderPad");
+        return;
+      }
       const chars = window.getSelection()?.toString().length ?? 0;
       const now = Date.now();
       lastActivity.current = now;
@@ -533,13 +609,13 @@ function useTypingAnalyzer(addEvent: (type: ViolationType, msg: string) => void)
       }));
     };
 
-    document.addEventListener("paste", onPaste);
-    document.addEventListener("copy", onCopy);
-    document.addEventListener("cut", onCut);
+    document.addEventListener("paste", onPaste, true);
+    document.addEventListener("copy", onCopy, true);
+    document.addEventListener("cut", onCut, true);
     return () => {
-      document.removeEventListener("paste", onPaste);
-      document.removeEventListener("copy", onCopy);
-      document.removeEventListener("cut", onCut);
+      document.removeEventListener("paste", onPaste, true);
+      document.removeEventListener("copy", onCopy, true);
+      document.removeEventListener("cut", onCut, true);
     };
   }, [addEvent]);
 
@@ -625,11 +701,11 @@ function useTypingAnalyzer(addEvent: (type: ViolationType, msg: string) => void)
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export const CoderpadEditor: React.FC = () => {
-  const [loggedInUsername, setLoggedInUsername] = useState("User");
-  // ── Snippets
-  const [snippets, setSnippets] = useState<CodeSnippet[]>([]);
+  const [loggedInUsername, setLoggedInUsername] = useState(() =>
+    typeof window !== "undefined" ? getLoggedInUsername() : "User"
+  );
+  // ── Workspace (saved snippet id for API; no file history list in sidebar)
   const [selectedSnippet, setSelectedSnippet] = useState<CodeSnippet | null>(null);
-  const [snippetSearch, setSnippetSearch] = useState("");
 
   // ── Editor
   const [code, setCode] = useState(LANGUAGES.python.starter);
@@ -661,14 +737,35 @@ export const CoderpadEditor: React.FC = () => {
 
   // ── Modals / states
   const [saving, setSaving] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [filesCollapsed, setFilesCollapsed] = useState(false);
+  const [isSplitScreen, setIsSplitScreen] = useState(false);
   const [testsCollapsed, setTestsCollapsed] = useState(false);
   const [showAllTests, setShowAllTests] = useState(false);
   const [showResultModal, setShowResultModal] = useState(false);
+  const [showAssignmentModal, setShowAssignmentModal] = useState(false);
+  /** Shown once when opening CoderPad (session intro + role) */
+  const [showWelcomeModal, setShowWelcomeModal] = useState(true);
+
+  /** JWT role: admin | employee | candidate — employees get CoderPad authoring UI */
+  const [teamRole, setTeamRole] = useState<ReturnType<typeof getUserTeamRole>>(() =>
+    typeof window !== "undefined" ? getUserTeamRole() : null
+  );
+  const [assignmentId, setAssignmentId] = useState<number | null>(null);
+  const [savingAssignment, setSavingAssignment] = useState(false);
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState<number[]>([]);
+  const [candidateAssignSearch, setCandidateAssignSearch] = useState("");
+  /** DB-backed typeahead results for the assignment modal */
+  const [candidateSuggestions, setCandidateSuggestions] = useState<AssignableCandidate[]>([]);
+  const [candidateSearchLoading, setCandidateSearchLoading] = useState(false);
+  const [candidateLabelById, setCandidateLabelById] = useState<Record<number, AssignableCandidate>>({});
+  /** all = everyone; single = one ID + search; multiple = many IDs + search */
+  const [assignmentTargetMode, setAssignmentTargetMode] = useState<"all" | "single" | "multiple">("all");
+  const [draftProblemStatement, setDraftProblemStatement] = useState(DEFAULT_PROBLEM_STATEMENT);
+  const [draftTestCases, setDraftTestCases] = useState<TestCase[]>(DEFAULT_FACTORIAL_TESTS);
+  const [draftSelectedCandidateIds, setDraftSelectedCandidateIds] = useState<number[]>([]);
 
   // ── Security (always on by default)
   const [showSecurityPanel, setShowSecurityPanel] = useState(false);
@@ -678,22 +775,105 @@ export const CoderpadEditor: React.FC = () => {
 
   const editorRef = useRef<any>(null);
   const langDropRef = useRef<HTMLDivElement>(null);
+  const wasSplitScreenRef = useRef(false);
 
   // ── Effects ───────────────────────────────────────────────────────────────
-  useEffect(() => { fetchSnippets(); }, []);
   useEffect(() => { setLoggedInUsername(getLoggedInUsername()); }, []);
+  useEffect(() => { setTeamRole(getUserTeamRole()); }, []);
 
-  // Auto-enter fullscreen on mount (proctoring always on)
+  /** Keep draft test rows in sync with runtime stdout captured on main testCases after Run */
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(() => {
-          // Browser may block if no prior interaction — will be available after first click
-        });
+    if (!showAssignmentModal) return;
+    setDraftTestCases(prev =>
+      prev.map((tc, i) => ({
+        ...tc,
+        actual_output: testCases[i]?.actual_output ?? null,
+      }))
+    );
+  }, [testCases, showAssignmentModal]);
+
+  /** Load published assignment (problem + tests) for all users; staff can edit and re-save */
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await apiFetch("/coderpad/questions");
+        if (cancelled || !Array.isArray(list) || list.length === 0) return;
+        const active = [...list]
+          .filter((q: { is_active?: boolean }) => q.is_active !== false)
+          .sort((a: { sort_order?: number }, b: { sort_order?: number }) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+        const q = active[0] || list[0];
+        setAssignmentId(q.id);
+        setDescription(q.problem_statement || DEFAULT_PROBLEM_STATEMENT);
+        setTestCases(normalizeTestsFromApi(q.test_cases));
+        setSelectedCandidateIds(Array.isArray(q.assigned_candidate_ids) ? q.assigned_candidate_ids : []);
+        if (q.language) setLanguage(q.language);
+        if (typeof q.starter_code === "string" && q.starter_code.trim()) {
+          setCode(prev => (prev.trim() ? prev : q.starter_code));
+        }
+      } catch {
+        /* keep defaults */
       }
-    }, 300);
-    return () => clearTimeout(timer);
+    })();
+    return () => { cancelled = true; };
   }, []);
+
+  // Detect split-screen/windowed usage and adapt layout without forcing fullscreen.
+  useEffect(() => {
+    const checkSplitScreen = () => {
+      const widthRatio = window.outerWidth / Math.max(window.screen.availWidth || window.screen.width, 1);
+      const heightRatio = window.outerHeight / Math.max(window.screen.availHeight || window.screen.height, 1);
+      const split = widthRatio <= 0.95 || heightRatio <= 0.95;
+      setIsSplitScreen(split);
+      if (split && !wasSplitScreenRef.current) {
+        setFilesCollapsed(true);
+      }
+      wasSplitScreenRef.current = split;
+    };
+    checkSplitScreen();
+    window.addEventListener("resize", checkSplitScreen);
+    return () => window.removeEventListener("resize", checkSplitScreen);
+  }, []);
+
+  const mergeCandidateLabels = useCallback((rows: AssignableCandidate[]) => {
+    setCandidateLabelById(prev => {
+      const next = { ...prev };
+      for (const r of rows) {
+        next[r.id] = r;
+      }
+      return next;
+    });
+  }, []);
+
+  /** Typeahead: search candidates in DB while assignment modal is open */
+  useEffect(() => {
+    if (!showAssignmentModal || assignmentTargetMode === "all") return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        setCandidateSearchLoading(true);
+        try {
+          const params = new URLSearchParams({ limit: "50" });
+          const q = candidateAssignSearch.trim();
+          if (q) params.set("search", q);
+          const rows = await apiFetch(`/coderpad/assignable-candidates?${params.toString()}`);
+          if (cancelled) return;
+          if (Array.isArray(rows)) {
+            setCandidateSuggestions(rows);
+            mergeCandidateLabels(rows);
+          }
+        } catch {
+          if (!cancelled) setCandidateSuggestions([]);
+        } finally {
+          if (!cancelled) setCandidateSearchLoading(false);
+        }
+      })();
+    }, 320);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [candidateAssignSearch, showAssignmentModal, assignmentTargetMode, mergeCandidateLabels]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -706,15 +886,6 @@ export const CoderpadEditor: React.FC = () => {
   }, []);
 
   // ── API calls ─────────────────────────────────────────────────────────────
-
-  const fetchSnippets = async () => {
-    try {
-      const data = await apiFetch("/coderpad/snippets");
-      setSnippets(data);
-    } catch (err: any) {
-      if (err.status !== 401) toast.error("Failed to load snippets");
-    }
-  };
 
   const fetchLogs = async () => {
     setLogsLoading(true);
@@ -729,28 +900,11 @@ export const CoderpadEditor: React.FC = () => {
     }
   };
 
-  const loadSnippet = (snippet: CodeSnippet) => {
-    setSelectedSnippet(snippet);
-    setCode(snippet.code);
-    setLanguage(snippet.language);
-    setTitle(snippet.title);
-    setDescription(snippet.description || "");
-    setTestCases(snippet.test_cases || []);
-    setOutput("");
-    setError("");
-    setTestResults(null);
-    setExecStatus("idle");
-    setExecTime(null);
-    setIsDirty(false);
-  };
-
   const createNew = (titleOverride?: string) => {
     const cfg = LANGUAGES[language] || LANGUAGES.python;
     setSelectedSnippet(null);
     setCode(cfg.starter);
     setTitle(titleOverride || DEFAULT_SNIPPET_TITLE);
-    setDescription(DEFAULT_PROBLEM_STATEMENT);
-    setTestCases(DEFAULT_FACTORIAL_TESTS);
     setOutput("");
     setError("");
     setTestResults(null);
@@ -768,7 +922,15 @@ export const CoderpadEditor: React.FC = () => {
     }
     setSaving(true);
     try {
-      const body = { title, description, language, code, test_cases: testCases, execution_timeout: 10, is_shared: false };
+      const body = {
+      title,
+      description,
+      language,
+      code,
+      test_cases: testCases.map(({ actual_output: _a, ...tc }) => tc),
+      execution_timeout: 10,
+      is_shared: false,
+    };
       if (selectedSnippet) {
         const updated = await apiFetch(`/coderpad/snippets/${selectedSnippet.id}`, {
           method: "PUT",
@@ -785,13 +947,67 @@ export const CoderpadEditor: React.FC = () => {
         if (!opts?.silent) toast.success("Snippet created");
       }
       setIsDirty(false);
-      fetchSnippets();
       return true;
     } catch (err: any) {
       if (!opts?.silent) toast.error(err.message || "Save failed");
       return false;
     } finally {
       setSaving(false);
+    }
+  };
+
+  const saveCoderpadAssignment = async (payload?: {
+    problemStatement?: string;
+    assignmentTestCases?: TestCase[];
+    assignedCandidateIds?: number[];
+    /** When true, store null so every candidate receives the assignment */
+    assignToAll?: boolean;
+  }): Promise<boolean> => {
+    const isStaff = teamRole === "admin" || teamRole === "employee";
+    if (!isStaff) return false;
+    const nextProblemStatement = payload?.problemStatement ?? description;
+    const nextTestCases = payload?.assignmentTestCases ?? testCases;
+    const assignToAll = payload?.assignToAll === true;
+    const rawIds = payload?.assignedCandidateIds ?? selectedCandidateIds;
+    const nextAssignedCandidateIds = assignToAll ? [] : rawIds;
+    setSavingAssignment(true);
+    try {
+      const body = {
+        title: "CoderPad assignment",
+        problem_statement: nextProblemStatement,
+        language,
+        starter_code: code,
+        test_cases: testsForAssignmentApi(nextTestCases),
+        assigned_candidate_ids:
+          assignToAll || nextAssignedCandidateIds.length === 0 ? null : nextAssignedCandidateIds,
+        execution_timeout: 10,
+        is_active: true,
+        sort_order: 0,
+      };
+      if (assignmentId != null) {
+        const updated = await apiFetch(`/coderpad/questions/${assignmentId}`, {
+          method: "PUT",
+          body: JSON.stringify(body),
+        });
+        setAssignmentId(updated.id);
+        setDescription(nextProblemStatement || DEFAULT_PROBLEM_STATEMENT);
+        setTestCases(nextTestCases);
+        setSelectedCandidateIds(assignToAll ? [] : nextAssignedCandidateIds);
+        toast.success("Assignment updated");
+      } else {
+        const created = await apiFetch("/coderpad/questions", { method: "POST", body: JSON.stringify(body) });
+        setAssignmentId(created.id);
+        setDescription(nextProblemStatement || DEFAULT_PROBLEM_STATEMENT);
+        setTestCases(nextTestCases);
+        setSelectedCandidateIds(assignToAll ? [] : nextAssignedCandidateIds);
+        toast.success("Assignment published");
+      }
+      return true;
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save assignment");
+      return false;
+    } finally {
+      setSavingAssignment(false);
     }
   };
 
@@ -818,7 +1034,7 @@ export const CoderpadEditor: React.FC = () => {
         timeout: 10,
       };
       if (testCases.length > 0) {
-        execBody.test_cases = testCases;
+        execBody.test_cases = testCases.map(({ actual_output: _a, ...tc }) => tc);
       }
       data = await apiFetch("/coderpad/execute", {
         method: "POST",
@@ -829,11 +1045,17 @@ export const CoderpadEditor: React.FC = () => {
     setError(data.error || "");
     setExecTime(data.execution_time_ms ?? null);
     setExecStatus(data.status || "error");
-    if (data.test_results) {
+    if (data.test_results && Array.isArray(data.test_results)) {
       setTestResults(data.test_results);
+      setTestCases(prev => applyActualOutputsFromResults(prev, data.test_results));
       setRightTab("console");
       if (opts?.openModal) {
         setShowResultModal(true);
+      }
+    } else {
+      setTestResults(null);
+      if (testCases.length > 0) {
+        setTestCases(prev => prev.map(tc => ({ ...tc, actual_output: null })));
       }
     }
   };
@@ -844,6 +1066,7 @@ export const CoderpadEditor: React.FC = () => {
     setOutput("");
     setError("");
     setTestResults(null);
+    setTestCases(prev => prev.map(tc => ({ ...tc, actual_output: null })));
     setExecStatus("running");
     setShowResultModal(false);
     setRightTab("shell");
@@ -866,6 +1089,7 @@ export const CoderpadEditor: React.FC = () => {
     setOutput("");
     setError("");
     setTestResults(null);
+    setTestCases(prev => prev.map(tc => ({ ...tc, actual_output: null })));
     setExecStatus("running");
     setShowResultModal(false);
     setRightTab("shell");
@@ -916,38 +1140,98 @@ export const CoderpadEditor: React.FC = () => {
       await apiFetch(`/coderpad/snippets/${selectedSnippet.id}`, { method: "DELETE" });
       toast.success("Snippet deleted");
       createNew();
-      fetchSnippets();
     } catch (err: any) {
       toast.error("Delete failed");
     }
   };
 
   const copyCode = () => {
-    navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    toastCoderpadClipboardDenied("Copy is disabled in CoderPad");
   };
 
   // ── Test Case Helpers ─────────────────────────────────────────────────────
-  const updateTestCase = (i: number, field: keyof TestCase, val: string) => {
+  const isStaff = teamRole === "admin" || teamRole === "employee";
+
+  const updateTestCase = (i: number, field: keyof TestCase, val: string | boolean) => {
     setTestCases(prev => prev.map((tc, idx) => idx === i ? { ...tc, [field]: val } : tc));
     setIsDirty(true);
   };
+  const addTestCase = () => {
+    if (!isStaff) return;
+    setTestCases(prev => [...prev, { input: "", expected_output: "", description: "", locked: false, actual_output: null }]);
+    setIsDirty(true);
+  };
+
+  const addDraftSelectedCandidate = (c: AssignableCandidate) => {
+    mergeCandidateLabels([c]);
+    setCandidateAssignSearch("");
+    setDraftSelectedCandidateIds(prev => {
+      if (assignmentTargetMode === "single") return [c.id];
+      return prev.includes(c.id) ? prev : [...prev, c.id];
+    });
+  };
+  const removeDraftSelectedCandidate = (id: number) => {
+    setDraftSelectedCandidateIds(prev => prev.filter(x => x !== id));
+  };
+  const updateDraftTestCase = (i: number, field: keyof TestCase, val: string | boolean) => {
+    setDraftTestCases(prev => prev.map((tc, idx) => idx === i ? { ...tc, [field]: val } : tc));
+  };
+  const addDraftTestCase = () => {
+    setDraftTestCases(prev => [...prev, { input: "", expected_output: "", description: "", locked: false, actual_output: null }]);
+  };
+  const removeDraftTestCase = (i: number) => {
+    setDraftTestCases(prev => prev.filter((_, idx) => idx !== i));
+  };
+  const openAssignmentModal = () => {
+    setDraftProblemStatement(description || DEFAULT_PROBLEM_STATEMENT);
+    setDraftTestCases(testCases.length > 0 ? testCases : DEFAULT_FACTORIAL_TESTS);
+    setDraftSelectedCandidateIds(selectedCandidateIds);
+    if (selectedCandidateIds.length === 0) setAssignmentTargetMode("all");
+    else if (selectedCandidateIds.length === 1) setAssignmentTargetMode("single");
+    else setAssignmentTargetMode("multiple");
+    setCandidateAssignSearch("");
+    setCandidateSuggestions([]);
+    setShowAssignmentModal(true);
+    if (selectedCandidateIds.length > 0) {
+      void (async () => {
+        try {
+          const params = new URLSearchParams({ limit: "50" });
+          params.set("resolve_ids", selectedCandidateIds.join(","));
+          const rows = await apiFetch(`/coderpad/assignable-candidates?${params.toString()}`);
+          if (Array.isArray(rows)) mergeCandidateLabels(rows);
+        } catch {
+          /* ignore */
+        }
+      })();
+    }
+  };
+  const saveAssignmentFromModal = async () => {
+    const idsForSave =
+      assignmentTargetMode === "single"
+        ? draftSelectedCandidateIds.slice(0, 1)
+        : draftSelectedCandidateIds;
+    const ok = await saveCoderpadAssignment({
+      problemStatement: draftProblemStatement,
+      assignmentTestCases: draftTestCases,
+      assignedCandidateIds: idsForSave,
+      assignToAll: assignmentTargetMode === "all",
+    });
+    if (ok) setShowAssignmentModal(false);
+  };
   const removeTestCase = (i: number) => {
-    if (testCases[i]?.locked) return;
+    if (testCases[i]?.locked && !isStaff) return;
     setTestCases(prev => prev.filter((_, idx) => idx !== i));
     setIsDirty(true);
   };
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const langCfg = LANGUAGES[language] || LANGUAGES.python;
-  const filteredSnippets = snippets.filter(s =>
-    s.title.toLowerCase().includes(snippetSearch.toLowerCase()) ||
-    s.language.toLowerCase().includes(snippetSearch.toLowerCase())
-  );
   const passCount = testResults?.filter(r => r.passed).length ?? 0;
   const totalTests = testResults?.length ?? 0;
-  const visibleTestCases = showAllTests ? testCases : testCases.slice(0, 2);
+  const candidateVisibleTests = testCases.map((tc, idx) => ({ tc, idx })).filter(({ tc }) => !tc.locked);
+  const visibleRows = isStaff
+    ? testCases.map((tc, idx) => ({ tc, idx }))
+    : (showAllTests ? candidateVisibleTests : candidateVisibleTests.slice(0, 2));
   const flaggedEvents = security.events.filter(evt => evt.severity !== "low");
   const recentFlags = flaggedEvents.slice(0, 3);
   const passRate = totalTests > 0 ? Math.round((passCount / totalTests) * 100) : 0;
@@ -961,6 +1245,14 @@ export const CoderpadEditor: React.FC = () => {
       : passCount === 0
       ? "Code failed all current test cases. Recheck logic and base case."
       : `Code passed ${passCount}/${totalTests} tests. Check failing edge cases.`;
+
+  /** Product roles: Employee (includes admin) vs Candidate — JWT may still expose admin/employee separately */
+  const loginStatusLine =
+    teamRole === "candidate"
+      ? `Logged in as Candidate — ${loggedInUsername}`
+      : teamRole === "admin" || teamRole === "employee"
+      ? `Logged in as Employee — ${loggedInUsername}`
+      : `Logged in — ${loggedInUsername}`;
 
   // ─────────────────────────────────────────────────────────────────────────
   //  SECURITY HELPERS
@@ -981,6 +1273,35 @@ export const CoderpadEditor: React.FC = () => {
   return (
     <div className="coderpad-root">
 
+      {typeof document !== "undefined" &&
+        showWelcomeModal &&
+        createPortal(
+          <div
+            className="coderpad-overlay coderpad-welcome-overlay"
+            style={{ zIndex: 999999 }}
+            onClick={() => setShowWelcomeModal(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="coderpad-welcome-title"
+          >
+            <div className="coderpad-modal welcome-modal" onClick={e => e.stopPropagation()}>
+              <h3 id="coderpad-welcome-title" className="modal-title">Welcome to CoderPad</h3>
+              <p className="welcome-modal-role">{loginStatusLine}</p>
+              <p className="welcome-modal-hint">
+                {isStaff
+                  ? "As an employee you can edit the problem statement, manage test cases, and save the assignment for candidates."
+                  : "Read the problem, write your code, use Run test cases to check locally, then Submit for scoring."}
+              </p>
+              <div className="modal-actions">
+                <button type="button" className="btn-primary" onClick={() => setShowWelcomeModal(false)}>
+                  Continue
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
       {/* ── VIOLATION WARNING OVERLAY ─────────────────────────────── */}
       {security.activeWarning && (
         <div className="sec-warning-overlay" onClick={security.dismissWarning}>
@@ -995,6 +1316,18 @@ export const CoderpadEditor: React.FC = () => {
               <div className="sec-warning-msg">{security.activeWarning.message}</div>
             </div>
             <button className="sec-warn-close" onClick={security.dismissWarning}>✕</button>
+          </div>
+        </div>
+      )}
+
+      {isSplitScreen && (
+        <div className="sec-lock-overlay" role="alert" aria-live="assertive">
+          <div className="sec-lock-card">
+            <ShieldAlert size={24} color="#f85149" />
+            <div className="sec-lock-title">Split-screen blocked</div>
+            <p className="sec-lock-msg">
+              CoderPad access is locked in split view. Please maximize this tab/window to continue.
+            </p>
           </div>
         </div>
       )}
@@ -1019,11 +1352,6 @@ export const CoderpadEditor: React.FC = () => {
             <div className="sec-stat" style={{ color: "#d29922" }}>
               <AlertTriangle size={12} /> <span>{security.medCount} Medium</span>
             </div>
-            {!security.isFullscreen && (
-              <button className="sec-fs-btn" onClick={security.requestFullscreen}>
-                <Maximize2 size={11} /> Re-enter Fullscreen
-              </button>
-            )}
           </div>
           {/* Tab bar */}
           <div className="sec-panel-tabs">
@@ -1230,88 +1558,297 @@ export const CoderpadEditor: React.FC = () => {
         </div>
       )}
 
-      {/* ── SIDEBAR (file explorer style) ───────────────────────── */}
-      <aside className="coderpad-sidebar">
-        <div className="sidebar-problem-card">
-          <div className="sidebar-problem-title">Problem Statement</div>
-          <p className="sidebar-problem-text">{description || DEFAULT_PROBLEM_STATEMENT}</p>
-        </div>
-        <div className="explorer-top">
-          <div className="explorer-files-header">
-            <FolderOpen size={14} className="explorer-files-icon" />
-            <span>Files</span>
-            <div className="explorer-files-actions">
+      {showAssignmentModal && (
+        <div className="coderpad-overlay" onClick={() => setShowAssignmentModal(false)}>
+          <div className="coderpad-modal assignment-modal" onClick={e => e.stopPropagation()}>
+            <h3 className="modal-title">Change problem statement</h3>
+            <textarea
+              className="assignment-problem-input"
+              value={draftProblemStatement}
+              onChange={e => setDraftProblemStatement(e.target.value)}
+              placeholder={DEFAULT_PROBLEM_STATEMENT}
+              rows={6}
+            />
+
+            <div className="assignment-modal-subtitle">Test cases</div>
+            <p className="assignment-testcases-hint">
+              Output is stdout from the last <strong>Run test cases</strong> in the editor; empty until you run.
+            </p>
+            <div className="assignment-testcases-list">
+              <div className="assignment-testcase-header" aria-hidden>
+                <span className="assignment-testcase-header-cell">Input</span>
+                <span className="assignment-testcase-header-cell">Expected output</span>
+                <span className="assignment-testcase-header-cell">Output</span>
+                <span className="assignment-testcase-header-cell">Description</span>
+                <span className="assignment-testcase-header-cell assignment-testcase-header-cell--meta">Hidden</span>
+                <span className="assignment-testcase-header-cell assignment-testcase-header-cell--action" />
+              </div>
+              {draftTestCases.map((tc, idx) => (
+                <div key={idx} className="assignment-testcase-row">
+                  <input
+                    className="assignment-testcase-input"
+                    placeholder="stdin / input"
+                    value={tc.input ?? ""}
+                    onChange={e => updateDraftTestCase(idx, "input", e.target.value)}
+                    aria-label={`Test ${idx + 1} input`}
+                  />
+                  <input
+                    className="assignment-testcase-input"
+                    placeholder="Expected stdout"
+                    value={tc.expected_output}
+                    onChange={e => updateDraftTestCase(idx, "expected_output", e.target.value)}
+                    aria-label={`Test ${idx + 1} expected output`}
+                  />
+                  <div
+                    className="assignment-testcase-actual"
+                    title={tc.actual_output || undefined}
+                    aria-label={`Test ${idx + 1} actual output`}
+                  >
+                    {tc.actual_output ? tc.actual_output : "—"}
+                  </div>
+                  <input
+                    className="assignment-testcase-input"
+                    placeholder="Label / notes"
+                    value={tc.description ?? ""}
+                    onChange={e => updateDraftTestCase(idx, "description", e.target.value)}
+                    aria-label={`Test ${idx + 1} description`}
+                  />
+                  <label className="assignment-testcase-lock">
+                    <input
+                      type="checkbox"
+                      checked={tc.locked === true}
+                      onChange={e => updateDraftTestCase(idx, "locked", e.target.checked)}
+                    />
+                    Hidden
+                  </label>
+                  <button type="button" className="btn-ghost-sm" onClick={() => removeDraftTestCase(idx)}>Remove</button>
+                </div>
+              ))}
+              <button type="button" className="btn-ghost-sm" onClick={addDraftTestCase}>+ Add test case</button>
+            </div>
+
+            <div className="assignment-modal-subtitle">Target candidates</div>
+            <div className="assignment-target-modes" role="radiogroup" aria-label="Who receives this assignment">
+              <label className="assignment-target-mode-row">
+                <input
+                  type="radio"
+                  name="coderpad-assignment-target"
+                  checked={assignmentTargetMode === "all"}
+                  onChange={() => {
+                    setAssignmentTargetMode("all");
+                    setDraftSelectedCandidateIds([]);
+                    setCandidateAssignSearch("");
+                    setCandidateSuggestions([]);
+                  }}
+                />
+                <span>Send to all candidates</span>
+              </label>
+              <label className="assignment-target-mode-row">
+                <input
+                  type="radio"
+                  name="coderpad-assignment-target"
+                  checked={assignmentTargetMode === "single"}
+                  onChange={() => {
+                    setAssignmentTargetMode("single");
+                    setDraftSelectedCandidateIds(prev => prev.slice(0, 1));
+                    setCandidateAssignSearch("");
+                    setCandidateSuggestions([]);
+                  }}
+                />
+                <span>Send to one candidate</span>
+              </label>
+              <label className="assignment-target-mode-row">
+                <input
+                  type="radio"
+                  name="coderpad-assignment-target"
+                  checked={assignmentTargetMode === "multiple"}
+                  onChange={() => {
+                    setAssignmentTargetMode("multiple");
+                  }}
+                />
+                <span>Send to multiple candidates</span>
+              </label>
+            </div>
+            {(assignmentTargetMode === "single" || assignmentTargetMode === "multiple") && (
+              <>
+                <p className="assignment-targeting-subtitle">
+                  {assignmentTargetMode === "single"
+                    ? "Use the search bar below — pick one person from the suggestions."
+                    : "Type a name or email — suggestions come from your candidate database."}
+                </p>
+                <div className="assignment-candidate-search-wrap assignment-candidate-search-wrap--dropdown">
+                  <Search size={14} className="assignment-candidate-search-icon" aria-hidden />
+                  <input
+                    type="search"
+                    className="assignment-candidate-search"
+                    placeholder={
+                      assignmentTargetMode === "single"
+                        ? "Search one candidate by name or email…"
+                        : "Search candidates by name or email…"
+                    }
+                    value={candidateAssignSearch}
+                    onChange={e => setCandidateAssignSearch(e.target.value)}
+                    aria-label={
+                      assignmentTargetMode === "single"
+                        ? "Search for one candidate to assign"
+                        : "Search candidates to assign"
+                    }
+                    autoComplete="off"
+                  />
+                  {candidateSearchLoading && (
+                    <span className="assignment-candidate-search-spinner"><Loader2 size={14} className="spin" /></span>
+                  )}
+                </div>
+                {candidateSuggestions.length > 0 && (
+                  <ul className="assignment-candidate-suggest" role="listbox">
+                    {candidateSuggestions
+                      .filter(c =>
+                        assignmentTargetMode === "single"
+                          ? true
+                          : !draftSelectedCandidateIds.includes(c.id)
+                      )
+                      .map(candidate => (
+                        <li key={candidate.id} role="option">
+                          <button
+                            type="button"
+                            className="assignment-candidate-suggest-item"
+                            onClick={() => addDraftSelectedCandidate(candidate)}
+                          >
+                            <span className="assignment-candidate-suggest-name">{candidate.display_name}</span>
+                            <span className="assignment-candidate-suggest-email">{candidate.username}</span>
+                          </button>
+                        </li>
+                      ))}
+                  </ul>
+                )}
+                {!candidateSearchLoading &&
+                  candidateAssignSearch.trim().length > 0 &&
+                  candidateSuggestions.filter(c =>
+                    assignmentTargetMode === "single"
+                      ? true
+                      : !draftSelectedCandidateIds.includes(c.id)
+                  ).length === 0 && (
+                    <div className="assignment-candidate-empty">No matching candidates</div>
+                  )}
+                <div className="assignment-selected-label">
+                  {assignmentTargetMode === "single" ? "Selected candidate" : "Selected"}
+                </div>
+                <div className="assignment-selected-chips">
+                  {draftSelectedCandidateIds.length === 0 ? (
+                    <span className="assignment-candidate-empty">
+                      {assignmentTargetMode === "single"
+                        ? "No one selected yet — search and choose one candidate above"
+                        : "No one selected yet — pick from suggestions above"}
+                    </span>
+                  ) : (
+                    draftSelectedCandidateIds.map(id => {
+                      const row = candidateLabelById[id];
+                      const label = row?.display_name ?? `User #${id}`;
+                      const sub = row?.username ?? "";
+                      return (
+                        <span key={id} className="assignment-candidate-chip">
+                          <span className="assignment-candidate-chip-text" title={sub}>
+                            {label}
+                            {sub ? <span className="assignment-candidate-chip-sub"> ({sub})</span> : null}
+                          </span>
+                          <button
+                            type="button"
+                            className="assignment-candidate-chip-remove"
+                            onClick={() => removeDraftSelectedCandidate(id)}
+                            aria-label={`Remove ${label}`}
+                          >
+                            <X size={12} />
+                          </button>
+                        </span>
+                      );
+                    })
+                  )}
+                </div>
+              </>
+            )}
+
+            <div className="modal-actions">
+              <button className="btn-ghost" onClick={() => setShowAssignmentModal(false)}>Cancel</button>
               <button
-                type="button"
-                className="explorer-icon-btn"
-                onClick={() => setFilesCollapsed(v => !v)}
-                title={filesCollapsed ? "Expand files" : "Collapse files"}
+                className="btn-primary"
+                onClick={() => void saveAssignmentFromModal()}
+                disabled={savingAssignment}
               >
-                {filesCollapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
+                {savingAssignment ? "Saving…" : "Save assignment"}
               </button>
-              {!filesCollapsed && (
-                <>
-              <button type="button" className="explorer-icon-btn" onClick={() => setShowNewModal(true)} title="New file">
-                <FilePlus size={15} />
-              </button>
-              <button type="button" className="explorer-icon-btn" title="New folder" disabled aria-hidden>
-                <FolderPlus size={15} />
-              </button>
-                </>
-              )}
             </div>
           </div>
         </div>
+      )}
 
-        {!filesCollapsed && (
-        <>
-        <div className="sidebar-search-wrap">
-          <input
-            className="sidebar-search"
-            placeholder="Search snippets…"
-            value={snippetSearch}
-            onChange={e => setSnippetSearch(e.target.value)}
-          />
-        </div>
-
-        <div className="snippet-list explorer-tree">
-          {filteredSnippets.length === 0 ? (
-            <div className="snippet-empty">
-              <FileCode2 size={28} className="empty-icon" />
-              <p>No snippets yet</p>
-              <button className="btn-ghost-sm" onClick={() => setShowNewModal(true)}>Create one</button>
+      {/* ── SIDEBAR: column 1 = Files (collapsible), column 2 = Problem statement ── */}
+      <aside className="coderpad-sidebar">
+        <div className="coderpad-sidebar-columns">
+          <div className={`coderpad-sidebar-col coderpad-sidebar-col--files ${filesCollapsed ? "is-collapsed" : ""}`}>
+            <div className="explorer-top">
+              <div className="explorer-files-header">
+                <FolderOpen size={14} className="explorer-files-icon" />
+                <span className="explorer-files-label">Files</span>
+                <div className="explorer-files-actions">
+                  <button
+                    type="button"
+                    className="explorer-icon-btn"
+                    onClick={() => setFilesCollapsed(v => !v)}
+                    title={filesCollapsed ? "Expand files column" : "Collapse files column"}
+                  >
+                    {filesCollapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
+                  </button>
+                  {!filesCollapsed && (
+                    <>
+                      <button type="button" className="explorer-icon-btn" onClick={() => setShowNewModal(true)} title="New file">
+                        <FilePlus size={15} />
+                      </button>
+                      <button type="button" className="explorer-icon-btn" title="New folder" disabled aria-hidden>
+                        <FolderPlus size={15} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
-          ) : (
-            filteredSnippets.map(s => {
-              const lc = LANGUAGES[s.language];
-              const active = selectedSnippet?.id === s.id;
-              return (
+
+            {!filesCollapsed && (
+              <div className="snippet-list explorer-tree">
+                <div className="snippet-empty snippet-empty--session">
+                  <FileCode2 size={28} className="empty-icon" />
+                  <p className="snippet-session-title">Current workspace</p>
+                  <p className="snippet-session-hint">
+                    Previous files are not listed here. Use Save / Submit to keep your work on the server.
+                  </p>
+                  <button type="button" className="btn-ghost-sm" onClick={() => setShowNewModal(true)}>
+                    New file
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="coderpad-sidebar-col coderpad-sidebar-col--problem">
+            <div className="sidebar-problem-card sidebar-problem-card--fill">
+              <div className="sidebar-problem-title">
+                Problem Statement
+                {isStaff && <span className="sidebar-staff-pill">Authoring</span>}
+              </div>
+              <p className="sidebar-problem-text">{description || DEFAULT_PROBLEM_STATEMENT}</p>
+            </div>
+            {isStaff && (
+              <div className="sidebar-assignment-footer">
                 <button
-                  key={s.id}
-                  className={`snippet-item snippet-file ${active ? "snippet-item--active" : ""}`}
-                  onClick={() => loadSnippet(s)}
+                  type="button"
+                  className="btn-save-assignment"
+                  onClick={openAssignmentModal}
                 >
-                  <div className="snippet-item-row snippet-item-row--file">
-                    {lc?.iconSrc ? (
-                      <img src={lc.iconSrc} alt="" className="snippet-lang-logo" width={16} height={16} />
-                    ) : (
-                      <FileCode2 size={15} className="snippet-file-icon" style={{ color: lc?.color ?? "#888" }} />
-                    )}
-                    <span className="snippet-title">
-                      {s.title}
-                      <span className="snippet-ext">
-                        .{s.language === "cpp" ? "cpp" : s.language === "javascript" ? "js" : s.language === "typescript" ? "ts" : s.language}
-                      </span>
-                    </span>
-                    <span className="time-badge snippet-file-time"><Clock size={10} />{timeAgo(s.updated_at)}</span>
-                  </div>
+                  Change problem statement
                 </button>
-              );
-            })
-          )}
+              </div>
+            )}
+          </div>
         </div>
-        </>
-        )}
       </aside>
 
       {/* ── MAIN AREA ─────────────────────────────────────────────── */}
@@ -1319,14 +1856,20 @@ export const CoderpadEditor: React.FC = () => {
         {/* ── TOP BAR ────────────────────────────── */}
         <header className="coderpad-topbar">
           <div className="topbar-left">
-            {/* Title */}
-            <input
-              className="snippet-title-input"
-              value={title}
-              onChange={e => { setTitle(e.target.value); setIsDirty(true); }}
-              placeholder={DEFAULT_SNIPPET_TITLE}
-            />
-            {isDirty && <span className="dirty-dot" title="Unsaved changes" />}
+            <div className="topbar-left-inner">
+              <div className="topbar-title-row">
+                <input
+                  className="snippet-title-input"
+                  value={title}
+                  onChange={e => { setTitle(e.target.value); setIsDirty(true); }}
+                  placeholder={DEFAULT_SNIPPET_TITLE}
+                />
+                {isDirty && <span className="dirty-dot" title="Unsaved changes" />}
+              </div>
+              <p className="coderpad-login-line" title="Session role">
+                {loginStatusLine}
+              </p>
+            </div>
           </div>
 
           <div className="topbar-center">
@@ -1366,6 +1909,11 @@ export const CoderpadEditor: React.FC = () => {
             <span className="topbar-user-chip" title="Logged in user">
               {loggedInUsername}
             </span>
+            {isSplitScreen && (
+              <span className="topbar-split-chip" title="Split-screen mode detected">
+                Split view
+              </span>
+            )}
             {/* ── Security Badge ── */}
             <button
               className="sec-status-badge"
@@ -1381,16 +1929,8 @@ export const CoderpadEditor: React.FC = () => {
                   <span className="sec-badge-high" style={{ background: securityStatusColor }}>{security.totalCount}</span>
                 )}
               </button>
-            {/* ── Fullscreen toggle ── */}
-            <button
-              className="btn-icon"
-              onClick={security.isFullscreen ? security.exitFullscreen : security.requestFullscreen}
-              title={security.isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-            >
-              {security.isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-            </button>
-            <button className="btn-icon" onClick={copyCode} title="Copy code">
-              {copied ? <Check size={15} className="text-emerald-400" /> : <Copy size={15} />}
+            <button className="btn-icon" onClick={copyCode} title="Copy is disabled in CoderPad">
+              <Copy size={15} />
             </button>
             {selectedSnippet && (
               <button className="btn-icon btn-danger-hover" onClick={deleteSnippet} title="Delete snippet">
@@ -1471,9 +2011,22 @@ export const CoderpadEditor: React.FC = () => {
                     value={code}
                     theme="vs-dark"
                     onChange={(val) => { setCode(val || ""); setIsDirty(true); }}
-                    onMount={(editor) => {
+                    onMount={(editor, monaco) => {
                       editorRef.current = editor;
                       typingAnalyzer.setupEditor(editor);
+                      if (monaco) {
+                        const { KeyMod, KeyCode } = monaco;
+                        const blockPaste = () =>
+                          toastCoderpadClipboardDenied("Paste is disabled in CoderPad");
+                        const blockCopy = () =>
+                          toastCoderpadClipboardDenied("Copy is disabled in CoderPad");
+                        const blockCut = () =>
+                          toastCoderpadClipboardDenied("Cut is disabled in CoderPad");
+                        editor.addCommand(KeyMod.CtrlCmd | KeyCode.KeyV, blockPaste);
+                        editor.addCommand(KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyV, blockPaste);
+                        editor.addCommand(KeyMod.CtrlCmd | KeyCode.KeyC, blockCopy);
+                        editor.addCommand(KeyMod.CtrlCmd | KeyCode.KeyX, blockCut);
+                      }
                     }}
                     options={{
                       fontSize: 14,
@@ -1494,6 +2047,7 @@ export const CoderpadEditor: React.FC = () => {
                       bracketPairColorization: { enabled: true },
                       guides: { bracketPairs: true },
                       suggestOnTriggerCharacters: true,
+                      dragAndDrop: false,
                     }}
                   />
                 </div>
@@ -1519,9 +2073,16 @@ export const CoderpadEditor: React.FC = () => {
                         <span className="tests-count">{testCases.length} test case{testCases.length !== 1 ? "s" : ""}</span>
                       </button>
                       <div className="tests-header-actions">
-                        <button className="btn-ghost-sm" onClick={() => setShowAllTests(v => !v)}>
-                          {showAllTests ? "Show Fewer" : "Show All"}
-                        </button>
+                        {isStaff && (
+                          <button className="btn-ghost-sm" onClick={addTestCase}>
+                            <Plus size={13} /> Add test
+                          </button>
+                        )}
+                        {!isStaff && (
+                          <button className="btn-ghost-sm" onClick={() => setShowAllTests(v => !v)}>
+                            {showAllTests ? "Show Fewer" : "Show All"}
+                          </button>
+                        )}
                       </div>
                     </div>
                     {!testsCollapsed && (
@@ -1532,10 +2093,10 @@ export const CoderpadEditor: React.FC = () => {
                           <p>No test cases</p>
                         </div>
                       ) : (
-                        visibleTestCases.map((tc, i) => {
-                          const testIdx = i;
+                        visibleRows.map(({ tc, idx: testIdx }, rowNum) => {
                           const result = testResults?.[testIdx];
                           const passed = result?.passed;
+                          const hideValues = !!tc.locked && !isStaff;
                           return (
                             <div key={testIdx} className={`test-case ${result ? (passed ? "test-pass" : "test-fail") : ""}`}>
                               <div className="test-case-header">
@@ -1545,40 +2106,58 @@ export const CoderpadEditor: React.FC = () => {
                                       ? <CheckCircle2 size={14} className="text-emerald-400" />
                                       : <XCircle size={14} className="text-red-400" />
                                   ) : (
-                                    <span className="test-num-badge">{i + 1}</span>
+                                    <span className="test-num-badge">{rowNum + 1}</span>
                                   )}
                                   <input
                                     className="test-desc-input"
                                     value={tc.description || ""}
-                                    placeholder={`Test case ${i + 1}`}
+                                    placeholder={`Test case ${testIdx + 1}`}
                                     onChange={e => updateTestCase(testIdx, "description", e.target.value)}
-                                    readOnly={!!tc.locked}
+                                    readOnly={!!tc.locked && !isStaff}
                                   />
                                   {tc.locked && <Lock size={12} className="test-lock-icon" />}
+                                  {isStaff && (
+                                    <label className="test-lock-toggle">
+                                      <input
+                                        type="checkbox"
+                                        checked={!!tc.locked}
+                                        onChange={e => updateTestCase(testIdx, "locked", e.target.checked)}
+                                      />
+                                      <span>Hidden</span>
+                                    </label>
+                                  )}
                                 </div>
-                                {!tc.locked && <button className="btn-remove" onClick={() => removeTestCase(testIdx)}>✕</button>}
+                                <button
+                                  type="button"
+                                  className="btn-remove"
+                                  onClick={() => removeTestCase(testIdx)}
+                                  disabled={!!tc.locked && !isStaff}
+                                  title={tc.locked && !isStaff ? "Locked" : "Remove"}
+                                >
+                                  ✕
+                                </button>
                               </div>
                               <div className="test-case-fields">
                                 <div className="test-field">
                                   <label>Input</label>
                                   <textarea
                                     className="test-textarea"
-                                    value={tc.locked ? "•••• hidden ••••" : (tc.input || "")}
-                                    placeholder={tc.locked ? "Locked test input" : "stdin input…"}
+                                    value={hideValues ? "•••• hidden ••••" : (tc.input || "")}
+                                    placeholder={hideValues ? "Hidden from candidate" : "stdin input…"}
                                     rows={2}
                                     onChange={e => updateTestCase(testIdx, "input", e.target.value)}
-                                    readOnly={!!tc.locked}
+                                    readOnly={hideValues}
                                   />
                                 </div>
                                 <div className="test-field">
                                   <label>Expected Output</label>
                                   <textarea
                                     className="test-textarea"
-                                    value={tc.locked ? "•••• hidden ••••" : tc.expected_output}
-                                    placeholder={tc.locked ? "Locked expected output" : "expected stdout…"}
+                                    value={hideValues ? "•••• hidden ••••" : tc.expected_output}
+                                    placeholder={hideValues ? "Hidden from candidate" : "expected stdout…"}
                                     rows={2}
                                     onChange={e => updateTestCase(testIdx, "expected_output", e.target.value)}
-                                    readOnly={!!tc.locked}
+                                    readOnly={hideValues}
                                   />
                                 </div>
                                 {result && !passed && (
@@ -1656,6 +2235,45 @@ export const CoderpadEditor: React.FC = () => {
           border-radius: 4px; transition: all .15s; flex-shrink: 0;
         }
         .sec-warn-close:hover { color: #f85149; background: #f8514915; }
+        .sec-lock-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 340;
+          background: rgba(1, 4, 9, 0.9);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+        }
+        .sec-lock-card {
+          width: min(460px, 92vw);
+          border: 1px solid #f8514950;
+          background: #161b22;
+          border-radius: 12px;
+          padding: 18px;
+          box-shadow: 0 12px 42px rgba(0, 0, 0, 0.45);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          gap: 10px;
+        }
+        .sec-lock-title {
+          color: #f85149;
+          font-size: 1rem;
+          font-weight: 700;
+        }
+        .sec-lock-msg {
+          margin: 0;
+          color: #c9d1d9;
+          font-size: 0.82rem;
+          line-height: 1.45;
+        }
+        .sec-lock-actions {
+          margin-top: 4px;
+          display: flex;
+          justify-content: center;
+        }
 
         /* Security badge in topbar */
         .sec-status-badge {
@@ -1811,6 +2429,20 @@ export const CoderpadEditor: React.FC = () => {
           display: flex; align-items: center; justify-content: center;
           animation: fadeIn .15s ease;
         }
+        .coderpad-welcome-overlay { z-index: 500; }
+        .welcome-modal { max-width: 420px; width: 92vw; }
+        .welcome-modal-role {
+          margin: 0;
+          font-size: 0.88rem;
+          color: #58a6ff;
+          font-weight: 600;
+        }
+        .welcome-modal-hint {
+          margin: 0;
+          font-size: 0.8rem;
+          color: #8b949e;
+          line-height: 1.5;
+        }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .coderpad-modal {
           background: #161b22; border: 1px solid #30363d; border-radius: 12px;
@@ -1836,14 +2468,64 @@ export const CoderpadEditor: React.FC = () => {
         .modal-input:focus { border-color: #58a6ff; }
         .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
-        /* ── SIDEBAR ── */
+        /* ── SIDEBAR (two columns: files | problem) ── */
         .coderpad-sidebar {
-          width: 260px; min-width: 220px; max-width: 280px;
+          flex: 0 0 min(520px, 46vw);
+          min-width: 340px;
+          max-width: 640px;
+          width: min(520px, 46vw);
           background: linear-gradient(180deg, #141a22 0%, #0f1419 100%);
           border-right: 1px solid #21262d;
           border-left: 3px solid #306998;
-          display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          flex-shrink: 0;
           box-shadow: inset -1px 0 0 rgba(255,255,255,0.03);
+        }
+        .coderpad-sidebar-columns {
+          display: flex;
+          flex-direction: row;
+          flex: 1;
+          min-height: 0;
+          align-items: stretch;
+        }
+        .coderpad-sidebar-col {
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+          min-width: 0;
+        }
+        .coderpad-sidebar-col--files {
+          flex: 1 1 42%;
+          max-width: 52%;
+          border-right: 1px solid #21262d;
+          background: #0f1419;
+        }
+        .coderpad-sidebar-col--files.is-collapsed {
+          flex: 0 0 44px;
+          max-width: 44px;
+        }
+        .coderpad-sidebar-col--files.is-collapsed .explorer-files-label {
+          display: none;
+        }
+        .coderpad-sidebar-col--files.is-collapsed .explorer-top {
+          padding: 10px 6px;
+        }
+        .coderpad-sidebar-col--files.is-collapsed .explorer-files-header {
+          flex-direction: column;
+          gap: 6px;
+          align-items: center;
+        }
+        .coderpad-sidebar-col--files.is-collapsed .explorer-files-actions {
+          margin-left: 0;
+          flex-direction: column;
+        }
+        .coderpad-sidebar-col--problem {
+          flex: 1 1 58%;
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
         }
         .sidebar-problem-card {
           margin: 10px 10px 8px;
@@ -1853,6 +2535,11 @@ export const CoderpadEditor: React.FC = () => {
           padding: 10px 12px;
         }
         .sidebar-problem-title {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          flex-wrap: wrap;
           font-size: 0.7rem;
           color: #8b949e;
           text-transform: uppercase;
@@ -1865,7 +2552,309 @@ export const CoderpadEditor: React.FC = () => {
           color: #e6edf3;
           line-height: 1.45;
           margin: 0;
+          white-space: pre-wrap;
         }
+        .coderpad-sidebar-col--problem .sidebar-problem-card--fill {
+          margin: 10px 10px 8px;
+          margin-top: 10px;
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+        }
+        .sidebar-assignment-footer {
+          padding: 0 10px 10px;
+          flex-shrink: 0;
+        }
+        .assignment-targeting-subtitle {
+          font-size: 0.72rem;
+          color: #7d8590;
+          line-height: 1.4;
+        }
+        .assignment-candidate-search-wrap {
+          position: relative;
+          display: flex;
+          align-items: center;
+        }
+        .assignment-candidate-search-icon {
+          position: absolute;
+          left: 10px;
+          color: #7d8590;
+          pointer-events: none;
+        }
+        .assignment-candidate-search {
+          width: 100%;
+          padding: 8px 10px 8px 32px;
+          font-size: 0.78rem;
+          border-radius: 8px;
+          border: 1px solid #30363d;
+          background: #0d1117;
+          color: #e6edf3;
+          outline: none;
+        }
+        .assignment-candidate-search::placeholder {
+          color: #6e7681;
+        }
+        .assignment-candidate-search:focus {
+          border-color: #58a6ff;
+          box-shadow: 0 0 0 2px rgba(56, 139, 253, 0.15);
+        }
+        .assignment-target-modes {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          margin-bottom: 4px;
+        }
+        .assignment-target-mode-row {
+          display: flex;
+          align-items: flex-start;
+          gap: 8px;
+          font-size: 0.8rem;
+          color: #e6edf3;
+          line-height: 1.35;
+          cursor: pointer;
+          user-select: none;
+        }
+        .assignment-target-mode-row input {
+          accent-color: #58a6ff;
+          width: 16px;
+          height: 16px;
+          margin-top: 2px;
+          flex-shrink: 0;
+        }
+        .assignment-candidate-search-wrap--dropdown {
+          margin-top: 4px;
+        }
+        .assignment-candidate-search-spinner {
+          position: absolute;
+          right: 10px;
+          color: #8b949e;
+          display: flex;
+          align-items: center;
+        }
+        .assignment-candidate-suggest {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          max-height: 200px;
+          overflow-y: auto;
+          border: 1px solid #30363d;
+          border-radius: 8px;
+          background: #0d1117;
+        }
+        .assignment-candidate-suggest-item {
+          width: 100%;
+          text-align: left;
+          padding: 8px 12px;
+          border: none;
+          border-bottom: 1px solid #21262d;
+          background: transparent;
+          color: #e6edf3;
+          cursor: pointer;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          font-size: 0.8rem;
+        }
+        .assignment-candidate-suggest-item:last-child {
+          border-bottom: none;
+        }
+        .assignment-candidate-suggest-item:hover {
+          background: #21262d;
+        }
+        .assignment-candidate-suggest-name { font-weight: 600; }
+        .assignment-candidate-suggest-email {
+          font-size: 0.72rem;
+          color: #8b949e;
+        }
+        .assignment-selected-label {
+          font-size: 0.7rem;
+          font-weight: 600;
+          color: #8b949e;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          margin-top: 8px;
+        }
+        .assignment-selected-chips {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          min-height: 28px;
+          align-items: center;
+        }
+        .assignment-candidate-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 4px 6px 4px 10px;
+          border-radius: 999px;
+          background: #21262d;
+          border: 1px solid #30363d;
+          font-size: 0.75rem;
+          color: #c9d1d9;
+          max-width: 100%;
+        }
+        .assignment-candidate-chip-text {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          max-width: 220px;
+        }
+        .assignment-candidate-chip-sub {
+          color: #8b949e;
+          font-weight: 400;
+        }
+        .assignment-candidate-chip-remove {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 22px;
+          height: 22px;
+          border: none;
+          border-radius: 50%;
+          background: transparent;
+          color: #8b949e;
+          cursor: pointer;
+        }
+        .assignment-candidate-chip-remove:hover {
+          color: #f85149;
+          background: rgba(248, 81, 73, 0.12);
+        }
+        .assignment-candidate-empty {
+          font-size: 0.74rem;
+          color: #7d8590;
+        }
+        .assignment-modal {
+          width: min(900px, 96vw);
+          max-height: 88vh;
+          overflow-y: auto;
+        }
+        .assignment-modal-subtitle {
+          font-size: 0.78rem;
+          font-weight: 600;
+          color: #8b949e;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+        .assignment-problem-input {
+          width: 100%;
+          min-height: 130px;
+          resize: vertical;
+          background: #0d1117;
+          border: 1px solid #30363d;
+          border-radius: 8px;
+          color: #e6edf3;
+          font-size: 0.84rem;
+          line-height: 1.45;
+          padding: 10px 12px;
+          outline: none;
+          font-family: inherit;
+        }
+        .assignment-problem-input:focus {
+          border-color: #58a6ff;
+        }
+        .assignment-testcases-hint {
+          margin: -8px 0 4px;
+          font-size: 0.72rem;
+          color: #7d8590;
+          line-height: 1.4;
+        }
+        .assignment-testcases-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          max-height: 300px;
+          overflow: auto;
+        }
+        .assignment-testcase-header {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr 1fr auto auto;
+          gap: 8px;
+          align-items: end;
+          padding: 0 2px 4px;
+          border-bottom: 1px solid #30363d;
+          margin-bottom: 2px;
+        }
+        .assignment-testcase-header-cell {
+          font-size: 0.72rem;
+          font-weight: 600;
+          color: #8b949e;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+        .assignment-testcase-header-cell--meta {
+          text-align: center;
+        }
+        .assignment-testcase-header-cell--action {
+          min-width: 52px;
+        }
+        .assignment-testcase-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr 1fr auto auto;
+          gap: 8px;
+          align-items: center;
+        }
+        .assignment-testcase-actual {
+          background: #0d1117;
+          border: 1px dashed #30363d;
+          border-radius: 8px;
+          color: #8b949e;
+          padding: 7px 9px;
+          font-size: 0.78rem;
+          font-family: 'JetBrains Mono', ui-monospace, monospace;
+          min-height: 34px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .assignment-testcase-input {
+          background: #0d1117;
+          border: 1px solid #30363d;
+          border-radius: 8px;
+          color: #e6edf3;
+          padding: 7px 9px;
+          font-size: 0.78rem;
+          outline: none;
+        }
+        .assignment-testcase-input:focus {
+          border-color: #58a6ff;
+        }
+        .assignment-testcase-lock {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 0.75rem;
+          color: #8b949e;
+          white-space: nowrap;
+        }
+        .sidebar-staff-pill {
+          font-size: 0.62rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          color: #58a6ff;
+          background: rgba(88, 166, 255, 0.12);
+          border: 1px solid rgba(88, 166, 255, 0.35);
+          border-radius: 999px;
+          padding: 2px 8px;
+        }
+        .btn-save-assignment {
+          margin-top: 8px;
+          width: 100%;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          padding: 8px 10px;
+          border-radius: 8px;
+          font-size: 0.78rem;
+          font-weight: 600;
+          cursor: pointer;
+          border: 1px solid #30363d;
+          background: #21262d;
+          color: #e6edf3;
+        }
+        .btn-save-assignment:hover:not(:disabled) { border-color: #58a6ff; color: #58a6ff; }
+        .btn-save-assignment:disabled { opacity: 0.5; cursor: not-allowed; }
         .explorer-top {
           padding: 12px 12px 10px;
           border-bottom: 1px solid #21262d;
@@ -1881,6 +2870,7 @@ export const CoderpadEditor: React.FC = () => {
           text-transform: uppercase;
           letter-spacing: 0.05em;
         }
+        .explorer-files-label { flex: 1; min-width: 0; }
         .explorer-files-icon { color: #d29922; flex-shrink: 0; }
         .explorer-files-actions {
           margin-left: auto;
@@ -1917,10 +2907,23 @@ export const CoderpadEditor: React.FC = () => {
         .sidebar-search::placeholder { color: #484f58; }
 
         .explorer-tree { padding-top: 4px; }
-        .snippet-list { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 2px; }
+        .coderpad-sidebar-col--files .snippet-list {
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          padding: 8px;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
         .snippet-empty {
           display: flex; flex-direction: column; align-items: center; gap: 8px;
           padding: 32px 16px; color: #484f58; text-align: center; font-size: 0.8rem;
+        }
+        .snippet-empty--session { padding: 20px 14px; gap: 10px; }
+        .snippet-session-title { color: #e6edf3; font-weight: 600; font-size: 0.82rem; margin: 0; }
+        .snippet-session-hint {
+          color: #7d8590; font-size: 0.72rem; line-height: 1.45; margin: 0; max-width: 220px;
         }
         .empty-icon { opacity: .4; }
 
@@ -1937,6 +2940,7 @@ export const CoderpadEditor: React.FC = () => {
         .snippet-file { flex-direction: row !important; align-items: center !important; justify-content: space-between !important; }
         .snippet-file-icon { flex-shrink: 0; opacity: 0.9; }
         .snippet-title { font-size: 0.8rem; font-weight: 500; color: #e6edf3; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 170px; text-align: left; }
+        .coderpad-sidebar-col--files .snippet-title { max-width: min(120px, 100%); }
         .snippet-ext { opacity: 0.45; font-weight: 400; font-size: 0.72rem; }
         .snippet-meta { display: flex; align-items: center; gap: 8px; padding-left: 0; margin-top: 0 !important; }
         .lang-badge { font-size: 0.68rem; color: #7d8590; }
@@ -1958,6 +2962,15 @@ export const CoderpadEditor: React.FC = () => {
           flex-shrink: 0;
         }
         .topbar-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+        .topbar-left-inner { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+        .topbar-title-row { display: flex; align-items: center; gap: 8px; }
+        .coderpad-login-line {
+          margin: 0;
+          font-size: 0.72rem;
+          color: #8b949e;
+          font-weight: 500;
+          letter-spacing: 0.01em;
+        }
         .topbar-center { display: flex; align-items: center; }
         .topbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
         .topbar-user-chip {
@@ -1976,7 +2989,19 @@ export const CoderpadEditor: React.FC = () => {
           font-size: 0.78rem;
           font-weight: 600;
         }
-
+        .topbar-split-chip {
+          display: inline-flex;
+          align-items: center;
+          height: 30px;
+          padding: 0 10px;
+          border: 1px solid rgba(210, 153, 34, 0.45);
+          border-radius: 999px;
+          background: rgba(210, 153, 34, 0.15);
+          color: #d29922;
+          font-size: 0.74rem;
+          font-weight: 700;
+          letter-spacing: 0.01em;
+        }
         .snippet-title-input {
           background: #0d1117; border: 1px solid #30363d; outline: none; border-radius: 8px;
           padding: 8px 12px; font-size: 0.88rem; font-weight: 600; color: #e6edf3;
@@ -2464,6 +3489,17 @@ export const CoderpadEditor: React.FC = () => {
           font-size: 0.78rem; font-weight: 500; flex: 1; min-width: 0;
           font-family: 'Inter', sans-serif;
         }
+        .test-lock-toggle {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 0.68rem;
+          color: #8b949e;
+          cursor: pointer;
+          user-select: none;
+          flex-shrink: 0;
+        }
+        .test-lock-toggle input { accent-color: #58a6ff; }
         .test-lock-icon { color: #d29922; flex-shrink: 0; }
         .btn-remove {
           background: transparent; border: none; color: #484f58; cursor: pointer;
