@@ -620,7 +620,6 @@ const excludedFields = [
   "instructor1_id",
   "instructor2_id",
   "instructor3_id",
-  "company",
   "contact",
   "batch",
   "lastSync",
@@ -1907,6 +1906,7 @@ export function EditModal({
       }
     }
     const reconstructedData = { ...data, ...formData };
+    reconstructedData.company = getValues().company; //
 
     // Explicitly preserve ID if it exists in the original data but not in form data
     if (data.id && !reconstructedData.id) {
