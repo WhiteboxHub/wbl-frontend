@@ -125,6 +125,8 @@ const Header = ({
                       {menuItem.path ? (
                         <Link
                           href={menuItem.path}
+                          target={menuItem.newTab ? "_blank" : undefined}
+                          rel={menuItem.newTab ? "noopener noreferrer" : undefined}
                           className="relative flex px-3 py-2 text-sm font-semibold text-dark duration-1000 before:absolute before:bottom-0 before:left-1/2 before:h-1 before:w-0 before:-translate-x-1/2 before:transform before:bg-primary before:transition-all before:duration-300 before:ease-out hover:before:w-full dark:text-white dark:hover:bg-black/70 sm:text-base sm:hover:bg-transparent sm:dark:hover:bg-transparent lg:mr-0 lg:inline-flex lg:px-0 lg:py-6"
                           onClick={closeNavbar}
                         >
@@ -153,6 +155,8 @@ const Header = ({
                             {menuItem.submenu.map((submenuItem) => (
                               <Link
                                 href={submenuItem.path}
+                                target={submenuItem.newTab ? "_blank" : undefined}
+                                rel={submenuItem.newTab ? "noopener noreferrer" : undefined}
                                 key={submenuItem.id}
                                 className={`block rounded py-2.5 text-center text-sm font-semibold text-dark duration-500 hover:bg-gray-200 hover:font-semibold dark:text-white dark:hover:bg-black/70 sm:text-base lg:px-5 ${submenuItem.title === "Resume"
                                   ? "hidden lg:block"
