@@ -1270,13 +1270,13 @@ export default function CandidateDashboard() {
                                             </div>
                                             <span className="text-sm font-bold text-gray-800 dark:text-white">AI Profile Setup</span>
                                         </div>
-                                        <a
+                                        <Link
                                             href="/setup"
                                             className="text-xs font-bold text-violet-500 hover:text-violet-700 transition-colors flex items-center gap-1"
                                         >
                                             {setupStatus?.setup_complete ? "Manage" : "Complete Setup"}
                                             <ChevronRight className="w-3.5 h-3.5" />
-                                        </a>
+                                        </Link>
                                     </div>
                                     <div className="flex items-center gap-3">
                                         {/* Resume Status */}
