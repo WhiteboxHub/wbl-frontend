@@ -1494,14 +1494,7 @@ export default function CandidateDashboard() {
                                             />
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center">
-                                            <Briefcase className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                                        </div>
-                                        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                                            Jobs <span className="text-gray-400 font-medium">({positions.length})</span>
-                                        </h2>
-                                    </div>
+                                    
                                 </div>
                                 <div className="flex-1 min-h-0 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
                                     <CandidateGrid
