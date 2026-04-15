@@ -11,11 +11,30 @@ import {
 import { toast } from "react-hot-toast";
 import Editor from "@monaco-editor/react";
 import { useTheme } from "next-themes";
+import { useAuth } from "@/utils/AuthContext";
+
+const MODELS_BY_PROVIDER: Record<string, string[]> = {
+  OpenAI: [
+    "GPT-5.3", "GPT-5.2", "GPT-5.1", "GPT-4.1", "GPT-4.0", 
+    "GPT-4 Turbo", "GPT-3.5 Turbo", "o1", "o1-mini", "o3", "o3-mini", 
+    "GPT-5.3 multimodal", "GPT-4o", "GPT-4o-mini", "DALL·E 3", "DALL·E 4", 
+    "Whisper v3", "TTS-1", "TTS-1 HD", "text-embedding-3-large", "text-embedding-3-small"
+  ],
+  Claude: [
+    "Claude 3 Opus", "Claude 3 Sonnet", "Claude 3 Haiku", 
+    "Claude 3.5 Sonnet", "Claude 3.5 Haiku"
+  ],
+  Gemini: [
+    "Gemini 1.0 Pro", "Gemini 1.0 Ultra", "Gemini 1.5 Pro", 
+    "Gemini 1.5 Flash", "Gemini 2.0 Pro", "Gemini 2.0 Flash"
+  ],
+};
 
 type Step = 1 | 2 | 3 | 4;
 
 export default function CandidateSetupWizard() {
   const router = useRouter();
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
 
@@ -41,9 +60,17 @@ export default function CandidateSetupWizard() {
   const [setupStatus, setSetupStatus] = useState<any>(null);
 
   useEffect(() => {
+    if (mounted && !authLoading && !isAuthenticated) {
+      router.push("/login");
+    }
+  }, [mounted, authLoading, isAuthenticated, router]);
+
+  useEffect(() => {
     setMounted(true);
-    initializeData();
-  }, []);
+    if (isAuthenticated) {
+      initializeData();
+    }
+  }, [isAuthenticated]);
 
   const initializeData = async () => {
     try {
@@ -169,7 +196,9 @@ export default function CandidateSetupWizard() {
     { num: 4, label: "Done", desc: "Ready for AI prep" },
   ];
 
-  if (!mounted) return null;
+  if (!mounted || authLoading) return null;
+
+  if (!isAuthenticated) return null;
 
   return (
     <section className="relative z-10 flex min-h-[calc(100vh-120px)] items-center justify-center pt-24 pb-8 overflow-hidden">
@@ -381,7 +410,14 @@ export default function CandidateSetupWizard() {
                         <select
                           className="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-black dark:text-white px-3 py-2 text-xs focus:outline-none focus:border-primary"
                           value={newKey.provider_name}
-                          onChange={(e) => setNewKey({ ...newKey, provider_name: e.target.value })}
+                          onChange={(e) => {
+                            const provider = e.target.value;
+                            setNewKey({ 
+                              ...newKey, 
+                              provider_name: provider,
+                              model_name: MODELS_BY_PROVIDER[provider][0]
+                            });
+                          }}
                         >
                           <option value="OpenAI">OpenAI</option>
                           <option value="Claude">Claude</option>
@@ -411,13 +447,15 @@ export default function CandidateSetupWizard() {
 
                       <div>
                         <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">Model</label>
-                        <input
-                          type="text"
-                          placeholder="gpt-4o"
+                        <select
                           className="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-black dark:text-white px-3 py-2 text-xs focus:outline-none focus:border-primary"
                           value={newKey.model_name}
                           onChange={(e) => setNewKey({ ...newKey, model_name: e.target.value })}
-                        />
+                        >
+                          {(MODELS_BY_PROVIDER[newKey.provider_name] || []).map(m => (
+                            <option key={m} value={m}>{m}</option>
+                          ))}
+                        </select>
                       </div>
 
                       <div className="flex items-center justify-between pt-1 pb-1">
