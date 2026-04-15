@@ -164,7 +164,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
-                <span className="font-semibold">Recent Interviews</span>
+                <span className="font-semibold text-lg">Recent Interviews</span>
               </button>
 
               {/* Recent Placements */}
@@ -175,7 +175,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
-                <span className="font-semibold">Recent Placements</span>
+                <span className="font-semibold text-lg">Recent Placements</span>
               </button>
             </div>
 
@@ -185,11 +185,11 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             <div className="mt-4">
               {activeSection === "announcements" && (
                 <div className="space-y-4 animate-[fadeIn_0.5s_ease-out]">
-                  <h3 className={`text-xl font-bold mb-4 ${isDark ? "text-gray-100" : "text-gray-800"}`}>Recent Interviews</h3>
+                  <h3 className={`text-2xl font-bold mb-4 ${isDark ? "text-gray-100" : "text-gray-800"}`}>Recent Interviews</h3>
                   <div className="relative">
                     <div className="absolute -left-4 top-0 bottom-0 w-1 bg-gradient-to-b from-indigo-400 via-purple-400 to-pink-300 rounded-full"></div>
                     {interviewsData.slice(0, 10).map((interview) => (
-                      <div key={interview.id} className={`${isDark ? "bg-gray-800/40" : "bg-white/20"} p-3 rounded-lg ${isDark ? "hover:bg-gray-700/40" : "hover:bg-white/30"} transition-all cursor-pointer backdrop-blur-sm mb-3`}>
+                      <div key={interview.id} className={`${isDark ? "bg-gray-800/40" : "bg-white/20"} p-3 rounded-lg ${isDark ? "hover:bg-gray-700/70" : "hover:bg-white/60"} transition-all cursor-pointer backdrop-blur-sm mb-3`}>
                         <div className="flex justify-between">
                           {/* <h4 className={`font-semibold ${isDark ? "text-gray-100" : "text-gray-800"}`}>
                             {getCandidateName(interview)}
@@ -216,11 +216,11 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
 
               {activeSection === "placements" && (
                 <div className="space-y-4 animate-[fadeIn_0.5s_ease-out]">
-                  <h3 className={`text-xl font-bold mb-4 ${isDark ? "text-gray-100" : "text-gray-800"}`}>Recent Placements</h3>
+                  <h3 className={`text-2xl font-bold mb-4 ${isDark ? "text-gray-100" : "text-gray-800"}`}>Recent Placements</h3>
                   <div className="relative">
                     <div className="absolute -left-4 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-400 via-pink-400 to-indigo-300 rounded-full"></div>
                     {placementsData.map((placement) => (
-                      <div key={placement.id} className={`${isDark ? "bg-gray-800/40" : "bg-white/20"} p-3 rounded-lg ${isDark ? "hover:bg-gray-700/40" : "hover:bg-white/30"} transition-all cursor-pointer backdrop-blur-sm mb-3`}>
+                      <div key={placement.id} className={`${isDark ? "bg-gray-800/40" : "bg-white/20"} p-3 rounded-lg ${isDark ? "hover:bg-gray-700/70" : "hover:bg-white/60"} transition-all cursor-pointer backdrop-blur-sm mb-3`}>
                         <div className="flex justify-between">
                           {/* <h4 className={`font-semibold ${isDark ? "text-gray-100" : "text-gray-800"}`}>{placement.candidate_name}</h4> */}
                           <h4 className={`font-semibold ${isDark ? "text-gray-100" : "text-gray-800"}`}>

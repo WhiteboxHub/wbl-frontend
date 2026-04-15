@@ -101,7 +101,7 @@ export const InfiniteMovingCards = ({
         {items.map((item, idx) => (
           <li
             className={cn(
-                "px-3 py-2 rounded-lg bg-gray-900 dark:bg-[#f8f7ff] shadow-xl border border-gray-800 dark:border-purple-100 flex-shrink-0",
+                "px-3 py-2 rounded-lg bg-gray-900 hover:bg-gray-800 dark:bg-[#f8f7ff] dark:hover:bg-purple-50/80 shadow-xl border border-gray-800 dark:border-purple-100 flex-shrink-0 transition-colors cursor-pointer",
                 orientation === "horizontal" ? "w-[240px] mx-3" : "w-full mb-3 last:mb-0"
             )}
             key={item.name + idx}

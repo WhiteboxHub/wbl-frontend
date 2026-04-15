@@ -104,7 +104,7 @@ export default function FloatingRecentActivity() {
           >
             <div className="bg-white/95 dark:bg-gray-950/95 backdrop-blur-xl rounded-2xl shadow-2xl p-4 border border-gray-200/50 dark:border-gray-800/50 overflow-hidden h-full flex flex-col">
               <div className="mb-4 px-4 flex justify-between items-center shrink-0">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-purple-600 dark:text-purple-400">
+                <span className="text-[12px] font-bold uppercase tracking-widest text-purple-600 dark:text-purple-400">
                   {active === "interviews" ? "Recent Interviews" : "Recent Placements"}
                 </span>
                 <span className="text-[10px] text-gray-400 font-medium">Live Feed</span>
@@ -128,9 +128,9 @@ export default function FloatingRecentActivity() {
         {/* Hover Hint Bubble */}
         {!active && (
           <div className="absolute bottom-full left-0 mb-4 animate-bounce">
-            <div className="bg-purple-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg whitespace-nowrap relative">
+            <div className="bg-purple-600 text-white text-[12px] font-bold px-4 py-2 rounded-full shadow-lg whitespace-nowrap relative">
               Hover to view live feed
-              <div className="absolute -bottom-1 left-4 w-2 h-2 bg-purple-600 rotate-45" />
+              <div className="absolute -bottom-1 left-4 w-2.5 h-2.5 bg-purple-600 rotate-45" />
             </div>
           </div>
         )}
