@@ -54,7 +54,7 @@ const menuData: Menu[] = [
     id: 7,
     title: "CoderPad",
     path: "/coderpad",
-    newTab: false,
+    newTab: true,
   },
 ];
 export default menuData;
