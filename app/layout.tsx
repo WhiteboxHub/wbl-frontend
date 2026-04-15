@@ -14,6 +14,7 @@ import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 import NewEvent from "@/components/NewEvent";
 import ReferralNotificationButton from "@/components/ReferralNotificationButton";
+import FloatingRecentActivity from "@/components/FloatingRecentActivity";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
 
 export default function RootLayout({
@@ -68,14 +69,11 @@ export default function RootLayout({
               ) : (
                 <>
                   <Header />
-                  <Sidebar
-                    isOpen={isOpen}
-                    toggleSidebar={() => setIsOpen(!isOpen)}
-                  />
                   <main className="w-full overflow-x-hidden">{children}</main>
                   <Footer />
                   <ScrollToTop />
                   <ReferralNotificationButton />
+                  <FloatingRecentActivity />
                 </>
               )}
             </Providers>

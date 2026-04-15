@@ -376,3 +376,39 @@ div.ag-theme-alpine .ag-center-cols-container .ag-row.ag-row-selected,
 .ag-grid-dark-mode.ag-theme-alpine .ag-center-cols-container .ag-row:last-child {
   border-bottom: 1px solid #374151 !important;
 }
+
+/* Infinite Moving Cards Animation */
+@keyframes scroll {
+  to {
+    transform: translate(calc(-50% - 0.5rem));
+  }
+}
+
+.animate-scroll {
+  animation: scroll var(--animation-duration, 40s) var(--animation-direction, forwards) linear infinite;
+}
+
+@keyframes scroll-vertical {
+  to {
+    transform: translateY(calc(-50% - 0.5rem));
+  }
+}
+
+.animate-scroll-vertical {
+  animation: scroll-vertical var(--animation-duration, 40s) var(--animation-direction, forwards) linear infinite;
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
