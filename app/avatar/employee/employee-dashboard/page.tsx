@@ -64,6 +64,7 @@ interface Candidate {
     id: number;
     candidate_id: number;
     full_name: string;
+    batch_name: string;
     status: string;
     other_instructors: string;
 }
@@ -390,6 +391,7 @@ function EmployeeDashboardContent() {
                                     <thead className="sticky top-0 bg-gray-50 border-b text-[11px] font-bold uppercase text-gray-500 tracking-wider">
                                         <tr>
                                             <th className="text-left px-8 py-5">Candidate</th>
+                                            <th className="text-left px-8 py-5">Batch</th>
                                             <th className="text-left px-8 py-5">Status</th>
                                             <th className="text-left px-8 py-5">Other Instructors</th>
                                         </tr>
@@ -401,6 +403,9 @@ function EmployeeDashboardContent() {
                                             {candidates.map(c => (
                                                 <tr key={c.id} className="hover:bg-gray-50/50 transition-colors text-sm">
                                                     <td className="px-8 py-4 font-bold text-black">{c.full_name}</td>
+                                                    <td className="px-8 py-4 font-bold text-gray-600">
+                                                        {c.batch_name}
+                                                    </td>
                                                     <td className="px-8 py-4">
                                                         <span className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${c.status === "In Marketing"
                                                             ? 'bg-purple-600 text-white'
