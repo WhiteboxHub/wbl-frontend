@@ -5,7 +5,9 @@ import React from "react";
 import { useAuth } from "@/utils/AuthContext";
 import { useRouter } from "next/navigation";
 import CandidateDashboard from "@/components/CandidateDashboard";
-import { User, Phone, Mail, Activity, Clock } from "lucide-react";
+import Link from "next/link";
+import { User, Phone, Mail, Activity, Sparkles, AlertTriangle } from "lucide-react";
+import { setupApi } from "@/lib/api";
 
 interface UserProfile {
   uname: string;
@@ -14,6 +16,25 @@ interface UserProfile {
   login_count: number;
 }
 
+// ── Candidate sub-component with setup-status banner ─────────────────────────
+function CandidateDashboardWithSetupCheck() {
+  const [setupStatus, setSetupStatus] = React.useState<any>(null);
+
+  React.useEffect(() => {
+    setupApi
+      .getStatus()
+      .then((data: any) => setSetupStatus(data))
+      .catch(() => setSetupStatus(null));
+  }, []);
+
+  return (
+    <div className="pt-24 pb-12 bg-gray-50 dark:bg-gray-900 min-h-screen">
+      <CandidateDashboard />
+    </div>
+  );
+}
+
+// ── Main page component ───────────────────────────────────────────────────────
 export default function UserDashboardPage() {
   const { userRole, isAuthenticated } = useAuth();
   const router = useRouter();
@@ -58,11 +79,7 @@ export default function UserDashboardPage() {
   }
 
   if (userRole === "candidate") {
-    return (
-      <div className="pt-24 pb-12 bg-gray-50 dark:bg-gray-900 min-h-screen">
-        <CandidateDashboard />
-      </div>
-    );
+    return <CandidateDashboardWithSetupCheck />;
   }
 
   // Fallback: Default User Dashboard (Profile View)

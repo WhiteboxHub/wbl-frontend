@@ -52,9 +52,9 @@ export const CandidateGrid: React.FC<CandidateGridProps> = ({
     }, []);
 
     return (
-        <div className="w-full h-full">
+        <div className="w-full h-full flex flex-col min-h-0">
             <div
-                className={`ag-theme-alpine ${isDarkMode ? "ag-grid-dark-mode" : ""} w-full h-full rounded-lg border border-gray-200 shadow-sm dark:border-gray-700 overflow-hidden`}
+                className={`ag-theme-alpine ${isDarkMode ? "ag-grid-dark-mode" : ""} w-full h-full flex-1 rounded-lg border border-gray-200 shadow-sm dark:border-gray-700 overflow-hidden`}
             >
                 <AgGridReact
                     ref={gridRef}

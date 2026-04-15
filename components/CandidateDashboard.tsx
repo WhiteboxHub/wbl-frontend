@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
+import Link from "next/link";
 import {
     Mail,
     Phone,
@@ -33,10 +34,11 @@ import {
     Download,
     ChevronDown,
     Puzzle,
+    Sparkles,
 } from "lucide-react";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { apiFetch, API_BASE_URL } from "@/lib/api";
+import { apiFetch, API_BASE_URL, setupApi } from "@/lib/api";
 import { useAuth } from "@/utils/AuthContext";
 import CandidateGrid from "./CandidateGrid";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
@@ -482,6 +484,13 @@ export default function CandidateDashboard() {
     const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
     const [jobSearchTerm, setJobSearchTerm] = useState("");
     const [swStatus, setSwStatus] = useState<string>("initializing");
+    const [setupStatus, setSetupStatus] = useState<{ resume_uploaded: boolean; api_keys_configured: boolean; setup_complete: boolean } | null>(null);
+
+    useEffect(() => {
+        setupApi.getStatus()
+            .then((d: any) => setSetupStatus(d))
+            .catch(() => setSetupStatus(null));
+    }, []);
 
     const statusOptions = ['open', 'closed', 'on_hold', 'duplicate', 'invalid'];
     const typeOptions = ['full_time', 'contract', 'contract_to_hire', 'internship'];
@@ -1195,6 +1204,53 @@ export default function CandidateDashboard() {
                 {/* Scrollable Content */}
                 <main className="flex-1 overflow-hidden flex flex-col">
 
+                    {/* Setup Status Banner */}
+                    {setupStatus && !setupStatus.setup_complete && (
+                        <div className="px-4 lg:px-6 pt-4 flex-shrink-0 animate-in fade-in slide-in-from-top-2">
+                            <div className="relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4 px-6 py-3 border border-indigo-200 dark:border-indigo-800 rounded-xl shadow-sm bg-white dark:bg-gray-900 group">
+                                {/* Radiant Background Effect (matches the glowing corner effect from the reference) */}
+                                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_left,_var(--tw-gradient-stops))] from-indigo-100/50 via-white to-white dark:from-indigo-900/20 dark:via-gray-900 dark:to-gray-900 opacity-100"></div>
+
+                                {/* Left Section: Branding + Divider + Message */}
+                                <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-4 md:gap-6 flex-1">
+                                    {/* Brand Label */}
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                        <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                                        <span className="text-xl font-extrabold text-indigo-950 dark:text-indigo-100 tracking-tight">AI<span className="text-indigo-600 dark:text-indigo-400 font-black">Profile</span></span>
+                                    </div>
+                                    
+                                    {/* Vertical Divider (Hidden on small screens) */}
+                                    <div className="hidden md:block w-px h-8 bg-indigo-200 dark:bg-indigo-800"></div>
+
+                                    {/* Messaging */}
+                                    <div className="flex-1">
+                                        <div className="flex flex-wrap items-center gap-x-1.5 leading-tight">
+                                            <p className="text-gray-900 dark:text-gray-100 font-bold text-sm lg:text-[15px]">
+                                                Prepare smarter, apply faster
+                                            </p>
+                                        </div>
+                                        <p className="text-gray-500 dark:text-gray-400 text-xs font-medium mt-0.5">
+                                            Missing: {!setupStatus.resume_uploaded ? "Resume" : ""}
+                                            {!setupStatus.resume_uploaded && !setupStatus.api_keys_configured ? " & " : ""}
+                                            {!setupStatus.api_keys_configured ? "API Keys" : ""}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Right Section: Action Button */}
+                                <div className="relative z-10 shrink-0">
+                                    <Link
+                                        href="/setup"
+                                        className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-indigo-900 to-purple-600 hover:from-indigo-800 hover:to-purple-500 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
+                                    >
+                                        <Sparkles className="w-3.5 h-3.5" />
+                                        Complete Setup
+                                    </Link>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Alerts Banner */}
                     {data.alerts && data.alerts.length > 0 && (
                         <div className="flex flex-wrap gap-2 px-4 lg:px-6 pt-4">
@@ -1255,7 +1311,94 @@ export default function CandidateDashboard() {
                                     />
                                 </div>
 
-                                {/* Journey + Team Two-Column */}
+                                {/* AI Setup Status Card */}
+                                <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 px-5 py-4">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-7 h-7 rounded-lg bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center">
+                                                <Settings className="w-4 h-4 text-violet-500" />
+                                            </div>
+                                            <span className="text-sm font-bold text-gray-800 dark:text-white">AI Profile Setup</span>
+                                        </div>
+                                        <a
+                                            href="/setup"
+                                            className="text-xs font-bold text-violet-500 hover:text-violet-700 transition-colors flex items-center gap-1"
+                                        >
+                                            {setupStatus?.setup_complete ? "Manage" : "Complete Setup"}
+                                            <ChevronRight className="w-3.5 h-3.5" />
+                                        </a>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        {/* Resume Status */}
+                                        <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${
+                                            setupStatus === null
+                                                ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
+                                                : setupStatus.resume_uploaded
+                                                    ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"
+                                                    : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
+                                        }`}>
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                                setupStatus === null
+                                                    ? "bg-gray-100 dark:bg-gray-700"
+                                                    : setupStatus.resume_uploaded
+                                                        ? "bg-emerald-100 dark:bg-emerald-900/40"
+                                                        : "bg-amber-100 dark:bg-amber-900/40"
+                                            }`}>
+                                                {setupStatus === null ? (
+                                                    <div className="w-3 h-3 rounded-full bg-gray-300 animate-pulse" />
+                                                ) : setupStatus.resume_uploaded ? (
+                                                    <CheckCircle className="w-4 h-4 text-emerald-500" />
+                                                ) : (
+                                                    <AlertTriangle className="w-4 h-4 text-amber-500" />
+                                                )}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Resume</p>
+                                                <p className={`text-xs font-bold mt-0.5 ${
+                                                    setupStatus === null ? "text-gray-400" :
+                                                    setupStatus.resume_uploaded ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
+                                                }`}>
+                                                    {setupStatus === null ? "Loading..." : setupStatus.resume_uploaded ? "Uploaded ✓" : "Not added"}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* API Keys Status */}
+                                        <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${
+                                            setupStatus === null
+                                                ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
+                                                : setupStatus.api_keys_configured
+                                                    ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"
+                                                    : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
+                                        }`}>
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                                setupStatus === null
+                                                    ? "bg-gray-100 dark:bg-gray-700"
+                                                    : setupStatus.api_keys_configured
+                                                        ? "bg-emerald-100 dark:bg-emerald-900/40"
+                                                        : "bg-amber-100 dark:bg-amber-900/40"
+                                            }`}>
+                                                {setupStatus === null ? (
+                                                    <div className="w-3 h-3 rounded-full bg-gray-300 animate-pulse" />
+                                                ) : setupStatus.api_keys_configured ? (
+                                                    <CheckCircle className="w-4 h-4 text-emerald-500" />
+                                                ) : (
+                                                    <AlertTriangle className="w-4 h-4 text-amber-500" />
+                                                )}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">API Keys</p>
+                                                <p className={`text-xs font-bold mt-0.5 ${
+                                                    setupStatus === null ? "text-gray-400" :
+                                                    setupStatus.api_keys_configured ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
+                                                }`}>
+                                                    {setupStatus === null ? "Loading..." : setupStatus.api_keys_configured ? "Configured ✓" : "Not added"}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                                     {/* JOURNEY SECTION */}
                                     <div className="lg:col-span-8 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
@@ -1525,8 +1668,8 @@ export default function CandidateDashboard() {
                         )}
 
                         {activeTab === 'jobs' && (
-                            <div className="flex-1 flex flex-col overflow-hidden px-4 lg:px-6 mt-4 sm:mt-8 pb-10 sm:pb-32">
-                                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6 pt-4">
+                            <div className="flex-1 flex flex-col px-4 lg:px-6 mt-4 sm:mt-8 pb-8 w-full min-h-0">
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between mb-6 pt-4 w-full">
                                     <div className="flex items-center gap-3">
                                         <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center">
                                             <Briefcase className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -1535,7 +1678,7 @@ export default function CandidateDashboard() {
                                             Jobs <span className="text-gray-400 font-medium">({positions.length})</span>
                                         </h2>
                                     </div>
-                                    <div className="w-full sm:max-w-md">
+                                    <div className="w-full sm:w-[400px]">
                                         <div className="relative">
                                             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                                             <Input
@@ -1544,25 +1687,16 @@ export default function CandidateDashboard() {
                                                 value={jobSearchTerm}
                                                 placeholder="Search by title, company, location..."
                                                 onChange={(e) => setJobSearchTerm(e.target.value)}
-                                                className="pl-10 h-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                                                className="pl-10 h-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500/20 transition-all rounded-xl"
                                             />
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center">
-                                            <Briefcase className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                                        </div>
-                                        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                                            Jobs <span className="text-gray-400 font-medium">({positions.length})</span>
-                                        </h2>
-                                    </div>
                                 </div>
-                                <div className="flex-1 min-h-0 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
+                                <div className="flex-1 w-full bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 min-h-0 flex flex-col">
                                     <CandidateGrid
                                         rowData={filteredPositions}
                                         columnDefs={jobColumnDefs}
                                         loading={positionsLoading}
-                                        height="450px"
                                     />
                                 </div>
                             </div>
