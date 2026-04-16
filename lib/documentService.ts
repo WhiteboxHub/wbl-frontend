@@ -5,7 +5,7 @@ const API = "http://127.0.0.1:8000/api/approval";
 export const getDocuments = async (email: string) => {
   try {
     const res = await fetch(
-      `http://127.0.0.1:8000/api/approval/documents/status?email=${email}`
+      `http://127.0.0.1:8000/api/approval/documents?email=${email}&_t=${Date.now()}`
     );
 
     // ✅ check if response is OK
@@ -31,10 +31,17 @@ export const getDocuments = async (email: string) => {
 };
 
 export const uploadDocument = async (formData: FormData) => {
-  const res = await axios.post("http://127.0.0.1:8000/api/approval/upload", formData)
+  const res = await axios.post(
+    "http://127.0.0.1:8000/api/approval/upload",
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    }
+  );
   return res.data;
 };
-
 export const deleteDocument = async (uid: string) => {
   const res = await axios.delete(`${API}/documents/${uid}`);
   return res.data;
