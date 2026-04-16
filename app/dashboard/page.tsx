@@ -27,9 +27,7 @@ export default function DocumentsPage() {
         <div className="bg-white rounded-2xl shadow p-6">
           <div className="flex justify-between items-center">
             <h2 className="font-semibold text-lg">ID and Address Proof</h2>
-            <span className="text-xs bg-red-100 text-red-500 px-3 py-1 rounded-full">
-              NOT UPLOADED
-            </span>
+
           </div>
 
           <p className="text-gray-500 mt-2 text-sm">
@@ -58,62 +56,17 @@ export default function DocumentsPage() {
         <div className="bg-white rounded-2xl shadow p-6">
           <div className="flex justify-between">
             <h2 className="font-semibold text-lg">Work Authorization Proof</h2>
-            <span className="text-xs bg-purple-100 text-purple-600 px-3 py-1 rounded-full">
-              PENDING REVIEW
-            </span>
+
           </div>
 
           <p className="text-gray-500 mt-2 text-sm">
             Upload visa/work permit documents.
           </p>
 
-          {/* Uploaded File */}
-          <div className="flex items-center justify-between mt-4 bg-gray-100 p-4 rounded-xl">
-            <div className="flex items-center gap-3">
-              <FileText />
-              <div>
-                <p className="text-sm font-medium">
-                  Visa_Endorsement_2024.pdf
-                </p>
-                <p className="text-xs text-gray-400">
-                  Uploaded • 2.4 MB
-                </p>
-              </div>
-            </div>
 
-            <div className="flex gap-4">
-              <Eye className="cursor-pointer" />
-              <Trash2 className="cursor-pointer text-red-500" />
-            </div>
-          </div>
         </div>
 
-        {/* RECENT ACTIVITY */}
-        <div>
-          <h2 className="font-semibold text-lg mb-4">Recent Activity</h2>
 
-          <div className="bg-white rounded-xl p-4 flex justify-between">
-            <div>
-              <p className="text-sm font-medium">Identity_Card_Front.jpg</p>
-              <p className="text-xs text-gray-400">Oct 10, 2023</p>
-            </div>
-            <span className="text-red-500 text-xs font-semibold">
-              DELETED
-            </span>
-          </div>
-
-          <div className="bg-white rounded-xl p-4 flex justify-between mt-2">
-            <div>
-              <p className="text-sm font-medium">
-                Background_Consent_Form.pdf
-              </p>
-              <p className="text-xs text-gray-400">Oct 09, 2023</p>
-            </div>
-            <span className="text-blue-500 text-xs font-semibold">
-              RECEIVED
-            </span>
-          </div>
-        </div>
 
       </div>
 
@@ -129,9 +82,7 @@ export default function DocumentsPage() {
             <p>⏳ Documents Pending</p>
           </div>
 
-          <button className="mt-6 w-full bg-white text-purple-600 py-2 rounded-lg font-medium">
-            Contact Support
-          </button>
+
         </div>
 
         {/* GUIDELINES */}
