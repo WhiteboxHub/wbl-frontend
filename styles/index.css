@@ -412,3 +412,32 @@ div.ag-theme-alpine .ag-center-cols-container .ag-row.ag-row-selected,
     transform: translateY(0);
   }
 }
+
+/* Floating Activity Heartbeat Glow */
+@keyframes heartbeat-glow {
+  0% {
+    box-shadow:
+      0 0 0 0 rgba(139, 92, 246, 0.6),
+      0 0 0 0 rgba(139, 92, 246, 0.3);
+  }
+  30% {
+    box-shadow:
+      0 0 0 8px rgba(139, 92, 246, 0.25),
+      0 0 0 16px rgba(139, 92, 246, 0.1);
+  }
+  60% {
+    box-shadow:
+      0 0 0 14px rgba(139, 92, 246, 0.1),
+      0 0 0 28px rgba(139, 92, 246, 0);
+  }
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(139, 92, 246, 0),
+      0 0 0 0 rgba(139, 92, 246, 0);
+  }
+}
+
+.floating-activity-glow {
+  border-radius: 1rem;
+  animation: heartbeat-glow 2.2s ease-out infinite;
+}

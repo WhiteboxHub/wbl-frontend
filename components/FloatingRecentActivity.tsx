@@ -125,21 +125,15 @@ export default function FloatingRecentActivity() {
           </div>
         )}
 
-        {/* Hover Hint Bubble */}
-        {!active && (
-          <div className="absolute bottom-full left-0 mb-4 animate-bounce">
-            <div className="bg-purple-600 text-white text-[12px] font-bold px-4 py-2 rounded-full shadow-lg whitespace-nowrap relative">
-              Hover to view live feed
-              <div className="absolute -bottom-1 left-4 w-2.5 h-2.5 bg-purple-600 rotate-45" />
-            </div>
-          </div>
-        )}
+
 
         {/* Floating Trigger Buttons */}
-        <HoverEffect
-          items={triggerItems}
-          onHoverChange={handleHoverChange}
-        />
+        <div className="floating-activity-glow">
+          <HoverEffect
+            items={triggerItems}
+            onHoverChange={handleHoverChange}
+          />
+        </div>
       </div>
     </div>
   );
