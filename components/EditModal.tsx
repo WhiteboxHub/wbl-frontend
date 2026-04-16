@@ -517,10 +517,15 @@ const requiredFieldsConfig: Record<string, string[]> = {
   authuser: ["Phone", "Email", "Full Name", "Registered Date", "Passwd"],
   employee: ["Full Name", "Email", "Phone", "Date of Birth", "Aadhaar"],
   placement: ["Placement ID", 'Deposit Date'],
+  placements: ["Candidate Name", "Company", "Placement Date", "Status"],
   project: ["Project Name", "Owner", "Start Date"],
   positions: ["Title", "Company"],
   "job listings": ["Title", "Company"],
   vendor_contact: ["Phone", "Email", "Full Name", "Linkedin ID"],
+  vendors: ["Full Name", "Email", "Linkedin ID"],
+  "daily contacts": ["Full Name", "Email", "Linkedin ID"],
+  batches: ["Batchname", "Orientation Date", "Subject", "Start Date", "End Date", "Course ID"],
+  companies: ["Phone", "Name", "City"],
   workflows: ["Workflow Key", "Name", "Workflow Type"],
   "workflows scheduler": ["Workflow ID", "Frequency"],
   "workflow logs": ["Workflow ID", "Run ID", "Status"],
@@ -536,7 +541,9 @@ const requiredFieldsConfig: Record<string, string[]> = {
 
 const isFieldRequired = (fieldName: string, modalType: string, isAddMode: boolean): boolean => {
   const modalKey = modalType.toLowerCase();
-  if (!isAddMode && !modalKey.includes("position") && !modalKey.includes("job listing")) return false;
+
+  // Removed condition that previously disabled required fields in Edit Mode globally
+  // if (!isAddMode && !modalKey.includes("position") && !modalKey.includes("job listing")) return false;
 
   const fieldConfigMap: Record<string, string[]> = {};
 
