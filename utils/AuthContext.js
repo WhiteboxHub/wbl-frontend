@@ -12,6 +12,12 @@ import { isTokenExpired, fetchUserRole, getUserTeamRole } from "./auth";
 
 const AuthContext = createContext();
 
+const getSessionSidebarState = () => {
+  if (typeof window === "undefined") return false;
+
+  return sessionStorage.getItem("sidebarOpen") === "true";
+};
+
 export const AuthProvider = ({ children }) => {
   const [authToken, setAuthToken] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -98,8 +104,7 @@ export const AuthProvider = ({ children }) => {
     setAuthToken(token);
     setIsAuthenticated(true);
     setUserRole(teamRole || role || "candidate");
-    // optionally open sidebar if logged in
-    setSidebarOpen(true);
+    setSidebarOpen(getSessionSidebarState());
   };
 
   const handleTokenExpiration = () => {
@@ -130,6 +135,7 @@ export const AuthProvider = ({ children }) => {
 
       // Store token and update auth state
       localStorage.setItem("access_token", token);
+      sessionStorage.setItem("sidebarOpen", "true");
       setAuthToken(token);
       setIsAuthenticated(true);
       setUserRole(teamRole || role || "candidate");
