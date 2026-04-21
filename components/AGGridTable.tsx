@@ -128,6 +128,11 @@ export function AGGridTable({
   showTotalCount = false,
   extraToolbarContent,
 }: AGGridTableProps) {
+  const stripHtmlTags = useCallback((value: unknown): unknown => {
+    if (typeof value !== "string") return value;
+    return value.replace(/<\/?[^>]+(>|$)/g, "").trim();
+  }, []);
+
   // Refs and State
   const gridRef = useRef<AgGridReact>(null);
   const gridApiRef = useRef<GridApi | null>(null);
@@ -207,11 +212,23 @@ export function AGGridTable({
 
         return !hiddenColumns.includes(col.field);
       })
-      .map((col) => ({
-        ...col,
-        hide: false, // Ensure grid shows columns that are not in hiddenColumns
-      }));
-  }, [initialColumnDefs, hiddenColumns, isInitialized]);
+      .map((col) => {
+        const baseCol = {
+          ...col,
+          hide: false, // Ensure grid shows columns that are not in hiddenColumns
+        };
+
+        const key = `${col.field || ""} ${col.headerName || ""}`.toLowerCase();
+        if (key.includes("description")) {
+          return {
+            ...baseCol,
+            valueFormatter: (params: any) => stripHtmlTags(params.value),
+          };
+        }
+
+        return baseCol;
+      });
+  }, [initialColumnDefs, hiddenColumns, isInitialized, stripHtmlTags]);
 
   const onGridReady = useCallback((params: GridReadyEvent) => {
     gridApiRef.current = params.api;
