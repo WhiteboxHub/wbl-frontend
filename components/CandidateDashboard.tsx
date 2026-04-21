@@ -3,7 +3,7 @@
 import DocumentsTab from "@/components/DocumentsTab";
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import {
     Mail,
@@ -40,6 +40,7 @@ import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { apiFetch, API_BASE_URL } from "@/lib/api";
 import { useAuth } from "@/utils/AuthContext";
+import { getOnboardingStatus, persistOnboardingState } from "@/lib/onboarding";
 import CandidateGrid from "./CandidateGrid";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
 
@@ -368,6 +369,7 @@ const interviewColumnDefs: ColDef[] = [
 
 export default function CandidateDashboard() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { userRole } = useAuth() as { userRole: string };
 
     // --- CLICK TRACKING LOGIC (SW EDITION) ---
@@ -487,6 +489,8 @@ export default function CandidateDashboard() {
     const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
     const [jobSearchTerm, setJobSearchTerm] = useState("");
     const [swStatus, setSwStatus] = useState<string>("initializing");
+    const [isOnboardingRestricted, setIsOnboardingRestricted] = useState(false);
+    const [onboardingResolved, setOnboardingResolved] = useState(false);
     const firstName = useMemo(() => {
         const fullName = data?.basic_info?.full_name?.trim();
         return fullName ? fullName.split(/\s+/)[0] : "";
@@ -495,6 +499,27 @@ export default function CandidateDashboard() {
     const statusOptions = ['open', 'closed', 'on_hold', 'duplicate', 'invalid'];
     const typeOptions = ['full_time', 'contract', 'contract_to_hire', 'internship'];
     const modeOptions = ['All', 'Onsite', 'Hybrid', 'Remote'];
+
+    const readCachedOnboardingRestriction = () => {
+        try {
+            const raw = localStorage.getItem("onboarding_status");
+            if (!raw) return false;
+            const parsed = JSON.parse(raw);
+            return Boolean(parsed?.access_restricted);
+        } catch {
+            return false;
+        }
+    };
+
+    useEffect(() => {
+        const requestedTab = searchParams.get("tab");
+        const onboardingFlag = searchParams.get("onboarding");
+        const isRestricted = readCachedOnboardingRestriction();
+        setIsOnboardingRestricted(isRestricted);
+        if (requestedTab === "documents" || onboardingFlag === "1" || isRestricted) {
+            setActiveTab("documents");
+        }
+    }, [searchParams]);
 
     const jobColumnDefs: ColDef[] = useMemo(() => [
         { field: "id", headerName: "ID", width: 80, sortable: true, filter: "agNumberColumnFilter" },
@@ -875,6 +900,7 @@ export default function CandidateDashboard() {
     };
 
     const loadPositions = async () => {
+        if (isOnboardingRestricted) return;
         try {
             setPositionsLoading(true);
             const token = localStorage.getItem("access_token") || localStorage.getItem("token");
@@ -914,6 +940,11 @@ export default function CandidateDashboard() {
 
 
     const loadDashboard = async (retryCount = 0) => {
+        if (isOnboardingRestricted) {
+            setLoading(false);
+            setError(null);
+            return;
+        }
         try {
             setLoading(true);
             setError(null);
@@ -946,6 +977,22 @@ export default function CandidateDashboard() {
         } catch (err: any) {
             console.error("Dashboard loading error:", err);
 
+            const onboardingDetail = err?.body?.detail;
+            if (
+                err?.status === 403 &&
+                onboardingDetail &&
+                typeof onboardingDetail === "object" &&
+                onboardingDetail.onboarding
+            ) {
+                try {
+                    localStorage.setItem("onboarding_status", JSON.stringify(onboardingDetail.onboarding));
+                } catch { }
+                setIsOnboardingRestricted(Boolean(onboardingDetail.onboarding?.access_restricted));
+                setActiveTab("documents");
+                setError(null);
+                return;
+            }
+
             const errorMessage = extractErrorMessage(err, "Failed to load dashboard");
             setError(errorMessage);
 
@@ -974,10 +1021,10 @@ export default function CandidateDashboard() {
     }, [data]);
 
     useEffect(() => {
-        if (activeTab === 'jobs' && positions.length === 0) {
+        if (onboardingResolved && !isOnboardingRestricted && activeTab === 'jobs' && positions.length === 0) {
             loadPositions();
         }
-    }, [activeTab]);
+    }, [activeTab, isOnboardingRestricted, onboardingResolved]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -994,8 +1041,48 @@ export default function CandidateDashboard() {
     }, [isProfileOpen]);
 
     useEffect(() => {
-        loadDashboard();
+        const bootstrapOnboardingAndDashboard = async () => {
+            const cachedRestricted = readCachedOnboardingRestriction();
+            if (cachedRestricted) {
+                setIsOnboardingRestricted(true);
+                setOnboardingResolved(true);
+                return;
+            }
+
+            const email = localStorage.getItem("userEmail");
+            if (!email) {
+                loadDashboard();
+                setOnboardingResolved(true);
+                return;
+            }
+
+            try {
+                const onboarding = await getOnboardingStatus(email);
+                persistOnboardingState(onboarding);
+                const restricted = Boolean(onboarding?.access_restricted);
+                setIsOnboardingRestricted(restricted);
+                if (!restricted) {
+                    loadDashboard();
+                } else {
+                    setActiveTab("documents");
+                }
+            } catch {
+                loadDashboard();
+            } finally {
+                setOnboardingResolved(true);
+            }
+        };
+
+        bootstrapOnboardingAndDashboard();
     }, []);
+
+    if (isOnboardingRestricted) {
+        return (
+            <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+                <DocumentsTab />
+            </div>
+        );
+    }
 
     if (loading) {
         return (

@@ -105,28 +105,45 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           return;
         }
 
-        const placementsRes = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/candidate/placements`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+        let restricted = false;
+        try {
+          const rawOnboarding = localStorage.getItem("onboarding_status");
+          if (rawOnboarding) {
+            const parsed = JSON.parse(rawOnboarding);
+            restricted = Boolean(parsed?.access_restricted);
           }
-        );
-        const sortedData = (placementsRes.data.data || placementsRes.data).sort(
-          (a, b) => b.id - a.id
-        );
-        setPlacementsData(placementsRes.data.data || placementsRes.data);
+        } catch {}
 
-        const interviewsRes = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/interviews`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-        setInterviewsData(interviewsRes.data || []);
+        if (!restricted) {
+          const placementsRes = await axios.get(
+            `${process.env.NEXT_PUBLIC_API_URL}/candidate/placements`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+          const sortedData = (placementsRes.data.data || placementsRes.data).sort(
+            (a, b) => b.id - a.id
+          );
+          setPlacementsData(sortedData);
+        } else {
+          setPlacementsData([]);
+        }
+
+        if (!restricted) {
+          const interviewsRes = await axios.get(
+            `${process.env.NEXT_PUBLIC_API_URL}/interviews`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+          setInterviewsData(interviewsRes.data || []);
+        } else {
+          setInterviewsData([]);
+        }
       } catch (err) {
         console.error("Error fetching data:", err);
       }

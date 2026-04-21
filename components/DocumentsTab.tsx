@@ -6,6 +6,15 @@ import { DollarSign, Eye, FileText, Trash2, UploadCloud, CheckCircle, Camera } f
 import SignatureCanvas from "react-signature-canvas";
 import { getDocuments, uploadDocument } from "@/lib/documentService";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  OnboardingStatus,
+  getOnboardingStatus,
+  markIdUploaded,
+  persistOnboardingState,
+} from "@/lib/onboarding";
+import OnboardingBasicInfoModal from "@/components/OnboardingBasicInfoModal";
+import PlacementAgreementFlowModal from "@/components/PlacementAgreementFlowModal";
+import EnrollmentAgreementFlowModal from "@/components/EnrollmentAgreementFlowModal";
 
 type DocumentItem = {
   uid: string;
@@ -45,32 +54,36 @@ export default function DocumentsTab() {
   const [signature, setSignature] = useState("");
 
   const [documents, setDocuments] = useState<DocumentsResponse>(emptyDocuments);
+  const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   const [showTerms, setShowTerms] = useState(false);
   const [showEnrollmentModal, setShowEnrollmentModal] = useState(false);
-  const [showPlacementSignatureModal, setShowPlacementSignatureModal] = useState(false);
-  const [showEnrollmentSignatureModal, setShowEnrollmentSignatureModal] = useState(false);
-  const [accepted, setAccepted] = useState(false);
+  const [showBasicInfoModal, setShowBasicInfoModal] = useState(false);
+
+  // Helper function to extract email from JWT token
+  const getEmailFromToken = () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) return null;
+      const decoded = JSON.parse(atob(token.split(".")[1]));
+      return decoded.sub; // sub contains the username/email
+    } catch (e) {
+      return null;
+    }
+  };
   const [signatureData, setSignatureData] = useState<string | null>(null);
-  const [enrollmentSignatureFile, setEnrollmentSignatureFile] = useState<File | null>(null);
-  const [placementSignatureFile, setPlacementSignatureFile] = useState<File | null>(null);
   const [submissionUid, setSubmissionUid] = useState(() => `UID_${Date.now()}`);
   // const uid = submissionUid;
 const generateUID = () => {
   return "UID_" + Date.now();
 };
-  const [checks, setChecks] = useState({
-    id: false,
-    address: false,
-    work: false,
-    agree: false,
-  });
 
   const sigRef = useRef<any>(null);
 
   const fetchDocuments = async () => {
     try {
-      const currentEmail = email || localStorage.getItem("userEmail");
+      const tokenEmail = getEmailFromToken();
+      const currentEmail = tokenEmail || email || localStorage.getItem("userEmail");
       if (!currentEmail) {
         console.warn("No user email found for fetching documents");
         return;
@@ -88,7 +101,8 @@ const generateUID = () => {
   };
 
   useEffect(() => {
-    const storedEmail = localStorage.getItem("userEmail");
+    const tokenEmail = getEmailFromToken();
+    const storedEmail = tokenEmail || localStorage.getItem("userEmail");
     const storedUname = localStorage.getItem("username");
     
     if (storedEmail) setEmail(storedEmail);
@@ -100,6 +114,26 @@ const generateUID = () => {
   return () => clearInterval(interval);
 }, []);
 
+  useEffect(() => {
+    const tokenEmail = getEmailFromToken();
+    const currentEmail = tokenEmail || email || localStorage.getItem("userEmail");
+    if (!currentEmail) return;
+    getOnboardingStatus(currentEmail)
+      .then((state) => {
+        setOnboarding(state);
+        persistOnboardingState(state);
+        if (state.next_step === "basic_info") {
+          setShowBasicInfoModal(true);
+        }
+        if (state.access_restricted && state.next_step === "agreements") {
+          setShowEnrollmentModal(true);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load onboarding status:", err);
+      });
+  }, [email]);
+
   const handleUpload = (file: File, documentType: string) => {
     setPendingUploads((prev) => {
       const filtered = prev.filter((item) => item.documentType !== documentType);
@@ -108,10 +142,10 @@ const generateUID = () => {
   };
 
  const submitPendingUploads = async () => {
-  const email = localStorage.getItem("userEmail");
-  const username = localStorage.getItem("username");
+  const tokenEmail = getEmailFromToken();
+  const email = tokenEmail || localStorage.getItem("userEmail");
 
-  if (!email || !username) {
+  if (!email) {
     alert("User info missing. Please login again.");
     return;
   }
@@ -127,7 +161,7 @@ const generateUID = () => {
 
       formData.append("uid", submissionUid);
       formData.append("file", item.file);
-      formData.append("username", username);
+      formData.append("username", email);
       formData.append("email", email);
       formData.append("document_type", item.documentType);
 
@@ -136,6 +170,8 @@ const generateUID = () => {
 
     setPendingUploads([]);
     await fetchDocuments();
+    const stateResponse = await markIdUploaded(email);
+    setOnboarding(stateResponse.onboarding);
 
     console.log("UPLOAD UID:", submissionUid);
     alert("Documents uploaded successfully.");
@@ -143,44 +179,6 @@ const generateUID = () => {
     console.error("UPLOAD ERROR:", error);
     alert("Upload failed");
   }
-};
-const handleSubmit = async () => {
-  try {
-    const uid = "UID_" + Date.now();
-
-    console.log("EMAIL:", email);
-    console.log("USERNAME:", username);
-    console.log("SIGNATURE LENGTH:", signature?.length);
-    console.log("UID:", uid);
-
-    // ✅ validation
-    if (!email || !username) {
-      alert("Missing user info");
-      return;
-    }
-
-    if (!signature || signature.length < 50) {
-      alert("Please draw signature first");
-      return;
-    }
-
-  const res = await axios.post(
-    "http://127.0.0.1:8000/api/approval/upload",
-    FormData
-  );
-
-    console.log("SUCCESS:", res.data);
-     setUid(res.data.uid);
-  } catch (err: any) {
-    console.error("FULL ERROR:", err.response?.data);
-  }
-
-
-  console.log("SENDING:");
-  console.log("email:", email);
-  console.log("username:", username);
-  console.log("uid:", submissionUid);
-  console.log("signature:", signatureData?.slice(0, 20));
 };
   const viewStatus = async (uid?: string) => {
     if (!uid) return;
@@ -249,6 +247,60 @@ const mapTypeToFrontendKey = (type: string) => {
         </div>
 
         <div className="rounded-2xl border border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+          {onboarding?.access_restricted && (
+            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 rounded-full bg-amber-100 p-1">
+                  <CheckCircle className="h-4 w-4 text-amber-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-bold">Onboarding Requirement</p>
+                  <p className="mt-1 opacity-90">
+                    Complete the current step to unlock full dashboard access. 
+                    {onboarding.next_step === "id_upload" && !onboarding.id_cancel_blocked && (
+                      <span className="block mt-1 italic text-xs">You can skip this step {onboarding.id_cancel_limit - onboarding.id_cancel_count} more times.</span>
+                    )}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      onClick={() => {
+                        if (onboarding.next_step === "basic_info") setShowBasicInfoModal(true);
+                        if (onboarding.next_step === "agreements") setShowEnrollmentModal(true);
+                        if (onboarding.next_step === "id_upload") {
+                           // Scroll to upload section
+                           document.getElementById("upload-section")?.scrollIntoView({ behavior: "smooth" });
+                        }
+                      }}
+                      className="rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700 transition-colors shadow-sm"
+                    >
+                      {onboarding.next_step === "id_upload" ? "Upload ID Documents" : `Start: ${onboarding.next_step.replace("_", " ")}`}
+                    </button>
+                    
+                    {onboarding.next_step === "id_upload" && !onboarding.id_cancel_blocked && (
+                      <button
+                        onClick={async () => {
+                          if (!email) return;
+                          try {
+                            const { recordIdCancel } = await import("@/lib/onboarding");
+                            const res = await recordIdCancel(email);
+                            setOnboarding(res.onboarding);
+                            alert("You can access the dashboard for now. Please complete the ID upload soon.");
+                            // Refresh page to clear restriction if server allows
+                            window.location.reload();
+                          } catch (err) {
+                            console.error(err);
+                          }
+                        }}
+                        className="rounded-lg border border-amber-300 bg-white px-4 py-2 text-xs font-bold text-amber-700 hover:bg-amber-100 transition-colors shadow-sm"
+                      >
+                        Skip for now
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="mb-3 flex items-center justify-between">
             <h3 className="font-bold text-gray-900 dark:text-white">
               Identity, Address and Work Proof
@@ -421,614 +473,36 @@ const mapTypeToFrontendKey = (type: string) => {
         </div>
       </div>
 
-<AnimatePresence>
-  {showTerms && (
-    <motion.div
-      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[9999]"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-    >
-      <motion.div
-        className="bg-[#f8fafc] w-[720px] max-h-[90vh] overflow-y-auto rounded-2xl shadow-xl"
-        initial={{ scale: 0.9, y: 40, opacity: 0 }}
-        animate={{ scale: 1, y: 0, opacity: 1 }}
-        exit={{ scale: 0.9, y: 40, opacity: 0 }}
-        transition={{
-          duration: 0.25,
-          ease: "easeOut",
-        }}
-      >
-        {/* HEADER */}
-        <div className="p-6 border-b">
-          <p className="text-xs tracking-widest text-indigo-600 font-semibold">
-            LEGAL & COMPLIANCE
-          </p>
+<OnboardingBasicInfoModal
+  isOpen={showBasicInfoModal}
+  isForceful={onboarding?.access_restricted && onboarding?.next_step === "basic_info"}
+  email={email}
+  username={username}
+  onClose={() => setShowBasicInfoModal(false)}
+  onSubmitted={(nextOnboarding) => setOnboarding(nextOnboarding)}
+/>
 
-          <div className="flex justify-between items-center mt-1">
-            <h2 className="text-2xl font-bold text-gray-900">
-              Placement Payment Terms
-            </h2>
+<PlacementAgreementFlowModal
+  isOpen={showTerms}
+  isForceful={onboarding?.access_restricted && onboarding?.next_step === "agreements"}
+  email={email}
+  submissionUid={submissionUid}
+  onClose={() => setShowTerms(false)}
+  onOnboardingChange={(nextOnboarding) => setOnboarding(nextOnboarding)}
+  onSubmissionUidChange={(nextUid) => setSubmissionUid(nextUid)}
+  onRefreshDocuments={fetchDocuments}
+/>
 
-            <button
-              onClick={() => setShowTerms(false)}
-              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 text-gray-600 hover:text-black"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-
-        {/* BODY */}
-        <div className="p-6 space-y-6 text-gray-700">
-          {/* OVERVIEW */}
-          <div>
-            <h3 className="font-semibold text-gray-900 mb-2">
-              Payment Guidelines and Placement Terms
-            </h3>
-            <p className="text-sm leading-relaxed">
-              This document outlines the payment structure, placement fees, and re support terms for candidates 
-              enrolled with our training and placement services, with a focus on IT roles including AI and ML positions.
-            </p>
-          </div>
-
-          {/* SECTION 1 */}
-          <div>
-            <h3 className="font-semibold text-gray-900 mb-2">
-              1. Post Placement Fees
-            </h3>
-            <p className="text-sm leading-relaxed">
-              After successful placement, a placement fee of <strong>13%</strong> from your offered annual salary will be applicable.
-            </p>
-          </div>
-
-          {/* SECTION 2 */}
-          <div>
-            <h3 className="font-semibold text-gray-900 mb-2">
-              2. Payment Method and Installments
-            </h3>
-            <div className="text-sm space-y-2 leading-relaxed">
-              <p>The post placement fee may be paid in three installments using <strong>postpaid checks</strong>.</p>
-              <p>All checks must be handed over before background check clearance and before onboarding date.</p>
-              <p>The first check will be deposited before the candidate's job start date.</p>
-              <p>All remaining checks will be deposited within two months from the candidate's start date.</p>
-            </div>
-
-            {/* ILLUSTRATION BOX */}
-            <div className="bg-indigo-50 p-4 rounded-xl mt-4">
-              <p className="font-semibold text-indigo-900 mb-2 text-xs uppercase tracking-wider">
-                💡 Illustration Example
-              </p>
-              <p className="text-sm mb-3">
-                If offer received of <strong>USD 150,000</strong>, then 13% ($19,500) is split into three installments:
-              </p>
-              <div className="space-y-1 text-sm border-t border-indigo-100 pt-2">
-                <div className="flex justify-between">
-                  <span>First Installment</span>
-                  <span className="font-bold">$6,500</span>
-                </div>
-                <p className="text-[11px] text-gray-500 mb-2">Payable after BGV and before Onboarding date.</p>
-                <div className="flex justify-between">
-                  <span>Second Installment</span>
-                  <span className="font-bold">$6,500</span>
-                </div>
-                <p className="text-[11px] text-gray-500 mb-2">Payable after receiving your first paycheck.</p>
-                <div className="flex justify-between">
-                  <span>Third Installment</span>
-                  <span className="font-bold">$6,500</span>
-                </div>
-                <p className="text-[11px] text-gray-500">Payable after receiving your second paycheck.</p>
-              </div>
-            </div>
-
-            <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
-               <p className="text-sm font-semibold text-gray-900">Payment Details:</p>
-               <p className="text-sm mt-1">Post-dated checks should be provided at Dublin Office before onboarding.</p>
-               <p className="text-sm mt-1 uppercase font-bold text-indigo-600">Company Name: Innovapath Inc.</p>
-            </div>
-          </div>
-
-          {/* SECTION 3 */}
-          <div>
-            <h3 className="font-semibold text-gray-900 mb-2">
-              3. Support Period and Re Placement Policy
-            </h3>
-            <div className="text-sm space-y-2 leading-relaxed">
-              <p>• Placement support is provided for one month from job start date.</p>
-              <p>• If terminated or laid off within the first <strong>two months</strong>, re-placement support is provided at no additional cost.</p>
-              <p>• After 2 months and up to 6 months: a fee of <strong>USD 2,500</strong> will apply.</p>
-              <p>• After 6 months and up to 12 months: a fee of <strong>USD 5,000</strong> will apply.</p>
-              <p>• After 12 months: treated as a <strong>new placement</strong> subject to standard fees.</p>
-            </div>
-          </div>
-
-          {/* SECTION 4 */}
-          <div>
-            <h3 className="font-semibold text-gray-900 mb-2">
-              4. General Terms
-            </h3>
-            <p className="text-sm leading-relaxed">
-              All fees and payment obligations are binding once the candidate accepts a job offer through our placement services. 
-              By enrolling in the program and accepting placement assistance, the candidate agrees to all terms outlined in this document.
-            </p>
-          </div>
-        </div>
-
-        {/* FOOTER */}
-        <div className="p-6 border-t bg-white rounded-b-2xl">
-         <label className="flex items-start gap-2 text-sm mb-4 text-gray-800 leading-relaxed">
-            <input
-              type="checkbox"
-              onChange={(e) =>
-                setChecks({ ...checks, agree: e.target.checked })
-              }
-            />
-            I have read and understood the Placement Payment Terms and agree to abide by them.
-          </label>
-
-          <div className="flex gap-4">
-            <button
-              disabled={!checks.agree}
-              onClick={() => {
-                setShowTerms(false);
-                setShowPlacementSignatureModal(true);
-              }}
-              className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-xl font-medium disabled:opacity-50"
-            >
-              Agree and Continue
-            </button>
-
-            <button className="px-6 py-3 bg-gray-200 rounded-xl text-gray-700">
-              Download PDF
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    </motion.div>
-  )}
-</AnimatePresence>
-
-<AnimatePresence>
-  {showPlacementSignatureModal && (
-    <motion.div
-      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[9999]"
-      
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-    >
-
-      <motion.div
-        onClick={(e) => e.stopPropagation()}
-        className="bg-[#f8fafc] w-[720px] max-h-[90vh] overflow-y-auto rounded-2xl shadow-xl"
-
-        initial={{ scale: 0.9, y: 40, opacity: 0 }}
-        animate={{ scale: 1, y: 0, opacity: 1 }}
-        exit={{ scale: 0.9, y: 40, opacity: 0 }}
-
-        transition={{
-          type: "spring",
-          stiffness: 260,
-          damping: 20
-        }}
-      >
-
-        {/* HEADER */}
-        <div className="p-6 border-b">
-          <p className="text-xs tracking-widest text-indigo-600 font-semibold">
-            LEGAL & COMPLIANCE
-          </p>
-
-          <div className="flex justify-between items-center mt-1">
-            <h2 className="text-2xl font-bold text-gray-900">
-              Placement Payment Terms
-            </h2>
-
-            <button
-              onClick={() => setShowPlacementSignatureModal(false)}
-              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 text-gray-600 hover:text-black"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-
-        {/* BODY */}
-        <div className="p-6 space-y-6 text-gray-800">
-
-          {/* REPEAT SMALL SUMMARY */}
-          <div>
-            <h3 className="font-semibold text-gray-900 mb-2">
-              Payment Guidelines and Placement Terms
-            </h3>
-            <p className="text-sm">
-              By accepting these terms, you agree to the payment structure, placement fees (13% of annual salary), 
-              and support policies outlined in the full agreement.
-            </p>
-          </div>
-
-          {/* SIGNATURE SECTION */}
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <p className="text-xs tracking-widest text-gray-500 font-semibold">
-                UPLOAD SIGNATURE IMAGE
-              </p>
-              <button
-                className="text-indigo-600 text-sm"
-                onClick={() => setPlacementSignatureFile(null)}
-              >
-                ↻ Clear
-              </button>
-            </div>
-
-            {/* UPLOAD BOX */}
-            <motion.label
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
-              className={`relative flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 transition-all duration-300 ${
-                placementSignatureFile 
-                  ? "border-green-400 bg-green-50/50" 
-                  : "border-gray-200 hover:border-blue-400 bg-gray-50"
-              }`}
-            >
-              <div className={`mb-3 rounded-full p-4 ${
-                placementSignatureFile ? "bg-green-100" : "bg-blue-100"
-              }`}>
-                {placementSignatureFile ? (
-                  <CheckCircle className="h-8 w-8 text-green-600" />
-                ) : (
-                  <UploadCloud className="h-8 w-8 text-blue-600" />
-                )}
-              </div>
-              <p className="text-sm font-bold text-gray-800">
-                {placementSignatureFile ? placementSignatureFile.name : "Click to upload your signature"}
-              </p>
-              <p className="mt-1 text-xs text-gray-500">
-                PNG, JPG or JPEG (Max 5MB)
-              </p>
-
-              <input
-                type="file"
-                className="hidden"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) setPlacementSignatureFile(file);
-                }}
-              />
-            </motion.label>
-
-            <p className="text-xs text-gray-500 mt-3">
-              By uploading your signature image above, you agree that this constitutes your binding signature.
-            </p>
-          </div>
-
-        </div>
-
-        {/* FOOTER */}
-        <div className="p-6 border-t bg-white rounded-b-2xl">
-
-          <div className="flex gap-4">
-
-            <button
-              className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 rounded-xl font-medium"
-              onClick={async () => {
-  if (!placementSignatureFile) {
-    alert("Please upload your signature image first ✍️");
-    return;
-  }
-
-  try {
-    const formData = new FormData();
-    formData.append("uid", submissionUid);
-    formData.append("username", localStorage.getItem("username") || username || "Guest");
-    formData.append("email", localStorage.getItem("userEmail") || email || "unknown@example.com");
-    formData.append("signature", placementSignatureFile);
-    formData.append("document_type", "placement");
-
-    const res = await fetch("http://127.0.0.1:8000/api/approval/submit-signature", {
-      method: "POST",
-      body: formData,
-    });
-
-    const data = await res.json();
-
-    if (res.ok) {
-      setShowPlacementSignatureModal(false);
-      setShowTerms(false);
-      await fetchDocuments();
-      
-      // Regenerate UID for next submission attempt to avoid duplicates/conflicts
-      setSubmissionUid(`UID_${Date.now()}`);
-      
-      alert("Enrollment Completed ✅");
-    } else {
-      alert(data.detail || "Something went wrong");
-    }
-
-  } catch (err) {
-    console.error(err);
-    alert("Server error");
-  }
-}}
-            >
-              Submit and Finish
-            </button>
-
-            <button className="px-6 py-3 bg-gray-200 rounded-xl text-gray-700">
-              ⬇ Download PDF
-            </button>
-
-          </div>
-        </div>
-
-      </motion.div>
-    </motion.div>
-  )}
-</AnimatePresence>
-
-<AnimatePresence>
-  {showEnrollmentModal && (
-  <motion.div
-  className="fixed inset-0 z-[9999] flex items-center justify-center"
-  initial={{ opacity: 0 }}
-  animate={{ opacity: 1 }}
-  exit={{ opacity: 0 }}
->
-  {/* BACKDROP */}
-  <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-
-  {/* MODAL */}
-  <motion.div
-    className="relative z-10 w-full max-w-2xl bg-white text-gray-900 rounded-2xl shadow-2xl flex flex-col max-h-[90vh]"
-    initial={{ scale: 0.95, y: 20 }}
-    animate={{ scale: 1, y: 0 }}
-    exit={{ scale: 0.95, y: 20 }}
-    transition={{ duration: 0.25 }}
-  >
-    {/* HEADER */}
-    <div className="p-5 border-b">
-      <h2 className="text-xl font-bold">
-        Enrollment Terms and Conditions
-      </h2>
-      <p className="text-sm text-gray-500 mt-1">
-        Please review and accept the final enrollment agreement to complete your onboarding with Whitebox.
-      </p>
-    </div>
-
-    {/* SCROLLABLE CONTENT */}
-    <div className="p-5 overflow-y-auto flex-1 space-y-5 text-sm">
-      
-      {/* TERMS */}
-      <div className="bg-blue-50/50 p-6 rounded-lg space-y-4 border border-blue-100">
-        <div>
-          <p className="font-bold text-gray-900 mb-1">1. Scope of Agreement</p>
-          <p className="text-gray-600 leading-relaxed">This agreement outlines the terms of your engagement with the Whitebox platform, including placement services, career coaching, and technical assessment protocols. By proceeding, you acknowledge that Whitebox acts as an intermediary partner in your professional development.</p>
-        </div>
-
-        <div>
-          <p className="font-bold text-gray-900 mb-1">2. Confidentiality & Data Privacy</p>
-          <p className="text-gray-600 leading-relaxed">You agree to maintain the confidentiality of all proprietary testing materials and interview questions provided during the screening process. Whitebox will process your personal data in accordance with our Privacy Policy, ensuring end-to-end encryption for all sensitive career documentation.</p>
-        </div>
-
-        <div>
-          <p className="font-bold text-gray-900 mb-1">3. Placement Terms</p>
-          <p className="text-gray-600 leading-relaxed">Whitebox does not guarantee immediate placement but provides the infrastructure to maximize your visibility to top-tier hiring managers. All communications with partner employers must be documented within the Whitebox Portal to ensure quality control and compliance.</p>
-        </div>
-
-        <div>
-          <p className="font-bold text-gray-900 mb-1">4. Code of Conduct</p>
-          <p className="text-gray-600 leading-relaxed">Candidates are expected to maintain professional standards in all interactions. Misrepresentation of skills, experience, or identity will result in immediate termination of account access and removal from active candidate pools.</p>
-        </div>
-      </div>
-
-      {/* DOCUMENT CHECKS */}
-      <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-        <p className="font-medium text-gray-900">Required Document Confirmation</p>
-
-        {[
-          { key: "id", label: "ID Proof Uploaded" },
-          { key: "address", label: "Address Proof Uploaded" },
-          { key: "work", label: "Work Authorization Proof Uploaded" },
-        ].map((item) => (
-          <label key={item.key} className="flex items-center gap-2 text-gray-600">
-            <input
-              type="checkbox"
-              className="accent-blue-600"
-              onChange={(e) =>
-                setChecks({ ...checks, [item.key]: e.target.checked })
-              }
-            />
-            {item.label}
-          </label>
-        ))}
-      </div>
-
-      {/* AGREEMENT */}
-      <label className="flex items-start gap-2 text-gray-600">
-        <input
-          type="checkbox"
-          className="mt-1 accent-blue-600"
-          checked={accepted}
-          onChange={() => setAccepted(!accepted)}
-        />
-        <span>
-          I have read, understood, and agree to be bound by the <span className="text-blue-600 font-semibold cursor-pointer">Enrollment Terms and Conditions</span> and the Whitebox <span className="text-blue-600 font-semibold cursor-pointer">Privacy Policy</span>.
-        </span>
-      </label>
-    </div>
-
-    {/* FOOTER */}
-    <div className="p-4 border-t flex justify-between items-center">
-      <button
-        onClick={() => setShowEnrollmentModal(false)}
-        className="text-gray-500 hover:text-gray-700"
-      >
-        Cancel
-      </button>
-
-      <button
-        disabled={!accepted || !checks.id || !checks.address || !checks.work}
-        onClick={() => {
-          setShowEnrollmentModal(false);
-          setShowEnrollmentSignatureModal(true);
-        }}
-        className={`px-5 py-2 rounded-lg text-white ${
-          accepted && checks.id && checks.address && checks.work
-            ? "bg-gradient-to-r from-purple-600 to-indigo-600"
-            : "bg-gray-300 cursor-not-allowed"
-        }`}
-      >
-        Agree and Complete
-      </button>
-    </div>
-  </motion.div>
-</motion.div>
-  )}
-</AnimatePresence>
-
-
-<AnimatePresence>
- {showEnrollmentSignatureModal && (
-  <motion.div
-    className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[9999]"
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    exit={{ opacity: 0 }}
-    onClick={() => setShowEnrollmentSignatureModal(false)}
-  >
-    {/* MODAL BOX */}
-    <motion.div
-      onClick={(e) => e.stopPropagation()}
-      className="bg-[#f8fafc] w-[720px] max-h-[90vh] overflow-y-auto rounded-2xl shadow-xl p-8"
-      initial={{ scale: 0.9, y: 40, opacity: 0 }}
-      animate={{ scale: 1, y: 0, opacity: 1 }}
-      exit={{ scale: 0.9, y: 40, opacity: 0 }}
-      transition={{
-        type: "spring",
-        stiffness: 260,
-        damping: 20,
-      }}
-    >
-      <p className="mb-2 text-xs tracking-widest text-gray-500">
-        DIGITAL SIGNATURE
-      </p>
-
-      <h2 className="mb-4 text-2xl font-bold text-gray-900">
-        Sign and Complete
-      </h2>
-
-      {/* SIGNATURE UPLOAD UI */}
-      <div className="mt-4">
-        <motion.label
-          whileHover={{ scale: 1.01 }}
-          whileTap={{ scale: 0.99 }}
-          className={`relative flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-10 transition-all duration-300 ${
-            enrollmentSignatureFile 
-              ? "border-green-400 bg-green-50/50" 
-              : "border-gray-200 hover:border-blue-400 bg-gray-50"
-          }`}
-        >
-          <div className={`mb-3 rounded-full p-5 ${
-            enrollmentSignatureFile ? "bg-green-100" : "bg-blue-100"
-          }`}>
-            {enrollmentSignatureFile ? (
-              <CheckCircle className="h-10 w-10 text-green-600" />
-            ) : (
-              <UploadCloud className="h-10 w-10 text-blue-600" />
-            )}
-          </div>
-
-          <p className="text-base font-bold text-gray-800 text-center">
-            {enrollmentSignatureFile ? enrollmentSignatureFile.name : "Click to upload signature image"}
-          </p>
-          <p className="mt-2 text-sm text-gray-500">
-            PNG, JPG or JPEG format (Max 5MB)
-          </p>
-
-          <input
-            type="file"
-            className="hidden"
-            accept="image/*"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) setEnrollmentSignatureFile(file);
-            }}
-          />
-        </motion.label>
-
-        <p className="mt-4 text-xs text-gray-500 text-center italic">
-          "By uploading your signature image, you authorize its use for this enrollment agreement."
-        </p>
-      </div>
-
-      {/* ACTIONS */}
-      <div className="mt-6 flex items-center justify-between">
-        <button
-          onClick={() => {
-            setEnrollmentSignatureFile(null);
-          }}
-          className="text-sm text-indigo-600 hover:text-indigo-700"
-        >
-          Clear
-        </button>
-
-        <div className="flex gap-4">
-        <button
-            onClick={() => setShowEnrollmentSignatureModal(false)}
-            className="rounded-xl bg-gray-200 px-6 py-3 text-gray-700"
-          >
-            Cancel
-          </button>
-
-          <button
-           onClick={async () => {
-  try {
-    if (!enrollmentSignatureFile) {
-      alert("Please upload signature image first ✍️");
-      return;
-    }
-
-    const emailAddr = localStorage.getItem("userEmail") || "unknown@example.com";
-    const userDisplayName = localStorage.getItem("username") || "Guest";
-
-    const formData = new FormData();
-    formData.append("uid", submissionUid);
-    formData.append("email", emailAddr);
-    formData.append("username", userDisplayName);
-    formData.append("signature", enrollmentSignatureFile);
-    formData.append("document_type", "enrollment");
-
-    await axios.post(
-      "http://127.0.0.1:8000/api/approval/submit-signature",
-      formData,
-      {
-        headers: { "Content-Type": "multipart/form-data" }
-      }
-    );
-
-    setShowEnrollmentSignatureModal(false);
-    setShowEnrollmentModal(false);
-    await fetchDocuments();
-    setSubmissionUid(`UID_${Date.now()}`);
-    
-    alert("Submitted Successfully ✅");
-
-  } catch (err: any) {
-    console.error("FULL ERROR:", err.response?.data);
-    alert("Submission failed ❌");
-  }
-}}
-            className="rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-3 font-medium text-white hover:opacity-90"
-          >
-            Submit and Finish
-          </button>
-        </div>
-      </div>
-    </motion.div>
-  </motion.div>
-)}
-</AnimatePresence>
+<EnrollmentAgreementFlowModal
+  isOpen={showEnrollmentModal}
+  isForceful={onboarding?.access_restricted && onboarding?.next_step === "agreements"}
+  email={email}
+  submissionUid={submissionUid}
+  onClose={() => setShowEnrollmentModal(false)}
+  onOnboardingChange={(nextOnboarding) => setOnboarding(nextOnboarding)}
+  onSubmissionUidChange={(nextUid) => setSubmissionUid(nextUid)}
+  onRefreshDocuments={fetchDocuments}
+/>
 
 {showSuccess && (
   <motion.div

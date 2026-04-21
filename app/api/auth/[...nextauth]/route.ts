@@ -1159,6 +1159,7 @@ declare module "next-auth/jwt" {
     email?: string;
     status?: string;
     accessToken?: string;
+    onboarding?: any;
   }
 }
 
@@ -1171,6 +1172,7 @@ declare module "next-auth" {
       email?: string;
       image?: string;
       status?: string;
+      onboarding?: any;
     };
     accessToken?: string;
   }
@@ -1187,7 +1189,7 @@ const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
 
-        const { accessToken, status } = await handleUserRegistrationOrLoginWithRetry(user);
+        const { accessToken, status, onboarding } = await handleUserRegistrationOrLoginWithRetry(user);
 
         // if (accessToken) {
         //   token.accessToken = accessToken;
@@ -1198,6 +1200,7 @@ const authOptions: NextAuthOptions = {
         token.email = user.email ?? undefined; // Optional: similar fix
         token.status = status;
         token.accessToken = accessToken;
+        token.onboarding = onboarding;
       }
       return token;
     },
@@ -1206,6 +1209,7 @@ const authOptions: NextAuthOptions = {
       session.user.name = token.name ?? undefined;
       session.user.email = token.email ?? undefined;
       session.user.status = token.status;
+      session.user.onboarding = token.onboarding ?? undefined;
       session.accessToken = token.accessToken ?? undefined;
       return session;
     },
@@ -1251,6 +1255,7 @@ async function handleUserRegistrationOrLogin(user: any) {
       return {
         accessToken: loginResponse.data.access_token,
         status: "active",
+        onboarding: loginResponse.data.onboarding || null,
       };
     } else {
       // If user exists but is inactive

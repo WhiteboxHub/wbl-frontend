@@ -91,7 +91,8 @@ const RecordingComp: React.FC = () => {
       setSelectedBatch(defaultBatch);
     } catch (err: any) {
       console.error("Error fetching batches:", err);
-      const msg = err?.body || err?.message || "Failed to load batches.";
+      const raw = err?.body?.detail?.message || err?.body?.detail || err?.message || "Failed to load batches.";
+      const msg = typeof raw === "string" ? raw : JSON.stringify(raw);
       setError(msg);
       toast.error(msg);
     } finally {
@@ -130,7 +131,8 @@ const RecordingComp: React.FC = () => {
       setRecordings(recList);
     } catch (err: any) {
       console.error("Error fetching recordings:", err);
-      const msg = err?.body || err?.message || "Failed to load recordings.";
+      const raw = err?.body?.detail?.message || err?.body?.detail || err?.message || "Failed to load recordings.";
+      const msg = typeof raw === "string" ? raw : JSON.stringify(raw);
       setError(msg);
       toast.error(msg);
     } finally {
