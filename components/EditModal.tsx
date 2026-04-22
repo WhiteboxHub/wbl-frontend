@@ -995,6 +995,7 @@ const fieldSections: Record<string, string> = {
   raw_description: "Notes",
   raw_payload: "Notes",
   raw_notes: "Notes",
+  q_a: "Notes",
   candidate_id: "Basic Information",
   // Outreach Email Recipient fields
   email_invalid: "Professional Information",
@@ -1209,6 +1210,7 @@ const labelOverrides: Record<string, string> = {
   raw_contact_info: "Raw Contact Info",
   raw_notes: "Raw Notes",
   raw_payload: "Raw Payload",
+  q_a: "Q & A",
   processing_status: "Processing Status",
   extractor_version: "Extractor Version",
   extracted_at: "Extracted At",
@@ -4265,7 +4267,7 @@ export function EditModal({
                         {sectionedFields["Notes"].map(({ key, value }) => (
                           <div key={key} className="space-y-1">
                             <div className="flex items-center justify-between">
-                              <label className={['description', 'raw_payload', 'payload', 'raw_description', 'raw_notes', 'notes', 'note'].includes(key) ? 'block text-xs font-bold text-blue-700 sm:text-sm' : 'text-sm font-medium text-gray-600 dark:text-gray-400'}>
+                              <label className={['description', 'raw_payload', 'payload', 'raw_description', 'raw_notes', 'notes', 'note', 'q_a'].includes(key) ? 'block text-xs font-bold text-blue-700 sm:text-sm' : 'text-sm font-medium text-gray-600 dark:text-gray-400'}>
                                 {toLabel(key)}
                                 {isFieldRequired(
                                   toLabel(key),
