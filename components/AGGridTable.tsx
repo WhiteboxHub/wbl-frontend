@@ -84,6 +84,8 @@ interface AGGridTableProps {
   context?: any;
   showTotalCount?: boolean;
   extraToolbarContent?: React.ReactNode;
+  showViewButton?: boolean;
+  showEditButton?: boolean;
 }
 
 interface RowData {
@@ -127,6 +129,8 @@ export function AGGridTable({
   context,
   showTotalCount = false,
   extraToolbarContent,
+  showViewButton = true,
+  showEditButton = true,
 }: AGGridTableProps) {
   // Refs and State
   const gridRef = useRef<AgGridReact>(null);
@@ -479,7 +483,7 @@ export function AGGridTable({
               </Button>
             )}
 
-            {onRowUpdated && (
+            {onRowUpdated && showViewButton && (
               <Button
                 variant="outline"
                 size="sm"
@@ -491,7 +495,7 @@ export function AGGridTable({
                 <EyeIcon className="h-4 w-4" />
               </Button>
             )}
-            {onRowUpdated && (
+            {onRowUpdated && showEditButton && (
               <Button
                 variant="outline"
                 size="sm"

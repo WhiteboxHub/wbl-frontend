@@ -1205,7 +1205,7 @@ export default function CandidateDashboard() {
                 <main className="flex-1 overflow-hidden flex flex-col">
 
                     {/* Setup Status Banner */}
-                    {setupStatus && !setupStatus.setup_complete && (
+                    {setupStatus && (
                         <div className="px-4 lg:px-6 pt-4 flex-shrink-0 animate-in fade-in slide-in-from-top-2">
                             <div className="relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4 px-6 py-3 border border-indigo-200 dark:border-indigo-800 rounded-xl shadow-sm bg-white dark:bg-gray-900 group">
                                 {/* Radiant Background Effect (matches the glowing corner effect from the reference) */}
@@ -1229,23 +1229,37 @@ export default function CandidateDashboard() {
                                                 Prepare smarter, apply faster
                                             </p>
                                         </div>
-                                        <p className="text-gray-500 dark:text-gray-400 text-xs font-medium mt-0.5">
-                                            Missing: {!setupStatus.resume_uploaded ? "Resume" : ""}
-                                            {!setupStatus.resume_uploaded && !setupStatus.api_keys_configured ? " & " : ""}
-                                            {!setupStatus.api_keys_configured ? "API Keys" : ""}
-                                        </p>
+                                        {!setupStatus.setup_complete && (
+                                            <p className="text-gray-500 dark:text-gray-400 text-xs font-medium mt-0.5">
+                                                Missing: {!setupStatus.resume_uploaded ? "Resume" : ""}
+                                                {!setupStatus.resume_uploaded && !setupStatus.api_keys_configured ? " & " : ""}
+                                                {!setupStatus.api_keys_configured ? "API Keys" : ""}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
 
                                 {/* Right Section: Action Button */}
                                 <div className="relative z-10 shrink-0">
-                                    <Link
-                                        href="/setup"
-                                        className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-indigo-900 to-purple-600 hover:from-indigo-800 hover:to-purple-500 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
-                                    >
-                                        <Sparkles className="w-3.5 h-3.5" />
-                                        Complete Setup
-                                    </Link>
+                                    {setupStatus.setup_complete ? (
+                                        <button
+                                            onClick={() => {
+                                                window.location.href = "https://ai-frontend-560359652969.us-central1.run.app/dashboard";
+                                            }}
+                                            className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
+                                        >
+                                            <PlayCircle className="w-3.5 h-3.5" />
+                                            Start Preparation
+                                        </button>
+                                    ) : (
+                                        <Link
+                                            href="/setup"
+                                            className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-indigo-900 to-purple-600 hover:from-indigo-800 hover:to-purple-500 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
+                                        >
+                                            <Sparkles className="w-3.5 h-3.5" />
+                                            Complete Setup
+                                        </Link>
+                                    )}
                                 </div>
                             </div>
                         </div>
