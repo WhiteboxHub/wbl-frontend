@@ -457,9 +457,20 @@ export default function CandidateDashboard() {
     const [isOnboardingRestricted, setIsOnboardingRestricted] = useState(false);
     const [onboardingResolved, setOnboardingResolved] = useState(false);
     const firstName = useMemo(() => {
-        const fullName = data?.basic_info?.full_name?.trim();
-        return fullName ? fullName.split(/\s+/)[0] : "";
-    }, [data]);
+        let name = userProfile?.uname || data?.basic_info?.full_name?.trim() || "";
+        if (name.includes("@")) {
+            name = name.split("@")[0];
+        }
+        let firstPart = name ? name.split(/\s+/)[0] : "";
+        if (firstPart) {
+            firstPart = firstPart.replace(/[0-9]/g, '');
+            if (firstPart) {
+                firstPart = firstPart.charAt(0).toUpperCase() + firstPart.slice(1);
+            }
+        }
+        return firstPart;
+    }, [data, userProfile]);
+
 
 
 
@@ -606,7 +617,13 @@ export default function CandidateDashboard() {
             const raw = localStorage.getItem("onboarding_status");
             if (!raw) return false;
             const parsed = JSON.parse(raw);
-            return Boolean(parsed?.access_restricted);
+            const isRestricted = Boolean(parsed?.access_restricted);
+            if (isRestricted && parsed?.next_step === "id_upload") {
+                if (sessionStorage.getItem("skipped_id_upload") === "true") {
+                    return false;
+                }
+            }
+            return isRestricted;
         } catch {
             return false;
         }
@@ -1198,7 +1215,12 @@ export default function CandidateDashboard() {
             try {
                 const onboarding = await getOnboardingStatus(email);
                 persistOnboardingState(onboarding);
-                const restricted = Boolean(onboarding?.access_restricted);
+                let restricted = Boolean(onboarding?.access_restricted);
+                if (restricted && onboarding?.next_step === "id_upload") {
+                    if (sessionStorage.getItem("skipped_id_upload") === "true") {
+                        restricted = false;
+                    }
+                }
                 setIsOnboardingRestricted(restricted);
                 if (!restricted) {
                     loadDashboard();

@@ -4,6 +4,7 @@ export interface OnboardingStatus {
   basic_info_validated: boolean;
   id_uploaded: boolean;
   id_verification_status: "pending" | "verified" | "rejected";
+  id_verification_pending: boolean;
   id_cancel_count: number;
   id_cancel_limit: number;
   id_cancel_blocked: boolean;
@@ -14,7 +15,11 @@ export interface OnboardingStatus {
   onboarding_complete: boolean;
   next_step: OnboardingStep;
   access_restricted: boolean;
+  /** True when a previously-verified candidate has re-uploaded documents
+   *  and is pending re-review. Dashboard access is NOT restricted in this state. */
+  is_reverification: boolean;
 }
+
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 
