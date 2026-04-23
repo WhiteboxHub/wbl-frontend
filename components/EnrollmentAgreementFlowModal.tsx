@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import axios from "axios";
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckCircle } from "lucide-react";
@@ -39,7 +39,18 @@ export default function EnrollmentAgreementFlowModal({
   const [showSignatureStep, setShowSignatureStep] = useState(false);
   const [enrollmentSignatureFile, setEnrollmentSignatureFile] = useState<File | null>(null);
   const [enrollmentSignatureSvg, setEnrollmentSignatureSvg] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // ── Toast ──
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = (message: string, type: "success" | "error" = "success") => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ message, type });
+    toastTimer.current = setTimeout(() => setToast(null), 4000);
+  };
+
+  const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api").replace(/\/$/, "");
   const emailAddr = email || localStorage.getItem("userEmail") || "unknown@example.com";
 
   const handleClose = () => {
@@ -64,12 +75,13 @@ export default function EnrollmentAgreementFlowModal({
       setEnrollmentSignatureFile(file);
       setEnrollmentSignatureSvg(svgMarkup);
     } catch (err: any) {
-      alert(err?.message || "Failed to adopt signature");
+      showToast(err?.message || "Failed to adopt signature", "error");
     }
   };
 
   return (
-    <AnimatePresence>
+    <>
+      <AnimatePresence>
       {isOpen && !showSignatureStep && (
         <motion.div
           className="fixed inset-0 z-[9999] flex items-center justify-center"
@@ -252,8 +264,10 @@ export default function EnrollmentAgreementFlowModal({
               </div>
 
               <button
-                disabled={!accepted || !enrollmentSignatureFile}
+                disabled={!accepted || !enrollmentSignatureFile || isSubmitting}
                 onClick={async () => {
+                  if (isSubmitting) return;
+                  setIsSubmitting(true);
                   try {
                     const formData = new FormData();
                     formData.append("uid", submissionUid);
@@ -262,7 +276,7 @@ export default function EnrollmentAgreementFlowModal({
                     formData.append("signature", enrollmentSignatureFile!);
                     formData.append("document_type", "enrollment");
 
-                    await axios.post("http://127.0.0.1:8000/api/approval/submit-signature", formData, {
+                    await axios.post(`${API_BASE}/approval/submit-signature`, formData, {
                       headers: { "Content-Type": "multipart/form-data" },
                     });
 
@@ -271,20 +285,71 @@ export default function EnrollmentAgreementFlowModal({
 
                     await onRefreshDocuments();
                     onSubmissionUidChange(`UID_${Date.now()}`);
+                    // Close modal first so the candidate sees it dismiss immediately
                     handleClose();
-                    alert("Enrollment agreement signed and sent for verification.");
+                    showToast("Enrollment agreement signed and sent for verification.", "success");
                   } catch (err: any) {
-                    alert(err.response?.data?.detail || "Submission failed");
+                    showToast(err.response?.data?.detail || "Submission failed", "error");
+                    setIsSubmitting(false);
                   }
                 }}
-                className="w-full rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 py-4 font-bold text-white shadow-xl shadow-indigo-500/20 hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98]"
+                className="w-full rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 py-4 font-bold text-white shadow-xl shadow-indigo-500/20 hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
               >
-                Sign and Complete
+                {isSubmitting ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Submitting...
+                  </>
+                ) : (
+                  "Sign and Complete"
+                )}
               </button>
             </div>
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+      </AnimatePresence>
+
+      {/* ── Toast Notification (Improved Centering) ── */}
+      <div className="fixed top-5 inset-x-0 z-[100000] flex justify-center pointer-events-none">
+        <AnimatePresence>
+          {toast && (
+            <motion.div
+              key="toast"
+              initial={{ opacity: 0, y: -20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -16, scale: 0.95 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+              className={`pointer-events-auto flex items-center gap-3 rounded-2xl px-5 py-3.5 shadow-2xl text-sm font-semibold min-w-[280px] max-w-[90vw] md:max-w-[420px] bg-white ${
+                toast.type === "success" ? "border border-green-200" : "border border-red-200"
+              }`}
+            >
+              <span className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full ${
+                toast.type === "success" ? "bg-green-100" : "bg-red-100"
+              }`}>
+                {toast.type === "success" ? (
+                  <svg className="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg className="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                )}
+              </span>
+              <span className="text-gray-800">{toast.message}</span>
+              <button onClick={() => setToast(null)} className="ml-auto text-gray-400 hover:text-gray-600">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </>
   );
 }

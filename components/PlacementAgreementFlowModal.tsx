@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckCircle } from "lucide-react";
 import { adoptSignature, signAgreement, OnboardingStatus } from "@/lib/onboarding";
@@ -31,6 +31,16 @@ export default function PlacementAgreementFlowModal({
   const [showSignatureStep, setShowSignatureStep] = useState(false);
   const [placementSignatureFile, setPlacementSignatureFile] = useState<File | null>(null);
   const [placementSignatureSvg, setPlacementSignatureSvg] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // ── Toast ──
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = (message: string, type: "success" | "error" = "success") => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ message, type });
+    toastTimer.current = setTimeout(() => setToast(null), 4000);
+  };
 
   const handleClose = () => {
     if (isForceful) return;
@@ -42,6 +52,7 @@ export default function PlacementAgreementFlowModal({
   };
 
   const emailToSend = email || localStorage.getItem("userEmail") || "unknown@example.com";
+  const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api").replace(/\/$/, "");
 
   const adoptSignatureFile = async () => {
     try {
@@ -60,7 +71,8 @@ export default function PlacementAgreementFlowModal({
   };
 
   return (
-    <AnimatePresence>
+    <>
+      <AnimatePresence>
       {isOpen && !showSignatureStep && (
         <motion.div
           className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[9999]"
@@ -155,31 +167,34 @@ export default function PlacementAgreementFlowModal({
         >
           <motion.div
             onClick={(e) => e.stopPropagation()}
-            className="bg-[#f8fafc] w-[720px] max-h-[90vh] overflow-y-auto rounded-2xl shadow-xl"
+            className="bg-[#f8fafc] w-full max-w-[720px] mx-4 max-h-[90vh] rounded-2xl shadow-2xl flex flex-col"
             initial={{ scale: 0.9, y: 40, opacity: 0 }}
             animate={{ scale: 1, y: 0, opacity: 1 }}
             exit={{ scale: 0.9, y: 40, opacity: 0 }}
             transition={{ type: "spring", stiffness: 260, damping: 20 }}
           >
-            <div className="p-6 border-b">
-              <p className="text-xs tracking-widest text-indigo-600 font-semibold">LEGAL & COMPLIANCE</p>
+            {/* ── Sticky Header ── */}
+            <div className="flex-shrink-0 p-6 border-b bg-white rounded-t-2xl">
+              <p className="text-xs tracking-widest text-indigo-600 font-semibold">LEGAL &amp; COMPLIANCE</p>
               <div className="flex justify-between items-center mt-1">
                 <h2 className="text-2xl font-bold text-gray-900">Placement Payment Terms</h2>
                 <button
                   onClick={handleClose}
-                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-200 text-gray-600 hover:text-black"
+                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors text-lg font-bold"
                 >
-                  x
+                  ×
                 </button>
               </div>
             </div>
 
-            <div className="mt-8 space-y-6">
+            {/* ── Scrollable Content ── */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+              {/* Signature box */}
               <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-bold text-gray-900 uppercase tracking-tight">Adopt Digital Signature</h3>
                   {placementSignatureSvg && (
-                    <button 
+                    <button
                       onClick={() => { setPlacementSignatureFile(null); setPlacementSignatureSvg(null); }}
                       className="text-xs text-red-500 hover:underline"
                     >
@@ -191,7 +206,7 @@ export default function PlacementAgreementFlowModal({
                 {!placementSignatureSvg ? (
                   <button
                     onClick={adoptSignatureFile}
-                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-50 py-4 text-indigo-600 hover:bg-indigo-100 transition-all border-2 border-dashed border-indigo-200 group"
+                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-50 py-5 text-indigo-600 hover:bg-indigo-100 transition-all border-2 border-dashed border-indigo-200 group"
                   >
                     <div className="rounded-full bg-white p-2 shadow-sm group-hover:scale-110 transition-transform">
                       <CheckCircle className="h-5 w-5" />
@@ -199,12 +214,12 @@ export default function PlacementAgreementFlowModal({
                     <span className="font-bold text-lg">Adopt Signature</span>
                   </button>
                 ) : (
-                  <motion.div 
+                  <motion.div
                     initial={{ scale: 0.95, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     className="rounded-xl border-2 border-green-200 bg-green-50/30 p-4"
                   >
-                    <div className="mb-2 flex items-center gap-2 text-green-700 text-xs font-bold">
+                    <div className="mb-3 flex items-center gap-2 text-green-700 text-xs font-bold">
                       <CheckCircle className="h-4 w-4" />
                       SIGNATURE ADOPTED
                     </div>
@@ -216,21 +231,25 @@ export default function PlacementAgreementFlowModal({
                 )}
               </div>
 
-              <div className="space-y-3">
-                <label className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors">
-                  <input
-                    type="checkbox"
-                    className="h-5 w-5 rounded accent-indigo-600"
-                    checked={agreed}
-                    onChange={() => setAgreed(!agreed)}
-                  />
-                  <span className="text-sm text-gray-700 font-medium">I agree to the Placement Payment Terms</span>
-                </label>
-              </div>
+              {/* Agreement checkbox */}
+              <label className="flex items-center gap-3 p-4 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 cursor-pointer transition-colors">
+                <input
+                  type="checkbox"
+                  className="h-5 w-5 rounded accent-indigo-600 flex-shrink-0"
+                  checked={agreed}
+                  onChange={() => setAgreed(!agreed)}
+                />
+                <span className="text-sm text-gray-700 font-medium">I agree to the Placement Payment Terms</span>
+              </label>
+            </div>
 
+            {/* ── Sticky Footer ── */}
+            <div className="flex-shrink-0 p-6 border-t bg-white rounded-b-2xl">
               <button
-                disabled={!agreed || !placementSignatureFile}
+                disabled={!agreed || !placementSignatureFile || isSubmitting}
                 onClick={async () => {
+                  if (isSubmitting) return;
+                  setIsSubmitting(true);
                   try {
                     const formData = new FormData();
                     formData.append("uid", submissionUid);
@@ -239,7 +258,7 @@ export default function PlacementAgreementFlowModal({
                     formData.append("signature", placementSignatureFile!);
                     formData.append("document_type", "placement");
 
-                    const res = await fetch("http://127.0.0.1:8000/api/approval/submit-signature", {
+                    const res = await fetch(`${API_BASE}/approval/submit-signature`, {
                       method: "POST",
                       body: formData,
                     });
@@ -251,20 +270,72 @@ export default function PlacementAgreementFlowModal({
 
                     await onRefreshDocuments();
                     onSubmissionUidChange(`UID_${Date.now()}`);
+                    // Close modal first so the candidate sees it dismiss immediately
                     handleClose();
-                    alert("Placement agreement signed and sent for verification.");
+                    showToast("Placement agreement signed and sent for verification.", "success");
                   } catch (err: any) {
-                    alert(err.message || "Server error");
+                    showToast(err.message || "Server error", "error");
+                    setIsSubmitting(false);
                   }
                 }}
-                className="w-full rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 py-4 font-bold text-white shadow-xl shadow-indigo-500/20 hover:opacity-90 disabled:opacity-50 transition-all active:scale-[0.98]"
+                className="w-full rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 py-4 font-bold text-white shadow-lg shadow-indigo-500/20 hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[0.98] flex items-center justify-center gap-2"
               >
-                Sign and Complete
+                {isSubmitting ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Submitting...
+                  </>
+                ) : (
+                  "Sign and Complete"
+                )}
               </button>
             </div>
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+
+      </AnimatePresence>
+
+      {/* ── Toast Notification (Improved Centering) ── */}
+      <div className="fixed top-5 inset-x-0 z-[100000] flex justify-center pointer-events-none">
+        <AnimatePresence>
+          {toast && (
+            <motion.div
+              key="toast"
+              initial={{ opacity: 0, y: -20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -16, scale: 0.95 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+              className={`pointer-events-auto flex items-center gap-3 rounded-2xl px-5 py-3.5 shadow-2xl text-sm font-semibold min-w-[280px] max-w-[90vw] md:max-w-[420px] bg-white ${
+                toast.type === "success" ? "border border-green-200" : "border border-red-200"
+              }`}
+            >
+              <span className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full ${
+                toast.type === "success" ? "bg-green-100" : "bg-red-100"
+              }`}>
+                {toast.type === "success" ? (
+                  <svg className="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  <svg className="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                )}
+              </span>
+              <span className="text-gray-800">{toast.message}</span>
+              <button onClick={() => setToast(null)} className="ml-auto text-gray-400 hover:text-gray-600">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </>
   );
 }

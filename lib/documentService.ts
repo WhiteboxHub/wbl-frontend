@@ -1,11 +1,12 @@
 import axios from "axios";
 
-const API = "http://127.0.0.1:8000/api/approval";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api").replace(/\/$/, "");
+const API = `${API_BASE}/approval`;
 
 export const getDocuments = async (email: string) => {
   try {
     const res = await fetch(
-      `http://127.0.0.1:8000/api/approval/documents?email=${email}&_t=${Date.now()}`
+      `${API}/documents?email=${email}&_t=${Date.now()}`
     );
 
     // ✅ check if response is OK
@@ -32,7 +33,7 @@ export const getDocuments = async (email: string) => {
 
 export const uploadDocument = async (formData: FormData) => {
   const res = await axios.post(
-    "http://127.0.0.1:8000/api/approval/upload",
+    `${API}/upload`,
     formData,
     {
       headers: {
