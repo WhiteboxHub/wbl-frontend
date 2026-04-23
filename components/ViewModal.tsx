@@ -1,7 +1,8 @@
 "use client";
 import { useForm } from "react-hook-form";
 import { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { X, EyeIcon, Copy, Check } from "lucide-react";
+import { toast } from "sonner";
 import { Badge } from "@/components/admin_ui/badge";
 import { formatLinkedInUrl } from "@/lib/utils";
 
@@ -244,6 +245,10 @@ const fieldSections: Record<string, string> = {
   placement_commission_id: "Basic Information",
   installment_no: "Professional Information",
   installment_amount: "Professional Information",
+  resume_json: "Resume Data",
+  api_key: "Credentials",
+  provider_name: "Credentials",
+  model_name: "Credentials",
 };
 
 const workVisaStatusOptions = [
@@ -381,7 +386,13 @@ const labelOverrides: Record<string, string> = {
   processed_at: "Processed At",
   run_raw_positions_workflow: "Run Raw Positions Workflow",
   error_message: "Error Message",
-  lastmod_user_id: "Last Modified By"
+  lastmod_user_id: "Last Modified By",
+  resume_json: "Resume JSON",
+  api_key: "API Key",
+  provider_name: "LLM Provider",
+  model_name: "Model Name",
+  resume_created_at: "Resume Added",
+  api_key_created_at: "Key Added",
 };
 
 const dateFields = [
@@ -468,6 +479,10 @@ const getTitleSpecificExclusions = (title: string): string[] => {
     exclusions.push('scheduler_entries');
   }
 
+  if (lowerTitle.includes('credential')) {
+    exclusions.push('resume_updated_at', 'api_key_updated_at', 'model_name', 'linkedin_id', 'workstatus', 'phone');
+  }
+
   return exclusions;
 };
 
@@ -503,6 +518,11 @@ const ExpandableTextViewer = ({ content }: { content: string }) => {
 export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate, title }: ViewModalProps) {
   const { register, watch, setValue, reset } = useForm();
   const modalRef = useRef<HTMLDivElement>(null);
+  const [jsonVisible, setJsonVisible] = useState<Record<string, boolean>>({});
+
+  const toggleJson = (key: string) => {
+    setJsonVisible(prev => ({ ...prev, [key]: !prev[key] }));
+  };
 
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
@@ -641,7 +661,38 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       return <p>{displayValue}</p>;
     }
 
-    // Handle raw_payload and payload JSON fields - MUST come before generic object handler
+    // Handle resume_json with eye icon toggle
+    if (lowerKey === "resume_json") {
+      const isVisible = jsonVisible[key];
+      const displayValue = typeof value === 'object' ? JSON.stringify(value, null, 2) : value;
+      
+      return (
+        <div className="space-y-2">
+          <button 
+            type="button"
+            onClick={() => toggleJson(key)}
+            className="flex items-center gap-2 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition"
+          >
+            {isVisible ? (
+              <>
+                <X size={14} /> Hide JSON
+              </>
+            ) : (
+              <>
+                <EyeIcon size={14} /> Show JSON
+              </>
+            )}
+          </button>
+          {isVisible && (
+            <pre className="whitespace-pre-wrap min-h-[40px] max-h-[300px] overflow-y-auto bg-gray-50 dark:bg-gray-800 p-2 rounded text-xs font-mono border border-blue-100">
+              {displayValue}
+            </pre>
+          )}
+        </div>
+      );
+    }
+
+    // Handle raw_payload and payload JSON fields
     if (lowerKey === "raw_payload" || lowerKey === "payload") {
       let displayValue = value;
       if (typeof value === 'object' && value !== null) {
@@ -675,6 +726,49 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     if (lowerKey === "status") {
       const displayValue = String(value).toUpperCase();
       return <Badge className={getStatusColor(value)}>{displayValue}</Badge>;
+    }
+    if (lowerKey === "api_key") {
+      const isVisible = jsonVisible[key];
+      const valueStr = String(value);
+      const masked = "*".repeat(valueStr.length || 10);
+      const [copied, setCopied] = useState(false);
+
+      const handleCopy = () => {
+        navigator.clipboard.writeText(valueStr);
+        setCopied(true);
+        toast.success("API Key copied to clipboard");
+        setTimeout(() => setCopied(false), 2000);
+      };
+
+      return (
+        <div className="flex items-center justify-between gap-2 w-full">
+          <div className="flex-1 overflow-hidden">
+            <p className={`font-mono text-sm ${isVisible ? "whitespace-nowrap overflow-x-auto" : "truncate"}`}>
+              {isVisible ? valueStr : masked}
+            </p>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            {isVisible && (
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition text-gray-500 hover:text-blue-600"
+                title="Copy Key"
+              >
+                {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => toggleJson(key)}
+              className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition text-gray-500"
+              title={isVisible ? "Hide Key" : "Show Key"}
+            >
+              {isVisible ? <X size={14} /> : <EyeIcon size={14} />}
+            </button>
+          </div>
+        </div>
+      );
     }
     if (["visa_status", "workstatus"].includes(lowerKey)) return <Badge className={getVisaColor(value)}>{value}</Badge>;
     if (["feepaid", "feedue", "salary0", "salary6", "salary12"].includes(lowerKey)) return <p>${Number(value).toLocaleString()}</p>;
@@ -814,6 +908,8 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     "Professional Information": [],
     "Contact Information": [],
     "Emergency Contact": [],
+    "Resume Data": [],
+    "Credentials": [],
     "Other": [],
     "Notes": [],
   };

@@ -362,3 +362,17 @@ div.ag-theme-alpine .ag-center-cols-container .ag-row.ag-row-selected,
 .ag-row.selected-row {
   @apply bg-blue-100 text-blue-900 dark:bg-blue-900/40 dark:text-white !important;
 }
+
+/* Ensure clean boundary line at bottom of the grid table before pagination */
+.ag-theme-alpine .ag-paging-panel {
+  border-top: 1px solid #e5e7eb !important;
+}
+.ag-grid-dark-mode.ag-theme-alpine .ag-paging-panel {
+  border-top: 1px solid #374151 !important;
+}
+.ag-theme-alpine .ag-center-cols-container .ag-row:last-child {
+  border-bottom: 1px solid #e5e7eb !important;
+}
+.ag-grid-dark-mode.ag-theme-alpine .ag-center-cols-container .ag-row:last-child {
+  border-bottom: 1px solid #374151 !important;
+}
