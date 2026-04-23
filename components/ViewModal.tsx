@@ -220,6 +220,7 @@ const fieldSections: Record<string, string> = {
   raw_description: "Notes",
   raw_payload: "Notes",
   raw_notes: "Notes",
+  q_a: "Notes",
   // Outreach Email Recipient fields
   email_invalid: "Professional Information",
   domain_invalid: "Professional Information",
@@ -378,6 +379,7 @@ const labelOverrides: Record<string, string> = {
   raw_contact_info: "Raw Contact Info",
   raw_notes: "Raw Notes",
   raw_payload: "Raw Payload",
+  q_a: "Q & A",
   processing_status: "Processing Status",
   extractor_version: "Extractor Version",
   extracted_at: "Extracted At",
@@ -486,6 +488,32 @@ const getTitleSpecificExclusions = (title: string): string[] => {
 
 // Priority fields that should be displayed first
 const priorityFields = ['candidate_full_name', 'full_name', 'fullname', 'candidate_name'];
+
+const ExpandableTextViewer = ({ content }: { content: string }) => {
+  const [expanded, setExpanded] = useState(false);
+  if (!content) return null;
+  const isLong = content.length > 250;
+  
+  return (
+    <div className="relative">
+      <div 
+        className={`whitespace-pre-wrap transition-all duration-300 ${expanded ? '' : 'max-h-[100px] overflow-hidden line-clamp-4'}`}
+        dangerouslySetInnerHTML={{ __html: content }}
+      />
+      {isLong && !expanded && (
+        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white dark:from-slate-900 to-transparent pointer-events-none" />
+      )}
+      {isLong && (
+        <button 
+          onClick={() => setExpanded(!expanded)} 
+          className="text-blue-500 text-sm mt-1 hover:underline focus:outline-none block"
+        >
+          {expanded ? 'Show Less' : 'Show More'}
+        </button>
+      )}
+    </div>
+  );
+};
 
 export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate, title }: ViewModalProps) {
   const { register, watch, setValue, reset } = useForm();
@@ -746,13 +774,8 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     if (["feepaid", "feedue", "salary0", "salary6", "salary12"].includes(lowerKey)) return <p>${Number(value).toLocaleString()}</p>;
     if (lowerKey.includes("rating")) return <p>{value} </p>;
 
-    if (["notes", "task", "description", "job_description"].includes(lowerKey)) {
-      return (
-        <div
-          className="whitespace-pre-wrap min-h-[40px] max-h-[300px] overflow-y-auto"
-          dangerouslySetInnerHTML={{ __html: value }}
-        />
-      );
+    if (["notes", "task", "description", "job_description", "q_a"].includes(lowerKey)) {
+      return <ExpandableTextViewer content={value} />;
     }
 
     if (lowerKey === "linkedin_id" || lowerKey === "linkedin" || lowerKey === "interviewer_linkedin") {

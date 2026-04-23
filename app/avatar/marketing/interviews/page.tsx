@@ -262,6 +262,7 @@ type InterviewFormData = {
   recording_link?: string;
   backup_recording_url?: string;
   job_posting_url?: string;
+  q_a?: string;
   feedback?: string;
   position_id?: number | string;
 };
@@ -279,6 +280,7 @@ const initialFormData: InterviewFormData = {
   type_of_interview: "Recruiter Call",
   notes: "",
   recording_link: "",
+  q_a: "",
   backup_recording_url: "",
   job_posting_url: "",
   feedback: "Pending",
@@ -542,6 +544,7 @@ export default function CandidatesInterviews() {
         type_of_interview: data.type_of_interview || null,
         notes: data.notes || null,
         recording_link: data.recording_link || null,
+        q_a: data.q_a || null,
         backup_recording_url: data.backup_recording_url || null,
         job_posting_url: data.job_posting_url || null,
         feedback: data.feedback || null,
@@ -644,6 +647,7 @@ export default function CandidatesInterviews() {
     { field: "interviewer_contact", headerName: "Interviewer Phone", cellRenderer: PhoneRenderer, width: 190, editable: true },
     { field: "interviewer_linkedin", headerName: "Interviewer Linkedin", cellRenderer: LinkRenderer, width: 190, editable: true },
     { field: "recording_link", headerName: "Recording", cellRenderer: LinkRenderer, width: 120, editable: true },
+    { field: "q_a", headerName: "Q&A", cellRenderer: LinkRenderer, width: 120, editable: true },
     { field: "transcript", headerName: "Transcript", cellRenderer: LinkRenderer, width: 120, editable: true },
     { field: "audio_link", headerName: "Audio", cellRenderer: LinkRenderer, width: 120, editable: true },
     { field: "backup_recording_url", headerName: "Backup Recording", cellRenderer: LinkRenderer, width: 140, editable: true },

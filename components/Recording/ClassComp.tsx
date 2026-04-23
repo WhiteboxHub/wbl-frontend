@@ -82,6 +82,7 @@ const RecordingComp: React.FC = () => {
       // Move Kumar to the end
       const kumarBatch = batchList.find((b) => b.batchid === 99999)!;
       const normalBatches = batchList.filter((b) => b.batchid !== 99999);
+      normalBatches.sort((a, b) => b.batchname.trim().localeCompare(a.batchname.trim()));
       const finalBatchList = [...normalBatches, kumarBatch];
 
       setBatches(finalBatchList);
