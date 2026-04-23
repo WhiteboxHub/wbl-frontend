@@ -390,6 +390,7 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "scraper", label: "Scraper" },
     { value: "hiring.cafe", label: "Hiring Cafe" },
     { value: "trueup.io", label: "TrueUp.io" },
+    { value: "wellfound.com", label: "Wellfound" },
     { value: "interview_modal", label: "Interview Modal" },
     { value: "email_bot_llm_local", label: "Email Bot LLM Local" },
   ],
