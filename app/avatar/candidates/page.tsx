@@ -1155,7 +1155,7 @@ export default function CandidatesPage() {
         const autoSearchBy = detectSearchBy(searchTerm);
         fetchCandidates(searchTerm, autoSearchBy, sortModel, filterModel);
       }
-    }, 500);
+    }, 1000);
     return () => clearTimeout(debounceTimer);
   }, [searchTerm, searchBy, sortModel, filterModel]);
 
