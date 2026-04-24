@@ -31,7 +31,7 @@ import "@/styles/admin.css";
 const ColumnVisibilityModal = ({
   isOpen,
   onClose,
-  children,
+  children,  
 }: {
   isOpen: boolean;
   onClose: () => void;
