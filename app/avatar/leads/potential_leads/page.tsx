@@ -14,6 +14,7 @@ import { apiFetch, smartUpdate } from "@/lib/api";
 import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
+import { Linkedin } from "lucide-react";
 
 type PotentialLead = {
     id: number;
@@ -89,6 +90,27 @@ const MessageStatusRenderer = ({ value }: { value?: string }) => {
         <Badge className={`${colors[value] || "bg-blue-100 text-blue-800"} capitalize`}>
             {value.replace(/_/g, " ")}
         </Badge>
+    );
+};
+
+// LinkedIn cell renderer - icon only with click functionality
+const LinkedInRenderer = ({ value }: { value?: string }) => {
+    if (!value) return null;
+    
+    const linkedinUrl = value.startsWith("http") 
+        ? value 
+        : `https://linkedin.com/in/${value}`;
+    
+    return (
+        <a
+            href={linkedinUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center text-blue-600 hover:text-blue-800 transition-colors"
+            title={value}
+        >
+            <Linkedin className="h-5 w-5" />
+        </a>
     );
 };
 
@@ -222,19 +244,7 @@ export default function PotentialLeadsPage() {
                 width: 200,
                 editable: true,
                 sortable: true,
-                cellRenderer: (params: any) => {
-                    if (!params.value) return "";
-                    return (
-                        <a
-                            href={params.value.startsWith("http") ? params.value : `https://linkedin.com/in/${params.value}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 underline hover:text-blue-800"
-                        >
-                            {params.value}
-                        </a>
-                    );
-                },
+                cellRenderer: LinkedInRenderer,
             },
             { field: "work_status", headerName: "Work Status", width: 150, sortable: true, editable: true, cellEditor: "agSelectCellEditor", cellEditorParams: { values: workStatusOptions }, cellRenderer: WorkStatusRenderer },
             {

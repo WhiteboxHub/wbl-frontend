@@ -254,11 +254,13 @@ export default function EmployeeSearchPage() {
     </div>
   );
 
+  // UPDATED: Candidate section with scrolling functionality
   const renderCandidateSection = (
     title: string,
     count: number,
     names: string[],
-    color: string
+    color: string,
+    maxHeight: string = "max-h-64" // Default max height (256px / 16rem)
   ) => (
     <div className={`${color} p-6 rounded-lg border border-black-200 dark:border-black-700 shadow-sm`}>
       <div className="flex items-center gap-3 mb-4 pb-2 border-b border-black-200 dark:border-black-700">
@@ -266,18 +268,24 @@ export default function EmployeeSearchPage() {
         <h4 className="font-semibold text-lg">{title}</h4>
         <Badge variant="secondary">{count}</Badge>
       </div>
-      {names.length > 0 ? (
-        names.map((n, i) => (
-          <div
-            key={i}
-            className="py-2 border-b border-black-100 dark:border-black-600 last:border-b-0 text-black-900 dark:text-black-100 font-medium"
-          >
-            {n}
-          </div>
-        ))
-      ) : (
-        <p className="text-black-500 dark:text-black-400 text-sm">No candidates found</p>
-      )}
+      
+      {/* Scrollable container for candidate names */}
+      <div className={`${maxHeight} overflow-y-auto space-y-0`}>
+        {names.length > 0 ? (
+          names.map((n, i) => (
+            <div
+              key={i}
+              className="py-2 border-b border-black-100 dark:border-black-600 last:border-b-0 text-black-900 dark:text-black-100 font-medium"
+            >
+              {n}
+            </div>
+          ))
+        ) : (
+          <p className="text-black-500 dark:text-black-400 text-sm text-center py-4">
+            No candidates found
+          </p>
+        )}
+      </div>
     </div>
   );
 
@@ -289,7 +297,7 @@ export default function EmployeeSearchPage() {
         <h4 className="font-semibold text-lg text-black-900 dark:text-black-100">Assigned Tasks</h4>
         <Badge variant="secondary">{tasks.length}</Badge>
       </div>
-      <div className="space-y-3">
+      <div className="space-y-3 max-h-96 overflow-y-auto">
         {tasks.length > 0 ? tasks.map(t => (
           <div key={t.id} className="p-3 border border-black-100 dark:border-black-700 rounded-md">
             <div className="flex justify-between items-start">
@@ -319,7 +327,7 @@ export default function EmployeeSearchPage() {
       </div>
 
       {timeline.length > 0 ? (
-        <div className="space-y-4">
+        <div className="space-y-4 max-h-96 overflow-y-auto">
           {timeline.map((item, idx) => (
             <div
               key={idx}
@@ -442,7 +450,7 @@ export default function EmployeeSearchPage() {
             </AccordionSection>
 
 
-            {/* Candidates */}
+            {/* Candidates - UPDATED with scroll */}
             <AccordionSection
               title="Candidate Information"
               icon={<Users className="h-5 w-5 text-black-600 dark:text-black-400" />}
@@ -457,13 +465,15 @@ export default function EmployeeSearchPage() {
                     "Preparation Candidates",
                     candidates.preparation.count,
                     candidates.preparation.names,
-                    "bg-indigo-50 dark:bg-indigo-900/20"
+                    "bg-indigo-50 dark:bg-indigo-900/20",
+                    "max-h-64" // 256px height with scroll
                   )}
                   {renderCandidateSection(
                     "Marketing Candidates",
                     candidates.marketing.count,
                     candidates.marketing.names,
-                    "bg-teal-50 dark:bg-teal-900/20"
+                    "bg-teal-50 dark:bg-teal-900/20",
+                    "max-h-64" // 256px height with scroll
                   )}
                 </div>
               ) : (
@@ -473,7 +483,7 @@ export default function EmployeeSearchPage() {
               )}
             </AccordionSection>
 
-            {/* Placements */}
+            {/* Placements - UPDATED with scroll */}
             <AccordionSection
               title="Placements Made"
               icon={<Users className="h-5 w-5 text-black-600 dark:text-black-400" />}
@@ -487,7 +497,8 @@ export default function EmployeeSearchPage() {
                   "Placed Candidates",
                   employeePlacements.count,
                   employeePlacements.names,
-                  "bg-emerald-50 dark:bg-emerald-900/20"
+                  "bg-emerald-50 dark:bg-emerald-900/20",
+                  "max-h-64" // 256px height with scroll
                 )
               ) : (
                 <p className="text-black-500 dark:text-black-400 text-center py-8">
@@ -496,7 +507,7 @@ export default function EmployeeSearchPage() {
               )}
             </AccordionSection>
 
-            {/* Tasks */}
+            {/* Tasks - UPDATED with scroll */}
             <AccordionSection
               title="Assigned Tasks"
               icon={<Activity className="h-5 w-5 text-black-600 dark:text-black-400" />}
@@ -506,7 +517,7 @@ export default function EmployeeSearchPage() {
               {loadingTasks ? <Loader /> : renderTasksSection(employeeTasks)}
             </AccordionSection>
 
-            {/* Jobs */}
+            {/* Jobs - UPDATED with scroll */}
             <AccordionSection
               title="Owned Jobs"
               icon={<Briefcase className="h-5 w-5 text-black-600 dark:text-black-400" />}
@@ -520,7 +531,8 @@ export default function EmployeeSearchPage() {
                   "Job Assignments",
                   employeeJobs.count,
                   employeeJobs.names,
-                  "bg-blue-50 dark:bg-blue-900/20"
+                  "bg-blue-50 dark:bg-blue-900/20",
+                  "max-h-64" // 256px height with scroll
                 )
               ) : (
                 <p className="text-black-500 dark:text-black-400 text-center py-8">
@@ -529,7 +541,7 @@ export default function EmployeeSearchPage() {
               )}
             </AccordionSection>
 
-            {/* Sessions */}
+            {/* Sessions - UPDATED with scroll */}
             <AccordionSection
               title="Sessions & Classes"
               icon={<Activity className="h-5 w-5 text-black-600 dark:text-black-400" />}
@@ -574,7 +586,6 @@ export default function EmployeeSearchPage() {
 }
 
 // ---------------------- SUB COMPONENTS ----------------------
-
 
 const AccordionSection = ({
   title,

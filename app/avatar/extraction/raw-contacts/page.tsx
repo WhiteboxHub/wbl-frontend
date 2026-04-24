@@ -557,7 +557,7 @@ export default function AutomationContactExtractsPage() {
                             columnDefs={columnDefs}
                             defaultColDef={defaultColDef}
                             height="calc(100vh - 260px)"
-                            title="Automation-Contact-Extract"
+                            title={`Automation-Contact-Extract (${filteredExtracts.length})`}
                             showSearch={false}
                             onRowAdded={handleRowAdded}
                             onRowUpdated={handleRowUpdated}

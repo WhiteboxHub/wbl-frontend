@@ -11,6 +11,13 @@ import { apiFetch } from "@/lib/api.js";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
+const sortRecordingBatches = (rows: any[] = []) =>
+    [...rows].sort((a, b) => {
+        const recordingDiff = Number(b.recording_id || 0) - Number(a.recording_id || 0);
+        if (recordingDiff !== 0) return recordingDiff;
+        return Number(b.batch_id || 0) - Number(a.batch_id || 0);
+    });
+
 export default function RecordingBatchPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [recordingBatches, setRecordingBatches] = useState<any[]>([]);
@@ -72,12 +79,15 @@ export default function RecordingBatchPage() {
             const enriched = (rbArr || []).map((item: any) => ({
                 ...item,
                 id: `${item.recording_id}-${item.batch_id}`, // Unique ID for AG Grid
+                original_recording_id: item.recording_id,
+                original_batch_id: item.batch_id,
                 recording_name: recMap.get(item.recording_id) || "Unknown",
                 batch_name: batchMap.get(item.batch_id) || "Unknown",
             }));
 
-            setRecordingBatches(enriched);
-            setFilteredData(enriched);
+            const sortedEnriched = sortRecordingBatches(enriched);
+            setRecordingBatches(sortedEnriched);
+            setFilteredData(sortedEnriched);
             toast.success("Data fetched successfully.");
         } catch (e: any) {
             const msg = e?.body || e?.message || "Failed to fetch data";
@@ -123,6 +133,77 @@ export default function RecordingBatchPage() {
             toast.success(`Mapping deleted successfully.`);
         } catch (e: any) {
             const msg = e?.body || e?.message || "Failed to delete mapping";
+            toast.error(typeof msg === "string" ? msg : JSON.stringify(msg));
+        }
+    };
+
+    const handleRowUpdated = async (updatedRow: any) => {
+        try {
+            const oldRecordingId = Number(updatedRow.original_recording_id ?? updatedRow.recording_id);
+            const oldBatchId = Number(updatedRow.original_batch_id ?? updatedRow.batch_id);
+            const oldCompositeId = `${oldRecordingId}-${oldBatchId}`;
+            const newRecordingId = Number(updatedRow.recording_id);
+            const newBatchId = Number(updatedRow.batch_id);
+
+            if (!Number.isInteger(newRecordingId) || newRecordingId <= 0 || !Number.isInteger(newBatchId) || newBatchId <= 0) {
+                toast.error("Recording ID and Batch ID must be valid positive numbers");
+                return;
+            }
+
+            const res = await apiFetch(`/recording-batches/${oldRecordingId}/${oldBatchId}`, {
+                method: "PUT",
+                body: {
+                    recording_id: newRecordingId,
+                    batch_id: newBatchId,
+                },
+            });
+
+            const saved = Array.isArray(res) ? res[0] : (res?.data ?? res);
+            const recName = recordings.find((r) => r.id === saved.recording_id)?.description
+                || recordings.find((r) => r.id === saved.recording_id)?.subject
+                || "Unknown";
+            const batchName = batches.find((b) => b.batchid === saved.batch_id)?.batchname || "Unknown";
+
+            const normalized = {
+                ...updatedRow,
+                ...saved,
+                id: `${saved.recording_id}-${saved.batch_id}`,
+                original_recording_id: saved.recording_id,
+                original_batch_id: saved.batch_id,
+                recording_name: recName,
+                batch_name: batchName,
+            };
+
+            updatedRow.original_recording_id = saved.recording_id;
+            updatedRow.original_batch_id = saved.batch_id;
+            updatedRow.id = `${saved.recording_id}-${saved.batch_id}`;
+
+            setRecordingBatches((prev) => {
+                let replaced = false;
+                let mapped = prev.map((row) => {
+                    const rowOriginalRecordingId = Number(row.original_recording_id ?? row.recording_id);
+                    const rowOriginalBatchId = Number(row.original_batch_id ?? row.batch_id);
+                    if (rowOriginalRecordingId === oldRecordingId && rowOriginalBatchId === oldBatchId) {
+                        replaced = true;
+                        return normalized;
+                    }
+                    return row;
+                });
+
+                if (!replaced) {
+                    mapped = mapped.map((row) => (row.id === oldCompositeId ? normalized : row));
+                }
+
+                const updated = sortRecordingBatches(
+                    mapped
+                );
+                setFilteredData(updated);
+                return updated;
+            });
+
+            toast.success("Mapping updated successfully.");
+        } catch (e: any) {
+            const msg = e?.body || e?.message || "Failed to update mapping";
             toast.error(typeof msg === "string" ? msg : JSON.stringify(msg));
         }
     };
@@ -180,11 +261,13 @@ export default function RecordingBatchPage() {
                         const enriched = {
                             ...created,
                             id: `${created.recording_id}-${created.batch_id}`,
+                            original_recording_id: created.recording_id,
+                            original_batch_id: created.batch_id,
                             recording_name: recName,
                             batch_name: batchName
                         };
 
-                        const updated = [enriched, ...recordingBatches];
+                        const updated = sortRecordingBatches([enriched, ...recordingBatches]);
                         setRecordingBatches(updated);
                         setFilteredData(updated);
                         toast.success("Mapping created");
@@ -193,6 +276,7 @@ export default function RecordingBatchPage() {
                         toast.error(typeof msg === 'string' ? msg : JSON.stringify(msg));
                     }
                 }}
+                onRowUpdated={handleRowUpdated}
                 onRowDeleted={handleRowDeleted}
                 showSearch={false}
             />

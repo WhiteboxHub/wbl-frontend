@@ -78,11 +78,6 @@
     display: none;
   }
 
-  .mask-text {
-    -webkit-text-security: disc;
-    text-security: disc;
-  }
-
   ::-webkit-scrollbar {
     width: 5px;
     height: 5px;
