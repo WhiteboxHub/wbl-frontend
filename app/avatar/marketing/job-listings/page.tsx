@@ -5,7 +5,7 @@ import { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { Badge } from "@/components/admin_ui/badge";
 import { toast, Toaster } from "sonner";
 import { AGGridTable } from "@/components/AGGridTable";
-import { Check, Filter, X, SearchIcon, Linkedin, Puzzle, ChevronDown, Download, Video } from "lucide-react";
+import { Check, Filter, X, SearchIcon, Linkedin, Puzzle } from "lucide-react";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import api, { apiFetch } from "@/lib/api";
@@ -306,8 +306,6 @@ export default function JobListingsPage() {
     const [selectedModes, setSelectedModes] = useState<string[]>([]);
     const [selectedSources, setSelectedSources] = useState<string[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
-    const [isAutofillOpen, setIsAutofillOpen] = useState(false);
-    const autofillRef = useRef<HTMLDivElement>(null);
 
     const statusOptions = ['open', 'closed', 'on_hold', 'duplicate', 'invalid'];
     const typeOptions = ['full_time', 'contract', 'contract_to_hire', 'internship'];
@@ -348,19 +346,7 @@ export default function JobListingsPage() {
         fetchJobListings();
     }, [fetchJobListings]);
 
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (autofillRef.current && !autofillRef.current.contains(event.target as Node)) {
-                setIsAutofillOpen(false);
-            }
-        };
-        if (isAutofillOpen) {
-            document.addEventListener("mousedown", handleClickOutside);
-        }
-        return () => {
-            document.removeEventListener("mousedown", handleClickOutside);
-        };
-    }, [isAutofillOpen]);
+
 
     useEffect(() => {
         let filtered = [...allJobListings];
@@ -742,53 +728,15 @@ export default function JobListingsPage() {
                     title={`Job Listings (${filteredJobListings.length})`}
                     showAddButton={true}
                     extraToolbarContent={
-                        <div className="relative mr-2" ref={autofillRef}>
-                            <button
-                                onClick={() => setIsAutofillOpen(!isAutofillOpen)}
-                                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm h-8"
-                            >
-                                <Puzzle className="w-4 h-4 text-blue-500" />
-                                <span className="hidden sm:inline">Autofill Extension</span>
-                                <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isAutofillOpen ? 'rotate-180' : ''}`} />
-                            </button>
-
-                            {isAutofillOpen && (
-                                <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                                    <div className="p-1.5">
-                                        <a
-                                            href="https://drive.google.com/file/d/1usVGPq3iaygfewTAZ8lR46rJDnLSRGtQ/view?usp=sharing"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="flex items-center gap-3 px-3 py-2.5 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-gray-700 dark:text-gray-200 rounded-xl transition-colors group"
-                                            onClick={() => setIsAutofillOpen(false)}
-                                        >
-                                            <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center group-hover:bg-blue-100 dark:group-hover:bg-blue-900/50 transition-colors">
-                                                <Download className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                                            </div>
-                                            <div className="flex flex-col">
-                                                <span className="text-sm font-bold text-left text-blue-600">Download Extension</span>
-                                                <span className="text-[10px] text-gray-400 font-medium text-left">Zip file for Chrome</span>
-                                            </div>
-                                        </a>
-                                        <a
-                                            href="https://drive.google.com/file/d/1iUcs6myGnNwetCQggxhvLabSeeLWufCF/view?usp=sharing"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="flex items-center gap-3 px-3 py-2.5 hover:bg-purple-50 dark:hover:bg-purple-900/20 text-gray-700 dark:text-gray-200 rounded-xl transition-colors group"
-                                            onClick={() => setIsAutofillOpen(false)}
-                                        >
-                                            <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-900/30 flex items-center justify-center group-hover:bg-purple-100 dark:group-hover:bg-purple-900/50 transition-colors">
-                                                <Video className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                                            </div>
-                                            <div className="flex flex-col">
-                                                <span className="text-sm font-bold text-left text-purple-600">Video Guide</span>
-                                                <span className="text-[10px] text-gray-400 font-medium text-left">How to install & use</span>
-                                            </div>
-                                        </a>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                        <a
+                            href="https://youtu.be/ToCU1H25TTY"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm h-8 mr-2"
+                        >
+                            <Puzzle className="w-4 h-4 text-blue-500" />
+                            <span className="hidden sm:inline">Autofill Extension</span>
+                        </a>
                     }
                 />
             )}

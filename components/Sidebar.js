@@ -7,7 +7,7 @@ import axios from "axios";
 import { motion } from "framer-motion";
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
-  const { isAuthenticated, sidebarOpen, setSidebarOpen } = useAuth();
+  const { isAuthenticated, sidebarOpen, setSidebarOpen, userRole } = useAuth();
   const { theme } = useTheme();
 
   const [hasCheckedLogin, setHasCheckedLogin] = useState(false);
@@ -136,7 +136,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     }
   }, [isAuthenticated]);
 
-  if (!isAuthenticated) return null;
+  if (!isAuthenticated || userRole === "candidate") return null;
 
   const getCandidateName = (interview) => interview.candidate?.full_name || "Unknown Candidate";
 
