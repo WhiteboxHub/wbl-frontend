@@ -504,7 +504,7 @@ const vendorStatuses = [
 
 // Required fields configuration - only for create mode
 const requiredFieldsConfig: Record<string, string[]> = {
-  leads: ["Phone", "Email", "Full Name"],
+  leads: ["Full Name"],
   candidate: ["Phone", "Email", "Full Name", "Date of Birth", "Batch"],
   interviews: [
     "Candidate Name",
