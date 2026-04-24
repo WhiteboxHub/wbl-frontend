@@ -32,7 +32,7 @@ type EmailPosition = {
     processed_at?: string | null;
     created_at: string;
 };
- 
+
 function formatDateTime(params_dateStr: string | null | undefined) {
     let dateStr = params_dateStr;
     if (!dateStr) return "";
@@ -474,7 +474,32 @@ export default function EmailPositionsPage() {
                 sortable: true,
                 filter: "agDateColumnFilter",
                 editable: false,
-                valueFormatter: (params) => formatDateTime(params.value)
+                filterParams: {
+                    comparator: (filterLocalDateAtMidnight: Date, cellValue: string) => {
+                        if (!cellValue) return -1;
+                        const datePart = typeof cellValue === 'string' ? cellValue.split('T')[0] : new Date(cellValue).toISOString().split('T')[0];
+                        const [year, month, day] = datePart.split('-');
+                        const cellDate = new Date(Number(year), Number(month) - 1, Number(day));
+
+                        if (filterLocalDateAtMidnight.getTime() === cellDate.getTime()) {
+                            return 0;
+                        }
+                        if (cellDate < filterLocalDateAtMidnight) {
+                            return -1;
+                        }
+                        if (cellDate > filterLocalDateAtMidnight) {
+                            return 1;
+                        }
+                        return 0;
+                    },
+                },
+                valueFormatter: (params) => {
+                    const value = params.value;
+                    if (!value) return "-";
+                    const datePart = typeof value === 'string' ? value.split('T')[0] : new Date(value).toISOString().split('T')[0];
+                    const [year, month, day] = datePart.split('-');
+                    return `${month ?? ''}/${day ?? ''}/${year ?? ''}`;
+                }
             },
             {
                 field: "processed_at",
@@ -483,7 +508,32 @@ export default function EmailPositionsPage() {
                 sortable: true,
                 filter: "agDateColumnFilter",
                 editable: false,
-                valueFormatter: (params) => formatDateTime(params.value)
+                filterParams: {
+                    comparator: (filterLocalDateAtMidnight: Date, cellValue: string) => {
+                        if (!cellValue) return -1;
+                        const datePart = typeof cellValue === 'string' ? cellValue.split('T')[0] : new Date(cellValue).toISOString().split('T')[0];
+                        const [year, month, day] = datePart.split('-');
+                        const cellDate = new Date(Number(year), Number(month) - 1, Number(day));
+
+                        if (filterLocalDateAtMidnight.getTime() === cellDate.getTime()) {
+                            return 0;
+                        }
+                        if (cellDate < filterLocalDateAtMidnight) {
+                            return -1;
+                        }
+                        if (cellDate > filterLocalDateAtMidnight) {
+                            return 1;
+                        }
+                        return 0;
+                    },
+                },
+                valueFormatter: (params) => {
+                    const value = params.value;
+                    if (!value) return "-";
+                    const datePart = typeof value === 'string' ? value.split('T')[0] : new Date(value).toISOString().split('T')[0];
+                    const [year, month, day] = datePart.split('-');
+                    return `${month ?? ''}/${day ?? ''}/${year ?? ''}`;
+                }
             },
             { field: "description", headerName: "Description", width: 300, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "notes", headerName: "Notes", width: 200, sortable: true, filter: "agTextColumnFilter", editable: true },
