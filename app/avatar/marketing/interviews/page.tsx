@@ -248,7 +248,7 @@ const QARenderer = (params: any) => {
             </style>
           </head>
           <body>
-            <h2>Q&A Details</h2>
+            <h2>Questions</h2>
             <div class="content">${value}</div>
           </body>
         </html>
