@@ -1190,7 +1190,7 @@ export default function CandidateDashboard() {
                                     {setupStatus.setup_complete ? (
                                         <button
                                             onClick={() => {
-                                                window.location.href = "https://ai-frontend-560359652969.us-central1.run.app/dashboard";
+                                                window.location.href = "https://ai-prep.whitebox-learning.com/";
                                             }}
                                             className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
                                         >
