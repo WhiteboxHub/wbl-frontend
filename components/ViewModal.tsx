@@ -665,24 +665,53 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     if (lowerKey === "resume_json") {
       const isVisible = jsonVisible[key];
       const displayValue = typeof value === 'object' ? JSON.stringify(value, null, 2) : value;
+      const [copied, setCopied] = useState(false);
+
+      const handleCopy = () => {
+        navigator.clipboard.writeText(displayValue);
+        setCopied(true);
+        toast.success("Resume JSON copied to clipboard");
+        setTimeout(() => setCopied(false), 2000);
+      };
       
       return (
         <div className="space-y-2">
-          <button 
-            type="button"
-            onClick={() => toggleJson(key)}
-            className="flex items-center gap-2 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition"
-          >
-            {isVisible ? (
-              <>
-                <X size={14} /> Hide JSON
-              </>
-            ) : (
-              <>
-                <EyeIcon size={14} /> Show JSON
-              </>
+          <div className="flex items-center gap-2">
+            <button 
+              type="button"
+              onClick={() => toggleJson(key)}
+              className="flex items-center gap-2 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition"
+            >
+              {isVisible ? (
+                <>
+                  <X size={14} /> Hide JSON
+                </>
+              ) : (
+                <>
+                  <EyeIcon size={14} /> Show JSON
+                </>
+              )}
+            </button>
+            {isVisible && (
+              <button 
+                type="button"
+                onClick={handleCopy}
+                className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-500 hover:text-blue-600 hover:bg-gray-50 rounded transition border border-transparent hover:border-gray-100"
+              >
+                {copied ? (
+                  <>
+                    <Check size={12} className="text-green-500" />
+                    <span className="text-green-600">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={12} />
+                    Copy JSON
+                  </>
+                )}
+              </button>
             )}
-          </button>
+          </div>
           {isVisible && (
             <pre className="whitespace-pre-wrap min-h-[40px] max-h-[300px] overflow-y-auto bg-gray-50 dark:bg-gray-800 p-2 rounded text-xs font-mono border border-blue-100">
               {displayValue}
