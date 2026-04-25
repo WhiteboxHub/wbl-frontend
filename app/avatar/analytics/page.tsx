@@ -5,7 +5,7 @@ import { useAuth } from "@/utils/AuthContext";
 import {
   Users, Layers3, CalendarDays, GraduationCap, UserPlus, CalendarPlus, PieChart as PieChartIcon, Wallet, Banknote, TrendingUp, Briefcase, Award, CheckCircle2, Clock, Mic, BarChart2,
   ClipboardList, XCircle, Target, CakeIcon, PiggyBank, Handshake, Trophy, NotebookIcon, Pen, PencilOff,
-  PenIcon, ChevronDown,
+  PenIcon, ChevronDown, Mail, List
 } from "lucide-react";
 import { EnhancedMetricCard } from "@/components/EnhancedMetricCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin_ui/card";
@@ -209,10 +209,15 @@ interface PreparationMetrics {
   inactive_candidates: number;
 }
 
-interface VendorMetrics {
+interface ExtractionMetrics {
   total_vendors: number;
-  today_extracted: number;
-  week_extracted: number;
+  raw_contacts_today: number;
+  raw_contacts_week: number;
+  email_positions_today: number;
+  email_positions_week: number;
+  raw_contacts_by_source_today?: Record<string, number>;
+  raw_contacts_by_source_week?: Record<string, number>;
+  raw_contacts_by_source_total?: Record<string, number>;
 }
 
 
@@ -259,7 +264,7 @@ export default function Index() {
 
   const [leadMetrics, setLeadMetrics] = useState<LeadMetrics | null>(null);
   const [activeTab, setActiveTab] = useState("batch");
-  const [vendorMetrics, setVendorMetrics] = useState<VendorMetrics | null>(null);
+  const [extractionMetrics, setExtractionMetrics] = useState<ExtractionMetrics | null>(null);
   // const [emailReads, setEmailReads] = useState<EmailExtraction[]>([]);
   const [isMobileDropdownOpen, setIsMobileDropdownOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -411,19 +416,19 @@ export default function Index() {
   }, []);
 
   useEffect(() => {
-    const fetchVendorMetrics = async () => {
+    const fetchExtractionMetrics = async () => {
       try {
         const token = localStorage.getItem("access_token");
         const res = await fetch(`${API_BASE_URL}/vendors/metrics`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
-        setVendorMetrics(data);
+        setExtractionMetrics(data);
       } catch (err) {
-        console.error("Error fetching vendor metrics:", err);
+        console.error("Error fetching extraction metrics:", err);
       }
     };
-    fetchVendorMetrics();
+    fetchExtractionMetrics();
   }, []);
 
 
@@ -490,8 +495,10 @@ export default function Index() {
   const currentDate = new Date();
   const currentMonth = currentDate.toLocaleString("default", { month: "long" });
   const currentYear = currentDate.getFullYear();
-  const todayextracted = useCounter(vendorMetrics?.today_extracted || 0);
-  const weekextracted = useCounter(vendorMetrics?.week_extracted || 0);
+  const rawToday = useCounter(extractionMetrics?.raw_contacts_today || 0);
+  const rawWeek = useCounter(extractionMetrics?.raw_contacts_week || 0);
+  const emailToday = useCounter(extractionMetrics?.email_positions_today || 0);
+  const emailWeek = useCounter(extractionMetrics?.email_positions_week || 0);
   const totalJobTypes = useCounter(metrics?.jobs_metrics?.total_job_types || 0);
   const totalJobActivities = useCounter(metrics?.jobs_metrics?.total_activities || 0);
   const activitiesToday = useCounter(metrics?.jobs_metrics?.activities_today || 0);
@@ -534,7 +541,7 @@ export default function Index() {
     interview: "Interview",
     placement: "Placement",
     employee: "Employee",
-    vendor: "Vendor",
+    extraction: "Extraction",
     jobs: "Jobs",
     finance: "Finance"
   };
@@ -594,7 +601,7 @@ export default function Index() {
             <TabsTrigger value="interview" className="data-[state=active]:bg-orange-100 data-[state=active]:text-orange-800">Interview</TabsTrigger>
             <TabsTrigger value="placement" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-800">Placement</TabsTrigger>
             <TabsTrigger value="employee" className="data-[state=active]:bg-fuchsia-100 data-[state=active]:text-fuchsia-800">Employee</TabsTrigger>
-            <TabsTrigger value="vendor" className="data-[state=active]:bg-cyan-100 data-[state=active]:text-cyan-800">Vendor</TabsTrigger>
+            <TabsTrigger value="extraction" className="data-[state=active]:bg-cyan-100 data-[state=active]:text-cyan-800">Extraction</TabsTrigger>
             <TabsTrigger value="jobs" className="data-[state=active]:bg-amber-100 data-[state=active]:text-amber-800">Jobs</TabsTrigger>
             <TabsTrigger value="finance" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-800">Finance</TabsTrigger>
           </TabsList>
@@ -1290,12 +1297,61 @@ export default function Index() {
             />
           </div>
         </TabsContent>
-        {/* 8.Vendors */}
-        <TabsContent value="vendor" className="mt-0">
+        {/* 8.Extraction */}
+        <TabsContent value="extraction" className="mt-0">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-            <EnhancedMetricCard title="Total Vendors" value={vendorMetrics?.total_vendors || 0} icon={<Layers3 className="size-4" />} variant="cyan" />
-            <EnhancedMetricCard title="Extracted Today" value={vendorMetrics?.today_extracted || 0} icon={<CalendarDays className="size-4" />} variant="cyan" />
-            <EnhancedMetricCard title="Extracted This Week" value={vendorMetrics?.week_extracted || 0} icon={<TrendingUp className="size-4" />} variant="cyan" />
+            <EnhancedMetricCard title="Total Vendors" value={extractionMetrics?.total_vendors || 0} icon={<Layers3 className="size-4" />} variant="cyan" />
+            <EnhancedMetricCard title="Raw Contacts Today" value={rawToday} icon={<List className="size-4" />} variant="cyan" />
+            <EnhancedMetricCard title="Raw Contacts Last Week" value={rawWeek} icon={<CalendarDays className="size-4" />} variant="cyan" />
+            <EnhancedMetricCard title="Email Position Today" value={emailToday} icon={<Mail className="size-4" />} variant="cyan" />
+            <EnhancedMetricCard title="Email Position Last Week" value={emailWeek} icon={<TrendingUp className="size-4" />} variant="cyan" />
+          </div>
+
+          {/* Raw Contacts Breakdown Table */}
+          <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card className="border-b border-cyan-300">
+              <CardHeader className="p-3 pb-1">
+                <div className="flex items-center justify-between border-b border-cyan-200 pb-2">
+                  <CardTitle className="text-sm font-semibold text-cyan-700">Raw Contacts Breakdown</CardTitle>
+                  <Layers3 className="size-4 text-cyan-600" />
+                </div>
+              </CardHeader>
+              <CardContent className="p-3 pt-2">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left border border-gray-200 rounded-lg overflow-hidden">
+                    <thead className="bg-cyan-50 text-xs font-bold text-cyan-800 uppercase tracking-wider">
+                      <tr>
+                        <th className="px-4 py-2 border-b">Source Type</th>
+                        <th className="px-4 py-2 border-b text-center">Today</th>
+                        <th className="px-4 py-2 border-b text-center">Last Week</th>
+                        <th className="px-4 py-2 border-b text-center">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {[
+                        { key: "email", label: "Email" },
+                        { key: "manual", label: "Manual" },
+                        { key: "bot_linkedin_message_extraction", label: "LinkedIn Message Extraction" },
+                        { key: "bot_linkedin_post_contact_extractor", label: "LinkedIn Post Contact Extractor" }
+                      ].map((source) => (
+                        <tr key={source.key} className="hover:bg-cyan-50/30 transition-colors">
+                          <td className="px-4 py-2.5 font-medium text-gray-700">{source.label}</td>
+                          <td className="px-4 py-2.5 text-center text-cyan-700 font-semibold bg-cyan-50/20">
+                            {extractionMetrics?.raw_contacts_by_source_today?.[source.key] || 0}
+                          </td>
+                          <td className="px-4 py-2.5 text-center text-blue-700 font-semibold bg-blue-50/20">
+                            {extractionMetrics?.raw_contacts_by_source_week?.[source.key] || 0}
+                          </td>
+                          <td className="px-4 py-2.5 text-center text-indigo-700 font-semibold bg-indigo-50/20">
+                            {extractionMetrics?.raw_contacts_by_source_total?.[source.key] || 0}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
 
