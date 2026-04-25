@@ -123,29 +123,29 @@ export default function CandidateSetupWizard() {
       "Email ID": ["Email ID", "email", "email_id"]
     };
 
-    const contactObj = data.contact && typeof data.contact === 'object' ? data.contact : {};
+    const findValueRecursively = (data: any, possibleKeys: string[]): boolean => {
+      if (typeof data !== 'object' || data === null) return false;
+      
+      if (Array.isArray(data)) {
+        return data.some(item => findValueRecursively(item, possibleKeys));
+      }
+      
+      for (const [key, value] of Object.entries(data)) {
+        if (possibleKeys.includes(key) && value && String(value).trim()) {
+          return true;
+        }
+        if (findValueRecursively(value, possibleKeys)) {
+          return true;
+        }
+      }
+      return false;
+    };
+
     const missing: string[] = [];
-
     Object.entries(fieldMaps).forEach(([label, possibleKeys]) => {
-      let found = false;
-      // Check top level
-      for (const k of possibleKeys) {
-        if (data[k] && String(data[k]).trim()) {
-          found = true;
-          break;
-        }
+      if (!findValueRecursively(data, possibleKeys)) {
+        missing.push(label);
       }
-      // Check in contact object
-      if (!found) {
-        for (const k of possibleKeys) {
-          if (contactObj[k] && String(contactObj[k]).trim()) {
-            found = true;
-            break;
-          }
-        }
-      }
-
-      if (!found) missing.push(label);
     });
     
     if (missing.length > 0) {
