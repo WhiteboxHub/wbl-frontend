@@ -230,6 +230,40 @@ const LinkRenderer = (params: any) => {
   );
 };
 
+const QARenderer = (params: any) => {
+  const value = params.value;
+  if (!value) return <span className="text-gray-500">N/A</span>;
+  
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const newWindow = window.open("", "_blank");
+    if (newWindow) {
+      newWindow.document.write(`
+        <html>
+          <head>
+            <title>Q&A Details</title>
+            <style>
+              body { font-family: sans-serif; padding: 20px; line-height: 1.6; color: #333; }
+              .content { background: #f9fafb; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; white-space: pre-wrap; }
+            </style>
+          </head>
+          <body>
+            <h2>Questions</h2>
+            <div class="content">${value}</div>
+          </body>
+        </html>
+      `);
+      newWindow.document.close();
+    }
+  };
+
+  return (
+    <a href="#" onClick={handleClick} className="text-blue-600 underline hover:text-blue-800">
+      View Q&A
+    </a>
+  );
+};
+
 const CandidateNameRenderer = (params: any) => {
   const candidateId = params.data?.candidate_id || params.data?.candidate?.id;
   const candidateName = params.data?.candidate?.full_name || params.value || "N/A";
@@ -262,6 +296,7 @@ type InterviewFormData = {
   recording_link?: string;
   backup_recording_url?: string;
   job_posting_url?: string;
+  q_a?: string;
   feedback?: string;
   position_id?: number | string;
 };
@@ -279,6 +314,7 @@ const initialFormData: InterviewFormData = {
   type_of_interview: "Recruiter Call",
   notes: "",
   recording_link: "",
+  q_a: "",
   backup_recording_url: "",
   job_posting_url: "",
   feedback: "Pending",
@@ -542,6 +578,7 @@ export default function CandidatesInterviews() {
         type_of_interview: data.type_of_interview || null,
         notes: data.notes || null,
         recording_link: data.recording_link || null,
+        q_a: data.q_a || null,
         backup_recording_url: data.backup_recording_url || null,
         job_posting_url: data.job_posting_url || null,
         feedback: data.feedback || null,
@@ -644,6 +681,7 @@ export default function CandidatesInterviews() {
     { field: "interviewer_contact", headerName: "Interviewer Phone", cellRenderer: PhoneRenderer, width: 190, editable: true },
     { field: "interviewer_linkedin", headerName: "Interviewer Linkedin", cellRenderer: LinkRenderer, width: 190, editable: true },
     { field: "recording_link", headerName: "Recording", cellRenderer: LinkRenderer, width: 120, editable: true },
+    { field: "q_a", headerName: "Q&A", cellRenderer: QARenderer, width: 120, editable: true },
     { field: "transcript", headerName: "Transcript", cellRenderer: LinkRenderer, width: 120, editable: true },
     { field: "audio_link", headerName: "Audio", cellRenderer: LinkRenderer, width: 120, editable: true },
     { field: "backup_recording_url", headerName: "Backup Recording", cellRenderer: LinkRenderer, width: 140, editable: true },

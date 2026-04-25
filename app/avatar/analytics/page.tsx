@@ -556,10 +556,10 @@ export default function Index() {
             <div className="relative mb-4 w-full">
               <button
                 onClick={() => setIsMobileDropdownOpen(!isMobileDropdownOpen)}
-                className="w-full flex items-center justify-between p-3 bg-white border-2 border-gray-200 rounded-xl shadow-sm touch-manipulation"
+                className="w-full flex items-center justify-between p-3 bg-white dark:bg-dark dark:border-darklight border-2 border-gray-200 rounded-xl shadow-sm touch-manipulation"
                 style={{ WebkitTapHighlightColor: 'transparent' }}
               >
-                <span className="font-semibold text-gray-700 text-sm">{currentTabLabel}</span>
+                <span className="font-semibold dark:text-white text-gray-700 text-sm">{currentTabLabel}</span>
                 <ChevronDown
                   className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${isMobileDropdownOpen ? 'rotate-180' : ''
                     }`}
@@ -567,7 +567,7 @@ export default function Index() {
               </button>
 
               {isMobileDropdownOpen && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border-2 border-gray-200 rounded-xl shadow-lg z-50 max-h-64 overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-dark dark:border-darklight border-2 border-gray-200 rounded-xl shadow-lg z-50 max-h-64 overflow-y-auto">
                   {Object.entries(tabLabels).map(([value, label]) => (
                     <button
                       key={value}
@@ -593,7 +593,7 @@ export default function Index() {
         )}
 
         {!isMobile && (
-          <TabsList className="border-2 border-gray-200 rounded-xl bg-gradient-to-br from-blue-50/50 via-white to-purple-50/50 p-2 shadow-sm">
+          <TabsList className="border-2 border-gray-200 rounded-xl bg-gradient-to-br from-blue-50/50 via-white to-purple-50/50 dark:border-darklight dark:from-dark dark:via-darklight dark:to-dark p-2 shadow-sm">
             <TabsTrigger value="batch" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800">Batch</TabsTrigger>
             <TabsTrigger value="leads" className="data-[state=active]:bg-teal-100 data-[state=active]:text-teal-800">Leads</TabsTrigger>
             <TabsTrigger value="preparation" className="data-[state=active]:bg-pink-100 data-[state=active]:text-pink-800">Preparation</TabsTrigger>
@@ -634,7 +634,7 @@ export default function Index() {
               icon={<CalendarPlus className="size-4" />}
               variant="purple"
             />
-            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-1 border-b border-purple-300">
+            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-1 dark:bg-dark border-b-darklight border-b border-purple-300">
               <CardHeader className="p-3 pb-1">
                 <div className="flex items-center justify-between border-b border-purple-200 pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Upcoming Batch Start Dates</CardTitle>
@@ -645,7 +645,7 @@ export default function Index() {
                 <ul className="divide-y rounded-md border">
                   {upcomingBatches.map((batch) => (
                     <li key={batch.name} className="flex items-center justify-between p-2">
-                      <span className="text-sm font-medium border-b border-purple-200">{batch.name}</span>
+                      <span className="text-sm font-medium dark:text-white border-b border-purple-200">{batch.name}</span>
                       <span className="text-xs text-muted-foreground">
                         {formatDateFromDB(batch.startdate)}
                       </span>
@@ -654,7 +654,7 @@ export default function Index() {
                 </ul>
               </CardContent>
             </Card>
-            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-purple-300">
+            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 dark:bg-dark border-b-darklight border-b border-purple-300">
               <CardHeader className="p-3 pb-1">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-semibold text-muted-foreground border-b border-purple-200">
@@ -705,25 +705,25 @@ export default function Index() {
                   <div className="flex flex-col justify-center gap-3 w-full sm:w-auto">
                     <div className="flex items-center gap-2 justify-center sm:justify-start">
                       <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#4f46e5" }}></span>
-                      <span className="text-sm">Active: {metrics?.batch_metrics.candidate_status_breakdown.active || 0}</span>
+                      <span className="text-sm dark:text-white">Active: {metrics?.batch_metrics.candidate_status_breakdown.active || 0}</span>
                     </div>
                     <div className="flex items-center gap-2 justify-center sm:justify-start">
                       <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#f59e0b" }}></span>
-                      <span className="text-sm">Break: {metrics?.batch_metrics.candidate_status_breakdown.break || 0}</span>
+                      <span className="text-sm dark:text-white">Break: {metrics?.batch_metrics.candidate_status_breakdown.break || 0}</span>
                     </div>
                     <div className="flex items-center gap-2 justify-center sm:justify-start">
                       <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#ef4444" }}></span>
-                      <span className="text-sm">Discontinued: {metrics?.batch_metrics.candidate_status_breakdown.discontinued || 0}</span>
+                      <span className="text-sm dark:text-white">Discontinued: {metrics?.batch_metrics.candidate_status_breakdown.discontinued || 0}</span>
                     </div>
                     <div className="flex items-center gap-2 justify-center sm:justify-start">
                       <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#10b981" }}></span>
-                      <span className="text-sm">Placements: {metrics?.batch_metrics.candidate_status_breakdown.Placements || 0}</span>
+                      <span className="text-sm dark:text-white">Placements: {metrics?.batch_metrics.candidate_status_breakdown.Placements || 0}</span>
                     </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
-            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-1 border-b border-purple-300">
+            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-1 dark:bg-dark border-b-darklight border-b border-purple-300">
               <CardTitle className="text-sm font-semibold text-purple-700 flex items-center gap-1 p-2">
                 <Layers3 className="size-4 text-purple-500" />
                 Classes Count
@@ -731,7 +731,7 @@ export default function Index() {
               <CardContent className="p-2">
                 <div className="overflow-x-auto">
                   <table className="w-full border border-gray-300 rounded-md text-xs">
-                    <thead className="bg-purple-50">
+                    <thead className="bg-purple-50 dark:bg-darklight">
                       <tr>
                         <th className="text-left px-2 py-1 font-bold text-gray-700 border-b w-2/3">
                           Batch Name
@@ -743,7 +743,7 @@ export default function Index() {
                     </thead>
                     <tbody>
                       {batchClasses.map((b) => (
-                        <tr key={b.batchname} className="hover:bg-purple-50">
+                        <tr key={b.batchname} className="hover:bg-purple-50 dark:hover:bg-darklight/50">
                           <td className="px-2 py-1 border-b">{b.batchname}</td>
                           <td className="px-2 py-1 border-b text-center">{b.classes_count}</td>
                         </tr>
@@ -807,7 +807,7 @@ export default function Index() {
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-green-300">
+            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-green-300 dark:bg-dark dark:border-darklight">
               <CardHeader className="p-3 pb-1 border-b border-green-200">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -850,7 +850,7 @@ export default function Index() {
               </CardContent>
             </Card>
 
-            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-emerald-300">
+            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-emerald-300 dark:bg-dark dark:border-darklight">
               <CardHeader className="p-3 pb-1 border-b border-emerald-200">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-semibold text-muted-foreground border-b border-emerald-200">
@@ -891,11 +891,11 @@ export default function Index() {
                     <div className="flex flex-col justify-center gap-3 w-full sm:w-auto">
                       <div className="flex items-center gap-2 justify-center sm:justify-start">
                         <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#10b981" }}></span>
-                        <span className="text-sm">Completed: {completedInstallmentsCount}</span>
+                        <span className="text-sm dark:text-white">Completed: {completedInstallmentsCount}</span>
                       </div>
                       <div className="flex items-center gap-2 justify-center sm:justify-start">
                         <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#ef4444" }}></span>
-                        <span className="text-sm">Pending: {pendingInstallmentsCount}</span>
+                        <span className="text-sm dark:text-white">Pending: {pendingInstallmentsCount}</span>
                       </div>
                     </div>
                   </div>
@@ -918,7 +918,7 @@ export default function Index() {
             <EnhancedMetricCard title="Active Placements" value={activePlacements} icon={<CheckCircle2 className="size-4" />} variant="blue" />
 
             {metrics?.placement_metrics.last_placement && (
-              <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-blue-200">
+              <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-blue-200 dark:bg-dark dark:border-darklight">
                 <CardHeader className="p-3 pb-1">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium text-muted-foreground">Last Placement</CardTitle>
@@ -926,13 +926,13 @@ export default function Index() {
                   </div>
                 </CardHeader>
                 <CardContent className="p-3 pt-0">
-                  <div className="flex flex-col sm:flex-row items-center justify-between p-2 bg-violet-50 rounded-md gap-2">
+                  <div className="flex flex-col sm:flex-row items-center justify-between p-2 bg-violet-50 dark:bg-darklight rounded-md gap-2">
                     <div className="text-center sm:text-left">
-                      <div className="font-medium text-sm">{metrics.placement_metrics.last_placement.candidate_name}</div>
+                      <div className="font-medium text-sm dark:text-white">{metrics.placement_metrics.last_placement.candidate_name}</div>
                       <div className="text-xs text-muted-foreground">{metrics.placement_metrics.last_placement.position}</div>
                     </div>
                     <div className="text-center sm:text-right">
-                      <div className="font-medium text-sm">{metrics.placement_metrics.last_placement.company}</div>
+                      <div className="font-medium text-sm dark:text-white">{metrics.placement_metrics.last_placement.company}</div>
                       <div className="text-xs text-muted-foreground">
                         {formatDateWithMonth(metrics.placement_metrics.last_placement.placement_date)}
                       </div>
@@ -954,7 +954,7 @@ export default function Index() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="border-b border-orange-300">
+            <Card className="border-b border-orange-300 dark:bg-dark dark:border-darkline">
               <CardHeader className="p-3 pb-1">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -969,7 +969,7 @@ export default function Index() {
                 ) : data.length > 0 ? (
                   <div className="overflow-x-auto max-h-[250px] overflow-y-auto custom-scrollbar">
                     <table className="w-full text-sm border-separate border-spacing-0 border border-orange-100 rounded-lg">
-                      <thead className="bg-orange-50/90 text-orange-900 sticky top-0 z-10 backdrop-blur-sm shadow-sm">
+                      <thead className="bg-orange-50/90 text-orange-900 dark:bg-darklight dark:text-gray-300 sticky top-0 z-10 backdrop-blur-sm shadow-sm">
                         <tr>
                           <th className="p-3 text-left font-semibold min-w-[200px] border-b border-orange-100">Candidate</th>
                           <th className="p-3 text-center font-semibold w-32 border-b border-orange-100">Interviews</th>
@@ -979,8 +979,8 @@ export default function Index() {
                       <tbody className="divide-y divide-gray-100">
                         {data.map((c) => (
                           <tr key={c.candidate_id} className="hover:bg-orange-50/30 transition-colors">
-                            <td className="p-3 font-medium text-gray-700">{c.candidate_name}</td>
-                            <td className="p-3 text-center text-gray-600 font-semibold">{c.total_interviews}</td>
+                            <td className="p-3 font-medium text-gray-700 dark:text-white">{c.candidate_name}</td>
+                            <td className="p-3 text-center text-gray-600 dark:text-white font-semibold">{c.total_interviews}</td>
                             <td
                               className={`p-3 text-center font-bold ${c.success_count > 0 ? "text-green-600 bg-green-50/50" : "text-gray-400"
                                 }`}
@@ -999,7 +999,7 @@ export default function Index() {
             </Card>
 
             {/* Breakdown Chart */}
-            <Card className="border-b border-orange-300">
+            <Card className="border-b border-orange-300 dark:bg-dark dark:border-darkline">
               <CardHeader className="p-3 pb-1">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-semibold text-muted-foreground border-b border-orange-200">
@@ -1044,7 +1044,7 @@ export default function Index() {
                       <div className="flex flex-col justify-center gap-3 w-full sm:w-auto">
                         <div className="flex items-center gap-2 justify-center sm:justify-start">
                           <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#10b981" }}></span>
-                          <span className="text-sm font-medium">Positive: {positive}</span>
+                          <span className="text-sm font-medium dark:text-white">Positive: {positive}</span>
                         </div>
                         <div className="flex items-center gap-2 justify-center sm:justify-start">
                           <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#ef4444" }}></span>
@@ -1052,7 +1052,7 @@ export default function Index() {
                         </div>
                         <div className="flex items-center gap-2 justify-center sm:justify-start">
                           <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#f59e0b" }}></span>
-                          <span className="text-sm font-medium">Pending: {pending}</span>
+                          <span className="text-sm font-medium dark:text-white">Pending: {pending}</span>
                         </div>
                       </div>
                     </div>
@@ -1079,7 +1079,7 @@ export default function Index() {
             <EnhancedMetricCard title="Leads In This Month" value={leadsThisMonth} icon={<CalendarDays className="size-4" />} variant="teal" />
             <EnhancedMetricCard title="Lead In This Week" value={leads_this_week} icon={<Target className="size-4" />} variant="teal" />
             {leadMetrics?.latest_lead && (
-              <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-teal-200">
+              <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-teal-200 dark:bg-dark dark:border-darklight">
                 <CardHeader className="p-3 pb-1">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium text-muted-foreground ">Latest Lead</CardTitle>
@@ -1087,9 +1087,9 @@ export default function Index() {
                   </div>
                 </CardHeader>
                 <CardContent className="p-3 pt-0">
-                  <div className="flex flex-col sm:flex-row items-center justify-between p-2 bg-sky-50 rounded-md gap-2">
+                  <div className="flex flex-col sm:flex-row items-center justify-between p-2 bg-sky-50 dark:bg-darklight rounded-md gap-2">
                     <div className="text-center sm:text-left">
-                      <div className="font-medium text-sm">{leadMetrics.latest_lead.full_name}</div>
+                      <div className="font-medium text-sm dark:text-white">{leadMetrics.latest_lead.full_name}</div>
                       <div className="text-sm text-muted-foreground">{leadMetrics.latest_lead.email}</div>
                     </div>
                     <div className="text-center sm:text-right">
@@ -1102,7 +1102,7 @@ export default function Index() {
                 </CardContent>
               </Card>
             )}
-            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-teal-300">
+            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-teal-300 dark:bg-dark dark:border-darklight">
               <CardHeader className="p-3 pb-1">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-semibold text-muted-foreground border-b border-teal-200">
@@ -1147,7 +1147,7 @@ export default function Index() {
                   <div className="flex flex-col justify-center gap-3 w-full sm:w-auto">
                     <div className="flex items-center gap-2 justify-center sm:justify-start">
                       <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#11bfebff" }}></span>
-                      <span className="text-sm">Open: {open_leads}</span>
+                      <span className="text-sm dark:text-white">Open: {open_leads}</span>
                     </div>
                     <div className="flex items-center gap-2 justify-center sm:justify-start">
                       <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#0bf50bff" }}></span>
@@ -1155,7 +1155,7 @@ export default function Index() {
                     </div>
                     <div className="flex items-center gap-2 justify-center sm:justify-start">
                       <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#e7c500ff" }}></span>
-                      <span className="text-sm">Future: {future_leads}</span>
+                      <span className="text-sm dark:text-white">Future: {future_leads}</span>
                     </div>
                   </div>
                 </div>
@@ -1201,7 +1201,7 @@ export default function Index() {
           <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* My Assigned Tasks Section */}
             {metrics?.my_tasks && metrics.my_tasks.length > 0 && (
-              <Card className="border-b border-indigo-200">
+              <Card className="border-b border-indigo-200 dark:bg-dark dark:border-darklight">
                 <CardHeader className="p-3 pb-1">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -1216,7 +1216,7 @@ export default function Index() {
                       <tbody>
                         {metrics.my_tasks.map((task) => (
                           <tr key={task.id} className="border-b transition-colors hover:bg-muted/30">
-                            <td className="px-3 py-2 font-medium">{task.task}</td>
+                            <td className="dark:text-white px-3 py-2 font-medium">{task.task}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1227,7 +1227,7 @@ export default function Index() {
             )}
 
             <div className={metrics?.my_tasks && metrics.my_tasks.length > 0 ? "" : "lg:col-span-2"}>
-              <Card className="border-b border-red-200 h-full">
+              <Card className="border-b border-red-200 dark:bg-dark dark:border-darklight h-full">
                 <CardHeader className="p-3 pb-1">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium text-muted-foreground">Employee Birthdays</CardTitle>
@@ -1240,7 +1240,7 @@ export default function Index() {
                       {birthdays.today.map((emp, idx) => (
                         <div
                           key={idx}
-                          className="p-4 bg-gradient-to-r from-pink-100 via-purple-100 to-indigo-100 rounded-lg border border-pink-200 shadow-md text-center"
+                          className="p-4 bg-gradient-to-r from-pink-100 via-purple-100 to-indigo-100 rounded-lg border border-pink-200 dark:bg-darklight dark:from-darklight dark:via-dark dark:to-darklight shadow-md text-center"
                         >
                           <h3 className="text-lg font-bold text-indigo-700">
                             {emp.wish || `🎂 🎉 Happy Birthday ${emp.name}! 🎂 🎉`}
@@ -1254,9 +1254,9 @@ export default function Index() {
                         birthdays.upcoming.map((emp, idx) => (
                           <div
                             key={idx}
-                            className="flex justify-between items-center p-3 bg-purple-50 rounded border border-purple-100"
+                            className="flex justify-between items-center p-3 bg-purple-50 rounded border border-purple-100 dark:bg-darklight dark:from-darklight dark:via-dark dark:to-darklight"
                           >
-                            <span className="font-medium">{emp.name}</span>
+                            <span className="dark:text-white font-medium">{emp.name}</span>
                             <span className="text-purple-600 font-semibold">
                               {formatDateWithMonth(emp.dob)}
                             </span>
@@ -1387,7 +1387,7 @@ export default function Index() {
           <div className="mt-4 max-w-md">
             {/* My Assigned Jobs Section */}
             {metrics?.my_jobs && metrics.my_jobs.length > 0 && (
-              <Card className="border-b border-blue-200">
+              <Card className="border-b border-blue-200 dark:bg-dark dark:border-darklight">
                 <CardHeader className="p-3 pb-1">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -1399,7 +1399,7 @@ export default function Index() {
                 <CardContent className="p-3 pt-2">
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
-                      <thead className="bg-blue-50 text-xs font-semibold text-blue-700">
+                      <thead className="bg-blue-50 text-xs font-semibold text-blue-700 dark:bg-darklight dark:text-gray-300">
                         <tr>
                           <th className="px-3 py-2">Job Name</th>
                         </tr>
@@ -1407,7 +1407,7 @@ export default function Index() {
                       <tbody>
                         {metrics.my_jobs.map((job) => (
                           <tr key={job.id} className="border-b transition-colors hover:bg-muted/30">
-                            <td className="px-3 py-2 font-medium">{job.name}</td>
+                            <td className="dark:text-white px-3 py-2 font-medium">{job.name}</td>
                           </tr>
                         ))}
                       </tbody>

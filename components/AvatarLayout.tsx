@@ -20,6 +20,7 @@ import {
 import { cn } from "lib/utils";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/utils/AuthContext";
+import ThemeToggler from "@/components/Header/ThemeToggler";
 
 interface AvatarLayoutProps {
   children: React.ReactNode;
@@ -33,29 +34,6 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window !== "undefined") {
-      return (
-        localStorage.getItem("darkMode") === "true" ||
-        document.documentElement.classList.contains("dark")
-      );
-    }
-    return false;
-  });
-
-  const toggleDarkMode = () => {
-    const newDarkMode = !darkMode;
-    setDarkMode(newDarkMode);
-    localStorage.setItem("darkMode", newDarkMode.toString());
-    document.documentElement.classList.toggle("dark", newDarkMode);
-  };
-
-  useEffect(() => {
-    const isDark = localStorage.getItem("darkMode") === "true";
-    setDarkMode(isDark);
-    document.documentElement.classList.toggle("dark", isDark);
-  }, []);
 
   const allSidebarItems = [
     { title: "Home", href: "/avatar/employee/employee-dashboard", icon: HomeIcon, exact: true },
@@ -109,6 +87,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
         { title: "Search", href: "/avatar/candidates/search" },
         { title: "Prep", href: "/avatar/candidates/prep" },
         { title: "Marketing", href: "/avatar/candidates/marketing" },
+        { title: "Credentials", href: "/avatar/candidates/credentials" },
         { title: "Job Listings Tracking", href: "/avatar/candidates/job-clicks" }
       ],
     },
@@ -337,6 +316,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
                 Avatar
               </h1>
             </Link>
+            <ThemeToggler />
           </div>
         </div>
       </header>
