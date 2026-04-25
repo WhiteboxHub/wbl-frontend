@@ -451,7 +451,7 @@ export default function CandidatesMarketingPage() {
   const fetchCandidates = async () => {
     try {
       setLoading(true);
-      const res = await cachedApiFetch("/candidate/marketing?page=1&limit=100");
+      const res = await cachedApiFetch("/candidate/marketing?page=1&limit=10000");
       const data = Array.isArray(res.data?.data)
         ? res.data.data
         : Array.isArray(res.data?.results)
