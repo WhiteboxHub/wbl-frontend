@@ -136,12 +136,6 @@ const Footer = () => {
                     >
                       info@whitebox-learning.com
                     </a>
-                    <a
-                      className="text-md text-black duration-500 hover:text-blue-600 dark:text-white dark:hover:text-blue-600"
-                      href="mailto:recruiting@whitebox-learning.com"
-                    >
-                      recruiting@whitebox-learning.com
-                    </a>
                   </li>
                 </ul>
               </div>

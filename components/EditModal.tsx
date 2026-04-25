@@ -53,6 +53,10 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "false", label: "No" },
     { value: "true", label: "Yes" },
   ],
+  mass_email: [
+    { value: false, label: "False" },
+    { value: true, label: "True" },
+  ],
   massemail_unsubscribe: [
     { value: "false", label: "No" },
     { value: "true", label: "Yes" },
@@ -73,9 +77,14 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: false, label: "No" },
     { value: true, label: "Yes" },
   ],
-  run_raw_positions_workflow: [
-    { value: false, label: "No" },
-    { value: true, label: "Yes" },
+
+  run_weekly_workflow: [
+    { value: false, label: "False" },
+    { value: true, label: "True" },
+  ],
+  run_daily_workflow: [
+    { value: false, label: "False" },
+    { value: true, label: "True" },
   ],
   recipient_source: [
     { value: "CSV", label: "Local CSV File" },
@@ -835,9 +844,11 @@ const fieldSections: Record<string, string> = {
   batchname: "Basic Information",
   move_to_prep: "Basic Information",
   move_to_mrkt: "Basic Information",
-  run_email_extraction: "Basic Information",
-  linkedin_post: "Basic Information",
-  run_raw_positions_workflow: "Basic Information",
+  run_email_extraction: "Contact Information",
+  linkedin_post: "Contact Information",
+  run_weekly_workflow: "Other",
+  run_daily_workflow: "Other",
+  mass_email: "Other",
   recipient_source: "Basic Information",
   date_filter: "Basic Information",
   lookback_days: "Basic Information",
@@ -1040,7 +1051,9 @@ const labelOverrides: Record<string, string> = {
   instructor1_name: "Instructor 1 Name",
   run_email_extraction: "Run Email Extraction",
   linkedin_post: "LinkedIn Post",
-  run_raw_positions_workflow: "Run Raw Positions Workflow",
+  mass_email: "Mass Email",
+  run_daily_workflow: "Run Daily Workflow",
+  run_weekly_workflow: "Run Weekly Workflow",
   payload: "Payload",
   instructor2_name: "Instructor 2 Name",
   instructor3_name: "Instructor 3 Name",
