@@ -259,7 +259,7 @@ export default function EmailPositionsPage() {
     const [selectedSources, setSelectedSources] = useState<string[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
 
-    const sourceOptions = ['bot_linkedin_post_contact_extractor', 'bot_linkedin_message_extraction', 'email', 'linkedin', 'job_board', 'scraper', 'hiring.cafe', 'trueup.io', 'email_bot_llm_local'];
+    const sourceOptions = ['bot_linkedin_post_contact_extractor', 'bot_linkedin_message_extraction', 'email', 'linkedin', 'job_board', 'scraper', 'hiring.cafe', 'trueup.io', 'email_bot_llm_local', 'jobright.ai'];
 
     const fetchEmailPositions = useCallback(async () => {
         setLoading(true);
