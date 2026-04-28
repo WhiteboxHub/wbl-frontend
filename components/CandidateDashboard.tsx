@@ -507,10 +507,10 @@ export default function CandidateDashboard() {
                 const url = params.data.job_url ||
                     (source.includes('trueup')
                         ? `https://trueup.io/jobs/${jobId}`
-                        : source.includes('wellfound')
-                            ? `https://wellfound.com/jobs/${jobId}`
-                            : source.includes('hiring')
-                                ? `https://hiring.cafe/viewjob/${jobId}`
+                        : source.includes('hiring') || source.includes('cafe')
+                            ? `https://hiring.cafe/viewjob/${jobId}`
+                            : source.includes('jobright')
+                                ? `https://jobright.ai/jobs/info/${jobId}`
                                 : `https://www.linkedin.com/jobs/view/${jobId}`);
 
                 if (!url) {
@@ -677,10 +677,10 @@ export default function CandidateDashboard() {
                 const url = params.data.job_url ||
                     (source.includes('trueup')
                         ? `https://trueup.io/jobs/${jobId}`
-                        : source.includes('wellfound')
-                            ? `https://wellfound.com/jobs/${jobId}`
-                            : source.includes('hiring')
-                                ? `https://hiring.cafe/viewjob/${jobId}`
+                        : source.includes('hiring') || source.includes('cafe')
+                            ? `https://hiring.cafe/viewjob/${jobId}`
+                            : source.includes('jobright')
+                                ? `https://jobright.ai/jobs/info/${jobId}`
                                 : `https://www.linkedin.com/jobs/view/${jobId}`);
 
                 return (
@@ -873,10 +873,10 @@ export default function CandidateDashboard() {
             console.log("🔍 API Response - Total jobs received:", posData?.length || 0);
             console.log("🔍 API Response - Sample job data:", posData?.[0] || {});
 
-            // Filter to show jobs from LinkedIn, Hiring Cafe, TrueUp, or Wellfound
+            // Filter to show jobs from LinkedIn, Hiring Cafe, TrueUp, or Jobright
             const filteredData = (posData || []).filter((pos: any) => {
                 const src = pos.source?.toLowerCase() || "";
-                const shouldInclude = src.includes('linkedin') || src.includes('hiring') || src.includes('cafe') || src.includes('trueup') || src.includes('wellfound');
+                const shouldInclude = src.includes('linkedin') || src.includes('hiring') || src.includes('cafe') || src.includes('trueup') || src.includes('jobright');
 
                 return shouldInclude;
             });
