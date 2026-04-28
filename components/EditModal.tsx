@@ -4160,7 +4160,9 @@ export function EditModal({
                               );
                             }
 
-                            if (key === "location" || key === "address") {
+                            const isJobListingModal = title.toLowerCase().includes("job listing") || title.toLowerCase().includes("marketing");
+
+                            if ((key === "location" || key === "address") && isJobListingModal) {
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5">
                                   <label className="block text-xs font-bold text-blue-700 sm:text-sm">
