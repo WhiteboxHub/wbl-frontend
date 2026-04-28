@@ -3,8 +3,9 @@ import { useMemo, useState, useEffect } from "react";
 import { ColDef } from "ag-grid-community";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
-import { SearchIcon, RefreshCw, Eye, X, ClipboardType } from "lucide-react";
+import { SearchIcon, RefreshCw, Eye, X, ClipboardType, Copy, Check } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
+import { toast } from "sonner";
 import { AGGridTable } from "@/components/AGGridTable";
 import api from "@/lib/api";
 import { Loader } from "@/components/admin_ui/loader";
@@ -15,6 +16,7 @@ type CandidateCredential = {
   full_name: string;
   email: string;
   resume_json: any;
+  resume_actions?: any;
   resume_created_at: string;
   resume_updated_at: string;
   api_key: string;
@@ -109,6 +111,24 @@ export default function CandidateCredentialsPage() {
         ),
       },
       {
+        headerName: "Resume",
+        field: "resume_actions",
+        width: 100,
+        cellRenderer: (params: any) => (
+          <div className="flex items-center justify-center h-full">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 hover:bg-blue-50 dark:hover:bg-blue-900/30 group"
+              onClick={() => setSelectedResume(params.data.resume_json)}
+              title="View Details"
+            >
+              <Eye className="h-4 w-4 text-blue-600 transition-transform group-hover:scale-110" />
+            </Button>
+          </div>
+        ),
+      },
+      {
         field: "api_key",
         headerName: "API Key",
         width: 150,
@@ -116,20 +136,6 @@ export default function CandidateCredentialsPage() {
           <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded dark:bg-gray-700">
             {"*".repeat(15)}
           </code>
-        ),
-      },
-      {
-        headerName: "Resume",
-        width: 120,
-        cellRenderer: (params: any) => (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0"
-            onClick={() => setSelectedResume(params.data.resume_json)}
-          >
-            <Eye className="h-4 w-4 text-blue-600" />
-          </Button>
         ),
       },
       {
@@ -227,22 +233,38 @@ export default function CandidateCredentialsPage() {
 
       {selectedResume && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden dark:bg-gray-800">
-            <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
+          <div className="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden dark:bg-gray-800 flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700 shrink-0">
               <div className="flex items-center space-x-2">
                 <ClipboardType className="h-5 w-5 text-blue-600" />
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
                   Resume Data Preview
                 </h2>
               </div>
-              <button
-                onClick={() => setSelectedResume(null)}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition"
-              >
-                <X className="h-5 w-5" />
-              </button>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-2 text-xs font-semibold hover:bg-blue-50 dark:hover:bg-blue-900/30 border-blue-100"
+                  onClick={() => {
+                    const json = JSON.stringify(selectedResume, null, 2);
+                    navigator.clipboard.writeText(json);
+                    toast.success("Resume JSON copied to clipboard!");
+                  }}
+                >
+                  <Copy size={14} className="text-blue-600" />
+                  Copy JSON
+                </Button>
+                <div className="w-px h-4 bg-gray-200 dark:bg-gray-700" />
+                <button
+                  onClick={() => setSelectedResume(null)}
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+                >
+                  <X className="h-5 w-5 text-gray-500" />
+                </button>
+              </div>
             </div>
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-80px)]">
+            <div className="p-6 overflow-y-auto flex-1">
               <pre className="text-sm font-mono p-4 bg-gray-50 rounded-xl border dark:bg-gray-900 dark:border-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                 {JSON.stringify(selectedResume, null, 2)}
               </pre>

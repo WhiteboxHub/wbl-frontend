@@ -6,7 +6,7 @@ import api from "@/lib/api";
 import {
   Brain, Key, Upload, CheckCircle, AlertCircle,
   ChevronRight, FileText, Eye, EyeOff, Bot,
-  Settings, Save, Plus, Trash2, Code
+  Settings, Save, Plus, Trash2, Code, Mic, MicOff, Loader2
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import Editor from "@monaco-editor/react";
@@ -40,11 +40,13 @@ export default function CandidateSetupWizard() {
 
   const [currentStep, setCurrentStep] = useState<Step>(1);
   const [loading, setLoading] = useState(false);
+  const [loadingApiKey, setLoadingApiKey] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   // Resume State
   const [resumeJson, setResumeJson] = useState<string>("");
   const [resumeError, setResumeError] = useState<string>("");
+  const [isValidated, setIsValidated] = useState(false);
   const [fileName, setFileName] = useState<string>("");
 
   // API Key State
@@ -52,11 +54,12 @@ export default function CandidateSetupWizard() {
   const [newKey, setNewKey] = useState({
     provider_name: "OpenAI",
     api_key: "",
-    model_name: "gpt-4o",
-    services_enabled: { whisper: true, embeddings: true }
+    model_name: "GPT-5.3",
+    voice_enabled: false
   });
   const [showKey, setShowKey] = useState(false);
   const [apiError, setApiError] = useState<string>("");
+  const [apiSuccess, setApiSuccess] = useState<string>("");
   const [setupStatus, setSetupStatus] = useState<any>(null);
 
   useEffect(() => {
@@ -103,12 +106,64 @@ export default function CandidateSetupWizard() {
     try { JSON.parse(jsonStr); return true; } catch { return false; }
   };
 
+  const handleValidateResume = () => {
+    setResumeError("");
+    if (!validateJson(resumeJson)) {
+      setResumeError("Invalid JSON format. Please check your input.");
+      return;
+    }
+    const data = JSON.parse(resumeJson);
+    
+    // Flexible mapping for mandatory fields
+    const fieldMaps: Record<string, string[]> = {
+      "Work Experience": ["Work Experience", "experience", "work", "work_experience", "employment"],
+      "Education": ["Education", "education", "academics"],
+      "LinkedIn": ["LinkedIn", "linkedin", "linkedin_url"],
+      "Contact Number": ["Contact Number", "phone", "contact_number", "mobile", "phone_number"],
+      "Email ID": ["Email ID", "email", "email_id"]
+    };
+
+    const findValueRecursively = (data: any, possibleKeys: string[]): boolean => {
+      if (typeof data !== 'object' || data === null) return false;
+      
+      if (Array.isArray(data)) {
+        return data.some(item => findValueRecursively(item, possibleKeys));
+      }
+      
+      for (const [key, value] of Object.entries(data)) {
+        if (possibleKeys.includes(key) && value && String(value).trim()) {
+          return true;
+        }
+        if (findValueRecursively(value, possibleKeys)) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    const missing: string[] = [];
+    Object.entries(fieldMaps).forEach(([label, possibleKeys]) => {
+      if (!findValueRecursively(data, possibleKeys)) {
+        missing.push(label);
+      }
+    });
+    
+    if (missing.length > 0) {
+      setResumeError(`Missing mandatory fields: ${missing.join(", ")}`);
+      setIsValidated(false);
+      toast.error("Validation failed. Check requirements.");
+    } else {
+      setResumeError("");
+      setIsValidated(true);
+      toast.success("Resume structure is valid!");
+    }
+  };
+
   const handleResumeSubmit = async () => {
     if (!validateJson(resumeJson)) {
       setResumeError("Invalid JSON format. Please check your input.");
       return;
     }
-    setLoading(true);
     try {
       await api.post("/candidate/resume", { 
         resume_json: JSON.parse(resumeJson), 
@@ -118,7 +173,10 @@ export default function CandidateSetupWizard() {
       setCurrentStep(3);
       initializeData();
     } catch (err: any) {
-      toast.error(err.body?.detail || "Failed to save resume");
+      const detail = err.body?.detail || "Failed to save resume";
+      setResumeError(detail);
+      toast.error(detail);
+      setIsValidated(false);
     } finally {
       setLoading(false);
     }
@@ -153,19 +211,24 @@ export default function CandidateSetupWizard() {
       toast.error("Please enter an API key."); 
       return; 
     }
-    setLoading(true);
+    setLoadingApiKey(true);
     try {
+      setApiSuccess("");
       await api.post("/candidate/api-keys", newKey);
+      setApiSuccess(`${newKey.provider_name} key validated and added successfully!`);
       toast.success(`${newKey.provider_name} key added!`);
       setNewKey({ ...newKey, api_key: "" });
       fetchApiKeys();
       initializeData();
     } catch (err: any) {
-      const errorMsg = err.body?.detail || "Failed to add API key. Key might be invalid.";
+      let errorMsg = err.body?.detail || "Invalid API Key";
+      if (errorMsg.includes("does not support voice processing")) {
+        errorMsg = "Voice processing not available for this key. Please select another model or provider.";
+      }
       setApiError(errorMsg);
       toast.error(errorMsg);
     } finally {
-      setLoading(false);
+      setLoadingApiKey(false);
     }
   };
 
@@ -283,6 +346,9 @@ export default function CandidateSetupWizard() {
                   <h2 className="text-xl font-extrabold text-black dark:text-white mb-1">
                     Upload JSON Resume
                   </h2>
+                  <p className="text-sm font-bold text-primary dark:text-primary mb-2">
+                    “If you don’t have a JSON resume, please reach out to your instructors.”
+                  </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     Provide your resume in JSON format. This allows our AI to parse your experience correctly.
                   </p>
@@ -354,13 +420,26 @@ export default function CandidateSetupWizard() {
                   </div>
                 </div>
 
+                {resumeError && (
+                  <div className="mb-4 text-xs text-red-500 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/50 p-3 rounded-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-1">
+                    <AlertCircle size={14} className="shrink-0" />
+                    <span>{resumeError}</span>
+                  </div>
+                )}
+
+                {isValidated && !resumeError && (
+                  <div className="mb-4 text-xs text-green-600 bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/50 p-3 rounded-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-1">
+                    <CheckCircle size={14} className="shrink-0" />
+                    <span>Resume successfully validated! You can now save and continue.</span>
+                  </div>
+                )}
+
                 <div className="flex-1 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden mb-4 bg-gray-50 dark:bg-dark min-h-[200px]">
                   <Editor
                     height="100%"
                     defaultLanguage="json"
                     theme={isDark ? "vs-dark" : "light"}
                     value={resumeJson}
-                    onChange={(val) => setResumeJson(val || "")}
                     options={{
                       minimap: { enabled: false },
                       fontSize: 12,
@@ -368,6 +447,10 @@ export default function CandidateSetupWizard() {
                       scrollBeyondLastLine: false,
                       automaticLayout: true,
                       padding: { top: 12, bottom: 12 },
+                    }}
+                    onChange={(val) => {
+                      setResumeJson(val || "");
+                      setIsValidated(false);
                     }}
                   />
                 </div>
@@ -379,13 +462,23 @@ export default function CandidateSetupWizard() {
                   >
                     Back
                   </button>
-                  <button
-                    disabled={loading}
-                    onClick={handleResumeSubmit}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-br from-indigo-900 to-purple-400 rounded-xl text-sm font-bold text-white transition duration-500 hover:bg-gradient-to-tl disabled:opacity-60 shadow-sm"
-                  >
-                    <Save size={16} /> {loading ? "Saving..." : "Save & Continue"}
-                  </button>
+                  
+                  {!isValidated ? (
+                    <button
+                      onClick={handleValidateResume}
+                      className="flex items-center gap-2 px-6 py-2.5 bg-white dark:bg-gray-800 border-2 border-primary text-primary rounded-xl text-sm font-bold transition duration-300 hover:bg-primary hover:text-white shadow-sm"
+                    >
+                      <CheckCircle size={16} /> Validate Resume
+                    </button>
+                  ) : (
+                    <button
+                      disabled={loading}
+                      onClick={handleResumeSubmit}
+                      className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-br from-indigo-900 to-purple-400 rounded-xl text-sm font-bold text-white transition duration-500 hover:bg-gradient-to-tl disabled:opacity-60 shadow-sm"
+                    >
+                      <Save size={16} /> {loading ? "Saving..." : "Save & Continue"}
+                    </button>
+                  )}
                 </div>
               </div>
             )}
@@ -428,17 +521,17 @@ export default function CandidateSetupWizard() {
                       <div>
                         <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">API Key</label>
                         <div className="relative">
-                          <input
-                            type={showKey ? "text" : "password"}
-                            placeholder="sk-..."
-                            className="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-black dark:text-white px-3 py-2 pr-9 text-xs focus:outline-none focus:border-primary"
+                          <textarea
+                            rows={3}
+                            placeholder="Paste your API key here..."
+                            className={`w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-black dark:text-white px-3 py-2 pr-9 text-xs focus:outline-none focus:border-primary resize-none font-mono ${!showKey ? 'mask-text' : ''}`}
                             value={newKey.api_key}
                             onChange={(e) => setNewKey({ ...newKey, api_key: e.target.value })}
                           />
                           <button
                             type="button"
                             onClick={() => setShowKey(!showKey)}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 dark:hover:text-white"
+                            className="absolute right-2.5 top-2 text-gray-400 hover:text-gray-700 dark:hover:text-white"
                           >
                             {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
                           </button>
@@ -450,7 +543,13 @@ export default function CandidateSetupWizard() {
                         <select
                           className="w-full rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-black dark:text-white px-3 py-2 text-xs focus:outline-none focus:border-primary"
                           value={newKey.model_name}
-                          onChange={(e) => setNewKey({ ...newKey, model_name: e.target.value })}
+                          onChange={(e) => {
+                            const newModel = e.target.value;
+                            setNewKey({ 
+                              ...newKey, 
+                              model_name: newModel
+                            });
+                          }}
                         >
                           {(MODELS_BY_PROVIDER[newKey.provider_name] || []).map(m => (
                             <option key={m} value={m}>{m}</option>
@@ -458,37 +557,45 @@ export default function CandidateSetupWizard() {
                         </select>
                       </div>
 
-                      <div className="flex items-center justify-between pt-1 pb-1">
-                        {[
-                          { key: "whisper", label: "Voice" },
-                          { key: "embeddings", label: "Embeddings" }
-                        ].map(({ key, label }) => (
-                          <label key={key} className="flex items-center gap-1.5 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              className="rounded border-gray-300 text-primary focus:ring-primary w-3.5 h-3.5"
-                              checked={(newKey.services_enabled as any)[key]}
-                              onChange={(e) => setNewKey({ ...newKey, services_enabled: { ...newKey.services_enabled, [key]: e.target.checked } })}
-                            />
-                            <span className="text-[11px] font-medium text-gray-700 dark:text-gray-300">{label}</span>
-                          </label>
-                        ))}
+                      <div className="flex items-center justify-between pt-2 pb-2">
+                        <div className="flex items-center gap-2">
+                          <div 
+                            onClick={() => setNewKey({ ...newKey, voice_enabled: !newKey.voice_enabled })}
+                            className={`w-8 h-4 rounded-full relative cursor-pointer transition-colors duration-200 ${newKey.voice_enabled ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'}`}
+                          >
+                            <div className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white transition-transform duration-200 ${newKey.voice_enabled ? 'translate-x-4' : 'translate-x-0'}`} />
+                          </div>
+                          <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300">Enable Voice Processing</span>
+                        </div>
+                        {newKey.voice_enabled ? <Mic size={14} className="text-primary" /> : <MicOff size={14} className="text-gray-400" />}
                       </div>
 
                       <button
                         onClick={handleAddApiKey}
-                        disabled={loading || !newKey.api_key}
-                        className="w-full py-2.5 rounded-xl bg-gradient-to-br from-indigo-900 to-purple-400 text-xs font-bold text-white transition duration-500 hover:bg-gradient-to-tl disabled:opacity-40 shadow-sm"
+                        disabled={loadingApiKey || !newKey.api_key}
+                        className="w-full py-2.5 rounded-xl bg-gradient-to-br from-indigo-900 to-purple-400 text-xs font-bold text-white transition duration-500 hover:bg-gradient-to-tl disabled:opacity-40 shadow-sm flex items-center justify-center gap-2"
                       >
-                        {loading ? "Adding..." : "Add"}
+                        {loadingApiKey ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin" />
+                            Validating...
+                          </>
+                        ) : "Add Key"}
                       </button>
 
-                      {apiError && (
-                        <div className="mt-2 text-[11px] text-red-500 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/50 p-2 rounded flex items-center gap-1.5 font-medium">
-                          <AlertCircle size={14} className="shrink-0" /> 
-                          <span>{apiError}</span>
-                        </div>
-                      )}
+                    {apiSuccess && (
+                      <div className="mt-4 p-2.5 rounded-lg bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-900/50 flex items-start gap-2 animate-in fade-in slide-in-from-top-1">
+                        <CheckCircle size={14} className="text-green-500 mt-0.5 shrink-0" />
+                        <span className="text-[10px] text-green-600 dark:text-green-400 font-medium">{apiSuccess}</span>
+                      </div>
+                    )}
+
+                    {apiError && (
+                      <div className="mt-4 p-2.5 rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/50 flex items-start gap-2 animate-in fade-in slide-in-from-top-1">
+                        <AlertCircle size={14} className="text-red-500 mt-0.5 shrink-0" />
+                        <span className="text-[10px] text-red-600 dark:text-red-400 font-medium">{apiError}</span>
+                      </div>
+                    )}
                     </div>
                   </div>
 
@@ -510,11 +617,14 @@ export default function CandidateSetupWizard() {
                             <div>
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="font-bold text-xs text-black dark:text-white">{k.provider_name}</span>
-                                <span className="text-[9px] bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded font-bold">{k.model_name}</span>
                               </div>
-                              <div className="flex gap-1.5">
-                                {k.services_enabled?.whisper && <span className="w-1.5 h-1.5 rounded-full bg-green-500 mt-0.5" title="Voice Enabled" />}
-                                {k.services_enabled?.embeddings && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-0.5" title="Embeddings Enabled" />}
+                              <div className="flex items-center gap-2">
+                                <span className="text-[9px] bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded font-bold">{k.model_name}</span>
+                                {k.voice_enabled && (
+                                  <span className="flex items-center gap-1 text-[9px] text-primary font-bold">
+                                    <Mic size={10} /> Voice
+                                  </span>
+                                )}
                               </div>
                             </div>
                             <button

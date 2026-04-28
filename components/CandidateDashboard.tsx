@@ -876,9 +876,11 @@ export default function CandidateDashboard() {
             // Filter to show jobs from LinkedIn, Hiring Cafe, TrueUp, or Jobright
             const filteredData = (posData || []).filter((pos: any) => {
                 const src = pos.source?.toLowerCase() || "";
-                const shouldInclude = src.includes('linkedin') || src.includes('hiring') || src.includes('cafe') || src.includes('trueup') || src.includes('jobright');
-
-                return shouldInclude;
+                const shouldInclude = src.includes('linkedin') || src.includes('hiring') || src.includes('cafe') || src.includes('trueup');
+                
+                // Add a check to confirm the job actually has an actionable link id or url
+                const hasLink = Boolean(pos.source_job_id || pos.source_uid || pos.job_url);
+                return shouldInclude && hasLink;
             });
 
             console.log("📊 Final filtered positions count:", filteredData.length);
@@ -1194,7 +1196,7 @@ export default function CandidateDashboard() {
                                     {setupStatus.setup_complete ? (
                                         <button
                                             onClick={() => {
-                                                window.location.href = "https://ai-frontend-560359652969.us-central1.run.app/dashboard";
+                                                window.location.href = "https://ai-prep.whitebox-learning.com/";
                                             }}
                                             className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
                                         >
