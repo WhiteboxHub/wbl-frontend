@@ -1391,23 +1391,13 @@ export function EditModal({
     if (isOpen && (isInterviewModal || isJobActivityLogModal)) {
       const fetchMarketingCandidatesList = async () => {
         try {
-          const res = await apiFetch("/candidate/marketing?page=1&limit=500");
-          const body = res?.data ?? res;
-          const arr = Array.isArray(body) ? body : body.data ?? [];
+          const res = await apiFetch("/candidate/active-dropdown");
+          const arr = Array.isArray(res) ? res : res?.data ?? [];
 
-          // Filter for ACTIVE marketing candidates with candidate data
-          const activeCandidates = (arr || []).filter((m: any) => {
-            const status = (m?.status || "").toString().toLowerCase();
-            const hasCandidate = !!m.candidate && !!m.candidate.id;
-            return status === "active" && hasCandidate;
-          });
-
-          // Sort alphabetically by candidate name
-          activeCandidates.sort((a: any, b: any) =>
-            (a.candidate?.full_name || "").localeCompare(b.candidate?.full_name || "")
-          );
-
-          setMarketingCandidates(activeCandidates);
+          const formatted = arr.map((c: any) => ({
+            candidate: { id: c.id, full_name: c.full_name }
+          }));
+          setMarketingCandidates(formatted);
         } catch (err: any) {
           console.error(
             "Failed to fetch marketing candidates:",
