@@ -1197,10 +1197,7 @@ export default function CandidateDashboard() {
                                         <button
                                             onClick={async () => {
                                                 const getAiPrepUrl = () => {
-                                                    if (process.env.NODE_ENV === "production" || window.location.hostname !== "localhost") {
-                                                        return "https://ai-prep.whitebox-learning.com";
-                                                    }
-                                                    return "http://localhost:3001";
+                                                    return "https://ai-prep.whitebox-learning.com";
                                                 };
                                                 const baseUrl = getAiPrepUrl();
                                                 
