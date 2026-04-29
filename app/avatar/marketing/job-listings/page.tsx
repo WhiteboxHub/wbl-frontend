@@ -372,6 +372,7 @@ export default function JobListingsPage() {
                     (p.company_name?.toLowerCase().includes(lower)) ||
                     (p.location?.toLowerCase().includes(lower)) ||
                     (p.contact_email?.toLowerCase().includes(lower)) ||
+                    (p.source?.toLowerCase().includes(lower)) ||
                     (p.description?.toLowerCase().includes(lower))
                 );
             });
