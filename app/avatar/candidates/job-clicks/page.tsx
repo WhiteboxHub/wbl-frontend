@@ -16,7 +16,7 @@ import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
 interface ClickRecord {
-    id: number;
+    id: number | string;
     job_listing_id: number;
     full_name: string | null;
     email: string;
@@ -28,8 +28,17 @@ interface ClickRecord {
     isGroup?: boolean;
     isExpanded?: boolean;
     totalClicks?: number;
+    candidateCount?: number;
     jobCount?: number;
     lastActive?: string;
+    dateKey?: string;
+    hideCandidateDetails?: boolean;
+    candidateDayJobCount?: number;
+    candidateCompanies?: string[];
+    isCandidateGroup?: boolean;
+    candidateGroupKey?: string;
+    candidateEmail?: string;
+    parentDateKey?: string;
 }
 
 export default function JobClickTrackingPage() {
@@ -37,6 +46,7 @@ export default function JobClickTrackingPage() {
     const [rawClicks, setRawClicks] = useState<ClickRecord[]>([]);
     const [gridRows, setGridRows] = useState<ClickRecord[]>([]);
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+    const [expandedCandidateGroups, setExpandedCandidateGroups] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(false);
     const showLoader = useMinimumLoadingTime(loading);
     const [columnDefs, setColumnDefs] = useState<ColDef[]>([]);
@@ -53,62 +63,194 @@ export default function JobClickTrackingPage() {
             return Object.values(c).some(v => String(v).toLowerCase().includes(lowerSearch));
         });
 
-        // Group by Candidate Email
+        // Group by Day (using last_clicked_at)
         const groups: Record<string, ClickRecord[]> = {};
+        
         filteredRaw.forEach(click => {
-            const email = click.email || "Unknown";
-            if (!groups[email]) groups[email] = [];
-            groups[email].push(click);
+            let dateStr = click.last_clicked_at;
+            let dateKey = "Unknown Date";
+            
+            if (dateStr) {
+                // Force UTC if the string lacks a timezone indicator (e.g. from DB)
+                if (typeof dateStr === 'string' && !dateStr.endsWith('Z') && !dateStr.match(/[+-]\d{2}:?\d{2}$/)) {
+                    dateStr = dateStr.replace(' ', 'T') + 'Z';
+                }
+                const date = new Date(dateStr);
+                if (!isNaN(date.getTime())) {
+                    // Group by the localized date string to ensure days match the visual output
+                    dateKey = date.toLocaleDateString("en-US", {
+                        timeZone: "America/Los_Angeles",
+                        year: "numeric",
+                        month: "2-digit",
+                        day: "2-digit"
+                    });
+                }
+            }
+
+            if (!groups[dateKey]) groups[dateKey] = [];
+            groups[dateKey].push(click);
         });
 
         const newGridRows: ClickRecord[] = [];
 
-        Object.entries(groups).forEach(([email, children]) => {
+        // Sort groups by date descending
+        const sortedDates = Object.keys(groups).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+
+        sortedDates.forEach(dateKey => {
+            const children = groups[dateKey];
             const total = children.reduce((sum, item) => sum + Number(item.click_count || 0), 0);
-            const isExpanded = expandedGroups.has(email) || searchTerm.length > 0;
-            const fullName = children[0].full_name || "Unknown Candidate";
+            const candidateCount = new Set(
+                children.map(({ full_name, email }) => `${full_name || ""}::${email || ""}`.toLowerCase())
+            ).size;
+            const isExpanded = expandedGroups.has(dateKey) || searchTerm.length > 0;
 
-            // Find last active date
-            const lastActive = children
-                .map(c => c.last_clicked_at)
-                .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0];
-
+            // Group Row
             newGridRows.push({
-                id: `group-${email}`,
-                email: email,
-                full_name: fullName,
+                id: `group-${dateKey}`,
+                dateKey: dateKey,
                 isGroup: true,
                 isExpanded: isExpanded,
                 totalClicks: total,
+                candidateCount,
                 jobCount: children.length,
-                lastActive: lastActive,
                 click_count: total,
-                job_title: `${children.length} Jobs Tracked`,
+                job_title: `${children.length} Records`,
+                // Fill required fields with defaults for the group row
+                email: "",
+                full_name: dateKey, 
                 company_name: "",
-                last_clicked_at: lastActive,
+                last_clicked_at: children[0]?.last_clicked_at || "", 
                 job_listing_id: 0,
                 first_clicked_at: ""
             } as any);
 
+            // Child Rows
             if (isExpanded) {
-                children.forEach(child => {
+                const sortedChildren = [...children].sort((a, b) => {
+                    const candidateA = `${a.full_name || ""} ${a.email || ""}`.toLowerCase();
+                    const candidateB = `${b.full_name || ""} ${b.email || ""}`.toLowerCase();
+
+                    if (candidateA !== candidateB) {
+                        return candidateA.localeCompare(candidateB);
+                    }
+
+                    return new Date(b.last_clicked_at).getTime() - new Date(a.last_clicked_at).getTime();
+                });
+
+                let candidateJobCountMap: Record<string, number> = {};
+                let candidateCompanyMap: Record<string, string[]> = {};
+                let candidateRowsMap: Record<string, ClickRecord[]> = {};
+
+                sortedChildren.forEach(child => {
+                    const candidateKey = `${child.full_name || ""}::${child.email || ""}`.toLowerCase();
+
+                    candidateJobCountMap[candidateKey] = (candidateJobCountMap[candidateKey] || 0) + 1;
+
+                    if (!candidateCompanyMap[candidateKey]) {
+                        candidateCompanyMap[candidateKey] = [];
+                    }
+
+                    if (child.company_name && !candidateCompanyMap[candidateKey].includes(child.company_name)) {
+                        candidateCompanyMap[candidateKey].push(child.company_name);
+                    }
+
+                    if (!candidateRowsMap[candidateKey]) {
+                        candidateRowsMap[candidateKey] = [];
+                    }
+
+                    candidateRowsMap[candidateKey].push(child);
+                });
+
+                Object.entries(candidateRowsMap).forEach(([candidateKey, candidateRows]) => {
+                    const firstRow = candidateRows[0];
+                    const candidateGroupKey = `${dateKey}::${candidateKey}`;
+                    const candidateJobCount = candidateJobCountMap[candidateKey] || 1;
+                    const hasMultipleJobs = candidateJobCount > 1;
+                    const isCandidateExpanded = expandedCandidateGroups.has(candidateGroupKey) || searchTerm.length > 0;
+
                     newGridRows.push({
-                        ...child,
+                        ...firstRow,
+                        id: `candidate-${candidateGroupKey}`,
                         isGroup: false,
+                        isCandidateGroup: hasMultipleJobs,
+                        isExpanded: hasMultipleJobs ? isCandidateExpanded : true,
+                        candidateGroupKey,
+                        parentDateKey: dateKey,
+                        candidateDayJobCount: candidateJobCount,
+                        candidateCompanies: candidateCompanyMap[candidateKey] || [],
+                        candidateEmail: firstRow.email,
                     });
+
+                    if (hasMultipleJobs && isCandidateExpanded) {
+                        const jobRows = [...candidateRows].sort(
+                            (a, b) => new Date(b.last_clicked_at).getTime() - new Date(a.last_clicked_at).getTime()
+                        );
+
+                        jobRows.forEach(child => {
+                            newGridRows.push({
+                                ...child,
+                                isGroup: false,
+                                isCandidateGroup: false,
+                                hideCandidateDetails: true,
+                                candidateGroupKey,
+                                parentDateKey: dateKey,
+                                candidateDayJobCount: candidateJobCount,
+                                candidateCompanies: candidateCompanyMap[candidateKey] || [],
+                            });
+                        });
+                    }
                 });
             }
         });
 
         setGridRows(newGridRows);
 
-    }, [rawClicks, expandedGroups, searchTerm]);
+    }, [rawClicks, expandedGroups, expandedCandidateGroups, searchTerm]);
 
-    const toggleGroup = useCallback((email: string) => {
+    const toggleGroup = useCallback((dateKey: string) => {
         setExpandedGroups(prev => {
             const next = new Set(prev);
-            if (next.has(email)) next.delete(email);
-            else next.add(email);
+            if (next.has(dateKey)) {
+                next.delete(dateKey);
+                setExpandedCandidateGroups(candidatePrev => {
+                    const candidateNext = new Set(candidatePrev);
+                    Array.from(candidateNext).forEach((candidateKey) => {
+                        if (candidateKey.startsWith(`${dateKey}::`)) {
+                            candidateNext.delete(candidateKey);
+                        }
+                    });
+                    return candidateNext;
+                });
+            } else {
+                next.add(dateKey);
+            }
+            return next;
+        });
+    }, []);
+
+    const toggleCandidateGroup = useCallback((candidateGroupKey: string) => {
+        setExpandedCandidateGroups(prev => {
+            const next = new Set(prev);
+            if (next.has(candidateGroupKey)) next.delete(candidateGroupKey);
+            else next.add(candidateGroupKey);
+            return next;
+        });
+    }, []);
+
+    const closeWholeDateFromCandidate = useCallback((dateKey: string) => {
+        setExpandedGroups(prev => {
+            const next = new Set(prev);
+            next.delete(dateKey);
+            return next;
+        });
+
+        setExpandedCandidateGroups(prev => {
+            const next = new Set(prev);
+            Array.from(next).forEach((candidateKey) => {
+                if (candidateKey.startsWith(`${dateKey}::`)) {
+                    next.delete(candidateKey);
+                }
+            });
             return next;
         });
     }, []);
@@ -116,7 +258,7 @@ export default function JobClickTrackingPage() {
     const handleRowDeleted = async (id: string | number) => {
         try {
             if (typeof id === 'string' && id.startsWith('group-')) {
-                toast.error("Cannot delete a candidate group directly");
+                toast.error("Cannot delete a date group directly");
                 return;
             }
             await api.delete(`/candidates/click-analytics/${id}`);
@@ -129,15 +271,27 @@ export default function JobClickTrackingPage() {
         }
     };
 
-    const CandidateRenderer = (params: any) => {
+    const GroupCellRenderer = (params: any) => {
         const { data } = params;
         if (!data) return null;
 
         if (data.isGroup) {
+            // Format the group header date nicely
+            let formattedDate = data.dateKey;
+            const d = new Date(data.dateKey);
+            if (!isNaN(d.getTime())) {
+                formattedDate = d.toLocaleDateString("en-US", {
+                    weekday: 'long',
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric"
+                });
+            }
+
             return (
                 <div
                     className="flex items-center cursor-pointer font-medium text-gray-900 dark:text-gray-100 h-full"
-                    onClick={() => toggleGroup(data.email)}
+                    onClick={() => toggleGroup(data.dateKey)}
                 >
                     {data.isExpanded || searchTerm ? (
                         <ChevronDown className="w-4 h-4 mr-2 text-gray-400" />
@@ -145,33 +299,159 @@ export default function JobClickTrackingPage() {
                         <ChevronRight className="w-4 h-4 mr-2 text-gray-400" />
                     )}
                     <div className="flex flex-col leading-tight mt-1">
-                        <span className="text-sm">{data.full_name}</span>
-                        <span className="text-xs text-gray-500 font-normal">{data.email}</span>
+                        <span className="text-sm font-semibold">{formattedDate}</span>
+                        <span className="text-xs text-gray-500 font-normal">
+                            {data.candidateCount} {data.candidateCount === 1 ? "Candidate Interaction" : "Candidate Interactions"}
+                        </span>
                     </div>
                 </div>
             );
         } else {
+            const candidateCompanies: string[] = (data.candidateCompanies && data.candidateCompanies.length > 0)
+                ? data.candidateCompanies
+                : (data.company_name ? [data.company_name] : []);
+            const companyPreview = candidateCompanies.slice(0, 2).join(", ");
+            const remainingCompanies = candidateCompanies.length - 2;
+
+            if (data.isCandidateGroup) {
+                return (
+                    <div className="pl-6 py-2">
+                        <div
+                            className="cursor-pointer rounded-md border border-gray-200 bg-gray-50 px-3 py-3 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800/60 dark:hover:bg-gray-800"
+                            onClick={() => {
+                                if (data.isExpanded && data.parentDateKey) {
+                                    closeWholeDateFromCandidate(data.parentDateKey);
+                                    return;
+                                }
+
+                                toggleCandidateGroup(data.candidateGroupKey);
+                            }}
+                        >
+                            <div className="flex items-start gap-3">
+                                {data.isExpanded || searchTerm ? (
+                                    <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+                                ) : (
+                                    <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+                                )}
+
+                                <div className="min-w-0 flex-1">
+                                    <span className="block text-sm font-semibold leading-5 text-gray-900 dark:text-gray-100">
+                                        {data.full_name || "Unknown Candidate"}
+                                    </span>
+                                    <span className="mt-1 block break-words text-xs font-medium text-gray-600 dark:text-gray-300">
+                                        {data.email || "No email"}
+                                    </span>
+
+                                    {candidateCompanies.length > 0 && (
+                                        <div className="mt-2 rounded-sm bg-white/80 px-2 py-1.5 text-xs text-gray-600 dark:bg-gray-900/70 dark:text-gray-300">
+                                            <span className="mr-1 font-semibold text-gray-500 dark:text-gray-400">
+                                                {candidateCompanies.length === 1 ? "Company:" : "Companies:"}
+                                            </span>
+                                            <span className="break-words">
+                                                {companyPreview}
+                                                {remainingCompanies > 0 ? ` +${remainingCompanies} more` : ""}
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (data.hideCandidateDetails) {
+                return (
+                    <div className="pl-6 py-2">
+                        <div
+                            className="cursor-pointer rounded-md border border-gray-200/80 bg-gray-50/80 px-3 py-2 dark:border-gray-700 dark:bg-gray-800/40"
+                            onClick={() => {
+                                if (data.parentDateKey) {
+                                    closeWholeDateFromCandidate(data.parentDateKey);
+                                }
+                            }}
+                        >
+                            <span className="block text-sm font-medium leading-5 text-gray-900 dark:text-gray-100">
+                                {data.full_name || "Unknown Candidate"}
+                            </span>
+                            <div className="mt-1 flex flex-col gap-1 text-xs text-gray-600 dark:text-gray-300">
+                                <span className="break-words">{data.email || "No email"}</span>
+                                {data.company_name && (
+                                    <span className="break-words">
+                                        <span className="font-semibold text-gray-500 dark:text-gray-400">Company:</span>{" "}
+                                        {data.company_name}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
             return (
-                <div className="pl-6 text-sm text-gray-600 dark:text-gray-400">
-                    ↳ {data.company_name || <span className="text-gray-400">N/A</span>}
+                <div className="pl-6 py-2">
+                    <div
+                        className="cursor-pointer rounded-md border border-gray-200 bg-gray-50 px-3 py-3 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800/60 dark:hover:bg-gray-800"
+                        onClick={() => {
+                            if (data.parentDateKey) {
+                                closeWholeDateFromCandidate(data.parentDateKey);
+                            }
+                        }}
+                    >
+                        <div className="min-w-0 flex-1">
+                            <span className="block text-sm font-semibold leading-5 text-gray-900 dark:text-gray-100">
+                                {data.full_name || "Unknown Candidate"}
+                            </span>
+                            <span className="mt-1 block break-words text-xs font-medium text-gray-600 dark:text-gray-300">
+                                {data.email || "No email"}
+                            </span>
+                        </div>
+
+                        {candidateCompanies.length > 0 && (
+                            <div className="mt-2 rounded-sm bg-white/80 px-2 py-1.5 text-xs text-gray-600 dark:bg-gray-900/70 dark:text-gray-300">
+                                <span className="mr-1 font-semibold text-gray-500 dark:text-gray-400">
+                                    {candidateCompanies.length === 1 ? "Company:" : "Companies:"}
+                                </span>
+                                <span className="break-words">
+                                    {companyPreview}
+                                    {remainingCompanies > 0 ? ` +${remainingCompanies} more` : ""}
+                                </span>
+                            </div>
+                        )}
+
+                    </div>
                 </div>
             );
         }
     };
 
     const JobTitleRenderer = (params: any) => {
-        if (params.data.isGroup) return <span className="text-sm text-gray-400 italic">Expand for details</span>;
+        if (params.data.isGroup || params.data.isCandidateGroup) {
+            return <span className="text-sm text-gray-400 italic">Expand for details</span>;
+        }
         return <span className="text-sm text-gray-700 dark:text-gray-300">{params.value}</span>;
     };
 
     const ActivityRenderer = (params: any) => {
         if (params.data.isGroup) {
-            return <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{params.data.totalClicks} clicks</span>;
+            return <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{params.data.totalClicks} total clicks</span>;
         }
+
+        if (params.data.isCandidateGroup) {
+            const jobCount = params.data.candidateDayJobCount || 1;
+            return (
+                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {jobCount} {jobCount === 1 ? "job" : "jobs"} that day
+                </span>
+            );
+        }
+
         return <span className="text-sm text-gray-800 dark:text-gray-200">{params.value}</span>;
     };
 
     const DateRenderer = (params: any) => {
+        if (params.data.isGroup || params.data.isCandidateGroup) return null; // Hide exact time for summary rows
+        
         let dateStr = params.value;
         if (!dateStr) return null;
         
@@ -183,13 +463,6 @@ export default function JobClickTrackingPage() {
         const date = new Date(dateStr);
         if (isNaN(date.getTime())) return <span className="text-sm">{params.value}</span>;
 
-        const dateFormatted = date.toLocaleDateString("en-US", {
-            timeZone: "America/Los_Angeles",
-            month: "short",
-            day: "numeric",
-            year: "numeric"
-        });
-        
         const timeFormatted = date.toLocaleTimeString("en-US", {
             timeZone: "America/Los_Angeles",
             hour: "2-digit",
@@ -198,9 +471,8 @@ export default function JobClickTrackingPage() {
         });
 
         return (
-            <div className={`flex flex-col leading-tight mt-1 ${params.data.isGroup ? 'font-medium' : 'text-sm text-gray-500'}`}>
-                <span className="text-sm">{dateFormatted}</span>
-                <span className="text-xs text-gray-400">{timeFormatted}</span>
+            <div className="flex items-center h-full">
+                <span className="text-sm text-gray-500">{timeFormatted}</span>
             </div>
         );
     };
@@ -217,8 +489,6 @@ export default function JobClickTrackingPage() {
                 while (hasNext) {
                     const res: any = await cachedApiFetch(`/candidates/click-analytics/paginated?page=${currentPage}&page_size=${pageSize}`);
                     
-                    // The backend either wraps in .data or responds cleanly with the dict. 
-                    // Let's safely extract it:
                     const payload = res?.data || res;
                     const pageData = payload?.data || [];
                     const has_next_page = payload?.has_next || false;
@@ -228,7 +498,6 @@ export default function JobClickTrackingPage() {
                     hasNext = has_next_page;
                     currentPage++;
 
-                    // Safety exit
                     if (currentPage > 100) break;
                 }
 
@@ -236,11 +505,11 @@ export default function JobClickTrackingPage() {
 
                 setColumnDefs([
                     {
-                        headerName: "Candidate / Company",
+                        headerName: "Date / Candidate Details",
                         field: "full_name",
                         width: 400,
                         editable: false,
-                        cellRenderer: CandidateRenderer,
+                        cellRenderer: GroupCellRenderer,
                         pinned: 'left'
                     },
                     {
@@ -258,7 +527,7 @@ export default function JobClickTrackingPage() {
                         cellRenderer: ActivityRenderer
                     },
                     {
-                        headerName: "Last Clicked",
+                        headerName: "Time Clicked",
                         field: "last_clicked_at",
                         width: 200,
                         editable: false,
@@ -342,7 +611,7 @@ export default function JobClickTrackingPage() {
                 .ag-theme-alpine {
                     --ag-header-background-color: #f9fafb !important;
                     --ag-header-height: 48px !important;
-                    --ag-row-height: 48px !important;
+                    --ag-row-height: 96px !important;
                     --ag-font-size: 14px !important;
                     --ag-border-color: #e5e7eb !important;
                 }

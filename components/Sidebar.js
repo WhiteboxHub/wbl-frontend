@@ -10,7 +10,6 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   const { isAuthenticated, sidebarOpen, setSidebarOpen, userRole } = useAuth();
   const { theme } = useTheme();
 
-  const [hasCheckedLogin, setHasCheckedLogin] = useState(false);
   const [activeSection, setActiveSection] = useState("announcements");
   const [placementsData, setPlacementsData] = useState([]);
   const [interviewsData, setInterviewsData] = useState([]);
@@ -49,24 +48,6 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     return fullName.split(' ')[0]; // Get only the first word
   };
 
-  // Auto-open on first login
-  useEffect(() => {
-    if (typeof window !== "undefined" && isAuthenticated && !hasCheckedLogin) {
-      const hasLoggedInBefore = localStorage.getItem("hasLoggedIn");
-
-      if (!hasLoggedInBefore) {
-        localStorage.setItem("hasLoggedIn", "true");
-        setTimeout(() => setSidebarOpen(true), 100);
-      } else {
-        const saved = localStorage.getItem("sidebarOpen");
-        setSidebarOpen(saved === "true");
-      }
-
-      setHasCheckedLogin(true);
-    }
-  }, [isAuthenticated, hasCheckedLogin, setSidebarOpen]);
-
-
   // Close sidebar when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -90,7 +71,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   // Persist sidebar state
   useEffect(() => {
     if (typeof window !== "undefined" && isAuthenticated) {
-      localStorage.setItem("sidebarOpen", sidebarOpen.toString());
+      sessionStorage.setItem("sidebarOpen", sidebarOpen.toString());
     }
   }, [sidebarOpen, isAuthenticated]);
 
