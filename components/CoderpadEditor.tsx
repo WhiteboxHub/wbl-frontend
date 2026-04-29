@@ -1,17 +1,17 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from "react-resizable-panels";
 import { getUserTeamRole } from "@/utils/auth";
 import {
-  Play, Save, Trash2, Copy, Check, ChevronDown, ChevronRight, Send, Plus,
+  Play, Save, Trash2, Check, ChevronDown, ChevronLeft, ChevronRight, Send, Plus,
   FileCode2, Clock, Terminal, TestTube2, Share2, History,
   Loader2, AlertCircle, CheckCircle2, XCircle, Code2, Settings,
   ShieldAlert, ShieldCheck, Shield, EyeOff, Eye,
   MonitorOff, LayoutPanelLeft, AlertTriangle,
   FolderOpen, FilePlus, FolderPlus,
-  Lock, Search, X,
+  Lock, Search, X, Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { createPortal } from "react-dom";
@@ -27,6 +27,23 @@ function isClipboardTargetMonacoEditor(e: Event): boolean {
   if (!t || typeof (t as Node).nodeType !== "number") return false;
   const el = t instanceof Element ? t : (t as Node).parentElement;
   return !!el?.closest?.(".monaco-editor");
+}
+
+/** Employee "Add/Update problem statement" modal — copy/paste is normal; do not score as exam violations. */
+function isCoderpadStaffAuthoringField(target: EventTarget | null): boolean {
+  if (!target || typeof (target as Node).nodeType !== "number") return false;
+  const el = target instanceof Element ? target : (target as Node).parentElement;
+  return !!el?.closest?.(".assignment-modal");
+}
+
+function isSelectionInCoderpadStaffAuthoring(): boolean {
+  if (typeof window === "undefined") return false;
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return false;
+  const node = sel.anchorNode;
+  if (!node) return false;
+  const el = node.nodeType === Node.TEXT_NODE ? node.parentElement : (node as Element);
+  return !!el?.closest?.(".assignment-modal");
 }
 
 let lastCoderpadClipboardToastAt = 0;
@@ -102,8 +119,36 @@ interface AssignableCandidate {
   display_name: string;
 }
 
+/** Row from `GET /coderpad/questions` — employees create these via the UI; candidates pick from the list. */
+interface CoderpadAssignmentQuestion {
+  id: number;
+  sno?: number;
+  question?: string;
+  title?: string;
+  sort_order?: number;
+  is_active?: boolean;
+  problem_statement?: string;
+  language?: string;
+  starter_code?: string;
+  test_cases?: unknown;
+  assigned_candidate_ids?: number[] | null;
+}
+
+function getDisplayQuestionNumber(q: CoderpadAssignmentQuestion, index: number): number {
+  if (typeof q.sno === "number" && Number.isFinite(q.sno) && q.sno > 0) return q.sno;
+  return index + 1;
+}
+
+/** Problem / question text from API — preserves empty string (does not fall back to sample text). */
+function problemTextFromApi(q: { problem_statement?: string; question?: string } | null | undefined): string {
+  if (!q) return "";
+  if (q.problem_statement != null) return String(q.problem_statement);
+  if (q.question != null) return String(q.question);
+  return "";
+}
+
 function normalizeTestsFromApi(raw: unknown): TestCase[] {
-  if (!raw || !Array.isArray(raw) || raw.length === 0) return DEFAULT_FACTORIAL_TESTS;
+  if (!raw || !Array.isArray(raw) || raw.length === 0) return [];
   return raw.map((t: any) => ({
     input: t.input ?? "",
     expected_output: String(t.expected_output ?? ""),
@@ -139,15 +184,9 @@ function testsForAssignmentApi(tcs: TestCase[]) {
   }));
 }
 
+/** Placeholder copy for empty problem textarea (new questions start blank). */
 const DEFAULT_PROBLEM_STATEMENT =
   "Write a recursive function factorial(n) that returns n! for a non-negative integer n. Use recursion only and print factorial(n) from stdin input.";
-
-const DEFAULT_FACTORIAL_TESTS: TestCase[] = [
-  { description: "n = 0", input: "0", expected_output: "1" },
-  { description: "n = 1", input: "1", expected_output: "1" },
-  { description: "n = 5 (hidden)", input: "5", expected_output: "120", locked: true },
-  { description: "n = 7 (hidden)", input: "7", expected_output: "5040", locked: true },
-];
 
 // ─── Security Types ────────────────────────────────────────────────────────────
 
@@ -456,7 +495,11 @@ function useSecurityMonitor(enabled: boolean) {
 
 // ─── Typing Analyzer Hook ─────────────────────────────────────────────────────
 
-function useTypingAnalyzer(addEvent: (type: ViolationType, msg: string) => void) {
+function useTypingAnalyzer(
+  addEvent: (type: ViolationType, msg: string) => void,
+  /** When false, no clipboard or Monaco typing monitoring (e.g. staff editing assignment). */
+  monitoringEnabled: boolean,
+) {
   const [stats, setStats] = useState<TypingStats>({
     keystrokeCount: 0,
     backspaceCount: 0,
@@ -483,12 +526,17 @@ function useTypingAnalyzer(addEvent: (type: ViolationType, msg: string) => void)
 
   // ── 1. Native DOM paste — severity by size + burst / idle / paste-heavy session
   useEffect(() => {
+    if (!monitoringEnabled) return;
     const onPaste = (e: ClipboardEvent) => {
       if (isClipboardTargetMonacoEditor(e)) {
         e.preventDefault();
         e.stopPropagation();
         addEvent("paste_small", "Paste blocked in CoderPad");
         toastCoderpadClipboardDenied("Paste is disabled in CoderPad");
+        return;
+      }
+      if (isCoderpadStaffAuthoringField(e.target)) {
+        lastActivity.current = Date.now();
         return;
       }
       const text = e.clipboardData?.getData("text") ?? "";
@@ -559,6 +607,10 @@ function useTypingAnalyzer(addEvent: (type: ViolationType, msg: string) => void)
         toastCoderpadClipboardDenied("Copy is disabled in CoderPad");
         return;
       }
+      if (isCoderpadStaffAuthoringField(_ev.target) || isSelectionInCoderpadStaffAuthoring()) {
+        lastActivity.current = Date.now();
+        return;
+      }
       const sel = window.getSelection()?.toString() ?? "";
       const chars = sel.length;
       const now = Date.now();
@@ -597,6 +649,10 @@ function useTypingAnalyzer(addEvent: (type: ViolationType, msg: string) => void)
         toastCoderpadClipboardDenied("Cut is disabled in CoderPad");
         return;
       }
+      if (isCoderpadStaffAuthoringField(e.target) || isSelectionInCoderpadStaffAuthoring()) {
+        lastActivity.current = Date.now();
+        return;
+      }
       const chars = window.getSelection()?.toString().length ?? 0;
       const now = Date.now();
       lastActivity.current = now;
@@ -617,12 +673,13 @@ function useTypingAnalyzer(addEvent: (type: ViolationType, msg: string) => void)
       document.removeEventListener("copy", onCopy, true);
       document.removeEventListener("cut", onCut, true);
     };
-  }, [addEvent]);
+  }, [addEvent, monitoringEnabled]);
 
   // ── 3. Monaco: keydown (WPM + backspace) + idle-burst fallback via content change
   const setupEditor = useCallback((editor: any) => {
     disposables.current.forEach(d => d?.dispose());
     disposables.current = [];
+    if (!monitoringEnabled) return;
 
     // ── Content change — ONLY for idle-burst fallback (paste already caught by DOM event)
     const d1 = editor.onDidChangeModelContent((e: any) => {
@@ -681,7 +738,7 @@ function useTypingAnalyzer(addEvent: (type: ViolationType, msg: string) => void)
     });
 
     disposables.current = [d1, d2];
-  }, [addEvent]);
+  }, [addEvent, monitoringEnabled]);
 
   // ── Idle timer: update idle seconds every 5s
   useEffect(() => {
@@ -711,7 +768,7 @@ export const CoderpadEditor: React.FC = () => {
   const [code, setCode] = useState(LANGUAGES.python.starter);
   const [language, setLanguage] = useState("python");
   const [title, setTitle] = useState(DEFAULT_SNIPPET_TITLE);
-  const [description, setDescription] = useState(DEFAULT_PROBLEM_STATEMENT);
+  const [description, setDescription] = useState("");
   const [isDirty, setIsDirty] = useState(false);
 
   // ── Execution
@@ -724,7 +781,7 @@ export const CoderpadEditor: React.FC = () => {
 
   // ── Input / Test Cases
   const [inputData, setInputData] = useState("");
-  const [testCases, setTestCases] = useState<TestCase[]>(DEFAULT_FACTORIAL_TESTS);
+  const [testCases, setTestCases] = useState<TestCase[]>([]);
   const [testResults, setTestResults] = useState<TestResult[] | null>(null);
 
   // ── UI Tabs (right panel)
@@ -740,9 +797,10 @@ export const CoderpadEditor: React.FC = () => {
   const [languageOpen, setLanguageOpen] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
   const [newTitle, setNewTitle] = useState("");
-  const [filesCollapsed, setFilesCollapsed] = useState(false);
+  const [filesCollapsed, setFilesCollapsed] = useState(true);
   const [isSplitScreen, setIsSplitScreen] = useState(false);
-  const [testsCollapsed, setTestsCollapsed] = useState(false);
+  /** Synced with resizable Panel collapse — default collapsed (narrow rail on the right). */
+  const [testsCollapsed, setTestsCollapsed] = useState(true);
   const [showAllTests, setShowAllTests] = useState(false);
   const [showResultModal, setShowResultModal] = useState(false);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
@@ -753,7 +811,18 @@ export const CoderpadEditor: React.FC = () => {
   const [teamRole, setTeamRole] = useState<ReturnType<typeof getUserTeamRole>>(() =>
     typeof window !== "undefined" ? getUserTeamRole() : null
   );
+  const [llmValidating, setLlmValidating] = useState(false);
+  const [showLlmResultModal, setShowLlmResultModal] = useState(false);
+  const [llmResult, setLlmResult] = useState<{
+    passed: boolean | null;
+    summary: string;
+    feedback: string;
+    confidence?: string | null;
+    error?: string | null;
+  } | null>(null);
   const [assignmentId, setAssignmentId] = useState<number | null>(null);
+  /** Published problems from the API (employees add rows; candidates choose one to solve). */
+  const [assignmentQuestions, setAssignmentQuestions] = useState<CoderpadAssignmentQuestion[]>([]);
   const [savingAssignment, setSavingAssignment] = useState(false);
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<number[]>([]);
   const [candidateAssignSearch, setCandidateAssignSearch] = useState("");
@@ -763,17 +832,40 @@ export const CoderpadEditor: React.FC = () => {
   const [candidateLabelById, setCandidateLabelById] = useState<Record<number, AssignableCandidate>>({});
   /** all = everyone; single = one ID + search; multiple = many IDs + search */
   const [assignmentTargetMode, setAssignmentTargetMode] = useState<"all" | "single" | "multiple">("all");
-  const [draftProblemStatement, setDraftProblemStatement] = useState(DEFAULT_PROBLEM_STATEMENT);
-  const [draftTestCases, setDraftTestCases] = useState<TestCase[]>(DEFAULT_FACTORIAL_TESTS);
+  const [draftProblemStatement, setDraftProblemStatement] = useState("");
+  const [draftTestCases, setDraftTestCases] = useState<TestCase[]>([]);
+  /** Assignment modal: collapse long test-case grid */
+  const [assignmentModalTestsCollapsed, setAssignmentModalTestsCollapsed] = useState(true);
   const [draftSelectedCandidateIds, setDraftSelectedCandidateIds] = useState<number[]>([]);
 
-  // ── Security (always on by default)
+  // ── Security: off while staff has "Add/Update problem statement" open (no copy/paste/exam signals)
   const [showSecurityPanel, setShowSecurityPanel] = useState(false);
   const [secPanelTab, setSecPanelTab]   = useState<"events" | "analytics">("events");
-  const security       = useSecurityMonitor(true);
-  const typingAnalyzer = useTypingAnalyzer(security.addEvent);
+  const suspendProctoringWhileStaffEditsAssignment =
+    (teamRole === "admin" || teamRole === "employee") && showAssignmentModal;
+  const security       = useSecurityMonitor(!suspendProctoringWhileStaffEditsAssignment);
+  const typingAnalyzer = useTypingAnalyzer(security.addEvent, !suspendProctoringWhileStaffEditsAssignment);
 
   const editorRef = useRef<any>(null);
+  const testsPanelRef = useRef<ImperativePanelHandle>(null);
+
+  const toggleTestsPanel = useCallback(() => {
+    const p = testsPanelRef.current;
+    if (!p) return;
+    if (p.isCollapsed()) p.expand(34);
+    else p.collapse();
+  }, []);
+
+  useLayoutEffect(() => {
+    testsPanelRef.current?.collapse();
+  }, []);
+  const prevSuspendProctoringRef = useRef(suspendProctoringWhileStaffEditsAssignment);
+  useEffect(() => {
+    if (prevSuspendProctoringRef.current === suspendProctoringWhileStaffEditsAssignment) return;
+    prevSuspendProctoringRef.current = suspendProctoringWhileStaffEditsAssignment;
+    const ed = editorRef.current;
+    if (ed) typingAnalyzer.setupEditor(ed);
+  }, [suspendProctoringWhileStaffEditsAssignment, typingAnalyzer.setupEditor]);
   const langDropRef = useRef<HTMLDivElement>(null);
   const wasSplitScreenRef = useRef(false);
 
@@ -792,31 +884,117 @@ export const CoderpadEditor: React.FC = () => {
     );
   }, [testCases, showAssignmentModal]);
 
-  /** Load published assignment (problem + tests) for all users; staff can edit and re-save */
+  const applyCoderpadQuestionState = useCallback((q: CoderpadAssignmentQuestion, mode: "initial" | "switch") => {
+    setAssignmentId(q.id);
+    setDescription(problemTextFromApi(q));
+    setTestCases(normalizeTestsFromApi(q.test_cases));
+    setSelectedCandidateIds(Array.isArray(q.assigned_candidate_ids) ? q.assigned_candidate_ids : []);
+    const langKey = q.language && LANGUAGES[q.language] ? q.language : "python";
+    setLanguage(langKey);
+    const fallbackStarter = (LANGUAGES[langKey] || LANGUAGES.python).starter;
+    if (mode === "switch") {
+      const next =
+        typeof q.starter_code === "string" && q.starter_code.trim() ? q.starter_code : fallbackStarter;
+      setCode(next);
+    } else if (typeof q.starter_code === "string" && q.starter_code.trim()) {
+      setCode(prev => (prev.trim() ? prev : q.starter_code!));
+    }
+    setIsDirty(false);
+    setTestResults(null);
+    setOutput("");
+    setError("");
+    setExecStatus("idle");
+  }, []);
+
+  const refreshAssignmentQuestions = useCallback(async () => {
+    try {
+      const list = await apiFetch("/coderpad/questions");
+      if (!Array.isArray(list)) return;
+      if (list.length === 0) {
+        setAssignmentQuestions([]);
+        return;
+      }
+      const active = [...list]
+        .filter((q: { is_active?: boolean }) => q.is_active !== false)
+        .sort(
+          (
+            a: { sno?: number; sort_order?: number; id?: number },
+            b: { sno?: number; sort_order?: number; id?: number }
+          ) => (a.sno ?? a.sort_order ?? a.id ?? 0) - (b.sno ?? b.sort_order ?? b.id ?? 0)
+        ) as CoderpadAssignmentQuestion[];
+      setAssignmentQuestions(active);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  /** Load published assignments; candidates restore last chosen problem from localStorage when possible */
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const list = await apiFetch("/coderpad/questions");
-        if (cancelled || !Array.isArray(list) || list.length === 0) return;
+        if (cancelled || !Array.isArray(list)) return;
+        if (list.length === 0) {
+          if (!cancelled) setAssignmentQuestions([]);
+          return;
+        }
         const active = [...list]
           .filter((q: { is_active?: boolean }) => q.is_active !== false)
-          .sort((a: { sort_order?: number }, b: { sort_order?: number }) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-        const q = active[0] || list[0];
-        setAssignmentId(q.id);
-        setDescription(q.problem_statement || DEFAULT_PROBLEM_STATEMENT);
-        setTestCases(normalizeTestsFromApi(q.test_cases));
-        setSelectedCandidateIds(Array.isArray(q.assigned_candidate_ids) ? q.assigned_candidate_ids : []);
-        if (q.language) setLanguage(q.language);
-        if (typeof q.starter_code === "string" && q.starter_code.trim()) {
-          setCode(prev => (prev.trim() ? prev : q.starter_code));
+          .sort(
+            (
+              a: { sno?: number; sort_order?: number; id?: number },
+              b: { sno?: number; sort_order?: number; id?: number }
+            ) => (a.sno ?? a.sort_order ?? a.id ?? 0) - (b.sno ?? b.sort_order ?? b.id ?? 0)
+          ) as CoderpadAssignmentQuestion[];
+        if (cancelled) return;
+        setAssignmentQuestions(active);
+        let chosen: CoderpadAssignmentQuestion | undefined = active[0];
+        const role = getUserTeamRole();
+        if (role === "candidate" && typeof window !== "undefined") {
+          const raw = localStorage.getItem("coderpad_selected_question_id");
+          const pid = raw ? parseInt(raw, 10) : NaN;
+          if (!Number.isNaN(pid)) {
+            const found = active.find(x => x.id === pid);
+            if (found) chosen = found;
+          }
         }
+        if (!chosen) return;
+        applyCoderpadQuestionState(chosen, "initial");
       } catch {
         /* keep defaults */
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [applyCoderpadQuestionState]);
+
+  const selectCoderpadQuestion = useCallback(
+    (id: number) => {
+      const q = assignmentQuestions.find(x => x.id === id);
+      if (!q || q.id === assignmentId) return;
+      applyCoderpadQuestionState(q, "switch");
+      if (getUserTeamRole() === "candidate" && typeof window !== "undefined") {
+        localStorage.setItem("coderpad_selected_question_id", String(id));
+      }
+    },
+    [assignmentQuestions, assignmentId, applyCoderpadQuestionState]
+  );
+
+  const startNewCoderpadProblem = useCallback(() => {
+    if (teamRole !== "admin" && teamRole !== "employee") return;
+    setAssignmentId(null);
+    setDescription("");
+    setTestCases([]);
+    setSelectedCandidateIds([]);
+    setCode(LANGUAGES.python.starter);
+    setLanguage("python");
+    setIsDirty(false);
+    setTestResults(null);
+    setOutput("");
+    setError("");
+    setExecStatus("idle");
+    toast.info('Drafting a new problem — open "Change problem statement" to edit, then save to publish.');
+  }, [teamRole]);
 
   // Detect split-screen/windowed usage and adapt layout without forcing fullscreen.
   useEffect(() => {
@@ -990,16 +1168,18 @@ export const CoderpadEditor: React.FC = () => {
           body: JSON.stringify(body),
         });
         setAssignmentId(updated.id);
-        setDescription(nextProblemStatement || DEFAULT_PROBLEM_STATEMENT);
+        setDescription(nextProblemStatement ?? "");
         setTestCases(nextTestCases);
         setSelectedCandidateIds(assignToAll ? [] : nextAssignedCandidateIds);
+        await refreshAssignmentQuestions();
         toast.success("Assignment updated");
       } else {
         const created = await apiFetch("/coderpad/questions", { method: "POST", body: JSON.stringify(body) });
         setAssignmentId(created.id);
-        setDescription(nextProblemStatement || DEFAULT_PROBLEM_STATEMENT);
+        setDescription(nextProblemStatement ?? "");
         setTestCases(nextTestCases);
         setSelectedCandidateIds(assignToAll ? [] : nextAssignedCandidateIds);
+        await refreshAssignmentQuestions();
         toast.success("Assignment published");
       }
       return true;
@@ -1058,10 +1238,71 @@ export const CoderpadEditor: React.FC = () => {
         setTestCases(prev => prev.map(tc => ({ ...tc, actual_output: null })));
       }
     }
+    return data;
+  };
+
+  const runLlmValidate = async (opts?: { testCasesOverride?: TestCase[] }) => {
+    const q =
+      assignmentId == null ? null : assignmentQuestions.find((x) => x.id === assignmentId) ?? null;
+    const problemStatement = (q ? problemTextFromApi(q) : String(description ?? "")).trim();
+    if (!problemStatement) {
+      toast.error("No problem statement loaded");
+      return;
+    }
+    if (!code.trim()) {
+      toast.error("Write some code first");
+      return;
+    }
+    const casesForLlm = opts?.testCasesOverride ?? testCases;
+    setLlmValidating(true);
+    setLlmResult(null);
+    try {
+      const body: Record<string, unknown> = {
+        problem_statement: problemStatement,
+        code,
+        language,
+        /** Full assignment tests + optional actual_output from last run for the LLM */
+        test_cases: casesForLlm.map((tc) => ({
+          input: tc.input ?? null,
+          expected_output: tc.expected_output ?? "",
+          description: tc.description,
+          locked: tc.locked,
+          actual_output: tc.actual_output ?? null,
+        })),
+      };
+      const data = await apiFetch("/coderpad/llm-validate", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      setLlmResult({
+        passed: data.passed ?? null,
+        summary: data.summary || "",
+        feedback: data.feedback || "",
+        confidence: data.confidence ?? null,
+        error: data.error ?? null,
+      });
+      setShowLlmResultModal(true);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "LLM validation failed";
+      setLlmResult({
+        passed: null,
+        summary: "",
+        feedback: "",
+        error: message,
+      });
+      setShowLlmResultModal(true);
+    } finally {
+      setLlmValidating(false);
+    }
   };
 
   const runTestCases = async () => {
     if (!code.trim()) { toast.error("Write some code first!"); return; }
+    const panel = testsPanelRef.current;
+    if (panel?.isCollapsed()) {
+      panel.expand(34);
+      setTestsCollapsed(false);
+    }
     setRunBusy("run");
     setOutput("");
     setError("");
@@ -1071,7 +1312,16 @@ export const CoderpadEditor: React.FC = () => {
     setShowResultModal(false);
     setRightTab("shell");
     try {
-      await performExecute({ openModal: false });
+      const data = await performExecute({ openModal: false });
+      if (
+        data?.test_results &&
+        Array.isArray(data.test_results) &&
+        data.test_results.length > 0 &&
+        testCases.length > 0
+      ) {
+        const merged = applyActualOutputsFromResults(testCases, data.test_results);
+        await runLlmValidate({ testCasesOverride: merged });
+      }
     } catch (err: any) {
       const msg = err.message || "Execution failed";
       setError(msg);
@@ -1145,10 +1395,6 @@ export const CoderpadEditor: React.FC = () => {
     }
   };
 
-  const copyCode = () => {
-    toastCoderpadClipboardDenied("Copy is disabled in CoderPad");
-  };
-
   // ── Test Case Helpers ─────────────────────────────────────────────────────
   const isStaff = teamRole === "admin" || teamRole === "employee";
 
@@ -1182,30 +1428,137 @@ export const CoderpadEditor: React.FC = () => {
   const removeDraftTestCase = (i: number) => {
     setDraftTestCases(prev => prev.filter((_, idx) => idx !== i));
   };
+  const resolveAssignmentCandidateLabels = useCallback(async (ids: number[]) => {
+    if (ids.length === 0) return;
+    try {
+      const params = new URLSearchParams({ limit: "50" });
+      params.set("resolve_ids", ids.join(","));
+      const rows = await apiFetch(`/coderpad/assignable-candidates?${params.toString()}`);
+      if (Array.isArray(rows)) mergeCandidateLabels(rows);
+    } catch {
+      /* ignore */
+    }
+  }, [mergeCandidateLabels]);
   const openAssignmentModal = () => {
-    setDraftProblemStatement(description || DEFAULT_PROBLEM_STATEMENT);
-    setDraftTestCases(testCases.length > 0 ? testCases : DEFAULT_FACTORIAL_TESTS);
-    setDraftSelectedCandidateIds(selectedCandidateIds);
-    if (selectedCandidateIds.length === 0) setAssignmentTargetMode("all");
-    else if (selectedCandidateIds.length === 1) setAssignmentTargetMode("single");
+    const activeQuestion = assignmentId == null
+      ? null
+      : assignmentQuestions.find(q => q.id === assignmentId) ?? null;
+    const modalProblem = activeQuestion
+      ? problemTextFromApi(activeQuestion).trim()
+      : String(description ?? "").trim();
+    const modalTests = activeQuestion
+      ? normalizeTestsFromApi(activeQuestion.test_cases)
+      : (testCases.length > 0 ? testCases : []);
+    const modalSelectedIds = activeQuestion
+      ? (Array.isArray(activeQuestion.assigned_candidate_ids) ? activeQuestion.assigned_candidate_ids : [])
+      : selectedCandidateIds;
+
+    setDraftProblemStatement(modalProblem);
+    setDraftTestCases(modalTests);
+    setDraftSelectedCandidateIds(modalSelectedIds);
+    if (modalSelectedIds.length === 0) setAssignmentTargetMode("all");
+    else if (modalSelectedIds.length === 1) setAssignmentTargetMode("single");
     else setAssignmentTargetMode("multiple");
     setCandidateAssignSearch("");
     setCandidateSuggestions([]);
+    setAssignmentModalTestsCollapsed(true);
     setShowAssignmentModal(true);
-    if (selectedCandidateIds.length > 0) {
-      void (async () => {
-        try {
-          const params = new URLSearchParams({ limit: "50" });
-          params.set("resolve_ids", selectedCandidateIds.join(","));
-          const rows = await apiFetch(`/coderpad/assignable-candidates?${params.toString()}`);
-          if (Array.isArray(rows)) mergeCandidateLabels(rows);
-        } catch {
-          /* ignore */
-        }
-      })();
-    }
+    void resolveAssignmentCandidateLabels(modalSelectedIds);
   };
-  const saveAssignmentFromModal = async () => {
+  const loadDraftFromQuestion = useCallback((nextQuestion: CoderpadAssignmentQuestion) => {
+    applyCoderpadQuestionState(nextQuestion, "switch");
+    const nextSelectedIds = Array.isArray(nextQuestion.assigned_candidate_ids) ? nextQuestion.assigned_candidate_ids : [];
+    setDraftProblemStatement(problemTextFromApi(nextQuestion).trim());
+    setDraftTestCases(normalizeTestsFromApi(nextQuestion.test_cases));
+    setDraftSelectedCandidateIds(nextSelectedIds);
+    if (nextSelectedIds.length === 0) setAssignmentTargetMode("all");
+    else if (nextSelectedIds.length === 1) setAssignmentTargetMode("single");
+    else setAssignmentTargetMode("multiple");
+    setCandidateAssignSearch("");
+    setCandidateSuggestions([]);
+    void resolveAssignmentCandidateLabels(nextSelectedIds);
+  }, [applyCoderpadQuestionState, resolveAssignmentCandidateLabels]);
+
+  const selectModalQuestionById = useCallback((id: number) => {
+    const nextQuestion = assignmentQuestions.find(q => q.id === id);
+    if (!nextQuestion || nextQuestion.id === assignmentId) return;
+    loadDraftFromQuestion(nextQuestion);
+  }, [assignmentQuestions, assignmentId, loadDraftFromQuestion]);
+
+  const goToAdjacentModalQuestion = useCallback((direction: -1 | 1) => {
+    if (assignmentQuestions.length === 0) return;
+    const currentIndex = assignmentId == null
+      ? 0
+      : assignmentQuestions.findIndex(q => q.id === assignmentId);
+    const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+    const nextIndex = safeIndex + direction;
+    if (nextIndex < 0 || nextIndex >= assignmentQuestions.length) return;
+    const nextQuestion = assignmentQuestions[nextIndex];
+    if (!nextQuestion) return;
+    loadDraftFromQuestion(nextQuestion);
+  }, [assignmentQuestions, assignmentId, loadDraftFromQuestion]);
+
+  const createNextModalQuestion = useCallback(async () => {
+    const isStaffUser = teamRole === "admin" || teamRole === "employee";
+    if (!isStaffUser || savingAssignment) return;
+    let highestSno = assignmentQuestions.reduce(
+      (max, q, idx) => Math.max(max, getDisplayQuestionNumber(q, idx)),
+      0
+    );
+    if (highestSno === 0 && assignmentId != null) {
+      try {
+        const current = await apiFetch(`/coderpad/questions/${assignmentId}`);
+        const fromApi = Number(current?.sno ?? current?.sort_order ?? 0);
+        if (Number.isFinite(fromApi) && fromApi > 0) highestSno = fromApi;
+      } catch {
+        /* keep fallback */
+      }
+    }
+    const nextSno = highestSno + 1;
+    setSavingAssignment(true);
+    try {
+      const langCfg = LANGUAGES[language] || LANGUAGES.python;
+      const created = await apiFetch("/coderpad/questions", {
+        method: "POST",
+        body: JSON.stringify({
+          title: `CoderPad assignment ${nextSno}`,
+          problem_statement: "",
+          language,
+          starter_code: langCfg.starter,
+          test_cases: [],
+          assigned_candidate_ids: null,
+          execution_timeout: 10,
+          is_active: true,
+          sort_order: nextSno,
+          sno: nextSno,
+        }),
+      });
+      await refreshAssignmentQuestions();
+      loadDraftFromQuestion(created as CoderpadAssignmentQuestion);
+      toast.success(`Question ${nextSno} created`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create next question");
+    } finally {
+      setSavingAssignment(false);
+    }
+  }, [teamRole, savingAssignment, assignmentQuestions, assignmentId, language, refreshAssignmentQuestions, loadDraftFromQuestion]);
+
+  const handleModalNextQuestion = useCallback(() => {
+    if (assignmentQuestions.length === 0) {
+      void createNextModalQuestion();
+      return;
+    }
+    const currentIndex = assignmentId == null
+      ? 0
+      : assignmentQuestions.findIndex(q => q.id === assignmentId);
+    const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+    if (safeIndex < assignmentQuestions.length - 1) {
+      goToAdjacentModalQuestion(1);
+      return;
+    }
+    void createNextModalQuestion();
+  }, [assignmentQuestions, assignmentId, goToAdjacentModalQuestion, createNextModalQuestion]);
+  const saveAssignmentFromModal = async (opts?: { closeAfterSave?: boolean }) => {
     const idsForSave =
       assignmentTargetMode === "single"
         ? draftSelectedCandidateIds.slice(0, 1)
@@ -1216,8 +1569,65 @@ export const CoderpadEditor: React.FC = () => {
       assignedCandidateIds: idsForSave,
       assignToAll: assignmentTargetMode === "all",
     });
-    if (ok) setShowAssignmentModal(false);
+    if (ok && opts?.closeAfterSave) {
+      setShowAssignmentModal(false);
+    }
   };
+
+  /** Remove saved question from API, or clear unsaved draft in the modal */
+  const removeOrClearAssignmentProblem = async () => {
+    if (!isStaff) return;
+    if (assignmentId == null) {
+      if (!window.confirm("Clear this draft? Problem text and test cases will be emptied.")) return;
+      setDraftProblemStatement("");
+      setDraftTestCases([]);
+      toast.success("Draft cleared");
+      return;
+    }
+    if (!window.confirm("Remove this problem from CoderPad? Assigned candidates will no longer see it. This cannot be undone.")) {
+      return;
+    }
+    setSavingAssignment(true);
+    try {
+      const removedId = assignmentId;
+      const prevIndex = assignmentQuestions.findIndex(q => q.id === removedId);
+      await apiFetch(`/coderpad/questions/${removedId}`, { method: "DELETE" });
+      const list = await apiFetch("/coderpad/questions");
+      const active = (Array.isArray(list) ? list : [])
+        .filter((q: { is_active?: boolean }) => q.is_active !== false)
+        .sort(
+          (
+            a: { sno?: number; sort_order?: number; id?: number },
+            b: { sno?: number; sort_order?: number; id?: number }
+          ) => (a.sno ?? a.sort_order ?? a.id ?? 0) - (b.sno ?? b.sort_order ?? b.id ?? 0)
+        ) as CoderpadAssignmentQuestion[];
+      setAssignmentQuestions(active);
+      if (active.length === 0) {
+        setAssignmentId(null);
+        setDescription("");
+        setTestCases([]);
+        setDraftProblemStatement("");
+        setDraftTestCases([]);
+        setSelectedCandidateIds([]);
+        setDraftSelectedCandidateIds([]);
+        setAssignmentTargetMode("all");
+        setCode(LANGUAGES.python.starter);
+        setLanguage("python");
+        toast.success("Problem removed. Add a new problem when ready.");
+      } else {
+        const nextIdx = prevIndex <= 0 ? 0 : prevIndex - 1;
+        const nextQ = active[Math.min(nextIdx, active.length - 1)];
+        if (nextQ) loadDraftFromQuestion(nextQ);
+        toast.success("Problem removed");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to remove problem";
+      toast.error(msg);
+    } finally {
+      setSavingAssignment(false);
+    }
+  };
+
   const removeTestCase = (i: number) => {
     if (testCases[i]?.locked && !isStaff) return;
     setTestCases(prev => prev.filter((_, idx) => idx !== i));
@@ -1245,6 +1655,32 @@ export const CoderpadEditor: React.FC = () => {
       : passCount === 0
       ? "Code failed all current test cases. Recheck logic and base case."
       : `Code passed ${passCount}/${totalTests} tests. Check failing edge cases.`;
+  const problemRailQuestions: CoderpadAssignmentQuestion[] =
+    assignmentQuestions.length > 0
+      ? assignmentQuestions
+      : [
+          {
+            id: assignmentId ?? 0,
+            sno: 1,
+            title: title || "Problem",
+            problem_statement: description || "",
+          },
+        ];
+  const modalQuestionIndex = assignmentId == null ? -1 : assignmentQuestions.findIndex(q => q.id === assignmentId);
+  const modalQuestionNumber = modalQuestionIndex >= 0 ? modalQuestionIndex + 1 : null;
+  const modalQuestionTitle = modalQuestionIndex >= 0
+    ? (assignmentQuestions[modalQuestionIndex]?.title?.trim() || `Problem #${modalQuestionNumber}`)
+    : "New problem";
+  const activeQuestion = assignmentId == null ? null : assignmentQuestions.find(q => q.id === assignmentId) ?? null;
+  const activeQuestionIndex = activeQuestion ? assignmentQuestions.findIndex(q => q.id === activeQuestion.id) : -1;
+  const activeQuestionNumber = activeQuestion && activeQuestionIndex >= 0
+    ? getDisplayQuestionNumber(activeQuestion, activeQuestionIndex)
+    : 1;
+  const modalQuestionStripQuestions: CoderpadAssignmentQuestion[] =
+    assignmentQuestions.length > 0
+      ? assignmentQuestions
+      : problemRailQuestions;
+  const canGoToPreviousModalQuestion = modalQuestionIndex > 0;
 
   /** Product roles: Employee (includes admin) vs Candidate — JWT may still expose admin/employee separately */
   const loginStatusLine =
@@ -1279,7 +1715,9 @@ export const CoderpadEditor: React.FC = () => {
           <div
             className="coderpad-overlay coderpad-welcome-overlay"
             style={{ zIndex: 999999 }}
-            onClick={() => setShowWelcomeModal(false)}
+            onClick={() => {
+              if (!isStaff) setShowWelcomeModal(false);
+            }}
             role="dialog"
             aria-modal="true"
             aria-labelledby="coderpad-welcome-title"
@@ -1292,11 +1730,33 @@ export const CoderpadEditor: React.FC = () => {
                   ? "As an employee you can edit the problem statement, manage test cases, and save the assignment for candidates."
                   : "Read the problem, write your code, use Run test cases to check locally, then Submit for scoring."}
               </p>
-              <div className="modal-actions">
-                <button type="button" className="btn-primary" onClick={() => setShowWelcomeModal(false)}>
-                  Continue
-                </button>
-              </div>
+              {isStaff ? (
+                <div className="welcome-role-actions">
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() => {
+                      setShowWelcomeModal(false);
+                      openAssignmentModal();
+                    }}
+                  >
+                    Add / Update Questions
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={() => setShowWelcomeModal(false)}
+                  >
+                    Solve CoderPad Questions
+                  </button>
+                </div>
+              ) : (
+                <div className="modal-actions">
+                  <button type="button" className="btn-primary" onClick={() => setShowWelcomeModal(false)}>
+                    Continue
+                  </button>
+                </div>
+              )}
             </div>
           </div>,
           document.body
@@ -1558,73 +2018,162 @@ export const CoderpadEditor: React.FC = () => {
         </div>
       )}
 
+      {showLlmResultModal && llmResult && (
+        <div className="coderpad-overlay" onClick={() => setShowLlmResultModal(false)}>
+          <div className="coderpad-modal result-modal llm-result-modal" onClick={(e) => e.stopPropagation()}>
+            <h3 className="modal-title">LLM validation</h3>
+            {llmResult.error ? (
+              <p className="llm-result-error">{llmResult.error}</p>
+            ) : (
+              <>
+                <div className="result-summary-meta" style={{ marginBottom: 10 }}>
+                  {llmResult.passed !== null && (
+                    <span className={`summary-chip ${llmResult.passed ? "ok" : "bad"}`}>
+                      {llmResult.passed ? "Likely passes" : "Needs work"}
+                    </span>
+                  )}
+                  {llmResult.confidence && (
+                    <span className="summary-chip">{llmResult.confidence}</span>
+                  )}
+                </div>
+                {llmResult.summary && <p className="llm-result-summary">{llmResult.summary}</p>}
+                {llmResult.feedback && (
+                  <pre className="llm-result-feedback">{llmResult.feedback}</pre>
+                )}
+              </>
+            )}
+            <div className="modal-actions">
+              <button className="btn-primary" type="button" onClick={() => setShowLlmResultModal(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showAssignmentModal && (
         <div className="coderpad-overlay" onClick={() => setShowAssignmentModal(false)}>
           <div className="coderpad-modal assignment-modal" onClick={e => e.stopPropagation()}>
-            <h3 className="modal-title">Change problem statement</h3>
-            <textarea
-              className="assignment-problem-input"
-              value={draftProblemStatement}
-              onChange={e => setDraftProblemStatement(e.target.value)}
-              placeholder={DEFAULT_PROBLEM_STATEMENT}
-              rows={6}
-            />
-
-            <div className="assignment-modal-subtitle">Test cases</div>
-            <p className="assignment-testcases-hint">
-              Output is stdout from the last <strong>Run test cases</strong> in the editor; empty until you run.
-            </p>
-            <div className="assignment-testcases-list">
-              <div className="assignment-testcase-header" aria-hidden>
-                <span className="assignment-testcase-header-cell">Input</span>
-                <span className="assignment-testcase-header-cell">Expected output</span>
-                <span className="assignment-testcase-header-cell">Output</span>
-                <span className="assignment-testcase-header-cell">Description</span>
-                <span className="assignment-testcase-header-cell assignment-testcase-header-cell--meta">Hidden</span>
-                <span className="assignment-testcase-header-cell assignment-testcase-header-cell--action" />
-              </div>
-              {draftTestCases.map((tc, idx) => (
-                <div key={idx} className="assignment-testcase-row">
-                  <input
-                    className="assignment-testcase-input"
-                    placeholder="stdin / input"
-                    value={tc.input ?? ""}
-                    onChange={e => updateDraftTestCase(idx, "input", e.target.value)}
-                    aria-label={`Test ${idx + 1} input`}
-                  />
-                  <input
-                    className="assignment-testcase-input"
-                    placeholder="Expected stdout"
-                    value={tc.expected_output}
-                    onChange={e => updateDraftTestCase(idx, "expected_output", e.target.value)}
-                    aria-label={`Test ${idx + 1} expected output`}
-                  />
-                  <div
-                    className="assignment-testcase-actual"
-                    title={tc.actual_output || undefined}
-                    aria-label={`Test ${idx + 1} actual output`}
+            <h3 className="modal-title">Add/Update problem statement</h3>
+            <div className="assignment-problem-editor">
+              <div className="assignment-modal-number-strip" role="listbox" aria-label="Question numbers">
+                {modalQuestionStripQuestions.map((q, idx) => (
+                  <button
+                    key={q.id}
+                    type="button"
+                    role="option"
+                    aria-selected={modalQuestionStripQuestions.length > 0 ? (assignmentId === q.id || (assignmentQuestions.length === 0 && idx === 0)) : false}
+                    className={`assignment-modal-number-btn ${(assignmentId === q.id || (assignmentQuestions.length === 0 && idx === 0)) ? "is-active" : ""}`}
+                    onClick={() => {
+                      if (assignmentQuestions.length > 0) selectModalQuestionById(q.id);
+                    }}
+                    title={(q.title && q.title.trim()) || `Question ${getDisplayQuestionNumber(q, idx)}`}
                   >
-                    {tc.actual_output ? tc.actual_output : "—"}
-                  </div>
-                  <input
-                    className="assignment-testcase-input"
-                    placeholder="Label / notes"
-                    value={tc.description ?? ""}
-                    onChange={e => updateDraftTestCase(idx, "description", e.target.value)}
-                    aria-label={`Test ${idx + 1} description`}
-                  />
-                  <label className="assignment-testcase-lock">
-                    <input
-                      type="checkbox"
-                      checked={tc.locked === true}
-                      onChange={e => updateDraftTestCase(idx, "locked", e.target.checked)}
-                    />
-                    Hidden
-                  </label>
-                  <button type="button" className="btn-ghost-sm" onClick={() => removeDraftTestCase(idx)}>Remove</button>
+                    {getDisplayQuestionNumber(q, idx)}
+                  </button>
+                ))}
+              </div>
+              <div className="assignment-problem-editor-main">
+                <div className="assignment-problem-heading-row">
+                  <div className="assignment-modal-subtitle">Problem statement</div>
+                  <button
+                    type="button"
+                    className={assignmentId != null ? "btn-remove-problem" : "btn-ghost-sm assignment-clear-draft-btn"}
+                    onClick={() => void removeOrClearAssignmentProblem()}
+                    disabled={savingAssignment}
+                    title={
+                      assignmentId != null
+                        ? "Delete this problem from CoderPad"
+                        : "Reset draft text and tests to defaults"
+                    }
+                  >
+                    <Trash2 size={14} aria-hidden />
+                    {assignmentId != null ? "Remove problem" : "Clear draft"}
+                  </button>
                 </div>
-              ))}
-              <button type="button" className="btn-ghost-sm" onClick={addDraftTestCase}>+ Add test case</button>
+                <textarea
+                  className="assignment-problem-input"
+                  value={draftProblemStatement}
+                  onChange={e => setDraftProblemStatement(e.target.value)}
+                  placeholder={DEFAULT_PROBLEM_STATEMENT}
+                  rows={6}
+                />
+              </div>
+            </div>
+
+            <div className="assignment-testcases-block">
+              <button
+                type="button"
+                className="assignment-testcases-collapse-trigger"
+                onClick={() => setAssignmentModalTestsCollapsed(v => !v)}
+                aria-expanded={!assignmentModalTestsCollapsed}
+                title={assignmentModalTestsCollapsed ? "Expand test cases" : "Collapse test cases"}
+              >
+                {assignmentModalTestsCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                <span className="assignment-modal-subtitle assignment-modal-subtitle--inline">Test cases (optional)</span>
+                <span className="assignment-testcases-count-badge">{draftTestCases.length}</span>
+              </button>
+              {!assignmentModalTestsCollapsed && (
+                <>
+                  <p className="assignment-testcases-hint">
+                    Output is stdout from the last <strong>Run test cases</strong> in the editor; empty until you run.
+                  </p>
+                  <div className="assignment-testcases-list">
+                    <div className="assignment-testcase-header" aria-hidden>
+                      <span className="assignment-testcase-header-cell assignment-testcase-header-cell--index">#</span>
+                      <span className="assignment-testcase-header-cell">Input</span>
+                      <span className="assignment-testcase-header-cell">Expected output</span>
+                      <span className="assignment-testcase-header-cell">Output</span>
+                      <span className="assignment-testcase-header-cell">Description</span>
+                      <span className="assignment-testcase-header-cell assignment-testcase-header-cell--meta">Hidden</span>
+                      <span className="assignment-testcase-header-cell assignment-testcase-header-cell--action" />
+                    </div>
+                    {draftTestCases.map((tc, idx) => (
+                      <div key={idx} className="assignment-testcase-row">
+                        <span className="assignment-testcase-index">{idx + 1}</span>
+                        <input
+                          className="assignment-testcase-input"
+                          placeholder="stdin / input"
+                          value={tc.input ?? ""}
+                          onChange={e => updateDraftTestCase(idx, "input", e.target.value)}
+                          aria-label={`Test ${idx + 1} input`}
+                        />
+                        <input
+                          className="assignment-testcase-input"
+                          placeholder="Expected stdout"
+                          value={tc.expected_output}
+                          onChange={e => updateDraftTestCase(idx, "expected_output", e.target.value)}
+                          aria-label={`Test ${idx + 1} expected output`}
+                        />
+                        <div
+                          className="assignment-testcase-actual"
+                          title={tc.actual_output || undefined}
+                          aria-label={`Test ${idx + 1} actual output`}
+                        >
+                          {tc.actual_output ? tc.actual_output : "—"}
+                        </div>
+                        <input
+                          className="assignment-testcase-input"
+                          placeholder="Label / notes"
+                          value={tc.description ?? ""}
+                          onChange={e => updateDraftTestCase(idx, "description", e.target.value)}
+                          aria-label={`Test ${idx + 1} description`}
+                        />
+                        <label className="assignment-testcase-lock">
+                          <input
+                            type="checkbox"
+                            checked={tc.locked === true}
+                            onChange={e => updateDraftTestCase(idx, "locked", e.target.checked)}
+                          />
+                          Hidden
+                        </label>
+                        <button type="button" className="btn-ghost-sm" onClick={() => removeDraftTestCase(idx)}>Remove</button>
+                      </div>
+                    ))}
+                    <button type="button" className="btn-ghost-sm" onClick={addDraftTestCase}>+ Add test case</button>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="assignment-modal-subtitle">Target candidates</div>
@@ -1766,9 +2315,38 @@ export const CoderpadEditor: React.FC = () => {
                 </div>
               </>
             )}
+            <div className="assignment-modal-footer-nav">
+              <button
+                type="button"
+                className="assignment-modal-nav-btn"
+                onClick={() => goToAdjacentModalQuestion(-1)}
+                disabled={!canGoToPreviousModalQuestion || savingAssignment}
+                title="Previous question"
+                aria-label="Previous question"
+              >
+                <ChevronLeft size={15} />
+              </button>
+              <button
+                type="button"
+                className="assignment-modal-nav-btn"
+                onClick={handleModalNextQuestion}
+                disabled={savingAssignment}
+                title="Next question"
+                aria-label="Next question"
+              >
+                <ChevronRight size={15} />
+              </button>
+            </div>
 
             <div className="modal-actions">
               <button className="btn-ghost" onClick={() => setShowAssignmentModal(false)}>Cancel</button>
+              <button
+                className="btn-ghost"
+                onClick={() => void saveAssignmentFromModal({ closeAfterSave: true })}
+                disabled={savingAssignment}
+              >
+                {savingAssignment ? "Saving…" : "Save & exit"}
+              </button>
               <button
                 className="btn-primary"
                 onClick={() => void saveAssignmentFromModal()}
@@ -1796,7 +2374,7 @@ export const CoderpadEditor: React.FC = () => {
                     onClick={() => setFilesCollapsed(v => !v)}
                     title={filesCollapsed ? "Expand files column" : "Collapse files column"}
                   >
-                    {filesCollapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
+                    {filesCollapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
                   </button>
                   {!filesCollapsed && (
                     <>
@@ -1830,11 +2408,37 @@ export const CoderpadEditor: React.FC = () => {
 
           <div className="coderpad-sidebar-col coderpad-sidebar-col--problem">
             <div className="sidebar-problem-card sidebar-problem-card--fill">
-              <div className="sidebar-problem-title">
-                Problem Statement
-                {isStaff && <span className="sidebar-staff-pill">Authoring</span>}
+              <div className="sidebar-problem-layout">
+                {problemRailQuestions.length > 0 && (
+                  <div className="sidebar-problem-number-rail" role="listbox" aria-label="CoderPad problem numbers">
+                    <span className="sidebar-problem-number-rail-label">Q</span>
+                    {problemRailQuestions.map((q, idx) => (
+                      <button
+                        key={q.id}
+                        type="button"
+                        role="option"
+                        aria-selected={assignmentQuestions.length > 0 ? assignmentId === q.id : idx === 0}
+                        className={`sidebar-problem-number-btn ${(assignmentQuestions.length > 0 ? assignmentId === q.id : idx === 0) ? "is-active" : ""}`}
+                        title={(q.title && q.title.trim()) || `Problem #${getDisplayQuestionNumber(q, idx)}`}
+                        onClick={() => {
+                          if (assignmentQuestions.length > 0) selectCoderpadQuestion(q.id);
+                        }}
+                      >
+                        {getDisplayQuestionNumber(q, idx)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="sidebar-problem-main">
+                  <div className="sidebar-problem-title">
+                    Problem Statement{activeQuestionNumber ? ` #${activeQuestionNumber}` : ""}
+                    {isStaff && <span className="sidebar-staff-pill">Authoring</span>}
+                  </div>
+                  <p className="sidebar-problem-text">
+                    {description.trim() ? description : "No problem statement yet."}
+                  </p>
+                </div>
               </div>
-              <p className="sidebar-problem-text">{description || DEFAULT_PROBLEM_STATEMENT}</p>
             </div>
             {isStaff && (
               <div className="sidebar-assignment-footer">
@@ -1843,7 +2447,7 @@ export const CoderpadEditor: React.FC = () => {
                   className="btn-save-assignment"
                   onClick={openAssignmentModal}
                 >
-                  Change problem statement
+                  Add/Update problem statement
                 </button>
               </div>
             )}
@@ -1858,6 +2462,11 @@ export const CoderpadEditor: React.FC = () => {
           <div className="topbar-left">
             <div className="topbar-left-inner">
               <div className="topbar-title-row">
+                <img
+                  src="/images/logos/whitebox-learning-logo.png"
+                  alt="White Box Learning logo"
+                  className="topbar-brand-logo"
+                />
                 <input
                   className="snippet-title-input"
                   value={title}
@@ -1869,6 +2478,24 @@ export const CoderpadEditor: React.FC = () => {
               <p className="coderpad-login-line" title="Session role">
                 {loginStatusLine}
               </p>
+              {teamRole === "candidate" && (
+                <div className="coderpad-llm-row">
+                  <button
+                    type="button"
+                    className="btn-llm-validate"
+                    onClick={() => void runLlmValidate()}
+                    disabled={llmValidating}
+                    title="Validate with the server-configured OpenAI key (problem + code + test cases)"
+                  >
+                    {llmValidating ? (
+                      <Loader2 size={14} className="spin" />
+                    ) : (
+                      <Sparkles size={14} />
+                    )}
+                    LLM validate
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1906,9 +2533,6 @@ export const CoderpadEditor: React.FC = () => {
           </div>
 
           <div className="topbar-right">
-            <span className="topbar-user-chip" title="Logged in user">
-              {loggedInUsername}
-            </span>
             {isSplitScreen && (
               <span className="topbar-split-chip" title="Split-screen mode detected">
                 Split view
@@ -1929,14 +2553,30 @@ export const CoderpadEditor: React.FC = () => {
                   <span className="sec-badge-high" style={{ background: securityStatusColor }}>{security.totalCount}</span>
                 )}
               </button>
-            <button className="btn-icon" onClick={copyCode} title="Copy is disabled in CoderPad">
-              <Copy size={15} />
-            </button>
             {selectedSnippet && (
               <button className="btn-icon btn-danger-hover" onClick={deleteSnippet} title="Delete snippet">
                 <Trash2 size={15} />
               </button>
             )}
+            <button
+              type="button"
+              className="btn-save"
+              onClick={() => saveSnippet()}
+              disabled={saving}
+              title="Save (Ctrl+S)"
+            >
+              {saving ? <Loader2 size={14} className="spin" /> : <Save size={14} />}
+              Save
+            </button>
+            <label className="autosave-toggle autosave-toggle--topbar">
+              <input
+                type="checkbox"
+                checked={autoSave}
+                onChange={e => setAutoSave(e.target.checked)}
+              />
+              <span className="autosave-track" aria-hidden />
+              <span className="autosave-label">Auto-save files</span>
+            </label>
             <button
               className="btn-run"
               onClick={() => void runTestCases()}
@@ -1958,52 +2598,12 @@ export const CoderpadEditor: React.FC = () => {
           </div>
         </header>
 
-        {/* ── STATUS BAR ─────────────────────────── */}
-        <div className="coderpad-statusbar">
-          <span className="status-lang"><LangIcon cfg={langCfg} size="sm" /> {langCfg.label}</span>
-          {execStatus !== "idle" && <StatusBadge status={execStatus} />}
-          {execTime !== null && (
-            <span className="status-time"><Clock size={11} />{execTime}ms</span>
-          )}
-          {testResults && (
-            <span className={`status-tests ${passCount === totalTests ? "pass" : "fail"}`}>
-              <TestTube2 size={11} />{passCount}/{totalTests} tests
-            </span>
-          )}
-          <span className="status-hint">Ctrl+Enter run tests • Ctrl+Shift+Enter submit • Ctrl+S save</span>
-        </div>
-
         {/* ── RESIZABLE PANELS (editor | preview + terminal) ───── */}
         <div className="coderpad-panels-wrap">
           <PanelGroup direction="horizontal">
             {/* Editor Panel */}
             <Panel defaultSize={60} minSize={30}>
               <div className="editor-panel">
-                <div className="editor-toolbar-ide">
-                  <button
-                    type="button"
-                    className="btn-save-ide"
-                    onClick={() => saveSnippet()}
-                    disabled={saving}
-                    title="Save (Ctrl+S)"
-                  >
-                    {saving ? <Loader2 size={14} className="spin" /> : <Save size={14} />}
-                    Save
-                  </button>
-                  <label className="autosave-toggle">
-                    <input
-                      type="checkbox"
-                      checked={autoSave}
-                      onChange={e => setAutoSave(e.target.checked)}
-                    />
-                    <span className="autosave-track" aria-hidden />
-                    <span className="autosave-label">Auto-save files</span>
-                  </label>
-                </div>
-                <div className="editor-header">
-                  <FileCode2 size={14} />
-                  <span>{title || DEFAULT_SNIPPET_TITLE}.{language === "cpp" ? "cpp" : language === "javascript" ? "js" : language === "typescript" ? "ts" : language}</span>
-                </div>
                 <div className="editor-body">
                   <MonacoEditor
                     height="100%"
@@ -2058,34 +2658,61 @@ export const CoderpadEditor: React.FC = () => {
               <div className="resize-handle-bar" />
             </PanelResizeHandle>
 
-            {/* Right column: test cases only */}
-            <Panel defaultSize={40} minSize={24}>
-              <div className="ide-right-stack">
-                <div className="output-panel ide-terminal-panel">
-                  <div className="tests-body">
+            {/* Right column: test cases — collapsible Panel shrinks to a right rail */}
+            <Panel
+              ref={testsPanelRef}
+              id="coderpad-tests"
+              defaultSize={36}
+              minSize={14}
+              maxSize={52}
+              collapsible
+              collapsedSize={3.5}
+              onCollapse={() => setTestsCollapsed(true)}
+              onExpand={() => setTestsCollapsed(false)}
+            >
+              <div className={`ide-right-stack ${testsCollapsed ? "ide-right-stack--rail" : ""}`}>
+                {testsCollapsed ? (
+                  <div className="tests-rail">
+                    <button
+                      type="button"
+                      className="tests-rail-toggle"
+                      onClick={toggleTestsPanel}
+                      title="Expand test cases"
+                      aria-expanded={false}
+                    >
+                      <ChevronLeft size={18} className="tests-rail-chevron" aria-hidden />
+                      <TestTube2 size={15} className="tests-rail-icon" aria-hidden />
+                      <span className="tests-rail-count" aria-label="Number of test cases">{testCases.length}</span>
+                      <span className="tests-rail-label">Tests</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="output-panel ide-terminal-panel">
+                    <div className="tests-body">
                     <div className="tests-header">
                       <button
+                        type="button"
                         className="tests-collapse-btn"
-                        onClick={() => setTestsCollapsed(v => !v)}
-                        title={testsCollapsed ? "Expand tests" : "Collapse tests"}
+                        onClick={toggleTestsPanel}
+                        aria-expanded={!testsCollapsed}
+                        title="Collapse test panel to the right"
                       >
-                        {testsCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                        <ChevronRight size={14} aria-hidden />
                         <span className="tests-count">{testCases.length} test case{testCases.length !== 1 ? "s" : ""}</span>
                       </button>
                       <div className="tests-header-actions">
                         {isStaff && (
-                          <button className="btn-ghost-sm" onClick={addTestCase}>
+                          <button type="button" className="btn-ghost-sm" onClick={addTestCase}>
                             <Plus size={13} /> Add test
                           </button>
                         )}
                         {!isStaff && (
-                          <button className="btn-ghost-sm" onClick={() => setShowAllTests(v => !v)}>
+                          <button type="button" className="btn-ghost-sm" onClick={() => setShowAllTests(v => !v)}>
                             {showAllTests ? "Show Fewer" : "Show All"}
                           </button>
                         )}
                       </div>
                     </div>
-                    {!testsCollapsed && (
                     <div className="tests-list">
                       {testCases.length === 0 ? (
                         <div className="tests-empty">
@@ -2184,9 +2811,9 @@ export const CoderpadEditor: React.FC = () => {
                         })
                       )}
                     </div>
-                    )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </Panel>
           </PanelGroup>
@@ -2443,6 +3070,12 @@ export const CoderpadEditor: React.FC = () => {
           color: #8b949e;
           line-height: 1.5;
         }
+        .welcome-role-actions {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          margin-top: 6px;
+        }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .coderpad-modal {
           background: #161b22; border: 1px solid #30363d; border-radius: 12px;
@@ -2527,12 +3160,138 @@ export const CoderpadEditor: React.FC = () => {
           flex-direction: column;
           min-width: 0;
         }
+        .coderpad-assignment-picker {
+          flex-shrink: 0;
+          margin: 10px 10px 0;
+          padding: 8px 10px;
+          background: #0d1117;
+          border: 1px solid #21262d;
+          border-radius: 8px;
+          max-height: min(220px, 32vh);
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+        }
+        .coderpad-assignment-picker-title {
+          font-size: 0.7rem;
+          color: #8b949e;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          font-weight: 600;
+          margin-bottom: 6px;
+        }
+        .coderpad-assignment-picker-list {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .coderpad-assignment-picker-item {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+          text-align: left;
+          padding: 6px 8px;
+          border-radius: 6px;
+          border: 1px solid transparent;
+          background: #111926;
+          color: #c9d1d9;
+          font-size: 0.75rem;
+          cursor: pointer;
+          transition: background .12s, border-color .12s;
+        }
+        .coderpad-assignment-picker-item:hover {
+          background: #161b22;
+          border-color: #30363d;
+        }
+        .coderpad-assignment-picker-item.is-active {
+          border-color: #306998;
+          background: #1a2332;
+          color: #e6edf3;
+        }
+        .coderpad-assignment-picker-order {
+          flex: 0 0 auto;
+          min-width: 1.25rem;
+          font-variant-numeric: tabular-nums;
+          color: #7d8590;
+          font-size: 0.68rem;
+        }
+        .coderpad-assignment-picker-item.is-active .coderpad-assignment-picker-order {
+          color: #58a6ff;
+        }
+        .coderpad-assignment-picker-label {
+          flex: 1;
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
         .sidebar-problem-card {
           margin: 10px 10px 8px;
           background: #111926;
           border: 1px solid #2b3544;
           border-radius: 8px;
           padding: 10px 12px;
+        }
+        .sidebar-problem-layout {
+          display: flex;
+          gap: 10px;
+          height: 100%;
+          min-height: 0;
+        }
+        .sidebar-problem-number-rail {
+          flex: 0 0 34px;
+          min-width: 34px;
+          border-right: 1px solid #2b3544;
+          padding-right: 8px;
+          padding-top: 2px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          overflow-y: auto;
+        }
+        .sidebar-problem-number-rail-label {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          height: 18px;
+          font-size: 0.66rem;
+          color: #7d8590;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          border-bottom: 1px solid #2b3544;
+          padding-bottom: 2px;
+          margin-bottom: 2px;
+        }
+        .sidebar-problem-number-btn {
+          border: 1px solid #30363d;
+          border-radius: 6px;
+          background: #111926;
+          color: #c9d1d9;
+          font-size: 0.72rem;
+          font-weight: 600;
+          min-height: 26px;
+          cursor: pointer;
+          font-variant-numeric: tabular-nums;
+          transition: border-color .12s, color .12s, background .12s;
+        }
+        .sidebar-problem-number-btn:hover {
+          border-color: #30363d;
+          color: #c9d1d9;
+        }
+        .sidebar-problem-number-btn.is-active {
+          border-color: #306998;
+          background: #1a2332;
+          color: #58a6ff;
+        }
+        .sidebar-problem-main {
+          flex: 1;
+          min-width: 0;
         }
         .sidebar-problem-title {
           display: flex;
@@ -2564,6 +3323,25 @@ export const CoderpadEditor: React.FC = () => {
         .sidebar-assignment-footer {
           padding: 0 10px 10px;
           flex-shrink: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .btn-new-assignment {
+          width: 100%;
+          padding: 8px 12px;
+          border-radius: 6px;
+          border: 1px dashed #30363d;
+          background: transparent;
+          color: #8b949e;
+          font-size: 0.78rem;
+          cursor: pointer;
+          transition: border-color .15s, color .15s, background .15s;
+        }
+        .btn-new-assignment:hover {
+          border-color: #58a6ff;
+          color: #58a6ff;
+          background: rgba(88, 166, 255, 0.06);
         }
         .assignment-targeting-subtitle {
           font-size: 0.72rem;
@@ -2728,6 +3506,135 @@ export const CoderpadEditor: React.FC = () => {
           max-height: 88vh;
           overflow-y: auto;
         }
+        .assignment-modal-question-nav {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          margin: 2px 0 6px;
+        }
+        .assignment-modal-nav-btn {
+          width: 32px;
+          height: 32px;
+          border-radius: 8px;
+          border: 1px solid #30363d;
+          background: #0d1117;
+          color: #c9d1d9;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: border-color .12s, color .12s, background .12s;
+        }
+        .assignment-modal-nav-btn:hover:not(:disabled) {
+          border-color: #58a6ff;
+          color: #58a6ff;
+          background: #161b22;
+        }
+        .assignment-modal-nav-btn:disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
+        }
+        .assignment-modal-question-meta {
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .assignment-modal-question-number {
+          font-size: 0.72rem;
+          font-weight: 600;
+          color: #8b949e;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+        .assignment-modal-question-title {
+          font-size: 0.8rem;
+          color: #c9d1d9;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .assignment-modal-number-strip {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          width: 46px;
+          min-width: 46px;
+          max-height: 240px;
+          overflow-y: auto;
+          border-right: 1px solid #2b3544;
+          padding-right: 8px;
+        }
+        .assignment-modal-number-btn {
+          min-width: 30px;
+          height: 30px;
+          border-radius: 7px;
+          border: 1px solid #30363d;
+          background: #0d1117;
+          color: #c9d1d9;
+          font-size: 0.76rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: border-color .12s, color .12s, background .12s;
+        }
+        .assignment-modal-number-btn:hover {
+          border-color: #58a6ff;
+          color: #58a6ff;
+        }
+        .assignment-modal-number-btn.is-active {
+          border-color: #306998;
+          background: #1a2332;
+          color: #58a6ff;
+        }
+        .assignment-problem-editor {
+          display: flex;
+          gap: 12px;
+          align-items: stretch;
+        }
+        .assignment-problem-editor-main {
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .assignment-problem-heading-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+        .assignment-problem-heading-row .assignment-modal-subtitle {
+          margin: 0;
+        }
+        .btn-remove-problem {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          flex-shrink: 0;
+          padding: 5px 10px;
+          font-size: 0.76rem;
+          font-weight: 600;
+          border-radius: 6px;
+          border: 1px solid rgba(248, 81, 73, 0.45);
+          background: rgba(248, 81, 73, 0.08);
+          color: #f85149;
+          cursor: pointer;
+          transition: background 0.15s, border-color 0.15s;
+        }
+        .btn-remove-problem:hover:not(:disabled) {
+          background: rgba(248, 81, 73, 0.15);
+          border-color: rgba(248, 81, 73, 0.65);
+        }
+        .btn-remove-problem:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+        }
+        .assignment-clear-draft-btn {
+          color: #8b949e;
+        }
         .assignment-modal-subtitle {
           font-size: 0.78rem;
           font-weight: 600;
@@ -2737,7 +3644,7 @@ export const CoderpadEditor: React.FC = () => {
         }
         .assignment-problem-input {
           width: 100%;
-          min-height: 130px;
+          min-height: 200px;
           resize: vertical;
           background: #0d1117;
           border: 1px solid #30363d;
@@ -2752,8 +3659,42 @@ export const CoderpadEditor: React.FC = () => {
         .assignment-problem-input:focus {
           border-color: #58a6ff;
         }
+        .assignment-testcases-block {
+          margin-top: 6px;
+        }
+        .assignment-testcases-collapse-trigger {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+          padding: 8px 12px;
+          background: #161b22;
+          border: 1px solid #30363d;
+          border-radius: 8px;
+          cursor: pointer;
+          color: #c9d1d9;
+          text-align: left;
+          transition: border-color 0.15s, background 0.15s;
+        }
+        .assignment-testcases-collapse-trigger:hover {
+          border-color: #58a6ff55;
+          background: #1c2128;
+        }
+        .assignment-modal-subtitle--inline {
+          margin: 0;
+          flex: 1;
+          text-align: left;
+        }
+        .assignment-testcases-count-badge {
+          font-size: 0.7rem;
+          font-weight: 700;
+          padding: 2px 8px;
+          border-radius: 999px;
+          background: #21262d;
+          color: #8b949e;
+        }
         .assignment-testcases-hint {
-          margin: -8px 0 4px;
+          margin: 10px 0 6px;
           font-size: 0.72rem;
           color: #7d8590;
           line-height: 1.4;
@@ -2765,9 +3706,16 @@ export const CoderpadEditor: React.FC = () => {
           max-height: 300px;
           overflow: auto;
         }
+        .assignment-modal-footer-nav {
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
+          margin-top: 4px;
+          margin-bottom: -4px;
+        }
         .assignment-testcase-header {
           display: grid;
-          grid-template-columns: 1fr 1fr 1fr 1fr auto auto;
+          grid-template-columns: 38px 1fr 1fr 1fr 1fr auto auto;
           gap: 8px;
           align-items: end;
           padding: 0 2px 4px;
@@ -2784,14 +3732,30 @@ export const CoderpadEditor: React.FC = () => {
         .assignment-testcase-header-cell--meta {
           text-align: center;
         }
+        .assignment-testcase-header-cell--index {
+          text-align: center;
+        }
         .assignment-testcase-header-cell--action {
           min-width: 52px;
         }
         .assignment-testcase-row {
           display: grid;
-          grid-template-columns: 1fr 1fr 1fr 1fr auto auto;
+          grid-template-columns: 38px 1fr 1fr 1fr 1fr auto auto;
           gap: 8px;
           align-items: center;
+        }
+        .assignment-testcase-index {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          height: 34px;
+          border-radius: 8px;
+          border: 1px solid #30363d;
+          background: #0d1117;
+          color: #8b949e;
+          font-size: 0.74rem;
+          font-weight: 600;
+          font-variant-numeric: tabular-nums;
         }
         .assignment-testcase-actual {
           background: #0d1117;
@@ -2964,12 +3928,73 @@ export const CoderpadEditor: React.FC = () => {
         .topbar-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
         .topbar-left-inner { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
         .topbar-title-row { display: flex; align-items: center; gap: 8px; }
+        .topbar-brand-logo {
+          width: 22px;
+          height: 22px;
+          flex: 0 0 22px;
+          opacity: 0.95;
+        }
         .coderpad-login-line {
           margin: 0;
           font-size: 0.72rem;
           color: #8b949e;
           font-weight: 500;
           letter-spacing: 0.01em;
+        }
+        .coderpad-llm-row {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 8px 10px;
+          margin-top: 6px;
+        }
+        .btn-llm-validate {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 10px;
+          font-size: 0.76rem;
+          font-weight: 600;
+          border-radius: 6px;
+          border: 1px solid #388bfd55;
+          background: rgba(56, 139, 253, 0.12);
+          color: #79c0ff;
+          cursor: pointer;
+          transition: background 0.15s, border-color 0.15s;
+        }
+        .btn-llm-validate:hover:not(:disabled) {
+          background: rgba(56, 139, 253, 0.2);
+          border-color: #388bfd88;
+        }
+        .btn-llm-validate:disabled {
+          opacity: 0.65;
+          cursor: not-allowed;
+        }
+        .btn-llm-validate .spin { animation: coderpad-spin 0.8s linear infinite; }
+        @keyframes coderpad-spin { to { transform: rotate(360deg); } }
+        .llm-result-modal .llm-result-error {
+          color: #f85149;
+          font-size: 0.85rem;
+          margin: 0 0 12px;
+        }
+        .llm-result-modal .llm-result-summary {
+          color: #c9d1d9;
+          font-size: 0.84rem;
+          line-height: 1.45;
+          margin: 0 0 12px;
+        }
+        .llm-result-modal .llm-result-feedback {
+          margin: 0;
+          padding: 10px 12px;
+          background: #0d1117;
+          border: 1px solid #30363d;
+          border-radius: 8px;
+          font-size: 0.78rem;
+          line-height: 1.45;
+          color: #8b949e;
+          white-space: pre-wrap;
+          max-height: min(50vh, 360px);
+          overflow: auto;
         }
         .topbar-center { display: flex; align-items: center; }
         .topbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
@@ -3003,15 +4028,25 @@ export const CoderpadEditor: React.FC = () => {
           letter-spacing: 0.01em;
         }
         .snippet-title-input {
-          background: #0d1117; border: 1px solid #30363d; outline: none; border-radius: 8px;
-          padding: 8px 12px; font-size: 0.88rem; font-weight: 600; color: #e6edf3;
-          max-width: min(340px, 42vw); min-width: 160px; font-family: 'Inter', sans-serif;
-          transition: border-color .15s, box-shadow .15s;
+          background: transparent;
+          border: none;
+          outline: none;
+          border-radius: 0;
+          padding: 4px 0;
+          font-size: 0.88rem;
+          font-weight: 600;
+          color: #e6edf3;
+          max-width: min(340px, 42vw);
+          min-width: 160px;
+          font-family: 'Inter', sans-serif;
+          transition: color 0.15s;
         }
         .snippet-title-input::placeholder { color: #6e7681; }
-        .snippet-title-input:hover { border-color: #484f58; }
+        .snippet-title-input:hover { color: #f0f6fc; }
         .snippet-title-input:focus {
-          border-color: #388bfd; box-shadow: 0 0 0 3px rgba(56,139,253,0.15);
+          box-shadow: none;
+          border-bottom: 1px solid #388bfd;
+          padding-bottom: 3px;
         }
         .dirty-dot { width: 7px; height: 7px; border-radius: 50%; background: #f59e0b; flex-shrink: 0; }
 
@@ -3181,6 +4216,9 @@ export const CoderpadEditor: React.FC = () => {
           color: #8b949e;
           user-select: none;
         }
+        .autosave-toggle--topbar {
+          margin: 0 4px;
+        }
         .autosave-toggle input {
           position: absolute;
           opacity: 0;
@@ -3210,11 +4248,6 @@ export const CoderpadEditor: React.FC = () => {
         .autosave-toggle input:checked + .autosave-track { background: #238636; }
         .autosave-toggle input:checked + .autosave-track::after { transform: translateX(16px); }
         .autosave-label { font-weight: 500; color: #c9d1d9; }
-        .editor-header {
-          display: flex; align-items: center; gap: 7px; padding: 6px 14px;
-          background: #0d1117; border-bottom: 1px solid #21262d;
-          font-size: 0.78rem; color: #7d8590;
-        }
         .editor-body { flex: 1; overflow: hidden; min-height: 0; }
         .ide-right-stack {
           height: 100%;
@@ -3224,6 +4257,65 @@ export const CoderpadEditor: React.FC = () => {
           background: #0d1117;
         }
         .ide-right-stack > div { min-height: 0; }
+        .ide-right-stack.ide-right-stack--rail {
+          height: 100%;
+          min-height: 0;
+        }
+        .tests-rail {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: flex-start;
+          height: 100%;
+          min-height: 0;
+          background: #0d1117;
+          border-left: 1px solid #21262d;
+          padding: 10px 0;
+        }
+        .tests-rail-toggle {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 10px;
+          width: 100%;
+          padding: 8px 2px 12px;
+          background: transparent;
+          border: none;
+          color: #8b949e;
+          cursor: pointer;
+          border-radius: 8px;
+          transition: background 0.15s, color 0.15s;
+        }
+        .tests-rail-toggle:hover {
+          background: #21262d;
+          color: #e6edf3;
+        }
+        .tests-rail-chevron {
+          color: #58a6ff;
+          flex-shrink: 0;
+        }
+        .tests-rail-icon {
+          opacity: 0.85;
+          flex-shrink: 0;
+        }
+        .tests-rail-count {
+          font-size: 0.7rem;
+          font-weight: 700;
+          padding: 2px 6px;
+          border-radius: 8px;
+          background: #21262d;
+          color: #c9d1d9;
+        }
+        .tests-rail-label {
+          writing-mode: vertical-rl;
+          transform: rotate(180deg);
+          font-size: 0.68rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.12em;
+          color: #7d8590;
+          font-variant-numeric: tabular-nums;
+        }
 
         .preview-result-only {
           height: 100%;
