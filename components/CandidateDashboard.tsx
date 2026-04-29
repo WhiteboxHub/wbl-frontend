@@ -510,7 +510,7 @@ export default function CandidateDashboard() {
                         : source.includes('hiring') || source.includes('cafe')
                             ? `https://hiring.cafe/viewjob/${jobId}`
                             : source.includes('jobright')
-                                ? `https://jobright/jobs/info/${jobId}`
+                                ? `https://jobright.ai/jobs/info/${jobId}`
                                 : `https://www.linkedin.com/jobs/view/${jobId}`);
 
                 if (!url) {
@@ -680,7 +680,7 @@ export default function CandidateDashboard() {
                         : source.includes('hiring') || source.includes('cafe')
                             ? `https://hiring.cafe/viewjob/${jobId}`
                             : source.includes('jobright')
-                                ? `https://jobright/jobs/info/${jobId}`
+                                ? `https://jobright.ai/jobs/info/${jobId}`
                                 : `https://www.linkedin.com/jobs/view/${jobId}`);
 
                 return (
