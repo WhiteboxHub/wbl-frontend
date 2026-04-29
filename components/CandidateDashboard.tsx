@@ -1195,8 +1195,28 @@ export default function CandidateDashboard() {
                                 <div className="relative z-10 shrink-0">
                                     {setupStatus.setup_complete ? (
                                         <button
-                                            onClick={() => {
-                                                window.location.href = "https://ai-prep.whitebox-learning.com/";
+                                            onClick={async () => {
+                                                const getAiPrepUrl = () => {
+                                                    if (process.env.NODE_ENV === "production" || window.location.hostname !== "localhost") {
+                                                        return "https://ai-prep.whitebox-learning.com";
+                                                    }
+                                                    return "http://localhost:3001";
+                                                };
+                                                const baseUrl = getAiPrepUrl();
+                                                
+                                                try {
+                                                    const response = await apiFetch("candidate/generate-prep-token", { 
+                                                        method: "POST"
+                                                    });
+                                                    if (response && response.token) {
+                                                        window.location.href = `${baseUrl}/?prep_token=${response.token}`;
+                                                    } else {
+                                                        window.location.href = baseUrl;
+                                                    }
+                                                } catch (err) {
+                                                    console.error("Failed to generate prep token:", err);
+                                                    window.location.href = baseUrl;
+                                                }
                                             }}
                                             className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
                                         >
