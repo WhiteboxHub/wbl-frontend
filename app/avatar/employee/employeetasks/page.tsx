@@ -382,10 +382,10 @@ const TasksList = ({ projectId, employeeId, readOnly = false }: { projectId?: nu
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredTasks.map((task, index) => (
                     <tr key={task.id} className={`hover:bg-blue-50/50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
-                      <td className="px-4 py-3 text-sm text-gray-900">
+                      <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
                         <div dangerouslySetInnerHTML={{ __html: task.task || '' }} className="line-clamp-2" />
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
+                      <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
                         {projectId ? task.employee_name : task.project_name}
                       </td>
                       <td className="px-4 py-3 text-sm">
@@ -394,7 +394,7 @@ const TasksList = ({ projectId, employeeId, readOnly = false }: { projectId?: nu
                       <td className="px-4 py-3 text-sm">
                         <PriorityRenderer value={task.priority} />
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
+                      <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
                         <DateFormatter value={task.due_date} />
                       </td>
                     </tr>
@@ -537,7 +537,7 @@ const ProjectsView = () => {
               {expandedIds.includes(params.data.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
             </div>
           )}
-          <span className="font-medium text-gray-700">{params.value}</span>
+          <span className="font-medium text-gray-700 dark:text-gray-300">{params.value}</span>
         </div>
       )
     },
@@ -663,7 +663,7 @@ const EmployeesView = () => {
               {expandedIds.includes(params.data.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
             </div>
           )}
-          <span className="font-medium text-gray-700">{params.value}</span>
+          <span className="font-medium text-gray-700 dark:text-gray-300">{params.value}</span>
         </div>
       )
     },
@@ -720,8 +720,8 @@ export default function EmployeeTasksPage() {
   return (
     <div className="p-6 space-y-6 min-h-screen bg-gray-50/50">
       <div className="flex flex-col space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900">Task Management</h1>
-        <p className="text-sm text-gray-500">Manage, organize and track employee tasks across projects.</p>
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Task Management</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Manage, organize and track employee tasks across projects.</p>
       </div>
 
       <Tabs defaultValue="all" className="w-full">
