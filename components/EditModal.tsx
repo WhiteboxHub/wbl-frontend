@@ -58,8 +58,9 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "true", label: "Yes" },
   ],
   agreement: [
-    { value: "false", label: "No" },
-    { value: "true", label: "Yes" },
+    { value: "N", label: "Not Submitted" },
+    { value: "Y", label: "Submitted" },
+    { value: "P", label: "Pending Review" },
   ],
   is_immigration_team: [
     { value: false, label: "No" },
