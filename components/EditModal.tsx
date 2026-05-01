@@ -816,6 +816,8 @@ const fieldSections: Record<string, string> = {
   interviewer_emails: "Contact Information",
   interviewer_contact: "Contact Information",
   interviewer_linkedin: "Contact Information",
+  email_text: "Contact Information",
+  feedback_text: "Notes",
   amount_collected: "Contact Information",
   emails_read: "Basic Information",
   id: "Basic Information",
@@ -4320,7 +4322,7 @@ export function EditModal({
                                 </button>
                               )}
                             </div>
-                            {isJobTypeModal || isJobActivityLogModal || key === 'raw_payload' || key === 'payload' ? (
+                            {isJobTypeModal || isJobActivityLogModal || key === 'raw_payload' || key === 'payload' || key === 'feedback_text' || key === 'email_text' ? (
                               <textarea
                                 {...register(key)}
                                 defaultValue={currentFormValues[key] ?? formData[key] ?? ""}
