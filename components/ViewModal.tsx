@@ -803,7 +803,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     if (["feepaid", "feedue", "salary0", "salary6", "salary12"].includes(lowerKey)) return <p>${Number(value).toLocaleString()}</p>;
     if (lowerKey.includes("rating")) return <p>{value} </p>;
 
-    if (["notes", "task", "description", "job_description", "q_a"].includes(lowerKey)) {
+    if (["notes", "task", "description", "job_description", "q_a", "feedback_text", "email_text"].includes(lowerKey)) {
       return <ExpandableTextViewer content={value} />;
     }
 
