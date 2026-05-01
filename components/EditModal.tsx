@@ -4096,8 +4096,7 @@ export function EditModal({
                               "note",
                               "keywords",
                               "context",
-                              "candidate_json",
-                              "email_text"
+                              "candidate_json"
                             ].includes(key.toLowerCase());
 
                             if (isTextareaField) {
@@ -4333,7 +4332,7 @@ export function EditModal({
                                 </button>
                               )}
                             </div>
-                            {isJobTypeModal || isJobActivityLogModal || key === 'raw_payload' || key === 'payload' || key === 'feedback_text' ? (
+                            {isJobTypeModal || isJobActivityLogModal || key === 'raw_payload' || key === 'payload' || key === 'feedback_text' || key === 'email_text' ? (
                               <textarea
                                 {...register(key)}
                                 defaultValue={currentFormValues[key] ?? formData[key] ?? ""}
