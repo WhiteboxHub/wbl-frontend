@@ -76,6 +76,7 @@ interface DashboardData {
         success_rate: number;
     };
     interviews: Array<{
+        id: number;
         company: string;
         interview_date: string;
         type_of_interview: string;
@@ -296,74 +297,6 @@ const StatusRenderer = ({ value }: { value?: string }) => {
     );
 };
 
-const interviewColumnDefs: ColDef[] = [
-    {
-        field: "company",
-        headerName: "Company",
-        flex: 2,
-        minWidth: 200,
-        pinned: 'left',
-        cellRenderer: (params: any) => (
-            <div className="flex items-center h-full">
-                <span className="font-bold text-gray-900 dark:text-gray-100 text-[13px]">{params.value}</span>
-            </div>
-        )
-    },
-    {
-        field: "type_of_interview",
-        headerName: "Interview Round",
-        flex: 1.5,
-        minWidth: 160,
-        cellRenderer: (params: any) => (
-            <div className="flex items-center h-full gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center flex-shrink-0">
-                    <Target className="w-3.5 h-3.5 text-gray-400" />
-                </div>
-                <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">{params.value || "Technical Round"}</span>
-            </div>
-        )
-    },
-    {
-        field: "interview_date",
-        headerName: "Schedule",
-        flex: 1.5,
-        minWidth: 160,
-        cellRenderer: (params: any) => {
-            if (!params.value) return (
-                <div className="flex items-center h-full text-gray-400 text-xs italic">Not set</div>
-            );
-            try {
-                const dateStr = format(parseISO(params.value), "MMM dd, yyyy");
-                return (
-                    <div className="flex items-center h-full gap-2.5">
-                        <div className="w-7 h-7 rounded-lg bg-blue-50/50 dark:bg-blue-900/10 flex items-center justify-center flex-shrink-0">
-                            <Calendar className="w-3.5 h-3.5 text-blue-500" />
-                        </div>
-                        <span className="text-xs font-bold text-gray-800 dark:text-gray-200">{dateStr}</span>
-                    </div>
-                );
-            } catch (e) {
-                return <div className="flex items-center h-full text-xs font-medium">{params.value}</div>;
-            }
-        }
-    },
-    {
-        field: "mode_of_interview",
-        headerName: "Mode",
-        flex: 1,
-        minWidth: 130,
-        cellRenderer: (params: any) => (
-            <div className="flex items-center h-full gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center flex-shrink-0">
-                    <Video className="w-3.5 h-3.5 text-gray-400" />
-                </div>
-                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{params.value || "Virtual"}</span>
-            </div>
-        )
-    },
-];
-
-
 export default function CandidateDashboard() {
     const router = useRouter();
     const { userRole } = useAuth() as { userRole: string };
@@ -491,6 +424,102 @@ export default function CandidateDashboard() {
     const statusOptions = ['open', 'closed', 'on_hold', 'duplicate', 'invalid'];
     const typeOptions = ['full_time', 'contract', 'contract_to_hire', 'internship'];
     const modeOptions = ['All', 'Onsite', 'Hybrid', 'Remote'];
+    const interviewColumnDefs: ColDef[] = useMemo(() => [
+        {
+            field: "company",
+            headerName: "Company",
+            flex: 2,
+            minWidth: 200,
+            pinned: 'left',
+            cellRenderer: (params: any) => (
+                <div className="flex items-center h-full">
+                    <span className="font-bold text-gray-900 dark:text-gray-100 text-[13px]">{params.value}</span>
+                </div>
+            )
+        },
+        {
+            field: "type_of_interview",
+            headerName: "Interview Round",
+            flex: 1.5,
+            minWidth: 160,
+            cellRenderer: (params: any) => (
+                <div className="flex items-center h-full gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center flex-shrink-0">
+                        <Target className="w-3.5 h-3.5 text-gray-400" />
+                    </div>
+                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">{params.value || "Technical Round"}</span>
+                </div>
+            )
+        },
+        {
+            field: "interview_date",
+            headerName: "Schedule",
+            flex: 1.5,
+            minWidth: 160,
+            cellRenderer: (params: any) => (
+                <div className="flex items-center h-full gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center flex-shrink-0">
+                        <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                    </div>
+                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                        {params.value ? format(parseISO(params.value), 'MMM dd, yyyy') : "TBD"}
+                    </span>
+                </div>
+            )
+        },
+        {
+            field: "mode_of_interview",
+            headerName: "Mode",
+            flex: 1,
+            minWidth: 130,
+            cellRenderer: (params: any) => (
+                <div className="flex items-center h-full gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center flex-shrink-0">
+                        <Video className="w-3.5 h-3.5 text-gray-400" />
+                    </div>
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{params.value || "Virtual"}</span>
+                </div>
+            )
+        },
+        {
+            field: "feedback",
+            headerName: "Feedback",
+            flex: 1,
+            minWidth: 130,
+            cellRenderer: (params: any) => {
+            const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+                    const newVal = e.target.value;
+                    try {
+                        await apiFetch(`/api/candidates/interviews/${params.data.id}/feedback?feedback=${newVal}`, {
+                            method: "PATCH"
+                        });
+                        params.data.feedback = newVal;
+                        params.api.refreshCells({ rowNodes: [params.node], force: true });
+                    } catch (err) {
+                        console.error("Failed to update feedback", err);
+                    }
+                };
+
+
+                return (
+                    <div className="flex items-center h-full gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center flex-shrink-0">
+                            <MessageSquare className="w-3.5 h-3.5 text-gray-400" />
+                        </div>
+                        <select
+                            defaultValue={params.value || "Pending"}
+                            onChange={handleChange}
+                            className="text-xs font-medium text-gray-600 dark:text-gray-400 bg-transparent border-none outline-none cursor-pointer focus:ring-0"
+                        >
+                            <option value="Pending">Pending</option>
+                            <option value="Positive">Positive</option>
+                            <option value="Negative">Negative</option>
+                        </select>
+                    </div>
+                );
+            }
+        }
+    ], [candidateId]);
 
     const jobColumnDefs: ColDef[] = useMemo(() => [
         { field: "id", headerName: "ID", width: 80, sortable: true, filter: "agNumberColumnFilter" },
@@ -507,9 +536,11 @@ export default function CandidateDashboard() {
                 const url = params.data.job_url ||
                     (source.includes('trueup')
                         ? `https://trueup.io/jobs/${jobId}`
-                        : source.includes('hiring')
+                        : source.includes('hiring') || source.includes('cafe')
                             ? `https://hiring.cafe/viewjob/${jobId}`
-                            : `https://www.linkedin.com/jobs/view/${jobId}`);
+                            : source.includes('jobright')
+                                ? `https://jobright.ai/jobs/info/${jobId}`
+                                : `https://www.linkedin.com/jobs/view/${jobId}`);
 
                 if (!url) {
                     return (
@@ -675,9 +706,11 @@ export default function CandidateDashboard() {
                 const url = params.data.job_url ||
                     (source.includes('trueup')
                         ? `https://trueup.io/jobs/${jobId}`
-                        : source.includes('hiring')
+                        : source.includes('hiring') || source.includes('cafe')
                             ? `https://hiring.cafe/viewjob/${jobId}`
-                            : `https://www.linkedin.com/jobs/view/${jobId}`);
+                            : source.includes('jobright')
+                                ? `https://jobright.ai/jobs/info/${jobId}`
+                                : `https://www.linkedin.com/jobs/view/${jobId}`);
 
                 return (
                     <div className="flex items-center h-full">
@@ -869,12 +902,14 @@ export default function CandidateDashboard() {
             console.log("🔍 API Response - Total jobs received:", posData?.length || 0);
             console.log("🔍 API Response - Sample job data:", posData?.[0] || {});
 
-            // Filter to show jobs from LinkedIn, Hiring Cafe, or TrueUp
+            // Filter to show jobs from LinkedIn, Hiring Cafe, TrueUp, or Jobright
             const filteredData = (posData || []).filter((pos: any) => {
                 const src = pos.source?.toLowerCase() || "";
-                const shouldInclude = src.includes('linkedin') || src.includes('hiring') || src.includes('cafe') || src.includes('trueup');
+                const shouldInclude = src.includes('linkedin') || src.includes('hiring') || src.includes('cafe') || src.includes('trueup') || src.includes('jobright');
 
-                return shouldInclude;
+                // Add a check to confirm the job actually has an actionable link id or url
+                const hasLink = Boolean(pos.source_job_id || pos.source_uid || pos.job_url);
+                return shouldInclude && hasLink;
             });
 
             console.log("📊 Final filtered positions count:", filteredData.length);

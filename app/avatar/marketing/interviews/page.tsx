@@ -248,7 +248,7 @@ const QARenderer = (params: any) => {
             </style>
           </head>
           <body>
-            <h2>Q&A Details</h2>
+            <h2>Questions</h2>
             <div class="content">${value}</div>
           </body>
         </html>
@@ -298,6 +298,8 @@ type InterviewFormData = {
   job_posting_url?: string;
   q_a?: string;
   feedback?: string;
+  email_text?: string;
+  feedback_text?: string;
   position_id?: number | string;
 };
 
@@ -318,6 +320,8 @@ const initialFormData: InterviewFormData = {
   backup_recording_url: "",
   job_posting_url: "",
   feedback: "Pending",
+  email_text: "",
+  feedback_text: "",
   position_id: "",
 };
 
@@ -582,6 +586,8 @@ export default function CandidatesInterviews() {
         backup_recording_url: data.backup_recording_url || null,
         job_posting_url: data.job_posting_url || null,
         feedback: data.feedback || null,
+        email_text: data.email_text || null,
+        feedback_text: data.feedback_text || null,
         position_id: data.position_id ? Number(data.position_id) : null,
         position_title: (data as any).position_title || null,
         position_location: (data as any).position_location || null,
@@ -689,7 +695,9 @@ export default function CandidatesInterviews() {
     { field: "instructor1_name", headerName: "Instructor 1", width: 150 },
     { field: "instructor2_name", headerName: "Instructor 2", width: 150 },
     { field: "instructor3_name", headerName: "Instructor 3", width: 150 },
-    { field: "feedback", headerName: "Feedback", cellRenderer: FeedbackRenderer, width: 120, editable: true },
+    { field: "feedback", headerName: "Feedback Status", cellRenderer: FeedbackRenderer, width: 120, editable: true },
+    { field: "feedback_text", headerName: "Feedback", width: 120, editable: true, cellEditor: "agLargeTextCellEditor", cellEditorPopup: true },
+    { field: "email_text", headerName: "Email", width: 120, editable: true, cellEditor: "agLargeTextCellEditor", cellEditorPopup: true },
     {
       field: "linkedin_id",
       headerName: "LinkedIn",
@@ -754,6 +762,8 @@ export default function CandidatesInterviews() {
                     backup_recording_url: newRow.backup_recording_url || (newRow.backup_url || null),
                     job_posting_url: newRow.job_posting_url || (newRow.url || null),
                     feedback: newRow.feedback || null,
+                    email_text: newRow.email_text || null,
+                    feedback_text: newRow.feedback_text || null,
                     position_id: newRow.position_id ? Number(newRow.position_id) : null,
                     position_title: newRow.position_title || null,
                     position_location: newRow.position_location || null,
