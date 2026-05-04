@@ -1090,10 +1090,10 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center p-2 sm:p-4 z-50">
           <div
             ref={modalRef}
-            className={`bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full ${getModalWidth()} max-h-[90vh] overflow-y-auto`}
+            className={`bg-white dark:bg-dark rounded-xl sm:rounded-2xl shadow-2xl w-full ${getModalWidth()} max-h-[90vh] overflow-y-auto`}
           >
             {/* Header */}
-            <div className="sticky top-0 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 sm:px-4 md:px-6 py-1 sm:py-1.5 border-b border-blue-200 flex justify-between items-center">
+            <div className="sticky top-0 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 dark:from-darklight dark:via-dark dark:to-darklight px-3 sm:px-4 md:px-6 py-1 sm:py-1.5 border-b border-blue-200 dark:border-blue-900 flex justify-between items-center">
               <h2 className="text-sm sm:text-base md:text-lg font-semibold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
                 {title} - View Details
               </h2>
@@ -1106,22 +1106,22 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
             </div>
 
             {/* Content */}
-            <div className="p-3 sm:p-4 md:p-5 bg-white">
+            <div className="p-3 sm:p-4 md:p-5 bg-white dark:bg-dark">
               <form>
                 {/* Content Grid */}
                 <div className={`grid grid-cols-1 ${columnCount >= 2 ? 'md:grid-cols-2' : ''} ${columnCount >= 3 ? 'lg:grid-cols-3' : ''} ${columnCount >= 4 ? 'xl:grid-cols-4' : ''} gap-3 sm:gap-4`}>
                   {visibleSections.map(section => (
                     <div key={section} className="space-y-2 sm:space-y-3">
-                      <h3 className="text-sm sm:text-base font-bold text-blue-700 border-b border-blue-200 pb-1 sm:pb-2">
+                      <h3 className="text-sm sm:text-base font-bold text-blue-700 dark:text-blue-400 border-b border-blue-200 dark:border-blue-900 pb-1 sm:pb-2">
                         {section}
                       </h3>
                       <div className="space-y-1.5 sm:space-y-2">
                         {sectionedFields[section].map(({ key, value }) => (
                           <div key={key} className="space-y-1">
-                            <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                            <label className="block text-xs sm:text-sm font-bold text-blue-700 dark:text-blue-400">
                               {toLabel(key)}
                             </label>
-                            <div className="w-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm border border-blue-200 rounded-lg bg-white min-h-[2rem]">
+                            <div className="w-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm border border-blue-200 rounded-lg bg-white dark:bg-darklight dark:text-gray-200 min-h-[2rem]">
                               {renderValue(key, value) || <span className="text-gray-400">-</span>}
                             </div>
                           </div>
@@ -1133,17 +1133,17 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
 
                 {/* Notes Section */}
                 {sectionedFields["Notes"]?.length > 0 && (
-                  <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-blue-200">
-                    {/* <h3 className="text-sm sm:text-base font-bold text-blue-700 border-b border-blue-200 pb-1 sm:pb-2 mb-4">
+                  <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-blue-200 dark:border-blue-900">
+                    {/* <h3 className="text-sm sm:text-base font-bold text-blue-700 dark:text-blue-400 border-b border-blue-200 dark:border-blue-900 pb-1 sm:pb-2 mb-4">
                       Notes
                     </h3> */}
                     <div className="space-y-2 sm:space-y-3">
                       {sectionedFields["Notes"].map(({ key, value }) => (
                         <div key={key} className="space-y-1">
-                          <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                          <label className="block text-xs sm:text-sm font-bold text-blue-700 dark:text-blue-400">
                             {toLabel(key)}
                           </label>
-                          <div className="w-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm border border-blue-200 rounded-lg bg-white min-h-[60px]">
+                          <div className="w-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm border border-blue-200 rounded-lg bg-white dark:bg-darklight dark:text-gray-200 min-h-[60px]">
                             {renderValue(key, value) || <span className="text-gray-400">-</span>}
                           </div>
                         </div>
@@ -1153,7 +1153,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
                 )}
                 {/* Navigation */}
                 {hasNavigation && (
-                  <div className="flex justify-between items-center mt-3 p-2 bg-blue-50 rounded-md">
+                  <div className="flex justify-between items-center mt-3 p-2 bg-blue-50 dark:bg-darklight rounded-md">
                     <button
                       type="button"
                       onClick={handlePrevious}
@@ -1175,7 +1175,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
                       Previous
                     </button>
 
-                    <span className="text-xs sm:text-sm font-bold text-indigo-700 bg-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg shadow-sm">
+                    <span className="text-xs sm:text-sm font-bold text-indigo-700 bg-white dark:bg-darklight dark:text-gray-200 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg shadow-sm">
                       {validIndex + 1} of {dataArray.length}
                     </span>
 

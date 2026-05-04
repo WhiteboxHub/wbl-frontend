@@ -82,6 +82,7 @@ interface DashboardData {
         success_rate: number;
     };
     interviews: Array<{
+        id: number;
         company: string;
         interview_date: string;
         type_of_interview: string;
@@ -302,74 +303,6 @@ const StatusRenderer = ({ value }: { value?: string }) => {
     );
 };
 
-const interviewColumnDefs: ColDef[] = [
-    {
-        field: "company",
-        headerName: "Company",
-        flex: 2,
-        minWidth: 200,
-        pinned: 'left',
-        cellRenderer: (params: any) => (
-            <div className="flex items-center h-full">
-                <span className="font-bold text-gray-900 dark:text-gray-100 text-[13px]">{params.value}</span>
-            </div>
-        )
-    },
-    {
-        field: "type_of_interview",
-        headerName: "Interview Round",
-        flex: 1.5,
-        minWidth: 160,
-        cellRenderer: (params: any) => (
-            <div className="flex items-center h-full gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center flex-shrink-0">
-                    <Target className="w-3.5 h-3.5 text-gray-400" />
-                </div>
-                <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">{params.value || "Technical Round"}</span>
-            </div>
-        )
-    },
-    {
-        field: "interview_date",
-        headerName: "Schedule",
-        flex: 1.5,
-        minWidth: 160,
-        cellRenderer: (params: any) => {
-            if (!params.value) return (
-                <div className="flex items-center h-full text-gray-400 text-xs italic">Not set</div>
-            );
-            try {
-                const dateStr = format(parseISO(params.value), "MMM dd, yyyy");
-                return (
-                    <div className="flex items-center h-full gap-2.5">
-                        <div className="w-7 h-7 rounded-lg bg-blue-50/50 dark:bg-blue-900/10 flex items-center justify-center flex-shrink-0">
-                            <Calendar className="w-3.5 h-3.5 text-blue-500" />
-                        </div>
-                        <span className="text-xs font-bold text-gray-800 dark:text-gray-200">{dateStr}</span>
-                    </div>
-                );
-            } catch (e) {
-                return <div className="flex items-center h-full text-xs font-medium">{params.value}</div>;
-            }
-        }
-    },
-    {
-        field: "mode_of_interview",
-        headerName: "Mode",
-        flex: 1,
-        minWidth: 130,
-        cellRenderer: (params: any) => (
-            <div className="flex items-center h-full gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center flex-shrink-0">
-                    <Video className="w-3.5 h-3.5 text-gray-400" />
-                </div>
-                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{params.value || "Virtual"}</span>
-            </div>
-        )
-    },
-];
-
-
 export default function CandidateDashboard() {
     const router = useRouter();
     const { userRole } = useAuth() as { userRole: string };
@@ -497,6 +430,102 @@ export default function CandidateDashboard() {
     const statusOptions = ['open', 'closed', 'on_hold', 'duplicate', 'invalid'];
     const typeOptions = ['full_time', 'contract', 'contract_to_hire', 'internship'];
     const modeOptions = ['All', 'Onsite', 'Hybrid', 'Remote'];
+    const interviewColumnDefs: ColDef[] = useMemo(() => [
+        {
+            field: "company",
+            headerName: "Company",
+            flex: 2,
+            minWidth: 200,
+            pinned: 'left',
+            cellRenderer: (params: any) => (
+                <div className="flex items-center h-full">
+                    <span className="font-bold text-gray-900 dark:text-gray-100 text-[13px]">{params.value}</span>
+                </div>
+            )
+        },
+        {
+            field: "type_of_interview",
+            headerName: "Interview Round",
+            flex: 1.5,
+            minWidth: 160,
+            cellRenderer: (params: any) => (
+                <div className="flex items-center h-full gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center flex-shrink-0">
+                        <Target className="w-3.5 h-3.5 text-gray-400" />
+                    </div>
+                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">{params.value || "Technical Round"}</span>
+                </div>
+            )
+        },
+        {
+            field: "interview_date",
+            headerName: "Schedule",
+            flex: 1.5,
+            minWidth: 160,
+            cellRenderer: (params: any) => (
+                <div className="flex items-center h-full gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center flex-shrink-0">
+                        <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                    </div>
+                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                        {params.value ? format(parseISO(params.value), 'MMM dd, yyyy') : "TBD"}
+                    </span>
+                </div>
+            )
+        },
+        {
+            field: "mode_of_interview",
+            headerName: "Mode",
+            flex: 1,
+            minWidth: 130,
+            cellRenderer: (params: any) => (
+                <div className="flex items-center h-full gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center flex-shrink-0">
+                        <Video className="w-3.5 h-3.5 text-gray-400" />
+                    </div>
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{params.value || "Virtual"}</span>
+                </div>
+            )
+        },
+        {
+            field: "feedback",
+            headerName: "Feedback",
+            flex: 1,
+            minWidth: 130,
+            cellRenderer: (params: any) => {
+            const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+                    const newVal = e.target.value;
+                    try {
+                        await apiFetch(`/api/candidates/interviews/${params.data.id}/feedback?feedback=${newVal}`, {
+                            method: "PATCH"
+                        });
+                        params.data.feedback = newVal;
+                        params.api.refreshCells({ rowNodes: [params.node], force: true });
+                    } catch (err) {
+                        console.error("Failed to update feedback", err);
+                    }
+                };
+
+
+                return (
+                    <div className="flex items-center h-full gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center flex-shrink-0">
+                            <MessageSquare className="w-3.5 h-3.5 text-gray-400" />
+                        </div>
+                        <select
+                            defaultValue={params.value || "Pending"}
+                            onChange={handleChange}
+                            className="text-xs font-medium text-gray-600 dark:text-gray-400 bg-transparent border-none outline-none cursor-pointer focus:ring-0"
+                        >
+                            <option value="Pending">Pending</option>
+                            <option value="Positive">Positive</option>
+                            <option value="Negative">Negative</option>
+                        </select>
+                    </div>
+                );
+            }
+        }
+    ], [candidateId]);
 
     const jobColumnDefs: ColDef[] = useMemo(() => [
         { field: "id", headerName: "ID", width: 80, sortable: true, filter: "agNumberColumnFilter" },
@@ -513,9 +542,11 @@ export default function CandidateDashboard() {
                 const url = params.data.job_url ||
                     (source.includes('trueup')
                         ? `https://trueup.io/jobs/${jobId}`
-                        : source.includes('hiring')
+                        : source.includes('hiring') || source.includes('cafe')
                             ? `https://hiring.cafe/viewjob/${jobId}`
-                            : `https://www.linkedin.com/jobs/view/${jobId}`);
+                            : source.includes('jobright')
+                                ? `https://jobright.ai/jobs/info/${jobId}`
+                                : `https://www.linkedin.com/jobs/view/${jobId}`);
 
                 if (!url) {
                     return (
@@ -681,9 +712,11 @@ export default function CandidateDashboard() {
                 const url = params.data.job_url ||
                     (source.includes('trueup')
                         ? `https://trueup.io/jobs/${jobId}`
-                        : source.includes('hiring')
+                        : source.includes('hiring') || source.includes('cafe')
                             ? `https://hiring.cafe/viewjob/${jobId}`
-                            : `https://www.linkedin.com/jobs/view/${jobId}`);
+                            : source.includes('jobright')
+                                ? `https://jobright.ai/jobs/info/${jobId}`
+                                : `https://www.linkedin.com/jobs/view/${jobId}`);
 
                 return (
                     <div className="flex items-center h-full">
@@ -875,11 +908,11 @@ export default function CandidateDashboard() {
             console.log("🔍 API Response - Total jobs received:", posData?.length || 0);
             console.log("🔍 API Response - Sample job data:", posData?.[0] || {});
 
-            // Filter to show jobs from LinkedIn, Hiring Cafe, or TrueUp
+            // Filter to show jobs from LinkedIn, Hiring Cafe, TrueUp, or Jobright
             const filteredData = (posData || []).filter((pos: any) => {
                 const src = pos.source?.toLowerCase() || "";
-                const shouldInclude = src.includes('linkedin') || src.includes('hiring') || src.includes('cafe') || src.includes('trueup');
-                
+                const shouldInclude = src.includes('linkedin') || src.includes('hiring') || src.includes('cafe') || src.includes('trueup') || src.includes('jobright');
+
                 // Add a check to confirm the job actually has an actionable link id or url
                 const hasLink = Boolean(pos.source_job_id || pos.source_uid || pos.job_url);
                 return shouldInclude && hasLink;
@@ -1157,6 +1190,7 @@ export default function CandidateDashboard() {
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
+
                 </header>
 
                 {/* Mobile Tab Bar */}
@@ -1197,7 +1231,7 @@ export default function CandidateDashboard() {
                                         <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                                         <span className="text-xl font-extrabold text-indigo-950 dark:text-indigo-100 tracking-tight">AI<span className="text-indigo-600 dark:text-indigo-400 font-black">Profile</span></span>
                                     </div>
-                                    
+
                                     {/* Vertical Divider (Hidden on small screens) */}
                                     <div className="hidden md:block w-px h-8 bg-indigo-200 dark:bg-indigo-800"></div>
 
@@ -1222,8 +1256,25 @@ export default function CandidateDashboard() {
                                 <div className="relative z-10 shrink-0">
                                     {setupStatus.setup_complete ? (
                                         <button
-                                            onClick={() => {
-                                                window.location.href = "https://ai-prep.whitebox-learning.com/";
+                                            onClick={async () => {
+                                                const getAiPrepUrl = () => {
+                                                    return "https://ai-prep.whitebox-learning.com";
+                                                };
+                                                const baseUrl = getAiPrepUrl();
+                                                
+                                                try {
+                                                    const response = await apiFetch("candidate/generate-prep-token", { 
+                                                        method: "POST"
+                                                    });
+                                                    if (response && response.token) {
+                                                        window.location.href = `${baseUrl}/?prep_token=${response.token}`;
+                                                    } else {
+                                                        window.location.href = baseUrl;
+                                                    }
+                                                } catch (err) {
+                                                    console.error("Failed to generate prep token:", err);
+                                                    window.location.href = baseUrl;
+                                                }
                                             }}
                                             className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
                                         >
@@ -1323,20 +1374,18 @@ export default function CandidateDashboard() {
                                     </div>
                                     <div className="flex items-center gap-3">
                                         {/* Resume Status */}
-                                        <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${
-                                            setupStatus === null
-                                                ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
-                                                : setupStatus.resume_uploaded
-                                                    ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"
-                                                    : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
-                                        }`}>
-                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                                                setupStatus === null
-                                                    ? "bg-gray-100 dark:bg-gray-700"
-                                                    : setupStatus.resume_uploaded
-                                                        ? "bg-emerald-100 dark:bg-emerald-900/40"
-                                                        : "bg-amber-100 dark:bg-amber-900/40"
+                                        <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${setupStatus === null
+                                            ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
+                                            : setupStatus.resume_uploaded
+                                                ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"
+                                                : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
                                             }`}>
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${setupStatus === null
+                                                ? "bg-gray-100 dark:bg-gray-700"
+                                                : setupStatus.resume_uploaded
+                                                    ? "bg-emerald-100 dark:bg-emerald-900/40"
+                                                    : "bg-amber-100 dark:bg-amber-900/40"
+                                                }`}>
                                                 {setupStatus === null ? (
                                                     <div className="w-3 h-3 rounded-full bg-gray-300 animate-pulse" />
                                                 ) : setupStatus.resume_uploaded ? (
@@ -1347,30 +1396,27 @@ export default function CandidateDashboard() {
                                             </div>
                                             <div className="min-w-0">
                                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Resume</p>
-                                                <p className={`text-xs font-bold mt-0.5 ${
-                                                    setupStatus === null ? "text-gray-400" :
+                                                <p className={`text-xs font-bold mt-0.5 ${setupStatus === null ? "text-gray-400" :
                                                     setupStatus.resume_uploaded ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
-                                                }`}>
+                                                    }`}>
                                                     {setupStatus === null ? "Loading..." : setupStatus.resume_uploaded ? "Uploaded ✓" : "Not added"}
                                                 </p>
                                             </div>
                                         </div>
 
                                         {/* API Keys Status */}
-                                        <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${
-                                            setupStatus === null
-                                                ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
-                                                : setupStatus.api_keys_configured
-                                                    ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"
-                                                    : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
-                                        }`}>
-                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                                                setupStatus === null
-                                                    ? "bg-gray-100 dark:bg-gray-700"
-                                                    : setupStatus.api_keys_configured
-                                                        ? "bg-emerald-100 dark:bg-emerald-900/40"
-                                                        : "bg-amber-100 dark:bg-amber-900/40"
+                                        <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${setupStatus === null
+                                            ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
+                                            : setupStatus.api_keys_configured
+                                                ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"
+                                                : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
                                             }`}>
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${setupStatus === null
+                                                ? "bg-gray-100 dark:bg-gray-700"
+                                                : setupStatus.api_keys_configured
+                                                    ? "bg-emerald-100 dark:bg-emerald-900/40"
+                                                    : "bg-amber-100 dark:bg-amber-900/40"
+                                                }`}>
                                                 {setupStatus === null ? (
                                                     <div className="w-3 h-3 rounded-full bg-gray-300 animate-pulse" />
                                                 ) : setupStatus.api_keys_configured ? (
@@ -1381,10 +1427,9 @@ export default function CandidateDashboard() {
                                             </div>
                                             <div className="min-w-0">
                                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">API Keys</p>
-                                                <p className={`text-xs font-bold mt-0.5 ${
-                                                    setupStatus === null ? "text-gray-400" :
+                                                <p className={`text-xs font-bold mt-0.5 ${setupStatus === null ? "text-gray-400" :
                                                     setupStatus.api_keys_configured ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
-                                                }`}>
+                                                    }`}>
                                                     {setupStatus === null ? "Loading..." : setupStatus.api_keys_configured ? "Configured ✓" : "Not added"}
                                                 </p>
                                             </div>

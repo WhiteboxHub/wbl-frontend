@@ -39,6 +39,7 @@ type JobListing = {
     contact_phone?: string | null;
     contact_linkedin?: string | null;
     job_url?: string | null;
+    job_url_type?: string | null;
     description?: string | null;
     notes?: string | null;
     status: string;
@@ -316,12 +317,12 @@ export default function JobListingsPage() {
     const statusOptions = ['open', 'closed', 'on_hold', 'duplicate', 'invalid'];
     const typeOptions = ['full_time', 'contract', 'contract_to_hire', 'internship'];
     const modeOptions = ['onsite', 'hybrid', 'remote'];
-    const sourceOptions = ['bot_linkedin_post_contact_extractor', 'bot_linkedin_message_extraction', 'email', 'linkedin', 'job_board', 'scraper', 'hiring.cafe', 'trueup.io', 'interview_modal', 'email_bot_llm_local'];
+    const sourceOptions = ['bot_linkedin_post_contact_extractor', 'bot_linkedin_message_extraction', 'email', 'linkedin', 'job_board', 'scraper', 'hiring.cafe', 'trueup.io', 'interview_modal', 'email_bot_llm_local', 'jobright'];
 
     const fetchJobListings = useCallback(async () => {
         setLoading(true);
         try {
-            const pageSize = 5000;
+            const pageSize = 100;
             let allData: JobListing[] = [];
             let currentPage = 1;
             let hasNext = true;
@@ -378,6 +379,7 @@ export default function JobListingsPage() {
                     (p.company_name?.toLowerCase().includes(lower)) ||
                     (p.location?.toLowerCase().includes(lower)) ||
                     (p.contact_email?.toLowerCase().includes(lower)) ||
+                    (p.source?.toLowerCase().includes(lower)) ||
                     (p.description?.toLowerCase().includes(lower))
                 );
             });
@@ -394,7 +396,7 @@ export default function JobListingsPage() {
             "source_uid", "source_job_id",
             "location", "city", "state", "zip", "country",
             "contact_email", "contact_phone", "contact_linkedin",
-            "job_url", "description", "notes", "status",
+            "job_url", "job_url_type", "description", "notes", "status",
             "confidence_score"
         ];
 
@@ -685,6 +687,7 @@ export default function JobListingsPage() {
             { field: "contact_phone", headerName: "Contact Phone", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "contact_linkedin", headerName: "Contact LinkedIn", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true, cellRenderer: LinkedinCellRenderer },
             { field: "job_url", headerName: "Job URL", width: 250, sortable: true, filter: "agTextColumnFilter", editable: true, cellRenderer: LinkCellRenderer },
+            { field: "job_url_type", headerName: "Job URL Type", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "source_job_id", headerName: "Source Job ID", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "normalized_title", headerName: "Normalized Title", width: 200, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "company_id", headerName: "Company ID", width: 130, sortable: true, filter: "agNumberColumnFilter", editable: true },
