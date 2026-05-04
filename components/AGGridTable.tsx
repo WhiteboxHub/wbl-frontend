@@ -86,6 +86,9 @@ interface AGGridTableProps {
   extraToolbarContent?: React.ReactNode;
   showViewButton?: boolean;
   showEditButton?: boolean;
+  pagination?: boolean;
+  paginationPageSize?: number;
+  paginationPageSizeSelector?: number[];
 }
 
 interface RowData {
@@ -131,6 +134,9 @@ export function AGGridTable({
   extraToolbarContent,
   showViewButton = true,
   showEditButton = true,
+  pagination,
+  paginationPageSize,
+  paginationPageSizeSelector,
 }: AGGridTableProps) {
   // Refs and State
   const gridRef = useRef<AgGridReact>(null);
@@ -577,9 +583,9 @@ export function AGGridTable({
               headerCheckbox: false,
             }}
             theme={"legacy"}
-            pagination={!hideToolbar}
-            paginationPageSize={50}
-            paginationPageSizeSelector={hideToolbar ? undefined : [10, 25, 50, 100]}
+            pagination={pagination !== undefined ? pagination : !hideToolbar}
+            paginationPageSize={paginationPageSize || 50}
+            paginationPageSizeSelector={paginationPageSizeSelector || (hideToolbar ? undefined : [10, 25, 50, 100])}
             paginationNumberFormatter={hideToolbar ? undefined : paginationNumberFormatter}
             maintainColumnOrder={true}
             getRowId={getRowNodeId || ((params: any) => {

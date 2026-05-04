@@ -159,6 +159,24 @@
   animation: pulse 1.5s infinite;
 }
 
+body[data-route^="/login"] header,
+body[data-route^="/signup"] header,
+body[data-route^="/forgot_password"] header,
+body[data-route^="/reset-password"] header,
+body[data-route^="/api/auth/error"] header,
+body[data-route^="/login"] footer,
+body[data-route^="/signup"] footer,
+body[data-route^="/forgot_password"] footer,
+body[data-route^="/reset-password"] footer,
+body[data-route^="/api/auth/error"] footer,
+body[data-route^="/login"] aside,
+body[data-route^="/signup"] aside,
+body[data-route^="/forgot_password"] aside,
+body[data-route^="/reset-password"] aside,
+body[data-route^="/api/auth/error"] aside {
+  display: none !important;
+}
+
 /* admin.css */
 
 @layer base {

@@ -948,36 +948,32 @@ export default function CandidatesMarketingPage() {
   if (error) return <p className="mt-8 text-center text-red-600">{error}</p>;
 
   return (
-    <div className="space-y-6">
-      <Toaster richColors position="top-center" />
-      {/* Header Section */}
-      <div className="mb-4 flex items-center justify-between">
+    <div className="space-y-6 p-4">
+      <Toaster position="top-center" richColors />
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             Candidate Marketing
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="mt-1 text-gray-600 dark:text-gray-400">
             Candidates currently in marketing phase
           </p>
         </div>
       </div>
-      {/* Search */}
+
       <div className="max-w-md">
-        <Label
-          htmlFor="search"
-          className="text-sm font-medium text-gray-700 dark:text-gray-300"
-        >
+        <Label htmlFor="search" className="text-sm font-medium text-gray-700 dark:text-gray-300">
           Search Candidates
         </Label>
-        <div className="relative mt-1">
-          <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
+        <div className="relative mt-2">
+          <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <Input
             id="search"
             type="text"
             placeholder="Search..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+            className="pl-10 py-2"
           />
         </div>
         {searchTerm && (
@@ -986,24 +982,24 @@ export default function CandidatesMarketingPage() {
           </p>
         )}
       </div>
-      {/* Data Table */}
+
       {loading ? (
-        <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-          Loading...
-        </p>
+        <p className="text-center text-sm text-gray-500 dark:text-gray-400">Loading...</p>
       ) : error ? (
         <p className="text-center text-red-500">{error}</p>
       ) : (
-        <div className="w-full">
-          <AGGridTable
-            rowData={filteredCandidates}
-            columnDefs={columnDefs}
-            title={`Candidate Marketing (${filteredCandidates.length})`}
-            height="calc(70vh)"
-            showSearch={false}
-            onRowDeleted={handleRowDeleted}
-            onRowUpdated={handleRowUpdated}
-          />
+        <div className="flex justify-center w-full">
+          <div className="w-full max-w-7xl p-2 bg-white dark:bg-gray-800 rounded-lg shadow">
+            <AGGridTable
+              rowData={filteredCandidates}
+              columnDefs={columnDefs}
+              title={`Candidate Marketing (${filteredCandidates.length})`}
+              height="calc(80vh)"
+              showSearch={false}
+              onRowDeleted={handleRowDeleted}
+              onRowUpdated={handleRowUpdated}
+            />
+          </div>
         </div>
       )}
     </div>

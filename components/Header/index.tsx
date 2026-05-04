@@ -5,7 +5,7 @@ import ThemeToggler from "./ThemeToggler";
 import menuData from "./menuData";
 import WBLlight from "@/public/images/wbl-light.png";
 import WBLdark from "@/public/images/wbl-dark.png";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/utils/AuthContext";
 
 const Header = ({
@@ -17,9 +17,20 @@ const Header = ({
 }) => {
   const { isAuthenticated, logout, userRole } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [sticky, setSticky] = useState(false);
   const [navbarOpen, setNavbarOpen] = useState(false);
   const [openIndex, setOpenIndex] = useState(-1);
+  const isAuthRoute =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/signup") ||
+    pathname.startsWith("/forgot_password") ||
+    pathname.startsWith("/reset-password") ||
+    pathname.startsWith("/api/auth/error");
+
+  if (isAuthRoute) {
+    return null;
+  }
 
   const handleStickyNavbar = () => {
     setSticky(window.scrollY >= 80);

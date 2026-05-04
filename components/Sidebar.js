@@ -3,12 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/utils/AuthContext";
 import { useTheme } from "next-themes";
+import { usePathname } from "next/navigation";
 import axios from "axios";
 import { motion } from "framer-motion";
 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
   const { isAuthenticated, sidebarOpen, setSidebarOpen, userRole } = useAuth();
   const { theme } = useTheme();
+  const pathname = usePathname();
 
   const [hasCheckedLogin, setHasCheckedLogin] = useState(false);
   const [activeSection, setActiveSection] = useState("announcements");
@@ -17,6 +19,12 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   const [mounted, setMounted] = useState(false);
   const [pulseCount, setPulseCount] = useState(0);
   const [showPulse, setShowPulse] = useState(true);
+  const isAuthRoute =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/signup") ||
+    pathname.startsWith("/forgot_password") ||
+    pathname.startsWith("/reset-password") ||
+    pathname.startsWith("/api/auth/error");
 
   const sidebarRef = useRef(null);
   const toggleBtnRef = useRef(null);
@@ -136,7 +144,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     }
   }, [isAuthenticated]);
 
-  if (!isAuthenticated || userRole === "candidate") return null;
+  if (isAuthRoute || !isAuthenticated || userRole === "candidate") return null;
 
   const getCandidateName = (interview) => interview.candidate?.full_name || "Unknown Candidate";
 

@@ -3,11 +3,23 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/utils/AuthContext";
+import { usePathname } from "next/navigation";
 
 const Footer = () => {
   const { isAuthenticated } = useAuth();
+  const pathname = usePathname();
   const currentYear = new Date().getFullYear();
   const address = "6500 Dublin Blvd., Ste.218, Dublin, CA, 94568";
+  const isAuthRoute =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/signup") ||
+    pathname.startsWith("/forgot_password") ||
+    pathname.startsWith("/reset-password") ||
+    pathname.startsWith("/api/auth/error");
+
+  if (isAuthRoute) {
+    return null;
+  }
   const googleMapsLink = `https://www.google.com/maps?q=${encodeURIComponent(
     address
   )}`;

@@ -3,8 +3,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/utils/AuthContext";
 import { signIn, useSession } from "next-auth/react";
 import { SignInResponse } from "next-auth/react";
@@ -27,8 +27,6 @@ const SigninPage = () => {
 
   const { login } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("redirect") || "/";
 
   interface ExtendedSignInResponse extends SignInResponse {
     message?: string;
@@ -224,19 +222,18 @@ const SigninPage = () => {
   }
 
   return (
-    <Suspense fallback={<div>LOADING...</div>}>
-      <section className="relative z-10 mt-10 overflow-hidden pt-20 pb-16 md:pb-20 lg:pt-[100px] lg:pb-28">
-        <div className="container">
-          <div className="flex flex-wrap">
-            <div className="w-full">
-              <div className="mx-auto max-w-[500px] rounded-3xl bg-gradient-to-br from-pink-400 to-sky-200 p-6 px-10 dark:bg-gradient-to-br dark:from-pink-700 dark:to-sky-500/30 sm:p-[60px]">
-                <h3 className="mb-3 text-center text-lg font-bold text-black dark:text-white sm:text-2xl md:text-3xl">
-                  Welcome back!
-                </h3>
-                <p className="md:text-md mb-7 text-center text-xs font-semibold text-gray-700 dark:text-white sm:mb-11 sm:text-sm">
-                  Sign In to your account
-                </p>
-                <button
+    <section className="relative z-10 mt-10 overflow-hidden pt-20 pb-16 md:pb-20 lg:pt-[100px] lg:pb-28">
+      <div className="container">
+        <div className="flex flex-wrap">
+          <div className="w-full">
+            <div className="mx-auto max-w-[500px] rounded-3xl bg-gradient-to-br from-pink-400 to-sky-200 p-6 px-10 dark:bg-gradient-to-br dark:from-pink-700 dark:to-sky-500/30 sm:p-[60px]">
+              <h3 className="mb-3 text-center text-lg font-bold text-black dark:text-white sm:text-2xl md:text-3xl">
+                Welcome back!
+              </h3>
+              <p className="md:text-md mb-7 text-center text-xs font-semibold text-gray-700 dark:text-white sm:mb-11 sm:text-sm">
+                Sign In to your account
+              </p>
+              <button
                   className="dark:shadow-signUp mb-4 flex w-full items-center justify-center rounded-xl bg-white py-2 px-5 text-sm font-medium text-primary shadow-one dark:bg-white dark:text-black sm:mb-6 sm:py-3 sm:text-base"
                   onClick={handleGoogleSignIn}
                   disabled={gloading}
@@ -537,79 +534,78 @@ const SigninPage = () => {
                       </button>
                     </div>
                   )}
-                </form>
-                <p className="md:text-md mt-4 text-center text-xs font-semibold text-black dark:text-white sm:text-sm">
-                  Don't have an account?{" "}
-                  <Link
-                    href="/signup"
-                    className="md:text-md text-xs font-extrabold text-primary hover:underline sm:text-sm"
-                  >
-                    Register
-                  </Link>
-                </p>
-              </div>
+              </form>
+              <p className="md:text-md mt-4 text-center text-xs font-semibold text-black dark:text-white sm:text-sm">
+                Don't have an account?{" "}
+                <Link
+                  href="/signup"
+                  className="md:text-md text-xs font-extrabold text-primary hover:underline sm:text-sm"
+                >
+                  Register
+                </Link>
+              </p>
             </div>
           </div>
         </div>
-        <div className="absolute right-0 top-0 z-[-1]">
-          <svg
+      </div>
+      <div className="absolute right-0 top-0 z-[-1]">
+        <svg
+          width="1440"
+          height="969"
+          viewBox="0 0 1440 969"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <mask
+            id="mask0_95:1005"
+            style={{ maskType: "alpha" }}
+            maskUnits="userSpaceOnUse"
+            x="0"
+            y="0"
             width="1440"
             height="969"
-            viewBox="0 0 1440 969"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
           >
-            <mask
-              id="mask0_95:1005"
-              style={{ maskType: "alpha" }}
-              maskUnits="userSpaceOnUse"
-              x="0"
-              y="0"
-              width="1440"
-              height="969"
+            <rect width="1440" height="969" fill="#090E34" />
+          </mask>
+          <g mask="url(#mask0_95:1005)">
+            <path
+              opacity="0.1"
+              d="M1086.96 297.978L632.959 554.978L935.625 535.926L1086.96 297.978Z"
+              fill="url(#paint0_linear_95:1005)"
+            />
+            <path
+              opacity="0.1"
+              d="M1324.5 755.5L1450 687V886.5L1324.5 967.5L-10 288L1324.5 755.5Z"
+              fill="url(#paint1_linear_95:1005)"
+            />
+          </g>
+          <defs>
+            <linearGradient
+              id="paint0_linear_95:1005"
+              x1="1178.4"
+              y1="151.853"
+              x2="780.959"
+              y2="453.581"
+              gradientUnits="userSpaceOnUse"
             >
-              <rect width="1440" height="969" fill="#090E34" />
-            </mask>
-            <g mask="url(#mask0_95:1005)">
-              <path
-                opacity="0.1"
-                d="M1086.96 297.978L632.959 554.978L935.625 535.926L1086.96 297.978Z"
-                fill="url(#paint0_linear_95:1005)"
-              />
-              <path
-                opacity="0.1"
-                d="M1324.5 755.5L1450 687V886.5L1324.5 967.5L-10 288L1324.5 755.5Z"
-                fill="url(#paint1_linear_95:1005)"
-              />
-            </g>
-            <defs>
-              <linearGradient
-                id="paint0_linear_95:1005"
-                x1="1178.4"
-                y1="151.853"
-                x2="780.959"
-                y2="453.581"
-                gradientUnits="userSpaceOnUse"
-              >
-                <stop stopColor="#4A6CF7" />
-                <stop offset="1" stopColor="#4A6CF7" stopOpacity="0" />
-              </linearGradient>
-              <linearGradient
-                id="paint1_linear_95:1005"
-                x1="160.5"
-                y1="220"
-                x2="1099.45"
-                y2="1192.04"
-                gradientUnits="userSpaceOnUse"
-              >
-                <stop stopColor="#4A6CF7" />
-                <stop offset="1" stopColor="#4A6CF7" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-          </svg>
-        </div>
-      </section>
-    </Suspense>
+              <stop stopColor="#4A6CF7" />
+              <stop offset="1" stopColor="#4A6CF7" stopOpacity="0" />
+            </linearGradient>
+            <linearGradient
+              id="paint1_linear_95:1005"
+              x1="160.5"
+              y1="220"
+              x2="1099.45"
+              y2="1192.04"
+              gradientUnits="userSpaceOnUse"
+            >
+              <stop stopColor="#4A6CF7" />
+              <stop offset="1" stopColor="#4A6CF7" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+    </section>
   );
 };
 

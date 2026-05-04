@@ -24,6 +24,12 @@ export default function RootLayout({
   const pathname = usePathname();
   const isAvatarSection = pathname.startsWith("/avatar");
   const isCoderpad = pathname.startsWith("/coderpad");
+  const isAuthSection =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/signup") ||
+    pathname.startsWith("/forgot_password") ||
+    pathname.startsWith("/reset-password") ||
+    pathname.startsWith("/api/auth/error");
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
@@ -58,12 +64,16 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
       </head>
-      <body className="dark:bg-black overflow-x-hidden" suppressHydrationWarning>
+      <body
+        className="dark:bg-black overflow-x-hidden"
+        suppressHydrationWarning
+        data-route={pathname}
+      >
         <GoogleAnalytics />
         <SessionProvider>
           <AuthProvider>
             <Providers>
-              {isAvatarSection || isCoderpad ? (
+              {isAvatarSection || isCoderpad || isAuthSection ? (
                 <>{children}</>
               ) : (
                 <>
