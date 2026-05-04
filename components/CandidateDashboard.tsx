@@ -36,6 +36,12 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/admin_ui/dropdown-menu";
 import { apiFetch, API_BASE_URL, setupApi } from "@/lib/api";
 import { useAuth } from "@/utils/AuthContext";
 import CandidateGrid from "./CandidateGrid";
@@ -1150,15 +1156,41 @@ export default function CandidateDashboard() {
 
                     </div>
 
-                    <a
-                        href="https://youtu.be/ToCU1H25TTY"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm"
-                    >
-                        <Puzzle className="w-4 h-4 text-blue-500" />
-                        Autofill Extension
-                    </a>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button
+                                    className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm"
+                                >
+                                    <Puzzle className="w-4 h-4 text-blue-500" />
+                                    Autofill Extension
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                                <DropdownMenuItem asChild>
+                                    <a
+                                        href="https://chromewebstore.google.com/detail/talentscreen-autofill/bebdlhhpgmegdebdballinfmfnlpmeio"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-2 cursor-pointer w-full"
+                                    >
+                                        <ExternalLink className="w-4 h-4 text-blue-500" />
+                                        <span>Link</span>
+                                    </a>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem asChild>
+                                    <a
+                                        href="https://www.youtube.com/watch?v=ToCU1H25TTY"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-2 cursor-pointer w-full"
+                                    >
+                                        <Video className="w-4 h-4 text-red-500" />
+                                        <span>Video Tutorial</span>
+                                    </a>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+
                 </header>
 
                 {/* Mobile Tab Bar */}
@@ -1197,7 +1229,7 @@ export default function CandidateDashboard() {
                                     {/* Brand Label */}
                                     <div className="flex items-center gap-1.5 shrink-0">
                                         <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                                        <span className="text-xl font-extrabold text-indigo-950 dark:text-indigo-100 tracking-tight">AI<span className="text-indigo-600 dark:text-indigo-400 font-black">Profile</span></span>
+                                        <span className="text-xl font-extrabold text-indigo-950 dark:text-indigo-100 tracking-tight">WBL <span className="text-indigo-600 dark:text-indigo-400 font-black">SmartPrep</span></span>
                                     </div>
 
                                     {/* Vertical Divider (Hidden on small screens) */}
@@ -1207,7 +1239,7 @@ export default function CandidateDashboard() {
                                     <div className="flex-1">
                                         <div className="flex flex-wrap items-center gap-x-1.5 leading-tight">
                                             <p className="text-gray-900 dark:text-gray-100 font-bold text-sm lg:text-[15px]">
-                                                Prepare smarter, apply faster
+                                                Your AI-powered interview practice
                                             </p>
                                         </div>
                                         {!setupStatus.setup_complete && (
@@ -1227,21 +1259,22 @@ export default function CandidateDashboard() {
                                             onClick={async () => {
                                                 const getAiPrepUrl = () => {
                                                     return "https://ai-prep.whitebox-learning.com";
+                                                    // return "http://localhost:3001";
                                                 };
                                                 const baseUrl = getAiPrepUrl();
-                                                
+
                                                 try {
-                                                    const response = await apiFetch("candidate/generate-prep-token", { 
+                                                    const response = await apiFetch("candidate/generate-prep-token", {
                                                         method: "POST"
                                                     });
                                                     if (response && response.token) {
-                                                        window.location.href = `${baseUrl}/?prep_token=${response.token}`;
+                                                        window.open(`${baseUrl}/?prep_token=${response.token}`, '_blank');
                                                     } else {
-                                                        window.location.href = baseUrl;
+                                                        window.open(baseUrl, '_blank');
                                                     }
                                                 } catch (err) {
                                                     console.error("Failed to generate prep token:", err);
-                                                    window.location.href = baseUrl;
+                                                    window.open(baseUrl, '_blank');
                                                 }
                                             }}
                                             className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
@@ -1343,16 +1376,16 @@ export default function CandidateDashboard() {
                                     <div className="flex items-center gap-3">
                                         {/* Resume Status */}
                                         <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${setupStatus === null
-                                            ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
-                                            : setupStatus.resume_uploaded
-                                                ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"
-                                                : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
+                                                ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
+                                                : setupStatus.resume_uploaded
+                                                    ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"
+                                                    : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
                                             }`}>
                                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${setupStatus === null
-                                                ? "bg-gray-100 dark:bg-gray-700"
-                                                : setupStatus.resume_uploaded
-                                                    ? "bg-emerald-100 dark:bg-emerald-900/40"
-                                                    : "bg-amber-100 dark:bg-amber-900/40"
+                                                    ? "bg-gray-100 dark:bg-gray-700"
+                                                    : setupStatus.resume_uploaded
+                                                        ? "bg-emerald-100 dark:bg-emerald-900/40"
+                                                        : "bg-amber-100 dark:bg-amber-900/40"
                                                 }`}>
                                                 {setupStatus === null ? (
                                                     <div className="w-3 h-3 rounded-full bg-gray-300 animate-pulse" />
@@ -1365,7 +1398,7 @@ export default function CandidateDashboard() {
                                             <div className="min-w-0">
                                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Resume</p>
                                                 <p className={`text-xs font-bold mt-0.5 ${setupStatus === null ? "text-gray-400" :
-                                                    setupStatus.resume_uploaded ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
+                                                        setupStatus.resume_uploaded ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
                                                     }`}>
                                                     {setupStatus === null ? "Loading..." : setupStatus.resume_uploaded ? "Uploaded ✓" : "Not added"}
                                                 </p>
@@ -1374,16 +1407,16 @@ export default function CandidateDashboard() {
 
                                         {/* API Keys Status */}
                                         <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${setupStatus === null
-                                            ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
-                                            : setupStatus.api_keys_configured
-                                                ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"
-                                                : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
+                                                ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
+                                                : setupStatus.api_keys_configured
+                                                    ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"
+                                                    : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
                                             }`}>
                                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${setupStatus === null
-                                                ? "bg-gray-100 dark:bg-gray-700"
-                                                : setupStatus.api_keys_configured
-                                                    ? "bg-emerald-100 dark:bg-emerald-900/40"
-                                                    : "bg-amber-100 dark:bg-amber-900/40"
+                                                    ? "bg-gray-100 dark:bg-gray-700"
+                                                    : setupStatus.api_keys_configured
+                                                        ? "bg-emerald-100 dark:bg-emerald-900/40"
+                                                        : "bg-amber-100 dark:bg-amber-900/40"
                                                 }`}>
                                                 {setupStatus === null ? (
                                                     <div className="w-3 h-3 rounded-full bg-gray-300 animate-pulse" />
@@ -1396,7 +1429,7 @@ export default function CandidateDashboard() {
                                             <div className="min-w-0">
                                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">API Keys</p>
                                                 <p className={`text-xs font-bold mt-0.5 ${setupStatus === null ? "text-gray-400" :
-                                                    setupStatus.api_keys_configured ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
+                                                        setupStatus.api_keys_configured ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
                                                     }`}>
                                                     {setupStatus === null ? "Loading..." : setupStatus.api_keys_configured ? "Configured ✓" : "Not added"}
                                                 </p>
