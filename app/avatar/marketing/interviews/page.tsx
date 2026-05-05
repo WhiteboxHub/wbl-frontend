@@ -10,7 +10,7 @@ import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { PlusIcon, X } from "lucide-react";
 import { ColDef } from "ag-grid-community";
-import { useMemo, useState, useEffect, useCallback, useRef } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from "react";
 import { toast, Toaster } from "sonner";
 import { useForm } from "react-hook-form";
 import api, { apiFetch } from "@/lib/api";
@@ -280,6 +280,80 @@ const CandidateNameRenderer = (params: any) => {
   );
 };
 
+// --- Time Renderer (Shows 12-hour format in grid) ---
+const TimeRenderer = (params: any) => {
+  if (!params.value) return <span className="text-gray-400">Not Set</span>;
+  try {
+    const [hours, minutes] = params.value.split(":");
+    let h = parseInt(hours);
+    const ampm = h >= 12 ? "PM" : "AM";
+    h = h % 12;
+    h = h ? h : 12; // the hour '0' should be '12'
+    return <span>{`${h.toString().padStart(2, "0")}:${minutes} ${ampm}`}</span>;
+  } catch (e) {
+    return <span>{params.value}</span>;
+  }
+};
+
+// --- Time Cell Editor (Hour/Minute/AM-PM Dropdowns) ---
+
+const TimeCellEditor = forwardRef((params: any, ref) => {
+  const initialValue = params.value || "00:00:00";
+  const [initialHours, initialMinutes] = initialValue.split(":");
+  
+  let startH = parseInt(initialHours);
+  const startAMPM = startH >= 12 ? "PM" : "AM";
+  startH = startH % 12;
+  startH = startH ? startH : 12;
+
+  const [hour, setHour] = useState(startH.toString().padStart(2, "0"));
+  const [minute, setMinute] = useState(initialMinutes || "00");
+  const [ampm, setAmpm] = useState(startAMPM);
+
+  useImperativeHandle(ref, () => ({
+    getValue: () => {
+      let h = parseInt(hour);
+      if (ampm === "PM" && h < 12) h += 12;
+      if (ampm === "AM" && h === 12) h = 0;
+      return `${h.toString().padStart(2, "0")}:${minute}:00`;
+    },
+    isAfterGuiAttached: () => {},
+  }));
+
+  return (
+    <div className="flex items-center space-x-1 p-1 bg-white border border-blue-500 rounded shadow-lg z-[9999]">
+      <select 
+        value={hour} 
+        onChange={(e) => setHour(e.target.value)}
+        className="border rounded px-1 py-1 text-sm bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
+      >
+        {Array.from({ length: 12 }, (_, i) => (i + 1).toString().padStart(2, "0")).map(h => (
+          <option key={h} value={h}>{h}</option>
+        ))}
+      </select>
+      <span className="font-bold">:</span>
+      <select 
+        value={minute} 
+        onChange={(e) => setMinute(e.target.value)}
+        className="border rounded px-1 py-1 text-sm bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
+      >
+        {["00", "15", "30", "45", ...Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, "0")).filter(m => !["00", "15", "30", "45"].includes(m))].sort().map(m => (
+          <option key={m} value={m}>{m}</option>
+        ))}
+      </select>
+      <select 
+        value={ampm} 
+        onChange={(e) => setAmpm(e.target.value)}
+        className="border rounded px-1 py-1 text-sm font-semibold bg-blue-50 text-blue-700 focus:outline-none"
+      >
+        <option value="AM">AM</option>
+        <option value="PM">PM</option>
+      </select>
+    </div>
+  );
+});
+TimeCellEditor.displayName = "TimeCellEditor";
+
 // --- Form Data Type ---
 type InterviewFormData = {
   candidate_id: string;
@@ -290,6 +364,7 @@ type InterviewFormData = {
   interviewer_contact?: string;
   interviewer_linkedin?: string;
   interview_date?: string;
+  interview_time?: string;
   mode_of_interview?: string;
   type_of_interview?: string;
   notes?: string;
@@ -312,6 +387,7 @@ const initialFormData: InterviewFormData = {
   interviewer_contact: "",
   interviewer_linkedin: "",
   interview_date: "",
+  interview_time: "",
   mode_of_interview: "Virtual",
   type_of_interview: "Recruiter Call",
   notes: "",
@@ -578,6 +654,7 @@ export default function CandidatesInterviews() {
         interviewer_contact: data.interviewer_contact || null,
         interviewer_linkedin: data.interviewer_linkedin || null,
         interview_date: data.interview_date || null,
+        interview_time: data.interview_time || null,
         mode_of_interview: data.mode_of_interview || null,
         type_of_interview: data.type_of_interview || null,
         notes: data.notes || null,
@@ -683,6 +760,14 @@ export default function CandidatesInterviews() {
       cellRenderer: CompanyTypeRenderer,
     },
     { field: "interview_date", headerName: "Date", width: 120, editable: true },
+    { 
+      field: "interview_time", 
+      headerName: "Time", 
+      width: 130, 
+      editable: true,
+      cellRenderer: TimeRenderer,
+      cellEditor: TimeCellEditor,
+    },
     { field: "interviewer_emails", headerName: "Interviewer Email", cellRenderer: EmailRenderer, width: 190, editable: true },
     { field: "interviewer_contact", headerName: "Interviewer Phone", cellRenderer: PhoneRenderer, width: 190, editable: true },
     { field: "interviewer_linkedin", headerName: "Interviewer Linkedin", cellRenderer: LinkRenderer, width: 190, editable: true },
@@ -755,6 +840,7 @@ export default function CandidatesInterviews() {
                     interviewer_contact: newRow.interviewer_contact || null,
                     interviewer_linkedin: newRow.interviewer_linkedin || null,
                     interview_date: newRow.interview_date || null,
+                    interview_time: newRow.interview_time || null,
                     mode_of_interview: newRow.mode_of_interview || null,
                     type_of_interview: newRow.type_of_interview || null,
                     notes: newRow.notes || null,
