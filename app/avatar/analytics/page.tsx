@@ -1309,40 +1309,40 @@ export default function Index() {
 
           {/* Raw Contacts Breakdown Table */}
           <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="border-b border-cyan-300">
+            <Card className="border-b border-cyan-300 dark:bg-slate-900 dark:border-slate-800 overflow-hidden">
               <CardHeader className="p-3 pb-1">
-                <div className="flex items-center justify-between border-b border-cyan-200 pb-2">
-                  <CardTitle className="text-sm font-semibold text-cyan-700">Raw Contacts Breakdown</CardTitle>
+                <div className="flex items-center justify-between border-b border-cyan-200 dark:border-slate-800 pb-2">
+                  <CardTitle className="text-sm font-semibold text-cyan-700 dark:text-cyan-400">Raw Contacts Breakdown</CardTitle>
                   <Layers3 className="size-4 text-cyan-600" />
                 </div>
               </CardHeader>
               <CardContent className="p-3 pt-2">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left border border-gray-200 rounded-lg overflow-hidden">
-                    <thead className="bg-cyan-50 text-xs font-bold text-cyan-800 uppercase tracking-wider">
+                  <table className="w-full text-sm text-left border border-gray-200 dark:border-slate-700 rounded-lg overflow-hidden">
+                    <thead className="bg-cyan-50 dark:bg-slate-800 text-xs font-bold text-cyan-800 dark:text-cyan-400 uppercase tracking-wider">
                       <tr>
-                        <th className="px-4 py-2 border-b">Source Type</th>
-                        <th className="px-4 py-2 border-b text-center">Today</th>
-                        <th className="px-4 py-2 border-b text-center">Last Week</th>
-                        <th className="px-4 py-2 border-b text-center">Total</th>
+                        <th className="px-4 py-2 border-b dark:border-slate-700">Source Type</th>
+                        <th className="px-4 py-2 border-b dark:border-slate-700 text-center">Today</th>
+                        <th className="px-4 py-2 border-b dark:border-slate-700 text-center">Last Week</th>
+                        <th className="px-4 py-2 border-b dark:border-slate-700 text-center">Total</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100 bg-white">
+                    <tbody className="divide-y divide-gray-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
                       {[
                         { key: "email", label: "Email" },
                         { key: "manual", label: "Manual" },
                         { key: "bot_linkedin_message_extraction", label: "LinkedIn Message Extraction" },
                         { key: "bot_linkedin_post_contact_extractor", label: "LinkedIn Post Contact Extractor" }
                       ].map((source) => (
-                        <tr key={source.key} className="hover:bg-cyan-50/30 transition-colors">
-                          <td className="px-4 py-2.5 font-medium text-gray-700">{source.label}</td>
-                          <td className="px-4 py-2.5 text-center text-cyan-700 font-semibold bg-cyan-50/20">
+                        <tr key={source.key} className="hover:bg-cyan-50/30 dark:hover:bg-slate-800 transition-colors">
+                          <td className="px-4 py-2.5 font-medium text-gray-700 dark:text-gray-300">{source.label}</td>
+                          <td className="px-4 py-2.5 text-center text-cyan-700 dark:text-cyan-400 font-semibold bg-cyan-50/20 dark:bg-slate-800/50">
                             {extractionMetrics?.raw_contacts_by_source_today?.[source.key] || 0}
                           </td>
-                          <td className="px-4 py-2.5 text-center text-blue-700 font-semibold bg-blue-50/20">
+                          <td className="px-4 py-2.5 text-center text-blue-700 dark:text-blue-400 font-semibold bg-blue-50/20 dark:bg-slate-800/50">
                             {extractionMetrics?.raw_contacts_by_source_week?.[source.key] || 0}
                           </td>
-                          <td className="px-4 py-2.5 text-center text-indigo-700 font-semibold bg-indigo-50/20">
+                          <td className="px-4 py-2.5 text-center text-indigo-700 dark:text-indigo-400 font-semibold bg-indigo-50/20 dark:bg-slate-800/50">
                             {extractionMetrics?.raw_contacts_by_source_total?.[source.key] || 0}
                           </td>
                         </tr>

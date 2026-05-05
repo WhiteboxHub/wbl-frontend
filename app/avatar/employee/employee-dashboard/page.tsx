@@ -399,11 +399,11 @@ function EmployeeDashboardContent() {
                                 </table>
                                 <div className="overflow-y-auto max-h-[500px]">
                                     <table className="w-full table-fixed">
-                                        <tbody className="divide-y divide-gray-100">
+                                        <tbody className="divide-y divide-gray-100 dark:divide-darklight">
                                             {candidates.map(c => (
-                                                <tr key={c.id} className="hover:bg-gray-50/50 transition-colors text-sm">
-                                                    <td className="px-8 py-4 font-bold text-black">{c.full_name}</td>
-                                                    <td className="px-8 py-4 font-bold text-gray-600">
+                                                <tr key={c.id} className="hover:bg-gray-50/50 dark:hover:bg-darklight/50 transition-colors text-sm">
+                                                    <td className="px-8 py-4 font-bold text-black dark:text-white">{c.full_name}</td>
+                                                    <td className="px-8 py-4 font-bold text-gray-600 dark:text-gray-300">
                                                         {c.batch_name}
                                                     </td>
 

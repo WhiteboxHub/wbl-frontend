@@ -600,6 +600,7 @@ export default function CandidatesMarketingPage() {
       {
         field: "candidate_name",
         headerName: "Full Name",
+        pinned: "left",
         sortable: true,
         width: 200,
         editable: true,

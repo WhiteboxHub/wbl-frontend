@@ -86,7 +86,6 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
         { title: "List", href: "/avatar/candidates" },
         { title: "Search", href: "/avatar/candidates/search" },
         { title: "Prep", href: "/avatar/candidates/prep" },
-        { title: "Marketing", href: "/avatar/candidates/marketing" },
         { title: "Credentials", href: "/avatar/candidates/credentials" },
         { title: "Job Listings Tracking", href: "/avatar/candidates/job-clicks" }
       ],
@@ -119,6 +118,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       href: "/avatar/marketing/job-listings",
       icon: Briefcase,
       children: [
+        { title: "Candidates", href: "/avatar/candidates/marketing" },
         { title: "Job Listings", href: "/avatar/marketing/job-listings" },
         { title: "Applications", href: "/avatar/marketing/applications" },
         { title: "Interviews", href: "/avatar/marketing/interviews" },

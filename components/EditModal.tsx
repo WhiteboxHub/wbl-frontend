@@ -390,7 +390,7 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "job_board", label: "Job Board" },
     { value: "scraper", label: "Scraper" },
     { value: "hiring.cafe", label: "Hiring Cafe" },
-    { value: "jobright.ai", label: "Jobright" },
+    { value: "jobright", label: "Jobright" },
     { value: "trueup.io", label: "TrueUp.io" },
     { value: "interview_modal", label: "Interview Modal" },
     { value: "email_bot_llm_local", label: "Email Bot LLM Local" },
@@ -817,6 +817,8 @@ const fieldSections: Record<string, string> = {
   interviewer_emails: "Contact Information",
   interviewer_contact: "Contact Information",
   interviewer_linkedin: "Contact Information",
+  email_text: "Contact Information",
+  feedback_text: "Notes",
   amount_collected: "Contact Information",
   emails_read: "Basic Information",
   id: "Basic Information",
@@ -2507,9 +2509,9 @@ export function EditModal({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 p-2 sm:p-4">
           <div
             ref={modalRef}
-            className={`w-full rounded-xl bg-white shadow-2xl sm:rounded-2xl ${modalWidthClass} max-h-[90vh] overflow-y-auto`}
+            className={`w-full rounded-xl bg-white dark:bg-dark shadow-2xl sm:rounded-2xl ${modalWidthClass} max-h-[90vh] overflow-y-auto`}
           >
-            <div className="sticky top-0 flex items-center justify-between border-b border-blue-200 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 py-2 sm:px-4 sm:py-2.5 md:px-6">
+            <div className="sticky top-0 flex items-center justify-between border-b border-blue-200 dark:border-blue-900 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 dark:from-darklight dark:via-dark dark:to-darklight px-3 py-2 sm:px-4 sm:py-2.5 md:px-6 z-10">
               <h2 className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-sm font-semibold text-transparent sm:text-base md:text-lg">
                 {isAddMode ? `Add New ${title}` : `${title} - Edit Details`}
               </h2>
@@ -2520,7 +2522,7 @@ export function EditModal({
                 <X size={16} className="sm:h-5 sm:w-5" />
               </button>
             </div>
-            <div className="bg-white p-3 sm:p-4 md:p-6">
+            <div className="bg-white dark:bg-dark p-3 sm:p-4 md:p-6">
               <form onSubmit={handleSubmit(onSubmit)}>
                 <div
                   className={`grid ${gridColsClass} gap-2.5 sm:gap-3 md:gap-5`}
@@ -2529,7 +2531,7 @@ export function EditModal({
                     .filter((section) => section !== "Notes")
                     .map((section, _, arr) => (
                       <div key={section} className={arr.length === 1 ? "grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3" : "space-y-3 sm:space-y-4"}>
-                        <h3 className={`border-b border-blue-200 pb-1.5 text-xs font-semibold text-blue-700 sm:pb-2 sm:text-sm ${arr.length === 1 ? "col-span-full" : ""}`}>
+                        <h3 className={`border-b border-blue-200 dark:border-blue-900 pb-1.5 text-xs font-semibold text-blue-700 dark:text-blue-400 sm:pb-2 sm:text-sm ${arr.length === 1 ? "col-span-full" : ""}`}>
                           {section}
                         </h3>
                         {/* Add Candidate Input Field for Preparation and Marketing in Add Mode */}
@@ -2537,7 +2539,7 @@ export function EditModal({
                           (isPreparationModal || isMarketingModal) &&
                           isAddMode && (
                             <div className="space-y-1 sm:space-y-1.5">
-                              <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                              <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                 Candidate Name{" "}
                                 <span className="text-red-700">*</span>
                               </label>
@@ -2561,7 +2563,7 @@ export function EditModal({
                           isInterviewModal &&
                           isAddMode && (
                             <div className="space-y-1 sm:space-y-1.5">
-                              <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                              <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                 Candidate Name{" "}
                                 <span className="text-red-700">*</span>
                               </label>
@@ -2569,7 +2571,7 @@ export function EditModal({
                                 {...register("candidate_id", {
                                   required: "Candidate is required",
                                 })}
-                                className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                               >
                                 <option value="">Select Candidate</option>
                                 {marketingCandidates.map((m) => (
@@ -2593,12 +2595,12 @@ export function EditModal({
                           isJobTypeModal && (
                             <div className="space-y-3">
                               <div className="space-y-1 sm:space-y-1.5">
-                                <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                   Job Owner 1
                                 </label>
                                 <select
                                   {...register("job_owner_1")}
-                                  className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                  className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                 >
                                   <option value="">Select Job Owner</option>
                                   {employees
@@ -2611,12 +2613,12 @@ export function EditModal({
                                 </select>
                               </div>
                               <div className="space-y-1 sm:space-y-1.5">
-                                <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                   Job Owner 2
                                 </label>
                                 <select
                                   {...register("job_owner_2")}
-                                  className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                  className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                 >
                                   <option value="">Select Job Owner</option>
                                   {employees
@@ -2629,12 +2631,12 @@ export function EditModal({
                                 </select>
                               </div>
                               <div className="space-y-1 sm:space-y-1.5">
-                                <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                   Job Owner 3
                                 </label>
                                 <select
                                   {...register("job_owner_3")}
-                                  className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                  className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                 >
                                   <option value="">Select Job Owner</option>
                                   {employees
@@ -2647,12 +2649,12 @@ export function EditModal({
                                 </select>
                               </div>
                               <div className="space-y-1 sm:space-y-1.5">
-                                <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                   Category
                                 </label>
                                 <select
                                   {...register("category")}
-                                  className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                  className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                 >
                                   <option value="manual">Manual</option>
                                   <option value="automation">Automation</option>
@@ -2664,14 +2666,14 @@ export function EditModal({
                         {section === "Basic Information" && isEmployeeTaskModal && (
                           <div className="space-y-3">
                             <div className="space-y-1 sm:space-y-1.5">
-                              <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                              <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                 Employee Name <span className="text-red-700">*</span>
                               </label>
                               <select
                                 {...register("employee_name", { required: "Employee is required" })}
                                 value={watch("employee_name") || formData.employee_name || ""}
                                 onChange={(e) => setValue("employee_name", e.target.value)}
-                                className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                               >
                                 <option value="">Select Employee</option>
                                 {employees.map((emp) => (
@@ -2682,14 +2684,14 @@ export function EditModal({
                               </select>
                             </div>
                             <div className="space-y-1 sm:space-y-1.5">
-                              <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                              <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                 Project
                               </label>
                               <select
                                 {...register("project_name")}
                                 value={watch("project_name") || formData.project_name || "No Project"}
                                 onChange={(e) => setValue("project_name", e.target.value)}
-                                className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                               >
                                 <option value="No Project">No Project</option>
                                 {projects.map((p) => (
@@ -2704,7 +2706,7 @@ export function EditModal({
                         {isCourseMaterialModal &&
                           section === "Professional Information" && (
                             <div className="space-y-1 sm:space-y-1.5">
-                              <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                              <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                 Course Name
                               </label>
                               <select
@@ -2714,7 +2716,7 @@ export function EditModal({
                                   formData.cm_course ||
                                   ""
                                 }
-                                className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                               >
                                 {courses.length === 0 ? (
                                   <option value="">Loading...</option>
@@ -2731,7 +2733,7 @@ export function EditModal({
                         {isCourseSubjectModal &&
                           section === "Professional Information" && (
                             <div className="space-y-1 sm:space-y-1.5">
-                              <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                              <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                 Course Name
                               </label>
                               <select
@@ -2741,7 +2743,7 @@ export function EditModal({
                                   formData.course_name ||
                                   ""
                                 }
-                                className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                               >
                                 {courses.length === 0 ? (
                                   <option value="">Loading...</option>
@@ -2758,7 +2760,7 @@ export function EditModal({
                         {isCourseMaterialModal &&
                           section === "Basic Information" && (
                             <div className="space-y-1 sm:space-y-1.5">
-                              <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                              <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                 Subject Name
                               </label>
                               <select
@@ -2768,7 +2770,7 @@ export function EditModal({
                                   formData.cm_subject ||
                                   ""
                                 }
-                                className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                               >
                                 {subjects.length === 0 ? (
                                   <option value="">Loading...</option>
@@ -2788,7 +2790,7 @@ export function EditModal({
                         {isCourseSubjectModal &&
                           section === "Basic Information" && (
                             <div className="space-y-1 sm:space-y-1.5">
-                              <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                              <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                 Subject Name
                               </label>
                               <select
@@ -2798,7 +2800,7 @@ export function EditModal({
                                   formData.subject_name ||
                                   ""
                                 }
-                                className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                               >
                                 {subjects.length === 0 ? (
                                   <option value="">Loading...</option>
@@ -2818,7 +2820,7 @@ export function EditModal({
                         {isCourseMaterialModal &&
                           section === "Basic Information" && (
                             <div className="space-y-1 sm:space-y-1.5">
-                              <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                              <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                 Material Type
                               </label>
                               <select
@@ -2828,7 +2830,7 @@ export function EditModal({
                                   formData.material_type ||
                                   ""
                                 }
-                                className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                               >
                                 <option value="">Select Material Type</option>
                                 {materialTypeOptions.map((opt) => (
@@ -2845,7 +2847,7 @@ export function EditModal({
                             <>
                               {/* Instructor 1 */}
                               <div className="space-y-1 sm:space-y-1.5">
-                                <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                   Instructor 1
                                 </label>
                                 {isInterviewModal || isMarketingModal ? (
@@ -2857,14 +2859,14 @@ export function EditModal({
                                       ""
                                     }
                                     readOnly
-                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
+                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 dark:bg-gray-800 dark:text-gray-200 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
                                   />
                                 ) : (
                                   <select
                                     {...register("instructor1_id")}
                                     value={watch("instructor1_id") ?? formData.instructor1_id ?? ""}
                                     onChange={(e) => setValue("instructor1_id", e.target.value, { shouldValidate: true })}
-                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                    className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
                                     <option value="">Select Instructor</option>
                                     {employees.map((emp) => (
@@ -2878,7 +2880,7 @@ export function EditModal({
 
                               {/* Instructor 2 */}
                               <div className="space-y-1 sm:space-y-1.5">
-                                <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                   Instructor 2
                                 </label>
                                 {isInterviewModal || isMarketingModal ? (
@@ -2890,14 +2892,14 @@ export function EditModal({
                                       ""
                                     }
                                     readOnly
-                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
+                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 dark:bg-gray-800 dark:text-gray-200 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
                                   />
                                 ) : (
                                   <select
                                     {...register("instructor2_id")}
                                     value={watch("instructor2_id") ?? formData.instructor2_id ?? ""}
                                     onChange={(e) => setValue("instructor2_id", e.target.value, { shouldValidate: true })}
-                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                    className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
                                     <option value="">Select Instructor</option>
                                     {employees.map((emp) => (
@@ -2911,7 +2913,7 @@ export function EditModal({
 
                               {/* Instructor 3 */}
                               <div className="space-y-1 sm:space-y-1.5">
-                                <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                   Instructor 3
                                 </label>
                                 {isInterviewModal || isMarketingModal ? (
@@ -2923,14 +2925,14 @@ export function EditModal({
                                       ""
                                     }
                                     readOnly
-                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
+                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 dark:bg-gray-800 dark:text-gray-200 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
                                   />
                                 ) : (
                                   <select
                                     {...register("instructor3_id")}
                                     value={watch("instructor3_id") ?? formData.instructor3_id ?? ""}
                                     onChange={(e) => setValue("instructor3_id", e.target.value, { shouldValidate: true })}
-                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                    className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
                                     <option value="">Select Instructor</option>
                                     {employees.map((emp) => (
@@ -3063,14 +3065,14 @@ export function EditModal({
                                   key={key}
                                   className="space-y-1 sm:space-y-1.5"
                                 >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
                                   </label>
                                   <input
                                     type="text"
                                     value={formData[key] || ""}
                                     readOnly
-                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
+                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 dark:bg-gray-800 dark:text-gray-200 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
                                   />
                                 </div>
                               );
@@ -3085,14 +3087,14 @@ export function EditModal({
                                   key={key}
                                   className="space-y-1 sm:space-y-1.5"
                                 >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
                                   </label>
                                   <input
                                     type="text"
                                     value={formData[key] || ""}
                                     readOnly
-                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
+                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 dark:bg-gray-800 dark:text-gray-200 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
                                   />
                                 </div>
                               );
@@ -3107,14 +3109,14 @@ export function EditModal({
                                   key={key}
                                   className="space-y-1 sm:space-y-1.5"
                                 >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
                                   </label>
                                   <input
                                     type="text"
                                     value={formData[key] || ""}
                                     readOnly
-                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
+                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 dark:bg-gray-800 dark:text-gray-200 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
                                   />
                                 </div>
                               );
@@ -3135,14 +3137,14 @@ export function EditModal({
                                   key={key}
                                   className="space-y-1 sm:space-y-1.5"
                                 >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
                                   </label>
                                   <input
                                     type="text"
                                     value={formData[key] || ""}
                                     readOnly
-                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
+                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 dark:bg-gray-800 dark:text-gray-200 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
                                   />
                                 </div>
                               );
@@ -3151,7 +3153,7 @@ export function EditModal({
                               return (
                                 <React.Fragment key="interview_fields_wrapper">
                                   <div className="relative space-y-1 sm:space-y-1.5" ref={positionDropdownRef}>
-                                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                       Company <span className="text-red-700">*</span>
                                     </label>
                                     <div className="relative">
@@ -3177,7 +3179,7 @@ export function EditModal({
                                             }));
                                           }
                                         }}
-                                        className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                        className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                       />
                                       {isSearchingPositions && (
                                         <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -3226,14 +3228,14 @@ export function EditModal({
                                     !positionSuggestions.some(p => p.company_name?.toLowerCase() === (watch("company") || formData.company)?.toLowerCase()) &&
                                     (watch("position_id") === null || watch("position_id") === undefined)) && (
                                       <div className="space-y-1 sm:space-y-1.5">
-                                        <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                        <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                           Position Title
                                         </label>
                                         <input
                                           type="text"
                                           readOnly
                                           value={watch("position_title") || formData.position_title || ""}
-                                          className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
+                                          className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 dark:bg-gray-800 dark:text-gray-200 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
                                         />
                                         <input type="hidden" {...register("position_title")} />
                                       </div>
@@ -3250,7 +3252,7 @@ export function EditModal({
                                         </p>
                                         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                                           <div className="space-y-1">
-                                            <label className="text-xs font-bold text-blue-700">Position Title <span className="text-red-700">*</span></label>
+                                            <label className="text-xs font-bold text-blue-700 dark:text-blue-400">Position Title <span className="text-red-700">*</span></label>
                                             {(() => {
                                               const { onChange, ...rest } = register("position_title", {
                                                 required: !watch("position_id") ? "Position Title is required for new entries" : false
@@ -3271,7 +3273,7 @@ export function EditModal({
                                             })()}
                                           </div>
                                           <div className="space-y-1">
-                                            <label className="text-xs font-bold text-blue-700">Location</label>
+                                            <label className="text-xs font-bold text-blue-700 dark:text-blue-400">Location</label>
                                             <input
                                               type="text"
                                               {...register("position_location")}
@@ -3280,7 +3282,7 @@ export function EditModal({
                                             />
                                           </div>
                                           <div className="space-y-1">
-                                            <label className="text-xs font-bold text-blue-700">Contact Email</label>
+                                            <label className="text-xs font-bold text-blue-700 dark:text-blue-400">Contact Email</label>
                                             <input
                                               type="email"
                                               placeholder="recruiter@company.com"
@@ -3289,7 +3291,7 @@ export function EditModal({
                                             />
                                           </div>
                                           <div className="space-y-1">
-                                            <label className="text-xs font-bold text-blue-700">Contact Phone</label>
+                                            <label className="text-xs font-bold text-blue-700 dark:text-blue-400">Contact Phone</label>
                                             <input
                                               type="text"
                                               placeholder="+1 555-0123"
@@ -3298,7 +3300,7 @@ export function EditModal({
                                             />
                                           </div>
                                           <div className="space-y-1">
-                                            <label className="text-xs font-bold text-blue-700">Contact LinkedIn</label>
+                                            <label className="text-xs font-bold text-blue-700 dark:text-blue-400">Contact LinkedIn</label>
                                             <input
                                               type="text"
                                               placeholder="https://linkedin.com/in/..."
@@ -3322,7 +3324,7 @@ export function EditModal({
                                   key={key}
                                   className="space-y-1 sm:space-y-1.5"
                                 >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
                                     <span className="text-red-700"> *</span>
                                   </label>
@@ -3341,7 +3343,7 @@ export function EditModal({
                                       setValue("job_name", selectedName); // Update the registered field
                                       setValue("job_id", selectedJob?.id || ""); // Update the ID field
                                     }}
-                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                    className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
                                     <option value="">Select a Job</option>
                                     {jobTypes.map((job) => (
@@ -3366,7 +3368,7 @@ export function EditModal({
                                   key={key}
                                   className="space-y-1 sm:space-y-1.5"
                                 >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
                                   </label>
                                   <select
@@ -3384,7 +3386,7 @@ export function EditModal({
                                       setValue("candidate_name", selectedRecord?.candidate?.full_name || "");
                                       setValue("candidate_id", selectedId);
                                     }}
-                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                    className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
                                     <option value="">Select Candidate</option>
                                     {marketingCandidates.map((m: any) => (
@@ -3410,7 +3412,7 @@ export function EditModal({
                                   key={key}
                                   className="space-y-1 sm:space-y-1.5"
                                 >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
                                   </label>
                                   <select
@@ -3428,7 +3430,7 @@ export function EditModal({
                                       setValue("employee_name", selectedEmployee?.name || "");
                                       setValue("employee_id", selectedId);
                                     }}
-                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                    className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
                                     <option value="">Select Employee</option>
                                     {employees.map((employee) => (
@@ -3453,7 +3455,7 @@ export function EditModal({
                                   key={key}
                                   className="space-y-1 sm:space-y-1.5"
                                 >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
                                     {isFieldRequired(
                                       toLabel(key),
@@ -3465,7 +3467,7 @@ export function EditModal({
                                   </label>
                                   <select
                                     {...register(key)}
-                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                    className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                     onChange={(e) => {
                                       const selectedSubject = e.target.value;
                                       let courseid = "3";
@@ -3512,7 +3514,7 @@ export function EditModal({
                                   key={key}
                                   className="space-y-1 sm:space-y-1.5"
                                 >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
                                     {isFieldRequired(
                                       toLabel(key),
@@ -3546,7 +3548,7 @@ export function EditModal({
                                   key={key}
                                   className="space-y-1 sm:space-y-1.5"
                                 >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
                                     {isFieldRequired(
                                       toLabel(key),
@@ -3561,7 +3563,7 @@ export function EditModal({
                                     {...register(key)}
                                     defaultValue={formData[key] || ""}
                                     readOnly
-                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
+                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 dark:bg-gray-800 dark:text-gray-200 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
                                   />
                                 </div>
                               );
@@ -3574,7 +3576,7 @@ export function EditModal({
                                   key={key}
                                   className="space-y-1 sm:space-y-1.5"
                                 >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
 
                                     {isFieldRequired(
@@ -3590,7 +3592,7 @@ export function EditModal({
                                     type="text"
                                     value={formData[key] || ""}
                                     readOnly
-                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
+                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 dark:bg-gray-800 dark:text-gray-200 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
                                   />
                                 </div>
                               );
@@ -3614,7 +3616,7 @@ export function EditModal({
                                     key={key}
                                     className="space-y-1 sm:space-y-1.5"
                                   >
-                                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                    <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                       {toLabel(key)}
                                       {isFieldRequired(
                                         toLabel(key),
@@ -3624,7 +3626,7 @@ export function EditModal({
                                           <span className="text-red-700"> *</span>
                                         )}
                                     </label>
-                                    <div className="w-full rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-400 shadow-sm sm:px-3 sm:py-2 sm:text-sm">
+                                    <div className="w-full rounded-lg border border-blue-200 bg-gray-100 dark:bg-gray-800 dark:text-gray-200 px-2 py-1.5 text-xs text-gray-400 shadow-sm sm:px-3 sm:py-2 sm:text-sm">
                                       N/A
                                     </div>
                                   </div>
@@ -3640,7 +3642,7 @@ export function EditModal({
                                   key={key}
                                   className="space-y-1 sm:space-y-1.5"
                                 >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
                                     {isFieldRequired(
                                       toLabel(key),
@@ -3654,7 +3656,7 @@ export function EditModal({
                                     href={url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="block w-full cursor-pointer rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-blue-600 shadow-sm hover:text-blue-800 hover:underline sm:px-3 sm:py-2 sm:text-sm"
+                                    className="block w-full cursor-pointer rounded-lg border border-blue-200 bg-gray-100 dark:bg-gray-800 dark:text-gray-200 px-2 py-1.5 text-xs text-blue-600 shadow-sm hover:text-blue-800 hover:underline sm:px-3 sm:py-2 sm:text-sm"
                                   >
                                     Click Here
                                   </a>
@@ -3673,7 +3675,7 @@ export function EditModal({
                                   key={key}
                                   className="space-y-1 sm:space-y-1.5"
                                 >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
                                     {isFieldRequired(
                                       toLabel(key),
@@ -3686,7 +3688,7 @@ export function EditModal({
                                   <select
                                     {...register(key)}
                                     value={currentValue}
-                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                    className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
                                     {fieldEnumOptions.map((opt) => (
                                       <option key={opt.value} value={opt.value}>
@@ -3703,7 +3705,7 @@ export function EditModal({
                                   key={key}
                                   className="space-y-1 sm:space-y-1.5"
                                 >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
                                     {isFieldRequired(
                                       toLabel(key),
@@ -3720,7 +3722,7 @@ export function EditModal({
                                       formData[key] ||
                                       ""
                                     }
-                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                    className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
                                     {vendorTypeOptions.map((opt) => (
                                       <option key={opt.value} value={opt.value}>
@@ -3737,7 +3739,7 @@ export function EditModal({
                                   key={key}
                                   className="space-y-1 sm:space-y-1.5"
                                 >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
                                     {isFieldRequired(
                                       toLabel(key),
@@ -3754,7 +3756,7 @@ export function EditModal({
                                       formData[key] ||
                                       ""
                                     }
-                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                    className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
                                     {vendorStatuses.map((opt) => (
                                       <option key={opt.value} value={opt.value}>
@@ -3770,7 +3772,7 @@ export function EditModal({
                               if (key === 'employee_id' && !isEmployeeTaskModal) return null;
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5">
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
                                     {isFieldRequired(toLabel(key), title, isAddMode) && (
                                       <span className="text-red-700"> *</span>
@@ -3779,7 +3781,7 @@ export function EditModal({
                                   <select
                                     {...register(key, { required: "Employee is required" })}
                                     value={currentFormValues[key] ?? formData[key] ?? ""}
-                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                    className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                     onChange={(e) => {
                                       const val = e.target.value;
                                       if (key === 'employee_id') {
@@ -3807,7 +3809,7 @@ export function EditModal({
                             if (key === 'owner' && isProjectModal) {
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5">
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
                                     {isFieldRequired(toLabel(key), title, isAddMode) && (
                                       <span className="text-red-700"> *</span>
@@ -3816,7 +3818,7 @@ export function EditModal({
                                   <select
                                     {...register(key, { required: "Owner is required" })}
                                     value={currentFormValues[key] ?? formData[key] ?? ""}
-                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                    className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
                                     <option value="">Select an employee</option>
                                     {employees.map((emp) => (
@@ -3832,13 +3834,13 @@ export function EditModal({
                             if (key === 'project_name' && isEmployeeTaskModal) {
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5">
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     Project
                                   </label>
                                   <select
                                     {...register('project_id')}
                                     value={currentFormValues.project_id || formData.project_id || ""}
-                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                    className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                     onChange={(e) => {
                                       const selectedId = e.target.value;
                                       const selectedProject = projects.find(p => p.id.toString() === selectedId);
@@ -3860,13 +3862,13 @@ export function EditModal({
                             if (key === 'task' || key === 'raw_payload' || (key === 'description' && (isProjectModal || isPositionsModal))) {
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5 col-span-full">
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
                                     {isFieldRequired(toLabel(key), title, isAddMode) && (
                                       <span className="text-red-700"> *</span>
                                     )}
                                   </label>
-                                  <div className="bg-white dark:bg-gray-800">
+                                  <div className="bg-white dark:bg-darklight">
                                     <ReactQuill
                                       theme="snow"
                                       value={currentFormValues[key] ?? formData[key] ?? ""}
@@ -3888,7 +3890,7 @@ export function EditModal({
                                   key={key}
                                   className="space-y-1 sm:space-y-1.5"
                                 >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
                                     {isFieldRequired(
                                       toLabel(key),
@@ -3905,7 +3907,7 @@ export function EditModal({
                                       formData.batchid ||
                                       ""
                                     }
-                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                    className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
                                     <option value="">Select a batch</option>
                                     {mlBatches.map((batch) => (
@@ -3926,7 +3928,7 @@ export function EditModal({
                                   key={key}
                                   className="space-y-1 sm:space-y-1.5"
                                 >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
                                     {isFieldRequired(
                                       toLabel(key),
@@ -3975,7 +3977,7 @@ export function EditModal({
 
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5 col-span-full">
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
                                   </label>
                                   <textarea
@@ -4003,7 +4005,7 @@ export function EditModal({
                                   key={key}
                                   className="space-y-1 sm:space-y-1.5"
                                 >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
                                     {isFieldRequired(
                                       toLabel(key),
@@ -4016,7 +4018,7 @@ export function EditModal({
                                   <select
                                     {...register(key)}
                                     value={currentValue}
-                                    className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                    className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                                   >
                                     {fieldEnumOpts.map(
                                       (opt) => (
@@ -4041,7 +4043,7 @@ export function EditModal({
                                   key={key}
                                   className="space-y-1 sm:space-y-1.5"
                                 >
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
                                     {isFieldRequired(
                                       toLabel(key),
@@ -4091,7 +4093,7 @@ export function EditModal({
                             if (isTextareaField) {
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5 col-span-full">
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
                                   </label>
                                   <textarea
@@ -4114,7 +4116,7 @@ export function EditModal({
 
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5 col-span-full">
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
                                   </label>
                                   <textarea
@@ -4137,14 +4139,14 @@ export function EditModal({
                             if (key === "company_name" && !isAddMode && isPlacementFeeModal) {
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5">
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
                                   </label>
                                   <input
                                     type="text"
                                     value={formData[key] || ""}
                                     readOnly
-                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
+                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 dark:bg-gray-800 dark:text-gray-200 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
                                   />
                                 </div>
                               );
@@ -4155,7 +4157,7 @@ export function EditModal({
                             if ((key === "location" || key === "address") && isJobListingModal) {
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5">
-                                  <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                     {toLabel(key)}
                                     {isFieldRequired(toLabel(key), title, isAddMode) && (
                                       <span className="text-red-700"> *</span>
@@ -4210,7 +4212,7 @@ export function EditModal({
                                 key={key}
                                 className="space-y-1 sm:space-y-1.5"
                               >
-                                <label className="block text-xs font-bold text-blue-700 sm:text-sm">
+                                <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
                                   {toLabel(key)}
                                   {isFieldRequired(
                                     toLabel(key),
@@ -4260,15 +4262,15 @@ export function EditModal({
                 </div>
                 {
                   sectionedFields["Notes"].length > 0 && (
-                    <div className="mt-4 border-t border-blue-200 pt-3 sm:mt-6 sm:pt-4">
-                      {/* <h3 className="text-sm sm:text-base font-bold text-blue-700 border-b border-blue-200 pb-1 sm:pb-2 mb-4">
+                    <div className="mt-4 border-t border-blue-200 dark:border-blue-900 pt-3 sm:mt-6 sm:pt-4">
+                      {/* <h3 className="text-sm sm:text-base font-bold text-blue-700 dark:text-blue-400 border-b border-blue-200 dark:border-blue-900 pb-1 sm:pb-2 mb-4">
                         Note
                       </h3> */}
                       <div className="space-y-6">
                         {sectionedFields["Notes"].map(({ key, value }) => (
                           <div key={key} className="space-y-1">
                             <div className="flex items-center justify-between">
-                              <label className={['description', 'raw_payload', 'payload', 'raw_description', 'raw_notes', 'notes', 'note', 'q_a'].includes(key) ? 'block text-xs font-bold text-blue-700 sm:text-sm' : 'text-sm font-medium text-gray-600 dark:text-gray-400'}>
+                              <label className={['description', 'raw_payload', 'payload', 'raw_description', 'raw_notes', 'notes', 'note', 'q_a'].includes(key) ? 'block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm' : 'text-sm font-medium text-gray-600 dark:text-gray-400'}>
                                 {toLabel(key)}
                                 {isFieldRequired(
                                   toLabel(key),
@@ -4321,12 +4323,12 @@ export function EditModal({
                                 </button>
                               )}
                             </div>
-                            {isJobTypeModal || isJobActivityLogModal || key === 'raw_payload' || key === 'payload' ? (
+                            {isJobTypeModal || isJobActivityLogModal || key === 'raw_payload' || key === 'payload' || key === 'feedback_text' || key === 'email_text' ? (
                               <textarea
                                 {...register(key)}
                                 defaultValue={currentFormValues[key] ?? formData[key] ?? ""}
                                 rows={key === 'raw_payload' || key === 'payload' ? 10 : 4}
-                                className={`w-full ${key === 'raw_payload' || key === 'payload' ? 'font-mono text-[11px]' : 'resize-none'} rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm`}
+                                className={`w-full ${key === 'raw_payload' || key === 'payload' ? 'font-mono text-[11px]' : 'resize-none'} rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm`}
                                 placeholder={key === 'raw_payload' || key === 'payload' ? 'Enter JSON payload...' : `Enter ${toLabel(key).toLowerCase()}...`}
                                 onChange={(e) => {
                                   setValue(key, e.target.value);
@@ -4352,7 +4354,7 @@ export function EditModal({
                                     setShouldDisableBold(false);
                                   }
                                 }}
-                                className="bg-white dark:bg-gray-800"
+                                className="bg-white dark:bg-darklight"
                               />
                             )}
                           </div>
@@ -4371,7 +4373,7 @@ export function EditModal({
                   )
                 }
 
-                <div className="mt-3 flex justify-end border-t border-blue-200 pt-2 sm:mt-4 sm:pt-3 md:mt-6 md:pt-4">
+                <div className="mt-3 flex justify-end border-t border-blue-200 dark:border-blue-900 pt-2 sm:mt-4 sm:pt-3 md:mt-6 md:pt-4">
                   <button
                     type="submit"
                     className="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 px-3 py-1.5 text-xs font-medium text-white shadow-md transition hover:from-cyan-600 hover:to-blue-600 sm:px-5 sm:py-2 sm:text-sm"
