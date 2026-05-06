@@ -453,7 +453,6 @@ export default function CandidateDashboard() {
             .catch(() => setSetupStatus(null));
     }, []);
 
-    // const [setupStatus, setSetupStatus] = useState<any>(null);
     const [isOnboardingRestricted, setIsOnboardingRestricted] = useState(false);
     const [onboardingResolved, setOnboardingResolved] = useState(false);
     const firstName = useMemo(() => {
