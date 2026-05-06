@@ -381,3 +381,68 @@ div.ag-theme-alpine .ag-center-cols-container .ag-row.ag-row-selected,
 .ag-grid-dark-mode.ag-theme-alpine .ag-center-cols-container .ag-row:last-child {
   border-bottom: 1px solid #374151 !important;
 }
+
+/* CoderPad Markdown Styles */
+.coderpad-markdown {
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+.coderpad-markdown p {
+  margin-bottom: 1em;
+}
+.coderpad-markdown ul {
+  list-style-type: disc;
+  margin-left: 1.5em;
+  margin-bottom: 1em;
+}
+.coderpad-markdown ol {
+  list-style-type: decimal;
+  margin-left: 1.5em;
+  margin-bottom: 1em;
+}
+.coderpad-markdown code {
+  background-color: #1e1e1e;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-family: monospace;
+}
+.coderpad-markdown pre {
+  background-color: #1e1e1e;
+  padding: 1rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin-bottom: 1em;
+}
+.coderpad-markdown pre code {
+  background-color: transparent;
+  padding: 0;
+}
+.coderpad-markdown strong {
+  font-weight: 600;
+}
+
+/* CoderPad Vertical Resize */
+.resize-handle-vertical {
+  height: 6px !important;
+  width: 100% !important;
+  cursor: row-resize !important;
+  background: transparent !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.resize-handle-bar-horizontal {
+  width: 40px !important;
+  height: 2px !important;
+  background: #30363d !important;
+  border-radius: 2px !important;
+}
+
+/* ReactQuill Fix */
+.assignment-problem-quill .ql-container {
+  max-height: 220px;
+  overflow-y: auto;
+}
+.assignment-problem-quill {
+  margin-bottom: 1.5rem;
+}
