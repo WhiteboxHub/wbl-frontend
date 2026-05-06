@@ -551,8 +551,6 @@ export default function NonMarketingCandidatesPage() {
             height="calc(80vh)"
             showSearch={false}
             showAddButton={false}
-            showViewButton={false}
-            showEditButton={false}
           />
         </div>
       </div>

@@ -1,6 +1,7 @@
 // whiteboxLearning-wbl\next.config.js
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "standalone",
   images: {
     domains: ["whitebox-learning.com"],
   },
@@ -13,6 +14,7 @@ const nextConfig = {
     RESUME_PUBLIC_API_URL: process.env.RESUME_PUBLIC_API_URL,
     NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_API_KEY,
     NEXT_PUBLIC_GOOGLE_CALENDAR_ID: process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_ID,
+    NEXTAUTH_URL: process.env.NEXTAUTH_URL || "http://localhost:3000",
   },
   webpack: (config, { isServer }) => {
     config.module.rules.push({
