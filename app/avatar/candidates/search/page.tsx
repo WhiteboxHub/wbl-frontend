@@ -33,6 +33,7 @@ interface CandidateData {
   sessions_took?: any[];
   sessions_attended?: any[];
   placement_fee_collection?: any[];
+  job_listings_tracking?: any[];
 }
 
 const StatusRenderer = ({ status }: { status: string }) => {
@@ -103,6 +104,7 @@ export default function CandidateSearchPage() {
     login: false,
     marketing: false,
     interviews: false,
+    job_listings_tracking: false,
     placement: false,
     sessions: false,
     misc: false
@@ -771,6 +773,27 @@ export default function CandidateSearchPage() {
                 <div className="px-6 pb-4">
                   {renderTable("Marketing Records", <Mail className="h-4 w-4" />, selectedCandidate.marketing_records)}
                   {renderTable("Preparation Records", <BookOpen className="h-4 w-4" />, selectedCandidate.preparation_records)}
+                </div>
+              )}
+            </div>
+
+            <div className="accordion-item">
+              <button
+                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-black-50 dark:hover:bg-black-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
+                onClick={() => toggleSection('job_listings_tracking')}
+              >
+                <div className="flex items-center gap-2">
+                  <Briefcase className="h-5 w-5 text-black-600 dark:text-black-400" />
+                  <span className="font-medium text-black-900 dark:text-black-100">Job Listings Tracking</span>
+                  <Badge variant="secondary">{selectedCandidate.job_listings_tracking?.length || 0}</Badge>
+                </div>
+                <span className="text-xl font-bold text-black-400">
+                  {openSections['job_listings_tracking'] ? '−' : '+'}
+                </span>
+              </button>
+              {openSections['job_listings_tracking'] && (
+                <div className="px-6 pb-4">
+                  {renderTable("Job Listings Tracking", <Briefcase className="h-4 w-4" />, selectedCandidate.job_listings_tracking || [])}
                 </div>
               )}
             </div>
