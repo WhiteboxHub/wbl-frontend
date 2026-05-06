@@ -152,21 +152,26 @@ const Header = ({
                             className={`submenu relative left-0 top-full rounded-md bg-white transition-[top] duration-300 group-hover:opacity-100 dark:bg-dark lg:invisible lg:absolute lg:top-[110%] lg:block lg:w-[250px] lg:p-4 lg:opacity-0 lg:shadow-lg lg:group-hover:visible lg:group-hover:top-full ${openIndex === index ? "block" : "hidden"
                               }`}
                           >
-                            {menuItem.submenu.map((submenuItem) => (
-                              <Link
-                                href={submenuItem.path}
-                                target={submenuItem.newTab ? "_blank" : undefined}
-                                rel={submenuItem.newTab ? "noopener noreferrer" : undefined}
-                                key={submenuItem.id}
-                                className={`block rounded py-2.5 text-center text-sm font-semibold text-dark duration-500 hover:bg-gray-200 hover:font-semibold dark:text-white dark:hover:bg-black/70 sm:text-base lg:px-5 ${submenuItem.title === "Resume"
-                                  ? "hidden lg:block"
-                                  : ""
-                                  }`}
-                                onClick={closeNavbar}
-                              >
-                                {submenuItem.title}
-                              </Link>
-                            ))}
+                            {menuItem.submenu.map((submenuItem) => {
+                              if (submenuItem.title === "CoderPad" && userRole !== "employee" && userRole !== "admin") {
+                                return null;
+                              }
+                              return (
+                                <Link
+                                  href={submenuItem.path}
+                                  target={submenuItem.newTab ? "_blank" : undefined}
+                                  rel={submenuItem.newTab ? "noopener noreferrer" : undefined}
+                                  key={submenuItem.id}
+                                  className={`block rounded py-2.5 text-center text-sm font-semibold text-dark duration-500 hover:bg-gray-200 hover:font-semibold dark:text-white dark:hover:bg-black/70 sm:text-base lg:px-5 ${submenuItem.title === "Resume"
+                                    ? "hidden lg:block"
+                                    : ""
+                                    }`}
+                                  onClick={closeNavbar}
+                                >
+                                  {submenuItem.title}
+                                </Link>
+                              );
+                            })}
                           </div>
                         </>
                       )}
