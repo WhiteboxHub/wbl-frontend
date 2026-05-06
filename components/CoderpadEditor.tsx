@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from "react-resizable-panels";
 import { getUserTeamRole } from "@/utils/auth";
 import {
-  Play, Save, Trash2, Check, ChevronDown, ChevronLeft, ChevronRight, Send, Plus,
+  Play, Save, Trash2, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Send, Plus,
   FileCode2, Clock, Terminal, TestTube2, Share2, History,
   Loader2, AlertCircle, CheckCircle2, XCircle, Code2, Settings,
   ShieldAlert, ShieldCheck, Shield, EyeOff, Eye,
@@ -16,8 +16,10 @@ import {
 import { toast } from "sonner";
 import { createPortal } from "react-dom";
 
-// Dynamically import Monaco to avoid SSR issues
+// Dynamically import components to avoid SSR issues
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
+const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
+import "react-quill/dist/quill.snow.css";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
@@ -811,6 +813,8 @@ export const CoderpadEditor: React.FC = () => {
   const [teamRole, setTeamRole] = useState<ReturnType<typeof getUserTeamRole>>(() =>
     typeof window !== "undefined" ? getUserTeamRole() : null
   );
+  const [llmTopic, setLlmTopic] = useState("");
+  const [llmGenerating, setLlmGenerating] = useState(false);
   const [llmValidating, setLlmValidating] = useState(false);
   const [showLlmResultModal, setShowLlmResultModal] = useState(false);
   const [llmResult, setLlmResult] = useState<{
@@ -1329,6 +1333,31 @@ export const CoderpadEditor: React.FC = () => {
       toast.error(msg);
     } finally {
       setRunBusy(false);
+    }
+  };
+
+  const generateFromLlm = async () => {
+    if (!llmTopic.trim()) { toast.error("Please enter a topic first"); return; }
+    setLlmGenerating(true);
+    try {
+      const body = { topic: llmTopic, language };
+      const data = await apiFetch("/coderpad/llm-generate", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      // Set the generated fields
+      setDraftProblemStatement(data.problem_statement || "");
+      setCode(data.starter_code || "");
+      setIsDirty(true);
+      if (data.language) setLanguage(data.language);
+      if (data.test_cases && Array.isArray(data.test_cases)) {
+        setDraftTestCases(data.test_cases);
+      }
+      toast.success("AI Generation Complete! Review and click Save Assignment.");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to generate assignment");
+    } finally {
+      setLlmGenerating(false);
     }
   };
 
@@ -2055,6 +2084,32 @@ export const CoderpadEditor: React.FC = () => {
         <div className="coderpad-overlay" onClick={() => setShowAssignmentModal(false)}>
           <div className="coderpad-modal assignment-modal" onClick={e => e.stopPropagation()}>
             <h3 className="modal-title">Add/Update problem statement</h3>
+            <div className="assignment-llm-generator" style={{ marginBottom: "1rem", display: "flex", gap: "8px", flexDirection: "column" }}>
+              <div className="assignment-modal-subtitle" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <Sparkles size={14} className="text-yellow-500" />
+                Generate Assignment with AI
+              </div>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <input
+                  type="text"
+                  className="modal-input"
+                  style={{ flex: 1, margin: 0 }}
+                  placeholder="e.g. Binary Search Tree traversal in Java, or Two Sum from Leetcode..."
+                  value={llmTopic}
+                  onChange={e => setLlmTopic(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); generateFromLlm(); } }}
+                />
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={generateFromLlm}
+                  disabled={llmGenerating}
+                  style={{ whiteSpace: "nowrap" }}
+                >
+                  {llmGenerating ? <><Loader2 size={14} className="spin" /> Generating...</> : "Auto-Generate"}
+                </button>
+              </div>
+            </div>
             <div className="assignment-problem-editor">
               <div className="assignment-modal-number-strip" role="listbox" aria-label="Question numbers">
                 {modalQuestionStripQuestions.map((q, idx) => (
@@ -2091,12 +2146,12 @@ export const CoderpadEditor: React.FC = () => {
                     {assignmentId != null ? "Remove problem" : "Clear draft"}
                   </button>
                 </div>
-                <textarea
-                  className="assignment-problem-input"
+                <ReactQuill
+                  theme="snow"
+                  className="assignment-problem-quill"
                   value={draftProblemStatement}
-                  onChange={e => setDraftProblemStatement(e.target.value)}
+                  onChange={setDraftProblemStatement}
                   placeholder={DEFAULT_PROBLEM_STATEMENT}
-                  rows={6}
                 />
               </div>
             </div>
@@ -2434,9 +2489,10 @@ export const CoderpadEditor: React.FC = () => {
                     Problem Statement{activeQuestionNumber ? ` #${activeQuestionNumber}` : ""}
                     {isStaff && <span className="sidebar-staff-pill">Authoring</span>}
                   </div>
-                  <p className="sidebar-problem-text">
-                    {description.trim() ? description : "No problem statement yet."}
-                  </p>
+                  <div 
+                    className="sidebar-problem-text coderpad-markdown" 
+                    dangerouslySetInnerHTML={{ __html: description.trim() ? description : "No problem statement yet." }}
+                  />
                 </div>
               </div>
             </div>
@@ -2599,8 +2655,8 @@ export const CoderpadEditor: React.FC = () => {
         </header>
 
         {/* ── RESIZABLE PANELS (editor | preview + terminal) ───── */}
-        <div className="coderpad-panels-wrap">
-          <PanelGroup direction="horizontal">
+        <div className="coderpad-panels-wrap coderpad-panels-wrap--vertical">
+          <PanelGroup direction="vertical">
             {/* Editor Panel */}
             <Panel defaultSize={60} minSize={30}>
               <div className="editor-panel">
@@ -2654,40 +2710,40 @@ export const CoderpadEditor: React.FC = () => {
               </div>
             </Panel>
 
-            <PanelResizeHandle className="resize-handle">
-              <div className="resize-handle-bar" />
+            <PanelResizeHandle className="resize-handle resize-handle-vertical">
+              <div className="resize-handle-bar resize-handle-bar-horizontal" />
             </PanelResizeHandle>
 
-            {/* Right column: test cases — collapsible Panel shrinks to a right rail */}
+            {/* Bottom panel: test cases — collapsible Panel shrinks to a bottom rail */}
             <Panel
               ref={testsPanelRef}
               id="coderpad-tests"
               defaultSize={36}
               minSize={14}
-              maxSize={52}
+              maxSize={80}
               collapsible
-              collapsedSize={3.5}
+              collapsedSize={6}
               onCollapse={() => setTestsCollapsed(true)}
               onExpand={() => setTestsCollapsed(false)}
             >
-              <div className={`ide-right-stack ${testsCollapsed ? "ide-right-stack--rail" : ""}`}>
+              <div className={`ide-bottom-stack ${testsCollapsed ? "ide-bottom-stack--rail" : ""}`}>
                 {testsCollapsed ? (
-                  <div className="tests-rail">
+                  <div className="tests-rail tests-rail-horizontal" onClick={toggleTestsPanel} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', borderTop: '1px solid #30363d', background: '#0d1117' }}>
                     <button
                       type="button"
                       className="tests-rail-toggle"
-                      onClick={toggleTestsPanel}
                       title="Expand test cases"
                       aria-expanded={false}
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#8b949e', background: 'transparent', border: 'none' }}
                     >
-                      <ChevronLeft size={18} className="tests-rail-chevron" aria-hidden />
-                      <TestTube2 size={15} className="tests-rail-icon" aria-hidden />
-                      <span className="tests-rail-count" aria-label="Number of test cases">{testCases.length}</span>
+                      <ChevronUp size={16} aria-hidden />
+                      <TestTube2 size={16} aria-hidden />
+                      <span className="tests-rail-count">{testCases.length}</span>
                       <span className="tests-rail-label">Tests</span>
                     </button>
                   </div>
                 ) : (
-                  <div className="output-panel ide-terminal-panel">
+                  <div className="output-panel ide-terminal-panel" style={{ borderTop: '1px solid #30363d' }}>
                     <div className="tests-body">
                     <div className="tests-header">
                       <button
@@ -2695,9 +2751,9 @@ export const CoderpadEditor: React.FC = () => {
                         className="tests-collapse-btn"
                         onClick={toggleTestsPanel}
                         aria-expanded={!testsCollapsed}
-                        title="Collapse test panel to the right"
+                        title="Collapse test panel"
                       >
-                        <ChevronRight size={14} aria-hidden />
+                        <ChevronDown size={14} aria-hidden />
                         <span className="tests-count">{testCases.length} test case{testCases.length !== 1 ? "s" : ""}</span>
                       </button>
                       <div className="tests-header-actions">
@@ -2768,6 +2824,7 @@ export const CoderpadEditor: React.FC = () => {
                                 <div className="test-field">
                                   <label>Input</label>
                                   <textarea
+                                    data-gramm="false"
                                     className="test-textarea"
                                     value={hideValues ? "•••• hidden ••••" : (tc.input || "")}
                                     placeholder={hideValues ? "Hidden from candidate" : "stdin input…"}
@@ -2779,6 +2836,7 @@ export const CoderpadEditor: React.FC = () => {
                                 <div className="test-field">
                                   <label>Expected Output</label>
                                   <textarea
+                                    data-gramm="false"
                                     className="test-textarea"
                                     value={hideValues ? "•••• hidden ••••" : tc.expected_output}
                                     placeholder={hideValues ? "Hidden from candidate" : "expected stdout…"}

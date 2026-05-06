@@ -607,6 +607,9 @@ interface EditModalProps {
 // Fields to exclude from the form
 const excludedFields = [
   "candidate",
+  "candidate_full_name",
+  "candidate_name",
+  "candidateid",
   "instructor1",
   "instructor2",
   "instructor3",
