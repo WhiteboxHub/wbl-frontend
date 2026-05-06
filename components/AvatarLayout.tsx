@@ -247,7 +247,6 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
   };
 
   const isActive = (item: (typeof sidebarItems)[number]) => {
-    // If any item has an exact match with the current pathname, only that item should be active
     const hasExactMatch = sidebarItems.some(i => i.exact && i.href === pathname);
 
     if (hasExactMatch) {
@@ -256,10 +255,22 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
 
     if (item.exact) return pathname === item.href;
     if (pathname === item.href) return true;
+
+    // Aggressive fix for "Candidates" collision
+    if (item.title === "Candidates") {
+      if (pathname.includes("/marketing") || pathname.includes("/placements") || pathname.includes("/leads")) {
+        return false;
+      }
+    }
+
     if (item.children) {
-      return item.children.some(
-        (child) => pathname === child.href || pathname.startsWith(child.href + "/")
-      );
+      return item.children.some((child) => {
+        if (pathname === child.href) return true;
+        if (child.href !== "/avatar/candidates" && pathname.startsWith(child.href + "/")) {
+          return true;
+        }
+        return false;
+      });
     }
     return false;
   };

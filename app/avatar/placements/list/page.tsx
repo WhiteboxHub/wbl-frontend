@@ -155,6 +155,7 @@ export default function CandidatesPlacements() {
               field: "candidate_name",
               headerName: "Candidate",
               minWidth: 160,
+              pinned : "left",
               cellRenderer: CandidateNameRenderer,
               valueGetter: (p) =>
                 p.data?.candidate_name ??

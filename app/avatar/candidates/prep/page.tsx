@@ -594,6 +594,7 @@ export default function CandidatesPrepPage() {
       {
         field: "candidate_name",
         headerName: "Candidate Name",
+        pinned: "left",
         cellRenderer: CandidateNameRenderer,
         sortable: true,
         minWidth: 150,
