@@ -36,6 +36,12 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/admin_ui/dropdown-menu";
 import { apiFetch, API_BASE_URL, setupApi } from "@/lib/api";
 import { useAuth } from "@/utils/AuthContext";
 import CandidateGrid from "./CandidateGrid";
@@ -76,6 +82,7 @@ interface DashboardData {
         success_rate: number;
     };
     interviews: Array<{
+        id: number;
         company: string;
         interview_date: string;
         type_of_interview: string;
@@ -296,74 +303,6 @@ const StatusRenderer = ({ value }: { value?: string }) => {
     );
 };
 
-const interviewColumnDefs: ColDef[] = [
-    {
-        field: "company",
-        headerName: "Company",
-        flex: 2,
-        minWidth: 200,
-        pinned: 'left',
-        cellRenderer: (params: any) => (
-            <div className="flex items-center h-full">
-                <span className="font-bold text-gray-900 dark:text-gray-100 text-[13px]">{params.value}</span>
-            </div>
-        )
-    },
-    {
-        field: "type_of_interview",
-        headerName: "Interview Round",
-        flex: 1.5,
-        minWidth: 160,
-        cellRenderer: (params: any) => (
-            <div className="flex items-center h-full gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center flex-shrink-0">
-                    <Target className="w-3.5 h-3.5 text-gray-400" />
-                </div>
-                <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">{params.value || "Technical Round"}</span>
-            </div>
-        )
-    },
-    {
-        field: "interview_date",
-        headerName: "Schedule",
-        flex: 1.5,
-        minWidth: 160,
-        cellRenderer: (params: any) => {
-            if (!params.value) return (
-                <div className="flex items-center h-full text-gray-400 text-xs italic">Not set</div>
-            );
-            try {
-                const dateStr = format(parseISO(params.value), "MMM dd, yyyy");
-                return (
-                    <div className="flex items-center h-full gap-2.5">
-                        <div className="w-7 h-7 rounded-lg bg-blue-50/50 dark:bg-blue-900/10 flex items-center justify-center flex-shrink-0">
-                            <Calendar className="w-3.5 h-3.5 text-blue-500" />
-                        </div>
-                        <span className="text-xs font-bold text-gray-800 dark:text-gray-200">{dateStr}</span>
-                    </div>
-                );
-            } catch (e) {
-                return <div className="flex items-center h-full text-xs font-medium">{params.value}</div>;
-            }
-        }
-    },
-    {
-        field: "mode_of_interview",
-        headerName: "Mode",
-        flex: 1,
-        minWidth: 130,
-        cellRenderer: (params: any) => (
-            <div className="flex items-center h-full gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center flex-shrink-0">
-                    <Video className="w-3.5 h-3.5 text-gray-400" />
-                </div>
-                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{params.value || "Virtual"}</span>
-            </div>
-        )
-    },
-];
-
-
 export default function CandidateDashboard() {
     const router = useRouter();
     const { userRole } = useAuth() as { userRole: string };
@@ -491,6 +430,102 @@ export default function CandidateDashboard() {
     const statusOptions = ['open', 'closed', 'on_hold', 'duplicate', 'invalid'];
     const typeOptions = ['full_time', 'contract', 'contract_to_hire', 'internship'];
     const modeOptions = ['All', 'Onsite', 'Hybrid', 'Remote'];
+    const interviewColumnDefs: ColDef[] = useMemo(() => [
+        {
+            field: "company",
+            headerName: "Company",
+            flex: 2,
+            minWidth: 200,
+            pinned: 'left',
+            cellRenderer: (params: any) => (
+                <div className="flex items-center h-full">
+                    <span className="font-bold text-gray-900 dark:text-gray-100 text-[13px]">{params.value}</span>
+                </div>
+            )
+        },
+        {
+            field: "type_of_interview",
+            headerName: "Interview Round",
+            flex: 1.5,
+            minWidth: 160,
+            cellRenderer: (params: any) => (
+                <div className="flex items-center h-full gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center flex-shrink-0">
+                        <Target className="w-3.5 h-3.5 text-gray-400" />
+                    </div>
+                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">{params.value || "Technical Round"}</span>
+                </div>
+            )
+        },
+        {
+            field: "interview_date",
+            headerName: "Schedule",
+            flex: 1.5,
+            minWidth: 160,
+            cellRenderer: (params: any) => (
+                <div className="flex items-center h-full gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center flex-shrink-0">
+                        <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                    </div>
+                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                        {params.value ? format(parseISO(params.value), 'MMM dd, yyyy') : "TBD"}
+                    </span>
+                </div>
+            )
+        },
+        {
+            field: "mode_of_interview",
+            headerName: "Mode",
+            flex: 1,
+            minWidth: 130,
+            cellRenderer: (params: any) => (
+                <div className="flex items-center h-full gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center flex-shrink-0">
+                        <Video className="w-3.5 h-3.5 text-gray-400" />
+                    </div>
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{params.value || "Virtual"}</span>
+                </div>
+            )
+        },
+        {
+            field: "feedback",
+            headerName: "Feedback",
+            flex: 1,
+            minWidth: 130,
+            cellRenderer: (params: any) => {
+            const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+                    const newVal = e.target.value;
+                    try {
+                        await apiFetch(`/api/candidates/interviews/${params.data.id}/feedback?feedback=${newVal}`, {
+                            method: "PATCH"
+                        });
+                        params.data.feedback = newVal;
+                        params.api.refreshCells({ rowNodes: [params.node], force: true });
+                    } catch (err) {
+                        console.error("Failed to update feedback", err);
+                    }
+                };
+
+
+                return (
+                    <div className="flex items-center h-full gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center flex-shrink-0">
+                            <MessageSquare className="w-3.5 h-3.5 text-gray-400" />
+                        </div>
+                        <select
+                            defaultValue={params.value || "Pending"}
+                            onChange={handleChange}
+                            className="text-xs font-medium text-gray-600 dark:text-gray-400 bg-transparent border-none outline-none cursor-pointer focus:ring-0"
+                        >
+                            <option value="Pending">Pending</option>
+                            <option value="Positive">Positive</option>
+                            <option value="Negative">Negative</option>
+                        </select>
+                    </div>
+                );
+            }
+        }
+    ], [candidateId]);
 
     const jobColumnDefs: ColDef[] = useMemo(() => [
         { field: "id", headerName: "ID", width: 80, sortable: true, filter: "agNumberColumnFilter" },
@@ -1121,15 +1156,41 @@ export default function CandidateDashboard() {
 
                     </div>
 
-                    <a
-                        href="https://youtu.be/ToCU1H25TTY"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm"
-                    >
-                        <Puzzle className="w-4 h-4 text-blue-500" />
-                        Autofill Extension
-                    </a>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button
+                                    className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm"
+                                >
+                                    <Puzzle className="w-4 h-4 text-blue-500" />
+                                    Autofill Extension
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                                <DropdownMenuItem asChild>
+                                    <a
+                                        href="https://chromewebstore.google.com/detail/talentscreen-autofill/bebdlhhpgmegdebdballinfmfnlpmeio"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-2 cursor-pointer w-full"
+                                    >
+                                        <ExternalLink className="w-4 h-4 text-blue-500" />
+                                        <span>Link</span>
+                                    </a>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem asChild>
+                                    <a
+                                        href="https://www.youtube.com/watch?v=ToCU1H25TTY"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-2 cursor-pointer w-full"
+                                    >
+                                        <Video className="w-4 h-4 text-red-500" />
+                                        <span>Video Tutorial</span>
+                                    </a>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+
                 </header>
 
                 {/* Mobile Tab Bar */}
@@ -1168,7 +1229,7 @@ export default function CandidateDashboard() {
                                     {/* Brand Label */}
                                     <div className="flex items-center gap-1.5 shrink-0">
                                         <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                                        <span className="text-xl font-extrabold text-indigo-950 dark:text-indigo-100 tracking-tight">AI<span className="text-indigo-600 dark:text-indigo-400 font-black">Profile</span></span>
+                                        <span className="text-xl font-extrabold text-indigo-950 dark:text-indigo-100 tracking-tight">WBL <span className="text-indigo-600 dark:text-indigo-400 font-black">SmartPrep</span></span>
                                     </div>
 
                                     {/* Vertical Divider (Hidden on small screens) */}
@@ -1178,7 +1239,7 @@ export default function CandidateDashboard() {
                                     <div className="flex-1">
                                         <div className="flex flex-wrap items-center gap-x-1.5 leading-tight">
                                             <p className="text-gray-900 dark:text-gray-100 font-bold text-sm lg:text-[15px]">
-                                                Prepare smarter, apply faster
+                                                Your AI-powered interview practice
                                             </p>
                                         </div>
                                         {!setupStatus.setup_complete && (
@@ -1198,21 +1259,22 @@ export default function CandidateDashboard() {
                                             onClick={async () => {
                                                 const getAiPrepUrl = () => {
                                                     return "https://ai-prep.whitebox-learning.com";
+                                                    // return "http://localhost:3001";
                                                 };
                                                 const baseUrl = getAiPrepUrl();
-                                                
+
                                                 try {
-                                                    const response = await apiFetch("candidate/generate-prep-token", { 
+                                                    const response = await apiFetch("candidate/generate-prep-token", {
                                                         method: "POST"
                                                     });
                                                     if (response && response.token) {
-                                                        window.location.href = `${baseUrl}/?prep_token=${response.token}`;
+                                                        window.open(`${baseUrl}/?prep_token=${response.token}`, '_blank');
                                                     } else {
-                                                        window.location.href = baseUrl;
+                                                        window.open(baseUrl, '_blank');
                                                     }
                                                 } catch (err) {
                                                     console.error("Failed to generate prep token:", err);
-                                                    window.location.href = baseUrl;
+                                                    window.open(baseUrl, '_blank');
                                                 }
                                             }}
                                             className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
@@ -1314,16 +1376,16 @@ export default function CandidateDashboard() {
                                     <div className="flex items-center gap-3">
                                         {/* Resume Status */}
                                         <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${setupStatus === null
-                                            ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
-                                            : setupStatus.resume_uploaded
-                                                ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"
-                                                : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
+                                                ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
+                                                : setupStatus.resume_uploaded
+                                                    ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"
+                                                    : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
                                             }`}>
                                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${setupStatus === null
-                                                ? "bg-gray-100 dark:bg-gray-700"
-                                                : setupStatus.resume_uploaded
-                                                    ? "bg-emerald-100 dark:bg-emerald-900/40"
-                                                    : "bg-amber-100 dark:bg-amber-900/40"
+                                                    ? "bg-gray-100 dark:bg-gray-700"
+                                                    : setupStatus.resume_uploaded
+                                                        ? "bg-emerald-100 dark:bg-emerald-900/40"
+                                                        : "bg-amber-100 dark:bg-amber-900/40"
                                                 }`}>
                                                 {setupStatus === null ? (
                                                     <div className="w-3 h-3 rounded-full bg-gray-300 animate-pulse" />
@@ -1336,7 +1398,7 @@ export default function CandidateDashboard() {
                                             <div className="min-w-0">
                                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Resume</p>
                                                 <p className={`text-xs font-bold mt-0.5 ${setupStatus === null ? "text-gray-400" :
-                                                    setupStatus.resume_uploaded ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
+                                                        setupStatus.resume_uploaded ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
                                                     }`}>
                                                     {setupStatus === null ? "Loading..." : setupStatus.resume_uploaded ? "Uploaded ✓" : "Not added"}
                                                 </p>
@@ -1345,16 +1407,16 @@ export default function CandidateDashboard() {
 
                                         {/* API Keys Status */}
                                         <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${setupStatus === null
-                                            ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
-                                            : setupStatus.api_keys_configured
-                                                ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"
-                                                : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
+                                                ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
+                                                : setupStatus.api_keys_configured
+                                                    ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"
+                                                    : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
                                             }`}>
                                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${setupStatus === null
-                                                ? "bg-gray-100 dark:bg-gray-700"
-                                                : setupStatus.api_keys_configured
-                                                    ? "bg-emerald-100 dark:bg-emerald-900/40"
-                                                    : "bg-amber-100 dark:bg-amber-900/40"
+                                                    ? "bg-gray-100 dark:bg-gray-700"
+                                                    : setupStatus.api_keys_configured
+                                                        ? "bg-emerald-100 dark:bg-emerald-900/40"
+                                                        : "bg-amber-100 dark:bg-amber-900/40"
                                                 }`}>
                                                 {setupStatus === null ? (
                                                     <div className="w-3 h-3 rounded-full bg-gray-300 animate-pulse" />
@@ -1367,7 +1429,7 @@ export default function CandidateDashboard() {
                                             <div className="min-w-0">
                                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">API Keys</p>
                                                 <p className={`text-xs font-bold mt-0.5 ${setupStatus === null ? "text-gray-400" :
-                                                    setupStatus.api_keys_configured ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
+                                                        setupStatus.api_keys_configured ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
                                                     }`}>
                                                     {setupStatus === null ? "Loading..." : setupStatus.api_keys_configured ? "Configured ✓" : "Not added"}
                                                 </p>
