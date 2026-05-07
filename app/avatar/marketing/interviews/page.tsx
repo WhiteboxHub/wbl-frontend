@@ -710,6 +710,7 @@ export default function CandidatesInterviews() {
     {
       field: "candidate.full_name",
       headerName: "Full Name",
+      pinned : "left",
       cellRenderer: CandidateNameRenderer,
       sortable: true,
       width: 200,

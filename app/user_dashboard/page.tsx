@@ -7,6 +7,7 @@ import CandidateDashboard from "@/components/CandidateDashboard";
 import Link from "next/link";
 import { User, Phone, Mail, Activity, Sparkles, AlertTriangle } from "lucide-react";
 import { setupApi } from "@/lib/api";
+import { Toaster } from "sonner";
 
 interface UserProfile {
   uname: string;
@@ -28,6 +29,7 @@ function CandidateDashboardWithSetupCheck() {
 
   return (
     <div className="pt-24 pb-12 bg-gray-50 dark:bg-gray-900 min-h-screen">
+      <Toaster richColors position="top-center" />
       <CandidateDashboard />
     </div>
   );
