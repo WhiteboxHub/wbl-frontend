@@ -655,6 +655,13 @@ export default function CandidateDashboard() {
             valueFormatter: (params) => params.value ? params.value.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : "",
         },
         {
+            field: "job_url_type",
+            headerName: "Job URL Type",
+            width: 130,
+            sortable: true,
+            filter: "agTextColumnFilter"
+        },
+        {
             headerName: "Location",
             flex: 1.5,
             minWidth: 150,
