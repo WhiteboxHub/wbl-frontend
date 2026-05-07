@@ -4,11 +4,12 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/utils/AuthContext";
 import { signIn, useSession } from "next-auth/react";
 import { SignInResponse } from "next-auth/react";
 import { getUserTeamRole } from "@/utils/auth";
+import { persistOnboardingState } from "@/lib/onboarding";
 
 const SigninPage = () => {
 
@@ -29,6 +30,25 @@ const SigninPage = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("redirect") || "/";
+
+  const routeByRoleAndOnboarding = useCallback((role: string | null, onboarding?: any) => {
+    if (onboarding) {
+      persistOnboardingState(onboarding);
+    }
+    if (role === "admin") {
+      router.push("/avatar");
+      return;
+    }
+    if (role === "employee") {
+      router.push("/");
+      return;
+    }
+    if (onboarding?.access_restricted) {
+      router.push("/user_dashboard?tab=documents&onboarding=1");
+      return;
+    }
+    router.push("/user_dashboard");
+  }, [router]);
 
   interface ExtendedSignInResponse extends SignInResponse {
     message?: string;
@@ -68,14 +88,7 @@ const SigninPage = () => {
 
         // Redirect based on role
         setTimeout(() => {
-          if (role === "admin") {
-            router.push("/avatar");
-          } else if (role === "employee") {
-            router.push("/");
-          } else {
-            // Redirect candidates to home dashboard
-            router.push("/user_dashboard");
-          }
+          routeByRoleAndOnboarding(role);
         }, 500);
       } else {
         setGoogleMessage("Unexpected status received: " + status);
@@ -99,16 +112,15 @@ const SigninPage = () => {
     } else if (session?.user?.status === "active") {
       setGoogleMessage("Logged in successfully!");
       setGoogleStatus("success");
-      const role = getUserTeamRole(localStorage.getItem("access_token"));
-      if (role === "admin") {
-        router.push("/avatar");
-      } else if (role === "employee") {
-        router.push("/");
-      } else {
-        router.push("/user_dashboard");
+      // Store email in localStorage from session
+      if (session?.user?.email) {
+        localStorage.setItem("userEmail", session.user.email);
+        localStorage.setItem("username", session.user.email);
       }
+      const role = getUserTeamRole(localStorage.getItem("access_token"));
+      routeByRoleAndOnboarding(role, (session?.user as any)?.onboarding);
     }
-  }, [session, router]);
+  }, [session, routeByRoleAndOnboarding]);
 
   useEffect(() => {
     setMessage("");
@@ -138,6 +150,12 @@ const SigninPage = () => {
       if (response.ok) {
         // Store token in localStorage first
         localStorage.setItem("access_token", data.access_token);
+        persistOnboardingState(data.onboarding);
+        // Store email and username in localStorage
+        if (data.email) {
+          localStorage.setItem("userEmail", data.email);
+        }
+        localStorage.setItem("username", email);
         login(data.access_token);
 
         // Get role from token
@@ -147,22 +165,7 @@ const SigninPage = () => {
         setResponseStatus("success");
 
         // Redirect based on role
-        if (role === "admin") {
-          // Admin redirects to avatar dashboard
-          setTimeout(() => {
-            router.push("/avatar");
-          }, 500);
-        } else if (role === "employee") {
-          // Employees redirect to landing page
-          setTimeout(() => {
-            router.push("/");
-          }, 500);
-        } else {
-          // Candidates redirect to home dashboard
-          setTimeout(() => {
-            router.push("/user_dashboard");
-          }, 500);
-        }
+        setTimeout(() => routeByRoleAndOnboarding(role, data.onboarding), 500);
       } else {
         setResponseStatus("error");
         setMessage(data.detail || "Failed to login");
@@ -199,27 +202,15 @@ const SigninPage = () => {
     const accessToken = localStorage.getItem("access_token");
     if (accessToken) {
       const role = getUserTeamRole(accessToken);
-      if (role === "admin") {
-        router.push("/avatar");
-      } else if (role === "employee") {
-        router.push("/");
-      } else {
-        router.push("/user_dashboard");
-      }
+      routeByRoleAndOnboarding(role, (session?.user as any)?.onboarding);
     }
-  }, [router]);
+  }, [session, routeByRoleAndOnboarding]);
 
   if (loggedIn) {
     // You might want to redirect instead of rendering a different component
     const accessToken = localStorage.getItem("access_token");
     const role = getUserTeamRole(accessToken || "");
-    if (role === "admin") {
-      router.push("/avatar");
-    } else if (role === "employee") {
-      router.push("/");
-    } else {
-      router.push("/user_dashboard");
-    }
+    routeByRoleAndOnboarding(role, (session?.user as any)?.onboarding);
     return null;
   }
 

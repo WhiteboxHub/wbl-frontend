@@ -84,8 +84,15 @@ interface AGGridTableProps {
   context?: any;
   showTotalCount?: boolean;
   extraToolbarContent?: React.ReactNode;
+
   showViewButton?: boolean;
   showEditButton?: boolean;
+
+
+    
+  pagination?: boolean;
+  paginationPageSize?: number;
+
 }
 
 interface RowData {
