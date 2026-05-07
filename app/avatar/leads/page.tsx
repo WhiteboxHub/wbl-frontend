@@ -820,6 +820,7 @@ export default function LeadsPage() {
         field: "full_name",
         headerName: "Full Name",
         width: 180,
+        pinned: "left",
         sortable: true
       },
       {
