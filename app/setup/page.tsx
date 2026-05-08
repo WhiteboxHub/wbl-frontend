@@ -114,37 +114,47 @@ export default function CandidateSetupWizard() {
     }
     const data = JSON.parse(resumeJson);
     
-    // Flexible mapping for mandatory fields
+    // Flexible mapping for mandatory fields (key-based check)
     const fieldMaps: Record<string, string[]> = {
-      "Work Experience": ["Work Experience", "experience", "work", "work_experience", "employment"],
-      "Education": ["Education", "education", "academics"],
-      "LinkedIn": ["LinkedIn", "linkedin", "linkedin_url"],
-      "Contact Number": ["Contact Number", "phone", "contact_number", "mobile", "phone_number"],
-      "Email ID": ["Email ID", "email", "email_id"]
+      "Work Experience": ["Work Experience", "experience", "work", "work_experience", "employment", "jobs"],
+      "Education": ["Education", "education", "academics", "schooling"],
+      "LinkedIn": ["LinkedIn", "linkedin", "linkedin_url", "linkedin_profile", "website", "url", "profile_url", "social", "link"],
+      "Email ID": ["Email ID", "email", "email_id", "email_address", "mail"],
     };
 
-    const findValueRecursively = (data: any, possibleKeys: string[]): boolean => {
-      if (typeof data !== 'object' || data === null) return false;
-      
-      if (Array.isArray(data)) {
-        return data.some(item => findValueRecursively(item, possibleKeys));
-      }
-      
-      for (const [key, value] of Object.entries(data)) {
-        if (possibleKeys.includes(key) && value && String(value).trim()) {
+    // Recursively search by key name (case-insensitive) and ensure value is non-empty
+    const findByKey = (obj: any, possibleKeys: string[]): boolean => {
+      if (typeof obj !== 'object' || obj === null) return false;
+      if (Array.isArray(obj)) return obj.some(item => findByKey(item, possibleKeys));
+      for (const [key, value] of Object.entries(obj)) {
+        const keyLower = key.toLowerCase();
+        if (possibleKeys.some(k => keyLower === k.toLowerCase() || keyLower.includes(k.toLowerCase())) && value && String(value).trim()) {
           return true;
         }
-        if (findValueRecursively(value, possibleKeys)) {
-          return true;
-        }
+        if (findByKey(value, possibleKeys)) return true;
       }
       return false;
     };
 
+    // For LinkedIn specifically: also scan all string values for "linkedin.com" 
+    const findLinkedInByValue = (obj: any): boolean => {
+      if (typeof obj === 'string') return obj.toLowerCase().includes('linkedin.com') || obj.toLowerCase().includes('linkedin');
+      if (typeof obj !== 'object' || obj === null) return false;
+      if (Array.isArray(obj)) return obj.some(item => findLinkedInByValue(item));
+      return Object.values(obj).some(value => findLinkedInByValue(value));
+    };
+
     const missing: string[] = [];
     Object.entries(fieldMaps).forEach(([label, possibleKeys]) => {
-      if (!findValueRecursively(data, possibleKeys)) {
-        missing.push(label);
+      if (label === "LinkedIn") {
+        // Check by key name OR by value containing linkedin
+        if (!findByKey(data, possibleKeys) && !findLinkedInByValue(data)) {
+          missing.push(label);
+        }
+      } else {
+        if (!findByKey(data, possibleKeys)) {
+          missing.push(label);
+        }
       }
     });
     
@@ -164,19 +174,26 @@ export default function CandidateSetupWizard() {
       setResumeError("Invalid JSON format. Please check your input.");
       return;
     }
+    setLoading(true);
+    setResumeError("");
     try {
       await api.post("/candidate/resume", { 
         resume_json: JSON.parse(resumeJson), 
-        file_name: fileName 
+        file_name: fileName || "resume.json"
       });
       toast.success("Resume saved successfully!");
       setCurrentStep(3);
       initializeData();
     } catch (err: any) {
-      const detail = err.body?.detail || "Failed to save resume";
+      // Handle both axios-style (err.response.data.detail) and custom wrapper (err.body.detail)
+      const detail =
+        err?.response?.data?.detail ||
+        err?.body?.detail ||
+        err?.message ||
+        "Failed to save resume. Please try again.";
       setResumeError(detail);
       toast.error(detail);
-      setIsValidated(false);
+      // Don't reset isValidated — user shouldn't have to re-validate just to retry saving
     } finally {
       setLoading(false);
     }
@@ -535,6 +552,40 @@ export default function CandidateSetupWizard() {
                           >
                             {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
                           </button>
+                        </div>
+                        {/* Dynamic "Create API Key" helper link */}
+                        <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-gray-400 dark:text-gray-500">
+                          <span>Don't have a key?</span>
+                          {newKey.provider_name === "OpenAI" && (
+                            <a
+                              href="https://platform.openai.com/api-keys"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-bold text-primary hover:underline"
+                            >
+                              Create your OpenAI key here ↗
+                            </a>
+                          )}
+                          {newKey.provider_name === "Claude" && (
+                            <a
+                              href="https://console.anthropic.com/settings/keys"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-bold text-primary hover:underline"
+                            >
+                              Create your Claude key here ↗
+                            </a>
+                          )}
+                          {newKey.provider_name === "Gemini" && (
+                            <a
+                              href="https://aistudio.google.com/app/apikey"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-bold text-primary hover:underline"
+                            >
+                              Create your Gemini key here ↗
+                            </a>
+                          )}
                         </div>
                       </div>
 
