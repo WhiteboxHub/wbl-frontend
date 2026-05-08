@@ -1271,6 +1271,10 @@ export const CoderpadEditor: React.FC = () => {
       toast.error("Write some code first");
       return;
     }
+    if (!llmApiKey.trim()) {
+      toast.error("Paste your OpenAI API key above to use LLM validate.");
+      return;
+    }
     const casesForLlm = opts?.testCasesOverride ?? testCases;
     setLlmValidating(true);
     setLlmResult(null);
@@ -1291,6 +1295,9 @@ export const CoderpadEditor: React.FC = () => {
       const data = await apiFetch("/coderpad/llm-validate", {
         method: "POST",
         body: JSON.stringify(body),
+        headers: {
+          "X-OpenAI-Api-Key": llmApiKey.trim(),
+        },
       });
       setLlmResult({
         passed: data.passed ?? null,
@@ -2574,12 +2581,21 @@ export const CoderpadEditor: React.FC = () => {
               </p>
               {teamRole === "candidate" && (
                 <div className="coderpad-llm-row">
+                  <input
+                    type="password"
+                    className="coderpad-llm-api-key-input"
+                    placeholder="OpenAI API key for LLM (not stored)"
+                    value={llmApiKey}
+                    onChange={(e) => setLlmApiKey(e.target.value)}
+                    title="Paste your key each session; sent only with LLM requests"
+                    autoComplete="off"
+                  />
                   <button
                     type="button"
                     className="btn-llm-validate"
                     onClick={() => void runLlmValidate()}
                     disabled={llmValidating}
-                    title="Validate with the server-configured OpenAI key (problem + code + test cases)"
+                    title="Uses the pasted OpenAI key only (problem + code + test cases)"
                   >
                     {llmValidating ? (
                       <Loader2 size={14} className="spin" />
@@ -4043,6 +4059,20 @@ export const CoderpadEditor: React.FC = () => {
           align-items: center;
           gap: 8px 10px;
           margin-top: 6px;
+        }
+        .coderpad-llm-api-key-input {
+          flex: 1 1 160px;
+          min-width: 120px;
+          max-width: 280px;
+          padding: 6px 10px;
+          font-size: 0.76rem;
+          border-radius: 6px;
+          border: 1px solid #30363d;
+          background: #0d1117;
+          color: #c9d1d9;
+        }
+        .coderpad-llm-api-key-input::placeholder {
+          color: #6e7681;
         }
         .btn-llm-validate {
           display: inline-flex;
