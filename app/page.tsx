@@ -2,13 +2,9 @@
 
 import Features from "@/components/Features";
 import Hero from "@/components/Hero";
-import { Inter } from "next/font/google";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/utils/AuthContext";
-
-
-const inter = Inter({ subsets: ["latin"] });
 
 export default function Home() {
   const router = useRouter();
