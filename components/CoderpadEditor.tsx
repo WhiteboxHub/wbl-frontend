@@ -105,7 +105,13 @@ async function apiFetch(path: string, options: RequestInit = {}): Promise<any> {
   if (!res.ok) {
     let errBody: any;
     try { errBody = await res.json(); } catch { errBody = { detail: `HTTP ${res.status}` }; }
-    throw Object.assign(new Error(errBody?.detail || `HTTP ${res.status}`), { status: res.status, body: errBody });
+    const detail =
+      (typeof errBody?.detail === "string" && errBody.detail) ||
+      (typeof errBody?.error === "string" && errBody.error) ||
+      (typeof errBody?.message === "string" && errBody.message) ||
+      (typeof errBody === "string" ? errBody : "") ||
+      `HTTP ${res.status}`;
+    throw Object.assign(new Error(detail), { status: res.status, body: errBody });
   }
   if (res.status === 204) return {};
   return res.json();
@@ -1362,7 +1368,14 @@ export const CoderpadEditor: React.FC = () => {
       }
       toast.success("AI Generation Complete! Review and click Save Assignment.");
     } catch (err: any) {
-      toast.error(err.message || "Failed to generate assignment");
+      const msg = String(err?.message || "");
+      const looksLikeApiKeyIssue =
+        /openai api key|api key|invalid api key|incorrect api key|authentication/i.test(msg);
+      toast.error(
+        looksLikeApiKeyIssue
+          ? `OpenAI API key issue: ${msg || "Missing or invalid API key"}`
+          : (msg || "Failed to generate assignment")
+      );
     } finally {
       setLlmGenerating(false);
     }
