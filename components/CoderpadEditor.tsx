@@ -18,7 +18,14 @@ import { createPortal } from "react-dom";
 
 // Dynamically import components to avoid SSR issues
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
-const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
+const ReactQuill = dynamic(
+  async () => {
+    const mod = await import("react-quill");
+    return mod.default;
+  },
+  { ssr: false }
+) as any;
+
 import "react-quill/dist/quill.snow.css";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
