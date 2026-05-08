@@ -827,6 +827,7 @@ export const CoderpadEditor: React.FC = () => {
     typeof window !== "undefined" ? getUserTeamRole() : null
   );
   const [llmTopic, setLlmTopic] = useState("");
+  const [llmApiKey, setLlmApiKey] = useState("");
   const [llmGenerating, setLlmGenerating] = useState(false);
   const [llmValidating, setLlmValidating] = useState(false);
   const [showLlmResultModal, setShowLlmResultModal] = useState(false);
@@ -1351,12 +1352,16 @@ export const CoderpadEditor: React.FC = () => {
 
   const generateFromLlm = async () => {
     if (!llmTopic.trim()) { toast.error("Please enter a topic first"); return; }
+    if (!llmApiKey.trim()) { toast.error("Please paste an OpenAI API key to generate questions."); return; }
     setLlmGenerating(true);
     try {
       const body = { topic: llmTopic, language };
       const data = await apiFetch("/coderpad/llm-generate", {
         method: "POST",
         body: JSON.stringify(body),
+        headers: {
+          "X-OpenAI-Api-Key": llmApiKey.trim(),
+        },
       });
       // Set the generated fields
       setDraftProblemStatement(data.problem_statement || "");
@@ -2108,6 +2113,19 @@ export const CoderpadEditor: React.FC = () => {
               <div className="assignment-modal-subtitle" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                 <Sparkles size={14} className="text-yellow-500" />
                 Generate Assignment with AI
+              </div>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <input
+                  type="password"
+                  className="modal-input"
+                  style={{ flex: 1, margin: 0 }}
+                  placeholder="Paste OpenAI API key (used only for this generate request)"
+                  value={llmApiKey}
+                  onChange={e => setLlmApiKey(e.target.value)}
+                />
+              </div>
+              <div style={{ fontSize: "12px", opacity: 0.8 }}>
+                API key is sent only with this request and is not saved.
               </div>
               <div style={{ display: "flex", gap: "8px" }}>
                 <input

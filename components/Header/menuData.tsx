@@ -34,7 +34,7 @@ const menuData: Menu[] = [
         id: 43,
         title: "CoderPad",
         path: "/coderpad",
-        newTab: false,
+        newTab: true,
       },
       // {
       //   id: 44,
