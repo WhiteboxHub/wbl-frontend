@@ -136,7 +136,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     }
   }, [isAuthenticated]);
 
-  if (!isAuthenticated || userRole === "candidate") return null;
+  // Sidebar disabled completely
+  return null;
 
   const getCandidateName = (interview) => interview.candidate?.full_name || "Unknown Candidate";
 

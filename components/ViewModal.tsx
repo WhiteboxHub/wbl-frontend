@@ -50,6 +50,8 @@ const fieldSections: Record<string, string> = {
   status: "Basic Information",
   batchid: "Contact Information",
   amount_collected: "Contact Information",
+  feedback_text: "Notes",
+  q_a: "Notes",
   batch: "Basic Information",
   start_date: "Basic Information",
   batchname: "Basic Information",
@@ -220,7 +222,6 @@ const fieldSections: Record<string, string> = {
   raw_description: "Notes",
   raw_payload: "Notes",
   raw_notes: "Notes",
-  q_a: "Notes",
   // Outreach Email Recipient fields
   email_invalid: "Professional Information",
   domain_invalid: "Professional Information",

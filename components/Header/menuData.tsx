@@ -31,13 +31,13 @@ const menuData: Menu[] = [
         newTab: false,
       },
       {
-        id: 44,
+        id: 43,
         title: "CoderPad",
         path: "/coderpad",
-        newTab: true,
+        newTab: false,
       },
       // {
-      //   id: 43,
+      //   id: 44,
       //   title: "Resume ",
       //   path: "/resume",
       //   newTab: false,

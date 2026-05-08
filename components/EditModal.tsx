@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { X } from "lucide-react";
+import { TimePicker } from "./admin_ui/TimePicker";
 import axios from "axios";
 import dynamic from "next/dynamic";
 const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
@@ -607,6 +608,9 @@ interface EditModalProps {
 // Fields to exclude from the form
 const excludedFields = [
   "candidate",
+  "candidate_full_name",
+  "candidate_name",
+  "candidateid",
   "instructor1",
   "instructor2",
   "instructor3",
@@ -1900,6 +1904,13 @@ export function EditModal({
   }, [employees, isOpen, isJobTypeModal, isEmployeeTaskModal, data, setValue, getValues]);
 
 
+  // Auto-initialize interview_time for new interviews
+  useEffect(() => {
+    if (isOpen && isAddMode && isInterviewModal && !getValues("interview_time")) {
+      setValue("interview_time", "00:00:00");
+    }
+  }, [isOpen, isAddMode, isInterviewModal, setValue, getValues]);
+
   // Handle form submission
   const onSubmit = (formData: any) => {
     if (isJobTypeModal) {
@@ -3032,6 +3043,17 @@ export function EditModal({
 
                             if (isInterviewModal && key === "position_id") {
                               return null; // Handled below with company
+                            }
+
+                            if (key.toLowerCase() === "interview_time") {
+                              return (
+                                <TimePicker
+                                  key={key}
+                                  label={toLabel(key)}
+                                  value={formValues[key] || formData[key] || "00:00:00"}
+                                  onChange={(val) => setValue(key, val)}
+                                />
+                              );
                             }
 
 
@@ -4270,7 +4292,7 @@ export function EditModal({
                         {sectionedFields["Notes"].map(({ key, value }) => (
                           <div key={key} className="space-y-1">
                             <div className="flex items-center justify-between">
-                              <label className={['description', 'raw_payload', 'payload', 'raw_description', 'raw_notes', 'notes', 'note', 'q_a'].includes(key) ? 'block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm' : 'text-sm font-medium text-gray-600 dark:text-gray-400'}>
+                              <label className={['description', 'raw_payload', 'payload', 'raw_description', 'raw_notes', 'notes', 'note', 'q_a', 'feedback_text'].includes(key) ? 'block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm' : 'text-sm font-medium text-gray-600 dark:text-gray-400'}>
                                 {toLabel(key)}
                                 {isFieldRequired(
                                   toLabel(key),

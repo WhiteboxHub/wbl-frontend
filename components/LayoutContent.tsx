@@ -71,7 +71,7 @@ export default function LayoutContent({ children }: { children: React.ReactNode 
       <AuthProvider>
         <Providers>
           {!isViewSection && <Header toggleSidebar={undefined} isOpen={undefined} />}
-          <Sidebar isOpen={undefined} toggleSidebar={undefined} />
+          {/* <Sidebar isOpen={undefined} toggleSidebar={undefined} /> */}
           <main className="w-full overflow-x-hidden">{children}</main>
           {!isViewSection && <Footer />}
           {!isViewSection && <ScrollToTop />}
