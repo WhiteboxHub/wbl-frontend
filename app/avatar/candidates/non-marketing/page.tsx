@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import "@/styles/admin.css";
-import "@/styles/app.css";
+import "@/styles/App.css";
 import { AGGridTable } from "@/components/AGGridTable"; // Import our custom AG-Grid wrapper
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
