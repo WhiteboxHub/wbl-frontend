@@ -841,6 +841,8 @@ export const CoderpadEditor: React.FC = () => {
   /** Assignment modal: collapse long test-case grid */
   const [assignmentModalTestsCollapsed, setAssignmentModalTestsCollapsed] = useState(true);
   const [draftSelectedCandidateIds, setDraftSelectedCandidateIds] = useState<number[]>([]);
+  const [refineLlmTopic, setRefineLlmTopic] = useState("");
+  const [refiningStatementWithLlm, setRefiningStatementWithLlm] = useState(false);
 
   // ── Security: off while staff has "Add/Update problem statement" open (no copy/paste/exam signals)
   const [showSecurityPanel, setShowSecurityPanel] = useState(false);
@@ -1358,6 +1360,33 @@ export const CoderpadEditor: React.FC = () => {
       toast.error(err.message || "Failed to generate assignment");
     } finally {
       setLlmGenerating(false);
+    }
+  };
+
+  const refineStatementWithLlm = async () => {
+    if (!refineLlmTopic.trim()) { toast.error("Please enter a topic or instruction"); return; }
+    if (assignmentId == null) { toast.error("Please save the assignment first before refining"); return; }
+    setRefiningStatementWithLlm(true);
+    try {
+      const body = { topic: refineLlmTopic, language };
+      const data = await apiFetch(`/coderpad/questions/${assignmentId}/update-statement-with-llm`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      // Update the draft with generated content
+      setDraftProblemStatement(data.problem_statement || "");
+      setCode(data.starter_code || "");
+      setIsDirty(true);
+      if (data.language) setLanguage(data.language);
+      if (data.test_cases && Array.isArray(data.test_cases)) {
+        setDraftTestCases(data.test_cases);
+      }
+      setRefineLlmTopic("");
+      toast.success("Problem statement refined! Review changes and save.");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to refine problem statement");
+    } finally {
+      setRefiningStatementWithLlm(false);
     }
   };
 
@@ -2146,7 +2175,35 @@ export const CoderpadEditor: React.FC = () => {
                     {assignmentId != null ? "Remove problem" : "Clear draft"}
                   </button>
                 </div>
-                <ReactQuill
+                {assignmentId != null && (
+                  <div className="assignment-refine-llm-section" style={{ marginBottom: "1rem", display: "flex", gap: "8px", flexDirection: "column", backgroundColor: "#0d1117", padding: "10px", borderRadius: "6px" }}>
+                    <div className="assignment-modal-subtitle" style={{ display: "flex", alignItems: "center", gap: "6px", margin: 0 }}>
+                      <Sparkles size={14} className="text-yellow-500" />
+                      Refine Problem Statement with AI
+                    </div>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <input
+                        type="text"
+                        className="modal-input"
+                        style={{ flex: 1, margin: 0 }}
+                        placeholder="e.g. Make it harder, add edge cases, change to recursion..."
+                        value={refineLlmTopic}
+                        onChange={e => setRefineLlmTopic(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); refineStatementWithLlm(); } }}
+                        disabled={refiningStatementWithLlm}
+                      />
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        onClick={refineStatementWithLlm}
+                        disabled={refiningStatementWithLlm}
+                        style={{ whiteSpace: "nowrap" }}
+                      >
+                        {refiningStatementWithLlm ? <><Loader2 size={14} className="spin" /> Refining...</> : "Refine"}
+                      </button>
+                    </div>
+                  </div>
+                )}
                   theme="snow"
                   className="assignment-problem-quill"
                   value={draftProblemStatement}
