@@ -50,6 +50,8 @@ const fieldSections: Record<string, string> = {
   status: "Basic Information",
   batchid: "Contact Information",
   amount_collected: "Contact Information",
+  feedback_text: "Notes",
+  q_a: "Notes",
   batch: "Basic Information",
   start_date: "Basic Information",
   batchname: "Basic Information",
@@ -220,7 +222,6 @@ const fieldSections: Record<string, string> = {
   raw_description: "Notes",
   raw_payload: "Notes",
   raw_notes: "Notes",
-  q_a: "Notes",
   // Outreach Email Recipient fields
   email_invalid: "Professional Information",
   domain_invalid: "Professional Information",
@@ -665,24 +666,53 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     if (lowerKey === "resume_json") {
       const isVisible = jsonVisible[key];
       const displayValue = typeof value === 'object' ? JSON.stringify(value, null, 2) : value;
+      const [copied, setCopied] = useState(false);
+
+      const handleCopy = () => {
+        navigator.clipboard.writeText(displayValue);
+        setCopied(true);
+        toast.success("Resume JSON copied to clipboard");
+        setTimeout(() => setCopied(false), 2000);
+      };
       
       return (
         <div className="space-y-2">
-          <button 
-            type="button"
-            onClick={() => toggleJson(key)}
-            className="flex items-center gap-2 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition"
-          >
-            {isVisible ? (
-              <>
-                <X size={14} /> Hide JSON
-              </>
-            ) : (
-              <>
-                <EyeIcon size={14} /> Show JSON
-              </>
+          <div className="flex items-center gap-2">
+            <button 
+              type="button"
+              onClick={() => toggleJson(key)}
+              className="flex items-center gap-2 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition"
+            >
+              {isVisible ? (
+                <>
+                  <X size={14} /> Hide JSON
+                </>
+              ) : (
+                <>
+                  <EyeIcon size={14} /> Show JSON
+                </>
+              )}
+            </button>
+            {isVisible && (
+              <button 
+                type="button"
+                onClick={handleCopy}
+                className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-500 hover:text-blue-600 hover:bg-gray-50 rounded transition border border-transparent hover:border-gray-100"
+              >
+                {copied ? (
+                  <>
+                    <Check size={12} className="text-green-500" />
+                    <span className="text-green-600">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={12} />
+                    Copy JSON
+                  </>
+                )}
+              </button>
             )}
-          </button>
+          </div>
           {isVisible && (
             <pre className="whitespace-pre-wrap min-h-[40px] max-h-[300px] overflow-y-auto bg-gray-50 dark:bg-gray-800 p-2 rounded text-xs font-mono border border-blue-100">
               {displayValue}
@@ -774,7 +804,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     if (["feepaid", "feedue", "salary0", "salary6", "salary12"].includes(lowerKey)) return <p>${Number(value).toLocaleString()}</p>;
     if (lowerKey.includes("rating")) return <p>{value} </p>;
 
-    if (["notes", "task", "description", "job_description", "q_a"].includes(lowerKey)) {
+    if (["notes", "task", "description", "job_description", "q_a", "feedback_text", "email_text"].includes(lowerKey)) {
       return <ExpandableTextViewer content={value} />;
     }
 
@@ -1061,10 +1091,10 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center p-2 sm:p-4 z-50">
           <div
             ref={modalRef}
-            className={`bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full ${getModalWidth()} max-h-[90vh] overflow-y-auto`}
+            className={`bg-white dark:bg-dark rounded-xl sm:rounded-2xl shadow-2xl w-full ${getModalWidth()} max-h-[90vh] overflow-y-auto`}
           >
             {/* Header */}
-            <div className="sticky top-0 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 sm:px-4 md:px-6 py-1 sm:py-1.5 border-b border-blue-200 flex justify-between items-center">
+            <div className="sticky top-0 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 dark:from-darklight dark:via-dark dark:to-darklight px-3 sm:px-4 md:px-6 py-1 sm:py-1.5 border-b border-blue-200 dark:border-blue-900 flex justify-between items-center">
               <h2 className="text-sm sm:text-base md:text-lg font-semibold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
                 {title} - View Details
               </h2>
@@ -1077,22 +1107,22 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
             </div>
 
             {/* Content */}
-            <div className="p-3 sm:p-4 md:p-5 bg-white">
+            <div className="p-3 sm:p-4 md:p-5 bg-white dark:bg-dark">
               <form>
                 {/* Content Grid */}
                 <div className={`grid grid-cols-1 ${columnCount >= 2 ? 'md:grid-cols-2' : ''} ${columnCount >= 3 ? 'lg:grid-cols-3' : ''} ${columnCount >= 4 ? 'xl:grid-cols-4' : ''} gap-3 sm:gap-4`}>
                   {visibleSections.map(section => (
                     <div key={section} className="space-y-2 sm:space-y-3">
-                      <h3 className="text-sm sm:text-base font-bold text-blue-700 border-b border-blue-200 pb-1 sm:pb-2">
+                      <h3 className="text-sm sm:text-base font-bold text-blue-700 dark:text-blue-400 border-b border-blue-200 dark:border-blue-900 pb-1 sm:pb-2">
                         {section}
                       </h3>
                       <div className="space-y-1.5 sm:space-y-2">
                         {sectionedFields[section].map(({ key, value }) => (
                           <div key={key} className="space-y-1">
-                            <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                            <label className="block text-xs sm:text-sm font-bold text-blue-700 dark:text-blue-400">
                               {toLabel(key)}
                             </label>
-                            <div className="w-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm border border-blue-200 rounded-lg bg-white min-h-[2rem]">
+                            <div className="w-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm border border-blue-200 rounded-lg bg-white dark:bg-darklight dark:text-gray-200 min-h-[2rem]">
                               {renderValue(key, value) || <span className="text-gray-400">-</span>}
                             </div>
                           </div>
@@ -1104,17 +1134,17 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
 
                 {/* Notes Section */}
                 {sectionedFields["Notes"]?.length > 0 && (
-                  <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-blue-200">
-                    {/* <h3 className="text-sm sm:text-base font-bold text-blue-700 border-b border-blue-200 pb-1 sm:pb-2 mb-4">
+                  <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-blue-200 dark:border-blue-900">
+                    {/* <h3 className="text-sm sm:text-base font-bold text-blue-700 dark:text-blue-400 border-b border-blue-200 dark:border-blue-900 pb-1 sm:pb-2 mb-4">
                       Notes
                     </h3> */}
                     <div className="space-y-2 sm:space-y-3">
                       {sectionedFields["Notes"].map(({ key, value }) => (
                         <div key={key} className="space-y-1">
-                          <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                          <label className="block text-xs sm:text-sm font-bold text-blue-700 dark:text-blue-400">
                             {toLabel(key)}
                           </label>
-                          <div className="w-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm border border-blue-200 rounded-lg bg-white min-h-[60px]">
+                          <div className="w-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm border border-blue-200 rounded-lg bg-white dark:bg-darklight dark:text-gray-200 min-h-[60px]">
                             {renderValue(key, value) || <span className="text-gray-400">-</span>}
                           </div>
                         </div>
@@ -1124,7 +1154,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
                 )}
                 {/* Navigation */}
                 {hasNavigation && (
-                  <div className="flex justify-between items-center mt-3 p-2 bg-blue-50 rounded-md">
+                  <div className="flex justify-between items-center mt-3 p-2 bg-blue-50 dark:bg-darklight rounded-md">
                     <button
                       type="button"
                       onClick={handlePrevious}
@@ -1146,7 +1176,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
                       Previous
                     </button>
 
-                    <span className="text-xs sm:text-sm font-bold text-indigo-700 bg-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg shadow-sm">
+                    <span className="text-xs sm:text-sm font-bold text-indigo-700 bg-white dark:bg-darklight dark:text-gray-200 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg shadow-sm">
                       {validIndex + 1} of {dataArray.length}
                     </span>
 

@@ -301,6 +301,7 @@ export default function AutomationContactExtractsPage() {
             {
                 field: "full_name",
                 headerName: "Full Name",
+                pinned: "left",
                 width: 180,
                 editable: false,
             },

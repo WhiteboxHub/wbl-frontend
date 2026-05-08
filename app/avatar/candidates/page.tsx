@@ -615,6 +615,7 @@ export default function CandidatesPage() {
       {
         field: "full_name",
         headerName: "Full Name",
+        pinned: "left",
         width: 180,
         sortable: true,
         filter: "agTextColumnFilter",

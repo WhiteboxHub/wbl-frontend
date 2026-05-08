@@ -30,8 +30,14 @@ const menuData: Menu[] = [
         path: "/presentation",
         newTab: false,
       },
+      {
+        id: 43,
+        title: "CoderPad",
+        path: "/coderpad",
+        newTab: false,
+      },
       // {
-      //   id: 43,
+      //   id: 44,
       //   title: "Resume ",
       //   path: "/resume",
       //   newTab: false,
@@ -49,12 +55,6 @@ const menuData: Menu[] = [
     title: "Contact",
     path: "/contact",
     newTab: false,
-  },
-  {
-    id: 7,
-    title: "CoderPad",
-    path: "/coderpad",
-    newTab: true,
   },
 ];
 export default menuData;
