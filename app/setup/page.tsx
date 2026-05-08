@@ -46,6 +46,7 @@ export default function CandidateSetupWizard() {
   // Resume State
   const [resumeJson, setResumeJson] = useState<string>("");
   const [resumeError, setResumeError] = useState<string>("");
+  const [resumeWarning, setResumeWarning] = useState<string>("");
   const [isValidated, setIsValidated] = useState(false);
   const [fileName, setFileName] = useState<string>("");
 
@@ -108,6 +109,7 @@ export default function CandidateSetupWizard() {
 
   const handleValidateResume = () => {
     setResumeError("");
+    setResumeWarning("");
     if (!validateJson(resumeJson)) {
       setResumeError("Invalid JSON format. Please check your input.");
       return;
@@ -124,6 +126,7 @@ export default function CandidateSetupWizard() {
     };
 
     const contactObj = data.contact && typeof data.contact === 'object' ? data.contact : {};
+    const basicsObj = data.basics && typeof data.basics === 'object' ? data.basics : {};
     const missing: string[] = [];
 
     Object.entries(fieldMaps).forEach(([label, possibleKeys]) => {
@@ -144,16 +147,25 @@ export default function CandidateSetupWizard() {
           }
         }
       }
+      // Check in basics object
+      if (!found) {
+        for (const k of possibleKeys) {
+          if (basicsObj[k] && String(basicsObj[k]).trim()) {
+            found = true;
+            break;
+          }
+        }
+      }
 
       if (!found) missing.push(label);
     });
     
     if (missing.length > 0) {
-      setResumeError(`Missing mandatory fields: ${missing.join(", ")}`);
-      setIsValidated(false);
-      toast.error("Validation failed. Check requirements.");
+      setResumeWarning(`Missing recommended fields: ${missing.join(", ")}. You can still proceed.`);
+      setIsValidated(true);
+      toast.success("Validation passed with warnings.");
     } else {
-      setResumeError("");
+      setResumeWarning("");
       setIsValidated(true);
       toast.success("Resume structure is valid!");
     }
@@ -196,6 +208,7 @@ export default function CandidateSetupWizard() {
         setResumeJson(JSON.stringify(JSON.parse(content), null, 2));
         setFileName(file.name);
         setResumeError("");
+        setResumeWarning("");
         setCurrentStep(2);
       } else {
         toast.error("File content is not valid JSON.");
@@ -427,7 +440,14 @@ export default function CandidateSetupWizard() {
                   </div>
                 )}
 
-                {isValidated && !resumeError && (
+                {resumeWarning && (
+                  <div className="mb-4 text-xs text-yellow-600 bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-900/50 p-3 rounded-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-1">
+                    <AlertCircle size={14} className="shrink-0" />
+                    <span>{resumeWarning}</span>
+                  </div>
+                )}
+
+                {isValidated && !resumeError && !resumeWarning && (
                   <div className="mb-4 text-xs text-green-600 bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/50 p-3 rounded-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-1">
                     <CheckCircle size={14} className="shrink-0" />
                     <span>Resume successfully validated! You can now save and continue.</span>
@@ -451,6 +471,7 @@ export default function CandidateSetupWizard() {
                     onChange={(val) => {
                       setResumeJson(val || "");
                       setIsValidated(false);
+                      setResumeWarning("");
                     }}
                   />
                 </div>
