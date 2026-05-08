@@ -989,10 +989,10 @@ export default function CandidateDashboard() {
                 secondaryphone: fullProfile?.personal_info?.secondaryphone
             };
 
-            const isMissingRequiredFields = requiredFields.some(field => !profileData[field as keyof typeof profileData]);
-            
             // Use login_count from profile (UserDashboard) or Candidate profile
             const loginCount = profile?.login_count ?? profile?.logincount ?? 0;
+            
+            const isMissingRequiredFields = (loginCount <= 1) || requiredFields.some(field => !profileData[field as keyof typeof profileData]);
             
             setHasMissingFields(isMissingRequiredFields);
 
@@ -1000,6 +1000,7 @@ export default function CandidateDashboard() {
             setAgreementStatus(status);
             const isApproved = status === 'Y';
             const isSkipped = sessionStorage.getItem('onboarding_skipped') === 'true';
+
             
             // GATING LOGIC:
             // 1. If approved, only show onboarding if fields are missing (Step 1).

@@ -58,8 +58,6 @@ export default function CandidateOnboarding({
     const [documents, setDocuments] = useState({
         govId: null as File | null,
         workAuth: null as File | null,
-        ssnCopy: null as File | null,
-        passport: null as File | null,
         resume: null as File | null,
     });
 
@@ -198,7 +196,7 @@ export default function CandidateOnboarding({
     };
 
     const handleUploadDocuments = async () => {
-        if (!documents.govId || !documents.workAuth || !documents.ssnCopy || !documents.resume) {
+        if (!documents.govId || !documents.workAuth || !documents.resume) {
             toast.error("Please upload all required documents");
             return;
         }
@@ -211,9 +209,7 @@ export default function CandidateOnboarding({
             // Append all files
             if (documents.govId) formData.append('govId', documents.govId);
             if (documents.workAuth) formData.append('workAuth', documents.workAuth);
-            if (documents.ssnCopy) formData.append('ssnCopy', documents.ssnCopy);
             if (documents.resume) formData.append('resume', documents.resume);
-            if (documents.passport) formData.append('passport', documents.passport);
 
             const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/candidates/${candidateId}/onboarding/upload`, {
                 method: 'POST',
@@ -295,21 +291,6 @@ export default function CandidateOnboarding({
                     <p className="text-gray-600 dark:text-gray-400 mb-8">
                         Thank you for completing your profile and uploading your documents. Your application is currently under review by our recruiting team.
                     </p>
-                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 p-4 rounded-2xl mb-8">
-                        <p className="text-sm text-amber-800 dark:text-amber-400 flex items-center gap-2 justify-center">
-                            <AlertTriangle className="w-4 h-4" /> 
-                            Dashboard access is pending admin approval.
-                        </p>
-                    </div>
-                    <p className="text-sm text-gray-500 mb-6">
-                        You will receive an email once your account has been activated. Usually this takes 1-2 business days.
-                    </p>
-                    <button 
-                        onClick={() => window.location.reload()}
-                        className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors shadow-lg shadow-blue-500/30"
-                    >
-                        Check Status
-                    </button>
                 </div>
             </div>
         );
@@ -382,11 +363,15 @@ export default function CandidateOnboarding({
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg p-4 mb-6 text-sm text-green-800 dark:text-green-200 flex items-start gap-3">
-                                        <CheckCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-green-600" />
+                                    <div className={`${loginCount <= 1 ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200' : 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-800 dark:text-green-200'} rounded-lg p-4 mb-6 text-sm flex items-start gap-3`}>
+                                        {loginCount <= 1 ? (
+                                            <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5 text-blue-600" />
+                                        ) : (
+                                            <CheckCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-green-600" />
+                                        )}
                                         <div>
-                                            <p className="font-bold mb-1">Profile Complete</p>
-                                            <p>All required fields are filled. You can now proceed to the next step.</p>
+                                            <p className="font-bold mb-1">{loginCount <= 1 ? "Verification Required" : "Profile Complete"}</p>
+                                            <p>{loginCount <= 1 ? "Please review your details below. You must verify your profile information before proceeding." : "All required fields are filled. You can now proceed to the next step."}</p>
                                         </div>
                                     </div>
                                 )}
@@ -478,8 +463,6 @@ export default function CandidateOnboarding({
                                 {[
                                     { id: "govId" as const, label: "Government-issued ID", desc: "e.g., Driver's License", req: true },
                                     { id: "workAuth" as const, label: "Work Authorization", desc: "EAD, Green Card, or Citizenship proof", req: true },
-                                    { id: "ssnCopy" as const, label: "SSN Copy", desc: "For marketing purposes", req: true },
-                                    { id: "passport" as const, label: "Passport", desc: "First and last page", req: false },
                                     { id: "resume" as const, label: "Updated Resume", desc: "PDF or Word format", req: true },
                                 ].map((doc) => (
                                     <div key={doc.id} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-800 rounded-xl bg-gray-50/50 dark:bg-gray-800/30">
@@ -521,7 +504,7 @@ export default function CandidateOnboarding({
                                 <div className="flex items-center gap-3">
                                     {loginCount < 10 && onSkip && (
                                         <button
-                                            onClick={onSkip}
+                                            onClick={() => setStep(3)}
                                             className="px-4 py-2.5 text-blue-600 font-bold hover:bg-blue-50 rounded-xl transition-all flex flex-col items-end"
                                         >
                                             <span className="text-sm">Skip for now</span>
