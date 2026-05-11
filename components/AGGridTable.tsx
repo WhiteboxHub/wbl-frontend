@@ -86,6 +86,7 @@ interface AGGridTableProps {
   extraToolbarContent?: React.ReactNode;
   showViewButton?: boolean;
   showEditButton?: boolean;
+  showExportButton?: boolean;
 }
 
 interface RowData {
@@ -131,6 +132,7 @@ export function AGGridTable({
   extraToolbarContent,
   showViewButton = true,
   showEditButton = true,
+  showExportButton = true,
 }: AGGridTableProps) {
   // Refs and State
   const gridRef = useRef<AgGridReact>(null);
@@ -519,15 +521,17 @@ export function AGGridTable({
                 <TrashIcon className="h-4 w-4" />
               </Button>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDownload}
-              className="h-8 w-8 p-0 text-green-600 hover:text-green-700 dark:text-green-400"
-              title="Download CSV"
-            >
-              <DownloadIcon className="h-4 w-4" />
-            </Button>
+            {showExportButton && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownload}
+                className="h-8 w-8 p-0 text-green-600 hover:text-green-700 dark:text-green-400"
+                title="Download CSV"
+              >
+                <DownloadIcon className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
       )}

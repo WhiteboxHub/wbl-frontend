@@ -300,6 +300,7 @@ export default function AuthUsersPage() {
     },
     { field: "googleId", headerName: "Google ID", width: 220, editable: false },
     { field: "team", headerName: "Team", width: 180, editable: true, cellEditor: 'agTextCellEditor' },
+    { field: "logincount", headerName: "Login Count", width: 130, editable: true, type: "numericColumn" },
     { field: "message", headerName: "Message", width: 250, editable: true, cellEditor: 'agTextCellEditor' },
     {
       field: "enddate",
