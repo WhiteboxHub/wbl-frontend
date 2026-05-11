@@ -184,7 +184,7 @@ export default function PotentialLeadsPage() {
     const columnDefs: ColDef<any, any>[] = useMemo(
         () => [
             { field: "id", headerName: "ID", width: 80, pinned: "left", sortable: true },
-            { field: "full_name", headerName: "Full Name", width: 180, sortable: true, editable: true },
+            { field: "full_name", headerName: "Full Name",pinned: "left", width: 180, sortable: true, editable: true },
             {
                 field: "email",
                 headerName: "Email",
