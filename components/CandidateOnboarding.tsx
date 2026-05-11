@@ -36,7 +36,6 @@ export default function CandidateOnboarding({
         phone: "",
         address: "",
         zip_code: "",
-        ssn: "",
         workstatus: "",
         linkedin_id: "",
         education: "",
@@ -49,7 +48,7 @@ export default function CandidateOnboarding({
         emergcontactemail: "",
         emergcontactphone: "",
         emergcontactaddrs: "",
-        batchid: "",
+    
     });
 
     const [showEditModal, setShowEditModal] = useState(false);
@@ -83,7 +82,6 @@ export default function CandidateOnboarding({
                     phone: data.personal_info?.phone || "",
                     address: data.personal_info?.address || "",
                     zip_code: data.personal_info?.zip_code || "",
-                    ssn: data.personal_info?.ssn || "",
                     workstatus: data.personal_info?.workstatus || "",
                     linkedin_id: data.personal_info?.linkedin_id || "",
                     education: data.personal_info?.education || "",
@@ -96,7 +94,6 @@ export default function CandidateOnboarding({
                     emergcontactemail: data.emergency_contact?.email || "",
                     emergcontactphone: data.emergency_contact?.phone || "",
                     emergcontactaddrs: data.emergency_contact?.address || "",
-                    batchid: data.enrollment?.batch_id || "",
                 });
             }
         } catch (err) {
@@ -113,27 +110,19 @@ export default function CandidateOnboarding({
     const getFilteredProfile = () => {
         const allowedFields = [
             'full_name', 'email', 'phone', 'workstatus', 'education', 'workexperience',
-            'ssn', 'agreement', 'secondaryemail', 'secondaryphone', 'address', 'zip_code',
+            'agreement', 'secondaryemail', 'secondaryphone', 'address', 'zip_code',
             'linkedin_id', 'dob', 'emergcontactname', 'emergcontactemail', 'emergcontactphone',
-            'emergcontactaddrs', 'fee_paid', 'notes', 'batchid', 'candidate_folder', 'github_link'
+            'emergcontactaddrs', 'fee_paid', 'notes', 'candidate_folder', 'github_link'
         ];
 
         const filtered: any = {};
         allowedFields.forEach(field => {
             let value = profile[field as keyof typeof profile];
             if (value === "") value = null;
-            
             // Fix: Strip time from date strings
             if (value && (field === 'dob' || field === 'enrolled_date') && typeof value === 'string' && value.includes('T')) {
                 value = value.split('T')[0];
             }
-
-            // Fix: Ensure batchid is a number if present
-            if (field === 'batchid' && value !== null && value !== undefined) {
-                value = parseInt(value.toString());
-                if (isNaN(value)) value = null;
-            }
-
             if (value !== undefined) {
                 filtered[field] = value;
             }
@@ -147,7 +136,8 @@ export default function CandidateOnboarding({
         const requiredFields = [
             'full_name', 'email', 'phone', 'workstatus', 
             'dob', 'github_link', 'workexperience', 'address', 
-            'linkedin_id', 'secondaryemail', 'secondaryphone'
+            'linkedin_id', 'secondaryemail', 'secondaryphone',
+            'emergcontactname', 'emergcontactemail', 'emergcontactphone', 'emergcontactaddrs'
         ];
         
         const missingFields = requiredFields.filter(field => !profile[field]);
@@ -225,7 +215,7 @@ export default function CandidateOnboarding({
             }
 
             toast.success("Documents uploaded and sent for review!");
-            setStep(3);
+            setIsPendingApproval(true);
         } catch (err: any) {
             console.error(err);
             toast.error(err.message || "Failed to upload documents");
@@ -270,8 +260,8 @@ export default function CandidateOnboarding({
                 return;
             }
             
-            toast.success("Application submitted for admin review!");
-            setIsPendingApproval(true);
+            toast.success("Terms agreed and signed!");
+            setStep(3);
         } catch (err) {
             console.error(err);
             toast.error("Failed to submit application");
@@ -311,9 +301,9 @@ export default function CandidateOnboarding({
                         <div className="absolute left-0 top-1/2 h-1 bg-blue-600 -z-10 -translate-y-1/2 transition-all duration-500" style={{ width: `${(step - 1) * 50}%` }}></div>
                         
                         {[
-                            { step: 1, label: "Verify Details" },
-                            { step: 2, label: "Upload Documents" },
-                            { step: 3, label: "Agreement" }
+                            { step: 1, label: "Complete Profile" },
+                            { step: 2, label: "Agreement" },
+                            { step: 3, label: "Upload Documents" }
                         ].map((s) => (
                             <div key={s.step} className="flex flex-col items-center">
                                 <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-colors shadow-sm ${step > s.step ? 'bg-blue-600 text-white' : step === s.step ? 'bg-blue-600 text-white ring-4 ring-blue-100 dark:ring-blue-900/30' : 'bg-white text-gray-400 dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700'}`}>
@@ -339,13 +329,17 @@ export default function CandidateOnboarding({
                             { key: 'address', label: 'Address *' },
                             { key: 'linkedin_id', label: 'LinkedIn ID *' },
                             { key: 'secondaryemail', label: 'Secondary Email *' },
-                            { key: 'secondaryphone', label: 'Secondary Phone *' }
+                            { key: 'secondaryphone', label: 'Secondary Phone *' },
+                            { key: 'emergcontactname', label: 'Emergency Contact Name *' },
+                            { key: 'emergcontactemail', label: 'Emergency Contact Email *' },
+                            { key: 'emergcontactphone', label: 'Emergency Contact Phone *' },
+                            { key: 'emergcontactaddrs', label: 'Emergency Contact Address *' }
                         ];
                         const missing = requiredFields.filter(f => !profile[f.key]);
                         
                         return (
                             <div className="p-8 animate-in fade-in slide-in-from-bottom-4">
-                                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Verify Your Details</h2>
+                                <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Action Required: Complete Your Profile</h2>
                                 
                                 {missing.length > 0 ? (
                                     <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6 text-sm text-red-800 dark:text-red-200 flex items-start gap-3">
@@ -370,8 +364,8 @@ export default function CandidateOnboarding({
                                             <CheckCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-green-600" />
                                         )}
                                         <div>
-                                            <p className="font-bold mb-1">{loginCount <= 1 ? "Verification Required" : "Profile Complete"}</p>
-                                            <p>{loginCount <= 1 ? "Please review your details below. You must verify your profile information before proceeding." : "All required fields are filled. You can now proceed to the next step."}</p>
+                                            <p className="font-bold mb-1">{loginCount <= 1 ? "Action Required" : "Profile Complete"}</p>
+                                            <p>{loginCount <= 1 ? "Please fill all required details to proceed." : "All required fields are filled. You can now proceed to the next step."}</p>
                                         </div>
                                     </div>
                                 )}
@@ -409,10 +403,6 @@ export default function CandidateOnboarding({
                                                 <div>
                                                     <p className="text-gray-500">LinkedIn ID <span className="text-red-500 font-bold">*</span></p>
                                                     <p className="font-semibold text-blue-600 truncate">{profile.linkedin_id || "Not provided"}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-gray-500">SSN <span className="text-red-500 font-bold">*</span></p>
-                                                    <p className="font-semibold">{profile.ssn ? "***-**-" + profile.ssn.slice(-4) : "Not provided"}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -455,75 +445,6 @@ export default function CandidateOnboarding({
                     })()}
 
                     {step === 2 && (
-                        <div className="p-8 animate-in fade-in slide-in-from-right-8">
-                            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Enrollment Documentation Requirements</h2>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Please upload the following required documents. Max file size: 5MB.</p>
-                            
-                            <div className="space-y-4">
-                                {[
-                                    { id: "govId" as const, label: "Government-issued ID", desc: "e.g., Driver's License", req: true },
-                                    { id: "workAuth" as const, label: "Work Authorization", desc: "EAD, Green Card, or Citizenship proof", req: true },
-                                    { id: "resume" as const, label: "Updated Resume", desc: "PDF or Word format", req: true },
-                                ].map((doc) => (
-                                    <div key={doc.id} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-800 rounded-xl bg-gray-50/50 dark:bg-gray-800/30">
-                                        <div>
-                                            <p className="font-bold text-gray-900 dark:text-white text-sm">
-                                                {doc.label} {doc.req && <span className="text-red-500">*</span>}
-                                            </p>
-                                            <p className="text-xs text-gray-500">{doc.desc}</p>
-                                        </div>
-                                        <div>
-                                            <input 
-                                                type="file" 
-                                                id={`file-${doc.id}`} 
-                                                className="hidden" 
-                                                onChange={(e) => handleFileChange(e, doc.id)}
-                                            />
-                                            <label 
-                                                htmlFor={`file-${doc.id}`} 
-                                                className={`cursor-pointer px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${documents[doc.id] ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:border-gray-700 dark:hover:bg-gray-800'}`}
-                                            >
-                                                {documents[doc.id] ? (
-                                                    <><CheckCircle className="w-4 h-4" /> Uploaded</>
-                                                ) : (
-                                                    <><Upload className="w-4 h-4" /> Upload</>
-                                                )}
-                                            </label>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className="mt-8 flex justify-between">
-                                <button
-                                    onClick={() => setStep(1)}
-                                    className="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 font-bold rounded-xl transition-colors"
-                                >
-                                    Back
-                                </button>
-                                <div className="flex items-center gap-3">
-                                    {loginCount < 10 && onSkip && (
-                                        <button
-                                            onClick={() => setStep(3)}
-                                            className="px-4 py-2.5 text-blue-600 font-bold hover:bg-blue-50 rounded-xl transition-all flex flex-col items-end"
-                                        >
-                                            <span className="text-sm">Skip for now</span>
-                                            <span className="text-[10px] font-medium text-gray-400">({10 - loginCount} skips remaining)</span>
-                                        </button>
-                                    )}
-                                    <button
-                                        onClick={handleUploadDocuments}
-                                        disabled={loading}
-                                        className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50"
-                                    >
-                                        {loading ? "Uploading..." : "Continue"} <ChevronRight className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {step === 3 && (
                         <div className="p-8 animate-in fade-in slide-in-from-right-8">
                             <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Placement Terms & Conditions</h2>
                             
@@ -595,6 +516,75 @@ export default function CandidateOnboarding({
 
                             <div className="mt-8 flex justify-between">
                                 <button
+                                    onClick={() => setStep(1)}
+                                    className="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 font-bold rounded-xl transition-colors"
+                                >
+                                    Back
+                                </button>
+                                <div className="flex items-center gap-3">
+                                    {loginCount < 10 && onSkip && (
+                                        <button
+                                            onClick={() => setStep(3)}
+                                            className="px-4 py-2.5 text-blue-600 font-bold hover:bg-blue-50 rounded-xl transition-all flex flex-col items-end"
+                                        >
+                                            <span className="text-sm">Skip for now</span>
+                                            <span className="text-[10px] font-medium text-gray-400">({10 - loginCount} skips remaining)</span>
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={handleFinishOnboarding}
+                                        disabled={loading || !agreed || !signature.trim()}
+                                        className="px-8 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50"
+                                    >
+                                        {loading ? "Saving..." : "Continue"} <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {step === 3 && (
+                        <div className="p-8 animate-in fade-in slide-in-from-right-8">
+                            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Enrollment Documentation Requirements</h2>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Please upload the following required documents. Max file size: 5MB.</p>
+                            
+                            <div className="space-y-4">
+                                {[
+                                    { id: "govId" as const, label: "Government-issued ID", desc: "e.g., Driver's License", req: true },
+                                    { id: "workAuth" as const, label: "Work Authorization", desc: "EAD, Green Card, or Citizenship proof", req: true },
+                                    { id: "resume" as const, label: "Updated Resume", desc: "PDF or Word format", req: true },
+                                ].map((doc) => (
+                                    <div key={doc.id} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-800 rounded-xl bg-gray-50/50 dark:bg-gray-800/30">
+                                        <div>
+                                            <p className="font-bold text-gray-900 dark:text-white text-sm">
+                                                {doc.label} {doc.req && <span className="text-red-500">*</span>}
+                                            </p>
+                                            <p className="text-xs text-gray-500">{doc.desc}</p>
+                                        </div>
+                                        <div>
+                                            <input 
+                                                type="file" 
+                                                id={`file-${doc.id}`} 
+                                                className="hidden" 
+                                                onChange={(e) => handleFileChange(e, doc.id)}
+                                            />
+                                            <label 
+                                                htmlFor={`file-${doc.id}`} 
+                                                className={`cursor-pointer px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${documents[doc.id] ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:border-gray-700 dark:hover:bg-gray-800'}`}
+                                            >
+                                                {documents[doc.id] ? (
+                                                    <><CheckCircle className="w-4 h-4" /> Uploaded</>
+                                                ) : (
+                                                    <><Upload className="w-4 h-4" /> Upload</>
+                                                )}
+                                            </label>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="mt-8 flex justify-between">
+                                <button
                                     onClick={() => setStep(2)}
                                     className="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300 font-bold rounded-xl transition-colors"
                                 >
@@ -611,8 +601,8 @@ export default function CandidateOnboarding({
                                         </button>
                                     )}
                                     <button
-                                        onClick={handleFinishOnboarding}
-                                        disabled={loading || !agreed || !signature.trim()}
+                                        onClick={handleUploadDocuments}
+                                        disabled={loading}
                                         className="px-8 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-xl transition-all shadow-md hover:shadow-lg disabled:opacity-50 flex items-center gap-2"
                                     >
                                         {loading ? "Completing..." : "Complete Setup"} <CheckCircle className="w-4 h-4" />

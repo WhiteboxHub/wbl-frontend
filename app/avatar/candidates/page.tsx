@@ -277,7 +277,7 @@ const WorkStatusRenderer = ({ value }: { value?: string }) => {
 const AgreementRenderer = ({ value }: { value?: string }) => {
   if (!value) return null;
   const statusMap: Record<string, { label: string; color: string }> = {
-    Y: { label: "Submitted", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" },
+    Y: { label: "Approved", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" },
     N: { label: "Not Submitted", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300" },
     P: { label: "Pending Review", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300" },
   };
@@ -1738,7 +1738,7 @@ export default function CandidatesPage() {
                       className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
                     >
                       <option value="N">Not Submitted</option>
-                      <option value="Y">Submitted</option>
+                      <option value="Y">Approved</option>
                       <option value="P">Pending Review</option>
                     </select>
                   </div>

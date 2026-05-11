@@ -1068,8 +1068,8 @@ export default function CandidateDashboard() {
             });
 
             const requiredFields = [
-                'full_name', 'email', 'phone', 'workstatus', 
-                'dob', 'github_link', 'workexperience', 'address', 
+                'full_name', 'email', 'phone', 'workstatus',
+                'dob', 'github_link', 'workexperience', 'address',
                 'linkedin_id', 'secondaryemail', 'secondaryphone'
             ];
 
@@ -1089,9 +1089,9 @@ export default function CandidateDashboard() {
 
             // Use login_count from profile (UserDashboard) or Candidate profile
             const loginCount = profile?.login_count ?? profile?.logincount ?? 0;
-            
+
             const isMissingRequiredFields = (loginCount <= 1) || requiredFields.some(field => !profileData[field as keyof typeof profileData]);
-            
+
             setHasMissingFields(isMissingRequiredFields);
 
             const status = fullProfile?.enrollment?.agreement || 'N';
@@ -1099,12 +1099,12 @@ export default function CandidateDashboard() {
             const isApproved = status === 'Y';
             const isSkipped = sessionStorage.getItem('onboarding_skipped') === 'true';
 
-            
+
             // GATING LOGIC:
             // 1. If approved, only show onboarding if fields are missing (Step 1).
             // 2. If not approved, always show onboarding unless skipped in this session.
             // 3. After 10 logins, skip is no longer allowed.
-            
+
             if (!isApproved) {
                 // Not approved yet (N or P)
                 if (!isSkipped || loginCount >= 10) {
@@ -1226,8 +1226,8 @@ export default function CandidateDashboard() {
 
     if (showOnboarding && candidateId) {
         return (
-            <CandidateOnboarding 
-                candidateId={candidateId} 
+            <CandidateOnboarding
+                candidateId={candidateId}
                 loginCount={userProfile?.login_count || 0}
                 currentAgreementStatus={agreementStatus || 'N'}
                 initialHasMissingFields={hasMissingFields}
@@ -1235,7 +1235,7 @@ export default function CandidateDashboard() {
                     localStorage.setItem('onboarding_completed', 'true');
                     setShowOnboarding(false);
                     loadDashboard(); // Reload to see if approved
-                }} 
+                }}
                 onSkip={() => {
                     sessionStorage.setItem('onboarding_skipped', 'true');
                     setShowOnboarding(false);
@@ -2126,11 +2126,11 @@ const PhaseCard = ({
                         </p>
                     )}
                     {batchName && <p className="text-xs font-bold text-gray-600 dark:text-gray-400 truncate flex items-center gap-1.5">
-                        <span className="text-blue-500">📚</span> {batchName}
+                        <span className="text-blue-500"></span> {batchName}
                     </p>}
                     {company && (
                         <p className="text-xs font-extrabold text-blue-700 dark:text-blue-300 mt-2 p-2 bg-blue-50/50 dark:bg-blue-900/20 rounded-xl truncate flex items-center gap-1.5">
-                            <span>🏢</span> {company}
+                            <span></span> {company}
                         </p>
                     )}
                 </div>
