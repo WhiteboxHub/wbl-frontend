@@ -497,7 +497,7 @@ const ExpandableTextViewer = ({ content }: { content: string }) => {
   
   return (
     <div className="relative">
-      <div 
+      <div
         className={`whitespace-pre-wrap transition-all duration-300 ${expanded ? '' : 'max-h-[100px] overflow-hidden line-clamp-4'}`}
         dangerouslySetInnerHTML={{ __html: content }}
       />
@@ -505,8 +505,8 @@ const ExpandableTextViewer = ({ content }: { content: string }) => {
         <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white dark:from-slate-900 to-transparent pointer-events-none" />
       )}
       {isLong && (
-        <button 
-          onClick={() => setExpanded(!expanded)} 
+        <button
+          onClick={() => setExpanded(!expanded)}
           className="text-blue-500 text-sm mt-1 hover:underline focus:outline-none block"
         >
           {expanded ? 'Show Less' : 'Show More'}
@@ -523,6 +523,17 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
 
   const toggleJson = (key: string) => {
     setJsonVisible(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const [copiedKeys, setCopiedKeys] = useState<Record<string, boolean>>({});
+
+  const handleCopy = (key: string, value: string) => {
+    navigator.clipboard.writeText(value);
+    setCopiedKeys(prev => ({ ...prev, [key]: true }));
+    toast.success(`${key.replace(/_/g, " ")} copied to clipboard`);
+    setTimeout(() => {
+      setCopiedKeys(prev => ({ ...prev, [key]: false }));
+    }, 2000);
   };
 
   useEffect(() => {
@@ -666,19 +677,11 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     if (lowerKey === "resume_json") {
       const isVisible = jsonVisible[key];
       const displayValue = typeof value === 'object' ? JSON.stringify(value, null, 2) : value;
-      const [copied, setCopied] = useState(false);
 
-      const handleCopy = () => {
-        navigator.clipboard.writeText(displayValue);
-        setCopied(true);
-        toast.success("Resume JSON copied to clipboard");
-        setTimeout(() => setCopied(false), 2000);
-      };
-      
       return (
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <button 
+            <button
               type="button"
               onClick={() => toggleJson(key)}
               className="flex items-center gap-2 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition"
@@ -694,12 +697,12 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
               )}
             </button>
             {isVisible && (
-              <button 
+              <button
                 type="button"
-                onClick={handleCopy}
+                onClick={() => handleCopy(key, displayValue)}
                 className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-500 hover:text-blue-600 hover:bg-gray-50 rounded transition border border-transparent hover:border-gray-100"
               >
-                {copied ? (
+                {copiedKeys[key] ? (
                   <>
                     <Check size={12} className="text-green-500" />
                     <span className="text-green-600">Copied!</span>
@@ -761,14 +764,6 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       const isVisible = jsonVisible[key];
       const valueStr = String(value);
       const masked = "*".repeat(valueStr.length || 10);
-      const [copied, setCopied] = useState(false);
-
-      const handleCopy = () => {
-        navigator.clipboard.writeText(valueStr);
-        setCopied(true);
-        toast.success("API Key copied to clipboard");
-        setTimeout(() => setCopied(false), 2000);
-      };
 
       return (
         <div className="flex items-center justify-between gap-2 w-full">
@@ -781,11 +776,11 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
             {isVisible && (
               <button
                 type="button"
-                onClick={handleCopy}
+                onClick={() => handleCopy(key, valueStr)}
                 className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition text-gray-500 hover:text-blue-600"
                 title="Copy Key"
               >
-                {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                {copiedKeys[key] ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
               </button>
             )}
             <button
