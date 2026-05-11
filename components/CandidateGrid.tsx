@@ -21,6 +21,8 @@ interface CandidateGridProps {
     paginationPageSize?: number;
     rowHeight?: number;
     onGridReady?: (params: GridReadyEvent) => void;
+    onSelectionChanged?: (selectedRows: any[]) => void;
+    onRowClicked?: (data: any) => void;
     components?: Record<string, any>;
 }
 
@@ -32,7 +34,9 @@ export const CandidateGrid: React.FC<CandidateGridProps> = ({
     paginationPageSize = 100,
     rowHeight = 48,
     onGridReady,
-    components
+    components,
+    onSelectionChanged,
+    onRowClicked
 }) => {
     const gridRef = useRef<AgGridReact>(null);
     const [isDarkMode, setIsDarkMode] = useState(false);
@@ -78,7 +82,24 @@ export const CandidateGrid: React.FC<CandidateGridProps> = ({
                     rowHeight={rowHeight}
                     theme="legacy"
                     onGridReady={onGridReady}
+                    rowSelection={{
+                        mode: "singleRow",
+                        enableClickSelection: true,
+                        checkboxes: false,
+                    }}
+                    getRowId={(params) => params.data.id?.toString() || params.data._id?.toString()}
+                    suppressRowDeselection={true}
+                    onSelectionChanged={(e) => {
+                        const rows = e.api.getSelectedRows();
+                        onSelectionChanged?.(rows);
+                    }}
+                    onRowClicked={(e) => {
+                        e.node.setSelected(true);
+                        onSelectionChanged?.([e.data]);
+                        onRowClicked?.(e.data);
+                    }}
                     components={components}
+                    stopEditingWhenCellsLoseFocus={true}
                     overlayNoRowsTemplate="<span class='text-gray-500 font-medium'>No records found</span>"
                 />
             </div>

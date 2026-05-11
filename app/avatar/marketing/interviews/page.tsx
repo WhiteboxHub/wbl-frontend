@@ -233,7 +233,7 @@ const LinkRenderer = (params: any) => {
 const QARenderer = (params: any) => {
   const value = params.value;
   if (!value) return <span className="text-gray-500">N/A</span>;
-  
+
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     const newWindow = window.open("", "_blank");
@@ -300,7 +300,7 @@ const TimeRenderer = (params: any) => {
 const TimeCellEditor = forwardRef((params: any, ref) => {
   const initialValue = params.value || "00:00:00";
   const [initialHours, initialMinutes] = initialValue.split(":");
-  
+
   let startH = parseInt(initialHours);
   const startAMPM = startH >= 12 ? "PM" : "AM";
   startH = startH % 12;
@@ -317,13 +317,13 @@ const TimeCellEditor = forwardRef((params: any, ref) => {
       if (ampm === "AM" && h === 12) h = 0;
       return `${h.toString().padStart(2, "0")}:${minute}:00`;
     },
-    isAfterGuiAttached: () => {},
+    isAfterGuiAttached: () => { },
   }));
 
   return (
     <div className="flex items-center space-x-1 p-1 bg-white border border-blue-500 rounded shadow-lg z-[9999]">
-      <select 
-        value={hour} 
+      <select
+        value={hour}
         onChange={(e) => setHour(e.target.value)}
         className="border rounded px-1 py-1 text-sm bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
       >
@@ -332,8 +332,8 @@ const TimeCellEditor = forwardRef((params: any, ref) => {
         ))}
       </select>
       <span className="font-bold">:</span>
-      <select 
-        value={minute} 
+      <select
+        value={minute}
         onChange={(e) => setMinute(e.target.value)}
         className="border rounded px-1 py-1 text-sm bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
       >
@@ -341,8 +341,8 @@ const TimeCellEditor = forwardRef((params: any, ref) => {
           <option key={m} value={m}>{m}</option>
         ))}
       </select>
-      <select 
-        value={ampm} 
+      <select
+        value={ampm}
         onChange={(e) => setAmpm(e.target.value)}
         className="border rounded px-1 py-1 text-sm font-semibold bg-blue-50 text-blue-700 focus:outline-none"
       >
@@ -376,6 +376,7 @@ type InterviewFormData = {
   email_text?: string;
   feedback_text?: string;
   position_id?: number | string;
+  job_description?: string;
 };
 
 const initialFormData: InterviewFormData = {
@@ -399,6 +400,7 @@ const initialFormData: InterviewFormData = {
   email_text: "",
   feedback_text: "",
   position_id: "",
+  job_description: "",
 };
 
 export default function CandidatesInterviews() {
@@ -502,7 +504,10 @@ export default function CandidatesInterviews() {
     setError("");
     try {
       const res = await cachedApiFetch("/interviews");
-      const items = res?.data || [];
+      const items = (res?.data || []).map((item: any) => ({
+        ...item,
+        job_description: item.job_description || ""
+      }));
       setInterviews(items);
       setTotal(items.length);
     } catch (err: any) {
@@ -663,6 +668,7 @@ export default function CandidatesInterviews() {
         backup_recording_url: data.backup_recording_url || null,
         job_posting_url: data.job_posting_url || null,
         feedback: data.feedback || null,
+        job_description: data.job_description || null,
         email_text: data.email_text || null,
         feedback_text: data.feedback_text || null,
         position_id: data.position_id ? Number(data.position_id) : null,
@@ -710,7 +716,7 @@ export default function CandidatesInterviews() {
     {
       field: "candidate.full_name",
       headerName: "Full Name",
-      pinned : "left",
+      pinned: "left",
       cellRenderer: CandidateNameRenderer,
       sortable: true,
       width: 200,
@@ -761,10 +767,10 @@ export default function CandidatesInterviews() {
       cellRenderer: CompanyTypeRenderer,
     },
     { field: "interview_date", headerName: "Date", width: 120, editable: true },
-    { 
-      field: "interview_time", 
-      headerName: "Time", 
-      width: 130, 
+    {
+      field: "interview_time",
+      headerName: "Time",
+      width: 130,
       editable: true,
       cellRenderer: TimeRenderer,
       cellEditor: TimeCellEditor,
@@ -781,9 +787,10 @@ export default function CandidatesInterviews() {
     { field: "instructor1_name", headerName: "Instructor 1", width: 150 },
     { field: "instructor2_name", headerName: "Instructor 2", width: 150 },
     { field: "instructor3_name", headerName: "Instructor 3", width: 150 },
+    { field: "job_description", headerName: "Job Description", width: 200, editable: true, cellEditor: "agLargeTextCellEditor", cellEditorPopup: true},
     { field: "feedback", headerName: "Feedback Status", cellRenderer: FeedbackRenderer, width: 120, editable: true },
     { field: "feedback_text", headerName: "Feedback", width: 120, editable: true, cellEditor: "agLargeTextCellEditor", cellEditorPopup: true },
-    { field: "email_text", headerName: "Email", width: 120, editable: true, cellEditor: "agLargeTextCellEditor", cellEditorPopup: true },
+    { field: "email_text", headerName: "Email", width: 120, editable: true},
     {
       field: "linkedin_id",
       headerName: "LinkedIn",
@@ -849,6 +856,7 @@ export default function CandidatesInterviews() {
                     backup_recording_url: newRow.backup_recording_url || (newRow.backup_url || null),
                     job_posting_url: newRow.job_posting_url || (newRow.url || null),
                     feedback: newRow.feedback || null,
+                    job_description: newRow.job_description || null,
                     email_text: newRow.email_text || null,
                     feedback_text: newRow.feedback_text || null,
                     position_id: newRow.position_id ? Number(newRow.position_id) : null,
