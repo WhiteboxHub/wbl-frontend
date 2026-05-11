@@ -2224,10 +2224,11 @@ export const CoderpadEditor: React.FC = () => {
                     </div>
                   </div>
                 )}
+                <ReactQuill
                   theme="snow"
                   className="assignment-problem-quill"
                   value={draftProblemStatement}
-                  onChange={setDraftProblemStatement}
+                  onChange={(value: string) => setDraftProblemStatement(value)}
                   placeholder={DEFAULT_PROBLEM_STATEMENT}
                 />
               </div>

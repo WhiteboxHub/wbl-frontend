@@ -3,20 +3,12 @@
 import { IconArrowLeft, IconArrowRight } from "@tabler/icons-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useEffect, useState } from "react";
-import ml1 from "public/images/Carousel/machine-learning-training-bayarea.jpeg";
-import GenAI from "public/images/Carousel/generative-ai-pleasanton-course.jpg";
-import DL1 from "public/images/Carousel/deep-learning-bootcamp-usa.jpg";
-import DL2 from "public/images/Carousel/deep-learning-certification-program.jpg";
-import DL3 from "public/images/Carousel/deep-learning-job-support.jpg";
-import ml3 from "public/images/Carousel/ml-job-prep-support.jpeg";
-import ds1 from "public/images/Carousel/data-science-training-usa.jpg";
-import ds2 from "public/images/Carousel/data-science-career-path.jpg";
 
 type CarouselItem = {
   quote: string;
   name: string;
   designation: string;
-  src: any;
+  src: string;
 };
 
 const carouselData: CarouselItem[] = [
@@ -24,49 +16,49 @@ const carouselData: CarouselItem[] = [
     quote: "Master machine learning algorithms and predictive analytics with hands-on projects. Build real-world ML solutions.",
     name: "Machine Learning Mastery",
     designation: "Advanced ML Training Program",
-    src: ml1,
+    src: "/images/Carousel/machine-learning-training-bayarea.jpeg",
   },
   {
     quote: "Dive deep into neural networks, computer vision, and natural language processing. Learn cutting-edge deep learning techniques.",
     name: "Deep Learning Bootcamp",
     designation: "Neural Networks & AI Systems",
-    src: DL1,
+    src: "/images/Carousel/deep-learning-bootcamp-usa.jpg",
   },
   {
     quote: "Explore the future of AI with generative models, large language models, and prompt engineering. Create innovative AI applications.",
     name: "Generative AI Excellence",
     designation: "Next-Gen AI Development",
-    src: GenAI,
+    src: "/images/Carousel/generative-ai-pleasanton-course.jpg",
   },
   {
     quote: "Transform data into actionable insights with comprehensive data science training. Learn Python, R, SQL, and advanced analytics.",
     name: "Data Science Career Path",
     designation: "Analytics & Business Intelligence",
-    src: ds2,
+    src: "/images/Carousel/data-science-career-path.jpg",
   },
   {
     quote: "Get job-ready with personalized ML career coaching, resume optimization, and interview preparation. Land your dream role.",
     name: "ML Job Preparation",
     designation: "Career Support & Placement",
-    src: ml3,
+    src: "/images/Carousel/ml-job-prep-support.jpeg",
   },
   {
     quote: "Gain industry-recognized AIML expertise. Validate your skills in machine learning, natural language processing, and intelligent system deployment.",
     name: "AIML",
     designation: "Artificial Intelligence & Machine Learning",
-    src: DL2,
+    src: "/images/Carousel/deep-learning-certification-program.jpg",
   },
   {
     quote: "Comprehensive job support including portfolio development, technical interviews, and industry networking. Transition successfully into AI careers.",
     name: "Deep Learning Job Support",
     designation: "Career Transition Program",
-    src: DL3,
+    src: "/images/Carousel/deep-learning-job-support.jpg",
   },
   {
     quote: "Complete data science training covering statistics, machine learning, data visualization, and big data technologies. Build end-to-end solutions.",
     name: "Data Science Training",
     designation: "Full-Stack Data Solutions",
-    src: ds1,
+    src: "/images/Carousel/data-science-training-usa.jpg",
   },
 ];
 
@@ -115,7 +107,7 @@ export const AnimatedCarousel = ({
             <div className="relative h-80 w-full">
               <div className="absolute inset-0 origin-bottom">
                 <img
-                  src={carouselData[0].src.src}
+                  src={carouselData[0].src}
                   alt={carouselData[0].name}
                   width={500}
                   height={500}
@@ -218,8 +210,8 @@ export const AnimatedCarousel = ({
                   }}
                   className="absolute inset-0 origin-bottom"
                 >
-                  <img
-                    src={item.src.src}
+                <img
+                  src={item.src}
                     alt={item.name}
                     width={500}
                     height={500}

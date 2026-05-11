@@ -1,5 +1,5 @@
 "use client";
-import "node_modules/react-modal-video/css/modal-video.css";
+import "react-modal-video/css/modal-video.css";
 import "../styles/index.css";
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";

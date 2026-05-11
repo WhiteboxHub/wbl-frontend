@@ -3,26 +3,18 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { BsChevronCompactLeft, BsChevronCompactRight } from "react-icons/bs";
 import { RxDotFilled } from "react-icons/rx";
-import ml1 from "public/images/Carousel/machine-learning-training-bayarea.jpeg";
 // import html_css_js from "public/images/Carousel/html-css-JS.webp";
-import GenAI from "public/images/Carousel/generative-ai-pleasanton-course.jpg";
-import DL1 from "public/images/Carousel/deep-learning-bootcamp-usa.jpg";
-import DL2 from "public/images/Carousel/deep-learning-certification-program.jpg";
-import DL3 from "public/images/Carousel/deep-learning-job-support.jpg";
-import ml3 from "public/images/Carousel/ml-job-prep-support.jpeg";
-import ds1 from "public/images/Carousel/data-science-training-usa.jpg";
-import ds2 from "public/images/Carousel/data-science-career-path.jpg";
 
 function Carousel() {
   const slides = [
-    { url: ml1 },
-    { url: DL1 },
-    { url: GenAI },
-    { url: ds2 },
-    { url: ml3 },
-    { url: DL2 },
-    { url: DL3 },
-    { url: ds1 },
+    { url: "/images/Carousel/machine-learning-training-bayarea.jpeg" },
+    { url: "/images/Carousel/deep-learning-bootcamp-usa.jpg" },
+    { url: "/images/Carousel/generative-ai-pleasanton-course.jpg" },
+    { url: "/images/Carousel/data-science-career-path.jpg" },
+    { url: "/images/Carousel/ml-job-prep-support.jpeg" },
+    { url: "/images/Carousel/deep-learning-certification-program.jpg" },
+    { url: "/images/Carousel/deep-learning-job-support.jpg" },
+    { url: "/images/Carousel/data-science-training-usa.jpg" },
     // { url: html_css_js },
     // { url: GenAI2 },
     // { url: ml },

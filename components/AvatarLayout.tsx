@@ -17,7 +17,7 @@ import {
   List,
   Linkedin,
 } from "lucide-react";
-import { cn } from "lib/utils";
+import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/utils/AuthContext";
 import ThemeToggler from "@/components/Header/ThemeToggler";
