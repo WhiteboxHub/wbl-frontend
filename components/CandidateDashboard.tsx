@@ -35,6 +35,7 @@ import {
     Puzzle,
     Sparkles,
     Plus,
+    Code2,
 } from "lucide-react";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
@@ -49,6 +50,7 @@ import { TimePicker } from "@/components/admin_ui/TimePicker";
 import { useAuth } from "@/utils/AuthContext";
 import CandidateGrid from "./CandidateGrid";
 import { CandidateSetupWizard } from "./CandidateSetupWizard";
+import CandidateOnboarding from "./CandidateOnboarding";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
 
 interface DashboardData {
@@ -61,6 +63,7 @@ interface DashboardData {
         enrolled_date: string;
         batch_name: string;
         login_count: number;
+        fee_paid: number;
     };
     journey: {
         enrolled: { completed: boolean; date: string; days_since: number };
@@ -404,6 +407,10 @@ export default function CandidateDashboard() {
     const [error, setError] = useState<string | null>(null);
     const [data, setData] = useState<DashboardData | null>(null);
     const [candidateId, setCandidateId] = useState<number | null>(null);
+    const [showOnboarding, setShowOnboarding] = useState(false);
+    const [hasMissingFields, setHasMissingFields] = useState(true);
+    const [agreementStatus, setAgreementStatus] = useState<string | null>(null);
+    const [retryCount, setRetryCount] = useState(0);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [activeTab, setActiveTab] = useState<TabType>('jobs');
     const [setupWizardOpen, setSetupWizardOpen] = useState(false);
@@ -1123,13 +1130,71 @@ export default function CandidateDashboard() {
                 return;
             }
 
-            await loadUserProfile();
-
+            const profile = await loadUserProfile();
             const id = await getCandidateId();
             setCandidateId(id);
 
             if (!id) {
                 throw new Error("Could not retrieve candidate ID");
+            }
+
+            // Fetch full profile to check for missing required fields
+            const fullProfile = await apiFetch(`candidates/${id}/profile`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            const requiredFields = [
+                'full_name', 'email', 'phone', 'workstatus',
+                'dob', 'github_link', 'workexperience', 'address',
+                'linkedin_id', 'secondaryemail', 'secondaryphone'
+            ];
+
+            const profileData = {
+                full_name: fullProfile?.personal_info?.full_name,
+                email: fullProfile?.personal_info?.email,
+                phone: fullProfile?.personal_info?.phone,
+                workstatus: fullProfile?.personal_info?.workstatus,
+                dob: fullProfile?.personal_info?.dob,
+                github_link: fullProfile?.personal_info?.github_link,
+                workexperience: fullProfile?.personal_info?.workexperience,
+                address: fullProfile?.personal_info?.address,
+                linkedin_id: fullProfile?.personal_info?.linkedin_id,
+                secondaryemail: fullProfile?.personal_info?.secondaryemail,
+                secondaryphone: fullProfile?.personal_info?.secondaryphone
+            };
+
+            // Use login_count from profile (UserDashboard) or Candidate profile
+            const loginCount = profile?.login_count ?? profile?.logincount ?? 0;
+
+            const isMissingRequiredFields = (loginCount <= 1) || requiredFields.some(field => !profileData[field as keyof typeof profileData]);
+
+            setHasMissingFields(isMissingRequiredFields);
+
+            const status = fullProfile?.enrollment?.agreement || 'N';
+            setAgreementStatus(status);
+            const isApproved = status === 'Y';
+            const isSkipped = sessionStorage.getItem('onboarding_skipped') === 'true';
+
+
+            // GATING LOGIC:
+            // 1. If approved, only show onboarding if fields are missing (Step 1).
+            // 2. If not approved, always show onboarding unless skipped in this session.
+            // 3. After 10 logins, skip is no longer allowed.
+
+            if (!isApproved) {
+                // Not approved yet (N or P)
+                if (!isSkipped || loginCount >= 10) {
+                    setShowOnboarding(true);
+                } else {
+                    setShowOnboarding(false);
+                }
+            } else {
+                // Approved (Y)
+                if (isMissingRequiredFields) {
+                    setShowOnboarding(true);
+                } else {
+                    setShowOnboarding(false);
+                }
             }
 
             const dashboardData = await apiFetch(`candidates/${id}/dashboard/overview`, {
@@ -1197,6 +1262,7 @@ export default function CandidateDashboard() {
     }, [isProfileOpen]);
 
     useEffect(() => {
+        sessionStorage.removeItem('onboarding_skipped');
         loadDashboard();
     }, []);
 
@@ -1231,6 +1297,26 @@ export default function CandidateDashboard() {
                     </button>
                 </div>
             </div>
+        );
+    }
+
+    if (showOnboarding && candidateId) {
+        return (
+            <CandidateOnboarding
+                candidateId={candidateId}
+                loginCount={userProfile?.login_count || 0}
+                currentAgreementStatus={agreementStatus || 'N'}
+                initialHasMissingFields={hasMissingFields}
+                onComplete={() => {
+                    localStorage.setItem('onboarding_completed', 'true');
+                    setShowOnboarding(false);
+                    loadDashboard(); // Reload to see if approved
+                }}
+                onSkip={() => {
+                    sessionStorage.setItem('onboarding_skipped', 'true');
+                    setShowOnboarding(false);
+                }}
+            />
         );
     }
 
@@ -1286,10 +1372,10 @@ export default function CandidateDashboard() {
                                 href="/coderpad"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white group"
+                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
                             >
-                                <Puzzle className="w-4 h-4 flex-shrink-0 text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white" />
-                                <span>CoderPad</span>
+                                <Code2 className="w-4 h-4 flex-shrink-0 text-gray-400" aria-hidden />
+                                <span>Coderpad</span>
                             </a>
                             <button
                                 onClick={() => goToTab('smartprep')}
@@ -1340,6 +1426,7 @@ export default function CandidateDashboard() {
                             {[
                                 { icon: Award, label: "Batch", value: data.basic_info.batch_name || "N/A", color: "text-purple-500", widthClass: "w-40" },
                                 { icon: Calendar, label: "Enrolled", value: data.basic_info.enrolled_date ? format(parseISO(data.basic_info.enrolled_date), "MMM dd, yyyy") : "N/A", color: "text-green-500", widthClass: "w-36" },
+                                { icon: Briefcase, label: "Fee Paid", value: `$${data.basic_info.fee_paid || 0}`, color: "text-emerald-500", widthClass: "w-24" },
                                 { icon: Activity, label: "Logins", value: `${userProfile?.login_count || 0}`, color: "text-orange-500", widthClass: "w-24" },
                             ].map(({ icon: Icon, label, value, color, widthClass }) => (
                                 <div key={label} className={`hidden lg:flex flex-col gap-1 ${widthClass || "min-w-0"}`}>
@@ -1354,40 +1441,15 @@ export default function CandidateDashboard() {
 
                     </div>
 
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <button
-                                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm"
-                            >
-                                <Puzzle className="w-4 h-4 text-blue-500" />
-                                Autofill Extension
-                            </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-                            <DropdownMenuItem asChild>
-                                <a
-                                    href="https://chromewebstore.google.com/detail/talentscreen-autofill/bebdlhhpgmegdebdballinfmfnlpmeio"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-2 cursor-pointer w-full"
-                                >
-                                    <ExternalLink className="w-4 h-4 text-blue-500" />
-                                    <span>Link</span>
-                                </a>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                                <a
-                                    href="https://www.youtube.com/watch?v=ToCU1H25TTY"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-2 cursor-pointer w-full"
-                                >
-                                    <Video className="w-4 h-4 text-red-500" />
-                                    <span>Video Tutorial</span>
-                                </a>
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    <a
+                        href="https://chromewebstore.google.com/detail/talentscreen-autofill/bebdlhhpgmegdebdballinfmfnlpmeio"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm"
+                    >
+                        <Puzzle className="w-4 h-4 text-blue-500" />
+                        Autofill Extension
+                    </a>
 
                 </header>
 
@@ -2149,11 +2211,11 @@ const PhaseCard = ({
                         </p>
                     )}
                     {batchName && <p className="text-xs font-bold text-gray-600 dark:text-gray-400 truncate flex items-center gap-1.5">
-                        <span className="text-blue-500">📚</span> {batchName}
+                        <span className="text-blue-500"></span> {batchName}
                     </p>}
                     {company && (
                         <p className="text-xs font-extrabold text-blue-700 dark:text-blue-300 mt-2 p-2 bg-blue-50/50 dark:bg-blue-900/20 rounded-xl truncate flex items-center gap-1.5">
-                            <span>🏢</span> {company}
+                            <span></span> {company}
                         </p>
                     )}
                 </div>
