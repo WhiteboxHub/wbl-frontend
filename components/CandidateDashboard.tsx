@@ -1534,7 +1534,8 @@ export default function CandidateDashboard() {
                                         <button
                                             onClick={async () => {
                                                 const getAiPrepUrl = () => {
-                                                    return process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL || "https://ai-prep.whitebox-learning.com";
+                                                    // return process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL || "https://ai-prep.whitebox-learning.com";
+                                                    return process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL || "http://localhost:3000";
                                                 };
                                                 const baseUrl = getAiPrepUrl();
                                                 const token = localStorage.getItem("prep_token");
@@ -1542,8 +1543,7 @@ export default function CandidateDashboard() {
                                                 if (token) {
                                                     window.open(`${baseUrl}/auth?token=${token}`, '_blank');
                                                 } else {
-                                                    // Fallback if no token (shouldn't happen if setup complete)
-                                                    window.open(baseUrl, '_blank');
+                                                    alert("Preparing your secure session... Please click again in a moment.");
                                                 }
                                             }}
                                             className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
