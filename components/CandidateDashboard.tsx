@@ -35,6 +35,7 @@ import {
     Puzzle,
     Sparkles,
     Plus,
+    Code2,
 } from "lucide-react";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
@@ -1296,10 +1297,10 @@ export default function CandidateDashboard() {
                                 href="/coderpad"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white group"
+                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
                             >
-                                <Puzzle className="w-4 h-4 flex-shrink-0 text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white" />
-                                <span>CoderPad</span>
+                                <Code2 className="w-4 h-4 flex-shrink-0 text-gray-400" aria-hidden />
+                                <span>Coderpad</span>
                             </a>
                         </div>
                     </div>
