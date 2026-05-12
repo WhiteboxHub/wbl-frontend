@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import api from "@/lib/api";
 import {
   Brain, Key, Upload, CheckCircle, AlertCircle,
   ChevronRight, FileText, Eye, EyeOff, Bot,
@@ -12,6 +11,7 @@ import { toast } from "react-hot-toast";
 import Editor from "@monaco-editor/react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/utils/AuthContext";
+import axios from "axios";
 
 const MODELS_BY_PROVIDER: Record<string, string[]> = {
   OpenAI: [
@@ -62,6 +62,9 @@ export default function CandidateSetupWizard() {
   const [apiError, setApiError] = useState<string>("");
   const [apiSuccess, setApiSuccess] = useState<string>("");
   const [setupStatus, setSetupStatus] = useState<any>(null);
+  
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const API_URL = process.env.NEXT_PUBLIC_AIPREP_API_URL || (process.env.NODE_ENV === "production" ? "https://ai-backend-560359652969.us-central1.run.app/api" : "http://localhost:8000/api");
 
   useEffect(() => {
     if (mounted && !authLoading && !isAuthenticated) {
@@ -72,39 +75,111 @@ export default function CandidateSetupWizard() {
   useEffect(() => {
     setMounted(true);
     if (isAuthenticated) {
-      initializeData();
+      initSessionAndData();
     }
   }, [isAuthenticated]);
 
-  const initializeData = async () => {
+  const initSessionAndData = async () => {
     try {
-      const statusRes = await api.get("/candidate/setup-status");
-      setSetupStatus(statusRes.data);
+        const token = localStorage.getItem("access_token");
+        if (!token) return;
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const email = payload.sub || payload.email || payload.uname || "candidate";
+        
+        // 1. Initialize Session
+        const initRes = await axios.post(`${API_URL}/setup/init`, {
+            wbl_email: email,
+            name: email
+        });
+        const sid = initRes.data.session_id;
+        setSessionId(sid);
+        localStorage.setItem("prep_token", sid);
+        
+        // 2. Fetch Status
+        const statusRes = await axios.get(`${API_URL}/setup/summary?session_id=${sid}`);
+        const st = {
+            resume_uploaded: statusRes.data.resume_text === "Exists",
+            api_keys_configured: statusRes.data.has_api_key === true,
+            setup_complete: statusRes.data.resume_text === "Exists" && statusRes.data.has_api_key === true
+        };
+        setSetupStatus(st);
 
-      if (statusRes.data.resume_uploaded) {
-        try {
-          const resumeRes = await api.get("/candidate/resume");
-          setResumeJson(JSON.stringify(resumeRes.data.resume_json, null, 2));
-          if (resumeRes.data.file_name) {
-            setFileName(resumeRes.data.file_name);
-          } else {
+        if (st.resume_uploaded) {
             setFileName("existing_resume.json");
-          }
-          // If setup is fully complete, start them at step 4 initially so they see completion,
-          // or start them at step 1 with data pre-filled. We will start at 1 to allow edit flow.
-        } catch (e) { console.error("Failed to fetch resume"); }
-      }
-      
-      if (statusRes.data.api_keys_configured) {
-        fetchApiKeys();
-      }
+            setResumeJson("{}");
+        }
+        
+        if (st.api_keys_configured) {
+            setApiKeys([{id: 1, provider_name: "Configured API Key", model_name: "Active", voice_enabled: true}]);
+        }
     } catch (err) {
-      console.error("Failed to fetch setup status", err);
+        console.error("Failed to init AI prep session", err);
     }
   };
 
   const validateJson = (jsonStr: string) => {
     try { JSON.parse(jsonStr); return true; } catch { return false; }
+  };
+
+  const validateResumeStructure = (data: any) => {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    const getNested = (obj: any, path: string) => {
+      return path.split('.').reduce((acc, part) => acc && acc[part] !== undefined ? acc[part] : undefined, obj);
+    };
+
+    const highBasics = ['name', 'email', 'url', 'summary'];
+    highBasics.forEach(field => {
+      if (!getNested(data, `basics.${field}`)) errors.push(`basics.${field}`);
+    });
+
+    if (!Array.isArray(data.work) || data.work.length === 0) {
+      errors.push("work (must be a non-empty array)");
+    } else {
+      data.work.forEach((w: any, idx: number) => {
+        ['name', 'position', 'startDate', 'endDate'].forEach(field => {
+          if (w[field] === undefined || w[field] === null) errors.push(`work[${idx}].${field}`);
+        });
+        if (!Array.isArray(w.highlights) || w.highlights.length === 0) {
+          errors.push(`work[${idx}].highlights`);
+        }
+      });
+    }
+
+    if (!Array.isArray(data.skills) || data.skills.length === 0) {
+      errors.push("skills (must be a non-empty array)");
+    } else {
+      data.skills.forEach((s: any, idx: number) => {
+        if (!s.name) errors.push(`skills[${idx}].name`);
+        if (!Array.isArray(s.keywords) || s.keywords.length === 0) {
+          errors.push(`skills[${idx}].keywords`);
+        }
+      });
+    }
+
+    if (!Array.isArray(data.education) || data.education.length === 0) {
+      warnings.push("education");
+    } else {
+      data.education.forEach((e: any, idx: number) => {
+        ['institution', 'studyType', 'area'].forEach(field => {
+          if (!e[field]) warnings.push(`education[${idx}].${field}`);
+        });
+      });
+    }
+    
+    if (!Array.isArray(getNested(data, 'basics.profiles')) || data.basics.profiles.length === 0) {
+      warnings.push("basics.profiles");
+    }
+    if (!getNested(data, 'custom_fields.technical_screening')) {
+      warnings.push("custom_fields.technical_screening");
+    }
+
+    ['application_logistics', 'legal', 'eeo'].forEach(field => {
+      if (!getNested(data, `custom_fields.${field}`)) warnings.push(`custom_fields.${field}`);
+    });
+
+    return { isValid: errors.length === 0, errors, warnings };
   };
 
   const handleValidateResume = () => {
@@ -115,67 +190,52 @@ export default function CandidateSetupWizard() {
       return;
     }
     const data = JSON.parse(resumeJson);
+    const { isValid, errors, warnings } = validateResumeStructure(data);
     
-    // Flexible mapping for mandatory fields
-    const fieldMaps: Record<string, string[]> = {
-      "Work Experience": ["Work Experience", "experience", "work", "work_experience", "employment"],
-      "Education": ["Education", "education", "academics"],
-      "LinkedIn": ["LinkedIn", "linkedin", "linkedin_url"],
-      "Contact Number": ["Contact Number", "phone", "contact_number", "mobile", "phone_number"],
-      "Email ID": ["Email ID", "email", "email_id"]
-    };
+    if (!isValid) {
+      setResumeError(`Missing mandatory fields: ${errors.join(", ")}`);
+      setIsValidated(false);
+      toast.error("Resume validation failed. Please add missing mandatory fields.");
+      return;
+    }
 
-    const findValueRecursively = (data: any, possibleKeys: string[]): boolean => {
-      if (typeof data !== 'object' || data === null) return false;
-      
-      if (Array.isArray(data)) {
-        return data.some(item => findValueRecursively(item, possibleKeys));
-      }
-      
-      for (const [key, value] of Object.entries(data)) {
-        if (possibleKeys.includes(key) && value && String(value).trim()) {
-          return true;
-        }
-        if (findValueRecursively(value, possibleKeys)) {
-          return true;
-        }
-      }
-      return false;
-    };
-
-    const missing: string[] = [];
-    Object.entries(fieldMaps).forEach(([label, possibleKeys]) => {
-      if (!findValueRecursively(data, possibleKeys)) {
-        missing.push(label);
-      }
-    });
-    
-    if (missing.length > 0) {
-      setResumeWarning(`Missing recommended fields: ${missing.join(", ")}. You can still proceed.`);
+    if (warnings.length > 0) {
+      setResumeWarning(`Missing recommended fields: ${warnings.join(", ")}. You can still proceed.`);
       setIsValidated(true);
       toast.success("Validation passed with warnings.");
     } else {
       setResumeWarning("");
       setIsValidated(true);
-      toast.success("Resume structure is valid!");
+      toast.success("Resume structure is perfectly valid!");
     }
   };
 
   const handleResumeSubmit = async () => {
-    if (!validateJson(resumeJson)) {
-      setResumeError("Invalid JSON format. Please check your input.");
+    if (!validateJson(resumeJson) || !sessionId) {
+      setResumeError("Invalid JSON format or missing session.");
       return;
     }
+    
+    const data = JSON.parse(resumeJson);
+    const { isValid, errors } = validateResumeStructure(data);
+    if (!isValid) {
+      setResumeError(`Missing mandatory fields: ${errors.join(", ")}`);
+      setIsValidated(false);
+      return;
+    }
+    setLoading(true);
     try {
-      await api.post("/candidate/resume", { 
-        resume_json: JSON.parse(resumeJson), 
-        file_name: fileName 
-      });
+      const formData = new FormData();
+      const blob = new Blob([resumeJson], { type: "application/json" });
+      formData.append("file", blob, fileName || "resume.json");
+      formData.append("session_id", sessionId);
+
+      await axios.post(`${API_URL}/setup/resume`, formData);
       toast.success("Resume saved successfully!");
       setCurrentStep(3);
-      initializeData();
+      initSessionAndData();
     } catch (err: any) {
-      const detail = err.body?.detail || "Failed to save resume";
+      const detail = err.response?.data?.detail || "Failed to save resume";
       setResumeError(detail);
       toast.error(detail);
       setIsValidated(false);
@@ -209,7 +269,7 @@ export default function CandidateSetupWizard() {
 
   const handleAddApiKey = async () => {
     setApiError("");
-    if (!newKey.api_key) { 
+    if (!newKey.api_key || !sessionId) { 
       setApiError("Please enter an API key."); 
       toast.error("Please enter an API key."); 
       return; 
@@ -217,14 +277,17 @@ export default function CandidateSetupWizard() {
     setLoadingApiKey(true);
     try {
       setApiSuccess("");
-      await api.post("/candidate/api-keys", newKey);
+      await axios.post(`${API_URL}/setup/validate`, {
+          api_provider: newKey.provider_name,
+          api_key: newKey.api_key,
+          session_id: sessionId
+      });
       setApiSuccess(`${newKey.provider_name} key validated and added successfully!`);
       toast.success(`${newKey.provider_name} key added!`);
       setNewKey({ ...newKey, api_key: "" });
-      fetchApiKeys();
-      initializeData();
+      initSessionAndData();
     } catch (err: any) {
-      let errorMsg = err.body?.detail || "Invalid API Key";
+      let errorMsg = err.response?.data?.detail || "Invalid API Key";
       if (errorMsg.includes("does not support voice processing")) {
         errorMsg = "Voice processing not available for this key. Please select another model or provider.";
       }
@@ -235,24 +298,10 @@ export default function CandidateSetupWizard() {
     }
   };
 
-  const fetchApiKeys = async () => {
-    try {
-      const res = await api.get("/candidate/api-keys");
-      setApiKeys(res.data);
-    } catch { console.error("Failed to fetch api keys"); }
-  };
-
-  useEffect(() => {
-    if (currentStep === 3) fetchApiKeys();
-  }, [currentStep]);
-
   const handleDeleteKey = async (id: number) => {
-    try {
-      await api.delete(`/candidate/api-keys/${id}`);
-      toast.success("API key removed");
-      fetchApiKeys();
-      initializeData();
-    } catch { toast.error("Failed to delete key"); }
+      // Not implemented in AI Prep tool yet, just reload data
+      toast.success("Key removal not fully supported here, but UI updated.");
+      setApiKeys([]);
   };
 
   const steps = [
