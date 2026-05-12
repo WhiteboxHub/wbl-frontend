@@ -48,6 +48,7 @@ import { apiFetch, API_BASE_URL, setupApi } from "@/lib/api";
 import { TimePicker } from "@/components/admin_ui/TimePicker";
 import { useAuth } from "@/utils/AuthContext";
 import CandidateGrid from "./CandidateGrid";
+import { CandidateSetupWizard } from "./CandidateSetupWizard";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
 
 interface DashboardData {
@@ -124,7 +125,7 @@ interface ApiError {
     status?: number;
 }
 
-type TabType = 'overview' | 'sessions' | 'interviews' | 'jobs';
+type TabType = 'overview' | 'sessions' | 'interviews' | 'jobs' | 'smartprep';
 
 const extractErrorMessage = (err: ApiError, defaultMessage: string): string => {
     return err.body?.detail || err.body?.message || err.detail || err.message || defaultMessage;
@@ -405,6 +406,12 @@ export default function CandidateDashboard() {
     const [candidateId, setCandidateId] = useState<number | null>(null);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [activeTab, setActiveTab] = useState<TabType>('jobs');
+    const [setupWizardOpen, setSetupWizardOpen] = useState(false);
+
+    const goToTab = (tab: TabType) => {
+        setSetupWizardOpen(false);
+        setActiveTab(tab);
+    };
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const profileRef = useRef<HTMLDivElement>(null);
 
@@ -436,12 +443,80 @@ export default function CandidateDashboard() {
     });
     const [addInterviewLoading, setAddInterviewLoading] = useState(false);
     const [setupStatus, setSetupStatus] = useState<{ resume_uploaded: boolean; api_keys_configured: boolean; setup_complete: boolean } | null>(null);
+    const [setupWizardManageMode, setSetupWizardManageMode] = useState(false);
+    const [prefetchedSession, setPrefetchedSession] = useState<{ sessionId: string; summaryData: any } | null>(null);
+    const [prefetchDone, setPrefetchDone] = useState(false);
 
     useEffect(() => {
         setupApi.getStatus()
             .then((d: any) => setSetupStatus(d))
             .catch(() => setSetupStatus(null));
     }, []);
+
+    // Pre-fetch AI prep session as soon as candidateId is available so the
+    // wizard opens instantly when user clicks "Manage" (no 4-5s wait).
+    useEffect(() => {
+        if (!candidateId || prefetchDone) return;
+        const AIPREP_API = process.env.NEXT_PUBLIC_AIPREP_API_URL ||
+            (process.env.NODE_ENV === "production"
+                ? "https://ai-backend-560359652969.us-central1.run.app/api"
+                : "http://localhost:8000/api");
+
+        const run = async () => {
+            try {
+                const token = localStorage.getItem("access_token") || "";
+                const payload = JSON.parse(atob(token.split(".")[1]));
+                const email = payload.sub || payload.email || payload.uname || "candidate";
+
+                const res = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                const sid: string = data.session_id;
+                const summaryData = data.summary;
+                
+                if (!sid) return;
+                localStorage.setItem("prep_token", sid);
+
+                setPrefetchedSession({ sessionId: sid, summaryData });
+                setPrefetchDone(true);
+
+                // Also update status badges
+                const hasKeys = summaryData.has_api_key === true || (Array.isArray(summaryData.llm_keys) && summaryData.llm_keys.length > 0);
+                const hasResume = summaryData.resume_text === "Exists" || (summaryData.resume_json != null && typeof summaryData.resume_json === "object");
+                setSetupStatus({ resume_uploaded: hasResume, api_keys_configured: hasKeys, setup_complete: hasResume && hasKeys });
+            } catch {
+                // Silently fail — wizard will fall back to its own fetch
+            }
+        };
+        void run();
+    }, [candidateId, prefetchDone]);
+
+    useEffect(() => {
+        if (!setupWizardOpen) {
+            setSetupWizardManageMode(false);
+            // Don't clear prefetchedSession — keep it for next open
+        }
+    }, [setupWizardOpen]);
+
+    const refreshSetupStatus = async () => {
+        for (let attempt = 0; attempt < 5; attempt++) {
+            try {
+                const d: any = await setupApi.getStatus();
+                setSetupStatus(d);
+                if (d?.setup_complete) {
+                    return;
+                }
+            } catch {
+                setSetupStatus(null);
+                return;
+            }
+            await new Promise((r) => setTimeout(r, 150));
+        }
+    };
 
     const statusOptions = ['open', 'closed', 'on_hold', 'duplicate', 'invalid'];
     const typeOptions = ['full_time', 'contract', 'contract_to_hire', 'internship'];
@@ -1195,7 +1270,7 @@ export default function CandidateDashboard() {
                                 return (
                                     <button
                                         key={tab.id}
-                                        onClick={() => setActiveTab(tab.id)}
+                                        onClick={() => goToTab(tab.id)}
                                         className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${isActive
                                             ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
                                             : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
@@ -1216,6 +1291,17 @@ export default function CandidateDashboard() {
                                 <Puzzle className="w-4 h-4 flex-shrink-0 text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white" />
                                 <span>CoderPad</span>
                             </a>
+                            <button
+                                onClick={() => goToTab('smartprep')}
+                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${activeTab === 'smartprep'
+                                    ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
+                                    }`}
+                            >
+                                <Sparkles className={`w-4 h-4 flex-shrink-0 ${activeTab === 'smartprep' ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400"}`} />
+                                <span>WBL SmartPrep</span>
+                                {activeTab === 'smartprep' && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500" />}
+                            </button>
                         </div>
                     </div>
 
@@ -1313,7 +1399,7 @@ export default function CandidateDashboard() {
                         return (
                             <button
                                 key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
+                                onClick={() => goToTab(tab.id)}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${isActive
                                     ? "bg-blue-600 text-white shadow-sm"
                                     : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
@@ -1324,13 +1410,32 @@ export default function CandidateDashboard() {
                             </button>
                         );
                     })}
+                    <a
+                        href="/coderpad"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
+                    >
+                        <Puzzle className="w-3.5 h-3.5" />
+                        CoderPad
+                    </a>
+                    <button
+                        onClick={() => goToTab('smartprep')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${activeTab === 'smartprep'
+                            ? "bg-indigo-600 text-white shadow-sm"
+                            : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
+                            }`}
+                    >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        WBL SmartPrep
+                    </button>
                 </div>
 
                 {/* Scrollable Content */}
                 <main className="flex-1 overflow-hidden flex flex-col">
 
                     {/* Setup Status Banner */}
-                    {setupStatus && (
+                    {setupStatus && !setupWizardOpen && (
                         <div className="px-4 lg:px-6 pt-4 flex-shrink-0 animate-in fade-in slide-in-from-top-2">
                             <div className="relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4 px-6 py-3 border border-indigo-200 dark:border-indigo-800 rounded-xl shadow-sm bg-white dark:bg-gray-900 group">
                                 {/* Radiant Background Effect (matches the glowing corner effect from the reference) */}
@@ -1388,13 +1493,17 @@ export default function CandidateDashboard() {
                                             Start Preparation
                                         </button>
                                     ) : (
-                                        <Link
-                                            href="/setup"
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setSetupWizardManageMode(false);
+                                                setSetupWizardOpen(true);
+                                            }}
                                             className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-indigo-900 to-purple-600 hover:from-indigo-800 hover:to-purple-500 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
                                         >
                                             <Sparkles className="w-3.5 h-3.5" />
                                             Complete Setup
-                                        </Link>
+                                        </button>
                                     )}
                                 </div>
                             </div>
@@ -1421,6 +1530,24 @@ export default function CandidateDashboard() {
 
                     {/* ==================== TAB CONTENT ==================== */}
                     <div className="flex-1 overflow-hidden flex flex-col animate-fadeIn">
+                        {setupWizardOpen ? (
+                            <div className="flex-1 min-h-0 flex flex-col overflow-hidden p-4 lg:p-6">
+                                <CandidateSetupWizard
+                                    variant="embedded"
+                                    candidateId={candidateId ?? undefined}
+                                    manageMode={setupWizardManageMode}
+                                    prefetchedSession={prefetchedSession}
+                                    onSetupComplete={async () => {
+                                        await refreshSetupStatus();
+                                        // Invalidate prefetch so next open re-fetches fresh data
+                                        setPrefetchDone(false);
+                                        setPrefetchedSession(null);
+                                        goToTab("smartprep");
+                                    }}
+                                />
+                            </div>
+                        ) : (
+                        <>
                         {activeTab === 'overview' && (
                             <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4">
                                 {/* Phase Cards Row */}
@@ -1461,87 +1588,6 @@ export default function CandidateDashboard() {
                                     />
                                 </div>
 
-                                {/* AI Setup Status Card */}
-                                <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 px-5 py-4">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-7 h-7 rounded-lg bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center">
-                                                <Settings className="w-4 h-4 text-violet-500" />
-                                            </div>
-                                            <span className="text-sm font-bold text-gray-800 dark:text-white">AI Profile Setup</span>
-                                        </div>
-                                        <Link
-                                            href="/setup"
-                                            className="text-xs font-bold text-violet-500 hover:text-violet-700 transition-colors flex items-center gap-1"
-                                        >
-                                            {setupStatus?.setup_complete ? "Manage" : "Complete Setup"}
-                                            <ChevronRight className="w-3.5 h-3.5" />
-                                        </Link>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        {/* Resume Status */}
-                                        <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${setupStatus === null
-                                            ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
-                                            : setupStatus.resume_uploaded
-                                                ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"
-                                                : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
-                                            }`}>
-                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${setupStatus === null
-                                                ? "bg-gray-100 dark:bg-gray-700"
-                                                : setupStatus.resume_uploaded
-                                                    ? "bg-emerald-100 dark:bg-emerald-900/40"
-                                                    : "bg-amber-100 dark:bg-amber-900/40"
-                                                }`}>
-                                                {setupStatus === null ? (
-                                                    <div className="w-3 h-3 rounded-full bg-gray-300 animate-pulse" />
-                                                ) : setupStatus.resume_uploaded ? (
-                                                    <CheckCircle className="w-4 h-4 text-emerald-500" />
-                                                ) : (
-                                                    <AlertTriangle className="w-4 h-4 text-amber-500" />
-                                                )}
-                                            </div>
-                                            <div className="min-w-0">
-                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Resume</p>
-                                                <p className={`text-xs font-bold mt-0.5 ${setupStatus === null ? "text-gray-400" :
-                                                    setupStatus.resume_uploaded ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
-                                                    }`}>
-                                                    {setupStatus === null ? "Loading..." : setupStatus.resume_uploaded ? "Uploaded ✓" : "Not added"}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {/* API Keys Status */}
-                                        <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${setupStatus === null
-                                            ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
-                                            : setupStatus.api_keys_configured
-                                                ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"
-                                                : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
-                                            }`}>
-                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${setupStatus === null
-                                                ? "bg-gray-100 dark:bg-gray-700"
-                                                : setupStatus.api_keys_configured
-                                                    ? "bg-emerald-100 dark:bg-emerald-900/40"
-                                                    : "bg-amber-100 dark:bg-amber-900/40"
-                                                }`}>
-                                                {setupStatus === null ? (
-                                                    <div className="w-3 h-3 rounded-full bg-gray-300 animate-pulse" />
-                                                ) : setupStatus.api_keys_configured ? (
-                                                    <CheckCircle className="w-4 h-4 text-emerald-500" />
-                                                ) : (
-                                                    <AlertTriangle className="w-4 h-4 text-amber-500" />
-                                                )}
-                                            </div>
-                                            <div className="min-w-0">
-                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">API Keys</p>
-                                                <p className={`text-xs font-bold mt-0.5 ${setupStatus === null ? "text-gray-400" :
-                                                    setupStatus.api_keys_configured ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
-                                                    }`}>
-                                                    {setupStatus === null ? "Loading..." : setupStatus.api_keys_configured ? "Configured ✓" : "Not added"}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
 
                                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                                     {/* JOURNEY SECTION */}
@@ -1977,6 +2023,76 @@ export default function CandidateDashboard() {
                                     />
                                 </div>
                             </div>
+                        )}
+
+                        {activeTab === 'smartprep' && (
+                            <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
+
+                                {/* AI Profile Setup Card */}
+                                <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="w-8 h-8 rounded-lg bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center">
+                                                <Settings className="w-4 h-4 text-violet-500" />
+                                            </div>
+                                            <div>
+                                                <span className="text-sm font-bold text-gray-800 dark:text-white">Manage AI Profile</span>
+                                                <p className="text-[11px] text-gray-400 mt-0.5">Configure your resume and API keys for AI interviews</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setSetupWizardManageMode(Boolean(setupStatus?.setup_complete));
+                                                setSetupWizardOpen(true);
+                                            }}
+                                            className="inline-flex items-center gap-1 text-xs font-bold text-violet-600 hover:text-violet-700 transition-colors px-3 py-1.5 bg-violet-50 dark:bg-violet-900/20 rounded-lg"
+                                        >
+                                            {setupStatus?.setup_complete ? "Manage" : "Complete Setup"}
+                                            <ChevronRight className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        {/* Resume Status */}
+                                        <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${setupStatus === null
+                                            ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
+                                            : setupStatus.resume_uploaded
+                                                ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"
+                                                : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
+                                            }`}>
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${setupStatus === null ? "bg-gray-100 dark:bg-gray-700" : setupStatus.resume_uploaded ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-amber-100 dark:bg-amber-900/40"}`}>
+                                                {setupStatus === null ? <div className="w-3 h-3 rounded-full bg-gray-300 animate-pulse" /> : setupStatus.resume_uploaded ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <AlertTriangle className="w-4 h-4 text-amber-500" />}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Resume</p>
+                                                <p className={`text-xs font-bold mt-0.5 ${setupStatus === null ? "text-gray-400" : setupStatus.resume_uploaded ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
+                                                    {setupStatus === null ? "Loading..." : setupStatus.resume_uploaded ? "Uploaded ✓" : "Not added"}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        {/* API Keys Status */}
+                                        <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${setupStatus === null
+                                            ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
+                                            : setupStatus.api_keys_configured
+                                                ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"
+                                                : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
+                                            }`}>
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${setupStatus === null ? "bg-gray-100 dark:bg-gray-700" : setupStatus.api_keys_configured ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-amber-100 dark:bg-amber-900/40"}`}>
+                                                {setupStatus === null ? <div className="w-3 h-3 rounded-full bg-gray-300 animate-pulse" /> : setupStatus.api_keys_configured ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <AlertTriangle className="w-4 h-4 text-amber-500" />}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">API Keys</p>
+                                                <p className={`text-xs font-bold mt-0.5 ${setupStatus === null ? "text-gray-400" : setupStatus.api_keys_configured ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
+                                                    {setupStatus === null ? "Loading..." : setupStatus.api_keys_configured ? "Configured ✓" : "Not added"}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        )}
+                        </>
                         )}
 
                     </div>
