@@ -1542,8 +1542,7 @@ export default function CandidateDashboard() {
                                                 if (token) {
                                                     window.open(`${baseUrl}/auth?token=${token}`, '_blank');
                                                 } else {
-                                                    // Fallback if no token (shouldn't happen if setup complete)
-                                                    window.open(baseUrl, '_blank');
+                                                    alert("Preparing your secure session... Please click again in a moment.");
                                                 }
                                             }}
                                             className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
