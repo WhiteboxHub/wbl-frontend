@@ -21,14 +21,12 @@ import {
 
 type ComponentType =
   | "Presentations"
-  | "Must See Youtube Videos"
+  | "Must Watch"
   | "Cheatsheets"
   | "Study Guides"
-  | "Diagrams"
   | "Interactive Visual Explainers"
   | "Newsletters"
   | "Books"
-  | "Softwares"
   | "Assignments";
 
 export default function PresentationPage() {
@@ -43,8 +41,8 @@ export default function PresentationPage() {
   const buttons = [
     { type: "Presentations", label: "Presentations", icon: Presentation },
     {
-      type: "Must See Youtube Videos",
-      label: "Must See Youtube Videos",
+      type: "Must Watch",
+      label: "Must Watch",
       icon: Youtube,
     },
     { type: "Cheatsheets", label: "Cheatsheets", icon: FileText },
@@ -55,8 +53,6 @@ export default function PresentationPage() {
       icon: Sparkles,
     },
     { type: "Books", label: "O'Reilly Books", icon: Library },
-    { type: "Diagrams", label: "Diagrams", icon: Network },
-    { type: "Softwares", label: "Softwares", icon: Cpu },
     { type: "Newsletters", label: "Newsletters", icon: Mail },
     { type: "Assignments", label: "Assignments", icon: ClipboardList },
   ];
@@ -77,7 +73,11 @@ export default function PresentationPage() {
         if (!valid) {
           router.push("/login");
         } else {
-          const selectedCourse = searchParams.get("course") || "ML";
+          let selectedCourse = searchParams.get("course") || "ML";
+          if (selectedCourse.toUpperCase() === "UI" || selectedCourse.toUpperCase() === "QA") {
+            selectedCourse = "ML";
+            router.push("/presentation?course=ML");
+          }
           setCourse(selectedCourse);
           setLoading(false);
         }
@@ -128,10 +128,9 @@ export default function PresentationPage() {
                     className={`mb-1 w-full rounded-md px-4 font-bold text-black
                       hover:bg-gradient-to-tl hover:from-primary hover:to-blue-300
                       sm:w-44
-                      ${
-                        isActive
-                          ? "border-2 border-blue-600 bg-gradient-to-br from-primary to-blue-400 text-white shadow-lg"
-                          : "bg-gradient-to-br from-primary to-blue-300"
+                      ${isActive
+                        ? "border-2 border-blue-600 bg-gradient-to-br from-primary to-blue-400 text-white shadow-lg"
+                        : "bg-gradient-to-br from-primary to-blue-300"
                       }`}
                   >
                     <div className="flex h-[56px] items-center gap-3">

@@ -35,6 +35,7 @@ import {
     Puzzle,
     Sparkles,
     Plus,
+    Code2,
 } from "lucide-react";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
@@ -1296,10 +1297,10 @@ export default function CandidateDashboard() {
                                 href="/coderpad"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white group"
+                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
                             >
-                                <Puzzle className="w-4 h-4 flex-shrink-0 text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white" />
-                                <span>CoderPad</span>
+                                <Code2 className="w-4 h-4 flex-shrink-0 text-gray-400" aria-hidden />
+                                <span>Coderpad</span>
                             </a>
                         </div>
                     </div>
@@ -1431,22 +1432,15 @@ export default function CandidateDashboard() {
                                         <button
                                             onClick={async () => {
                                                 const getAiPrepUrl = () => {
-                                                    return "https://ai-prep.whitebox-learning.com";
-                                                    // return "http://localhost:3001";
+                                                    return process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL || "http://localhost:3000";
                                                 };
                                                 const baseUrl = getAiPrepUrl();
+                                                const token = localStorage.getItem("prep_token");
 
-                                                try {
-                                                    const response = await apiFetch("candidate/generate-prep-token", {
-                                                        method: "POST"
-                                                    });
-                                                    if (response && response.token) {
-                                                        window.open(`${baseUrl}/?prep_token=${response.token}`, '_blank');
-                                                    } else {
-                                                        window.open(baseUrl, '_blank');
-                                                    }
-                                                } catch (err) {
-                                                    console.error("Failed to generate prep token:", err);
+                                                if (token) {
+                                                    window.open(`${baseUrl}/auth?token=${token}`, '_blank');
+                                                } else {
+                                                    // Fallback if no token (shouldn't happen if setup complete)
                                                     window.open(baseUrl, '_blank');
                                                 }
                                             }}
