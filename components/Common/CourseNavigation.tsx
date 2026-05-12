@@ -12,8 +12,6 @@ const CourseNavigation = () => {
 
   const courseOptions = [
     { short: "ML", full: "Machine Learning" },
-    { short: "UI", full: "UI Fullstack" },
-    { short: "QA", full: "Quality Engineer" },
   ];
  
   
