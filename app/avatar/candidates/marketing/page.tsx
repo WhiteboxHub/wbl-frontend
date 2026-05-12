@@ -783,7 +783,7 @@ export default function CandidatesMarketingPage() {
       },
       {
         field: "run_daily_workflow",
-        headerName: "Run Daily Workflow",
+        headerName: "Run Daily Outreach Workflow",
         width: 150,
         editable: true,
         cellRenderer: (params: any) => (
@@ -793,7 +793,7 @@ export default function CandidatesMarketingPage() {
       },
       {
         field: "run_weekly_workflow",
-        headerName: "Run Weekly Workflow",
+        headerName: "Run Weekly Outreach Workflow",
         width: 160,
         editable: true,
         cellRenderer: (params: any) => (
