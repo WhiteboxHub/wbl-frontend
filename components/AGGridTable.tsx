@@ -105,6 +105,7 @@ export function AGGridTable({
   rowData,
   columnDefs: initialColumnDefs,
   loading = false,
+  defaultColDef: defaultColDefProp,
   onRowClicked,
   onRowUpdated,
   onRowAdded,
@@ -563,6 +564,7 @@ export function AGGridTable({
             suppressSetFilterByDefault={true}
             overlayNoRowsTemplate={overlayNoRowsTemplate}
             defaultColDef={{
+              ...defaultColDefProp,
               resizable: true,
               sortable: true,
               filter: true,
@@ -571,7 +573,7 @@ export function AGGridTable({
                 suppressAndOrCondition: true,
               },
               cellClass: "custom-cell-style",
-              editable: true,
+              editable: defaultColDefProp?.editable ?? true,
             }}
             rowSelection={{
               mode: "multiRow",

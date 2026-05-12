@@ -4,9 +4,12 @@ import React, { useState, useEffect } from "react";
 import { Check, ChevronRight, Upload, FileText, CheckCircle, AlertTriangle, PenTool } from "lucide-react";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/admin_ui/select";
+import { Textarea } from "@/components/admin_ui/textarea";
+import { ScrollArea } from "@/components/admin_ui/scroll-area";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
-import { EditModal } from "@/components/EditModal";
 
 interface CandidateOnboardingProps {
     candidateId: number;
@@ -17,9 +20,9 @@ interface CandidateOnboardingProps {
     initialHasMissingFields?: boolean;
 }
 
-export default function CandidateOnboarding({ 
-    candidateId, 
-    onComplete, 
+export default function CandidateOnboarding({
+    candidateId,
+    onComplete,
     onSkip,
     loginCount = 0,
     currentAgreementStatus,
@@ -28,13 +31,16 @@ export default function CandidateOnboarding({
     const [step, setStep] = useState(initialHasMissingFields ? 1 : 2);
     const [loading, setLoading] = useState(false);
     const [isPendingApproval, setIsPendingApproval] = useState(currentAgreementStatus === 'P' && !initialHasMissingFields);
-    
+
     // Step 1 State
     const [profile, setProfile] = useState<any>({
         full_name: "",
         email: "",
         phone: "",
         address: "",
+        city: "",
+        state: "",
+        country: "",
         zip_code: "",
         workstatus: "",
         linkedin_id: "",
@@ -48,10 +54,11 @@ export default function CandidateOnboarding({
         emergcontactemail: "",
         emergcontactphone: "",
         emergcontactaddrs: "",
-    
+
     });
 
-    const [showEditModal, setShowEditModal] = useState(false);
+    const [signature, setSignature] = useState("");
+    const [agreed, setAgreed] = useState(false);
 
     // Step 2 State
     const [documents, setDocuments] = useState({
@@ -61,8 +68,6 @@ export default function CandidateOnboarding({
     });
 
     // Step 3 State
-    const [signature, setSignature] = useState("");
-    const [agreed, setAgreed] = useState(false);
 
     useEffect(() => {
         loadProfile();
@@ -127,21 +132,21 @@ export default function CandidateOnboarding({
                 filtered[field] = value;
             }
         });
-        
+
         console.log("ONBOARDING SUBMISSION PAYLOAD:", filtered);
         return filtered;
     };
 
     const handleSaveProfile = async () => {
         const requiredFields = [
-            'full_name', 'email', 'phone', 'workstatus', 
-            'dob', 'github_link', 'workexperience', 'address', 
-            'linkedin_id', 'secondaryemail', 'secondaryphone',
+            'full_name', 'email', 'phone', 'workstatus',
+            'dob', 'github_link', 'education', 'address',
+            'linkedin_id', 'zip_code',
             'emergcontactname', 'emergcontactemail', 'emergcontactphone', 'emergcontactaddrs'
         ];
-        
+
         const missingFields = requiredFields.filter(field => !profile[field]);
-        
+
         if (missingFields.length > 0) {
             toast.error("Please fill all required details to continue.");
             return;
@@ -149,12 +154,12 @@ export default function CandidateOnboarding({
         try {
             setLoading(true);
             const token = localStorage.getItem("access_token") || localStorage.getItem("token");
-            
+
             const filteredProfile = getFilteredProfile();
 
             const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/candidates/${candidateId}`, {
                 method: "PUT",
-                headers: { 
+                headers: {
                     Authorization: `Bearer ${token}`,
                     "Content-Type": "application/json"
                 },
@@ -186,16 +191,16 @@ export default function CandidateOnboarding({
     };
 
     const handleUploadDocuments = async () => {
-        if (!documents.govId || !documents.workAuth || !documents.resume) {
+        if (!documents.govId || !documents.workAuth) {
             toast.error("Please upload all required documents");
             return;
         }
-        
+
         try {
             setLoading(true);
             const token = localStorage.getItem("access_token") || localStorage.getItem("token");
             const formData = new FormData();
-            
+
             // Append all files
             if (documents.govId) formData.append('govId', documents.govId);
             if (documents.workAuth) formData.append('workAuth', documents.workAuth);
@@ -245,7 +250,7 @@ export default function CandidateOnboarding({
 
             const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/candidates/${candidateId}`, {
                 method: "PUT",
-                headers: { 
+                headers: {
                     Authorization: `Bearer ${token}`,
                     "Content-Type": "application/json"
                 },
@@ -259,7 +264,7 @@ export default function CandidateOnboarding({
                 toast.error(`Final Error: ${detail}`);
                 return;
             }
-            
+
             toast.success("Terms agreed and signed!");
             setStep(3);
         } catch (err) {
@@ -299,7 +304,7 @@ export default function CandidateOnboarding({
                     <div className="flex items-center justify-between relative">
                         <div className="absolute left-0 top-1/2 w-full h-1 bg-gray-200 dark:bg-gray-800 -z-10 -translate-y-1/2"></div>
                         <div className="absolute left-0 top-1/2 h-1 bg-blue-600 -z-10 -translate-y-1/2 transition-all duration-500" style={{ width: `${(step - 1) * 50}%` }}></div>
-                        
+
                         {[
                             { step: 1, label: "Complete Profile" },
                             { step: 2, label: "Agreement" },
@@ -325,28 +330,26 @@ export default function CandidateOnboarding({
                             { key: 'workstatus', label: 'Work Status *' },
                             { key: 'dob', label: 'Date of Birth *' },
                             { key: 'github_link', label: 'Github Link *' },
-                            { key: 'workexperience', label: 'Work Experience *' },
+                            { key: 'education', label: 'Education *' },
                             { key: 'address', label: 'Address *' },
                             { key: 'linkedin_id', label: 'LinkedIn ID *' },
-                            { key: 'secondaryemail', label: 'Secondary Email *' },
-                            { key: 'secondaryphone', label: 'Secondary Phone *' },
                             { key: 'emergcontactname', label: 'Emergency Contact Name *' },
                             { key: 'emergcontactemail', label: 'Emergency Contact Email *' },
                             { key: 'emergcontactphone', label: 'Emergency Contact Phone *' },
                             { key: 'emergcontactaddrs', label: 'Emergency Contact Address *' }
                         ];
                         const missing = requiredFields.filter(f => !profile[f.key]);
-                        
+
                         return (
                             <div className="p-8 animate-in fade-in slide-in-from-bottom-4">
                                 <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Action Required: Complete Your Profile</h2>
-                                
+
                                 {missing.length > 0 ? (
                                     <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6 text-sm text-red-800 dark:text-red-200 flex items-start gap-3">
                                         <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-600" />
                                         <div>
                                             <p className="font-bold mb-1">Action Required: Missing Information</p>
-                                            <p className="mb-2">You must complete your profile before you can access the dashboard. Please fill in the following missing fields using the editor:</p>
+                                            <p className="mb-2">You must complete your profile before you can access the dashboard. Please fill in the following missing fields below:</p>
                                             <div className="flex flex-wrap gap-2">
                                                 {missing.map(f => (
                                                     <span key={f.key} className="bg-red-100 dark:bg-red-800/50 px-2 py-0.5 rounded text-xs font-semibold">
@@ -369,66 +372,158 @@ export default function CandidateOnboarding({
                                         </div>
                                     </div>
                                 )}
-                                
+
                                 {loading ? (
                                     <div className="flex justify-center py-12"><div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div></div>
                                 ) : (
-                                    <div className="mt-4 mb-4 flex flex-col items-center">
-                                        <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-xl border border-gray-200 dark:border-gray-800 w-full mb-6">
-                                            <div className="grid grid-cols-2 gap-4 text-sm">
-                                                <div>
-                                                    <p className="text-gray-500">Name <span className="text-red-500 font-bold">*</span></p>
-                                                    <p className="font-semibold">{profile.full_name || "Not provided"}</p>
+                                    <ScrollArea className="h-[450px] pr-4 -mr-2">
+                                        <div className="mt-4 space-y-8 pb-4">
+                                            {/* Section 1: Basic Information */}
+                                            <div>
+                                                <h3 className="text-sm font-bold uppercase tracking-wider text-blue-800 mb-4 border-b border-blue-100 pb-2">
+                                                    Basic Information
+                                                </h3>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+                                                    <div className="space-y-1.5">
+                                                        <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">Full Name <span className="text-red-700">*</span></Label>
+                                                        <Input name="full_name" value={profile.full_name} onChange={handleProfileChange} placeholder="John Doe" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">Email <span className="text-red-700">*</span></Label>
+                                                        <Input name="email" type="email" value={profile.email} onChange={handleProfileChange} placeholder="john@example.com" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">Phone <span className="text-red-700">*</span></Label>
+                                                        <Input name="phone" value={profile.phone} onChange={handleProfileChange} placeholder="+1 (555) 000-0000" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">Date of Birth <span className="text-red-700">*</span></Label>
+                                                        <Input name="dob" type="date" value={profile.dob} onChange={handleProfileChange} className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">Work Status <span className="text-red-700">*</span></Label>
+                                                        <Select value={profile.workstatus} onValueChange={(v) => setProfile({ ...profile, workstatus: v })}>
+                                                            <SelectTrigger className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30">
+                                                                <SelectValue placeholder="Select status" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="US_CITIZEN">US Citizen</SelectItem>
+                                                                <SelectItem value="GREEN_CARD">Green Card</SelectItem>
+                                                                <SelectItem value="GC_EAD">GC EAD</SelectItem>
+                                                                <SelectItem value="I485_EAD">I485 EAD</SelectItem>
+                                                                <SelectItem value="I140_APPROVED">I140 Approved</SelectItem>
+                                                                <SelectItem value="F1">F1</SelectItem>
+                                                                <SelectItem value="F1_OPT">F1 OPT</SelectItem>
+                                                                <SelectItem value="F1_CPT">F1 CPT</SelectItem>
+                                                                <SelectItem value="J1">J1</SelectItem>
+                                                                <SelectItem value="H1B">H1B</SelectItem>
+                                                                <SelectItem value="H4_EAD">H4 EAD</SelectItem>
+                                                                <SelectItem value="L1A">L1A</SelectItem>
+                                                                <SelectItem value="TN">TN</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="text-gray-500">Email <span className="text-red-500 font-bold">*</span></p>
-                                                    <p className="font-semibold">{profile.email || "Not provided"}</p>
+                                            </div>
+
+                                            {/* Section 2: Professional Information */}
+                                            <div>
+                                                <h3 className="text-sm font-bold uppercase tracking-wider text-blue-800 mb-4 border-b border-blue-100 pb-2">
+                                                    Professional Information
+                                                </h3>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                                                    <div className="space-y-1.5">
+                                                        <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">LinkedIn Profile URL <span className="text-red-700">*</span></Label>
+                                                        <Input name="linkedin_id" value={profile.linkedin_id} onChange={handleProfileChange} placeholder="https://linkedin.com/in/username" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">GitHub Profile URL <span className="text-red-700">*</span></Label>
+                                                        <Input name="github_link" value={profile.github_link} onChange={handleProfileChange} placeholder="https://github.com/username" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">Education <span className="text-red-700">*</span></Label>
+                                                        <Input name="education" value={profile.education} onChange={handleProfileChange} placeholder="Degree, University" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">Total Years of Experience</Label>
+                                                        <Input name="workexperience" value={profile.workexperience} onChange={handleProfileChange} placeholder="e.g. 5" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="text-gray-500">Phone <span className="text-red-500 font-bold">*</span></p>
-                                                    <p className="font-semibold">{profile.phone || "Not provided"}</p>
+                                            </div>
+
+                                            {/* Section 3: Contact Information */}
+                                            <div>
+                                                <h3 className="text-sm font-bold uppercase tracking-wider text-blue-800 mb-4 border-b border-blue-100 pb-2">
+                                                    Contact Information
+                                                </h3>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+                                                    <div className="md:col-span-2 lg:col-span-2 space-y-1.5">
+                                                        <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">Home Address <span className="text-red-700">*</span></Label>
+                                                        <AddressAutocomplete
+                                                            value={profile.address}
+                                                            onChange={(val, details) => {
+                                                                const updates: any = { address: val };
+                                                                if (details?.address) {
+                                                                    const addr = details.address;
+                                                                    if (addr.city || addr.town || addr.village) {
+                                                                        updates.city = addr.city || addr.town || addr.village;
+                                                                    }
+                                                                    if (addr.state) updates.state = addr.state;
+                                                                    if (addr.postcode) updates.zip_code = addr.postcode;
+                                                                    if (addr.country) updates.country = addr.country;
+                                                                }
+                                                                setProfile({ ...profile, ...updates });
+                                                            }}
+                                                            placeholder="Search your address..."
+                                                            className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">Zip Code <span className="text-red-700">*</span></Label>
+                                                        <Input name="zip_code" value={profile.zip_code} onChange={handleProfileChange} placeholder="12345" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">Secondary Email</Label>
+                                                        <Input name="secondaryemail" type="email" value={profile.secondaryemail} onChange={handleProfileChange} placeholder="alt-email@example.com" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">Secondary Phone</Label>
+                                                        <Input name="secondaryphone" value={profile.secondaryphone} onChange={handleProfileChange} placeholder="+1 (555) 000-0000" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="text-gray-500">Work Status <span className="text-red-500 font-bold">*</span></p>
-                                                    <p className="font-semibold">{profile.workstatus || "Not provided"}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-gray-500">Date of Birth <span className="text-red-500 font-bold">*</span></p>
-                                                    <p className="font-semibold">{profile.dob || "Not provided"}</p>
-                                                </div>
-                                                <div className="col-span-2">
-                                                    <p className="text-gray-500">Address <span className="text-red-500 font-bold">*</span></p>
-                                                    <p className="font-semibold">{profile.address ? `${profile.address}${profile.zip_code ? `, ${profile.zip_code}` : ""}` : "Not provided"}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-gray-500">LinkedIn ID <span className="text-red-500 font-bold">*</span></p>
-                                                    <p className="font-semibold text-blue-600 truncate">{profile.linkedin_id || "Not provided"}</p>
+                                            </div>
+
+                                            {/* Section 4: Emergency Contact */}
+                                            <div>
+                                                <h3 className="text-sm font-bold uppercase tracking-wider text-blue-800 mb-4 border-b border-blue-100 pb-2">
+                                                    Emergency Contact
+                                                </h3>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                                                    <div className="space-y-1.5">
+                                                        <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">Contact Name <span className="text-red-700">*</span></Label>
+                                                        <Input name="emergcontactname" value={profile.emergcontactname} onChange={handleProfileChange} placeholder="Full Name" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">Contact Email <span className="text-red-700">*</span></Label>
+                                                        <Input name="emergcontactemail" type="email" value={profile.emergcontactemail} onChange={handleProfileChange} placeholder="email@example.com" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">Contact Phone <span className="text-red-700">*</span></Label>
+                                                        <Input name="emergcontactphone" value={profile.emergcontactphone} onChange={handleProfileChange} placeholder="+1 (555) 000-0000" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
+                                                    </div>
+                                                    <div className="space-y-1.5">
+                                                        <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">Contact Address <span className="text-red-700">*</span></Label>
+                                                        <AddressAutocomplete
+                                                            value={profile.emergcontactaddrs}
+                                                            onChange={(val) => setProfile({ ...profile, emergcontactaddrs: val })}
+                                                            placeholder="Search contact address..."
+                                                            className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30"
+                                                        />
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                        <button 
-                                            onClick={() => setShowEditModal(true)}
-                                            className="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 font-bold rounded-xl transition-colors flex items-center gap-2"
-                                        >
-                                            <PenTool className="w-4 h-4" /> Open Profile Editor
-                                        </button>
-                                    </div>
-                                )}
-
-                                {showEditModal && (
-                                    <EditModal
-                                        isOpen={true}
-                                        onClose={() => setShowEditModal(false)}
-                                        data={profile}
-                                        batches={[]}
-                                        onSave={(updated) => {
-                                            const newProfile = { ...updated };
-                                            delete newProfile.id; // Ensure we don't accidentally update ID
-                                            setProfile(newProfile);
-                                            setShowEditModal(false);
-                                        }}
-                                        title="Candidate Profile"
-                                    />
+                                    </ScrollArea>
                                 )}
 
                                 <div className="mt-8 flex justify-end">
@@ -447,14 +542,14 @@ export default function CandidateOnboarding({
                     {step === 2 && (
                         <div className="p-8 animate-in fade-in slide-in-from-right-8">
                             <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Placement Terms & Conditions</h2>
-                            
+
                             <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-xl border border-gray-200 dark:border-gray-800 h-64 overflow-y-auto mb-6 text-sm text-gray-700 dark:text-gray-300 space-y-4">
                                 <h3 className="font-bold text-gray-900 dark:text-white text-base">Payment Guidelines and Placement Terms</h3>
                                 <p>This document outlines the payment structure, placement fees, and re-support terms for candidates enrolled with our training and placement services, with a focus on IT roles including AI and ML positions.</p>
-                                
+
                                 <h4 className="font-bold text-gray-900 dark:text-white mt-4">1. Post Placement Fees</h4>
                                 <p>After successful placement, a placement fee of 13% from your offered annual salary will be applicable.</p>
-                                
+
                                 <h4 className="font-bold text-gray-900 dark:text-white mt-4">2. Payment Method and Installments</h4>
                                 <p>The post placement fee may be paid in three installments using postpaid checks.</p>
                                 <ul className="list-disc pl-5 space-y-1">
@@ -462,15 +557,15 @@ export default function CandidateOnboarding({
                                     <li>The first check will be deposited before the candidate's job start date.</li>
                                     <li>All remaining checks will be deposited within two months from the candidate's start date.</li>
                                 </ul>
-                                
+
                                 <p className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-100 dark:border-blue-900/50">
                                     <strong>Illustration:</strong> If offer received of USD 150,000, then 13% of 150,000 that is 19,500 is split into three installments:
-                                    <br/><br/>
-                                    <strong>First Installment:</strong> $6,500, payable after BGV and before Onboarding date.<br/>
-                                    <strong>Second Installment:</strong> $6,500, payable after receiving your first paycheck.<br/>
+                                    <br /><br />
+                                    <strong>First Installment:</strong> $6,500, payable after BGV and before Onboarding date.<br />
+                                    <strong>Second Installment:</strong> $6,500, payable after receiving your first paycheck.<br />
                                     <strong>Third Installment:</strong> $6,500, payable after receiving your second paycheck.
                                 </p>
-                                
+
                                 <h4 className="font-bold text-gray-900 dark:text-white mt-4">3. Support Period and Re-Placement Policy</h4>
                                 <ul className="list-disc pl-5 space-y-1">
                                     <li>We provide placement support for a period of one month from the candidate's job start date.</li>
@@ -481,9 +576,9 @@ export default function CandidateOnboarding({
                             <div className="space-y-6">
                                 <label className="flex items-start gap-3 cursor-pointer">
                                     <div className="mt-1">
-                                        <input 
-                                            type="checkbox" 
-                                            className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
+                                        <input
+                                            type="checkbox"
+                                            className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                             checked={agreed}
                                             onChange={(e) => setAgreed(e.target.checked)}
                                         />
@@ -500,7 +595,7 @@ export default function CandidateOnboarding({
                                     </Label>
                                     <p className="text-xs text-gray-500 mb-2">Type your full legal name below to sign electronically.</p>
                                     <div className="relative">
-                                        <Input 
+                                        <Input
                                             value={signature}
                                             onChange={(e) => setSignature(e.target.value)}
                                             placeholder="John Doe"
@@ -547,12 +642,12 @@ export default function CandidateOnboarding({
                         <div className="p-8 animate-in fade-in slide-in-from-right-8">
                             <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Enrollment Documentation Requirements</h2>
                             <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Please upload the following required documents. Max file size: 5MB.</p>
-                            
+
                             <div className="space-y-4">
                                 {[
                                     { id: "govId" as const, label: "Government-issued ID", desc: "e.g., Driver's License", req: true },
                                     { id: "workAuth" as const, label: "Work Authorization", desc: "EAD, Green Card, or Citizenship proof", req: true },
-                                    { id: "resume" as const, label: "Updated Resume", desc: "PDF or Word format", req: true },
+                                    { id: "resume" as const, label: "Updated Resume", desc: "PDF or Word format", req: false },
                                 ].map((doc) => (
                                     <div key={doc.id} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-800 rounded-xl bg-gray-50/50 dark:bg-gray-800/30">
                                         <div>
@@ -562,14 +657,14 @@ export default function CandidateOnboarding({
                                             <p className="text-xs text-gray-500">{doc.desc}</p>
                                         </div>
                                         <div>
-                                            <input 
-                                                type="file" 
-                                                id={`file-${doc.id}`} 
-                                                className="hidden" 
+                                            <input
+                                                type="file"
+                                                id={`file-${doc.id}`}
+                                                className="hidden"
                                                 onChange={(e) => handleFileChange(e, doc.id)}
                                             />
-                                            <label 
-                                                htmlFor={`file-${doc.id}`} 
+                                            <label
+                                                htmlFor={`file-${doc.id}`}
                                                 className={`cursor-pointer px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${documents[doc.id] ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:border-gray-700 dark:hover:bg-gray-800'}`}
                                             >
                                                 {documents[doc.id] ? (
