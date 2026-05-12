@@ -986,6 +986,8 @@ const fieldSections: Record<string, string> = {
   job_url: "Professional Information",
   contact_info: "Contact Information",
   description: "Notes",
+  /** Marketing (and similar) candidate record JSON — edited at bottom of modal like Payload */
+  candidate_json: "Notes",
 
   // Linkedin Only Contact Fields
   source_uid: "Professional Information",
@@ -1049,6 +1051,7 @@ const labelOverrides: Record<string, string> = {
   linkedin_post: "LinkedIn Post",
   run_raw_positions_workflow: "Run Raw Positions Workflow",
   payload: "Payload",
+  candidate_json: "Candidate JSON",
   instructor2_name: "Instructor 2 Name",
   instructor3_name: "Instructor 3 Name",
 
@@ -1757,6 +1760,19 @@ export function EditModal({
         }
       }
     }
+    // Marketing candidate_json — same treatment as payload for edit textarea
+    if (data.candidate_json !== undefined && data.candidate_json !== null) {
+      if (typeof data.candidate_json === "object") {
+        flattened.candidate_json = JSON.stringify(data.candidate_json, null, 2);
+      } else if (typeof data.candidate_json === "string") {
+        try {
+          const parsed = JSON.parse(data.candidate_json);
+          flattened.candidate_json = JSON.stringify(parsed, null, 2);
+        } catch {
+          flattened.candidate_json = data.candidate_json;
+        }
+      }
+    }
 
     // Handle parameters_config JSON field - convert to formatted string for display
     if (data.parameters_config !== undefined && data.parameters_config !== null) {
@@ -2123,6 +2139,13 @@ export function EditModal({
         console.error("Failed to parse payload back to JSON:", e);
       }
     }
+    if (reconstructedData.candidate_json && typeof reconstructedData.candidate_json === "string") {
+      try {
+        reconstructedData.candidate_json = JSON.parse(reconstructedData.candidate_json);
+      } catch (e) {
+        console.error("Failed to parse candidate_json back to JSON:", e);
+      }
+    }
 
     // console.log("DEBUG: EditModal onSubmit reconstructedData before save:", reconstructedData);
     onSave(reconstructedData);
@@ -2447,9 +2470,17 @@ export function EditModal({
   }
 
 
-  // Custom ordering for Notes section in raw job listings
+  // Notes section order: JSON fields first (candidate_json, payload, …), then descriptions, then notes last
   if (sectionedFields["Notes"]?.length > 0) {
-    const notesFieldOrder = ['payload', 'raw_payload', 'raw_description', 'description', 'raw_notes', 'notes'];
+    const notesFieldOrder = [
+      "candidate_json",
+      "payload",
+      "raw_payload",
+      "raw_description",
+      "description",
+      "raw_notes",
+      "notes",
+    ];
     sectionedFields["Notes"].sort((a, b) => {
       const aIndex = notesFieldOrder.indexOf(a.key);
       const bIndex = notesFieldOrder.indexOf(b.key);
@@ -4292,7 +4323,7 @@ export function EditModal({
                         {sectionedFields["Notes"].map(({ key, value }) => (
                           <div key={key} className="space-y-1">
                             <div className="flex items-center justify-between">
-                              <label className={['description', 'raw_payload', 'payload', 'raw_description', 'raw_notes', 'notes', 'note', 'q_a', 'feedback_text'].includes(key) ? 'block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm' : 'text-sm font-medium text-gray-600 dark:text-gray-400'}>
+                              <label className={['description', 'raw_payload', 'payload', 'raw_description', 'raw_notes', 'notes', 'note', 'q_a', 'feedback_text', 'candidate_json'].includes(key) ? 'block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm' : 'text-sm font-medium text-gray-600 dark:text-gray-400'}>
                                 {toLabel(key)}
                                 {isFieldRequired(
                                   toLabel(key),
@@ -4345,13 +4376,27 @@ export function EditModal({
                                 </button>
                               )}
                             </div>
-                            {isJobTypeModal || isJobActivityLogModal || key === 'raw_payload' || key === 'payload' || key === 'feedback_text' || key === 'email_text' ? (
+                            {isJobTypeModal || isJobActivityLogModal || key === 'raw_payload' || key === 'payload' || key === 'candidate_json' || key === 'feedback_text' || key === 'email_text' ? (
                               <textarea
                                 {...register(key)}
                                 defaultValue={currentFormValues[key] ?? formData[key] ?? ""}
-                                rows={key === 'raw_payload' || key === 'payload' ? 10 : 4}
-                                className={`w-full ${key === 'raw_payload' || key === 'payload' ? 'font-mono text-[11px]' : 'resize-none'} rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm`}
-                                placeholder={key === 'raw_payload' || key === 'payload' ? 'Enter JSON payload...' : `Enter ${toLabel(key).toLowerCase()}...`}
+                                rows={
+                                  key === "candidate_json"
+                                    ? 22
+                                    : key === "raw_payload" || key === "payload"
+                                      ? 10
+                                      : 4
+                                }
+                                className={`w-full ${
+                                  key === "raw_payload" || key === "payload" || key === "candidate_json"
+                                    ? "min-h-[min(420px,50vh)] resize-y font-mono text-[11px] sm:text-xs"
+                                    : "resize-none"
+                                } rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm`}
+                                placeholder={
+                                  key === "raw_payload" || key === "payload" || key === "candidate_json"
+                                    ? "Enter JSON payload..."
+                                    : `Enter ${toLabel(key).toLowerCase()}...`
+                                }
                                 onChange={(e) => {
                                   setValue(key, e.target.value);
                                   setFormData((prev: any) => ({
