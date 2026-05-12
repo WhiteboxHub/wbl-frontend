@@ -85,7 +85,7 @@ export function CandidateSetupWizard({
   const [setupStatus, setSetupStatus] = useState<any>(null);
   
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const API_URL = process.env.NEXT_PUBLIC_AIPREP_API_URL || (process.env.NODE_ENV === "production" ? "https://ai-backend-560359652969.us-central1.run.app/api" : "http://localhost:8000/api");
+  const API_URL = process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api";
 
   const ingestSummary = (d: any, opts?: { skipStepReset?: boolean }) => {
     const hasKeys =
@@ -890,7 +890,7 @@ export function CandidateSetupWizard({
                   onClick={async () => {
                     if (isEmbedded) {
                       const baseUrl =
-                        process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL || "http://localhost:3000";
+                        process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL || "https://ai-prep.whitebox-learning.com";
                       const token = localStorage.getItem("prep_token");
                       if (token) {
                         window.open(`${baseUrl}/auth?token=${token}`, "_blank");
