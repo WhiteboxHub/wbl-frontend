@@ -5,15 +5,23 @@ import {
     Briefcase, GraduationCap, ClipboardList,
     HelpingHand, Video, Activity, Award,
     CheckCircle, PlayCircle,
-    Home, Users, Layers, TrendingUp
+    Home, Users, Layers, TrendingUp,
+    CalendarIcon, SearchIcon
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin_ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/admin_ui/tabs";
+import { Input } from "@/components/admin_ui/input";
 import { apiFetch } from "@/lib/api";
+import { cachedApiFetch } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 import { useAuth } from "@/utils/AuthContext";
 import { useRouter } from "next/navigation";
+import { AGGridTable } from "@/components/AGGridTable";
+import { ColDef } from "ag-grid-community";
+import { Badge } from "@/components/admin_ui/badge";
+import Link from "next/link";
+import { useMemo, useCallback } from "react";
 
 // Types
 interface MetricCardProps {
@@ -125,8 +133,78 @@ interface EmployeeDashboardData {
     is_birthday: boolean;
 }
 
+// Renderers for AG Grid
+const ModeRenderer = (params: any) => {
+    const value = (params.value || "").toString().toLowerCase();
+    let badgeClass = "bg-gray-100 text-gray-800";
+    if (value === "virtual") badgeClass = "bg-blue-100 text-blue-800";
+    else if (value === "in person") badgeClass = "bg-green-100 text-green-800";
+    else if (value === "phone") badgeClass = "bg-yellow-100 text-yellow-800";
+    else if (value === "assessment") badgeClass = "bg-purple-100 text-purple-800";
+    else if (value === "ai interview") badgeClass = "bg-indigo-50 text-indigo-800";
+    return <Badge className={badgeClass}>{params.value}</Badge>;
+};
+
+const TypeRenderer = (params: any) => {
+    const value = (params.value || "").toString().toLowerCase();
+    let badgeClass = "bg-gray-100 text-gray-800";
+    if (value === "technical") badgeClass = "bg-indigo-100 text-indigo-800";
+    else if (value === "hr") badgeClass = "bg-pink-100 text-pink-800";
+    else if (value === "recruiter call") badgeClass = "bg-cyan-100 text-cyan-800";
+    else if (value === "prep call") badgeClass = "bg-teal-100 text-teal-800";
+    else if (value === "assessment") badgeClass = "bg-purple-100 text-purple-800";
+    return <Badge className={badgeClass}>{params.value}</Badge>;
+};
+
+const CompanyTypeRenderer = (params: any) => {
+    const value = params.value || "";
+    const valueLower = value.toLowerCase();
+    let badgeClass = "bg-gray-100 text-gray-800";
+    if (valueLower === "client") badgeClass = "bg-blue-100 text-blue-800";
+    else if (valueLower === "third-party-vendor") badgeClass = "bg-orange-100 text-orange-800";
+    else if (valueLower === "implementation-partner") badgeClass = "bg-green-100 text-green-800";
+    else if (valueLower === "sourcer") badgeClass = "bg-red-100 text-red-800";
+    const displayText = value
+        .split(/[- ]/)
+        .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+    return <Badge className={badgeClass}>{displayText}</Badge>;
+};
+
+const TimeRenderer = (params: any) => {
+    if (!params.value) return <span className="text-gray-400">Not Set</span>;
+    try {
+        const [hours, minutes] = params.value.split(":");
+        let h = parseInt(hours);
+        const ampm = h >= 12 ? "PM" : "AM";
+        h = h % 12;
+        h = h ? h : 12;
+        return <span>{`${h.toString().padStart(2, "0")}:${minutes} ${ampm}`}</span>;
+    } catch (e) {
+        return <span>{params.value}</span>;
+    }
+};
+
+const CandidateNameRenderer = (params: any) => {
+    const candidateId = params.data?.candidate_id || params.data?.candidate?.id;
+    const candidateName = params.data?.candidate?.full_name || params.value || "N/A";
+    if (!candidateId) return <span className="text-gray-500">{candidateName}</span>;
+    return (
+        <Link
+            href={`/avatar/candidates/search?candidateId=${candidateId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:text-blue-800 underline font-medium cursor-pointer"
+        >
+            {candidateName}
+        </Link>
+    );
+};
+
 function EmployeeDashboardContent() {
     const [data, setData] = useState<EmployeeDashboardData | null>(null);
+    const [interviews, setInterviews] = useState<any[]>([]);
+    const [interviewSearchTerm, setInterviewSearchTerm] = useState("");
     const [loading, setLoading] = useState(true);
     const showLoader = useMinimumLoadingTime(loading);
     const [error, setError] = useState<string | null>(null);
@@ -137,10 +215,16 @@ function EmployeeDashboardContent() {
                 console.log(" Fetching employee dashboard data...");
                 setLoading(true);
                 setError(null);
-                const metrics = await apiFetch("/metrics/employee");
-                console.log(" Employee dashboard data received:", metrics);
+                
+                // Fetch both metrics and interviews in parallel
+                const [metrics, interviewsRes] = await Promise.all([
+                    apiFetch("/metrics/employee"),
+                    cachedApiFetch("/interviews")
+                ]);
 
+                console.log(" Employee dashboard data received:", metrics);
                 setData(metrics);
+                setInterviews(interviewsRes?.data || []);
             } catch (err: any) {
                 console.error(" Dashboard error:", err);
                 const errorMessage = err?.body?.detail
@@ -179,6 +263,45 @@ function EmployeeDashboardContent() {
             return "Active Member";
         }
     };
+
+    const columnDefs = useMemo<ColDef[]>(() => [
+        { field: "id", headerName: "ID", pinned: "left", width: 80 },
+        {
+            field: "candidate.full_name",
+            headerName: "Full Name",
+            pinned: "left",
+            cellRenderer: CandidateNameRenderer,
+            sortable: true,
+            width: 200,
+        },
+        { field: "company", headerName: "Company", sortable: true, width: 160 },
+        { field: "position_title", headerName: "Position Title", width: 180 },
+        {
+            field: "mode_of_interview",
+            headerName: "Mode",
+            width: 120,
+            cellRenderer: ModeRenderer,
+        },
+        {
+            field: "type_of_interview",
+            headerName: "Type",
+            width: 150,
+            cellRenderer: TypeRenderer,
+        },
+        {
+            field: "company_type",
+            headerName: "Company Type",
+            width: 170,
+            cellRenderer: CompanyTypeRenderer,
+        },
+        { field: "interview_date", headerName: "Date", width: 120, sortable: true },
+        {
+            field: "interview_time",
+            headerName: "Time",
+            width: 130,
+            cellRenderer: TimeRenderer,
+        }
+    ], []);
 
     if (showLoader) {
         return <Loader text="Loading Dashboard..." />;
@@ -245,7 +368,7 @@ function EmployeeDashboardContent() {
             )}
 
             <Tabs defaultValue="overview" className="w-full">
-                <TabsList className="bg-gray-50 border-2 border-gray-100 dark:bg-darklight dark:border-darklight rounded-xl p-1 flex flex-wrap lg:flex-nowrap h-auto mb-10 shadow-sm gap-1 w-fit">
+                <TabsList className="bg-gray-50 border-2 border-gray-100 dark:bg-darklight dark:border-darklight rounded-xl p-1 flex flex-wrap lg:flex-nowrap h-auto mb-10 shadow-sm gap-1 w-full justify-start overflow-x-auto">
                     <TabsTrigger value="overview" className="rounded-lg py-2.5 px-6 data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 transition-all font-bold text-sm text-gray-500 bg-transparent">
                         Overview
                     </TabsTrigger>
@@ -266,6 +389,9 @@ function EmployeeDashboardContent() {
                     </TabsTrigger>
                     <TabsTrigger value="classes" className="rounded-lg py-2.5 px-6 data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 transition-all font-bold text-sm text-gray-500 bg-transparent">
                         Sessions
+                    </TabsTrigger>
+                    <TabsTrigger value="interviews" className="rounded-lg py-2.5 px-6 data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 transition-all font-bold text-sm text-gray-500 bg-transparent">
+                        Interviews
                     </TabsTrigger>
                 </TabsList>
 
@@ -633,6 +759,52 @@ function EmployeeDashboardContent() {
                             </CardContent>
                         </Card>
                     </div>
+                </TabsContent>
+                <TabsContent value="interviews" className="outline-none animate-fadeIn">
+                    <Card className="rounded-3xl border border-gray-100 shadow-xl overflow-hidden bg-white dark:bg-dark dark:border-darklight">
+                        <CardHeader className="bg-white border-b border-gray-100 dark:bg-dark dark:border-dark p-6 px-10">
+                            <div className="flex items-center justify-between flex-wrap gap-4">
+                                <CardTitle className="text-xl font-black text-black dark:text-white flex items-center gap-3">
+                                    <CalendarIcon size={24} className="text-purple-600" /> Interviews
+                                </CardTitle>
+                                <div className="relative w-full max-w-xs">
+                                    <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                    <Input
+                                        type="text"
+                                        value={interviewSearchTerm}
+                                        placeholder="Search interviews..."
+                                        onChange={(e) => setInterviewSearchTerm(e.target.value)}
+                                        className="pl-10 h-9 text-sm rounded-lg border-gray-200 dark:border-darklight"
+                                    />
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <div className="w-full">
+                                <AGGridTable
+                                    rowData={interviews.filter((i) => {
+                                        if (!interviewSearchTerm.trim()) return true;
+                                        const term = interviewSearchTerm.toLowerCase();
+                                        if (i.candidate?.full_name?.toLowerCase().includes(term)) return true;
+                                        if (i.company?.toLowerCase().includes(term)) return true;
+                                        if (i.position_title?.toLowerCase().includes(term)) return true;
+                                        if (i.mode_of_interview?.toLowerCase().includes(term)) return true;
+                                        if (i.type_of_interview?.toLowerCase().includes(term)) return true;
+                                        if (i.company_type?.toLowerCase().includes(term)) return true;
+                                        if (i.interview_date?.toLowerCase().includes(term)) return true;
+                                        return false;
+                                    })}
+                                    columnDefs={columnDefs}
+                                    height="500px"
+                                    showAddButton={false}
+                                    showViewButton={true}
+                                    showEditButton={false}
+                                    showExportButton={false}
+                                    hideToolbar={false}
+                                />
+                            </div>
+                        </CardContent>
+                    </Card>
                 </TabsContent>
             </Tabs>
         </div>

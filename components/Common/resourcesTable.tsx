@@ -5,14 +5,12 @@ import { toast } from "sonner";
 
 type ComponentType =
   | "Presentations"
-  | "Must See Youtube Videos"
+  | "Must Watch"
   | "Cheatsheets"
   | "Study Guides"
-  | "Diagrams"
   | "Interactive Visual Explainers"
   | "Newsletters"
   | "Books"
-  | "Softwares"
   | "Assignments";
 
 const fetchPresentationData = async (course: string, type: ComponentType) => {
@@ -189,9 +187,8 @@ const ResourcesTable = ({
           {data.map((subject: any, index: number) => (
             <tr
               key={subject.id || index}
-              className={`hover:bg-gray-200 dark:hover:bg-blue-500 ${
-                index % 2 === 0 ? "bg-gray-100 dark:bg-transparent" : "bg-gray-200 dark:bg-transparent"
-              }`}
+              className={`hover:bg-gray-200 dark:hover:bg-blue-500 ${index % 2 === 0 ? "bg-gray-100 dark:bg-transparent" : "bg-gray-200 dark:bg-transparent"
+                }`}
             >
               <td className="border border-primary px-4 py-2 text-center text-black dark:border-blue-900 dark:text-white">
                 {index + 1}

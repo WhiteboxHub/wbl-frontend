@@ -59,8 +59,9 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "true", label: "Yes" },
   ],
   agreement: [
-    { value: "false", label: "No" },
-    { value: "true", label: "Yes" },
+    { value: "N", label: "Not Submitted" },
+    { value: "Y", label: "Approved" },
+    { value: "P", label: "Pending Review" },
   ],
   is_immigration_team: [
     { value: false, label: "No" },
@@ -507,7 +508,7 @@ const vendorStatuses = [
 // Required fields configuration - only for create mode
 const requiredFieldsConfig: Record<string, string[]> = {
   leads: ["Phone", "Email", "Full Name"],
-  candidate: ["Phone", "Email", "Full Name", "Date of Birth", "Batch"],
+  candidate: ["Phone", "Email", "Full Name", "Date of Birth", "Batch", "Emergency Contact Name", "Emergency Contact Email", "Emergency Contact Phone", "Emergency Contact Address"],
   interviews: [
     "Candidate Name",
     "Company",
@@ -575,11 +576,9 @@ const genericStatusOptions = [
 
 const materialTypeOptions = [
   { value: "P", label: "Presentations" },
-  { value: "Y", label: "Must See Youtube Videos" },
+  { value: "Y", label: "Must Watch" },
   { value: "C", label: "Cheatsheets" },
   { value: "SG", label: "Study Guides" },
-  { value: "D", label: "Diagrams" },
-  { value: "S", label: "Softwares" },
   { value: "I", label: "Interactive Visual Explainers" },
   { value: "B", label: "Books" },
   { value: "N", label: "Newsletters" },
@@ -897,6 +896,7 @@ const fieldSections: Record<string, string> = {
   company_type: "Professional Information",
   linkedin: "Contact Information",
   github: "Contact Information",
+  github_link: "Professional Information",
   github_url: "Contact Information",
   resume: "Contact Information",
   resume_url: "Contact Information",
@@ -942,6 +942,7 @@ const fieldSections: Record<string, string> = {
   state: "Contact Information",
   country: "Contact Information",
   zip: "Contact Information",
+  zip_code:"Contact Information",
   emergcontactname: "Emergency Contact",
   emergcontactemail: "Emergency Contact",
   emergcontactphone: "Emergency Contact",
@@ -4175,7 +4176,7 @@ export function EditModal({
 
                             const isJobListingModal = title.toLowerCase().includes("job listing") || title.toLowerCase().includes("marketing");
 
-                            if ((key === "location" || key === "address") && isJobListingModal) {
+                            if ((key === "location" || key === "address" || key === "emergcontactaddrs") && (isJobListingModal || isCandidateModal)) {
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5">
                                   <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
@@ -4189,7 +4190,7 @@ export function EditModal({
                                     onChange={(val, details) => {
                                       setValue(key, val);
                                       setFormData((prev) => ({ ...prev, [key]: val }));
-                                      if (details && details.address) {
+                                      if (details && details.address && (key === "address" || key === "location")) {
                                         const addr = details.address;
                                         const updates: Record<string, any> = {};
 
