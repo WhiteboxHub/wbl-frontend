@@ -11,6 +11,7 @@ import { toast } from "react-hot-toast";
 import Editor from "@monaco-editor/react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/utils/AuthContext";
+import { validateJson, validateResumeStructure } from "@/utils/resumeValidator";
 import axios from "axios";
 
 const MODELS_BY_PROVIDER: Record<string, string[]> = {
@@ -115,71 +116,6 @@ export default function CandidateSetupWizard() {
     } catch (err) {
         console.error("Failed to init AI prep session", err);
     }
-  };
-
-  const validateJson = (jsonStr: string) => {
-    try { JSON.parse(jsonStr); return true; } catch { return false; }
-  };
-
-  const validateResumeStructure = (data: any) => {
-    const errors: string[] = [];
-    const warnings: string[] = [];
-
-    const getNested = (obj: any, path: string) => {
-      return path.split('.').reduce((acc, part) => acc && acc[part] !== undefined ? acc[part] : undefined, obj);
-    };
-
-    const highBasics = ['name', 'email', 'url', 'summary'];
-    highBasics.forEach(field => {
-      if (!getNested(data, `basics.${field}`)) errors.push(`basics.${field}`);
-    });
-
-    if (!Array.isArray(data.work) || data.work.length === 0) {
-      errors.push("work (must be a non-empty array)");
-    } else {
-      data.work.forEach((w: any, idx: number) => {
-        ['name', 'position', 'startDate', 'endDate'].forEach(field => {
-          if (w[field] === undefined || w[field] === null) errors.push(`work[${idx}].${field}`);
-        });
-        if (!Array.isArray(w.highlights) || w.highlights.length === 0) {
-          errors.push(`work[${idx}].highlights`);
-        }
-      });
-    }
-
-    if (!Array.isArray(data.skills) || data.skills.length === 0) {
-      errors.push("skills (must be a non-empty array)");
-    } else {
-      data.skills.forEach((s: any, idx: number) => {
-        if (!s.name) errors.push(`skills[${idx}].name`);
-        if (!Array.isArray(s.keywords) || s.keywords.length === 0) {
-          errors.push(`skills[${idx}].keywords`);
-        }
-      });
-    }
-
-    if (!Array.isArray(data.education) || data.education.length === 0) {
-      warnings.push("education");
-    } else {
-      data.education.forEach((e: any, idx: number) => {
-        ['institution', 'studyType', 'area'].forEach(field => {
-          if (!e[field]) warnings.push(`education[${idx}].${field}`);
-        });
-      });
-    }
-    
-    if (!Array.isArray(getNested(data, 'basics.profiles')) || data.basics.profiles.length === 0) {
-      warnings.push("basics.profiles");
-    }
-    if (!getNested(data, 'custom_fields.technical_screening')) {
-      warnings.push("custom_fields.technical_screening");
-    }
-
-    ['application_logistics', 'legal', 'eeo'].forEach(field => {
-      if (!getNested(data, `custom_fields.${field}`)) warnings.push(`custom_fields.${field}`);
-    });
-
-    return { isValid: errors.length === 0, errors, warnings };
   };
 
   const handleValidateResume = () => {
@@ -420,24 +356,47 @@ export default function CandidateSetupWizard() {
                         {fileName}
                       </p>
                       <button
-                        onClick={() => document.getElementById("json-upload")?.click()}
+                        onClick={() => {
+                          setFileName("");
+                          setResumeJson("");
+                          setResumeError("");
+                          setResumeWarning("");
+                        }}
                         className="mt-5 text-xs font-bold text-gray-500 hover:text-primary transition underline decoration-gray-300 underline-offset-4"
                       >
-                        Upload a different file
+                        Start over or upload a different file
                       </button>
-                      <input id="json-upload" type="file" className="hidden" accept=".json" onChange={handleFileUpload} />
                     </div>
                   ) : (
-                    <div
-                      onClick={() => document.getElementById("json-upload")?.click()}
-                      className="cursor-pointer flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl hover:border-primary dark:hover:border-primary bg-gray-50 dark:bg-gray-800/30 hover:bg-primary/5 transition-all group flex-1"
-                    >
-                      <input id="json-upload" type="file" className="hidden" accept=".json" onChange={handleFileUpload} />
-                      <div className="w-12 h-12 bg-white dark:bg-gray-800 shadow-sm rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <Upload className="w-6 h-6 text-gray-400 group-hover:text-primary transition-colors" />
+                    <div className="flex flex-col md:flex-row gap-4 w-full flex-1">
+                      <div
+                        onClick={() => document.getElementById("json-upload")?.click()}
+                        className="cursor-pointer flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl hover:border-primary dark:hover:border-primary bg-gray-50 dark:bg-gray-800/30 hover:bg-primary/5 transition-all group flex-1"
+                      >
+                        <input id="json-upload" type="file" className="hidden" accept=".json" onChange={handleFileUpload} />
+                        <div className="w-12 h-12 bg-white dark:bg-gray-800 shadow-sm rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                          <Upload className="w-6 h-6 text-gray-400 group-hover:text-primary transition-colors" />
+                        </div>
+                        <span className="font-bold text-base text-black dark:text-white mb-1 text-center">Upload JSON</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 text-center">Click to browse your computer</span>
                       </div>
-                      <span className="font-bold text-base text-black dark:text-white mb-1">Select JSON File</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">Click to browse your computer</span>
+
+                      <div
+                        onClick={() => {
+                          setFileName("manual_entry.json");
+                          setResumeJson("{\n  \"basics\": {\n    \"name\": \"\",\n    \"email\": \"\"\n  },\n  \"work\": [],\n  \"skills\": []\n}");
+                          setResumeError("");
+                          setResumeWarning("");
+                          setCurrentStep(2);
+                        }}
+                        className="cursor-pointer flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl hover:border-primary dark:hover:border-primary bg-gray-50 dark:bg-gray-800/30 hover:bg-primary/5 transition-all group flex-1"
+                      >
+                        <div className="w-12 h-12 bg-white dark:bg-gray-800 shadow-sm rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                          <Code className="w-6 h-6 text-gray-400 group-hover:text-primary transition-colors" />
+                        </div>
+                        <span className="font-bold text-base text-black dark:text-white mb-1 text-center">Type / Paste</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 text-center">Enter manually in editor</span>
+                      </div>
                     </div>
                   )}
                 </div>
