@@ -464,7 +464,7 @@ export default function CandidateDashboard() {
     // wizard opens instantly when user clicks "Manage" (no 4-5s wait).
     useEffect(() => {
         if (!candidateId || prefetchDone) return;
-        const AIPREP_API = process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api";
+        const AIPREP_API = process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/";
 
         const run = async () => {
             try {
