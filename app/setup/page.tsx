@@ -65,7 +65,7 @@ export default function CandidateSetupWizard() {
   const [setupStatus, setSetupStatus] = useState<any>(null);
 
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const API_URL = process.env.NEXT_PUBLIC_AIPREP_API_URL || (process.env.NODE_ENV === "production" ? "https://ai-backend-560359652969.us-central1.run.app/" : "http://localhost:8000/");
+  const API_URL = process.env.NEXT_PUBLIC_AIPREP_API_URL || (process.env.NODE_ENV === "production" ? "https://ai-backend-560359652969.us-central1.run.app/api" : "http://localhost:8000/api");
 
   useEffect(() => {
     if (mounted && !authLoading && !isAuthenticated) {
