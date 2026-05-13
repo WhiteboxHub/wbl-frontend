@@ -144,6 +144,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     // clear local storage + notify other tabs
     localStorage.removeItem("access_token");
+    localStorage.removeItem("prep_token");
     // write a `logout` key so other tabs receive the `storage` event
     try {
       localStorage.setItem("logout", Date.now().toString());

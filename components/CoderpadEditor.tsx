@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { createPortal } from "react-dom";
+import { CandidateCoderpadBrand } from "@/components/CandidateCoderpadBrand";
 
 // Dynamically import components to avoid SSR issues
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), { ssr: false });
@@ -30,6 +31,30 @@ const ReactQuill = dynamic(
 import "react-quill/dist/quill.snow.css";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+
+/**
+ * Only treat the window as split-screen / too small when it is clearly below this
+ * fraction of the monitor on width or height. Using 0.7 avoids false positives from
+ * normal maximized windows (~90–95% of avail) while still catching side-by-side layouts.
+ */
+const CODERPAD_SPLIT_SCREEN_MAX_RATIO = 0.7;
+
+function getWindowToScreenRatios(): { widthRatio: number; heightRatio: number } {
+  const sw = Math.max(window.screen.availWidth || window.screen.width, 1);
+  const sh = Math.max(window.screen.availHeight || window.screen.height, 1);
+  return {
+    widthRatio: window.outerWidth / sw,
+    heightRatio: window.outerHeight / sh,
+  };
+}
+
+function isLikelySplitScreenWindow(): boolean {
+  const { widthRatio, heightRatio } = getWindowToScreenRatios();
+  return (
+    widthRatio < CODERPAD_SPLIT_SCREEN_MAX_RATIO ||
+    heightRatio < CODERPAD_SPLIT_SCREEN_MAX_RATIO
+  );
+}
 
 /** Clipboard events from Monaco’s root — used to block copy/paste of code only (not test inputs / modals). */
 function isClipboardTargetMonacoEditor(e: Event): boolean {
@@ -484,9 +509,8 @@ function useSecurityMonitor(enabled: boolean) {
     const handler = () => {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
-        const widthRatio = window.outerWidth / Math.max(window.screen.availWidth || window.screen.width, 1);
-        const heightRatio = window.outerHeight / Math.max(window.screen.availHeight || window.screen.height, 1);
-        const splitDetected = widthRatio <= 0.95 || heightRatio <= 0.95;
+        const { widthRatio, heightRatio } = getWindowToScreenRatios();
+        const splitDetected = isLikelySplitScreenWindow();
         if (splitDetected && !wasSplitRef.current) {
           addEvent(
             "window_resize",
@@ -1022,9 +1046,7 @@ export const CoderpadEditor: React.FC = () => {
   // Detect split-screen/windowed usage and adapt layout without forcing fullscreen.
   useEffect(() => {
     const checkSplitScreen = () => {
-      const widthRatio = window.outerWidth / Math.max(window.screen.availWidth || window.screen.width, 1);
-      const heightRatio = window.outerHeight / Math.max(window.screen.availHeight || window.screen.height, 1);
-      const split = widthRatio <= 0.95 || heightRatio <= 0.95;
+      const split = isLikelySplitScreenWindow();
       setIsSplitScreen(split);
       if (split && !wasSplitScreenRef.current) {
         setFilesCollapsed(true);
@@ -1800,6 +1822,11 @@ export const CoderpadEditor: React.FC = () => {
             aria-labelledby="coderpad-welcome-title"
           >
             <div className="coderpad-modal welcome-modal" onClick={e => e.stopPropagation()}>
+              {!isStaff && (
+                <div className="flex justify-center -mt-1 mb-1">
+                  <CandidateCoderpadBrand variant="welcome" />
+                </div>
+              )}
               <h3 id="coderpad-welcome-title" className="modal-title">Welcome to CoderPad</h3>
               <p className="welcome-modal-role">{loginStatusLine}</p>
               <p className="welcome-modal-hint">
@@ -2607,14 +2634,28 @@ export const CoderpadEditor: React.FC = () => {
         <header className="coderpad-topbar">
           <div className="topbar-left">
             <div className="topbar-left-inner">
-              <div className="topbar-title-row">
-                <img
-                  src="/images/logos/whitebox-learning-logo.png"
-                  alt="White Box Learning logo"
-                  className="topbar-brand-logo"
-                />
+              <div
+                className={
+                  teamRole === "candidate"
+                    ? "topbar-title-row topbar-title-row--candidate"
+                    : "topbar-title-row"
+                }
+              >
+                {teamRole === "candidate" ? (
+                  <CandidateCoderpadBrand variant="topbar" />
+                ) : (
+                  <img
+                    src="/images/logos/whitebox-learning-logo.png"
+                    alt="White Box Learning logo"
+                    className="topbar-brand-logo"
+                  />
+                )}
                 <input
-                  className="snippet-title-input"
+                  className={
+                    teamRole === "candidate"
+                      ? "snippet-title-input snippet-title-input--hero"
+                      : "snippet-title-input"
+                  }
                   value={title}
                   onChange={e => { setTitle(e.target.value); setIsDirty(true); }}
                   placeholder={DEFAULT_SNIPPET_TITLE}
@@ -3231,9 +3272,10 @@ export const CoderpadEditor: React.FC = () => {
         .welcome-modal { max-width: 420px; width: 92vw; }
         .welcome-modal-role {
           margin: 0;
-          font-size: 0.88rem;
-          color: #58a6ff;
-          font-weight: 600;
+          font-size: 0.8125rem;
+          color: #8b949e;
+          font-weight: 400;
+          line-height: 1.45;
         }
         .welcome-modal-hint {
           margin: 0;
@@ -4142,6 +4184,7 @@ export const CoderpadEditor: React.FC = () => {
           color: #a5d6ff;
         }
         .topbar-title-row { display: flex; align-items: center; gap: 8px; }
+        .topbar-title-row--candidate { gap: 12px; }
         .topbar-brand-logo {
           width: 22px;
           height: 22px;
@@ -4150,10 +4193,11 @@ export const CoderpadEditor: React.FC = () => {
         }
         .coderpad-login-line {
           margin: 0;
-          font-size: 0.72rem;
+          font-size: 0.8125rem;
           color: #8b949e;
-          font-weight: 500;
+          font-weight: 400;
           letter-spacing: 0.01em;
+          line-height: 1.4;
         }
         .coderpad-llm-row {
           display: flex;
@@ -4320,6 +4364,13 @@ export const CoderpadEditor: React.FC = () => {
           min-width: 160px;
           font-family: 'Inter', sans-serif;
           transition: color 0.15s;
+        }
+        .snippet-title-input--hero {
+          font-size: 1.375rem;
+          font-weight: 800;
+          letter-spacing: -0.03em;
+          color: #ffffff;
+          max-width: min(440px, 52vw);
         }
         .snippet-title-input::placeholder { color: #6e7681; }
         .snippet-title-input:hover { color: #f0f6fc; }

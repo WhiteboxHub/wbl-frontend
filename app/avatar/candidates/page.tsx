@@ -899,7 +899,7 @@ export default function CandidatesPage() {
           values: ["Y", "N", "P"],
         },
         valueFormatter: (params: any) => {
-          if (params.value === "Y") return "Submitted";
+          if (params.value === "Y") return "Approved";
           if (params.value === "P") return "Pending Review";
           return "Not Submitted";
         },
