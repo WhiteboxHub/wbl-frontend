@@ -99,8 +99,8 @@ const Footer = () => {
               </div>
             </div>
             <div className="hidden w-full text-center sm:w-1/2 sm:text-left md:flex md:justify-center lg:w-4/12">
-              <div className="mb-4">
-                <div className="mb-4">
+              <div className="mb-2">
+                <div className="mb-1">
                   <a
                     href={"/contact"}
                     target="_self"
@@ -111,33 +111,33 @@ const Footer = () => {
                   </a>
                 </div>
                 <ul>
-                  <li className="mb-3">
+                  <li className="mb-1">
                     <a
                       href={googleMapsLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-md text-black duration-500 hover:text-blue-600 dark:text-white dark:hover:text-blue-600"
+                      className="text-base text-black duration-500 hover:text-blue-600 dark:text-white dark:hover:text-blue-600"
                     >
                       {address}
                     </a>
                   </li>
-                  <li className="mb-3">
+                  <li className="mb-1">
                     <a
-                      className="text-md text-black duration-500 hover:text-blue-600 dark:text-white dark:hover:text-blue-600"
+                      className="text-base text-black duration-500 hover:text-blue-600 dark:text-white dark:hover:text-blue-600"
                       href="tel:+19255571053"
                     >
                       +1 925-557-1053
                     </a>
                   </li>
-                  <li className="mb-3">
+                  <li className="mb-1">
                     <a
-                      className="text-md mb-1 block text-black duration-500 hover:text-blue-600 dark:text-white dark:hover:text-blue-600"
+                      className="text-base mb-1 block text-black duration-500 hover:text-blue-600 dark:text-white dark:hover:text-blue-600"
                       href="mailto:info@whitebox-learning.com"
                     >
                       info@whitebox-learning.com
                     </a>
                     <a
-                      className="text-md text-black duration-500 hover:text-blue-600 dark:text-white dark:hover:text-blue-600"
+                      className="text-base text-black duration-500 hover:text-blue-600 dark:text-white dark:hover:text-blue-600"
                       href="mailto:recruiting@whitebox-learning.com"
                     >
                       recruiting@whitebox-learning.com
