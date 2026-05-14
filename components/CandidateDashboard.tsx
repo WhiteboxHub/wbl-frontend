@@ -58,9 +58,7 @@ import { apiFetch, API_BASE_URL, setupApi } from "@/lib/api";
 import { TimePicker } from "@/components/admin_ui/TimePicker";
 import { useAuth } from "@/utils/AuthContext";
 import CandidateGrid from "./CandidateGrid";
-
 import { CandidateSetupWizard } from "./CandidateSetupWizard";
-
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
 
 // Build the outbound apply URL for a job_listing row. Prefers an explicit
@@ -158,7 +156,7 @@ interface ApiError {
     status?: number;
 }
 
-type TabType = 'overview' | 'sessions' | 'interviews' | 'jobs';
+type TabType = 'overview' | 'sessions' | 'interviews' | 'jobs' | 'smartprep';
 
 const extractErrorMessage = (err: ApiError, defaultMessage: string): string => {
     return err.body?.detail || err.body?.message || err.detail || err.message || defaultMessage;
@@ -441,6 +439,13 @@ export default function CandidateDashboard() {
     const [retryCount, setRetryCount] = useState(0);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [activeTab, setActiveTab] = useState<TabType>('jobs');
+    const [setupWizardOpen, setSetupWizardOpen] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    const goToTab = (tab: TabType) => {
+        setSetupWizardOpen(false);
+        setActiveTab(tab);
+    };
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const profileRef = useRef<HTMLDivElement>(null);
 
@@ -485,15 +490,79 @@ export default function CandidateDashboard() {
     const [editInterviewForm, setEditInterviewForm] = useState<any>({});
     const [editInterviewLoading, setEditInterviewLoading] = useState(false);
     const [setupStatus, setSetupStatus] = useState<{ resume_uploaded: boolean; api_keys_configured: boolean; setup_complete: boolean } | null>(null);
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => { setMounted(true); }, []);
+    const [setupWizardManageMode, setSetupWizardManageMode] = useState(false);
+    const [prefetchedSession, setPrefetchedSession] = useState<{ sessionId: string; summaryData: any } | null>(null);
+    const [prefetchDone, setPrefetchDone] = useState(false);
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     useEffect(() => {
         setupApi.getStatus()
             .then((d: any) => setSetupStatus(d))
             .catch(() => setSetupStatus(null));
     }, []);
+    // Pre-fetch AI prep session as soon as candidateId is available so the
+    // wizard opens instantly when user clicks "Manage" (no 4-5s wait).
+    useEffect(() => {
+        if (!candidateId || prefetchDone) return;
+        const AIPREP_API = process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api";
+
+        const run = async () => {
+            try {
+                const token = localStorage.getItem("access_token") || "";
+                const payload = JSON.parse(atob(token.split(".")[1]));
+                const email = payload.sub || payload.email || payload.uname || "candidate";
+
+                const res = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                const sid: string = data.session_id;
+                const summaryData = data.summary;
+
+                if (!sid) return;
+                localStorage.setItem("prep_token", sid);
+
+                setPrefetchedSession({ sessionId: sid, summaryData });
+                setPrefetchDone(true);
+
+                // Also update status badges
+                const hasKeys = summaryData.has_api_key === true || (Array.isArray(summaryData.llm_keys) && summaryData.llm_keys.length > 0);
+                const hasResume = summaryData.resume_text === "Exists" || (summaryData.resume_json != null && typeof summaryData.resume_json === "object");
+                setSetupStatus({ resume_uploaded: hasResume, api_keys_configured: hasKeys, setup_complete: hasResume && hasKeys });
+            } catch {
+                // Silently fail — wizard will fall back to its own fetch
+            }
+        };
+        void run();
+    }, [candidateId, prefetchDone]);
+
+    useEffect(() => {
+        if (!setupWizardOpen) {
+            setSetupWizardManageMode(false);
+            // Don't clear prefetchedSession — keep it for next open
+        }
+    }, [setupWizardOpen]);
+
+    const refreshSetupStatus = async () => {
+        for (let attempt = 0; attempt < 5; attempt++) {
+            try {
+                const d: any = await setupApi.getStatus();
+                setSetupStatus(d);
+                if (d?.setup_complete) {
+                    return;
+                }
+            } catch {
+                setSetupStatus(null);
+                return;
+            }
+            await new Promise((r) => setTimeout(r, 150));
+        }
+    };
 
     const statusOptions = ['open', 'closed', 'on_hold', 'duplicate', 'invalid'];
     const typeOptions = ['full_time', 'contract', 'contract_to_hire', 'internship'];
@@ -887,7 +956,7 @@ export default function CandidateDashboard() {
     }, [positions, selectedModes, selectedStatuses, selectedTypes]);
 
     const handleAddInterview = async () => {
-        const { company, interview_date,position_title, interviewer_emails, mode_of_interview, type_of_interview, job_description } = addInterviewForm;
+        const { company, interview_date, position_title, interviewer_emails, mode_of_interview, type_of_interview, job_description } = addInterviewForm;
 
         if (!company || !interview_date || !position_title || !interviewer_emails || !mode_of_interview || !type_of_interview || !job_description) {
             toast.error("Please fill in all mandatory fields (*)");
@@ -932,13 +1001,13 @@ export default function CandidateDashboard() {
             position_title: "Position Title",
             interview_date: "Interview Date",
             interview_time: "Interview Time",
-            interviewer_emails:"Interviewer Emails",
+            interviewer_emails: "Interviewer Emails",
             mode_of_interview: "Mode of Interview",
             type_of_interview: "Type of Interview",
-            job_description:"Job Description"
+            job_description: "Job Description"
         };
-        for (const [field, label] of Object.entries(requiredFields)){
-            if(!editInterviewForm[field as keyof typeof editInterviewForm]){
+        for (const [field, label] of Object.entries(requiredFields)) {
+            if (!editInterviewForm[field as keyof typeof editInterviewForm]) {
                 toast.error(`${label} is required`);
                 return;
             }
@@ -1286,7 +1355,7 @@ export default function CandidateDashboard() {
         { id: 'jobs' as TabType, name: 'Job Board', icon: Briefcase },
         { id: 'overview' as TabType, name: 'Overview', icon: Home },
         { id: 'sessions' as TabType, name: 'Sessions', icon: PlayCircle },
-        { id: 'interviews' as TabType, name: 'Interviews', icon: CalendarCheck },
+        { id: 'interviews' as TabType, name: 'Interviews', icon: CalendarCheck }
     ];
 
     return (
@@ -1315,7 +1384,7 @@ export default function CandidateDashboard() {
                                 return (
                                     <button
                                         key={tab.id}
-                                        onClick={() => setActiveTab(tab.id)}
+                                        onClick={() => goToTab(tab.id)}
                                         className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${isActive
                                             ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
                                             : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
@@ -1336,6 +1405,17 @@ export default function CandidateDashboard() {
                                 <Code2 className="w-4 h-4 flex-shrink-0 text-gray-400" aria-hidden />
                                 <span>Coderpad</span>
                             </a>
+                            <button
+                                onClick={() => setActiveTab('smartprep')}
+                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${activeTab === 'smartprep'
+                                    ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
+                                    }`}
+                            >
+                                <Sparkles className={`w-4 h-4 flex-shrink-0 ${activeTab === 'smartprep' ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400"}`} />
+                                <span>WBL SmartPrep</span>
+                                {activeTab === 'smartprep' && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500" />}
+                            </button>
                         </div>
                     </div>
 
@@ -1420,13 +1500,32 @@ export default function CandidateDashboard() {
                             </button>
                         );
                     })}
+                    <a
+                        href="/coderpad"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
+                    >
+                        <Puzzle className="w-3.5 h-3.5" />
+                        CoderPad
+                    </a>
+                    <button
+                        onClick={() => goToTab('smartprep')}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${activeTab === 'smartprep'
+                            ? "bg-indigo-600 text-white shadow-sm"
+                            : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
+                            }`}
+                    >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        WBL SmartPrep
+                    </button>
                 </div>
 
                 {/* Scrollable Content */}
                 <main className="flex-1 overflow-hidden flex flex-col">
 
                     {/* Setup Status Banner */}
-                    {setupStatus && (
+                    {setupStatus && !setupWizardOpen && (
                         <div className="px-4 lg:px-6 pt-4 flex-shrink-0 animate-in fade-in slide-in-from-top-2">
                             <div className="relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4 px-6 py-3 border border-indigo-200 dark:border-indigo-800 rounded-xl shadow-sm bg-white dark:bg-gray-900 group">
                                 {/* Radiant Background Effect (matches the glowing corner effect from the reference) */}
@@ -1466,7 +1565,7 @@ export default function CandidateDashboard() {
                                         <button
                                             onClick={async () => {
                                                 const getAiPrepUrl = () => {
-                                                    return process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL || "http://localhost:3000";
+                                                    return process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL || "https://ai-prep.whitebox-learning.com";
                                                 };
                                                 const baseUrl = getAiPrepUrl();
                                                 const token = localStorage.getItem("prep_token");
@@ -1474,8 +1573,7 @@ export default function CandidateDashboard() {
                                                 if (token) {
                                                     window.open(`${baseUrl}/auth?token=${token}`, '_blank');
                                                 } else {
-                                                    // Fallback if no token (shouldn't happen if setup complete)
-                                                    window.open(baseUrl, '_blank');
+                                                    alert("Preparing your secure session... Please click again in a moment.");
                                                 }
                                             }}
                                             className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
@@ -1484,13 +1582,18 @@ export default function CandidateDashboard() {
                                             Start Preparation
                                         </button>
                                     ) : (
-                                        <Link
-                                            href="/setup"
+
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setSetupWizardManageMode(false);
+                                                setSetupWizardOpen(true);
+                                            }}
                                             className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-indigo-900 to-purple-600 hover:from-indigo-800 hover:to-purple-500 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
                                         >
                                             <Sparkles className="w-3.5 h-3.5" />
                                             Complete Setup
-                                        </Link>
+                                        </button>
                                     )}
                                 </div>
                             </div>
@@ -1517,828 +1620,835 @@ export default function CandidateDashboard() {
 
                     {/* ==================== TAB CONTENT ==================== */}
                     <div className="flex-1 overflow-hidden flex flex-col animate-fadeIn">
-                        {activeTab === 'overview' && (
-                            <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4">
-                                {/* Phase Cards Row */}
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                    <PhaseCard
-                                        title="Enrolled"
-                                        icon={<CheckCircle className="w-5 h-5" />}
-                                        color="gray"
-                                        completed={data.journey.enrolled.completed}
-                                        daysSince={data.journey.enrolled.days_since}
-                                        batchName={data.basic_info.batch_name}
-                                        date={data.journey.enrolled.date ? format(parseISO(data.journey.enrolled.date), "MMM dd, yyyy") : undefined}
-                                    />
-                                    <PhaseCard
-                                        title="Preparation"
-                                        icon={<Target className="w-5 h-5" />}
-                                        color="gray"
-                                        active={data.journey.preparation.active}
-                                        completed={data.journey.preparation.completed}
-                                        durationDays={data.journey.preparation.duration_days}
-                                    />
-                                    <PhaseCard
-                                        title="Marketing"
-                                        icon={<TrendingUp className="w-5 h-5" />}
-                                        color="gray"
-                                        active={data.journey.marketing.active}
-                                        completed={data.journey.marketing.completed}
-                                        durationDays={data.journey.marketing.duration_days}
-                                    />
-                                    <PhaseCard
-                                        title="Placement"
-                                        icon={<Briefcase className="w-5 h-5" />}
-                                        color="gray"
-                                        active={data.journey.placement.active}
-                                        completed={data.journey.placement.completed}
-                                        company={data.phase_metrics.placement?.company}
-                                        date={data.journey.placement.date ? format(parseISO(data.journey.placement.date), "MMM dd, yyyy") : undefined}
-                                    />
-                                </div>
-
-                                {/* AI Setup Status Card */}
-                                <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 px-5 py-4">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-7 h-7 rounded-lg bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center">
-                                                <Settings className="w-4 h-4 text-violet-500" />
-                                            </div>
-                                            <span className="text-sm font-bold text-gray-800 dark:text-white">AI Profile Setup</span>
-                                        </div>
-                                        <Link
-                                            href="/setup"
-                                            className="text-xs font-bold text-violet-500 hover:text-violet-700 transition-colors flex items-center gap-1"
-                                        >
-                                            {setupStatus?.setup_complete ? "Manage" : "Complete Setup"}
-                                            <ChevronRight className="w-3.5 h-3.5" />
-                                        </Link>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        {/* Resume Status */}
-                                        <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${setupStatus === null
-                                            ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
-                                            : setupStatus.resume_uploaded
-                                                ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"
-                                                : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
-                                            }`}>
-                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${setupStatus === null
-                                                ? "bg-gray-100 dark:bg-gray-700"
-                                                : setupStatus.resume_uploaded
-                                                    ? "bg-emerald-100 dark:bg-emerald-900/40"
-                                                    : "bg-amber-100 dark:bg-amber-900/40"
-                                                }`}>
-                                                {setupStatus === null ? (
-                                                    <div className="w-3 h-3 rounded-full bg-gray-300 animate-pulse" />
-                                                ) : setupStatus.resume_uploaded ? (
-                                                    <CheckCircle className="w-4 h-4 text-emerald-500" />
-                                                ) : (
-                                                    <AlertTriangle className="w-4 h-4 text-amber-500" />
-                                                )}
-                                            </div>
-                                            <div className="min-w-0">
-                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Resume</p>
-                                                <p className={`text-xs font-bold mt-0.5 ${setupStatus === null ? "text-gray-400" :
-                                                    setupStatus.resume_uploaded ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
-                                                    }`}>
-                                                    {setupStatus === null ? "Loading..." : setupStatus.resume_uploaded ? "Uploaded ✓" : "Not added"}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {/* API Keys Status */}
-                                        <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${setupStatus === null
-                                            ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
-                                            : setupStatus.api_keys_configured
-                                                ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"
-                                                : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
-                                            }`}>
-                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${setupStatus === null
-                                                ? "bg-gray-100 dark:bg-gray-700"
-                                                : setupStatus.api_keys_configured
-                                                    ? "bg-emerald-100 dark:bg-emerald-900/40"
-                                                    : "bg-amber-100 dark:bg-amber-900/40"
-                                                }`}>
-                                                {setupStatus === null ? (
-                                                    <div className="w-3 h-3 rounded-full bg-gray-300 animate-pulse" />
-                                                ) : setupStatus.api_keys_configured ? (
-                                                    <CheckCircle className="w-4 h-4 text-emerald-500" />
-                                                ) : (
-                                                    <AlertTriangle className="w-4 h-4 text-amber-500" />
-                                                )}
-                                            </div>
-                                            <div className="min-w-0">
-                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">API Keys</p>
-                                                <p className={`text-xs font-bold mt-0.5 ${setupStatus === null ? "text-gray-400" :
-                                                    setupStatus.api_keys_configured ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
-                                                    }`}>
-                                                    {setupStatus === null ? "Loading..." : setupStatus.api_keys_configured ? "Configured ✓" : "Not added"}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                                    {/* JOURNEY SECTION */}
-                                    <div className="lg:col-span-8 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
-                                        <div className="mb-5">
-                                            <h2 className="text-base font-bold text-gray-900 dark:text-white">Your Career Journey</h2>
-                                            <p className="text-xs text-gray-400 mt-0.5">Track your progress from enrollment to placement.</p>
-                                        </div>
-
-                                        <div className="relative px-2 py-1">
-                                            {/* Line Background */}
-                                            <div className="hidden md:block absolute top-[18px] left-8 right-8 h-0.5 bg-gray-100 dark:bg-gray-800 rounded-full z-0" />
-                                            {/* Active Progress Line */}
-                                            <div
-                                                className="hidden md:block absolute top-[18px] left-8 h-0.5 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full z-0 transition-all duration-1000"
-                                                style={{
-                                                    width: `calc(${(data.journey.placement.completed ? 100 :
-                                                        data.journey.placement.active ? 87.5 :
-                                                            data.journey.marketing.completed ? 75 :
-                                                                data.journey.marketing.active ? 62.5 :
-                                                                    data.journey.preparation.completed ? 50 :
-                                                                        data.journey.preparation.active ? 37.5 :
-                                                                            data.journey.enrolled.completed ? 25 : 0)
-                                                        }% - 4rem)`
-                                                }}
+                        {setupWizardOpen ? (
+                            <div className="flex-1 min-h-0 flex flex-col overflow-hidden p-4 lg:p-6">
+                                <CandidateSetupWizard
+                                    variant="embedded"
+                                    candidateId={candidateId ?? undefined}
+                                    manageMode={setupWizardManageMode}
+                                    prefetchedSession={prefetchedSession}
+                                    onSetupComplete={async () => {
+                                        await refreshSetupStatus();
+                                        // Invalidate prefetch so next open re-fetches fresh data
+                                        setPrefetchDone(false);
+                                        setPrefetchedSession(null);
+                                        goToTab("smartprep");
+                                    }}
+                                />
+                            </div>
+                        ) : (
+                            <>
+                                {activeTab === 'overview' && (
+                                    <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4">
+                                        {/* Phase Cards Row */}
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                            <PhaseCard
+                                                title="Enrolled"
+                                                icon={<CheckCircle className="w-5 h-5" />}
+                                                color="gray"
+                                                completed={data.journey.enrolled.completed}
+                                                daysSince={data.journey.enrolled.days_since}
+                                                batchName={data.basic_info.batch_name}
+                                                date={data.journey.enrolled.date ? format(parseISO(data.journey.enrolled.date), "MMM dd, yyyy") : undefined}
                                             />
-                                            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 relative z-10">
-                                                {[
-                                                    {
-                                                        id: 'enrolled',
-                                                        title: 'Enrolled',
-                                                        date: data.journey.enrolled.date,
-                                                        status: (data.journey.enrolled.completed || data.journey.preparation.active || data.journey.preparation.completed) ? 'completed' : 'active',
-                                                        icon: CheckCircle,
-                                                        description: data.basic_info.batch_name
-                                                    },
-                                                    {
-                                                        id: 'preparation',
-                                                        title: 'Preparation',
-                                                        date: data.journey.preparation.start_date,
-                                                        status: (data.journey.preparation.completed || data.journey.marketing.active || data.journey.marketing.completed) ? 'completed' : data.journey.preparation.active ? 'active' : 'upcoming',
-                                                        icon: Target,
-                                                        duration: data.journey.preparation.duration_days
-                                                    },
-                                                    {
-                                                        id: 'marketing',
-                                                        title: 'Marketing',
-                                                        date: data.journey.marketing.start_date,
-                                                        status: (data.journey.marketing.completed || data.journey.placement.active || data.journey.placement.completed) ? 'completed' : data.journey.marketing.active ? 'active' : 'upcoming',
-                                                        icon: TrendingUp,
-                                                        duration: data.journey.marketing.duration_days
-                                                    },
-                                                    {
-                                                        id: 'placement',
-                                                        title: 'Placement',
-                                                        date: data.journey.placement.date,
-                                                        status: data.journey.placement.completed ? 'completed' : data.journey.placement.active ? 'active' : 'upcoming',
-                                                        icon: Briefcase,
-                                                        company: data.phase_metrics?.placement?.company
-                                                    }
-                                                ].map((step, idx) => (
-                                                    <div key={idx} className="flex flex-row md:flex-col items-center group relative">
-                                                        {idx !== 3 && (
-                                                            <div className="md:hidden absolute left-[15px] top-8 bottom-[-24px] w-0.5 bg-gray-100 dark:bg-gray-700 -z-10" />
-                                                        )}
-                                                        <div
-                                                            className={`w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all duration-300 shadow-sm border-2 ${step.status === 'completed'
-                                                                ? 'bg-blue-500 border-blue-400 text-white group-hover:scale-110'
-                                                                : step.status === 'active'
-                                                                    ? 'bg-white dark:bg-gray-900 border-blue-500 text-blue-500 ring-4 ring-blue-100 dark:ring-blue-900/30'
-                                                                    : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-300'
-                                                                }`}
-                                                        >
-                                                            <step.icon className={`w-4 h-4 ${step.status === 'active' ? 'animate-pulse' : ''}`} />
-                                                        </div>
-                                                        <div className="ml-4 md:ml-0 md:mt-3 text-left md:text-center flex-1">
-                                                            <div className={`text-[9px] font-bold uppercase tracking-widest mb-0.5 ${step.status === 'completed' ? 'text-blue-500' : step.status === 'active' ? 'text-blue-400' : 'text-gray-300'}`}>
-                                                                Step 0{idx + 1}
+                                            <PhaseCard
+                                                title="Preparation"
+                                                icon={<Target className="w-5 h-5" />}
+                                                color="gray"
+                                                active={data.journey.preparation.active}
+                                                completed={data.journey.preparation.completed}
+                                                durationDays={data.journey.preparation.duration_days}
+                                            />
+                                            <PhaseCard
+                                                title="Marketing"
+                                                icon={<TrendingUp className="w-5 h-5" />}
+                                                color="gray"
+                                                active={data.journey.marketing.active}
+                                                completed={data.journey.marketing.completed}
+                                                durationDays={data.journey.marketing.duration_days}
+                                            />
+                                            <PhaseCard
+                                                title="Placement"
+                                                icon={<Briefcase className="w-5 h-5" />}
+                                                color="gray"
+                                                active={data.journey.placement.active}
+                                                completed={data.journey.placement.completed}
+                                                company={data.phase_metrics.placement?.company}
+                                                date={data.journey.placement.date ? format(parseISO(data.journey.placement.date), "MMM dd, yyyy") : undefined}
+                                            />
+                                        </div>
+
+
+                                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                                            {/* JOURNEY SECTION */}
+                                            <div className="lg:col-span-8 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
+                                                <div className="mb-5">
+                                                    <h2 className="text-base font-bold text-gray-900 dark:text-white">Your Career Journey</h2>
+                                                    <p className="text-xs text-gray-400 mt-0.5">Track your progress from enrollment to placement.</p>
+                                                </div>
+
+                                                <div className="relative px-2 py-1">
+                                                    {/* Line Background */}
+                                                    <div className="hidden md:block absolute top-[18px] left-8 right-8 h-0.5 bg-gray-100 dark:bg-gray-800 rounded-full z-0" />
+                                                    {/* Active Progress Line */}
+                                                    <div
+                                                        className="hidden md:block absolute top-[18px] left-8 h-0.5 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full z-0 transition-all duration-1000"
+                                                        style={{
+                                                            width: `calc(${(data.journey.placement.completed ? 100 :
+                                                                data.journey.placement.active ? 87.5 :
+                                                                    data.journey.marketing.completed ? 75 :
+                                                                        data.journey.marketing.active ? 62.5 :
+                                                                            data.journey.preparation.completed ? 50 :
+                                                                                data.journey.preparation.active ? 37.5 :
+                                                                                    data.journey.enrolled.completed ? 25 : 0)
+                                                                }% - 4rem)`
+                                                        }}
+                                                    />
+                                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3 relative z-10">
+                                                        {[
+                                                            {
+                                                                id: 'enrolled',
+                                                                title: 'Enrolled',
+                                                                date: data.journey.enrolled.date,
+                                                                status: (data.journey.enrolled.completed || data.journey.preparation.active || data.journey.preparation.completed) ? 'completed' : 'active',
+                                                                icon: CheckCircle,
+                                                                description: data.basic_info.batch_name
+                                                            },
+                                                            {
+                                                                id: 'preparation',
+                                                                title: 'Preparation',
+                                                                date: data.journey.preparation.start_date,
+                                                                status: (data.journey.preparation.completed || data.journey.marketing.active || data.journey.marketing.completed) ? 'completed' : data.journey.preparation.active ? 'active' : 'upcoming',
+                                                                icon: Target,
+                                                                duration: data.journey.preparation.duration_days
+                                                            },
+                                                            {
+                                                                id: 'marketing',
+                                                                title: 'Marketing',
+                                                                date: data.journey.marketing.start_date,
+                                                                status: (data.journey.marketing.completed || data.journey.placement.active || data.journey.placement.completed) ? 'completed' : data.journey.marketing.active ? 'active' : 'upcoming',
+                                                                icon: TrendingUp,
+                                                                duration: data.journey.marketing.duration_days
+                                                            },
+                                                            {
+                                                                id: 'placement',
+                                                                title: 'Placement',
+                                                                date: data.journey.placement.date,
+                                                                status: data.journey.placement.completed ? 'completed' : data.journey.placement.active ? 'active' : 'upcoming',
+                                                                icon: Briefcase,
+                                                                company: data.phase_metrics?.placement?.company
+                                                            }
+                                                        ].map((step, idx) => (
+                                                            <div key={idx} className="flex flex-row md:flex-col items-center group relative">
+                                                                {idx !== 3 && (
+                                                                    <div className="md:hidden absolute left-[15px] top-8 bottom-[-24px] w-0.5 bg-gray-100 dark:bg-gray-700 -z-10" />
+                                                                )}
+                                                                <div
+                                                                    className={`w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all duration-300 shadow-sm border-2 ${step.status === 'completed'
+                                                                        ? 'bg-blue-500 border-blue-400 text-white group-hover:scale-110'
+                                                                        : step.status === 'active'
+                                                                            ? 'bg-white dark:bg-gray-900 border-blue-500 text-blue-500 ring-4 ring-blue-100 dark:ring-blue-900/30'
+                                                                            : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-300'
+                                                                        }`}
+                                                                >
+                                                                    <step.icon className={`w-4 h-4 ${step.status === 'active' ? 'animate-pulse' : ''}`} />
+                                                                </div>
+                                                                <div className="ml-4 md:ml-0 md:mt-3 text-left md:text-center flex-1">
+                                                                    <div className={`text-[9px] font-bold uppercase tracking-widest mb-0.5 ${step.status === 'completed' ? 'text-blue-500' : step.status === 'active' ? 'text-blue-400' : 'text-gray-300'}`}>
+                                                                        Step 0{idx + 1}
+                                                                    </div>
+                                                                    <h3 className={`text-xs font-bold mb-1 ${step.status === 'upcoming' ? 'text-gray-400' : 'text-gray-900 dark:text-white'}`}>
+                                                                        {step.title}
+                                                                    </h3>
+                                                                    <div className="min-h-[28px] flex flex-col justify-start md:items-center">
+                                                                        {step.date ? (
+                                                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-[9px] font-medium text-gray-500">
+                                                                                <Calendar className="w-2.5 h-2.5" />
+                                                                                {format(parseISO(step.date), "MMM dd, yyyy")}
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span className="text-[9px] text-gray-300 italic">{step.status === 'upcoming' ? 'Upcoming' : 'Pending'}</span>
+                                                                        )}
+                                                                        {step.status === 'active' && step.duration && (
+                                                                            <span className="mt-0.5 text-[9px] font-bold text-orange-500 uppercase tracking-wide">Day {step.duration}</span>
+                                                                        )}
+                                                                        {step.company && (
+                                                                            <span className="mt-0.5 text-[9px] font-bold text-blue-500 truncate">{step.company}</span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
                                                             </div>
-                                                            <h3 className={`text-xs font-bold mb-1 ${step.status === 'upcoming' ? 'text-gray-400' : 'text-gray-900 dark:text-white'}`}>
-                                                                {step.title}
-                                                            </h3>
-                                                            <div className="min-h-[28px] flex flex-col justify-start md:items-center">
-                                                                {step.date ? (
-                                                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 text-[9px] font-medium text-gray-500">
-                                                                        <Calendar className="w-2.5 h-2.5" />
-                                                                        {format(parseISO(step.date), "MMM dd, yyyy")}
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className="text-[9px] text-gray-300 italic">{step.status === 'upcoming' ? 'Upcoming' : 'Pending'}</span>
-                                                                )}
-                                                                {step.status === 'active' && step.duration && (
-                                                                    <span className="mt-0.5 text-[9px] font-bold text-orange-500 uppercase tracking-wide">Day {step.duration}</span>
-                                                                )}
-                                                                {step.company && (
-                                                                    <span className="mt-0.5 text-[9px] font-bold text-blue-500 truncate">{step.company}</span>
-                                                                )}
-                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* MY TEAM SECTION */}
+                                            <div className="lg:col-span-4 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
+                                                <h2 className="text-base font-bold text-gray-900 dark:text-white mb-1">My Team</h2>
+                                                <p className="text-xs text-gray-400 mb-4">Your professional support network.</p>
+
+                                                <div className="space-y-4">
+                                                    <div>
+                                                        <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Instructors</h3>
+                                                        <div className="space-y-2">
+                                                            {data.team_info.preparation.instructors.map((instructor, idx) => (
+                                                                <div key={idx} className="flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-gray-800/60 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors group">
+                                                                    <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900 dark:to-indigo-900 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-xs flex-shrink-0">
+                                                                        {instructor.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <h4 className="text-xs font-bold text-gray-900 dark:text-white truncate">{instructor.name}</h4>
+                                                                        <p className="text-[10px] text-gray-400 truncate">{instructor.role || "Instructor"}</p>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
                                                         </div>
                                                     </div>
-                                                ))}
+
+                                                    {data.team_info.marketing.manager && (
+                                                        <div>
+                                                            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Marketing</h3>
+                                                            <div className="flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-gray-800/60 rounded-xl hover:bg-green-50 dark:hover:bg-green-900/10 transition-colors">
+                                                                <div className="w-8 h-8 bg-gradient-to-br from-green-100 to-teal-100 dark:from-green-900 dark:to-teal-900 rounded-xl flex items-center justify-center text-green-600 dark:text-green-400 font-bold text-xs flex-shrink-0">
+                                                                    {data.team_info.marketing.manager.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <h4 className="text-xs font-bold text-gray-900 dark:text-white truncate">{data.team_info.marketing.manager.name}</h4>
+                                                                    <p className="text-[10px] text-gray-400">Marketing Manager</p>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
+                                )}
 
-                                    {/* MY TEAM SECTION */}
-                                    <div className="lg:col-span-4 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
-                                        <h2 className="text-base font-bold text-gray-900 dark:text-white mb-1">My Team</h2>
-                                        <p className="text-xs text-gray-400 mb-4">Your professional support network.</p>
-
-                                        <div className="space-y-4">
-                                            <div>
-                                                <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Instructors</h3>
-                                                <div className="space-y-2">
-                                                    {data.team_info.preparation.instructors.map((instructor, idx) => (
-                                                        <div key={idx} className="flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-gray-800/60 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors group">
-                                                            <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900 dark:to-indigo-900 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-xs flex-shrink-0">
-                                                                {instructor.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                                                            </div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <h4 className="text-xs font-bold text-gray-900 dark:text-white truncate">{instructor.name}</h4>
-                                                                <p className="text-[10px] text-gray-400 truncate">{instructor.role || "Instructor"}</p>
-                                                            </div>
-                                                        </div>
-                                                    ))}
+                                {activeTab === 'sessions' && (
+                                    <div className="flex-1 overflow-y-auto p-4 lg:p-6">
+                                        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
+                                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+                                                <div>
+                                                    <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                                        <PlayCircle className="w-4 h-4 text-blue-500" />
+                                                        Sessions
+                                                    </h2>
+                                                    <p className="text-xs text-gray-400 mt-0.5">Your recorded and upcoming sessions.</p>
                                                 </div>
                                             </div>
 
-                                            {data.team_info.marketing.manager && (
-                                                <div>
-                                                    <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Marketing</h3>
-                                                    <div className="flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-gray-800/60 rounded-xl hover:bg-green-50 dark:hover:bg-green-900/10 transition-colors">
-                                                        <div className="w-8 h-8 bg-gradient-to-br from-green-100 to-teal-100 dark:from-green-900 dark:to-teal-900 rounded-xl flex items-center justify-center text-green-600 dark:text-green-400 font-bold text-xs flex-shrink-0">
-                                                            {data.team_info.marketing.manager.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <h4 className="text-xs font-bold text-gray-900 dark:text-white truncate">{data.team_info.marketing.manager.name}</h4>
-                                                            <p className="text-[10px] text-gray-400">Marketing Manager</p>
-                                                        </div>
-                                                    </div>
+                                            {sessionsLoading ? (
+                                                <div className="text-center py-12">
+                                                    <div className="inline-block w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
+                                                    <p className="text-sm text-gray-400">Loading your sessions...</p>
                                                 </div>
+                                            ) : sessions.length === 0 ? (
+                                                <div className="text-center py-16">
+                                                    <PlayCircle className="w-14 h-14 text-gray-200 dark:text-gray-700 mx-auto mb-3" />
+                                                    <h3 className="text-base font-bold text-gray-700 dark:text-gray-300 mb-1">No Sessions Found</h3>
+                                                    <p className="text-sm text-gray-400">
+                                                        {`No sessions found for ${firstName} yet`}
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <p className="text-xs text-gray-400 mb-3">Found <span className="font-bold text-blue-600">{sessions.length}</span> sessions</p>
+                                                    <div className="overflow-hidden border border-gray-100 dark:border-gray-800 rounded-xl">
+                                                        <table className="w-full text-left border-collapse">
+                                                            <thead>
+                                                                <tr className="bg-gray-50 dark:bg-gray-800/50 text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 dark:border-gray-800">
+                                                                    <th className="px-4 py-2.5">Session Title</th>
+                                                                    <th className="px-4 py-2.5 hidden sm:table-cell">Date</th>
+                                                                    <th className="px-4 py-2.5 text-right">Action</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-gray-900">
+                                                                {sessions.map((session) => (
+                                                                    <tr key={session.sessionid} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                                                                        <td className="px-4 py-2.5 max-w-xs sm:max-w-md">
+                                                                            <div className="flex flex-col">
+                                                                                <span className="text-xs font-bold text-gray-900 dark:text-white truncate">{session.title || "Untitled"}</span>
+                                                                                <span className="text-[10px] text-gray-400 sm:hidden">
+                                                                                    {session.sessiondate ? format(parseISO(session.sessiondate), "MMM dd, yyyy") : "N/A"}
+                                                                                </span>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="px-4 py-2.5 hidden sm:table-cell text-xs text-gray-500">
+                                                                            {session.sessiondate ? format(parseISO(session.sessiondate), "MMM dd, yyyy") : "N/A"}
+                                                                        </td>
+                                                                        <td className="px-4 py-2.5 text-right">
+                                                                            {session.link ? (
+                                                                                <a href={session.link} target="_blank" rel="noopener noreferrer"
+                                                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-100 transition-colors text-[11px] font-bold">
+                                                                                    <PlayCircle size={13} />
+                                                                                    Watch
+                                                                                </a>
+                                                                            ) : (
+                                                                                <span className="text-[10px] text-gray-300">N/A</span>
+                                                                            )}
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </>
                                             )}
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-                        )}
+                                )}
 
-                        {activeTab === 'sessions' && (
-                            <div className="flex-1 overflow-y-auto p-4 lg:p-6">
-                                <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
-                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
-                                        <div>
-                                            <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                                <PlayCircle className="w-4 h-4 text-blue-500" />
-                                                Sessions
-                                            </h2>
-                                            <p className="text-xs text-gray-400 mt-0.5">Your recorded and upcoming sessions.</p>
-                                        </div>
-                                    </div>
+                                {activeTab === 'interviews' && (
+                                    <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4">
+                                        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
+                                            <div className="flex items-center justify-between mb-6">
+                                                <div className="flex items-center gap-2">
+                                                    <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2.5">
+                                                        <CalendarCheck className="w-5 h-5 text-blue-500" />Interviews</h2>
+                                                </div>
+                                                <div className="flex items-center gap-2 relative z-50">
+                                                    <button
+                                                        onClick={() => setShowAddInterview(true)}
+                                                        className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-all shadow-md active:scale-95"
+                                                    >
+                                                        <Plus className="w-4 h-4" /> Add New Interview
+                                                    </button>
+                                                    <button
+                                                        onClick={() => { if (selectedRow) setViewData(selectedRow); }}
+                                                        disabled={!selectedRow}
+                                                        className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-500 hover:text-blue-600 hover:border-blue-300 transition-all shadow-sm active:scale-95 disabled:opacity-30"
+                                                        title="View Interview"
+                                                    >
+                                                        <EyeIcon className="w-5 h-5" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => { if (selectedRow) { setEditData(selectedRow); setEditInterviewForm({ ...selectedRow }); } }}
+                                                        disabled={!selectedRow}
+                                                        className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-500 hover:text-purple-600 hover:border-purple-300 transition-all shadow-sm active:scale-95 disabled:opacity-30"
+                                                        title="Edit Interview"
+                                                    >
+                                                        <EditIcon className="w-5 h-5" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => loadDashboard()}
+                                                        disabled={loading}
+                                                        className="inline-flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm font-semibold rounded-xl transition-all active:scale-95 disabled:opacity-50"
+                                                        title="Refresh interviews"
+                                                    >
+                                                        <svg className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                                        </svg>
+                                                        Refresh
+                                                    </button>
+                                                </div>
+                                            </div>
 
-                                    {sessionsLoading ? (
-                                        <div className="text-center py-12">
-                                            <div className="inline-block w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
-                                            <p className="text-sm text-gray-400">Loading your sessions...</p>
-                                        </div>
-                                    ) : sessions.length === 0 ? (
-                                        <div className="text-center py-16">
-                                            <PlayCircle className="w-14 h-14 text-gray-200 dark:text-gray-700 mx-auto mb-3" />
-                                            <h3 className="text-base font-bold text-gray-700 dark:text-gray-300 mb-1">No Sessions Found</h3>
-                                            <p className="text-sm text-gray-400">
-                                                {`No sessions found for ${firstName} yet`}
-                                            </p>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <p className="text-xs text-gray-400 mb-3">Found <span className="font-bold text-blue-600">{sessions.length}</span> sessions</p>
-                                            <div className="overflow-hidden border border-gray-100 dark:border-gray-800 rounded-xl">
-                                                <table className="w-full text-left border-collapse">
-                                                    <thead>
-                                                        <tr className="bg-gray-50 dark:bg-gray-800/50 text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 dark:border-gray-800">
-                                                            <th className="px-4 py-2.5">Session Title</th>
-                                                            <th className="px-4 py-2.5 hidden sm:table-cell">Date</th>
-                                                            <th className="px-4 py-2.5 text-right">Action</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-gray-900">
-                                                        {sessions.map((session) => (
-                                                            <tr key={session.sessionid} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                                                                <td className="px-4 py-2.5 max-w-xs sm:max-w-md">
-                                                                    <div className="flex flex-col">
-                                                                        <span className="text-xs font-bold text-gray-900 dark:text-white truncate">{session.title || "Untitled"}</span>
-                                                                        <span className="text-[10px] text-gray-400 sm:hidden">
-                                                                            {session.sessiondate ? format(parseISO(session.sessiondate), "MMM dd, yyyy") : "N/A"}
-                                                                        </span>
+                                            {/* Add Interview Modal Overlay */}
+                                            {mounted && showAddInterview && createPortal(
+                                                (
+                                                    <div
+                                                        className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+                                                        style={{ backgroundColor: 'rgba(0, 0, 0, 0.2)' }}
+                                                    >
+                                                        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-blue-300 dark:border-blue-800 w-full max-w-4xl overflow-hidden">
+
+                                                            {/* Header: matches Employee UI exactly */}
+                                                            <div className="flex items-center justify-between px-6 py-2.5 border-b border-blue-200 dark:border-blue-900 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 dark:from-darklight dark:via-dark dark:to-darklight">
+                                                                <h3 className="text-base font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">Add New Interviews</h3>
+                                                                <button onClick={() => setShowAddInterview(false)} className="text-blue-300 hover:text-blue-500 transition-colors text-2xl font-light">×</button>
+                                                            </div>
+
+                                                            <div className="p-6 max-h-[80vh] overflow-y-auto">
+                                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-6">
+
+                                                                    {/* Column 1: Basic Information */}
+                                                                    <div className="space-y-4">
+                                                                        <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4">
+                                                                            <h4 className="text-[14px] font-bold text-blue-600">Company Information</h4>
+                                                                        </div>
+                                                                        <div>
+                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Company <span className="text-red-500 font-bold">*</span></label>
+                                                                            <input type="text" value={addInterviewForm.company} onChange={e => setAddInterviewForm(p => ({ ...p, company: e.target.value }))}
+                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" />
+                                                                        </div>
+                                                                        <div>
+                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Position Title<span className="text-red-600 font-black">*</span></label>
+                                                                            <input type="text" value={addInterviewForm.position_title} onChange={e => setAddInterviewForm(p => ({ ...p, position_title: e.target.value }))}
+                                                                                className="w-full rounded-lg border border-blue-100 dark:border-blue-800 bg-gray-50/50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" />
+                                                                        </div>
+                                                                        <div>
+                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Date <span className="text-red-500 font-bold">*</span></label>
+                                                                            <input type="date" value={addInterviewForm.interview_date} onChange={e => setAddInterviewForm(p => ({ ...p, interview_date: e.target.value }))}
+                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" />
+                                                                        </div>
+                                                                        <div>
+                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Time <span className="text-red-500 font-bold">*</span></label>
+                                                                            <TimePicker
+                                                                                value={addInterviewForm.interview_time}
+                                                                                onChange={(time) => setAddInterviewForm(p => ({ ...p, interview_time: time }))}
+                                                                            />
+                                                                        </div>
                                                                     </div>
-                                                                </td>
-                                                                <td className="px-4 py-2.5 hidden sm:table-cell text-xs text-gray-500">
-                                                                    {session.sessiondate ? format(parseISO(session.sessiondate), "MMM dd, yyyy") : "N/A"}
-                                                                </td>
-                                                                <td className="px-4 py-2.5 text-right">
-                                                                    {session.link ? (
-                                                                        <a href={session.link} target="_blank" rel="noopener noreferrer"
-                                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-100 transition-colors text-[11px] font-bold">
-                                                                            <PlayCircle size={13} />
-                                                                            Watch
-                                                                        </a>
-                                                                    ) : (
-                                                                        <span className="text-[10px] text-gray-300">N/A</span>
-                                                                    )}
-                                                                </td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        )}
 
-                        {activeTab === 'interviews' && (
-                            <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4">
-                                <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
-                                    <div className="flex items-center justify-between mb-6">
-                                        <div className="flex items-center gap-2">
-                                            <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2.5">
-                                                <CalendarCheck className="w-5 h-5 text-blue-500" />Interviews</h2>
-                                        </div>
-                                        <div className="flex items-center gap-2 relative z-50">
-                                            <button
-                                                onClick={() => setShowAddInterview(true)}
-                                                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-all shadow-md active:scale-95"
-                                            >
-                                                <Plus className="w-4 h-4" /> Add New Interview
-                                            </button>
-                                            <button
-                                                onClick={() => { if (selectedRow) setViewData(selectedRow); }}
-                                                disabled={!selectedRow}
-                                                className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-500 hover:text-blue-600 hover:border-blue-300 transition-all shadow-sm active:scale-95 disabled:opacity-30"
-                                                title="View Interview"
-                                            >
-                                                <EyeIcon className="w-5 h-5" />
-                                            </button>
-                                            <button
-                                                onClick={() => { if (selectedRow) { setEditData(selectedRow); setEditInterviewForm({ ...selectedRow }); } }}
-                                                disabled={!selectedRow}
-                                                className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-500 hover:text-purple-600 hover:border-purple-300 transition-all shadow-sm active:scale-95 disabled:opacity-30"
-                                                title="Edit Interview"
-                                            >
-                                                <EditIcon className="w-5 h-5" />
-                                            </button>
-                                            <button
-                                                onClick={() => loadDashboard()}
-                                                disabled={loading}
-                                                className="inline-flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm font-semibold rounded-xl transition-all active:scale-95 disabled:opacity-50"
-                                                title="Refresh interviews"
-                                            >
-                                                <svg className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                                </svg>
-                                                Refresh
-                                            </button>
+
+
+                                                                    {/* Column 2: Contact Information */}
+                                                                    <div className="space-y-4">
+                                                                        <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4">
+                                                                            <h4 className="text-[14px] font-bold text-blue-600">Interviewer Information</h4>
+                                                                        </div>
+                                                                        <div>
+                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Emails <span className="text-red-500 font-bold">*</span></label>
+                                                                            <input type="email" value={addInterviewForm.interviewer_emails} onChange={e => setAddInterviewForm(p => ({ ...p, interviewer_emails: e.target.value }))}
+                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" />
+                                                                        </div>
+                                                                        <div>
+                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Contact</label>
+                                                                            <input type="text" value={addInterviewForm.interviewer_contact} onChange={e => setAddInterviewForm(p => ({ ...p, interviewer_contact: e.target.value }))}
+                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" />
+                                                                        </div>
+                                                                        <div>
+                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer LinkedIn</label>
+                                                                            <input type="text" value={addInterviewForm.interviewer_linkedin} onChange={e => setAddInterviewForm(p => ({ ...p, interviewer_linkedin: e.target.value }))}
+                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" />
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Column 4: Other */}
+                                                                    <div className="space-y-4">
+                                                                        <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4">
+                                                                            <h4 className="text-[14px] font-bold text-blue-600">Interview Details</h4>
+                                                                        </div>
+                                                                        <div>
+                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Mode of Interview <span className="text-red-500 font-bold">*</span></label>
+                                                                            <select value={addInterviewForm.mode_of_interview} onChange={e => setAddInterviewForm(p => ({ ...p, mode_of_interview: e.target.value }))}
+                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm">
+                                                                                <option>Virtual</option><option>In Person</option><option>Phone</option><option>Assessment</option><option>AI Interview</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        <div>
+                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Type of Interview <span className="text-red-500 font-bold">*</span></label>
+                                                                            <select value={addInterviewForm.type_of_interview} onChange={e => setAddInterviewForm(p => ({ ...p, type_of_interview: e.target.value }))}
+                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm">
+                                                                                <option>Recruiter Call</option><option>Technical</option><option>HR</option><option>Prep Call</option>
+                                                                            </select>
+                                                                        </div>
+                                                                    </div>
+
+                                                                </div>
+                                                                {/* Job Description Field */}
+                                                                <div className="mt-8 border-t border-blue-50 dark:border-blue-900/50 pt-6">
+                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">
+                                                                        Job Description <span className="text-red-500 font-bold">*</span>
+                                                                    </label>
+                                                                    <textarea
+                                                                        value={addInterviewForm.job_description}
+                                                                        onChange={e => setAddInterviewForm(p => ({ ...p, job_description: e.target.value }))}
+                                                                        placeholder="Enter Job Description..."
+                                                                        className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm resize-none placeholder:text-gray-400" />
+                                                                </div>
+
+                                                                {/* Footer Buttons */}
+                                                                <div className="mt-10 pt-4 border-t border-blue-50 dark:border-blue-900 flex justify-end gap-3">
+                                                                    <button onClick={() => setShowAddInterview(false)}
+                                                                        className="px-6 py-1.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-500 hover:bg-gray-50 transition-all">
+                                                                        Cancel
+                                                                    </button>
+                                                                    <button onClick={handleAddInterview} disabled={addInterviewLoading}
+                                                                        className="px-6 py-2 rounded-xl bg-gradient-to-r from-[#4facfe] to-[#00f2fe] hover:shadow-lg hover:scale-[1.02] text-white text-sm font-bold transition-all shadow-md active:scale-95 disabled:opacity-50">
+                                                                        {addInterviewLoading ? "Saving..." : "Add Interview"}
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ),
+                                                document.body
+                                            )}
+
+                                            {/* View Interview Modal */}
+                                            {mounted && viewData && createPortal(
+                                                (
+                                                    <div
+                                                        className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+                                                        style={{ backgroundColor: 'rgba(0, 0, 0, 0.2)' }}
+                                                    >
+                                                        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-blue-300 dark:border-blue-800 w-full max-w-4xl overflow-hidden">
+                                                            <div className="flex items-center justify-between px-6 py-2.5 border-b border-blue-200 dark:border-blue-900 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 dark:from-darklight dark:via-dark dark:to-darklight">
+                                                                <h3 className="text-base font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">View Interview</h3>
+                                                                <button onClick={() => setViewData(null)} className="text-blue-300 hover:text-blue-500 transition-colors text-2xl font-light">×</button>
+                                                            </div>
+                                                            <div className="p-6 max-h-[80vh] overflow-y-auto">
+                                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-6">
+                                                                    <div className="space-y-4">
+                                                                        <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4"><h4 className="text-[14px] font-bold text-blue-600">Company Information</h4></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Company <span className="text-red-600 font-black">*</span></label>
+                                                                            <input type="text" readOnly value={viewData.company ?? ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Position Title <span className="text-red-600 font-black">*</span></label>
+                                                                            <input type="text" readOnly value={viewData.position_title ?? ''} className="w-full rounded-lg border border-blue-100 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Date <span className="text-red-600 font-black">*</span></label>
+                                                                            <input type="text" readOnly value={viewData.interview_date ?? ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Time <span className="text-red-600 font-black">*</span></label>
+                                                                            <input type="text" readOnly value={viewData.interview_time ? new Date(`1970-01-01T${viewData.interview_time}`).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true, }) : ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
+                                                                    </div>
+                                                                    <div className="space-y-4">
+                                                                        <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4"><h4 className="text-[14px] font-bold text-blue-600">Interviewer Information</h4></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Emails<span className="text-red-600 font-black">*</span></label>
+                                                                            <input type="email" readOnly value={viewData.interviewer_emails ?? ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Contact</label>
+                                                                            <input type="text" readOnly value={viewData.interviewer_contact ?? ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer LinkedIn</label>
+                                                                            <input type="text" readOnly value={viewData.interviewer_linkedin ?? ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
+                                                                    </div>
+                                                                    <div className="space-y-4">
+                                                                        <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4"><h4 className="text-[14px] font-bold text-blue-600">Interview Details</h4></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Mode of Interview <span className="text-red-600 font-black">*</span></label>
+                                                                            <input type="text" readOnly value={viewData.mode_of_interview ?? ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Type of Interview <span className="text-red-600 font-black">*</span></label>
+                                                                            <input type="text" readOnly value={viewData.type_of_interview ?? ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
+                                                                        <div>
+                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Feedback</label>
+                                                                            <input type="text" readOnly value={viewData.feedback ?? 'Pending'} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" />
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="mt-8 border-t border-blue-50 dark:border-blue-900/50 pt-6">
+                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Job Description<span className="text-red-600 font-black">*</span></label>
+                                                                    <textarea readOnly value={viewData.job_description ?? ''} className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 text-sm focus:outline-none resize-none cursor-default" />
+                                                                </div>
+                                                                <div className="mt-4">
+                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Feedback Text</label>
+                                                                    <textarea readOnly value={viewData.feedback_text ?? ''} className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 text-sm focus:outline-none resize-none cursor-default" />
+                                                                </div>
+                                                                <div className="mt-10 pt-4 border-t border-blue-50 dark:border-blue-900 flex justify-end gap-3">
+                                                                    <button onClick={() => setViewData(null)} className="px-8 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-md">Close</button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ),
+                                                document.body
+                                            )}
+
+                                            {/* Edit Interview Modal */}
+                                            {mounted && editData && createPortal(
+                                                (
+                                                    <div
+                                                        className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+                                                        style={{ backgroundColor: 'rgba(0, 0, 0, 0.2)' }}
+                                                    >
+                                                        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-blue-300 dark:border-blue-800 w-full max-w-4xl overflow-hidden">
+                                                            <div className="flex items-center justify-between px-6 py-2.5 border-b border-blue-200 dark:border-blue-900 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 dark:from-darklight dark:via-dark dark:to-darklight">
+                                                                <h3 className="text-base font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">Edit Interview</h3>
+                                                                <button onClick={() => setEditData(null)} className="text-blue-300 hover:text-blue-500 transition-colors text-2xl font-light">×</button>
+                                                            </div>
+                                                            <div className="p-6 max-h-[80vh] overflow-y-auto">
+                                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-6">
+                                                                    <div className="space-y-4">
+                                                                        <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4"><h4 className="text-[14px] font-bold text-blue-600">Company Information</h4></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Company <span className="text-red-600 font-black">*</span></label>
+                                                                            <input type="text" value={editInterviewForm.company ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, company: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" /></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Position Title <span className="text-red-600 font-black">*</span></label>
+                                                                            <input type="text" value={editInterviewForm.position_title ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, position_title: e.target.value }))} className="w-full rounded-lg border border-blue-100 dark:border-blue-800 bg-gray-50/50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" /></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Date <span className="text-red-600 font-black">*</span></label>
+                                                                            <input type="date" value={editInterviewForm.interview_date ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, interview_date: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" /></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Time <span className="text-red-600 font-black">*</span></label>
+                                                                            <TimePicker
+                                                                                value={editInterviewForm.interview_time}
+                                                                                onChange={(time) => setEditInterviewForm((p: any) => ({ ...p, interview_time: time }))}
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="space-y-4">
+                                                                        <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4"><h4 className="text-[14px] font-bold text-blue-600">Interviewer Information</h4></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Emails<span className="text-red-600 font-black">*</span></label>
+                                                                            <input type="email" value={editInterviewForm.interviewer_emails ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, interviewer_emails: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" /></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Contact</label>
+                                                                            <input type="text" value={editInterviewForm.interviewer_contact ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, interviewer_contact: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" /></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer LinkedIn</label>
+                                                                            <input type="text" value={editInterviewForm.interviewer_linkedin ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, interviewer_linkedin: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" /></div>
+                                                                    </div>
+                                                                    <div className="space-y-4">
+                                                                        <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4"><h4 className="text-[14px] font-bold text-blue-600">Interview Details</h4></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Mode of Interview <span className="text-red-600 font-black">*</span></label>
+                                                                            <select value={editInterviewForm.mode_of_interview ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, mode_of_interview: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm">
+                                                                                <option>Virtual</option><option>In Person</option><option>Phone</option><option>Assessment</option><option>AI Interview</option>
+                                                                            </select></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Type of Interview <span className="text-red-600 font-black">*</span></label>
+                                                                            <select value={editInterviewForm.type_of_interview ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, type_of_interview: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm">
+                                                                                <option>Recruiter Call</option><option>Technical</option><option>HR</option><option>Prep Call</option>
+                                                                            </select></div>
+                                                                        <div>
+                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Feedback</label>
+                                                                            <select value={editInterviewForm.feedback ?? 'Pending'} onChange={e => setEditInterviewForm((p: any) => ({ ...p, feedback: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm">
+                                                                                <option value="Pending">Pending</option>
+                                                                                <option value="Positive">Positive</option>
+                                                                                <option value="Negative">Negative</option>
+                                                                            </select>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="mt-8 border-t border-blue-50 dark:border-blue-900/50 pt-6">
+                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Job Description<span className="text-red-600 font-black">*</span></label>
+                                                                    <textarea value={editInterviewForm.job_description ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, job_description: e.target.value }))} placeholder="Enter Job Description..." className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm resize-none placeholder:text-gray-400" />
+                                                                </div>
+                                                                <div className="mt-4">
+                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Feedback Text</label>
+                                                                    <textarea value={editInterviewForm.feedback_text ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, feedback_text: e.target.value }))} placeholder="Enter interview feedback..." className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm resize-none placeholder:text-gray-400" />
+                                                                </div>
+                                                                <div className="mt-10 pt-4 border-t border-blue-50 dark:border-blue-900 flex justify-end gap-3">
+                                                                    <button onClick={() => setEditData(null)} className="px-6 py-1.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-500 hover:bg-gray-50 transition-all">Cancel</button>
+                                                                    <button onClick={handleEditInterview} disabled={editInterviewLoading} className="px-6 py-2 rounded-xl bg-gradient-to-r from-[#4facfe] to-[#00f2fe] hover:shadow-lg hover:scale-[1.02] text-white text-sm font-bold transition-all shadow-md active:scale-95 disabled:opacity-50">
+                                                                        {editInterviewLoading ? "Saving..." : "Save Changes"}
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ),
+                                                document.body
+                                            )}
+
+                                            <div className="space-y-4">
+                                                {data.interviews.filter(i => i.interview_date && new Date(i.interview_date) >= new Date(new Date().setHours(0, 0, 0, 0))).length > 0 && (
+                                                    <div>
+                                                        <div className="flex items-center gap-2 mb-3">
+                                                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                                                            <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">Upcoming Rounds</h3>
+                                                        </div>
+                                                        <div className="h-[300px]">
+                                                            <CandidateGrid
+                                                                rowData={data.interviews.filter(i => i.interview_date && new Date(i.interview_date) >= new Date(new Date().setHours(0, 0, 0, 0))).sort((a, b) => new Date(a.interview_date).getTime() - new Date(b.interview_date).getTime())}
+                                                                columnDefs={interviewColumnDefs.filter(col => col.field !== 'feedback_text')}
+                                                                height="300px"
+                                                                rowHeight={60}
+                                                                onRowClicked={(data) => setSelectedRow(data)}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                <div>
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider">Interview History</h3>
+                                                        <div className="hidden sm:flex items-center gap-5">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Upcoming</span>
+                                                                <span className={`text-sm font-bold ${data.interviews.filter(i => i.interview_date && new Date(i.interview_date) >= new Date(new Date().setHours(0, 0, 0, 0))).length > 0 ? "text-green-600" : "text-gray-300"}`}>
+                                                                    {data.interviews.filter(i => i.interview_date && new Date(i.interview_date) >= new Date(new Date().setHours(0, 0, 0, 0))).length}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="h-[400px]">
+                                                        <CandidateGrid
+                                                            rowData={data.interviews.filter(i => !i.interview_date || new Date(i.interview_date) < new Date(new Date().setHours(0, 0, 0, 0))).sort((a, b) => new Date(b.interview_date).getTime() - new Date(a.interview_date).getTime())}
+                                                            columnDefs={interviewColumnDefs}
+                                                            height="400px"
+                                                            rowHeight={60}
+                                                            onRowClicked={(data) => setSelectedRow(data)}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
+                                )}
 
-                                    {/* Add Interview Modal Overlay */}
-                                    {mounted && showAddInterview && createPortal(
-                                        (
-                                            <div
-                                                className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
-                                                style={{ backgroundColor: 'rgba(0, 0, 0, 0.2)' }}
-                                            >
-                                                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-blue-300 dark:border-blue-800 w-full max-w-4xl overflow-hidden">
-
-                                                    {/* Header: matches Employee UI exactly */}
-                                                    <div className="flex items-center justify-between px-6 py-2.5 border-b border-blue-200 dark:border-blue-900 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 dark:from-darklight dark:via-dark dark:to-darklight">
-                                                        <h3 className="text-base font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">Add New Interviews</h3>
-                                                        <button onClick={() => setShowAddInterview(false)} className="text-blue-300 hover:text-blue-500 transition-colors text-2xl font-light">×</button>
-                                                    </div>
-
-                                                    <div className="p-6 max-h-[80vh] overflow-y-auto">
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-6">
-
-                                                            {/* Column 1: Basic Information */}
-                                                            <div className="space-y-4">
-                                                                <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4">
-                                                                    <h4 className="text-[14px] font-bold text-blue-600">Company Information</h4>
-                                                                </div>
-                                                                <div>
-                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Company <span className="text-red-500 font-bold">*</span></label>
-                                                                    <input type="text" value={addInterviewForm.company} onChange={e => setAddInterviewForm(p => ({ ...p, company: e.target.value }))}
-                                                                        className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" />
-                                                                </div>
-                                                                <div>
-                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Position Title<span className="text-red-600 font-black">*</span></label>
-                                                                    <input type="text" value={addInterviewForm.position_title} onChange={e => setAddInterviewForm(p => ({ ...p, position_title: e.target.value }))}
-                                                                        className="w-full rounded-lg border border-blue-100 dark:border-blue-800 bg-gray-50/50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" />
-                                                                </div>
-                                                                <div>
-                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Date <span className="text-red-500 font-bold">*</span></label>
-                                                                    <input type="date" value={addInterviewForm.interview_date} onChange={e => setAddInterviewForm(p => ({ ...p, interview_date: e.target.value }))}
-                                                                        className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" />
-                                                                </div>
-                                                                <div>
-                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Time <span className="text-red-500 font-bold">*</span></label>
-                                                                    <TimePicker
-                                                                        value={addInterviewForm.interview_time}
-                                                                        onChange={(time) => setAddInterviewForm(p => ({ ...p, interview_time: time }))}
-                                                                    />
-                                                                </div>
-                                                            </div>
-
-
-
-                                                            {/* Column 2: Contact Information */}
-                                                            <div className="space-y-4">
-                                                                <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4">
-                                                                    <h4 className="text-[14px] font-bold text-blue-600">Interviewer Information</h4>
-                                                                </div>
-                                                                <div>
-                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Emails <span className="text-red-500 font-bold">*</span></label>
-                                                                    <input type="email" value={addInterviewForm.interviewer_emails} onChange={e => setAddInterviewForm(p => ({ ...p, interviewer_emails: e.target.value }))}
-                                                                        className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" />
-                                                                </div>
-                                                                <div>
-                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Contact</label>
-                                                                    <input type="text" value={addInterviewForm.interviewer_contact} onChange={e => setAddInterviewForm(p => ({ ...p, interviewer_contact: e.target.value }))}
-                                                                        className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" />
-                                                                </div>
-                                                                <div>
-                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer LinkedIn</label>
-                                                                    <input type="text" value={addInterviewForm.interviewer_linkedin} onChange={e => setAddInterviewForm(p => ({ ...p, interviewer_linkedin: e.target.value }))}
-                                                                        className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" />
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Column 4: Other */}
-                                                            <div className="space-y-4">
-                                                                <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4">
-                                                                    <h4 className="text-[14px] font-bold text-blue-600">Interview Details</h4>
-                                                                </div>
-                                                                <div>
-                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Mode of Interview <span className="text-red-500 font-bold">*</span></label>
-                                                                    <select value={addInterviewForm.mode_of_interview} onChange={e => setAddInterviewForm(p => ({ ...p, mode_of_interview: e.target.value }))}
-                                                                        className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm">
-                                                                        <option>Virtual</option><option>In Person</option><option>Phone</option><option>Assessment</option><option>AI Interview</option>
-                                                                    </select>
-                                                                </div>
-                                                                <div>
-                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Type of Interview <span className="text-red-500 font-bold">*</span></label>
-                                                                    <select value={addInterviewForm.type_of_interview} onChange={e => setAddInterviewForm(p => ({ ...p, type_of_interview: e.target.value }))}
-                                                                        className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm">
-                                                                        <option>Recruiter Call</option><option>Technical</option><option>HR</option><option>Prep Call</option>
-                                                                    </select>
-                                                                </div>
-                                                            </div>
-
-                                                        </div>
-                                                        {/* Job Description Field */}
-                                                        <div className="mt-8 border-t border-blue-50 dark:border-blue-900/50 pt-6">
-                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">
-                                                                Job Description <span className="text-red-500 font-bold">*</span>
-                                                            </label>
-                                                            <textarea
-                                                                value={addInterviewForm.job_description}
-                                                                onChange={e => setAddInterviewForm(p => ({ ...p, job_description: e.target.value }))}
-                                                                placeholder="Enter Job Description..."
-                                                                className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm resize-none placeholder:text-gray-400" />
-                                                        </div>
-
-                                                        {/* Footer Buttons */}
-                                                        <div className="mt-10 pt-4 border-t border-blue-50 dark:border-blue-900 flex justify-end gap-3">
-                                                            <button onClick={() => setShowAddInterview(false)}
-                                                                className="px-6 py-1.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-500 hover:bg-gray-50 transition-all">
-                                                                Cancel
-                                                            </button>
-                                                            <button onClick={handleAddInterview} disabled={addInterviewLoading}
-                                                                className="px-6 py-2 rounded-xl bg-gradient-to-r from-[#4facfe] to-[#00f2fe] hover:shadow-lg hover:scale-[1.02] text-white text-sm font-bold transition-all shadow-md active:scale-95 disabled:opacity-50">
-                                                                {addInterviewLoading ? "Saving..." : "Add Interview"}
-                                                            </button>
-                                                        </div>
-                                                    </div>
+                                {activeTab === 'jobs' && (
+                                    <div className="flex-1 flex flex-col px-4 lg:px-6 mt-4 sm:mt-8 pb-8 w-full min-h-0">
+                                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between mb-6 pt-4 w-full">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center">
+                                                    <Briefcase className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                                                 </div>
+                                                <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                                                    Jobs{" "}
+                                                    <span className="text-gray-400 font-medium">
+                                                        ({jobsTotalRecords.toLocaleString()})
+                                                    </span>
+                                                </h2>
                                             </div>
-                                        ),
-                                        document.body
-                                    )}
-
-                                    {/* View Interview Modal */}
-                                    {mounted && viewData && createPortal(
-                                        (
-                                            <div
-                                                className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
-                                                style={{ backgroundColor: 'rgba(0, 0, 0, 0.2)' }}
-                                            >
-                                                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-blue-300 dark:border-blue-800 w-full max-w-4xl overflow-hidden">
-                                                    <div className="flex items-center justify-between px-6 py-2.5 border-b border-blue-200 dark:border-blue-900 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 dark:from-darklight dark:via-dark dark:to-darklight">
-                                                        <h3 className="text-base font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">View Interview</h3>
-                                                        <button onClick={() => setViewData(null)} className="text-blue-300 hover:text-blue-500 transition-colors text-2xl font-light">×</button>
-                                                    </div>
-                                                    <div className="p-6 max-h-[80vh] overflow-y-auto">
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-6">
-                                                            <div className="space-y-4">
-                                                                <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4"><h4 className="text-[14px] font-bold text-blue-600">Company Information</h4></div>
-                                                                <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Company <span className="text-red-600 font-black">*</span></label>
-                                                                    <input type="text" readOnly value={viewData.company ?? ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
-                                                                <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Position Title <span className="text-red-600 font-black">*</span></label>
-                                                                    <input type="text" readOnly value={viewData.position_title ?? ''} className="w-full rounded-lg border border-blue-100 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
-                                                                <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Date <span className="text-red-600 font-black">*</span></label>
-                                                                    <input type="text" readOnly value={viewData.interview_date ?? ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
-                                                                <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Time <span className="text-red-600 font-black">*</span></label>
-                                                                    <input type="text" readOnly value={viewData.interview_time ? new Date(`1970-01-01T${viewData.interview_time}`).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true, }) : ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
-                                                            </div>
-                                                            <div className="space-y-4">
-                                                                <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4"><h4 className="text-[14px] font-bold text-blue-600">Interviewer Information</h4></div>
-                                                                <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Emails<span className="text-red-600 font-black">*</span></label>
-                                                                    <input type="email" readOnly value={viewData.interviewer_emails ?? ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
-                                                                <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Contact</label>
-                                                                    <input type="text" readOnly value={viewData.interviewer_contact ?? ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
-                                                                <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer LinkedIn</label>
-                                                                    <input type="text" readOnly value={viewData.interviewer_linkedin ?? ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
-                                                            </div>
-                                                            <div className="space-y-4">
-                                                                <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4"><h4 className="text-[14px] font-bold text-blue-600">Interview Details</h4></div>
-                                                                <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Mode of Interview <span className="text-red-600 font-black">*</span></label>
-                                                                    <input type="text" readOnly value={viewData.mode_of_interview ?? ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
-                                                                <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Type of Interview <span className="text-red-600 font-black">*</span></label>
-                                                                    <input type="text" readOnly value={viewData.type_of_interview ?? ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
-                                                                <div>
-                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Feedback</label>
-                                                                    <input type="text" readOnly value={viewData.feedback ?? 'Pending'} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" />
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="mt-8 border-t border-blue-50 dark:border-blue-900/50 pt-6">
-                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Job Description<span className="text-red-600 font-black">*</span></label>
-                                                            <textarea readOnly value={viewData.job_description ?? ''} className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 text-sm focus:outline-none resize-none cursor-default" />
-                                                        </div>
-                                                        <div className="mt-4">
-                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Feedback Text</label>
-                                                            <textarea readOnly value={viewData.feedback_text ?? ''} className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 text-sm focus:outline-none resize-none cursor-default" />
-                                                        </div>
-                                                        <div className="mt-10 pt-4 border-t border-blue-50 dark:border-blue-900 flex justify-end gap-3">
-                                                            <button onClick={() => setViewData(null)} className="px-8 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-md">Close</button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ),
-                                        document.body
-                                    )}
-
-                                    {/* Edit Interview Modal */}
-                                    {mounted && editData && createPortal(
-                                        (
-                                            <div
-                                                className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
-                                                style={{ backgroundColor: 'rgba(0, 0, 0, 0.2)' }}
-                                            >
-                                                <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-blue-300 dark:border-blue-800 w-full max-w-4xl overflow-hidden">
-                                                    <div className="flex items-center justify-between px-6 py-2.5 border-b border-blue-200 dark:border-blue-900 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 dark:from-darklight dark:via-dark dark:to-darklight">
-                                                        <h3 className="text-base font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">Edit Interview</h3>
-                                                        <button onClick={() => setEditData(null)} className="text-blue-300 hover:text-blue-500 transition-colors text-2xl font-light">×</button>
-                                                    </div>
-                                                    <div className="p-6 max-h-[80vh] overflow-y-auto">
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-6">
-                                                            <div className="space-y-4">
-                                                                <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4"><h4 className="text-[14px] font-bold text-blue-600">Company Information</h4></div>
-                                                                <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Company <span className="text-red-600 font-black">*</span></label>
-                                                                    <input type="text" value={editInterviewForm.company ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, company: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" /></div>
-                                                                <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Position Title <span className="text-red-600 font-black">*</span></label>
-                                                                    <input type="text" value={editInterviewForm.position_title ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, position_title: e.target.value }))} className="w-full rounded-lg border border-blue-100 dark:border-blue-800 bg-gray-50/50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" /></div>
-                                                                <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Date <span className="text-red-600 font-black">*</span></label>
-                                                                    <input type="date" value={editInterviewForm.interview_date ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, interview_date: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" /></div>
-                                                                <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Time <span className="text-red-600 font-black">*</span></label>
-                                                                    <TimePicker
-                                                                        value={editInterviewForm.interview_time}
-                                                                        onChange={(time) => setEditInterviewForm((p: any) => ({ ...p, interview_time: time }))}
-                                                                    />
-                                                                </div>
-                                                            </div>
-                                                            <div className="space-y-4">
-                                                                <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4"><h4 className="text-[14px] font-bold text-blue-600">Interviewer Information</h4></div>
-                                                                <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Emails<span className="text-red-600 font-black">*</span></label>
-                                                                    <input type="email" value={editInterviewForm.interviewer_emails ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, interviewer_emails: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" /></div>
-                                                                <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Contact</label>
-                                                                    <input type="text" value={editInterviewForm.interviewer_contact ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, interviewer_contact: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" /></div>
-                                                                <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer LinkedIn</label>
-                                                                    <input type="text" value={editInterviewForm.interviewer_linkedin ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, interviewer_linkedin: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" /></div>
-                                                            </div>
-                                                            <div className="space-y-4">
-                                                                <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4"><h4 className="text-[14px] font-bold text-blue-600">Interview Details</h4></div>
-                                                                <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Mode of Interview <span className="text-red-600 font-black">*</span></label>
-                                                                    <select value={editInterviewForm.mode_of_interview ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, mode_of_interview: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm">
-                                                                        <option>Virtual</option><option>In Person</option><option>Phone</option><option>Assessment</option><option>AI Interview</option>
-                                                                    </select></div>
-                                                                <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Type of Interview <span className="text-red-600 font-black">*</span></label>
-                                                                    <select value={editInterviewForm.type_of_interview ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, type_of_interview: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm">
-                                                                        <option>Recruiter Call</option><option>Technical</option><option>HR</option><option>Prep Call</option>
-                                                                    </select></div>
-                                                                <div>
-                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Feedback</label>
-                                                                    <select value={editInterviewForm.feedback ?? 'Pending'} onChange={e => setEditInterviewForm((p: any) => ({ ...p, feedback: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm">
-                                                                        <option value="Pending">Pending</option>
-                                                                        <option value="Positive">Positive</option>
-                                                                        <option value="Negative">Negative</option>
-                                                                    </select>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="mt-8 border-t border-blue-50 dark:border-blue-900/50 pt-6">
-                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Job Description<span className="text-red-600 font-black">*</span></label>
-                                                            <textarea value={editInterviewForm.job_description ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, job_description: e.target.value }))} placeholder="Enter Job Description..." className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm resize-none placeholder:text-gray-400" />
-                                                        </div>
-                                                        <div className="mt-4">
-                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Feedback Text</label>
-                                                            <textarea value={editInterviewForm.feedback_text ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, feedback_text: e.target.value }))} placeholder="Enter interview feedback..." className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm resize-none placeholder:text-gray-400" />
-                                                        </div>
-                                                        <div className="mt-10 pt-4 border-t border-blue-50 dark:border-blue-900 flex justify-end gap-3">
-                                                            <button onClick={() => setEditData(null)} className="px-6 py-1.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-500 hover:bg-gray-50 transition-all">Cancel</button>
-                                                            <button onClick={handleEditInterview} disabled={editInterviewLoading} className="px-6 py-2 rounded-xl bg-gradient-to-r from-[#4facfe] to-[#00f2fe] hover:shadow-lg hover:scale-[1.02] text-white text-sm font-bold transition-all shadow-md active:scale-95 disabled:opacity-50">
-                                                                {editInterviewLoading ? "Saving..." : "Save Changes"}
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ),
-                                        document.body
-                                    )}
-
-                                    <div className="space-y-4">
-                                        {data.interviews.filter(i => i.interview_date && new Date(i.interview_date) >= new Date(new Date().setHours(0, 0, 0, 0))).length > 0 && (
-                                            <div>
-                                                <div className="flex items-center gap-2 mb-3">
-                                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                                                    <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">Upcoming Rounds</h3>
-                                                </div>
-                                                <div className="h-[300px]">
-                                                    <CandidateGrid
-                                                        rowData={data.interviews.filter(i => i.interview_date && new Date(i.interview_date) >= new Date(new Date().setHours(0, 0, 0, 0))).sort((a, b) => new Date(a.interview_date).getTime() - new Date(b.interview_date).getTime())}
-                                                        columnDefs={interviewColumnDefs.filter(col => col.field !== 'feedback_text')}
-                                                        height="300px"
-                                                        rowHeight={60}
-                                                        onRowClicked={(data) => setSelectedRow(data)}
+                                            <div className="w-full sm:w-[400px]">
+                                                <div className="relative">
+                                                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                                                    <Input
+                                                        id="job-search"
+                                                        type="text"
+                                                        value={jobSearchTerm}
+                                                        placeholder="Search by title, company, location..."
+                                                        onChange={(e) => setJobSearchTerm(e.target.value)}
+                                                        className="pl-10 h-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500/20 transition-all rounded-xl"
                                                     />
                                                 </div>
                                             </div>
-                                        )}
 
-                                        <div>
-                                            <div className="flex items-center justify-between mb-3">
-                                                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider">Interview History</h3>
-                                                <div className="hidden sm:flex items-center gap-5">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Upcoming</span>
-                                                        <span className={`text-sm font-bold ${data.interviews.filter(i => i.interview_date && new Date(i.interview_date) >= new Date(new Date().setHours(0, 0, 0, 0))).length > 0 ? "text-green-600" : "text-gray-300"}`}>
-                                                            {data.interviews.filter(i => i.interview_date && new Date(i.interview_date) >= new Date(new Date().setHours(0, 0, 0, 0))).length}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div className="h-[400px]">
-                                                <CandidateGrid
-                                                    rowData={data.interviews.filter(i => !i.interview_date || new Date(i.interview_date) < new Date(new Date().setHours(0, 0, 0, 0))).sort((a, b) => new Date(b.interview_date).getTime() - new Date(a.interview_date).getTime())}
-                                                    columnDefs={interviewColumnDefs}
-                                                    height="400px"
-                                                    rowHeight={60}
-                                                    onRowClicked={(data) => setSelectedRow(data)}
-                                                />
-                                            </div>
                                         </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {activeTab === 'jobs' && (
-                            <div className="flex-1 flex flex-col px-4 lg:px-6 mt-4 sm:mt-8 pb-8 w-full min-h-0">
-                                <div className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between mb-6 pt-4 w-full">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center">
-                                            <Briefcase className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                                        </div>
-                                        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                                            Jobs{" "}
-                                            <span className="text-gray-400 font-medium">
-                                                ({jobsTotalRecords.toLocaleString()})
-                                            </span>
-                                        </h2>
-                                    </div>
-                                    <div className="w-full sm:w-[400px]">
-                                        <div className="relative">
-                                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                                            <Input
-                                                id="job-search"
-                                                type="text"
-                                                value={jobSearchTerm}
-                                                placeholder="Search by title, company, location..."
-                                                onChange={(e) => setJobSearchTerm(e.target.value)}
-                                                className="pl-10 h-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-blue-500/20 transition-all rounded-xl"
-                                            />
-                                        </div>
-                                    </div>
-
-                                </div>
-                                <div className="flex-1 w-full bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 min-h-0 flex flex-col overflow-hidden">
-                                    {/* Grid uses server-side pagination — AG Grid's own bottom pagination panel is suppressed
+                                        <div className="flex-1 w-full bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 min-h-0 flex flex-col overflow-hidden">
+                                            {/* Grid uses server-side pagination — AG Grid's own bottom pagination panel is suppressed
                                         so the rich pagination bar below is the only pagination UI.
                                         ``flex-1 min-h-[300px]`` shares space with the pagination bar; pagination uses
                                         ``flex-shrink-0`` so it ALWAYS renders, never gets pushed below the viewport. */}
-                                    <div className="flex-1 min-h-[300px] min-w-0">
-                                        <CandidateGrid
-                                            rowData={filteredPositions}
-                                            columnDefs={jobColumnDefs}
-                                            loading={positionsLoading}
-                                            suppressClientPagination={true}
-                                        />
-                                    </div>
-                                    {/* Bottom pagination bar — mirrors AG Grid's rich pagination control
+                                            <div className="flex-1 min-h-[300px] min-w-0">
+                                                <CandidateGrid
+                                                    rowData={filteredPositions}
+                                                    columnDefs={jobColumnDefs}
+                                                    loading={positionsLoading}
+                                                    suppressClientPagination={true}
+                                                />
+                                            </div>
+                                            {/* Bottom pagination bar — mirrors AG Grid's rich pagination control
                                         (page-size dropdown · "1 to N of M" range · first/prev/next/last buttons). */}
-                                    <div className="flex-shrink-0 flex flex-wrap items-center justify-end gap-4 px-4 py-2.5 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs text-gray-500 dark:text-gray-400">Page Size:</span>
-                                            <select
-                                                value={jobsPageSize}
-                                                disabled={positionsLoading}
-                                                onChange={(e) => {
-                                                    const next = Number(e.target.value) || 100;
-                                                    setJobsPageSize(next);
-                                                    setJobsPage(1);
-                                                }}
-                                                className="rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                                            >
-                                                {[10, 25, 50, 100].map((sz) => (
-                                                    <option key={sz} value={sz}>{sz}</option>
-                                                ))}
-                                            </select>
-                                        </div>
+                                            <div className="flex-shrink-0 flex flex-wrap items-center justify-end gap-4 px-4 py-2.5 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs text-gray-500 dark:text-gray-400">Page Size:</span>
+                                                    <select
+                                                        value={jobsPageSize}
+                                                        disabled={positionsLoading}
+                                                        onChange={(e) => {
+                                                            const next = Number(e.target.value) || 100;
+                                                            setJobsPageSize(next);
+                                                            setJobsPage(1);
+                                                        }}
+                                                        className="rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                                                    >
+                                                        {[10, 25, 50, 100].map((sz) => (
+                                                            <option key={sz} value={sz}>{sz}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
 
-                                        <span className="text-xs text-gray-600 dark:text-gray-300">
-                                            <span className="font-bold">
-                                                {jobsTotalRecords === 0
-                                                    ? 0
-                                                    : (jobsPage - 1) * jobsPageSize + 1}
-                                            </span>
-                                            {" to "}
-                                            <span className="font-bold">
-                                                {Math.min(jobsPage * jobsPageSize, jobsTotalRecords)}
-                                            </span>
-                                            {" of "}
-                                            <span className="font-bold">{jobsTotalRecords.toLocaleString()}</span>
-                                        </span>
+                                                <span className="text-xs text-gray-600 dark:text-gray-300">
+                                                    <span className="font-bold">
+                                                        {jobsTotalRecords === 0
+                                                            ? 0
+                                                            : (jobsPage - 1) * jobsPageSize + 1}
+                                                    </span>
+                                                    {" to "}
+                                                    <span className="font-bold">
+                                                        {Math.min(jobsPage * jobsPageSize, jobsTotalRecords)}
+                                                    </span>
+                                                    {" of "}
+                                                    <span className="font-bold">{jobsTotalRecords.toLocaleString()}</span>
+                                                </span>
 
-                                        <div className="flex items-center gap-1">
-                                            <button
-                                                type="button"
-                                                aria-label="First page"
-                                                disabled={!jobsHasPrev || positionsLoading}
-                                                onClick={() => setJobsPage(1)}
-                                                className="inline-flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-1.5 text-gray-700 dark:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                                            >
-                                                <ChevronsLeft className="h-4 w-4" />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                aria-label="Previous page"
-                                                disabled={!jobsHasPrev || positionsLoading}
-                                                onClick={() => setJobsPage((p) => Math.max(1, p - 1))}
-                                                className="inline-flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-1.5 text-gray-700 dark:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                                            >
-                                                <ChevronLeft className="h-4 w-4" />
-                                            </button>
-                                            <span className="text-xs text-gray-600 dark:text-gray-300 px-2">
-                                                Page <span className="font-bold">{jobsPage}</span> of{" "}
-                                                <span className="font-bold">{Math.max(1, jobsTotalPages)}</span>
-                                            </span>
-                                            <button
-                                                type="button"
-                                                aria-label="Next page"
-                                                disabled={!jobsHasNext || positionsLoading}
-                                                onClick={() => setJobsPage((p) => p + 1)}
-                                                className="inline-flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-1.5 text-gray-700 dark:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                                            >
-                                                <ChevronRight className="h-4 w-4" />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                aria-label="Last page"
-                                                disabled={!jobsHasNext || positionsLoading}
-                                                onClick={() => setJobsPage(Math.max(1, jobsTotalPages))}
-                                                className="inline-flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-1.5 text-gray-700 dark:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                                            >
-                                                <ChevronsRight className="h-4 w-4" />
-                                            </button>
+                                                <div className="flex items-center gap-1">
+                                                    <button
+                                                        type="button"
+                                                        aria-label="First page"
+                                                        disabled={!jobsHasPrev || positionsLoading}
+                                                        onClick={() => setJobsPage(1)}
+                                                        className="inline-flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-1.5 text-gray-700 dark:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                                    >
+                                                        <ChevronsLeft className="h-4 w-4" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        aria-label="Previous page"
+                                                        disabled={!jobsHasPrev || positionsLoading}
+                                                        onClick={() => setJobsPage((p) => Math.max(1, p - 1))}
+                                                        className="inline-flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-1.5 text-gray-700 dark:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                                    >
+                                                        <ChevronLeft className="h-4 w-4" />
+                                                    </button>
+                                                    <span className="text-xs text-gray-600 dark:text-gray-300 px-2">
+                                                        Page <span className="font-bold">{jobsPage}</span> of{" "}
+                                                        <span className="font-bold">{Math.max(1, jobsTotalPages)}</span>
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        aria-label="Next page"
+                                                        disabled={!jobsHasNext || positionsLoading}
+                                                        onClick={() => setJobsPage((p) => p + 1)}
+                                                        className="inline-flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-1.5 text-gray-700 dark:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                                    >
+                                                        <ChevronRight className="h-4 w-4" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        aria-label="Last page"
+                                                        disabled={!jobsHasNext || positionsLoading}
+                                                        onClick={() => setJobsPage(Math.max(1, jobsTotalPages))}
+                                                        className="inline-flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-1.5 text-gray-700 dark:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                                    >
+                                                        <ChevronsRight className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
+                                )}
+
+                                {activeTab === 'smartprep' && (
+                                    <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
+
+                                        {/* AI Profile Setup Card */}
+                                        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
+                                            <div className="flex items-center justify-between mb-4">
+                                                <div className="flex items-center gap-2.5">
+                                                    <div className="w-8 h-8 rounded-lg bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center">
+                                                        <Settings className="w-4 h-4 text-violet-500" />
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-sm font-bold text-gray-800 dark:text-white">Manage AI Profile</span>
+                                                        <p className="text-[11px] text-gray-400 mt-0.5">Configure your resume and API keys for AI interviews</p>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSetupWizardManageMode(Boolean(setupStatus?.setup_complete));
+                                                        setSetupWizardOpen(true);
+                                                    }}
+                                                    className="inline-flex items-center gap-1 text-xs font-bold text-violet-600 hover:text-violet-700 transition-colors px-3 py-1.5 bg-violet-50 dark:bg-violet-900/20 rounded-lg"
+                                                >
+                                                    {setupStatus?.setup_complete ? "Manage" : "Complete Setup"}
+                                                    <ChevronRight className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                {/* Resume Status */}
+                                                <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${setupStatus === null
+                                                    ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
+                                                    : setupStatus.resume_uploaded
+                                                        ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"
+                                                        : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
+                                                    }`}>
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${setupStatus === null ? "bg-gray-100 dark:bg-gray-700" : setupStatus.resume_uploaded ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-amber-100 dark:bg-amber-900/40"}`}>
+                                                        {setupStatus === null ? <div className="w-3 h-3 rounded-full bg-gray-300 animate-pulse" /> : setupStatus.resume_uploaded ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <AlertTriangle className="w-4 h-4 text-amber-500" />}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Resume</p>
+                                                        <p className={`text-xs font-bold mt-0.5 ${setupStatus === null ? "text-gray-400" : setupStatus.resume_uploaded ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
+                                                            {setupStatus === null ? "Loading..." : setupStatus.resume_uploaded ? "Uploaded ✓" : "Not added"}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                {/* API Keys Status */}
+                                                <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${setupStatus === null
+                                                    ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
+                                                    : setupStatus.api_keys_configured
+                                                        ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/50"
+                                                        : "bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800/50"
+                                                    }`}>
+                                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${setupStatus === null ? "bg-gray-100 dark:bg-gray-700" : setupStatus.api_keys_configured ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-amber-100 dark:bg-amber-900/40"}`}>
+                                                        {setupStatus === null ? <div className="w-3 h-3 rounded-full bg-gray-300 animate-pulse" /> : setupStatus.api_keys_configured ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <AlertTriangle className="w-4 h-4 text-amber-500" />}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">API Keys</p>
+                                                        <p className={`text-xs font-bold mt-0.5 ${setupStatus === null ? "text-gray-400" : setupStatus.api_keys_configured ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
+                                                            {setupStatus === null ? "Loading..." : setupStatus.api_keys_configured ? "Configured ✓" : "Not added"}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                )}
+                            </>
                         )}
 
                     </div>
