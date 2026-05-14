@@ -1044,6 +1044,8 @@ const labelOverrides: Record<string, string> = {
   instructor1_name: "Instructor 1 Name",
   run_email_extraction: "Run Email Extraction",
   linkedin_post: "LinkedIn Post",
+  run_daily_workflow: "Run Daily Outreach Workflow",
+  run_weekly_workflow: "Run Weekly Outreach Workflow",
   run_raw_positions_workflow: "Run Raw Positions Workflow",
   payload: "Payload",
   instructor2_name: "Instructor 2 Name",

@@ -384,6 +384,8 @@ const labelOverrides: Record<string, string> = {
   extractor_version: "Extractor Version",
   extracted_at: "Extracted At",
   processed_at: "Processed At",
+  run_daily_workflow: "Run Daily Outreach Workflow",
+  run_weekly_workflow: "Run Weekly Outreach Workflow",
   run_raw_positions_workflow: "Run Raw Positions Workflow",
   error_message: "Error Message",
   lastmod_user_id: "Last Modified By",
