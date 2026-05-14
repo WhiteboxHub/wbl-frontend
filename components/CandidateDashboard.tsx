@@ -58,7 +58,9 @@ import { apiFetch, API_BASE_URL, setupApi } from "@/lib/api";
 import { TimePicker } from "@/components/admin_ui/TimePicker";
 import { useAuth } from "@/utils/AuthContext";
 import CandidateGrid from "./CandidateGrid";
-import CandidateOnboarding from "./CandidateOnboarding";
+
+import { CandidateSetupWizard } from "./CandidateSetupWizard";
+
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
 
 // Build the outbound apply URL for a job_listing row. Prefers an explicit
@@ -435,9 +437,7 @@ export default function CandidateDashboard() {
     const [error, setError] = useState<string | null>(null);
     const [data, setData] = useState<DashboardData | null>(null);
     const [candidateId, setCandidateId] = useState<number | null>(null);
-    const [showOnboarding, setShowOnboarding] = useState(false);
-    const [hasMissingFields, setHasMissingFields] = useState(true);
-    const [agreementStatus, setAgreementStatus] = useState<string | null>(null);
+
     const [retryCount, setRetryCount] = useState(0);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [activeTab, setActiveTab] = useState<TabType>('jobs');
@@ -1170,64 +1170,7 @@ export default function CandidateDashboard() {
                 throw new Error("Could not retrieve candidate ID");
             }
 
-            // Fetch full profile to check for missing required fields
-            const fullProfile = await apiFetch(`candidates/${id}/profile`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
 
-            const requiredFields = [
-                'full_name', 'email', 'phone', 'workstatus',
-                'dob', 'github_link', 'workexperience', 'address',
-                'linkedin_id', 'secondaryemail', 'secondaryphone'
-            ];
-
-            const profileData = {
-                full_name: fullProfile?.personal_info?.full_name,
-                email: fullProfile?.personal_info?.email,
-                phone: fullProfile?.personal_info?.phone,
-                workstatus: fullProfile?.personal_info?.workstatus,
-                dob: fullProfile?.personal_info?.dob,
-                github_link: fullProfile?.personal_info?.github_link,
-                workexperience: fullProfile?.personal_info?.workexperience,
-                address: fullProfile?.personal_info?.address,
-                linkedin_id: fullProfile?.personal_info?.linkedin_id,
-                secondaryemail: fullProfile?.personal_info?.secondaryemail,
-                secondaryphone: fullProfile?.personal_info?.secondaryphone
-            };
-
-            // Use login_count from profile (UserDashboard) or Candidate profile
-            const loginCount = profile?.login_count ?? profile?.logincount ?? 0;
-
-            const isMissingRequiredFields = (loginCount <= 1) || requiredFields.some(field => !profileData[field as keyof typeof profileData]);
-
-            setHasMissingFields(isMissingRequiredFields);
-
-            const status = fullProfile?.enrollment?.agreement || 'N';
-            setAgreementStatus(status);
-            const isApproved = status === 'Y';
-            const isSkipped = sessionStorage.getItem('onboarding_skipped') === 'true';
-
-
-            // GATING LOGIC:
-            // 1. If approved, only show onboarding if fields are missing (Step 1).
-            // 2. If not approved, always show onboarding unless skipped in this session.
-            // 3. After 10 logins, skip is no longer allowed.
-
-            if (!isApproved) {
-                // Not approved yet (N or P)
-                if (!isSkipped || loginCount >= 10) {
-                    setShowOnboarding(true);
-                } else {
-                    setShowOnboarding(false);
-                }
-            } else {
-                // Approved (Y)
-                if (isMissingRequiredFields) {
-                    setShowOnboarding(true);
-                } else {
-                    setShowOnboarding(false);
-                }
-            }
 
             const dashboardData = await apiFetch(`candidates/${id}/dashboard/overview`, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -1297,7 +1240,6 @@ export default function CandidateDashboard() {
     }, [isProfileOpen]);
 
     useEffect(() => {
-        sessionStorage.removeItem('onboarding_skipped');
         loadDashboard();
     }, []);
 
@@ -1335,25 +1277,7 @@ export default function CandidateDashboard() {
         );
     }
 
-    if (showOnboarding && candidateId) {
-        return (
-            <CandidateOnboarding
-                candidateId={candidateId}
-                loginCount={userProfile?.login_count || 0}
-                currentAgreementStatus={agreementStatus || 'N'}
-                initialHasMissingFields={hasMissingFields}
-                onComplete={() => {
-                    localStorage.setItem('onboarding_completed', 'true');
-                    setShowOnboarding(false);
-                    loadDashboard(); // Reload to see if approved
-                }}
-                onSkip={() => {
-                    sessionStorage.setItem('onboarding_skipped', 'true');
-                    setShowOnboarding(false);
-                }}
-            />
-        );
-    }
+
 
     const firstName = data.basic_info.full_name.split(" ")[0];
 

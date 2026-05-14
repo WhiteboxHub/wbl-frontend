@@ -376,9 +376,6 @@ export default function CandidateSearchPage() {
           } else if (key === 'status') {
             displayValue = <StatusRenderer status={value as string} />;
           }
-          else if (key === "agreement") {
-            displayValue = value === "Y" ? " Yes" : " No";
-          }
           else if (Array.isArray(value) && value.length > 0 && value.every(v => isPotentialUrl(v))) {
             displayValue = (
               <div className="flex flex-wrap gap-1">
