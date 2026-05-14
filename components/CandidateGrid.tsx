@@ -20,6 +20,8 @@ interface CandidateGridProps {
     height?: string;
     paginationPageSize?: number;
     rowHeight?: number;
+    /** When true, disables AG Grid client pagination (use with server-backed pages). */
+    suppressClientPagination?: boolean;
     onGridReady?: (params: GridReadyEvent) => void;
     components?: Record<string, any>;
 }
@@ -31,6 +33,7 @@ export const CandidateGrid: React.FC<CandidateGridProps> = ({
     height = "500px",
     paginationPageSize = 100,
     rowHeight = 48,
+    suppressClientPagination = false,
     onGridReady,
     components
 }) => {
@@ -71,9 +74,19 @@ export const CandidateGrid: React.FC<CandidateGridProps> = ({
                         cellClass: "custom-cell-style",
                     }}
                     loading={loading}
-                    pagination={true}
-                    paginationPageSize={paginationPageSize}
-                    paginationPageSizeSelector={[10, 25, 50, 100]}
+                    // When the parent paginates server-side (e.g. CandidateDashboard Jobs tab)
+                    // we MUST disable AG Grid's own pagination AND hide the panel — otherwise
+                    // some AG Grid versions still render the "1 to N of M · Page X of Y"
+                    // panel at the bottom even with pagination={false}.
+                    pagination={!suppressClientPagination}
+                    suppressPaginationPanel={suppressClientPagination}
+                    paginationAutoPageSize={false}
+                    {...(suppressClientPagination
+                        ? {}
+                        : {
+                            paginationPageSize,
+                            paginationPageSizeSelector: [10, 25, 50, 100],
+                        })}
                     animateRows={true}
                     rowHeight={rowHeight}
                     theme="legacy"
