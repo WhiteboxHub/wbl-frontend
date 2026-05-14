@@ -58,11 +58,6 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "false", label: "No" },
     { value: "true", label: "Yes" },
   ],
-  agreement: [
-    { value: "N", label: "Not Submitted" },
-    { value: "Y", label: "Approved" },
-    { value: "P", label: "Pending Review" },
-  ],
   is_immigration_team: [
     { value: false, label: "No" },
     { value: true, label: "Yes" },
@@ -508,7 +503,7 @@ const vendorStatuses = [
 // Required fields configuration - only for create mode
 const requiredFieldsConfig: Record<string, string[]> = {
   leads: ["Phone", "Email", "Full Name"],
-  candidate: ["Phone", "Email", "Full Name", "Date of Birth", "Batch", "Emergency Contact Name", "Emergency Contact Email", "Emergency Contact Phone", "Emergency Contact Address"],
+  candidate: ["Phone", "Email", "Full Name", "Batch"],
   interviews: [
     "Candidate Name",
     "Company",
@@ -674,6 +669,7 @@ const excludedFields = [
   "delivery_engine",
   "workflow",
   "schedule",
+  "agreement",
 ];
 
 // Fields that should be read-only (visible but not editable)
@@ -861,7 +857,6 @@ const fieldSections: Record<string, string> = {
   phone_number: "Basic Information",
   secondary_phone: "Contact Information",
   last_mod_datetime: "Contact Information",
-  agreement: "Professional Information",
   subject_id: "Basic Information",
   subjectid: "Professional Information",
   courseid: "Professional Information",

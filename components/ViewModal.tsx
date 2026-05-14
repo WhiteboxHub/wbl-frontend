@@ -23,7 +23,7 @@ const excludedFields = [
   "instructor3_id", "enddate", "batch", "job_id", "employee_id", "job_owner", "job_owner_id",
   "job_owner_1", "job_owner_2", "job_owner_3",
   "isGroup", "isExpanded", "totalDeposit", "originalId",
-  "position_id", "position_company",
+  "position_id", "position_company", "agreement",
 ];
 
 const fieldSections: Record<string, string> = {
@@ -70,7 +70,6 @@ const fieldSections: Record<string, string> = {
   secondary_phone: "Contact Information",
   phone_ext: "Professional Information",
   last_mod_datetime: "Contact Information",
-  agreement: "Professional Information",
   subject_id: "Basic Information",
   subjectid: "Professional Information",
   courseid: "Professional Information",
