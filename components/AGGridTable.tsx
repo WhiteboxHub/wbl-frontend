@@ -105,6 +105,7 @@ export function AGGridTable({
   rowData,
   columnDefs: initialColumnDefs,
   loading = false,
+  defaultColDef: defaultColDefProp,
   onRowClicked,
   onRowUpdated,
   onRowAdded,
@@ -136,6 +137,7 @@ export function AGGridTable({
 }: AGGridTableProps) {
   // Refs and State
   const gridRef = useRef<AgGridReact>(null);
+  const gridContainerRef = useRef<HTMLDivElement>(null);
   const gridApiRef = useRef<GridApi | null>(null);
   const [selectedRowData, setSelectedRowData] = useState<RowData[] | null>(
     null
@@ -202,6 +204,24 @@ export function AGGridTable({
       );
     }
   }, [hiddenColumns, title, isInitialized]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const api = gridRef.current?.api;
+      if (api) {
+        const gridGui = gridContainerRef.current;
+        const isClickInsideGrid = gridGui && gridGui.contains(event.target as Node);
+
+        if (!isClickInsideGrid) {
+          api.stopEditing(false);
+          api.clearFocusedCell();
+        }
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside, true);
+    return () => document.removeEventListener("mousedown", handleClickOutside, true);
+  }, []);
 
   const visibleColumnDefs = useMemo(() => {
     return initialColumnDefs
@@ -391,25 +411,24 @@ export function AGGridTable({
   // const AGGridTable = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const addInitialData = useMemo(() => {
+    const blank: Record<string, any> = {};
+
+    // 1. Start with all fields from column definitions to ensure new fields (like job_description) are present
+    initialColumnDefs.forEach((col) => {
+      if (col.field) blank[col.field] = "";
+    });
+
+    // 2. Supplement with any extra fields from existing rows
     if (rowData && rowData.length > 0) {
       const sample = rowData[0];
-      const blank: Record<string, any> = {};
       Object.keys(sample).forEach((k) => {
-        const v = (sample as any)[k];
-        if (typeof v === "boolean") blank[k] = "";
-        else if (typeof v === "number") blank[k] = "";
-        else blank[k] = "";
+        if (!(k in blank)) {
+          const v = (sample as any)[k];
+          blank[k] = "";
+        }
       });
-      return blank;
     }
-    // fallback: build from column defs
-    const fields = initialColumnDefs
-      .map((c) => c.field)
-      .filter(Boolean) as string[];
-    return fields.reduce((acc: any, f: string) => {
-      acc[f] = "";
-      return acc;
-    }, {});
+    return blank;
   }, [rowData, initialColumnDefs]);
 
   const handleAdd = () => {
@@ -538,6 +557,7 @@ export function AGGridTable({
 
       <div className="flex justify-center">
         <div
+          ref={gridContainerRef}
           className={`ag-theme-alpine ${isDarkMode ? "ag-grid-dark-mode" : ""
             } w-full rounded-lg border border-gray-200 shadow-sm dark:border-gray-700`}
           style={{ height: height, minHeight: "400px" }}
@@ -546,6 +566,8 @@ export function AGGridTable({
             ref={gridRef}
             rowData={rowData}
             columnDefs={visibleColumnDefs}
+            stopEditingWhenCellsLoseFocus={true}
+            suppressCellFocus={true}
             onGridReady={onGridReady}
             onRowClicked={onRowClickedHandler}
             onSelectionChanged={handleRowSelection}
@@ -563,6 +585,7 @@ export function AGGridTable({
             suppressSetFilterByDefault={true}
             overlayNoRowsTemplate={overlayNoRowsTemplate}
             defaultColDef={{
+              ...defaultColDefProp,
               resizable: true,
               sortable: true,
               filter: true,
@@ -571,7 +594,7 @@ export function AGGridTable({
                 suppressAndOrCondition: true,
               },
               cellClass: "custom-cell-style",
-              editable: true,
+              editable: defaultColDefProp?.editable ?? true,
             }}
             rowSelection={{
               mode: "multiRow",

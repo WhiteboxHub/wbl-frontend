@@ -172,7 +172,7 @@ const fieldSections: Record<string, string> = {
   cm_subject: "Basic Information",
   material_type: "Basic Information",
   job_name: "Basic Information",
-  job_description: "Professional Information",
+  job_description: "Notes",
   // created_date: "Professional Information",
   activity_date: "Professional Information",
   activity_count: "Professional Information",
@@ -1043,7 +1043,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
 
   // Custom ordering for Notes section in raw job listings
   if (sectionedFields["Notes"]?.length > 0) {
-    const notesFieldOrder = ['payload', 'raw_payload', 'raw_description', 'description', 'raw_notes', 'notes'];
+    const notesFieldOrder = ['payload', 'raw_payload', 'raw_description', 'description', 'job_description', 'raw_notes', 'notes', 'feedback_text'];
     sectionedFields["Notes"].sort((a, b) => {
       const aIndex = notesFieldOrder.indexOf(a.key);
       const bIndex = notesFieldOrder.indexOf(b.key);
