@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { toast, Toaster } from "sonner";
@@ -29,6 +29,9 @@ import {
     Video,
     Check,
     ChevronRight,
+    ChevronLeft,
+    ChevronsLeft,
+    ChevronsRight,
     LogOut,
     Settings,
     LayoutDashboard,
@@ -52,6 +55,25 @@ import CandidateGrid from "./CandidateGrid";
 import { CandidateSetupWizard } from "./CandidateSetupWizard";
 import CandidateOnboarding from "./CandidateOnboarding";
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
+
+// Build the outbound apply URL for a job_listing row. Prefers an explicit
+// ``job_url`` and otherwise synthesizes one from ``source_job_id`` based on the
+// row's ``source`` (LinkedIn, TrueUp, Hiring Cafe, Jobright). Kept inline so
+// CandidateDashboard has zero external utility dependencies.
+function resolveJobListingApplyUrl(row: Record<string, unknown> | null | undefined): string | null {
+    if (!row) return null;
+    const raw = String(row.job_url ?? "").trim();
+    if (raw) return raw;
+
+    const jobId = (row.source_job_id ?? row.source_uid) as string | undefined;
+    if (!jobId) return null;
+
+    const source = String(row.source ?? "").toLowerCase();
+    if (source.includes("trueup")) return `https://trueup.io/jobs/${jobId}`;
+    if (source.includes("hiring") || source.includes("cafe")) return `https://hiring.cafe/viewjob/${jobId}`;
+    if (source.includes("jobright")) return `https://jobright.ai/jobs/info/${jobId}`;
+    return `https://www.linkedin.com/jobs/view/${jobId}`;
+}
 
 interface DashboardData {
     basic_info: {
@@ -431,6 +453,13 @@ export default function CandidateDashboard() {
     const [positions, setPositions] = useState<any[]>([]);
     const [filteredPositions, setFilteredPositions] = useState<any[]>([]);
     const [positionsLoading, setPositionsLoading] = useState(false);
+    const [jobsPage, setJobsPage] = useState(1);
+    const [jobsPageSize, setJobsPageSize] = useState(100);
+    const [jobsTotalRecords, setJobsTotalRecords] = useState(0);
+    const [jobsTotalPages, setJobsTotalPages] = useState(0);
+    const [jobsHasNext, setJobsHasNext] = useState(false);
+    const [jobsHasPrev, setJobsHasPrev] = useState(false);
+    const [debouncedJobSearch, setDebouncedJobSearch] = useState("");
     const [selectedModes, setSelectedModes] = useState<string[]>([]);
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
     const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
@@ -670,16 +699,7 @@ export default function CandidateDashboard() {
             sortable: true,
             filter: "agTextColumnFilter",
             cellRenderer: (params: any) => {
-                const jobId = params.data.source_job_id || params.data.source_uid;
-                const source = params.data.source?.toLowerCase() || "";
-                const url = params.data.job_url ||
-                    (source.includes('trueup')
-                        ? `https://trueup.io/jobs/${jobId}`
-                        : source.includes('hiring') || source.includes('cafe')
-                            ? `https://hiring.cafe/viewjob/${jobId}`
-                            : source.includes('jobright')
-                                ? `https://jobright.ai/jobs/info/${jobId}`
-                                : `https://www.linkedin.com/jobs/view/${jobId}`);
+                const url = resolveJobListingApplyUrl(params.data);
 
                 if (!url) {
                     return (
@@ -845,18 +865,8 @@ export default function CandidateDashboard() {
             headerName: "Apply",
             width: 100,
             cellRenderer: (params: any) => {
-                const jobId = params.data.source_job_id || params.data.source_uid;
-                if (!jobId && !params.data.job_url) return <span className="text-gray-400">-</span>;
-
-                const source = params.data.source?.toLowerCase() || "";
-                const url = params.data.job_url ||
-                    (source.includes('trueup')
-                        ? `https://trueup.io/jobs/${jobId}`
-                        : source.includes('hiring') || source.includes('cafe')
-                            ? `https://hiring.cafe/viewjob/${jobId}`
-                            : source.includes('jobright')
-                                ? `https://jobright.ai/jobs/info/${jobId}`
-                                : `https://www.linkedin.com/jobs/view/${jobId}`);
+                const url = resolveJobListingApplyUrl(params.data);
+                if (!url) return <span className="text-gray-400">-</span>;
 
                 return (
                     <div className="flex items-center h-full">
@@ -903,20 +913,10 @@ export default function CandidateDashboard() {
             );
         }
 
-        // Apply Source Filter
-
-        // Apply Search Term Filter
-        if (jobSearchTerm.trim() !== "") {
-            const lower = jobSearchTerm.toLowerCase();
-            filtered = filtered.filter((p) =>
-                (p.title?.toLowerCase().includes(lower)) ||
-                (p.company_name?.toLowerCase().includes(lower)) ||
-                (p.location?.toLowerCase().includes(lower))
-            );
-        }
+        // Apply Search Term Filter (server-side via debouncedJobSearch; no client substring filter here)
 
         setFilteredPositions(filtered);
-    }, [positions, selectedModes, selectedStatuses, selectedTypes, jobSearchTerm]);
+    }, [positions, selectedModes, selectedStatuses, selectedTypes]);
 
     const handleAddInterview = async () => {
         const { company, interview_date, interviewer_emails, mode_of_interview, type_of_interview } = addInterviewForm;
@@ -1074,45 +1074,73 @@ export default function CandidateDashboard() {
         }
     };
 
-    const loadPositions = async () => {
-        try {
-            setPositionsLoading(true);
-            const token = localStorage.getItem("access_token") || localStorage.getItem("token");
-            const posData = await apiFetch("positions/?limit=500", {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+    const loadPositionsPage = useCallback(
+        async (page: number) => {
+            try {
+                setPositionsLoading(true);
+                const token = localStorage.getItem("access_token") || localStorage.getItem("token");
+                if (!token) return;
 
-            console.log("🔍 API Response - Total jobs received:", posData?.length || 0);
-            console.log("🔍 API Response - Sample job data:", posData?.[0] || {});
+                const params = new URLSearchParams({
+                    page: String(page),
+                    page_size: String(jobsPageSize),
+                });
+                const s = debouncedJobSearch.trim();
+                if (s) params.set("search", s);
 
-            // Filter to show jobs from LinkedIn, Hiring Cafe, TrueUp, or Jobright
-            const filteredData = (posData || []).filter((pos: any) => {
-                const src = pos.source?.toLowerCase() || "";
-                const shouldInclude = src.includes('linkedin') || src.includes('hiring') || src.includes('cafe') || src.includes('trueup') || src.includes('jobright');
+                const res: any = await apiFetch(`positions/paginated?${params.toString()}`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
 
-                // Add a check to confirm the job actually has an actionable link id or url
-                const hasLink = Boolean(pos.source_job_id || pos.source_uid || pos.job_url);
-                return shouldInclude && hasLink;
-            });
+                const rows = Array.isArray(res.data) ? res.data : [];
+                setPositions(rows);
+                setJobsTotalRecords(res.total_records ?? 0);
+                setJobsTotalPages(res.total_pages ?? 0);
+                setJobsHasNext(Boolean(res.has_next));
+                setJobsHasPrev(Boolean(res.has_prev));
+                setJobsPage(res.page ?? page);
+            } catch (err) {
+                console.error("❌ Error loading positions:", err);
+            } finally {
+                setPositionsLoading(false);
+            }
+        },
+        [debouncedJobSearch, jobsPageSize]
+    );
 
-            console.log("📊 Final filtered positions count:", filteredData.length);
+    const prevJobsDebouncedSearchRef = useRef<string | null>(null);
 
-            // Debug: Show source distribution
-            const sourceCounts = filteredData.reduce((acc: any, pos: any) => {
-                const src = pos.source?.toLowerCase() || 'unknown';
-                acc[src] = (acc[src] || 0) + 1;
-                return acc;
-            }, {});
+    useEffect(() => {
+        const t = window.setTimeout(() => setDebouncedJobSearch(jobSearchTerm), 400);
+        return () => window.clearTimeout(t);
+    }, [jobSearchTerm]);
 
-            console.log("📈 Source distribution:", sourceCounts);
-
-            setPositions(filteredData);
-        } catch (err) {
-            console.error("❌ Error loading positions:", err);
-        } finally {
-            setPositionsLoading(false);
+    useEffect(() => {
+        if (activeTab !== "jobs") {
+            prevJobsDebouncedSearchRef.current = null;
+            return;
         }
-    };
+
+        const prev = prevJobsDebouncedSearchRef.current;
+        const searchChanged = prev !== null && prev !== debouncedJobSearch;
+
+        if (prev === null) {
+            prevJobsDebouncedSearchRef.current = debouncedJobSearch;
+            setJobsPage(1);
+            void loadPositionsPage(1);
+            return;
+        }
+
+        if (searchChanged) {
+            prevJobsDebouncedSearchRef.current = debouncedJobSearch;
+            setJobsPage(1);
+            void loadPositionsPage(1);
+            return;
+        }
+
+        prevJobsDebouncedSearchRef.current = debouncedJobSearch;
+        void loadPositionsPage(jobsPage);
+    }, [activeTab, jobsPage, debouncedJobSearch, loadPositionsPage]);
 
 
     const loadDashboard = async (retryCount = 0) => {
@@ -1234,9 +1262,6 @@ export default function CandidateDashboard() {
     }, [data]);
 
     useEffect(() => {
-        if (activeTab === 'jobs' && positions.length === 0) {
-            loadPositions();
-        }
         if (activeTab === 'interviews') {
             // Auto-refresh interview data when switching to this tab
             // so employee UI changes (feedback, notes) are visible immediately
@@ -2055,7 +2080,10 @@ export default function CandidateDashboard() {
                                             <Briefcase className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                                         </div>
                                         <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                                            Jobs <span className="text-gray-400 font-medium">({positions.length})</span>
+                                            Jobs{" "}
+                                            <span className="text-gray-400 font-medium">
+                                                ({jobsTotalRecords.toLocaleString()})
+                                            </span>
                                         </h2>
                                     </div>
                                     <div className="w-full sm:w-[400px]">
@@ -2073,12 +2101,97 @@ export default function CandidateDashboard() {
                                     </div>
 
                                 </div>
-                                <div className="flex-1 w-full bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 min-h-0 flex flex-col">
-                                    <CandidateGrid
-                                        rowData={filteredPositions}
-                                        columnDefs={jobColumnDefs}
-                                        loading={positionsLoading}
-                                    />
+                                <div className="flex-1 w-full bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 min-h-0 flex flex-col overflow-hidden">
+                                    {/* Grid uses server-side pagination — AG Grid's own bottom pagination panel is suppressed
+                                        so the rich pagination bar below is the only pagination UI.
+                                        ``flex-1 min-h-[300px]`` shares space with the pagination bar; pagination uses
+                                        ``flex-shrink-0`` so it ALWAYS renders, never gets pushed below the viewport. */}
+                                    <div className="flex-1 min-h-[300px] min-w-0">
+                                        <CandidateGrid
+                                            rowData={filteredPositions}
+                                            columnDefs={jobColumnDefs}
+                                            loading={positionsLoading}
+                                            suppressClientPagination={true}
+                                        />
+                                    </div>
+                                    {/* Bottom pagination bar — mirrors AG Grid's rich pagination control
+                                        (page-size dropdown · "1 to N of M" range · first/prev/next/last buttons). */}
+                                    <div className="flex-shrink-0 flex flex-wrap items-center justify-end gap-4 px-4 py-2.5 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">Page Size:</span>
+                                            <select
+                                                value={jobsPageSize}
+                                                disabled={positionsLoading}
+                                                onChange={(e) => {
+                                                    const next = Number(e.target.value) || 100;
+                                                    setJobsPageSize(next);
+                                                    setJobsPage(1);
+                                                }}
+                                                className="rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                                            >
+                                                {[10, 25, 50, 100].map((sz) => (
+                                                    <option key={sz} value={sz}>{sz}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <span className="text-xs text-gray-600 dark:text-gray-300">
+                                            <span className="font-bold">
+                                                {jobsTotalRecords === 0
+                                                    ? 0
+                                                    : (jobsPage - 1) * jobsPageSize + 1}
+                                            </span>
+                                            {" to "}
+                                            <span className="font-bold">
+                                                {Math.min(jobsPage * jobsPageSize, jobsTotalRecords)}
+                                            </span>
+                                            {" of "}
+                                            <span className="font-bold">{jobsTotalRecords.toLocaleString()}</span>
+                                        </span>
+
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                type="button"
+                                                aria-label="First page"
+                                                disabled={!jobsHasPrev || positionsLoading}
+                                                onClick={() => setJobsPage(1)}
+                                                className="inline-flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-1.5 text-gray-700 dark:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                            >
+                                                <ChevronsLeft className="h-4 w-4" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                aria-label="Previous page"
+                                                disabled={!jobsHasPrev || positionsLoading}
+                                                onClick={() => setJobsPage((p) => Math.max(1, p - 1))}
+                                                className="inline-flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-1.5 text-gray-700 dark:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                            >
+                                                <ChevronLeft className="h-4 w-4" />
+                                            </button>
+                                            <span className="text-xs text-gray-600 dark:text-gray-300 px-2">
+                                                Page <span className="font-bold">{jobsPage}</span> of{" "}
+                                                <span className="font-bold">{Math.max(1, jobsTotalPages)}</span>
+                                            </span>
+                                            <button
+                                                type="button"
+                                                aria-label="Next page"
+                                                disabled={!jobsHasNext || positionsLoading}
+                                                onClick={() => setJobsPage((p) => p + 1)}
+                                                className="inline-flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-1.5 text-gray-700 dark:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                            >
+                                                <ChevronRight className="h-4 w-4" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                aria-label="Last page"
+                                                disabled={!jobsHasNext || positionsLoading}
+                                                onClick={() => setJobsPage(Math.max(1, jobsTotalPages))}
+                                                className="inline-flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-1.5 text-gray-700 dark:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                            >
+                                                <ChevronsRight className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}
