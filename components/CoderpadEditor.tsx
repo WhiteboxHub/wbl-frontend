@@ -8,11 +8,12 @@ import { getUserTeamRole } from "@/utils/auth";
 import {
   Play, Save, Trash2, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Send, Plus,
   FileCode2, Clock, Terminal, TestTube2, Share2, History,
-  Loader2, AlertCircle, CheckCircle2, XCircle, Code2, Settings,
-  ShieldAlert, ShieldCheck, Shield, EyeOff, Eye,
+  Loader2, CheckCircle2, XCircle, Code2, Settings,
+  ShieldAlert, ShieldCheck, Shield,
   MonitorOff, LayoutPanelLeft, AlertTriangle,
   FolderOpen, FilePlus, FolderPlus,
   Lock, Search, X, Sparkles,
+  KeyRound,
 } from "lucide-react";
 import { toast } from "sonner";
 import { createPortal } from "react-dom";
@@ -856,10 +857,8 @@ export const CoderpadEditor: React.FC = () => {
   const [llmGenerating, setLlmGenerating] = useState(false);
   const [llmValidating, setLlmValidating] = useState(false);
   const [showLlmResultModal, setShowLlmResultModal] = useState(false);
-  /** Null = loading; false = must save key (no DB row / env); true = LLM ready */
-  const [candidateOpenAiConfigured, setCandidateOpenAiConfigured] = useState<boolean | null>(null);
-  const [candidateOpenAiKeyDraft, setCandidateOpenAiKeyDraft] = useState("");
-  const [savingCandidateOpenAiKey, setSavingCandidateOpenAiKey] = useState(false);
+  /** Null = loading; true when a row exists in candidate_llm_api_keys for this candidate */
+  const [candidateHasLlmKeyInDb, setCandidateHasLlmKeyInDb] = useState<boolean | null>(null);
   const [llmResult, setLlmResult] = useState<{
     passed: boolean | null;
     summary: string;
@@ -922,94 +921,30 @@ export const CoderpadEditor: React.FC = () => {
 
   useEffect(() => {
     if (teamRole !== "candidate") {
-      setCandidateOpenAiConfigured(null);
+      setCandidateHasLlmKeyInDb(null);
       return;
     }
     let cancelled = false;
     void (async () => {
       try {
         const data = await apiFetch("/coderpad/me/openai-key-status");
-        if (!cancelled) setCandidateOpenAiConfigured(Boolean(data?.configured));
+        if (!cancelled) {
+          setCandidateHasLlmKeyInDb(data?.stored_in_db === true);
+        }
       } catch {
-        if (!cancelled) setCandidateOpenAiConfigured(false);
+        if (!cancelled) {
+          setCandidateHasLlmKeyInDb(false);
+        }
       }
     })();
     return () => { cancelled = true; };
   }, [teamRole]);
 
-  const saveCandidateOpenAiKey = useCallback(async () => {
-    const k = candidateOpenAiKeyDraft.trim();
-    if (!k) {
-      toast.error("Paste your OpenAI API key to save.");
-      return;
+  useEffect(() => {
+    if (teamRole === "candidate" && candidateHasLlmKeyInDb === false) {
+      setShowWelcomeModal(false);
     }
-    setSavingCandidateOpenAiKey(true);
-    try {
-      await apiFetch("/coderpad/me/openai-api-key", {
-        method: "POST",
-        body: JSON.stringify({ api_key: k }),
-      });
-      setCandidateOpenAiKeyDraft("");
-      setCandidateOpenAiConfigured(true);
-      toast.success("OpenAI key saved to your account.");
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Could not save API key.";
-      toast.error(msg);
-    } finally {
-      setSavingCandidateOpenAiKey(false);
-    }
-  }, [candidateOpenAiKeyDraft]);
-
-  /** Candidate save block: welcome modal + top banner */
-  const renderCandidateOpenAiKeyForm = (variant: "welcome" | "banner") => (
-    <div
-      className={variant === "welcome" ? "welcome-candidate-api-block" : "coderpad-candidate-api-banner"}
-      role="region"
-      aria-label="OpenAI API key"
-    >
-      {variant === "banner" && (
-        <AlertCircle size={18} className="coderpad-candidate-api-banner-icon" aria-hidden />
-      )}
-      <div>
-        {variant === "banner" && (
-          <strong className="coderpad-candidate-api-banner-title">OpenAI key required</strong>
-        )}
-        {variant === "welcome" ? (
-          <p className="welcome-candidate-api-title" style={{ marginBottom: "0.5rem" }}>
-            Add your OpenAI API key to enable LLM validation. It is saved to your account for CoderPad.
-          </p>
-        ) : (
-          <p className="coderpad-candidate-api-banner-text">
-            Save your OpenAI key below to run <strong>LLM validate</strong> and post-run checks.
-          </p>
-        )}
-        <div className={variant === "welcome" ? "welcome-candidate-api-save-row" : "coderpad-candidate-api-save-row"}>
-          <input
-            type="password"
-            className={variant === "welcome" ? "welcome-candidate-api-input" : "coderpad-llm-api-key-input"}
-            placeholder="sk-… OpenAI API key"
-            value={candidateOpenAiKeyDraft}
-            onChange={e => setCandidateOpenAiKeyDraft(e.target.value)}
-            autoComplete="off"
-          />
-          <button
-            type="button"
-            className={variant === "welcome" ? "btn-primary" : "btn-llm-validate"}
-            onClick={() => void saveCandidateOpenAiKey()}
-            disabled={savingCandidateOpenAiKey || !candidateOpenAiKeyDraft.trim()}
-          >
-            {savingCandidateOpenAiKey ? (
-              <>
-                <Loader2 size={14} className="spin" /> Saving…
-              </>
-            ) : (
-              "Save key"
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  }, [teamRole, candidateHasLlmKeyInDb]);
 
   /** Keep draft test rows in sync with runtime stdout captured on main testCases after Run */
   useEffect(() => {
@@ -1461,7 +1396,7 @@ export const CoderpadEditor: React.FC = () => {
         testCases.length > 0
       ) {
         const shouldChainLlm =
-          teamRole !== "candidate" || candidateOpenAiConfigured === true;
+          teamRole !== "candidate" || candidateHasLlmKeyInDb === true;
         if (shouldChainLlm) {
           const merged = applyActualOutputsFromResults(testCases, data.test_results);
           await runLlmValidate({ testCasesOverride: merged });
@@ -1917,17 +1852,16 @@ export const CoderpadEditor: React.FC = () => {
                   ? "As an employee you can edit the problem statement, manage test cases, and save the assignment for candidates."
                   : "Read the problem, write your code, use Run test cases to check locally, then Submit for scoring."}
               </p>
-              {teamRole === "candidate" && candidateOpenAiConfigured === null && (
+              {teamRole === "candidate" && candidateHasLlmKeyInDb === null && (
                 <p className="welcome-modal-hint" style={{ marginTop: "0.75rem" }}>
-                  Checking your API key…
+                  Checking your account…
                 </p>
               )}
-              {teamRole === "candidate" && candidateOpenAiConfigured === true && (
+              {teamRole === "candidate" && candidateHasLlmKeyInDb === true && (
                 <p className="welcome-modal-hint" style={{ marginTop: "0.75rem" }}>
                   Your OpenAI key is on file. LLM validation is ready when you need it.
                 </p>
               )}
-              {teamRole === "candidate" && candidateOpenAiConfigured === false && renderCandidateOpenAiKeyForm("welcome")}
               {isStaff ? (
                 <div className="welcome-role-actions">
                   <button
@@ -1954,6 +1888,41 @@ export const CoderpadEditor: React.FC = () => {
                     Continue
                   </button>
                 </div>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {typeof document !== "undefined" &&
+        teamRole === "candidate" &&
+        candidateHasLlmKeyInDb !== true &&
+        createPortal(
+          <div
+            className="sec-lock-overlay"
+            style={{ zIndex: 10000000 }}
+            role="alert"
+            aria-live="assertive"
+          >
+            <div className="sec-lock-card">
+              <KeyRound size={28} color="#f85149" aria-hidden />
+              <div className="sec-lock-title">API key required</div>
+              {candidateHasLlmKeyInDb === null ? (
+                <p className="sec-lock-msg">Checking your account…</p>
+              ) : (
+                <>
+                  <p className="sec-lock-msg">
+                    Please add your OpenAI API key from <strong>My LLM Key</strong> on your candidate dashboard, then refresh this page.
+                  </p>
+                  <div className="sec-lock-actions" style={{ flexWrap: "wrap", gap: "8px" }}>
+                    <Link href="/user_dashboard" className="btn-primary" style={{ textDecoration: "none" }}>
+                      Go to dashboard
+                    </Link>
+                    <button type="button" className="btn-ghost" onClick={() => window.location.reload()}>
+                      Refresh
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           </div>,
@@ -2776,11 +2745,11 @@ export const CoderpadEditor: React.FC = () => {
                     onClick={() => void runLlmValidate()}
                     disabled={
                       llmValidating ||
-                      candidateOpenAiConfigured !== true
+                      candidateHasLlmKeyInDb !== true
                     }
                     title={
-                      candidateOpenAiConfigured !== true
-                        ? "Save your OpenAI key first (see welcome message or banner above)."
+                      candidateHasLlmKeyInDb !== true
+                        ? "Add your API key from My LLM Key on the candidate dashboard, then refresh."
                         : "Validate with OpenAI using your saved account key"
                     }
                   >
@@ -2894,8 +2863,6 @@ export const CoderpadEditor: React.FC = () => {
             </button>
           </div>
         </header>
-
-        {teamRole === "candidate" && candidateOpenAiConfigured === false && renderCandidateOpenAiKeyForm("banner")}
 
         <div className="coderpad-panels-wrap coderpad-panels-wrap--vertical">
           <PanelGroup direction="vertical">

@@ -44,6 +44,8 @@ import {
     EyeIcon,
     EditIcon,
     KeyRound,
+    Eye,
+    EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { ViewModal } from "@/components/ViewModal";
@@ -446,24 +448,49 @@ export default function CandidateDashboard() {
     /** My LLM Key tab — OpenAI row in candidate_llm_api_keys for candidate.id */
     const [llmKeyPreviewLoading, setLlmKeyPreviewLoading] = useState(false);
     const [llmHasStoredKey, setLlmHasStoredKey] = useState(false);
-    const [llmMaskedPreview, setLlmMaskedPreview] = useState<string | null>(null);
     const [llmNewKeyInput, setLlmNewKeyInput] = useState("");
     const [llmKeySaving, setLlmKeySaving] = useState(false);
+    /** Full key for the stored-key field (loaded on tab; cleared when leaving). */
+    const [llmStoredKeySecret, setLlmStoredKeySecret] = useState<string | null>(null);
+    const [llmRevealShowPlain, setLlmRevealShowPlain] = useState(false);
 
     const loadLlmKeyPreview = useCallback(async () => {
         setLlmKeyPreviewLoading(true);
         try {
             const res = await apiFetch("coderpad/me/openai-key-preview");
-            setLlmHasStoredKey(Boolean(res?.has_stored_key));
-            setLlmMaskedPreview(typeof res?.masked_preview === "string" ? res.masked_preview : null);
+            const has = Boolean(res?.has_stored_key);
+            setLlmHasStoredKey(has);
+            if (!has) {
+                setLlmStoredKeySecret(null);
+                setLlmRevealShowPlain(false);
+            } else {
+                try {
+                    const rev = await apiFetch("coderpad/me/openai-key-reveal");
+                    const k = typeof rev?.api_key === "string" ? rev.api_key.trim() : "";
+                    setLlmStoredKeySecret(k || null);
+                    setLlmRevealShowPlain(false);
+                    if (!k) toast.error("No API key returned from server.");
+                } catch {
+                    setLlmStoredKeySecret(null);
+                    toast.error("Could not load your stored API key.");
+                }
+            }
         } catch {
             setLlmHasStoredKey(false);
-            setLlmMaskedPreview(null);
+            setLlmStoredKeySecret(null);
+            setLlmRevealShowPlain(false);
             toast.error("Could not load your LLM key status.");
         } finally {
             setLlmKeyPreviewLoading(false);
         }
     }, []);
+
+    useEffect(() => {
+        if (activeTab !== "my_llm_key") {
+            setLlmStoredKeySecret(null);
+            setLlmRevealShowPlain(false);
+        }
+    }, [activeTab]);
 
     useEffect(() => {
         if (activeTab !== "my_llm_key") return;
@@ -484,6 +511,7 @@ export default function CandidateDashboard() {
             });
             setLlmNewKeyInput("");
             toast.success(llmHasStoredKey ? "OpenAI key updated." : "OpenAI key saved.");
+            setLlmRevealShowPlain(false);
             await loadLlmKeyPreview();
         } catch (err: unknown) {
             let msg = "Could not save API key.";
@@ -2548,17 +2576,36 @@ export default function CandidateDashboard() {
 
                                             <div className="mt-6 space-y-4">
                                                 <div>
-                                                    <Label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Current key</Label>
-                                                    <Input
-                                                        type="password"
-                                                        readOnly
-                                                        value={llmKeyPreviewLoading ? "" : (llmHasStoredKey ? (llmMaskedPreview ?? "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022") : "")}
-                                                        placeholder={llmKeyPreviewLoading ? "Loading…" : "No key saved yet"}
-                                                        className="mt-1.5 font-mono text-sm bg-gray-50 dark:bg-gray-800/80"
-                                                        autoComplete="off"
-                                                    />
+                                                    <Label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Stored OpenAI key</Label>
+                                                    <div className="flex gap-2 mt-1.5 items-center">
+                                                        <Input
+                                                            type={llmRevealShowPlain ? "text" : "password"}
+                                                            readOnly
+                                                            value={
+                                                                llmKeyPreviewLoading
+                                                                    ? ""
+                                                                    : (llmStoredKeySecret ?? "")
+                                                            }
+                                                            placeholder={llmKeyPreviewLoading ? "Loading…" : "No key saved yet"}
+                                                            className="font-mono text-sm bg-gray-50 dark:bg-gray-800/80 flex-1 min-w-0"
+                                                            autoComplete="off"
+                                                        />
+                                                        {llmHasStoredKey && !llmKeyPreviewLoading && llmStoredKeySecret ? (
+                                                            <Button
+                                                                type="button"
+                                                                variant="outline"
+                                                                size="icon"
+                                                                className="h-10 w-10 shrink-0 rounded-md border border-input"
+                                                                onClick={() => setLlmRevealShowPlain((v) => !v)}
+                                                                title={llmRevealShowPlain ? "Hide key" : "Show key"}
+                                                                aria-label={llmRevealShowPlain ? "Hide API key" : "Show API key"}
+                                                            >
+                                                                {llmRevealShowPlain ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                            </Button>
+                                                        ) : null}
+                                                    </div>
                                                     <p className="text-[11px] text-gray-400 mt-1">
-                                                        Only a masked preview is shown. The full key is never displayed after saving.
+                                                        Anyone with access to this screen can see the full key. Turn off screen sharing if you reveal it.
                                                     </p>
                                                 </div>
                                                 <div>
