@@ -322,7 +322,7 @@ export default function JobListingsPage() {
     const fetchJobListings = useCallback(async () => {
         setLoading(true);
         try {
-            const pageSize = 5000;
+            const pageSize = 1500;
             let allData: JobListing[] = [];
             let currentPage = 1;
             let hasNext = true;
