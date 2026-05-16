@@ -479,6 +479,19 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "allow", label: "Allow" },
     { value: "block", label: "Block" },
   ],
+  campaign_email_status: [
+    { value: "pending", label: "Pending" },
+    { value: "processing", label: "Processing" },
+    { value: "sent", label: "Sent" },
+    { value: "failed", label: "Failed" },
+    { value: "bounced", label: "Bounced" },
+  ],
+  bounce_type: [
+    { value: "none", label: "None" },
+    { value: "soft", label: "Soft" },
+    { value: "hard", label: "Hard" },
+    { value: "invalid", label: "Invalid" },
+  ],
 };
 
 // Vendor type options
@@ -534,6 +547,7 @@ const requiredFieldsConfig: Record<string, string[]> = {
   "smtp credentials": ["Name", "Email", "Password", "Daily Limit", "Active"],
   "automation keywords": ["Category", "Source", "Keywords", "Match Type", "Action"],
   "automation-contact-extract": ["Source Type"],
+  "campaign email": ["Workflow ID", "Candidate ID", "Vendor Email"],
 };
 
 // Helper function to check if a field is required based on modal type and mode
@@ -1036,6 +1050,14 @@ const fieldSections: Record<string, string> = {
   installment_amount: "Professional Information",
   payment_status: "Professional Information",
   scheduled_date: "Professional Information",
+
+  // Campaign Emails
+  vendor_email: "Basic Information",
+  retry_count: "Professional Information",
+  last_attempt_at: "Other",
+  run_log_id: "Professional Information",
+  credential_id: "Professional Information",
+  message_id: "Professional Information",
 };
 
 // Override field labels for better readability
@@ -1059,6 +1081,11 @@ const labelOverrides: Record<string, string> = {
   delivery_engine_id: "Delivery Engine ID",
   credentials_list_sql: "Credentials List SQL",
   recipient_list_sql: "Recipient List SQL",
+
+  // Campaign Emails
+  run_log_id: "Run Log ID",
+  credential_id: "Credential ID",
+  message_id: "Message ID",
   parameters_config: "Parameters Config",
 
   id: "ID",
@@ -2158,6 +2185,11 @@ export function EditModal({
 
     if (isPositionsModal && keyLower === "status") {
       return enumOptions.position_status;
+    }
+
+    const isCampaignEmailModal = title.toLowerCase().includes("campaign email");
+    if (isCampaignEmailModal && keyLower === "status") {
+      return enumOptions.campaign_email_status;
     }
 
     if (keyLower === "position_type") return enumOptions.position_type;

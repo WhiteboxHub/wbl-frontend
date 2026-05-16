@@ -222,6 +222,10 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
           title: "Automation Keywords",
           href: "/avatar/workflow/automation-keywords",
         },
+        {
+          title: "Campaign Emails",
+          href: "/avatar/workflow/campaign-emails",
+        },
       ],
     },
 

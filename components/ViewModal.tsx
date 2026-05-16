@@ -249,6 +249,14 @@ const fieldSections: Record<string, string> = {
   api_key: "Credentials",
   provider_name: "Credentials",
   model_name: "Credentials",
+
+  // Campaign Emails
+  vendor_email: "Basic Information",
+  retry_count: "Professional Information",
+  last_attempt_at: "Other",
+  run_log_id: "Professional Information",
+  credential_id: "Professional Information",
+  message_id: "Professional Information",
 };
 
 const workVisaStatusOptions = [
@@ -395,6 +403,11 @@ const labelOverrides: Record<string, string> = {
   model_name: "Model Name",
   resume_created_at: "Resume Added",
   api_key_created_at: "Key Added",
+
+  // Campaign Emails
+  run_log_id: "Run Log ID",
+  credential_id: "Credential ID",
+  message_id: "Message ID",
 };
 
 const dateFields = [
@@ -756,9 +769,26 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       const date = new Date(value);
       if (!isNaN(date.getTime())) return <p>{date.toISOString().split("T")[0]}</p>;
     }
+    if (lowerKey === "bounce_type") {
+      const displayValue = String(value).toUpperCase();
+      const valStr = String(value).toLowerCase();
+      if (valStr === "none") return <Badge className="bg-gray-100 text-gray-800">{displayValue}</Badge>;
+      if (valStr === "soft") return <Badge className="bg-yellow-100 text-yellow-800">{displayValue}</Badge>;
+      if (valStr === "hard") return <Badge className="bg-red-100 text-red-800">{displayValue}</Badge>;
+      if (valStr === "invalid") return <Badge className="bg-purple-100 text-purple-800">{displayValue}</Badge>;
+      return <Badge>{displayValue}</Badge>;
+    }
 
     if (lowerKey === "status") {
       const displayValue = String(value).toUpperCase();
+      if (title.toLowerCase().includes("campaign email")) {
+         const valStr = String(value).toLowerCase();
+         if (valStr === "pending") return <Badge className="bg-gray-100 text-gray-800 flex gap-2 w-fit px-2 items-center"><div className="h-1.5 w-1.5 rounded-full bg-gray-500"></div>{displayValue}</Badge>;
+         if (valStr === "processing") return <Badge className="bg-blue-100 text-blue-800 flex gap-2 w-fit px-2 items-center"><div className="h-1.5 w-1.5 rounded-full bg-blue-500"></div>{displayValue}</Badge>;
+         if (valStr === "sent") return <Badge className="bg-green-100 text-green-800 flex gap-2 w-fit px-2 items-center"><div className="h-1.5 w-1.5 rounded-full bg-green-500"></div>{displayValue}</Badge>;
+         if (valStr === "failed") return <Badge className="bg-red-100 text-red-800 flex gap-2 w-fit px-2 items-center"><div className="h-1.5 w-1.5 rounded-full bg-red-500"></div>{displayValue}</Badge>;
+         if (valStr === "bounced") return <Badge className="bg-orange-100 text-orange-800 flex gap-2 w-fit px-2 items-center"><div className="h-1.5 w-1.5 rounded-full bg-orange-500"></div>{displayValue}</Badge>;
+      }
       return <Badge className={getStatusColor(value)}>{displayValue}</Badge>;
     }
     if (lowerKey === "api_key") {
