@@ -1247,6 +1247,7 @@ export default function CandidateDashboard() {
                 const params = new URLSearchParams({
                     page: String(page),
                     page_size: String(jobsPageSize),
+                    require_apply_link: "true",  // candidate dashboard: only show jobs with apply links
                 });
                 const s = debouncedJobSearch.trim();
                 if (s) params.set("search", s);

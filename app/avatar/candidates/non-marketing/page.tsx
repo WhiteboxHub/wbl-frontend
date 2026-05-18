@@ -548,7 +548,7 @@ export default function NonMarketingCandidatesPage() {
             rowData={filteredCandidates}
             columnDefs={columnDefs}
             defaultColDef={{ editable: false }}
-            title={`Non-Marketing Candidates (${allCandidates.length})`}
+            title={`Non-Marketing Candidates (${filteredCandidates.length})`}
             height="calc(80vh)"
             showSearch={false}
             showAddButton={false}
