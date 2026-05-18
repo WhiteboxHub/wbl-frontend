@@ -580,6 +580,7 @@ const materialTypeOptions = [
   { value: "N", label: "Newsletters" },
   { value: "M", label: "Materials" },
   { value: "A", label: "Assignments" },
+  { value: "G", label: "Git Repo's" },
 ];
 
 interface Batch {
