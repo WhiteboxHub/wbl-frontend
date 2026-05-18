@@ -602,7 +602,6 @@ interface EditModalProps {
 // Fields to exclude from the form
 const excludedFields = [
   "candidate",
-  "candidate_full_name",
   "candidate.full_name",
   "candidate_name",
   "candidateid",
@@ -2305,6 +2304,7 @@ export function EditModal({
 
   const formValues = watch();
   Object.entries(formData).forEach(([key, value]) => {
+    const isCandidateNameField = key === 'candidate_full_name';
 
     // Skip excluded fields, but allow batch for prep and marketing modals, and company for interviews/daily contacts
     if (excludedFields.includes(key)) {
@@ -2316,6 +2316,7 @@ export function EditModal({
       ].includes(key);
 
       if (!(isBatch && (isPreparationModal || isMarketingModal)) &&
+        !(isCandidateNameField && isSpecialModal) &&
         !isCompanyForInterview && !isAllowedForPosition && !isCompanyForDailyContact) {
         return;
       }
@@ -2387,7 +2388,7 @@ export function EditModal({
     if (isEmployeeTaskModal && (key === "employee_name" || key === "project_name")) {
       return;
     }
-    if (isInterviewModal && key === "candidate_full_name" || key === "candidate.full_name") {
+    if (isInterviewModal && (key === "candidate.full_name" || (isAddMode && key === "candidate_full_name"))) {
       return;
     }
 
@@ -3046,8 +3047,23 @@ export function EditModal({
                             if (isInterviewModal && key === "position_id") {
                               return null; // Handled below with company
                             }
-                            if (isInterviewModal && isCandidateFullName){
-                              return null;
+                            if (isInterviewModal && isCandidateFullName) {
+                              if (isAddMode) {
+                                return null; // Candidate ID dropdown handles this in Add Mode
+                              }
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
+                                    {toLabel(key)}
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={formData.candidate_full_name || ""}
+                                    readOnly
+                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 dark:bg-gray-800 dark:text-gray-200 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
+                                  />
+                                </div>
+                              );
                             }
 
                             if (key.toLowerCase() === "interview_time") {
