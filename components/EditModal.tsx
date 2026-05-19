@@ -58,11 +58,6 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "false", label: "No" },
     { value: "true", label: "Yes" },
   ],
-  agreement: [
-    { value: "N", label: "Not Submitted" },
-    { value: "Y", label: "Approved" },
-    { value: "P", label: "Pending Review" },
-  ],
   is_immigration_team: [
     { value: false, label: "No" },
     { value: true, label: "Yes" },
@@ -508,7 +503,7 @@ const vendorStatuses = [
 // Required fields configuration - only for create mode
 const requiredFieldsConfig: Record<string, string[]> = {
   leads: ["Phone", "Email", "Full Name"],
-  candidate: ["Phone", "Email", "Full Name", "Date of Birth", "Batch", "Emergency Contact Name", "Emergency Contact Email", "Emergency Contact Phone", "Emergency Contact Address"],
+  candidate: ["Phone", "Email", "Full Name", "Batch"],
   interviews: [
     "Candidate Name",
     "Company",
@@ -516,6 +511,7 @@ const requiredFieldsConfig: Record<string, string[]> = {
     "Company Type",
     "Mode of Interview",
     "Type of Interview",
+    "Job Description",
   ],
   authuser: ["Phone", "Email", "Full Name", "Registered Date", "Passwd"],
   employee: ["Full Name", "Email", "Phone", "Date of Birth", "Aadhaar"],
@@ -607,6 +603,7 @@ interface EditModalProps {
 const excludedFields = [
   "candidate",
   "candidate_full_name",
+  "candidate.full_name",
   "candidate_name",
   "candidateid",
   "instructor1",
@@ -674,6 +671,7 @@ const excludedFields = [
   "delivery_engine",
   "workflow",
   "schedule",
+  "agreement",
 ];
 
 // Fields that should be read-only (visible but not editable)
@@ -861,7 +859,6 @@ const fieldSections: Record<string, string> = {
   phone_number: "Basic Information",
   secondary_phone: "Contact Information",
   last_mod_datetime: "Contact Information",
-  agreement: "Professional Information",
   subject_id: "Basic Information",
   subjectid: "Professional Information",
   courseid: "Professional Information",
@@ -963,7 +960,7 @@ const fieldSections: Record<string, string> = {
   cm_subject: "Basic Information",
   material_type: "Basic Information",
   job_name: "Basic Information",
-  job_description: "Professional Information",
+  job_description: "Notes",
   created_date: "Professional Information",
   activity_date: "Professional Information",
   activity_count: "Professional Information",
@@ -1047,6 +1044,8 @@ const labelOverrides: Record<string, string> = {
   instructor1_name: "Instructor 1 Name",
   run_email_extraction: "Run Email Extraction",
   linkedin_post: "LinkedIn Post",
+  run_daily_workflow: "Run Daily Outreach Workflow",
+  run_weekly_workflow: "Run Weekly Outreach Workflow",
   run_raw_positions_workflow: "Run Raw Positions Workflow",
   payload: "Payload",
   instructor2_name: "Instructor 2 Name",
@@ -2388,6 +2387,9 @@ export function EditModal({
     if (isEmployeeTaskModal && (key === "employee_name" || key === "project_name")) {
       return;
     }
+    if (isInterviewModal && key === "candidate_full_name" || key === "candidate.full_name") {
+      return;
+    }
 
     // Existing filters
     if (isCandidateOrEmployee && key.toLowerCase() === "name") return;
@@ -3043,6 +3045,9 @@ export function EditModal({
 
                             if (isInterviewModal && key === "position_id") {
                               return null; // Handled below with company
+                            }
+                            if (isInterviewModal && isCandidateFullName){
+                              return null;
                             }
 
                             if (key.toLowerCase() === "interview_time") {
@@ -4292,7 +4297,7 @@ export function EditModal({
                         {sectionedFields["Notes"].map(({ key, value }) => (
                           <div key={key} className="space-y-1">
                             <div className="flex items-center justify-between">
-                              <label className={['description', 'raw_payload', 'payload', 'raw_description', 'raw_notes', 'notes', 'note', 'q_a', 'feedback_text'].includes(key) ? 'block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm' : 'text-sm font-medium text-gray-600 dark:text-gray-400'}>
+                              <label className={['description', 'raw_payload', 'payload', 'raw_description', 'raw_notes', 'notes', 'note', 'q_a', 'feedback_text', 'candidate_json', 'job_description'].includes(key) ? 'block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm' : 'text-sm font-medium text-gray-600 dark:text-gray-400'}>
                                 {toLabel(key)}
                                 {isFieldRequired(
                                   toLabel(key),
@@ -4345,13 +4350,29 @@ export function EditModal({
                                 </button>
                               )}
                             </div>
-                            {isJobTypeModal || isJobActivityLogModal || key === 'raw_payload' || key === 'payload' || key === 'feedback_text' || key === 'email_text' ? (
+                            {isJobTypeModal || isJobActivityLogModal || key === 'raw_payload' || key === 'payload' || key === 'candidate_json' || key === 'feedback_text' || key === 'email_text' || key === 'job_description' ? (
                               <textarea
                                 {...register(key)}
                                 defaultValue={currentFormValues[key] ?? formData[key] ?? ""}
-                                rows={key === 'raw_payload' || key === 'payload' ? 10 : 4}
-                                className={`w-full ${key === 'raw_payload' || key === 'payload' ? 'font-mono text-[11px]' : 'resize-none'} rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm`}
-                                placeholder={key === 'raw_payload' || key === 'payload' ? 'Enter JSON payload...' : `Enter ${toLabel(key).toLowerCase()}...`}
+                                rows={
+                                  key === "candidate_json"
+                                    ? 22
+                                    : key === "job_description"
+                                      ? 8
+                                      : key === "raw_payload" || key === "payload"
+                                        ? 10
+                                        : 4
+                                }
+                                className={`w-full ${
+                                  key === "raw_payload" || key === "payload" || key === "candidate_json"
+                                    ? "min-h-[min(420px,50vh)] resize-y font-mono text-[11px] sm:text-xs"
+                                    : "resize-none"
+                                } rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm`}
+                                placeholder={
+                                  key === "raw_payload" || key === "payload" || key === "candidate_json"
+                                    ? "Enter JSON payload..."
+                                    : `Enter ${toLabel(key).toLowerCase()}...`
+                                }
                                 onChange={(e) => {
                                   setValue(key, e.target.value);
                                   setFormData((prev: any) => ({

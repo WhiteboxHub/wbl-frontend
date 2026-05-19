@@ -547,10 +547,12 @@ export default function NonMarketingCandidatesPage() {
           <AGGridTable
             rowData={filteredCandidates}
             columnDefs={columnDefs}
-            title={`Non-Marketing Candidates (${allCandidates.length})`}
+            defaultColDef={{ editable: false }}
+            title={`Non-Marketing Candidates (${filteredCandidates.length})`}
             height="calc(80vh)"
             showSearch={false}
             showAddButton={false}
+            showEditButton={false}
             onRowUpdated={() => {}}
             onRowDeleted={() => {}}
           />

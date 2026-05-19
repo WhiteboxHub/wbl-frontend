@@ -362,7 +362,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
                   }}
                 >
                   <Link
-                    href={item.href}
+                    href={hasChildren && item.children ? item.children[0].href : item.href}
                     className={cn(
                       "flex items-center justify-between space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
                       itemIsActive
