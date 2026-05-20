@@ -1,7 +1,7 @@
 "use client";
 
-/** Mark + name (avoid JSX parsing issues with `</>` in markup). */
-const CODERPAD_ANGLE_MARK = "</>";
+/** Official wireframe cube mark (user-provided asset). */
+export const WHITEBOX_CUBE_LOGO_SRC = "/images/logos/whitebox-learning-logo.png";
 
 export type CandidateCoderpadBrandVariant = "topbar" | "welcome";
 
@@ -11,41 +11,38 @@ export interface CandidateCoderpadBrandProps {
 }
 
 /**
- * CoderPad chrome: top bar shows only `</>` before the snippet title; welcome
- * modal still shows `</> coderpad`. Mark uses sans (same as dashboard body).
+ * CoderPad chrome: cube logo before the snippet title; welcome modal shows logo + "coderpad".
  */
 export function CandidateCoderpadBrand({
   variant = "topbar",
   className = "",
 }: CandidateCoderpadBrandProps) {
   const isWelcome = variant === "welcome";
-  const gap = isWelcome ? "gap-2.5" : "gap-2";
-
-  const markClass =
-    "shrink-0 font-sans text-lg font-semibold leading-none tracking-tight text-[#58a6ff]";
 
   if (!isWelcome) {
     return (
-      <div
-        className={`inline-flex items-center font-sans ${className}`.trim()}
-        aria-label="CoderPad"
-      >
-        <span className={markClass} aria-hidden>
-          {CODERPAD_ANGLE_MARK}
-        </span>
-      </div>
+      <img
+        src={WHITEBOX_CUBE_LOGO_SRC}
+        alt=""
+        className={`topbar-brand-logo ${className}`.trim()}
+        aria-hidden
+      />
     );
   }
 
-  const row = `inline-flex items-center ${gap} font-sans text-lg font-semibold tracking-tight text-white ${className}`.trim();
+  const row =
+    `inline-flex items-center gap-2.5 font-sans text-lg font-semibold tracking-tight text-white ${className}`.trim();
   const nameClass =
     "font-sans text-lg font-semibold tracking-tight text-white lowercase";
 
   return (
     <div className={row} aria-label="CoderPad">
-      <span className={markClass} aria-hidden>
-        {CODERPAD_ANGLE_MARK}
-      </span>
+      <img
+        src={WHITEBOX_CUBE_LOGO_SRC}
+        alt=""
+        className="h-6 w-6 shrink-0 object-contain opacity-95"
+        aria-hidden
+      />
       <span className={nameClass}>coderpad</span>
     </div>
   );
