@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from "react-resizable-panels";
 import { getUserTeamRole } from "@/utils/auth";
 import {
-  Play, Save, Trash2, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Send, Plus,
+  Play, Trash2, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Send, Plus,
   FileCode2, Clock, Terminal, TestTube2, Share2, History,
   Loader2, CheckCircle2, XCircle, Code2, Settings,
   ShieldAlert, ShieldCheck, Shield,
@@ -839,10 +839,13 @@ export const CoderpadEditor: React.FC = () => {
   const [showNewModal, setShowNewModal] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [filesCollapsed, setFilesCollapsed] = useState(true);
+  const [problemStatementCollapsed, setProblemStatementCollapsed] = useState(false);
   const [isSplitScreen, setIsSplitScreen] = useState(false);
   /** Synced with resizable Panel collapse — default collapsed (narrow rail on the right). */
   const [testsCollapsed, setTestsCollapsed] = useState(true);
   const [showAllTests, setShowAllTests] = useState(false);
+  const [selectedResultCaseIdx, setSelectedResultCaseIdx] = useState(0);
+  const [showResultDiff, setShowResultDiff] = useState(false);
   const [showResultModal, setShowResultModal] = useState(false);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   /** Shown once when opening CoderPad (session intro + role) */
@@ -1300,6 +1303,11 @@ export const CoderpadEditor: React.FC = () => {
       setTestResults(data.test_results);
       setTestCases(prev => applyActualOutputsFromResults(prev, data.test_results));
       setRightTab("console");
+      setShowResultDiff(false);
+      const firstFail = data.test_results.find((r: TestResult) => !r.passed);
+      setSelectedResultCaseIdx(
+        firstFail?.test_case_index ?? data.test_results[0]?.test_case_index ?? 0
+      );
       if (opts?.openModal) {
         setShowResultModal(true);
       }
@@ -1383,25 +1391,13 @@ export const CoderpadEditor: React.FC = () => {
     setOutput("");
     setError("");
     setTestResults(null);
+    setShowResultDiff(false);
     setTestCases(prev => prev.map(tc => ({ ...tc, actual_output: null })));
     setExecStatus("running");
     setShowResultModal(false);
     setRightTab("shell");
     try {
-      const data = await performExecute({ openModal: false });
-      if (
-        data?.test_results &&
-        Array.isArray(data.test_results) &&
-        data.test_results.length > 0 &&
-        testCases.length > 0
-      ) {
-        const shouldChainLlm =
-          teamRole !== "candidate" || candidateHasLlmKeyInDb === true;
-        if (shouldChainLlm) {
-          const merged = applyActualOutputsFromResults(testCases, data.test_results);
-          await runLlmValidate({ testCasesOverride: merged });
-        }
-      }
+      await performExecute({ openModal: false });
     } catch (err: any) {
       const msg = err.message || "Execution failed";
       setError(msg);
@@ -1456,6 +1452,7 @@ export const CoderpadEditor: React.FC = () => {
     setOutput("");
     setError("");
     setTestResults(null);
+    setShowResultDiff(false);
     setTestCases(prev => prev.map(tc => ({ ...tc, actual_output: null })));
     setExecStatus("running");
     setShowResultModal(false);
@@ -1499,18 +1496,6 @@ export const CoderpadEditor: React.FC = () => {
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [code, language, title, description, testCases, selectedSnippet, inputData, teamRole, llmApiKey]);
-
-  const deleteSnippet = async () => {
-    if (!selectedSnippet) return;
-    if (!window.confirm(`Delete "${selectedSnippet.title}"?`)) return;
-    try {
-      await apiFetch(`/coderpad/snippets/${selectedSnippet.id}`, { method: "DELETE" });
-      toast.success("Snippet deleted");
-      createNew();
-    } catch (err: any) {
-      toast.error("Delete failed");
-    }
-  };
 
   // ── Test Case Helpers ─────────────────────────────────────────────────────
   const isStaff = teamRole === "admin" || teamRole === "employee";
@@ -1755,12 +1740,32 @@ export const CoderpadEditor: React.FC = () => {
   const langCfg = LANGUAGES[language] || LANGUAGES.python;
   const passCount = testResults?.filter(r => r.passed).length ?? 0;
   const totalTests = testResults?.length ?? 0;
+  const failCount = totalTests > 0 ? totalTests - passCount : 0;
+  const hasTestRunReport = totalTests > 0 && execStatus !== "running";
+  const activeTestResult =
+    testResults?.find(r => r.test_case_index === selectedResultCaseIdx) ?? testResults?.[0] ?? null;
+  const activeTestCase =
+    activeTestResult != null ? testCases[activeTestResult.test_case_index] : undefined;
+  const activeHideValues = !!activeTestCase?.locked && !isStaff;
+  const testVerdictLabel =
+    execStatus === "running"
+      ? "Running…"
+      : !hasTestRunReport
+      ? ""
+      : execStatus === "timeout"
+      ? "Time Limit Exceeded"
+      : error && totalTests === 0
+      ? "Runtime Error"
+      : `${passCount} passed out of ${totalTests}`;
+  const testVerdictOk = hasTestRunReport && passCount === totalTests;
+  const testPassSummary =
+    hasTestRunReport ? `${passCount} passed out of ${totalTests}` : "";
+  const showTestResultView = execStatus === "running" || hasTestRunReport;
   const candidateVisibleTests = testCases.map((tc, idx) => ({ tc, idx })).filter(({ tc }) => !tc.locked);
   const visibleRows = isStaff
     ? testCases.map((tc, idx) => ({ tc, idx }))
     : (showAllTests ? candidateVisibleTests : candidateVisibleTests.slice(0, 2));
   const flaggedEvents = security.events.filter(evt => evt.severity !== "low");
-  const recentFlags = flaggedEvents.slice(0, 3);
   const passRate = totalTests > 0 ? Math.round((passCount / totalTests) * 100) : 0;
   const resultAssessment =
     execStatus === "running"
@@ -2144,11 +2149,13 @@ export const CoderpadEditor: React.FC = () => {
           <div className="coderpad-modal result-modal" onClick={e => e.stopPropagation()}>
             <h3 className="modal-title">Test Results</h3>
             <div className="result-summary-card">
-              <div className="result-summary-title">Submission Result</div>
+              <div className="result-summary-title result-summary-title--submitted">Submitted</div>
               <div className="result-summary-meta">
-                <span className={`summary-chip ${execStatus === "success" ? "ok" : execStatus === "error" || execStatus === "timeout" ? "bad" : ""}`}>
-                  Status: {execStatus}
-                </span>
+                {hasTestRunReport && (
+                  <span className={`summary-chip ${testVerdictOk ? "ok" : "bad"}`}>
+                    {testPassSummary}
+                  </span>
+                )}
                 <span className={`summary-chip ${passRate >= 80 ? "ok" : passRate >= 50 ? "" : "bad"}`}>
                   Score: {passRate}/100
                 </span>
@@ -2161,10 +2168,10 @@ export const CoderpadEditor: React.FC = () => {
                 <span className={`summary-chip ${security.highCount > 0 ? "bad" : "ok"}`}>High violations: {security.highCount}</span>
                 <span className={`summary-chip ${security.medCount > 0 ? "bad" : "ok"}`}>Medium violations: {security.medCount}</span>
               </div>
-              {recentFlags.length > 0 && (
-                <div className="result-flags-list">
-                  {recentFlags.map(flag => (
-                    <div key={flag.id} className="result-flag-item">
+              {flaggedEvents.length > 0 && (
+                <div className="result-flags-list" role="list" aria-label="Proctoring violations">
+                  {flaggedEvents.map(flag => (
+                    <div key={flag.id} className="result-flag-item" role="listitem">
                       <span className="result-flag-type">{VIOLATION_META[flag.type].label}:</span>
                       <span>{flag.message}</span>
                     </div>
@@ -2566,7 +2573,9 @@ export const CoderpadEditor: React.FC = () => {
       )}
 
       {/* ── SIDEBAR: column 1 = Files (collapsible), column 2 = Problem statement ── */}
-      <aside className="coderpad-sidebar">
+      <aside
+        className={`coderpad-sidebar ${problemStatementCollapsed ? "coderpad-sidebar--problem-collapsed" : ""}`}
+      >
         <div className="coderpad-sidebar-columns">
           <div className={`coderpad-sidebar-col coderpad-sidebar-col--files ${filesCollapsed ? "is-collapsed" : ""}`}>
             <div className="explorer-top">
@@ -2612,7 +2621,9 @@ export const CoderpadEditor: React.FC = () => {
             )}
           </div>
 
-          <div className="coderpad-sidebar-col coderpad-sidebar-col--problem">
+          <div
+            className={`coderpad-sidebar-col coderpad-sidebar-col--problem ${problemStatementCollapsed ? "is-collapsed" : ""}`}
+          >
             <div className="coderpad-sidebar-wbl-back-row">
               <Link
                 href="/"
@@ -2624,8 +2635,38 @@ export const CoderpadEditor: React.FC = () => {
                 <span className="coderpad-sidebar-wbl-back-text">Back to Whitebox Learning</span>
               </Link>
             </div>
-            <div className="sidebar-problem-card sidebar-problem-card--fill">
-              <div className="sidebar-problem-layout">
+
+            {problemStatementCollapsed ? (
+              <button
+                type="button"
+                className="sidebar-problem-expand-rail"
+                onClick={() => setProblemStatementCollapsed(false)}
+                aria-expanded={false}
+                aria-label={`Show problem statement${activeQuestionNumber ? ` number ${activeQuestionNumber}` : ""}`}
+                title={`Show problem statement${activeQuestionNumber ? ` #${activeQuestionNumber}` : ""}`}
+              >
+                <ChevronRight size={16} aria-hidden className="sidebar-problem-expand-rail-icon" />
+                <span className="sidebar-problem-expand-rail-text">Problem</span>
+              </button>
+            ) : (
+              <div className="sidebar-problem-card sidebar-problem-card--fill">
+                <div className="sidebar-problem-card-header">
+                  <button
+                    type="button"
+                    className="sidebar-problem-collapse-btn"
+                    onClick={() => setProblemStatementCollapsed(true)}
+                    aria-expanded
+                    title="Hide problem statement"
+                  >
+                    <ChevronLeft size={15} aria-hidden className="sidebar-problem-collapse-icon" />
+                    <span className="sidebar-problem-collapse-label">
+                      Problem Statement{activeQuestionNumber ? ` #${activeQuestionNumber}` : ""}
+                    </span>
+                  </button>
+                  {isStaff && <span className="sidebar-staff-pill">Authoring</span>}
+                </div>
+
+                <div className="sidebar-problem-layout">
                 {problemRailQuestions.length > 0 && (
                   <div className="sidebar-problem-number-rail" role="listbox" aria-label="CoderPad problem numbers">
                     <span className="sidebar-problem-number-rail-label">Q</span>
@@ -2647,18 +2688,16 @@ export const CoderpadEditor: React.FC = () => {
                   </div>
                 )}
                 <div className="sidebar-problem-main">
-                  <div className="sidebar-problem-title">
-                    Problem Statement{activeQuestionNumber ? ` #${activeQuestionNumber}` : ""}
-                    {isStaff && <span className="sidebar-staff-pill">Authoring</span>}
-                  </div>
-                  <div 
-                    className="sidebar-problem-text coderpad-markdown" 
+                  <div
+                    className="sidebar-problem-text coderpad-markdown"
                     dangerouslySetInnerHTML={{ __html: description.trim() ? description : "No problem statement yet." }}
                   />
                 </div>
               </div>
             </div>
-            {isStaff && (
+            )}
+
+            {isStaff && !problemStatementCollapsed && (
               <div className="sidebar-assignment-footer">
                 <button
                   type="button"
@@ -2686,82 +2725,24 @@ export const CoderpadEditor: React.FC = () => {
                     : "topbar-title-row"
                 }
               >
+                <CandidateCoderpadBrand variant="topbar" />
                 {teamRole === "candidate" ? (
-                  <CandidateCoderpadBrand variant="topbar" />
+                  <span className="snippet-title-label">{DEFAULT_SNIPPET_TITLE}</span>
                 ) : (
-                  <img
-                    src="/images/logos/whitebox-learning-logo.png"
-                    alt="White Box Learning logo"
-                    className="topbar-brand-logo"
+                  <input
+                    className="snippet-title-input"
+                    value={title}
+                    onChange={e => { setTitle(e.target.value); setIsDirty(true); }}
+                    placeholder={DEFAULT_SNIPPET_TITLE}
                   />
                 )}
-                <input
-                  className={
-                    teamRole === "candidate"
-                      ? "snippet-title-input snippet-title-input--hero"
-                      : "snippet-title-input"
-                  }
-                  value={title}
-                  onChange={e => { setTitle(e.target.value); setIsDirty(true); }}
-                  placeholder={DEFAULT_SNIPPET_TITLE}
-                />
-                {isDirty && <span className="dirty-dot" title="Unsaved changes" />}
+                {isDirty && teamRole !== "candidate" && (
+                  <span className="dirty-dot" title="Unsaved changes" />
+                )}
               </div>
               <p className="coderpad-login-line" title="Session role">
                 {loginStatusLine}
               </p>
-              {(teamRole === "employee" || teamRole === "admin") && (
-                <div className="coderpad-llm-row">
-                  <input
-                    type="password"
-                    className="coderpad-llm-api-key-input"
-                    placeholder="Optional OpenAI API key override (else server / your account key)"
-                    value={llmApiKey}
-                    onChange={(e) => setLlmApiKey(e.target.value)}
-                    title="Override the server or database key for this browser session only"
-                    autoComplete="off"
-                  />
-                  <button
-                    type="button"
-                    className="btn-llm-validate"
-                    onClick={() => void runLlmValidate()}
-                    disabled={llmValidating}
-                    title="Validate with OpenAI using optional override key or server configuration"
-                  >
-                    {llmValidating ? (
-                      <Loader2 size={14} className="spin" />
-                    ) : (
-                      <Sparkles size={14} />
-                    )}
-                    LLM validate
-                  </button>
-                </div>
-              )}
-              {teamRole === "candidate" && (
-                <div className="coderpad-llm-row">
-                  <button
-                    type="button"
-                    className="btn-llm-validate"
-                    onClick={() => void runLlmValidate()}
-                    disabled={
-                      llmValidating ||
-                      candidateHasLlmKeyInDb !== true
-                    }
-                    title={
-                      candidateHasLlmKeyInDb !== true
-                        ? "Add your API key from My LLM Key on the candidate dashboard, then refresh."
-                        : "Validate with OpenAI using your saved account key"
-                    }
-                  >
-                    {llmValidating ? (
-                      <Loader2 size={14} className="spin" />
-                    ) : (
-                      <Sparkles size={14} />
-                    )}
-                    LLM validate
-                  </button>
-                </div>
-              )}
             </div>
           </div>
 
@@ -2819,30 +2800,51 @@ export const CoderpadEditor: React.FC = () => {
                   <span className="sec-badge-high" style={{ background: securityStatusColor }}>{security.totalCount}</span>
                 )}
               </button>
-            {selectedSnippet && (
-              <button className="btn-icon btn-danger-hover" onClick={deleteSnippet} title="Delete snippet">
-                <Trash2 size={15} />
-              </button>
-            )}
-            <button
-              type="button"
-              className="btn-save"
-              onClick={() => saveSnippet()}
-              disabled={saving}
-              title="Save (Ctrl+S)"
-            >
-              {saving ? <Loader2 size={14} className="spin" /> : <Save size={14} />}
-              Save
-            </button>
-            <label className="autosave-toggle autosave-toggle--topbar">
+            <label className="autosave-toggle autosave-toggle--topbar" title="Auto save">
               <input
                 type="checkbox"
                 checked={autoSave}
                 onChange={e => setAutoSave(e.target.checked)}
               />
               <span className="autosave-track" aria-hidden />
-              <span className="autosave-label">Auto-save files</span>
+              <span className="autosave-label">Auto save</span>
             </label>
+            {isStaff && (
+              <input
+                type="password"
+                className="coderpad-llm-api-key-input coderpad-llm-api-key-input--topbar"
+                placeholder="OpenAI key (optional)"
+                value={llmApiKey}
+                onChange={(e) => setLlmApiKey(e.target.value)}
+                title="Override server key for this session"
+                autoComplete="off"
+              />
+            )}
+            {(isStaff || teamRole === "candidate") && (
+              <button
+                type="button"
+                className="btn-llm-validate btn-llm-validate--topbar"
+                onClick={() => void runLlmValidate()}
+                disabled={
+                  llmValidating ||
+                  (teamRole === "candidate" && candidateHasLlmKeyInDb !== true)
+                }
+                title={
+                  teamRole === "candidate" && candidateHasLlmKeyInDb !== true
+                    ? "Add your API key from My LLM Key on the candidate dashboard, then refresh."
+                    : isStaff
+                    ? "Validate with OpenAI (optional key override or server)"
+                    : "Validate with OpenAI using your saved account key"
+                }
+              >
+                {llmValidating ? (
+                  <Loader2 size={15} className="spin" />
+                ) : (
+                  <Sparkles size={15} />
+                )}
+                <span>LLM validate</span>
+              </button>
+            )}
             <button
               className="btn-run"
               onClick={() => void runTestCases()}
@@ -2947,37 +2949,182 @@ export const CoderpadEditor: React.FC = () => {
                     >
                       <ChevronUp size={16} aria-hidden />
                       <TestTube2 size={16} aria-hidden />
-                      <span className="tests-rail-count">{testCases.length}</span>
-                      <span className="tests-rail-label">Tests</span>
+                      {hasTestRunReport ? (
+                        <span className="tests-rail-label">
+                          {passCount} passed out of {totalTests}
+                        </span>
+                      ) : (
+                        <>
+                          <span className="tests-rail-count">{testCases.length}</span>
+                          <span className="tests-rail-label">Test results</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 ) : (
                   <div className="output-panel ide-terminal-panel" style={{ borderTop: '1px solid #30363d' }}>
                     <div className="tests-body">
                     <div className="tests-header">
-                      <button
-                        type="button"
-                        className="tests-collapse-btn"
-                        onClick={toggleTestsPanel}
-                        aria-expanded={!testsCollapsed}
-                        title="Collapse test panel"
-                      >
-                        <ChevronDown size={14} aria-hidden />
-                        <span className="tests-count">{testCases.length} test case{testCases.length !== 1 ? "s" : ""}</span>
-                      </button>
+                      <div className="tests-header-title">
+                        {hasTestRunReport && testVerdictOk && (
+                          <CheckCircle2 size={14} className="tests-tab-icon-ok" aria-hidden />
+                        )}
+                        <Terminal size={14} className="tests-header-terminal-icon" aria-hidden />
+                        <span>Test results</span>
+                      </div>
                       <div className="tests-header-actions">
-                        {isStaff && (
+                        {!showTestResultView && isStaff && (
                           <button type="button" className="btn-ghost-sm" onClick={addTestCase}>
                             <Plus size={13} /> Add test
                           </button>
                         )}
-                        {!isStaff && (
+                        {!showTestResultView && !isStaff && testCases.length > 0 && (
                           <button type="button" className="btn-ghost-sm" onClick={() => setShowAllTests(v => !v)}>
                             {showAllTests ? "Show Fewer" : "Show All"}
                           </button>
                         )}
+                        {showTestResultView && isStaff && (
+                          <button
+                            type="button"
+                            className="btn-ghost-sm"
+                            onClick={() => {
+                              setTestResults(null);
+                              setShowResultDiff(false);
+                              setTestCases(prev => prev.map(tc => ({ ...tc, actual_output: null })));
+                            }}
+                          >
+                            Edit tests
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="tests-collapse-btn"
+                          onClick={toggleTestsPanel}
+                          title="Collapse test panel"
+                        >
+                          <ChevronDown size={14} aria-hidden />
+                        </button>
                       </div>
                     </div>
+                    {showTestResultView ? (
+                      <div className="test-result-panel" role="status" aria-live="polite">
+                        <div className="test-result-verdict-row">
+                          <span
+                            className={`test-result-verdict ${
+                              testVerdictOk ? "test-result-verdict--ok" : "test-result-verdict--bad"
+                            }`}
+                          >
+                            {testVerdictLabel}
+                          </span>
+                          <span className="test-result-runtime">
+                            Runtime: {execTime != null ? execTime : 0} ms
+                          </span>
+                          {activeTestResult && !activeTestResult.passed && (
+                            <button
+                              type="button"
+                              className="test-result-diff-btn"
+                              onClick={() => setShowResultDiff(v => !v)}
+                            >
+                              {showResultDiff ? "Hide diff" : "Diff"}
+                            </button>
+                          )}
+                        </div>
+                        <div className="test-result-scroll">
+                        {execStatus === "running" ? (
+                          <div className="tests-empty">
+                            <Loader2 size={22} className="spin" />
+                            <p>Running test cases…</p>
+                          </div>
+                        ) : !testResults?.length ? (
+                          <div className="tests-empty">
+                            <p>No test results yet. Run test cases to see results here.</p>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="test-result-cases">
+                              {testResults.map(r => (
+                                <button
+                                  key={r.test_case_index}
+                                  type="button"
+                                  className={`test-result-case-tab ${
+                                    selectedResultCaseIdx === r.test_case_index
+                                      ? "test-result-case-tab--active"
+                                      : ""
+                                  }`}
+                                  onClick={() => {
+                                    setSelectedResultCaseIdx(r.test_case_index);
+                                    setShowResultDiff(false);
+                                  }}
+                                >
+                                  <span
+                                    className={`test-result-case-icon ${
+                                      r.passed ? "test-result-case-icon--ok" : "test-result-case-icon--bad"
+                                    }`}
+                                    aria-hidden
+                                  >
+                                    {r.passed ? <Check size={10} /> : <X size={10} />}
+                                  </span>
+                                  Case {r.test_case_index + 1}
+                                </button>
+                              ))}
+                            </div>
+                            {activeTestResult && (
+                              <div className="test-result-detail">
+                                <div className="test-result-field">
+                                  <span className="test-result-field-label">Input</span>
+                                  <pre className="test-result-field-box">
+                                    {activeHideValues
+                                      ? "Hidden"
+                                      : (activeTestResult.input ?? activeTestCase?.input ?? "") || "(empty)"}
+                                  </pre>
+                                </div>
+                                <div className="test-result-field">
+                                  <span className="test-result-field-label">Output</span>
+                                  <pre
+                                    className={`test-result-field-box ${
+                                      activeTestResult.passed
+                                        ? "test-result-field-box--ok"
+                                        : "test-result-field-box--bad"
+                                    }`}
+                                  >
+                                    {activeTestResult.error
+                                      ? activeTestResult.error
+                                      : activeHideValues && activeTestResult.actual == null
+                                      ? "Hidden"
+                                      : activeTestResult.actual?.trim()
+                                        ? activeTestResult.actual
+                                        : "(no output)"}
+                                  </pre>
+                                </div>
+                                <div className="test-result-field">
+                                  <span className="test-result-field-label">Expected</span>
+                                  <pre className="test-result-field-box test-result-field-box--expected">
+                                    {activeHideValues
+                                      ? "Hidden"
+                                      : activeTestResult.expected ?? activeTestCase?.expected_output ?? ""}
+                                  </pre>
+                                </div>
+                                {showResultDiff && !activeTestResult.passed && (
+                                  <div className="test-diff">
+                                    <div className="diff-row">
+                                      <span className="diff-label expected">Expected:</span>
+                                      <code className="diff-code">{activeTestResult.expected}</code>
+                                    </div>
+                                    <div className="diff-row">
+                                      <span className="diff-label actual">Got:</span>
+                                      <code className="diff-code">
+                                        {activeTestResult.actual ?? "(no output)"}
+                                      </code>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        )}
+                        </div>
+                      </div>
+                    ) : (
                     <div className="tests-list">
                       {testCases.length === 0 ? (
                         <div className="tests-empty">
@@ -3078,6 +3225,7 @@ export const CoderpadEditor: React.FC = () => {
                         })
                       )}
                     </div>
+                    )}
                     </div>
                   </div>
                 )}
@@ -3353,6 +3501,22 @@ export const CoderpadEditor: React.FC = () => {
         .result-modal {
           width: min(760px, 92vw);
           max-height: 82vh;
+          overflow: hidden;
+        }
+        .result-modal .result-summary-card {
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+          max-height: min(58vh, 520px);
+          overflow: hidden;
+        }
+        .result-summary-title--submitted {
+          text-transform: none;
+          font-size: 0.95rem;
+          font-weight: 700;
+          color: #3fb950;
+          letter-spacing: 0.01em;
+          margin-bottom: 10px;
         }
         .result-modal-tests {
           max-height: 46vh;
@@ -3383,6 +3547,13 @@ export const CoderpadEditor: React.FC = () => {
           overflow: hidden;
           flex-shrink: 0;
           box-shadow: inset -1px 0 0 rgba(255,255,255,0.03);
+          transition: width 0.2s ease, min-width 0.2s ease, flex-basis 0.2s ease;
+        }
+        .coderpad-sidebar--problem-collapsed {
+          flex: 0 0 auto;
+          width: auto;
+          min-width: 0;
+          max-width: none;
         }
         .coderpad-sidebar-columns {
           display: flex;
@@ -3427,6 +3598,119 @@ export const CoderpadEditor: React.FC = () => {
           display: flex;
           flex-direction: column;
           min-width: 0;
+          transition: flex 0.2s ease, max-width 0.2s ease, min-width 0.2s ease;
+        }
+        .coderpad-sidebar-col--problem.is-collapsed {
+          flex: 0 0 52px;
+          max-width: 52px;
+          min-width: 52px;
+          border-left: 1px solid #21262d;
+        }
+        .sidebar-problem-card-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          flex-wrap: wrap;
+          margin-bottom: 8px;
+        }
+        .sidebar-problem-collapse-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 5px 10px;
+          margin: 0;
+          border: 1px solid #58a6ff;
+          border-radius: 999px;
+          background: transparent;
+          color: #e6edf3;
+          font-size: 0.68rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          cursor: pointer;
+          text-align: left;
+          max-width: 100%;
+        }
+        .sidebar-problem-collapse-btn:hover {
+          background: rgba(88, 166, 255, 0.08);
+          border-color: #79b8ff;
+        }
+        .sidebar-problem-collapse-btn:focus-visible {
+          outline: 2px solid #58a6ff;
+          outline-offset: 2px;
+        }
+        .sidebar-problem-collapse-icon {
+          flex-shrink: 0;
+        }
+        .sidebar-problem-collapse-label {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .coderpad-sidebar-col--problem.is-collapsed .coderpad-sidebar-wbl-back-row {
+          padding: 10px 0 8px;
+          display: flex;
+          justify-content: center;
+          border-bottom: 1px solid #21262d;
+        }
+        .coderpad-sidebar-col--problem.is-collapsed .coderpad-sidebar-wbl-back-text {
+          display: none;
+        }
+        .coderpad-sidebar-col--problem.is-collapsed .coderpad-sidebar-wbl-back-link {
+          width: 36px;
+          height: 36px;
+          padding: 0;
+          justify-content: center;
+          align-items: center;
+          border-radius: 8px;
+          border: 1px solid #30363d;
+          background: #161b22;
+        }
+        .coderpad-sidebar-col--problem.is-collapsed .coderpad-sidebar-wbl-back-link:hover {
+          border-color: #58a6ff;
+          background: #1c2128;
+        }
+        .sidebar-problem-expand-rail {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: flex-start;
+          gap: 10px;
+          flex: 1;
+          min-height: 120px;
+          margin: 8px 6px 10px;
+          padding: 12px 4px;
+          border: 1px solid #2b3544;
+          border-radius: 8px;
+          background: #111926;
+          color: #8b949e;
+          cursor: pointer;
+          transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+        }
+        .sidebar-problem-expand-rail:hover {
+          border-color: #58a6ff;
+          background: #161f2e;
+          color: #c9d1d9;
+        }
+        .sidebar-problem-expand-rail:focus-visible {
+          outline: 2px solid #58a6ff;
+          outline-offset: 2px;
+        }
+        .sidebar-problem-expand-rail-icon {
+          flex-shrink: 0;
+          color: #58a6ff;
+        }
+        .sidebar-problem-expand-rail-text {
+          writing-mode: vertical-rl;
+          text-orientation: mixed;
+          transform: rotate(180deg);
+          font-size: 0.62rem;
+          font-weight: 700;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          line-height: 1;
+          user-select: none;
         }
         .coderpad-assignment-picker {
           flex-shrink: 0;
@@ -3560,19 +3844,6 @@ export const CoderpadEditor: React.FC = () => {
         .sidebar-problem-main {
           flex: 1;
           min-width: 0;
-        }
-        .sidebar-problem-title {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 8px;
-          flex-wrap: wrap;
-          font-size: 0.7rem;
-          color: #8b949e;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          margin-bottom: 5px;
-          font-weight: 600;
         }
         .sidebar-problem-text {
           font-size: 0.78rem;
@@ -4238,12 +4509,22 @@ export const CoderpadEditor: React.FC = () => {
         .coderpad-sidebar-wbl-back-link:hover .coderpad-sidebar-wbl-back-icon {
           color: #a5d6ff;
         }
-        .topbar-title-row { display: flex; align-items: center; gap: 8px; }
+        .topbar-title-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-family: 'Inter', sans-serif;
+          font-size: 0.88rem;
+          font-weight: 500;
+          color: #e6edf3;
+          letter-spacing: 0.01em;
+        }
         .topbar-title-row--candidate { gap: 12px; }
         .topbar-brand-logo {
           width: 22px;
           height: 22px;
           flex: 0 0 22px;
+          object-fit: contain;
           opacity: 0.95;
         }
         .coderpad-login-line {
@@ -4373,6 +4654,19 @@ export const CoderpadEditor: React.FC = () => {
           cursor: not-allowed;
         }
         .btn-llm-validate .spin { animation: coderpad-spin 0.8s linear infinite; }
+        .btn-llm-validate--topbar {
+          padding: 7px 14px;
+          font-size: 0.82rem;
+          border-radius: 8px;
+        }
+        .coderpad-llm-api-key-input--topbar {
+          flex: 0 1 auto;
+          width: 140px;
+          min-width: 100px;
+          max-width: 160px;
+          padding: 7px 10px;
+          font-size: 0.76rem;
+        }
         @keyframes coderpad-spin { to { transform: rotate(360deg); } }
         .llm-result-modal .llm-result-error {
           color: #f85149;
@@ -4435,20 +4729,25 @@ export const CoderpadEditor: React.FC = () => {
           outline: none;
           border-radius: 0;
           padding: 4px 0;
-          font-size: 0.88rem;
-          font-weight: 600;
-          color: #e6edf3;
+          font: inherit;
+          color: inherit;
           max-width: min(340px, 42vw);
           min-width: 160px;
-          font-family: 'Inter', sans-serif;
           transition: color 0.15s;
         }
-        .snippet-title-input--hero {
-          font-size: 1.375rem;
-          font-weight: 800;
-          letter-spacing: -0.03em;
-          color: #ffffff;
+        .topbar-title-row--candidate .snippet-title-input {
           max-width: min(440px, 52vw);
+        }
+        .snippet-title-label {
+          font: inherit;
+          color: inherit;
+          padding: 4px 0;
+          max-width: min(440px, 52vw);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          user-select: none;
+          cursor: default;
         }
         .snippet-title-input::placeholder { color: #6e7681; }
         .snippet-title-input:hover { color: #f0f6fc; }
@@ -4843,7 +5142,13 @@ export const CoderpadEditor: React.FC = () => {
         .resize-handle-bar { width: 2px; height: 40px; border-radius: 1px; background: #30363d; }
 
         /* ── OUTPUT PANEL ── */
-        .output-panel { height: 100%; display: flex; flex-direction: column; background: #0d1117; overflow: hidden; }
+        .output-panel { height: 100%; display: flex; flex-direction: column; background: #0d1117; overflow: hidden; min-height: 0; }
+        .ide-bottom-stack:not(.ide-bottom-stack--rail) {
+          height: 100%;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+        }
         .output-tabs {
           display: flex; align-items: center; background: #161b22;
           border-bottom: 1px solid #21262d; flex-shrink: 0;
@@ -4914,6 +5219,126 @@ export const CoderpadEditor: React.FC = () => {
         }
         .tests-header-actions { display: inline-flex; align-items: center; gap: 6px; }
         .tests-count { font-weight: 500; }
+        .tests-header-title {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 0.78rem;
+          font-weight: 600;
+          color: #c9d1d9;
+        }
+        .tests-tab-icon-ok { color: #3fb950; }
+        .tests-header-terminal-icon { color: #3fb950; }
+        .test-result-panel {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          min-height: 0;
+        }
+        .test-result-scroll {
+          flex: 1 1 auto;
+          min-height: 0;
+          overflow-x: hidden;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+        .test-result-verdict-row {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 10px 14px;
+          flex-shrink: 0;
+          border-bottom: 1px solid #21262d;
+        }
+        .test-result-verdict {
+          font-size: 0.95rem;
+          font-weight: 700;
+        }
+        .test-result-verdict--ok { color: #3fb950; }
+        .test-result-verdict--bad { color: #f85149; }
+        .test-result-runtime {
+          font-size: 0.75rem;
+          color: #8b949e;
+        }
+        .test-result-diff-btn {
+          margin-left: auto;
+          background: transparent;
+          border: none;
+          color: #58a6ff;
+          font-size: 0.78rem;
+          cursor: pointer;
+          padding: 2px 4px;
+        }
+        .test-result-diff-btn:hover { text-decoration: underline; }
+        .test-result-cases {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          padding: 8px 12px;
+          border-bottom: 1px solid #21262d;
+          flex-shrink: 0;
+        }
+        .test-result-case-tab {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 5px 10px;
+          border-radius: 6px;
+          border: 1px solid #30363d;
+          background: #161b22;
+          color: #c9d1d9;
+          font-size: 0.75rem;
+          cursor: pointer;
+        }
+        .test-result-case-tab--active {
+          background: #21262d;
+          border-color: #8b949e;
+        }
+        .test-result-case-icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 14px;
+          height: 14px;
+          border-radius: 3px;
+        }
+        .test-result-case-icon--ok {
+          background: #238636;
+          color: #fff;
+        }
+        .test-result-case-icon--bad {
+          background: #da3633;
+          color: #fff;
+        }
+        .test-result-detail {
+          padding: 10px 14px 14px;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .test-result-field-label {
+          display: block;
+          font-size: 0.72rem;
+          color: #8b949e;
+          margin-bottom: 4px;
+        }
+        .test-result-field-box {
+          margin: 0;
+          padding: 10px 12px;
+          border-radius: 8px;
+          background: #161b22;
+          border: 1px solid #30363d;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 0.8rem;
+          line-height: 1.5;
+          white-space: pre-wrap;
+          word-break: break-word;
+          color: #c9d1d9;
+        }
+        .test-result-field-box--bad { color: #f85149; }
+        .test-result-field-box--ok { color: #3fb950; }
+        .test-result-field-box--expected { color: #3fb950; }
         .tests-list { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
         .result-summary-card {
           background: #111926;
@@ -4956,6 +5381,13 @@ export const CoderpadEditor: React.FC = () => {
           display: flex;
           flex-direction: column;
           gap: 5px;
+          flex: 1 1 auto;
+          min-height: 80px;
+          max-height: min(36vh, 260px);
+          overflow-x: hidden;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+          padding-right: 4px;
         }
         .result-flag-item {
           font-size: 0.74rem;
