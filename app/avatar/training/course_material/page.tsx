@@ -52,7 +52,8 @@ const TYPE_MAPPING = {
   B: "Books",
   N: "Newsletters",
   M: "Materials",
-  A: 'Assignments'
+  A: "Assignments",
+  G: "Git Repo's"
 };
 
 const TYPE_OPTIONS = [
@@ -65,6 +66,7 @@ const TYPE_OPTIONS = [
   { value: "N", label: "Newsletters" },
   { value: "M", label: "Materials" },
   { value: "A", label: "Assignments" },
+  { value: "G", label: "Git Repo's" },
 ];
 
 export default function CourseMaterialPage() {
