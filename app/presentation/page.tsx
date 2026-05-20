@@ -17,6 +17,7 @@ import {
   Mail,
   Cpu,
   ClipboardList,
+  Github,
 } from "lucide-react";
 
 type ComponentType =
@@ -27,7 +28,8 @@ type ComponentType =
   | "Interactive Visual Explainers"
   | "Newsletters"
   | "Books"
-  | "Assignments";
+  | "Assignments"
+  | "Git Repo's";
 
 export default function PresentationPage() {
   const router = useRouter();
@@ -55,6 +57,7 @@ export default function PresentationPage() {
     { type: "Books", label: "O'Reilly Books", icon: Library },
     { type: "Newsletters", label: "Newsletters", icon: Mail },
     { type: "Assignments", label: "Assignments", icon: ClipboardList },
+    { type: "Git Repo's", label: "Git Repo's", icon: Github },
   ];
 
   const handleButtonClick = (component: ComponentType) => {
