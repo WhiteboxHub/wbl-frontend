@@ -15,18 +15,9 @@ type ComponentType =
   | "Git Repo's";
 
 const fetchPresentationData = async (course: string, type: ComponentType) => {
-  const base = (process.env.NEXT_PUBLIC_API_URL || API_BASE_URL || "").replace(/\/$/, "");
-  let endpointsToTry = [
-    `/materials?course=${course}&search=${type}`,
-    `api/materials?course=${course}&search=${type}`,
-  ];
-
-  if (type === "Git Repo's") {
-    endpointsToTry = [
-      `/github-classroom-repos?course=${course}`,
-      `api/github-classroom-repos?course=${course}`
-    ];
-  }
+  const endpoint = type === "Git Repo's"
+    ? `/github-classroom-repos?course=${course}`
+    : `/materials?course=${course}&search=${type}`;
 
   const normalize = (data: any) => {
     if (!data) return [];
@@ -40,58 +31,24 @@ const fetchPresentationData = async (course: string, type: ComponentType) => {
 
   try {
     const isClient = typeof window !== "undefined";
-    const token = isClient
-      ? localStorage.getItem("access_token") ||
-        localStorage.getItem("token") ||
-        localStorage.getItem("auth_token")
-      : null;
-
-    for (const ep of endpointsToTry) {
-      const fullUrl = `${base}/${ep.replace(/^\/+/, "")}`;
-      console.log("[fetchPresentationData] Trying:", fullUrl);
-
-      try {
-        const headers: Record<string, string> = {
-          Accept: "application/json",
-        };
-
-        if (token) headers["Authorization"] = `Bearer ${token}`;
-
-        const res = await fetch(fullUrl, {
-          method: "GET",
-          headers,
-          credentials: "include", // sends cookies if needed
-        });
-
-        if (res.status === 401) {
-          console.warn("401 Unauthorized — token might be expired");
-          if (isClient) {
-            localStorage.removeItem("access_token");
-            toast.error("Session expired. Please log in again.");
-            window.location.href = "/login";
-          }
-          return null;
-        }
-
-        if (res.status === 403) {
-          toast.error("Access forbidden – insufficient permissions");
-          continue;
-        }
-
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const json = await res.json();
-        return normalize(json);
-      } catch (err) {
-        console.warn(`[fetchPresentationData] failed for ${ep}:`, err);
-      }
-    }
-
-    toast.error("Unable to load materials. Please check your login or permissions.");
-    return null;
+    const data = await apiFetch(endpoint, { credentials: "include" });
+    return normalize(data);
   } catch (err: any) {
     console.error("[fetchPresentationData] unexpected error:", err);
-    toast.error(err?.message || "Failed to fetch data");
+    const status = err.status;
+
+    if (status === 401) {
+      console.warn("401 Unauthorized — token might be expired");
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("access_token");
+        toast.error("Session expired. Please log in again.");
+        window.location.href = "/login";
+      }
+    } else if (status === 403) {
+      toast.error("Access forbidden – insufficient permissions");
+    } else {
+      toast.error(err?.message || "Failed to fetch data");
+    }
     return null;
   }
 };
