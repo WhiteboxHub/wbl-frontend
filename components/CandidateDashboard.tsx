@@ -580,6 +580,7 @@ export default function CandidateDashboard() {
     const [setupWizardManageMode, setSetupWizardManageMode] = useState(false);
     const [prefetchedSession, setPrefetchedSession] = useState<{ sessionId: string; summaryData: any } | null>(null);
     const [prefetchDone, setPrefetchDone] = useState(false);
+    const [viewResumeOpen, setViewResumeOpen] = useState(false);
     useEffect(() => {
         setMounted(true);
     }, []);
@@ -2536,6 +2537,16 @@ export default function CandidateDashboard() {
                                                             {setupStatus === null ? "Loading..." : setupStatus.resume_uploaded ? "Uploaded ✓" : "Not added"}
                                                         </p>
                                                     </div>
+                                                    {setupStatus?.resume_uploaded && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setViewResumeOpen(true)}
+                                                            className="ml-auto flex items-center gap-1.5 text-xs font-bold text-violet-600 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300 transition-colors px-2.5 py-1.5 bg-violet-50 dark:bg-violet-900/20 rounded-lg"
+                                                        >
+                                                            <Eye className="w-3.5 h-3.5" />
+                                                            View Resume
+                                                        </button>
+                                                    )}
                                                 </div>
                                                 {/* API Keys Status */}
                                                 <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${setupStatus === null
@@ -2640,6 +2651,16 @@ export default function CandidateDashboard() {
                     </div>
                 </main>
             </div>
+            {viewResumeOpen && (
+                <ViewModal
+                    isOpen={true}
+                    onClose={() => setViewResumeOpen(false)}
+                    data={{
+                        resume_json: prefetchedSession?.summaryData?.resume_json || {}
+                    }}
+                    title="View Resume"
+                />
+            )}
         </div>
     );
 }
