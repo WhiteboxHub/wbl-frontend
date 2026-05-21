@@ -1068,6 +1068,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
   const columnCount = Math.min(visibleSections.length, 4);
 
   const getModalWidth = () => {
+    if (title.toLowerCase() === "view resume") return 'max-w-4xl';
     switch (columnCount) {
       case 1: return 'max-w-md';
       case 2: return 'max-w-2xl';
@@ -1090,7 +1091,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
             {/* Header */}
             <div className="sticky top-0 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 dark:from-darklight dark:via-dark dark:to-darklight px-3 sm:px-4 md:px-6 py-1 sm:py-1.5 border-b border-blue-200 dark:border-blue-900 flex justify-between items-center">
               <h2 className="text-sm sm:text-base md:text-lg font-semibold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-                {title} - View Details
+                {title.toLowerCase() === "view resume" ? title : `${title} - View Details`}
               </h2>
               <button
                 onClick={onClose}
@@ -1102,8 +1103,25 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
 
             {/* Content */}
             <div className="p-3 sm:p-4 md:p-5 bg-white dark:bg-dark">
-              <form>
-                {/* Content Grid */}
+              {title.toLowerCase() === "view resume" ? (
+                <div className="p-1">
+                  <pre className="w-full text-xs font-mono bg-blue-50/20 dark:bg-darklight p-4 rounded-xl border border-blue-100 dark:border-blue-900 overflow-auto max-h-[70vh] text-gray-700 dark:text-gray-200 whitespace-pre-wrap">
+                    {typeof currentData === 'object' && currentData !== null
+                      ? JSON.stringify(
+                          'resume_json' in currentData
+                            ? currentData.resume_json
+                            : 'candidate_resume' in currentData
+                            ? currentData.candidate_resume
+                            : currentData,
+                          null,
+                          2
+                        )
+                      : String(currentData)}
+                  </pre>
+                </div>
+              ) : (
+                <form>
+                  {/* Content Grid */}
                 <div className={`grid grid-cols-1 ${columnCount >= 2 ? 'md:grid-cols-2' : ''} ${columnCount >= 3 ? 'lg:grid-cols-3' : ''} ${columnCount >= 4 ? 'xl:grid-cols-4' : ''} gap-3 sm:gap-4`}>
                   {visibleSections.map(section => (
                     <div key={section} className="space-y-2 sm:space-y-3">
@@ -1197,6 +1215,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
                   </div>
                 )}
               </form>
+            )}
             </div>
           </div>
         </div>

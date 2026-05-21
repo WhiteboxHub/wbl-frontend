@@ -1,20 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin_ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/admin_ui/table";
+import { Label } from "@/components/admin_ui/label";
 import {
   Code2,
-  Clock,
   CheckCircle,
   XCircle,
-  AlertCircle,
   Loader,
   Search,
   ChevronDown,
@@ -22,7 +12,6 @@ import {
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { Input } from "@/components/admin_ui/input";
-import { Button } from "@/components/admin_ui/button";
 
 interface QuestionAttempt {
   id: number;
@@ -55,17 +44,26 @@ interface CandidateCoderPad {
   questions: QuestionAttempt[];
 }
 
-interface CoderPadMetrics {
-  total_sessions: number;
-  passed_sessions: number;
-  failed_sessions: number;
-  total_candidates: number;
+const TRACKING_TABLE_CLASS = "w-full min-w-[900px] table-fixed border-collapse text-sm";
+
+function TrackingTableColGroup() {
+  return (
+    <colgroup>
+      <col style={{ width: "18%" }} />
+      <col style={{ width: "22%" }} />
+      <col style={{ width: "12%" }} />
+      <col style={{ width: "12%" }} />
+      <col style={{ width: "10%" }} />
+      <col style={{ width: "10%" }} />
+      <col style={{ width: "16%" }} />
+    </colgroup>
+  );
 }
 
 export default function CoderPadTrackingPage() {
   const [candidateData, setCandidateData] = useState<CandidateCoderPad[]>([]);
-  const [metrics, setMetrics] = useState<CoderPadMetrics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedCandidates, setExpandedCandidates] = useState<Set<string>>(new Set());
 
@@ -73,15 +71,17 @@ export default function CoderPadTrackingPage() {
     const fetchCoderPadData = async () => {
       try {
         setLoading(true);
-        
-        // Fetch both candidates and coderpad execution logs in parallel
+        setFetchError(null);
+
+        // Fetch candidates (profile fields) and staff tracking logs in parallel
         const [candidatesData, executionData] = await Promise.all([
-          apiFetch("/candidates?limit=0").catch(err => {
+          apiFetch("/candidates?limit=0").catch((err) => {
             console.error("Error fetching candidates:", err);
             return { data: [] };
           }),
-          apiFetch("/coderpad/execution-logs?limit=1000").catch(err => {
-            console.error("Error fetching execution logs:", err);
+          apiFetch("/coderpad/tracking/execution-logs?limit=1000").catch((err) => {
+            console.error("Error fetching tracking logs:", err);
+            setFetchError("Could not load CoderPad execution logs. Check that you are logged in as staff.");
             return { data: [] };
           }),
         ]);
@@ -100,23 +100,23 @@ export default function CoderPadTrackingPage() {
           }
         });
 
-        // First, create entries for ALL candidates
         const groupedByCandidates: Record<string, CandidateCoderPad> = {};
-        candidates.forEach((cand: any) => {
-          const key = cand.email?.toLowerCase();
-          if (key) {
+
+        const ensureCandidate = (key: string, email: string, name: string) => {
+          if (!groupedByCandidates[key]) {
+            const cand = candidatesMap.get(key);
             groupedByCandidates[key] = {
-              candidate_name: cand.full_name || cand.candidate_name || "Unknown",
-              candidate_email: cand.email,
-              candidate_phone: cand.phone || undefined,
-              candidate_status: cand.status || undefined,
-              candidate_workstatus: cand.workstatus || undefined,
-              candidate_education: cand.education || undefined,
-              candidate_enrolled_date: cand.enrolled_date || undefined,
-              candidate_dob: cand.dob || undefined,
-              candidate_linkedin: cand.linkedin_id || undefined,
-              candidate_github: cand.github_link || undefined,
-              candidate_address: cand.address || undefined,
+              candidate_name: cand?.full_name || cand?.candidate_name || name || "Unknown",
+              candidate_email: email,
+              candidate_phone: cand?.phone || undefined,
+              candidate_status: cand?.status || undefined,
+              candidate_workstatus: cand?.workstatus || undefined,
+              candidate_education: cand?.education || undefined,
+              candidate_enrolled_date: cand?.enrolled_date || undefined,
+              candidate_dob: cand?.dob || undefined,
+              candidate_linkedin: cand?.linkedin_id || undefined,
+              candidate_github: cand?.github_link || undefined,
+              candidate_address: cand?.address || undefined,
               total_attempts: 0,
               passed_attempts: 0,
               failed_attempts: 0,
@@ -124,32 +124,17 @@ export default function CoderPadTrackingPage() {
               questions: [],
             };
           }
-        });
+        };
 
-        // Then add execution log data for those who have it
         sessions.forEach((session: any) => {
           const key = session.candidate_email?.toLowerCase();
-          if (key && !groupedByCandidates[key]) {
-            // If candidate not in main list, add them
-            groupedByCandidates[key] = {
-              candidate_name: session.candidate_name || "Unknown",
-              candidate_email: session.candidate_email,
-              candidate_phone: undefined,
-              candidate_status: undefined,
-              candidate_workstatus: undefined,
-              candidate_education: undefined,
-              candidate_enrolled_date: undefined,
-              candidate_dob: undefined,
-              candidate_linkedin: undefined,
-              candidate_github: undefined,
-              candidate_address: undefined,
-              total_attempts: 0,
-              passed_attempts: 0,
-              failed_attempts: 0,
-              unique_questions_solved: 0,
-              questions: [],
-            };
-          }
+          if (!key) return;
+
+          ensureCandidate(
+            key,
+            session.candidate_email,
+            session.candidate_name || "Unknown"
+          );
 
           if (key) {
             groupedByCandidates[key].questions.push({
@@ -187,21 +172,9 @@ export default function CoderPadTrackingPage() {
           (a, b) => b.total_attempts - a.total_attempts
         );
         setCandidateData(candidateArray);
-
-        console.log("Final candidate array:", candidateArray);
-
-        // Calculate metrics
-        const passed = sessions.filter((s: any) => s.status === "success").length;
-        const failed = sessions.filter((s: any) => s.status === "error").length;
-
-        setMetrics({
-          total_sessions: sessions.length,
-          passed_sessions: passed,
-          failed_sessions: failed,
-          total_candidates: candidateArray.length,
-        });
       } catch (error) {
         console.error("Error fetching CoderPad data:", error);
+        setFetchError("Failed to load CoderPad tracking data.");
       } finally {
         setLoading(false);
       }
@@ -210,10 +183,12 @@ export default function CoderPadTrackingPage() {
     fetchCoderPadData();
   }, []);
 
-  const filteredCandidates = candidateData.filter((candidate) =>
-    candidate.candidate_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    candidate.candidate_email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredCandidates = candidateData.filter((candidate) => {
+    const q = searchTerm.toLowerCase();
+    const name = (candidate.candidate_name ?? "").toLowerCase();
+    const email = (candidate.candidate_email ?? "").toLowerCase();
+    return name.includes(q) || email.includes(q);
+  });
 
   const toggleCandidate = (email: string) => {
     const newExpanded = new Set(expandedCandidates);
@@ -225,260 +200,239 @@ export default function CoderPadTrackingPage() {
     setExpandedCandidates(newExpanded);
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "success":
-        return <CheckCircle className="h-5 w-5 text-green-600" />;
-      case "error":
-        return <XCircle className="h-5 w-5 text-red-600" />;
-      case "timeout":
-        return <AlertCircle className="h-5 w-5 text-yellow-600" />;
-      default:
-        return <Loader className="h-5 w-5 text-gray-600" />;
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    const badges: Record<string, { bg: string; text: string }> = {
-      success: { bg: "bg-green-100", text: "text-green-800" },
-      error: { bg: "bg-red-100", text: "text-red-800" },
-      timeout: { bg: "bg-yellow-100", text: "text-yellow-800" },
-    };
-    const badge = badges[status] || { bg: "bg-gray-100", text: "text-gray-800" };
-    return (
-      <span className={`px-3 py-1 rounded-full text-sm font-medium ${badge.bg} ${badge.text}`}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
-    );
-  };
-
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
+      <div className="flex min-h-[400px] items-center justify-center">
         <Loader className="h-8 w-8 animate-spin text-blue-600" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Search Bar */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Search Candidates</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2">
-            <Search className="h-5 w-5 text-gray-400 mt-3" />
+    <div className="mx-auto max-w-[1600px] space-y-4">
+      {/* Page header — matches Candidates Management layout */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+          Coderpad Tracking
+        </h1>
+        <div className="mt-2 sm:max-w-md">
+          <Label
+            htmlFor="coderpad-search"
+            className="text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            Search Candidates
+          </Label>
+          <div className="relative mt-1">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
             <Input
+              id="coderpad-search"
               type="text"
-              placeholder="Search by candidate name or email..."
+              placeholder="Search by name, email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1"
+              className="w-full pl-10 text-sm sm:text-base"
             />
           </div>
-        </CardContent>
-      </Card>
+          {searchTerm.trim() && (
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {filteredCandidates.length} candidate
+              {filteredCandidates.length === 1 ? "" : "s"} shown
+            </p>
+          )}
+        </div>
+      </div>
 
-      {/* Candidates Table View */}
-      <Card>
-        <CardHeader>
-          <CardTitle>CoderPad Tracking</CardTitle>
-          <p className="text-sm text-gray-600 mt-2">Track candidate coding activity and performance</p>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-gray-50 border-b-2 border-gray-200">
-                  <TableHead className="text-gray-900 font-semibold py-3 px-4 text-left">
+      {fetchError && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+          {fetchError}
+        </div>
+      )}
+
+      {/* Tracking grid — sticky header, scrollable body */}
+      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+        <div className="max-h-[calc(100vh-280px)] overflow-auto">
+            <table className={TRACKING_TABLE_CLASS}>
+              <TrackingTableColGroup />
+              <thead className="sticky top-0 z-10 border-b-2 border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">
                     Candidate Name
-                  </TableHead>
-                  <TableHead className="text-gray-900 font-semibold py-3 px-4 text-left">
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900 dark:text-gray-100">
                     Email
-                  </TableHead>
-                  <TableHead className="text-gray-900 font-semibold py-3 px-4 text-center">
+                  </th>
+                  <th className="px-4 py-3 text-center text-sm font-semibold text-gray-900 dark:text-gray-100">
                     Questions Solved
-                  </TableHead>
-                  <TableHead className="text-gray-900 font-semibold py-3 px-4 text-center">
+                  </th>
+                  <th className="px-4 py-3 text-center text-sm font-semibold text-gray-900 dark:text-gray-100">
                     Total Attempts
-                  </TableHead>
-                  <TableHead className="text-gray-900 font-semibold py-3 px-4 text-center">
+                  </th>
+                  <th className="px-4 py-3 text-center text-sm font-semibold text-gray-900 dark:text-gray-100">
                     Passed
-                  </TableHead>
-                  <TableHead className="text-gray-900 font-semibold py-3 px-4 text-center">
+                  </th>
+                  <th className="px-4 py-3 text-center text-sm font-semibold text-gray-900 dark:text-gray-100">
                     Failed
-                  </TableHead>
-                  <TableHead className="text-gray-900 font-semibold py-3 px-4 text-center">
+                  </th>
+                  <th className="px-4 py-3 text-center text-sm font-semibold text-gray-900 dark:text-gray-100">
                     Success Rate
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-900">
                 {filteredCandidates.length > 0 ? (
                   filteredCandidates.map((candidate) => (
-                    <TableRow 
+                    <tr
                       key={candidate.candidate_email}
-                      className="border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
+                      className="cursor-pointer border-b border-gray-200 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800/50"
                       onClick={() => toggleCandidate(candidate.candidate_email)}
                     >
-                      <TableCell className="py-3 px-4 text-gray-900 font-medium">
-                        {candidate.candidate_name}
-                      </TableCell>
-                      <TableCell className="py-3 px-4 text-gray-600 text-sm">
+                      <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
+                        <div className="flex items-center gap-2">
+                          {expandedCandidates.has(candidate.candidate_email) ? (
+                            <ChevronDown className="h-4 w-4 shrink-0 text-gray-500" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 shrink-0 text-gray-500" />
+                          )}
+                          {candidate.candidate_name}
+                        </div>
+                      </td>
+                      <td className="truncate px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                         {candidate.candidate_email}
-                      </TableCell>
-                      <TableCell className="py-3 px-4 text-center">
-                        <span className="inline-flex items-center justify-center bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold">
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="inline-flex items-center justify-center rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-800">
                           {candidate.unique_questions_solved}
                         </span>
-                      </TableCell>
-                      <TableCell className="py-3 px-4 text-center font-medium text-gray-900">
+                      </td>
+                      <td className="px-4 py-3 text-center font-medium text-gray-900 dark:text-gray-100">
                         {candidate.total_attempts}
-                      </TableCell>
-                      <TableCell className="py-3 px-4 text-center">
-                        <span className="inline-flex items-center justify-center bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="inline-flex items-center justify-center rounded-full bg-green-100 px-3 py-1 text-sm font-semibold text-green-800">
                           {candidate.passed_attempts}
                         </span>
-                      </TableCell>
-                      <TableCell className="py-3 px-4 text-center">
-                        <span className="inline-flex items-center justify-center bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-semibold">
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="inline-flex items-center justify-center rounded-full bg-red-100 px-3 py-1 text-sm font-semibold text-red-800">
                           {candidate.failed_attempts}
                         </span>
-                      </TableCell>
-                      <TableCell className="py-3 px-4 text-center">
+                      </td>
+                      <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-2">
-                          <div className="w-16 bg-gray-200 rounded-full h-2">
+                          <div className="h-2 w-16 rounded-full bg-gray-200 dark:bg-gray-700">
                             <div
-                              className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full"
+                              className="h-2 rounded-full bg-gradient-to-r from-blue-500 to-purple-600"
                               style={{
                                 width: `${
                                   candidate.total_attempts > 0
-                                    ? Math.round((candidate.passed_attempts / candidate.total_attempts) * 100)
+                                    ? Math.round(
+                                        (candidate.passed_attempts / candidate.total_attempts) * 100
+                                      )
                                     : 0
                                 }%`,
                               }}
-                            ></div>
+                            />
                           </div>
-                          <span className="text-sm font-semibold text-gray-900 w-10 text-right">
+                          <span className="w-10 text-right text-sm font-semibold text-gray-900 dark:text-gray-100">
                             {candidate.total_attempts > 0
-                              ? Math.round((candidate.passed_attempts / candidate.total_attempts) * 100)
+                              ? Math.round(
+                                  (candidate.passed_attempts / candidate.total_attempts) * 100
+                                )
                               : 0}
                             %
                           </span>
                         </div>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   ))
                 ) : (
-                  <TableRow>
-                    <TableCell colSpan={7} className="py-16 text-center">
+                  <tr>
+                    <td colSpan={7} className="py-16 text-center">
                       <div className="flex flex-col items-center justify-center text-gray-500">
-                        <Code2 className="h-16 w-16 mb-4 text-gray-400" />
-                        <p className="text-lg font-medium">No candidates found</p>
-                        <p className="text-sm text-gray-400 mt-1">Try adjusting your search filters</p>
+                        <Code2 className="mb-4 h-16 w-16 text-gray-400" />
+                        <p className="text-lg font-medium text-gray-700 dark:text-gray-300">
+                          {searchTerm.trim()
+                            ? "No candidates match your search"
+                            : "No CoderPad activity yet"}
+                        </p>
+                        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                          {searchTerm.trim()
+                            ? "Try adjusting your search filters"
+                            : "Submissions appear here after candidates run code in CoderPad"}
+                        </p>
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                  </tr>
                 )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Expanded Row Details */}
-      {expandedCandidates.size > 0 && (
-        <div className="space-y-4">
-          {filteredCandidates.map((candidate) => (
-            expandedCandidates.has(candidate.candidate_email) && (
-              <Card key={`details-${candidate.candidate_email}`} className="bg-blue-50 border-l-4 border-l-blue-600">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">{candidate.candidate_name} - Details</CardTitle>
-                    <button
-                      onClick={() => toggleCandidate(candidate.candidate_email)}
-                      className="text-gray-500 hover:text-gray-700"
-                    >
-                      <ChevronDown className="h-5 w-5" />
-                    </button>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Extended Candidate Info */}
-                  {(candidate.candidate_education ||
-                    candidate.candidate_linkedin ||
-                    candidate.candidate_github ||
-                    candidate.candidate_dob) && (
-                    <div className="grid grid-cols-2 gap-4 pb-4 border-b border-gray-300">
-                      {candidate.candidate_education && (
-                        <div>
-                          <p className="text-sm font-semibold text-gray-700">Education</p>
-                          <p className="text-gray-600 mt-1">{candidate.candidate_education}</p>
-                        </div>
-                      )}
-                      {candidate.candidate_dob && (
-                        <div>
-                          <p className="text-sm font-semibold text-gray-700">Date of Birth</p>
-                          <p className="text-gray-600 mt-1">{new Date(candidate.candidate_dob).toLocaleDateString()}</p>
-                        </div>
-                      )}
-                      {candidate.candidate_linkedin && (
-                        <div>
-                          <p className="text-sm font-semibold text-gray-700">LinkedIn ID</p>
-                          <p className="text-gray-600 mt-1 break-all">{candidate.candidate_linkedin}</p>
-                        </div>
-                      )}
-                      {candidate.candidate_github && (
-                        <div>
-                          <p className="text-sm font-semibold text-gray-700">GitHub</p>
-                          <p className="text-gray-600 mt-1 break-all">{candidate.candidate_github}</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-900 mb-3">Recent Attempts (Last 5)</h4>
-                    <div className="space-y-2 max-h-96 overflow-y-auto">
-                      {candidate.questions.length > 0 ? (
-                        candidate.questions.slice(0, 5).map((question) => (
-                          <div key={question.id} className="bg-white rounded p-3 text-sm border border-gray-300">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex-1">
-                                <p className="font-medium text-gray-900">{question.question_title}</p>
-                                <div className="flex items-center gap-2 mt-2">
-                                  <span className="px-2 py-0.5 bg-gray-100 rounded text-xs font-medium text-gray-700">
-                                    {question.language}
-                                  </span>
-                                  {question.status === "success" ? (
-                                    <CheckCircle className="h-4 w-4 text-green-600" />
-                                  ) : (
-                                    <XCircle className="h-4 w-4 text-red-600" />
-                                  )}
-                                  <span className="text-xs text-gray-600 font-medium">
-                                    {question.test_passed}/{question.test_total} tests passed
-                                  </span>
-                                </div>
-                              </div>
-                              <span className="text-xs text-gray-500 whitespace-nowrap">
-                                {new Date(question.created_at).toLocaleDateString()}
-                              </span>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-gray-500 text-center py-4">No attempts recorded</p>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          ))}
+              </tbody>
+            </table>
         </div>
-      )}
+
+        {expandedCandidates.size > 0 && (
+            <div className="space-y-3 border-t border-gray-200 bg-gray-50/80 p-4 dark:border-gray-700 dark:bg-gray-800/80">
+              {filteredCandidates.map((candidate) =>
+                expandedCandidates.has(candidate.candidate_email) ? (
+                  <div
+                    key={`details-${candidate.candidate_email}`}
+                    className="rounded-lg border border-blue-200 bg-blue-50/90 p-4 shadow-sm"
+                  >
+                    <div className="mb-3 flex items-center justify-between">
+                      <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                        {candidate.candidate_name}
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => toggleCandidate(candidate.candidate_email)}
+                        className="text-gray-500 hover:text-gray-700"
+                        aria-label="Collapse details"
+                      >
+                        <ChevronDown className="h-5 w-5" />
+                      </button>
+                    </div>
+
+                    <div>
+                      <h4 className="mb-3 text-sm font-semibold text-gray-900">Recent Attempts (Last 5)</h4>
+                      <div className="space-y-2">
+                        {candidate.questions.length > 0 ? (
+                          candidate.questions.slice(0, 5).map((question) => (
+                            <div
+                              key={question.id}
+                              className="rounded border border-gray-300 bg-white p-3 text-sm"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex-1">
+                                  <p className="font-medium text-gray-900">{question.question_title}</p>
+                                  <div className="mt-2 flex items-center gap-2">
+                                    <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">
+                                      {question.language}
+                                    </span>
+                                    {question.status === "success" ? (
+                                      <CheckCircle className="h-4 w-4 text-green-600" />
+                                    ) : (
+                                      <XCircle className="h-4 w-4 text-red-600" />
+                                    )}
+                                    <span className="text-xs font-medium text-gray-600">
+                                      {question.test_passed}/{question.test_total} tests passed
+                                    </span>
+                                  </div>
+                                </div>
+                                <span className="whitespace-nowrap text-xs text-gray-500">
+                                  {new Date(question.created_at).toLocaleDateString()}
+                                </span>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="py-4 text-center text-gray-500">No attempts recorded</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : null
+              )}
+            </div>
+        )}
+      </div>
     </div>
   );
 }
