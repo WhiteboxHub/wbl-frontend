@@ -17,14 +17,12 @@ type ComponentType =
 const fetchPresentationData = async (course: string, type: ComponentType) => {
   const base = (process.env.NEXT_PUBLIC_API_URL || API_BASE_URL || "").replace(/\/$/, "");
   let endpointsToTry = [
-    `/materials?course=${course}&search=${type}`,
-    `api/materials?course=${course}&search=${type}`,
+    `/materials?course=${course}&search=${type}`
   ];
 
   if (type === "Git Repo's") {
     endpointsToTry = [
-      `/github-classroom-repos?course=${course}`,
-      `api/github-classroom-repos?course=${course}`
+      `/github-classroom-repos?course=${course}`
     ];
   }
 
