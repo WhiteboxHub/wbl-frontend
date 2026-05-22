@@ -50,10 +50,6 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "false", label: "No" },
     { value: "true", label: "Yes" },
   ],
-  mass_email_sent: [
-    { value: "false", label: "No" },
-    { value: "true", label: "Yes" },
-  ],
   massemail_unsubscribe: [
     { value: "false", label: "No" },
     { value: "true", label: "Yes" },
@@ -672,6 +668,7 @@ const excludedFields = [
   "workflow",
   "schedule",
   "agreement",
+  "mass_email",
 ];
 
 // Fields that should be read-only (visible but not editable)
