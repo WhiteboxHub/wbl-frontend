@@ -762,16 +762,6 @@ export default function CandidatesMarketingPage() {
         ),
       },
       {
-        field: "mass_email",
-        headerName: "Mass Email",
-        width: 120,
-        editable: true,
-        cellRenderer: (params: any) => (
-          <span>{params.value ? "Yes" : "No"}</span>
-        ),
-        cellEditor: "agCheckboxCellEditor",
-      },
-      {
         field: "candidate_intro",
         headerName: "Candidate Intro",
         width: 300,
