@@ -23,12 +23,17 @@ interface Summary {
 }
 
 interface UserRow {
+  id?: string;
   user_id: string;
   jobs_attempted: number;
   jobs_submitted: number;
   jobs_failed: number;
   last_event_at: string | null;
   apply_log_history?: Record<string, unknown>[] | null;
+}
+
+function userAnalyticsPath(userId: string): string {
+  return `/analytics/users/${encodeURIComponent(userId)}`;
 }
 
 interface WboxCliUsagePanelProps {
@@ -71,6 +76,61 @@ export function WboxCliUsagePanel({ active = true }: WboxCliUsagePanelProps) {
       loadData();
     }
   }, [active, loadData]);
+
+  const gridRows = useMemo(
+    () =>
+      users.map((row) => ({
+        ...row,
+        id: row.user_id,
+      })),
+    [users]
+  );
+
+  const handleRowUpdated = useCallback(
+    async (updated: UserRow) => {
+      const userId = (updated.user_id || updated.id || "").trim();
+      if (!userId) {
+        toast.error("Missing user id");
+        return;
+      }
+      try {
+        await apiFetch(userAnalyticsPath(userId), {
+          method: "PATCH",
+          body: {
+            jobs_attempted: Number(updated.jobs_attempted) || 0,
+            jobs_submitted: Number(updated.jobs_submitted) || 0,
+            jobs_failed: Number(updated.jobs_failed) || 0,
+          },
+        });
+        toast.success(`Updated metrics for ${userId}`);
+        await loadData();
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Failed to update user";
+        toast.error(message);
+      }
+    },
+    [loadData]
+  );
+
+  const handleRowDeleted = useCallback(
+    async (userId: string | number) => {
+      const uid = String(userId).trim();
+      if (!uid) {
+        toast.error("Missing user id");
+        return;
+      }
+      try {
+        const result = await apiFetch(userAnalyticsPath(uid), { method: "DELETE" });
+        const deleted = result?.deleted_events ?? 0;
+        toast.success(`Deleted ${deleted} event(s) for ${uid}`);
+        await loadData();
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Failed to delete user";
+        toast.error(message);
+      }
+    },
+    [loadData]
+  );
 
   const columnDefs = useMemo<ColDef[]>(
     () => [
@@ -173,9 +233,15 @@ export function WboxCliUsagePanel({ active = true }: WboxCliUsagePanelProps) {
       </div>
 
       <AGGridTable
-        rowData={users}
+        title="WboxCLI users"
+        rowData={gridRows}
         columnDefs={columnDefs}
-        getRowNodeId={(data) => String(data.user_id)}
+        height="520px"
+        showAddButton={false}
+        getRowNodeId={(data) => String(data.user_id || data.id)}
+        onRowUpdated={handleRowUpdated}
+        onRowDeleted={handleRowDeleted}
+        defaultColDef={{ editable: false }}
       />
     </div>
   );
