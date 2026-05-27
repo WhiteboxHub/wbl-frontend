@@ -172,7 +172,7 @@ export function WboxCliUsagePanel({ active = true }: WboxCliUsagePanelProps) {
         </button>
       </div>
 
-      <AGGridTable rowData={users} columnDefs={columnDefs} paginationPageSize={25} />
+      <AGGridTable rowData={users} columnDefs={columnDefs} />
     </div>
   );
 }
