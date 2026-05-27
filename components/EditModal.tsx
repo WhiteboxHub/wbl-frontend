@@ -672,10 +672,13 @@ const excludedFields = [
   "workflow",
   "schedule",
   "agreement",
+  "apply_log_history",
 ];
 
 // Fields that should be read-only (visible but not editable)
 const readonlyFields = [
+  "user_id",
+  "last_event_at",
   "created_at", "processed_at", "candidate_id",
   "extracted_at",
   "created_datetime",
