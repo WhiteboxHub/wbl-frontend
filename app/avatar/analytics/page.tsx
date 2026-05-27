@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { WboxCliUsagePanel } from "@/components/analytics/WboxCliUsagePanel";
 import { useAuth } from "@/utils/AuthContext";
 import {
   Users, Layers3, CalendarDays, GraduationCap, UserPlus, CalendarPlus, PieChart as PieChartIcon, Wallet, Banknote, TrendingUp, Briefcase, Award, CheckCircle2, Clock, Mic, BarChart2,
@@ -245,8 +246,14 @@ function useCounter(target: number, duration = 1000) {
   return count;
 }
 
+const VALID_TABS = new Set([
+  "batch", "leads", "preparation", "marketing", "interview", "placement",
+  "employee", "extraction", "jobs", "finance", "wbox-cli",
+]);
+
 export default function Index() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { userRole } = useAuth() as { userRole: string };
 
   const [data, setData] = useState<CandidateInterviewPerformance[]>([]);
@@ -263,11 +270,20 @@ export default function Index() {
   const [preparationMetrics, setPreparationMetrics] = useState<PreparationMetrics | null>(null);
 
   const [leadMetrics, setLeadMetrics] = useState<LeadMetrics | null>(null);
-  const [activeTab, setActiveTab] = useState("batch");
+  const tabFromUrl = searchParams.get("tab");
+  const initialTab = tabFromUrl && VALID_TABS.has(tabFromUrl) ? tabFromUrl : "batch";
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [extractionMetrics, setExtractionMetrics] = useState<ExtractionMetrics | null>(null);
   // const [emailReads, setEmailReads] = useState<EmailExtraction[]>([]);
   const [isMobileDropdownOpen, setIsMobileDropdownOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab && VALID_TABS.has(tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -543,7 +559,8 @@ export default function Index() {
     employee: "Employee",
     extraction: "Extraction",
     jobs: "Jobs",
-    finance: "Finance"
+    finance: "Finance",
+    "wbox-cli": "WboxCLI",
   };
 
   const currentTabLabel = tabLabels[activeTab as keyof typeof tabLabels] || "Select Tab";
@@ -604,6 +621,7 @@ export default function Index() {
             <TabsTrigger value="extraction" className="data-[state=active]:bg-cyan-100 data-[state=active]:text-cyan-800">Extraction</TabsTrigger>
             <TabsTrigger value="jobs" className="data-[state=active]:bg-amber-100 data-[state=active]:text-amber-800">Jobs</TabsTrigger>
             <TabsTrigger value="finance" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-800">Finance</TabsTrigger>
+            <TabsTrigger value="wbox-cli" className="data-[state=active]:bg-violet-100 data-[state=active]:text-violet-800">WboxCLI</TabsTrigger>
           </TabsList>
         )}
 
@@ -1353,6 +1371,11 @@ export default function Index() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* WboxCLI usage */}
+        <TabsContent value="wbox-cli" className="mt-0">
+          <WboxCliUsagePanel active={activeTab === "wbox-cli"} />
         </TabsContent>
 
         {/* 9. Jobs */}
