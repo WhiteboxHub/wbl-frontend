@@ -288,6 +288,8 @@ export function AGGridTable({
       // Find the index of the selected row within the CURRENTLY DISPLAYED rows (after filters/sorts)
       const index = displayedRows.findIndex((row) => {
         // Try to match by various ID fields
+        if (selectedRow.user_id && row.user_id)
+          return selectedRow.user_id === row.user_id;
         if (selectedRow.id && row.id) return selectedRow.id === row.id;
         if (selectedRow.sessionid && row.sessionid)
           return selectedRow.sessionid === row.sessionid;
@@ -327,7 +329,8 @@ export function AGGridTable({
         // Skip confirmation, call onRowDeleted directly
         const rowToDelete = selectedRowData[0];
         if (onRowDeleted) {
-          if (rowToDelete.leadid) onRowDeleted(rowToDelete.leadid);
+          if (rowToDelete.user_id) onRowDeleted(rowToDelete.user_id);
+          else if (rowToDelete.leadid) onRowDeleted(rowToDelete.leadid);
           else if (rowToDelete.candidateid) onRowDeleted(rowToDelete.candidateid);
           else if (rowToDelete.id) onRowDeleted(rowToDelete.id);
           else if (rowToDelete.batchid) onRowDeleted(rowToDelete.batchid);
@@ -342,7 +345,8 @@ export function AGGridTable({
 
   const confirmDelete = useCallback(() => {
     if (deleteConfirmData && onRowDeleted) {
-      if (deleteConfirmData.leadid) onRowDeleted(deleteConfirmData.leadid);
+      if (deleteConfirmData.user_id) onRowDeleted(deleteConfirmData.user_id);
+      else if (deleteConfirmData.leadid) onRowDeleted(deleteConfirmData.leadid);
       else if (deleteConfirmData.candidateid)
         onRowDeleted(deleteConfirmData.candidateid);
       else if (deleteConfirmData.id) onRowDeleted(deleteConfirmData.id);
@@ -609,17 +613,20 @@ export function AGGridTable({
             paginationPageSizeSelector={hideToolbar ? undefined : [10, 25, 50, 100]}
             paginationNumberFormatter={hideToolbar ? undefined : paginationNumberFormatter}
             maintainColumnOrder={true}
-            getRowId={getRowNodeId || ((params: any) => {
-              return String(
-                params.data.user_id ||
-                  params.data.unique_id ||
-                  params.data.id ||
-                  params.data.leadid ||
-                  params.data.candidateid ||
-                  params.data.batchid ||
-                  params.data.sessionid
-              );
-            })}
+            getRowId={
+              getRowNodeId
+                ? (params: any) => getRowNodeId(params.data)
+                : (params: any) =>
+                    String(
+                      params.data.user_id ||
+                        params.data.unique_id ||
+                        params.data.id ||
+                        params.data.leadid ||
+                        params.data.candidateid ||
+                        params.data.batchid ||
+                        params.data.sessionid
+                    )
+            }
             isFullWidthRow={isFullWidthRow}
             fullWidthCellRenderer={fullWidthCellRenderer}
             getRowHeight={getRowHeightProp}
@@ -719,11 +726,17 @@ export function AGGridTable({
           onClose={() => setDeleteConfirmData(null)}
           onConfirm={confirmDelete}
           title="Delete Record"
-          message={`Are you sure you want to delete this record?${deleteConfirmData.fullName || deleteConfirmData.company
-            ? `\n\nRecord: ${deleteConfirmData.fullName || deleteConfirmData.company
-            }`
-            : ""
-            }`}
+          message={`Are you sure you want to delete this record?${
+            deleteConfirmData.fullName ||
+            deleteConfirmData.user_id ||
+            deleteConfirmData.company
+              ? `\n\nRecord: ${
+                  deleteConfirmData.fullName ||
+                  deleteConfirmData.user_id ||
+                  deleteConfirmData.company
+                }`
+              : ""
+          }`}
           confirmText="Delete"
           cancelText="Cancel"
         />
