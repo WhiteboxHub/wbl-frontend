@@ -610,7 +610,15 @@ export function AGGridTable({
             paginationNumberFormatter={hideToolbar ? undefined : paginationNumberFormatter}
             maintainColumnOrder={true}
             getRowId={getRowNodeId || ((params: any) => {
-              return String(params.data.unique_id || params.data.id || params.data.leadid || params.data.candidateid || params.data.batchid || params.data.sessionid);
+              return String(
+                params.data.user_id ||
+                  params.data.unique_id ||
+                  params.data.id ||
+                  params.data.leadid ||
+                  params.data.candidateid ||
+                  params.data.batchid ||
+                  params.data.sessionid
+              );
             })}
             isFullWidthRow={isFullWidthRow}
             fullWidthCellRenderer={fullWidthCellRenderer}

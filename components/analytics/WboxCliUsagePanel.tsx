@@ -172,7 +172,11 @@ export function WboxCliUsagePanel({ active = true }: WboxCliUsagePanelProps) {
         </button>
       </div>
 
-      <AGGridTable rowData={users} columnDefs={columnDefs} />
+      <AGGridTable
+        rowData={users}
+        columnDefs={columnDefs}
+        getRowNodeId={(data) => String(data.user_id)}
+      />
     </div>
   );
 }
