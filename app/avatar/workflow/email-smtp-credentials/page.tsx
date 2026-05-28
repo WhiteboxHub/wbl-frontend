@@ -95,6 +95,43 @@ export default function EmailSmtpCredentialsPage() {
                 values: [true, false]
             }
         },
+        { field: "current_day_sent", headerName: "Current Day Sent", width: 150, editable: true, sortable: true },
+        { field: "last_reset_date", headerName: "Last Reset Date", width: 150, editable: true, sortable: true },
+        {
+            field: "is_warming_up",
+            headerName: "Warming Up",
+            width: 120,
+            editable: true,
+            sortable: true,
+            cellRenderer: ActiveRenderer,
+            cellEditor: "agSelectCellEditor",
+            cellEditorParams: { values: [true, false] }
+        },
+        {
+            field: "warmup_started_at",
+            headerName: "Warmup Started At",
+            width: 180,
+            sortable: true,
+            valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : ""
+        },
+        { field: "warmup_daily_limit", headerName: "Warmup Limit", width: 150, editable: true, sortable: true },
+        {
+            field: "last_used_at",
+            headerName: "Last Used At",
+            width: 180,
+            sortable: true,
+            valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : ""
+        },
+        {
+            field: "is_healthy",
+            headerName: "Healthy",
+            width: 100,
+            editable: true,
+            sortable: true,
+            cellRenderer: ActiveRenderer,
+            cellEditor: "agSelectCellEditor",
+            cellEditorParams: { values: [true, false] }
+        },
         {
             field: "created_at",
             headerName: "Created At",
