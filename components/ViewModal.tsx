@@ -199,6 +199,11 @@ const fieldSections: Record<string, string> = {
   is_in_prep: "Basic Information",
   is_in_marketing: "Professional Information",
   run_raw_positions_workflow: "Professional Information",
+  run_daily_workflow: "Professional Information",
+  run_weekly_workflow: "Professional Information",
+  run_email_extraction: "Professional Information",
+  run_outreach_emails: "Professional Information",
+  linkedin_post: "Professional Information",
   normalized_title: "Basic Information",
   position_type: "Basic Information",
   employment_mode: "Basic Information",
@@ -257,6 +262,14 @@ const fieldSections: Record<string, string> = {
   run_log_id: "Professional Information",
   credential_id: "Professional Information",
   message_id: "Professional Information",
+
+  current_day_sent: "Professional Information",
+  last_reset_date: "Other",
+  is_warming_up: "Basic Information",
+  warmup_started_at: "Professional Information",
+  warmup_daily_limit: "Professional Information",
+  last_used_at: "Other",
+  is_healthy: "Basic Information",
 };
 
 const workVisaStatusOptions = [
@@ -395,6 +408,9 @@ const labelOverrides: Record<string, string> = {
   run_daily_workflow: "Run Daily Outreach Workflow",
   run_weekly_workflow: "Run Weekly Outreach Workflow",
   run_raw_positions_workflow: "Run Raw Positions Workflow",
+  run_email_extraction: "Run Email Extraction",
+  run_outreach_emails: "Run Outreach Emails",
+  linkedin_post: "LinkedIn Post",
   error_message: "Error Message",
   lastmod_user_id: "Last Modified By",
   resume_json: "Resume JSON",
@@ -408,6 +424,14 @@ const labelOverrides: Record<string, string> = {
   run_log_id: "Run Log ID",
   credential_id: "Credential ID",
   message_id: "Message ID",
+
+  current_day_sent: "Current Day Sent",
+  last_reset_date: "Last Reset Date",
+  is_warming_up: "Is Warming Up",
+  warmup_started_at: "Warmup Started At",
+  warmup_daily_limit: "Warmup Daily Limit",
+  last_used_at: "Last Used At",
+  is_healthy: "Is Healthy",
 };
 
 const dateFields = [
@@ -426,6 +450,9 @@ const dateFields = [
   "target_date_of_marketing",
   "created_datetime",
   "lastmod_datetime",
+  "last_reset_date",
+  "warmup_started_at",
+  "last_used_at"
 ];
 
 const courseMaterialHiddenFields = ["subjectid", "courseid", "type"];
