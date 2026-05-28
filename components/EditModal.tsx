@@ -2138,10 +2138,22 @@ export function EditModal({
     // - For Creates (isAddMode): Remove the key so backend uses default values (avoids errors on required fields).
     Object.keys(reconstructedData).forEach(key => {
       const val = reconstructedData[key];
-      if (val === "true") {
-        reconstructedData[key] = true;
-      } else if (val === "false") {
-        reconstructedData[key] = false;
+      if (val === "true" || val === "false") {
+        const keyLower = key.toLowerCase();
+        const marketingBooleanFields = [
+          "run_daily_workflow",
+          "run_weekly_workflow",
+          "run_raw_positions_workflow",
+          "run_email_extraction",
+          "run_outreach_emails",
+          "linkedin_post",
+          "move_to_placement"
+        ];
+        const isBooleanField = keyLower.endsWith("_flag") || keyLower.startsWith("is_") || keyLower === "moved_to_candidate" || marketingBooleanFields.includes(keyLower);
+        
+        if (isBooleanField) {
+          reconstructedData[key] = val === "true";
+        }
       } else if (val === "" || val === undefined || (val === null && isAddMode) || (typeof val === 'string' && val.trim() === "")) {
         if (isAddMode) {
           delete reconstructedData[key];
