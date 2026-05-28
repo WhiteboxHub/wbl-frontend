@@ -761,16 +761,7 @@ export default function CandidatesMarketingPage() {
           <span>{params.value ? "Yes" : "No"}</span>
         ),
       },
-      {
-        field: "mass_email",
-        headerName: "Mass Email",
-        width: 120,
-        editable: true,
-        cellRenderer: (params: any) => (
-          <span>{params.value ? "Yes" : "No"}</span>
-        ),
-        cellEditor: "agCheckboxCellEditor",
-      },
+
       {
         field: "candidate_intro",
         headerName: "Candidate Intro",
@@ -814,6 +805,16 @@ export default function CandidatesMarketingPage() {
       {
         field: "run_email_extraction",
         headerName: "Run Email Extraction",
+        width: 170,
+        editable: true,
+        cellRenderer: (params: any) => (
+          <span>{params.value ? "Yes" : "No"}</span>
+        ),
+        cellEditor: "agCheckboxCellEditor",
+      },
+      {
+        field: "run_outreach_emails",
+        headerName: "Run Outreach Emails",
         width: 170,
         editable: true,
         cellRenderer: (params: any) => (
