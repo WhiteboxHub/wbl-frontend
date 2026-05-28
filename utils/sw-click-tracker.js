@@ -148,15 +148,15 @@ async function attemptFlush(force = false) {
 // Background polling just in case tab stays open for 12 hours
 setInterval(() => attemptFlush(false), 5 * 60 * 1000); // Check every 5 minutes
 
-// Check for 1 hour inactivity
+// Check for 2 hours inactivity
 setInterval(async () => {
     if (!lastClickTime) return
     
     const idleMs = Date.now() - lastClickTime
-    const oneHour = 60 * 60 * 1000
+    const twoHours = 2 * 60 * 60 * 1000
 
-    if (idleMs >= oneHour) {
-        console.log('[SW] 1 hour inactivity detected → flushing');
+    if (idleMs >= twoHours) {
+        console.log('[SW] 2 hours inactivity detected → flushing');
         await attemptFlush(true);
         lastClickTime = null;
     }
