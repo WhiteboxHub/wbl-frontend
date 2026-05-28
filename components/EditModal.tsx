@@ -858,6 +858,9 @@ const fieldSections: Record<string, string> = {
   run_email_extraction: "Basic Information",
   linkedin_post: "Basic Information",
   run_raw_positions_workflow: "Basic Information",
+  run_daily_workflow: "Basic Information",
+  run_weekly_workflow: "Basic Information",
+  run_outreach_emails: "Basic Information",
   recipient_source: "Basic Information",
   date_filter: "Basic Information",
   lookback_days: "Basic Information",
@@ -1061,6 +1064,14 @@ const fieldSections: Record<string, string> = {
   run_log_id: "Professional Information",
   credential_id: "Professional Information",
   message_id: "Professional Information",
+
+  current_day_sent: "Professional Information",
+  last_reset_date: "Other",
+  is_warming_up: "Basic Information",
+  warmup_started_at: "Professional Information",
+  warmup_daily_limit: "Professional Information",
+  last_used_at: "Other",
+  is_healthy: "Basic Information",
 };
 
 // Override field labels for better readability
@@ -1068,6 +1079,7 @@ const labelOverrides: Record<string, string> = {
   candidate_full_name: "Candidate Full Name",
   instructor1_name: "Instructor 1 Name",
   run_email_extraction: "Run Email Extraction",
+  run_outreach_emails: "Run Outreach Emails",
   linkedin_post: "LinkedIn Post",
   run_daily_workflow: "Run Daily Outreach Workflow",
   run_weekly_workflow: "Run Weekly Outreach Workflow",
@@ -1280,7 +1292,14 @@ const labelOverrides: Record<string, string> = {
   classification: "Classification",
   target_table: "Target Table",
   target_id: "Target ID",
-  lastmod_user_id: "Last Modified By"
+  lastmod_user_id: "Last Modified By",
+  current_day_sent: "Current Day Sent",
+  last_reset_date: "Last Reset Date",
+  is_warming_up: "Is Warming Up",
+  warmup_started_at: "Warmup Started At",
+  warmup_daily_limit: "Warmup Daily Limit",
+  last_used_at: "Last Used At",
+  is_healthy: "Is Healthy",
 };
 
 const dateFields = [
@@ -1316,7 +1335,10 @@ const dateFields = [
   "created_at",
   "created_datetime",
   "next_run_at",
-  "last_run_at"
+  "last_run_at",
+  "last_reset_date",
+  "warmup_started_at",
+  "last_used_at"
 ];
 
 export function EditModal({
@@ -2116,7 +2138,11 @@ export function EditModal({
     // - For Creates (isAddMode): Remove the key so backend uses default values (avoids errors on required fields).
     Object.keys(reconstructedData).forEach(key => {
       const val = reconstructedData[key];
-      if (val === "" || val === undefined || (val === null && isAddMode) || (typeof val === 'string' && val.trim() === "")) {
+      if (val === "true") {
+        reconstructedData[key] = true;
+      } else if (val === "false") {
+        reconstructedData[key] = false;
+      } else if (val === "" || val === undefined || (val === null && isAddMode) || (typeof val === 'string' && val.trim() === "")) {
         if (isAddMode) {
           delete reconstructedData[key];
         } else {
@@ -2313,7 +2339,16 @@ export function EditModal({
     }
 
     // Generic Boolean Dropdown Support
-    if (keyLower.endsWith("_flag") || keyLower.startsWith("is_") || keyLower === "moved_to_candidate") {
+    const marketingBooleanFields = [
+      "run_daily_workflow",
+      "run_weekly_workflow",
+      "run_raw_positions_workflow",
+      "run_email_extraction",
+      "run_outreach_emails",
+      "linkedin_post",
+      "move_to_placement"
+    ];
+    if (keyLower.endsWith("_flag") || keyLower.startsWith("is_") || keyLower === "moved_to_candidate" || marketingBooleanFields.includes(keyLower)) {
       return [
         { value: true, label: "Yes" },
         { value: false, label: "No" },
