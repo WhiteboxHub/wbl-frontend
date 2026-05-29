@@ -199,6 +199,11 @@ const fieldSections: Record<string, string> = {
   is_in_prep: "Basic Information",
   is_in_marketing: "Professional Information",
   run_raw_positions_workflow: "Professional Information",
+  run_daily_workflow: "Professional Information",
+  run_weekly_workflow: "Professional Information",
+  run_email_extraction: "Professional Information",
+  run_outreach_emails: "Professional Information",
+  linkedin_post: "Professional Information",
   normalized_title: "Basic Information",
   position_type: "Basic Information",
   employment_mode: "Basic Information",
@@ -249,6 +254,22 @@ const fieldSections: Record<string, string> = {
   api_key: "Credentials",
   provider_name: "Credentials",
   model_name: "Credentials",
+
+  // Campaign Emails
+  vendor_email: "Basic Information",
+  retry_count: "Professional Information",
+  last_attempt_at: "Other",
+  run_log_id: "Professional Information",
+  credential_id: "Professional Information",
+  message_id: "Professional Information",
+
+  current_day_sent: "Professional Information",
+  last_reset_date: "Other",
+  is_warming_up: "Basic Information",
+  warmup_started_at: "Professional Information",
+  warmup_daily_limit: "Professional Information",
+  last_used_at: "Other",
+  is_healthy: "Basic Information",
 };
 
 const workVisaStatusOptions = [
@@ -387,6 +408,9 @@ const labelOverrides: Record<string, string> = {
   run_daily_workflow: "Run Daily Outreach Workflow",
   run_weekly_workflow: "Run Weekly Outreach Workflow",
   run_raw_positions_workflow: "Run Raw Positions Workflow",
+  run_email_extraction: "Run Email Extraction",
+  run_outreach_emails: "Run Outreach Emails",
+  linkedin_post: "LinkedIn Post",
   error_message: "Error Message",
   lastmod_user_id: "Last Modified By",
   resume_json: "Resume JSON",
@@ -395,6 +419,19 @@ const labelOverrides: Record<string, string> = {
   model_name: "Model Name",
   resume_created_at: "Resume Added",
   api_key_created_at: "Key Added",
+
+  // Campaign Emails
+  run_log_id: "Run Log ID",
+  credential_id: "Credential ID",
+  message_id: "Message ID",
+
+  current_day_sent: "Current Day Sent",
+  last_reset_date: "Last Reset Date",
+  is_warming_up: "Is Warming Up",
+  warmup_started_at: "Warmup Started At",
+  warmup_daily_limit: "Warmup Daily Limit",
+  last_used_at: "Last Used At",
+  is_healthy: "Is Healthy",
 };
 
 const dateFields = [
@@ -413,6 +450,9 @@ const dateFields = [
   "target_date_of_marketing",
   "created_datetime",
   "lastmod_datetime",
+  "last_reset_date",
+  "warmup_started_at",
+  "last_used_at"
 ];
 
 const courseMaterialHiddenFields = ["subjectid", "courseid", "type"];
@@ -756,9 +796,26 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       const date = new Date(value);
       if (!isNaN(date.getTime())) return <p>{date.toISOString().split("T")[0]}</p>;
     }
+    if (lowerKey === "bounce_type") {
+      const displayValue = String(value).toUpperCase();
+      const valStr = String(value).toLowerCase();
+      if (valStr === "none") return <Badge className="bg-gray-100 text-gray-800">{displayValue}</Badge>;
+      if (valStr === "soft") return <Badge className="bg-yellow-100 text-yellow-800">{displayValue}</Badge>;
+      if (valStr === "hard") return <Badge className="bg-red-100 text-red-800">{displayValue}</Badge>;
+      if (valStr === "invalid") return <Badge className="bg-purple-100 text-purple-800">{displayValue}</Badge>;
+      return <Badge>{displayValue}</Badge>;
+    }
 
     if (lowerKey === "status") {
       const displayValue = String(value).toUpperCase();
+      if (title.toLowerCase().includes("campaign email")) {
+         const valStr = String(value).toLowerCase();
+         if (valStr === "pending") return <Badge className="bg-gray-100 text-gray-800 flex gap-2 w-fit px-2 items-center"><div className="h-1.5 w-1.5 rounded-full bg-gray-500"></div>{displayValue}</Badge>;
+         if (valStr === "processing") return <Badge className="bg-blue-100 text-blue-800 flex gap-2 w-fit px-2 items-center"><div className="h-1.5 w-1.5 rounded-full bg-blue-500"></div>{displayValue}</Badge>;
+         if (valStr === "sent") return <Badge className="bg-green-100 text-green-800 flex gap-2 w-fit px-2 items-center"><div className="h-1.5 w-1.5 rounded-full bg-green-500"></div>{displayValue}</Badge>;
+         if (valStr === "failed") return <Badge className="bg-red-100 text-red-800 flex gap-2 w-fit px-2 items-center"><div className="h-1.5 w-1.5 rounded-full bg-red-500"></div>{displayValue}</Badge>;
+         if (valStr === "bounced") return <Badge className="bg-orange-100 text-orange-800 flex gap-2 w-fit px-2 items-center"><div className="h-1.5 w-1.5 rounded-full bg-orange-500"></div>{displayValue}</Badge>;
+      }
       return <Badge className={getStatusColor(value)}>{displayValue}</Badge>;
     }
     if (lowerKey === "api_key") {

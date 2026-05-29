@@ -204,10 +204,17 @@ const CandidateNameRenderer = (params: any) => {
 function EmployeeDashboardContent() {
     const [data, setData] = useState<EmployeeDashboardData | null>(null);
     const [interviews, setInterviews] = useState<any[]>([]);
-    const [interviewSearchTerm, setInterviewSearchTerm] = useState("");
     const [loading, setLoading] = useState(true);
     const showLoader = useMinimumLoadingTime(loading);
     const [error, setError] = useState<string | null>(null);
+
+    const todayStr = useMemo(() => {
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+    }, []);
 
     useEffect(() => {
         const fetchMetrics = async () => {
@@ -391,7 +398,7 @@ function EmployeeDashboardContent() {
                         Sessions
                     </TabsTrigger>
                     <TabsTrigger value="interviews" className="rounded-lg py-2.5 px-6 data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 transition-all font-bold text-sm text-gray-500 bg-transparent">
-                        Interviews
+                        Today's Interviews
                     </TabsTrigger>
                 </TabsList>
 
@@ -765,34 +772,16 @@ function EmployeeDashboardContent() {
                         <CardHeader className="bg-white border-b border-gray-100 dark:bg-dark dark:border-dark p-6 px-10">
                             <div className="flex items-center justify-between flex-wrap gap-4">
                                 <CardTitle className="text-xl font-black text-black dark:text-white flex items-center gap-3">
-                                    <CalendarIcon size={24} className="text-purple-600" /> Interviews
+                                    <CalendarIcon size={24} className="text-purple-600" /> Today's Interviews
                                 </CardTitle>
-                                <div className="relative w-full max-w-xs">
-                                    <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                    <Input
-                                        type="text"
-                                        value={interviewSearchTerm}
-                                        placeholder="Search interviews..."
-                                        onChange={(e) => setInterviewSearchTerm(e.target.value)}
-                                        className="pl-10 h-9 text-sm rounded-lg border-gray-200 dark:border-darklight"
-                                    />
-                                </div>
                             </div>
                         </CardHeader>
                         <CardContent className="p-0">
                             <div className="w-full">
                                 <AGGridTable
                                     rowData={interviews.filter((i) => {
-                                        if (!interviewSearchTerm.trim()) return true;
-                                        const term = interviewSearchTerm.toLowerCase();
-                                        if (i.candidate?.full_name?.toLowerCase().includes(term)) return true;
-                                        if (i.company?.toLowerCase().includes(term)) return true;
-                                        if (i.position_title?.toLowerCase().includes(term)) return true;
-                                        if (i.mode_of_interview?.toLowerCase().includes(term)) return true;
-                                        if (i.type_of_interview?.toLowerCase().includes(term)) return true;
-                                        if (i.company_type?.toLowerCase().includes(term)) return true;
-                                        if (i.interview_date?.toLowerCase().includes(term)) return true;
-                                        return false;
+                                        const interviewDateStr = i.interview_date ? i.interview_date.split('T')[0] : "";
+                                        return interviewDateStr === todayStr;
                                     })}
                                     columnDefs={columnDefs}
                                     height="500px"

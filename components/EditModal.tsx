@@ -479,6 +479,19 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "allow", label: "Allow" },
     { value: "block", label: "Block" },
   ],
+  campaign_email_status: [
+    { value: "pending", label: "Pending" },
+    { value: "processing", label: "Processing" },
+    { value: "sent", label: "Sent" },
+    { value: "failed", label: "Failed" },
+    { value: "bounced", label: "Bounced" },
+  ],
+  bounce_type: [
+    { value: "none", label: "None" },
+    { value: "soft", label: "Soft" },
+    { value: "hard", label: "Hard" },
+    { value: "invalid", label: "Invalid" },
+  ],
 };
 
 // Vendor type options
@@ -534,6 +547,7 @@ const requiredFieldsConfig: Record<string, string[]> = {
   "smtp credentials": ["Name", "Email", "Password", "Daily Limit", "Active"],
   "automation keywords": ["Category", "Source", "Keywords", "Match Type", "Action"],
   "automation-contact-extract": ["Source Type"],
+  "campaign email": ["Workflow ID", "Candidate ID", "Vendor Email"],
 };
 
 // Helper function to check if a field is required based on modal type and mode
@@ -672,10 +686,13 @@ const excludedFields = [
   "workflow",
   "schedule",
   "agreement",
+  "apply_log_history",
 ];
 
 // Fields that should be read-only (visible but not editable)
 const readonlyFields = [
+  "user_id",
+  "last_event_at",
   "created_at", "processed_at", "candidate_id",
   "extracted_at",
   "created_datetime",
@@ -841,6 +858,9 @@ const fieldSections: Record<string, string> = {
   run_email_extraction: "Basic Information",
   linkedin_post: "Basic Information",
   run_raw_positions_workflow: "Basic Information",
+  run_daily_workflow: "Basic Information",
+  run_weekly_workflow: "Basic Information",
+  run_outreach_emails: "Basic Information",
   recipient_source: "Basic Information",
   date_filter: "Basic Information",
   lookback_days: "Basic Information",
@@ -1036,6 +1056,22 @@ const fieldSections: Record<string, string> = {
   installment_amount: "Professional Information",
   payment_status: "Professional Information",
   scheduled_date: "Professional Information",
+
+  // Campaign Emails
+  vendor_email: "Basic Information",
+  retry_count: "Professional Information",
+  last_attempt_at: "Other",
+  run_log_id: "Professional Information",
+  credential_id: "Professional Information",
+  message_id: "Professional Information",
+
+  current_day_sent: "Professional Information",
+  last_reset_date: "Other",
+  is_warming_up: "Basic Information",
+  warmup_started_at: "Professional Information",
+  warmup_daily_limit: "Professional Information",
+  last_used_at: "Other",
+  is_healthy: "Basic Information",
 };
 
 // Override field labels for better readability
@@ -1043,6 +1079,7 @@ const labelOverrides: Record<string, string> = {
   candidate_full_name: "Candidate Full Name",
   instructor1_name: "Instructor 1 Name",
   run_email_extraction: "Run Email Extraction",
+  run_outreach_emails: "Run Outreach Emails",
   linkedin_post: "LinkedIn Post",
   run_daily_workflow: "Run Daily Outreach Workflow",
   run_weekly_workflow: "Run Weekly Outreach Workflow",
@@ -1059,6 +1096,11 @@ const labelOverrides: Record<string, string> = {
   delivery_engine_id: "Delivery Engine ID",
   credentials_list_sql: "Credentials List SQL",
   recipient_list_sql: "Recipient List SQL",
+
+  // Campaign Emails
+  run_log_id: "Run Log ID",
+  credential_id: "Credential ID",
+  message_id: "Message ID",
   parameters_config: "Parameters Config",
 
   id: "ID",
@@ -1250,7 +1292,14 @@ const labelOverrides: Record<string, string> = {
   classification: "Classification",
   target_table: "Target Table",
   target_id: "Target ID",
-  lastmod_user_id: "Last Modified By"
+  lastmod_user_id: "Last Modified By",
+  current_day_sent: "Current Day Sent",
+  last_reset_date: "Last Reset Date",
+  is_warming_up: "Is Warming Up",
+  warmup_started_at: "Warmup Started At",
+  warmup_daily_limit: "Warmup Daily Limit",
+  last_used_at: "Last Used At",
+  is_healthy: "Is Healthy",
 };
 
 const dateFields = [
@@ -1286,7 +1335,10 @@ const dateFields = [
   "created_at",
   "created_datetime",
   "next_run_at",
-  "last_run_at"
+  "last_run_at",
+  "last_reset_date",
+  "warmup_started_at",
+  "last_used_at"
 ];
 
 export function EditModal({
@@ -2086,7 +2138,23 @@ export function EditModal({
     // - For Creates (isAddMode): Remove the key so backend uses default values (avoids errors on required fields).
     Object.keys(reconstructedData).forEach(key => {
       const val = reconstructedData[key];
-      if (val === "" || val === undefined || (val === null && isAddMode) || (typeof val === 'string' && val.trim() === "")) {
+      if (val === "true" || val === "false") {
+        const keyLower = key.toLowerCase();
+        const marketingBooleanFields = [
+          "run_daily_workflow",
+          "run_weekly_workflow",
+          "run_raw_positions_workflow",
+          "run_email_extraction",
+          "run_outreach_emails",
+          "linkedin_post",
+          "move_to_placement"
+        ];
+        const isBooleanField = keyLower.endsWith("_flag") || keyLower.startsWith("is_") || keyLower === "moved_to_candidate" || marketingBooleanFields.includes(keyLower);
+        
+        if (isBooleanField) {
+          reconstructedData[key] = val === "true";
+        }
+      } else if (val === "" || val === undefined || (val === null && isAddMode) || (typeof val === 'string' && val.trim() === "")) {
         if (isAddMode) {
           delete reconstructedData[key];
         } else {
@@ -2158,6 +2226,11 @@ export function EditModal({
 
     if (isPositionsModal && keyLower === "status") {
       return enumOptions.position_status;
+    }
+
+    const isCampaignEmailModal = title.toLowerCase().includes("campaign email");
+    if (isCampaignEmailModal && keyLower === "status") {
+      return enumOptions.campaign_email_status;
     }
 
     if (keyLower === "position_type") return enumOptions.position_type;
@@ -2278,7 +2351,16 @@ export function EditModal({
     }
 
     // Generic Boolean Dropdown Support
-    if (keyLower.endsWith("_flag") || keyLower.startsWith("is_") || keyLower === "moved_to_candidate") {
+    const marketingBooleanFields = [
+      "run_daily_workflow",
+      "run_weekly_workflow",
+      "run_raw_positions_workflow",
+      "run_email_extraction",
+      "run_outreach_emails",
+      "linkedin_post",
+      "move_to_placement"
+    ];
+    if (keyLower.endsWith("_flag") || keyLower.startsWith("is_") || keyLower === "moved_to_candidate" || marketingBooleanFields.includes(keyLower)) {
       return [
         { value: true, label: "Yes" },
         { value: false, label: "No" },
