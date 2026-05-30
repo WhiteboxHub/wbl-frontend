@@ -16,6 +16,8 @@ interface ViewModalProps {
 }
 
 const excludedFields = [
+  "apply_run_log_preview",
+  "log_history",
   "candidate", "instructor1", "instructor2", "instructor3", "id", "sessionid",
   "vendor_type", "last_modified", "logincount", "googleId",
   "subject_id", "course_id", "new_subject_id", "instructor_1id",
@@ -108,6 +110,8 @@ const fieldSections: Record<string, string> = {
   github_link: "Contact Information",
   resume: "Contact Information",
   resume_url: "Contact Information",
+  apply_run_log: "log_history",
+  jobs_skipped: "Other",
   client_id: "Professional Information",
   client_name: "Professional Information",
   interview_time: "Professional Information",
@@ -712,6 +716,61 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       const normalizedValue = String(value).toLowerCase();
       const displayValue = ratingLabelMap[normalizedValue] || value;
       return <p>{displayValue}</p>;
+    }
+
+    // WboxCLI apply run log (full JSON in view modal only)
+    if (lowerKey === "apply_run_log") {
+      const isVisible = jsonVisible[key];
+      const displayValue =
+        typeof value === "object" && value !== null
+          ? JSON.stringify(value, null, 2)
+          : String(value ?? "");
+
+      return (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => toggleJson(key)}
+              className="flex items-center gap-2 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition"
+            >
+              {isVisible ? (
+                <>
+                  <X size={14} /> Hide log history
+                </>
+              ) : (
+                <>
+                  <EyeIcon size={14} /> View log history
+                </>
+              )}
+            </button>
+            {isVisible && (
+              <button
+                type="button"
+                onClick={() => handleCopy(key, displayValue)}
+                className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-500 hover:text-blue-600 hover:bg-gray-50 rounded transition border border-transparent hover:border-gray-100"
+              >
+                {copiedKeys[key] ? (
+                  <>
+                    <Check size={12} className="text-green-500" />
+                    <span className="text-green-600">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={12} />
+                    Copy JSON
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+          {isVisible && (
+            <pre className="whitespace-pre-wrap min-h-[40px] max-h-[300px] overflow-y-auto bg-gray-50 dark:bg-gray-800 p-2 rounded text-xs font-mono border border-blue-100">
+              {displayValue}
+            </pre>
+          )}
+        </div>
+      );
     }
 
     // Handle resume_json with eye icon toggle
