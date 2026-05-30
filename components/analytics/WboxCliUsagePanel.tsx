@@ -22,15 +22,42 @@ interface Summary {
   command_counts: Record<string, number>;
 }
 
+/** Grid row shape (API still returns `jobs_failed`, mapped to `jobs_skipped` for display). */
 interface AnalyticsRow {
+  user_id: string;
+  jobs_attempted: number;
+  jobs_submitted: number;
+  jobs_skipped: number;
+  last_event_at: string | null;
+  log_history?: string | null;
+  apply_run_log?: Record<string, unknown> | null;
+}
+
+interface AnalyticsUserFromApi {
   user_id: string;
   jobs_attempted: number;
   jobs_submitted: number;
   jobs_failed: number;
   last_event_at: string | null;
+  apply_run_log_preview?: string | null;
+  apply_run_log?: Record<string, unknown> | null;
 }
 
-/** Matches MySQL `wboxcli_apply_analytics` and AG Grid headers. */
+const LogHistoryPreviewRenderer = (params: { value?: string | null }) => {
+  const preview = params.value || "—";
+  if (preview === "—") {
+    return <span className="text-gray-400">—</span>;
+  }
+  return (
+    <span
+      className="font-mono text-xs text-violet-700 dark:text-violet-300"
+      title="Select row, then click View (eye) for full log history"
+    >
+      {preview}
+    </span>
+  );
+};
+
 const analyticsColumnDefs: ColDef[] = [
   { field: "user_id", headerName: "User", flex: 1.6 },
   {
@@ -46,10 +73,18 @@ const analyticsColumnDefs: ColDef[] = [
     type: "numericColumn",
   },
   {
-    field: "jobs_failed",
-    headerName: "Jobs failed (last run)",
+    field: "jobs_skipped",
+    headerName: "Jobs skipped (last run)",
     flex: 0.8,
     type: "numericColumn",
+  },
+  {
+    field: "log_history",
+    headerName: "log_history",
+    width: 140,
+    sortable: false,
+    filter: false,
+    cellRenderer: LogHistoryPreviewRenderer,
   },
   {
     field: "last_event_at",
@@ -76,7 +111,7 @@ interface WboxCliUsagePanelProps {
 
 export function WboxCliUsagePanel({ active = true }: WboxCliUsagePanelProps) {
   const [summary, setSummary] = useState<Summary | null>(null);
-  const [rows, setRows] = useState<AnalyticsRow[]>([]);
+  const [rows, setRows] = useState<AnalyticsUserFromApi[]>([]);
   const [loading, setLoading] = useState(false);
   const [userFilter, setUserFilter] = useState("");
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -113,7 +148,13 @@ export function WboxCliUsagePanel({ active = true }: WboxCliUsagePanelProps) {
   const gridRows = useMemo(
     () =>
       rows.map((row) => ({
-        ...row,
+        user_id: row.user_id,
+        jobs_attempted: row.jobs_attempted,
+        jobs_submitted: row.jobs_submitted,
+        jobs_skipped: row.jobs_failed ?? 0,
+        last_event_at: row.last_event_at,
+        log_history: row.apply_run_log_preview ?? null,
+        apply_run_log: row.apply_run_log ?? null,
         id: row.user_id,
       })),
     [rows]
@@ -132,7 +173,7 @@ export function WboxCliUsagePanel({ active = true }: WboxCliUsagePanelProps) {
           body: {
             jobs_attempted: Number(updated.jobs_attempted) || 0,
             jobs_submitted: Number(updated.jobs_submitted) || 0,
-            jobs_failed: Number(updated.jobs_failed) || 0,
+            jobs_failed: Number(updated.jobs_skipped) || 0,
           },
         });
         toast.success(`Updated metrics for ${userId}`);
@@ -194,7 +235,7 @@ export function WboxCliUsagePanel({ active = true }: WboxCliUsagePanelProps) {
             variant="indigo"
           />
           <EnhancedMetricCard
-            title="Jobs failed (last run per user)"
+            title="Jobs skipped (last run per user)"
             value={summary.total_jobs_failed}
             variant="indigo"
           />
@@ -225,6 +266,11 @@ export function WboxCliUsagePanel({ active = true }: WboxCliUsagePanelProps) {
           {loading ? "Refreshing…" : "Refresh"}
         </button>
       </div>
+
+      <p className="text-sm text-muted-foreground">
+        log_history shows a short summary. Select a row and click <strong>View</strong> (eye icon) for
+        the full log JSON.
+      </p>
 
       <AGGridTable
         title="WboxCLI apply analytics"
