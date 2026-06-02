@@ -16,6 +16,8 @@ interface ViewModalProps {
 }
 
 const excludedFields = [
+  "apply_run_log_preview",
+  "log_history",
   "candidate", "instructor1", "instructor2", "instructor3", "id", "sessionid",
   "vendor_type", "last_modified", "logincount", "googleId",
   "subject_id", "course_id", "new_subject_id", "instructor_1id",
@@ -108,6 +110,8 @@ const fieldSections: Record<string, string> = {
   github_link: "Contact Information",
   resume: "Contact Information",
   resume_url: "Contact Information",
+  apply_run_log: "log_history",
+  jobs_skipped: "Other",
   client_id: "Professional Information",
   client_name: "Professional Information",
   interview_time: "Professional Information",
@@ -199,6 +203,11 @@ const fieldSections: Record<string, string> = {
   is_in_prep: "Basic Information",
   is_in_marketing: "Professional Information",
   run_raw_positions_workflow: "Professional Information",
+  run_daily_workflow: "Professional Information",
+  run_weekly_workflow: "Professional Information",
+  run_email_extraction: "Professional Information",
+  run_outreach_emails: "Professional Information",
+  linkedin_post: "Professional Information",
   normalized_title: "Basic Information",
   position_type: "Basic Information",
   employment_mode: "Basic Information",
@@ -257,6 +266,14 @@ const fieldSections: Record<string, string> = {
   run_log_id: "Professional Information",
   credential_id: "Professional Information",
   message_id: "Professional Information",
+
+  current_day_sent: "Professional Information",
+  last_reset_date: "Other",
+  is_warming_up: "Basic Information",
+  warmup_started_at: "Professional Information",
+  warmup_daily_limit: "Professional Information",
+  last_used_at: "Other",
+  is_healthy: "Basic Information",
 };
 
 const workVisaStatusOptions = [
@@ -395,6 +412,9 @@ const labelOverrides: Record<string, string> = {
   run_daily_workflow: "Run Daily Outreach Workflow",
   run_weekly_workflow: "Run Weekly Outreach Workflow",
   run_raw_positions_workflow: "Run Raw Positions Workflow",
+  run_email_extraction: "Run Email Extraction",
+  run_outreach_emails: "Run Outreach Emails",
+  linkedin_post: "LinkedIn Post",
   error_message: "Error Message",
   lastmod_user_id: "Last Modified By",
   resume_json: "Resume JSON",
@@ -408,6 +428,14 @@ const labelOverrides: Record<string, string> = {
   run_log_id: "Run Log ID",
   credential_id: "Credential ID",
   message_id: "Message ID",
+
+  current_day_sent: "Current Day Sent",
+  last_reset_date: "Last Reset Date",
+  is_warming_up: "Is Warming Up",
+  warmup_started_at: "Warmup Started At",
+  warmup_daily_limit: "Warmup Daily Limit",
+  last_used_at: "Last Used At",
+  is_healthy: "Is Healthy",
 };
 
 const dateFields = [
@@ -426,6 +454,9 @@ const dateFields = [
   "target_date_of_marketing",
   "created_datetime",
   "lastmod_datetime",
+  "last_reset_date",
+  "warmup_started_at",
+  "last_used_at"
 ];
 
 const courseMaterialHiddenFields = ["subjectid", "courseid", "type"];
@@ -685,6 +716,61 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       const normalizedValue = String(value).toLowerCase();
       const displayValue = ratingLabelMap[normalizedValue] || value;
       return <p>{displayValue}</p>;
+    }
+
+    // WboxCLI apply run log (full JSON in view modal only)
+    if (lowerKey === "apply_run_log") {
+      const isVisible = jsonVisible[key];
+      const displayValue =
+        typeof value === "object" && value !== null
+          ? JSON.stringify(value, null, 2)
+          : String(value ?? "");
+
+      return (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => toggleJson(key)}
+              className="flex items-center gap-2 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition"
+            >
+              {isVisible ? (
+                <>
+                  <X size={14} /> Hide log history
+                </>
+              ) : (
+                <>
+                  <EyeIcon size={14} /> View log history
+                </>
+              )}
+            </button>
+            {isVisible && (
+              <button
+                type="button"
+                onClick={() => handleCopy(key, displayValue)}
+                className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-500 hover:text-blue-600 hover:bg-gray-50 rounded transition border border-transparent hover:border-gray-100"
+              >
+                {copiedKeys[key] ? (
+                  <>
+                    <Check size={12} className="text-green-500" />
+                    <span className="text-green-600">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={12} />
+                    Copy JSON
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+          {isVisible && (
+            <pre className="whitespace-pre-wrap min-h-[40px] max-h-[300px] overflow-y-auto bg-gray-50 dark:bg-gray-800 p-2 rounded text-xs font-mono border border-blue-100">
+              {displayValue}
+            </pre>
+          )}
+        </div>
+      );
     }
 
     // Handle resume_json with eye icon toggle
