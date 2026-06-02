@@ -362,75 +362,6 @@ export default function CandidateDashboard() {
         window.open(url, '_blank');
     };
 
-    // Register SW and handle lifecycle
-    useEffect(() => {
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/api/sw.js', { scope: '/' })
-                .then(registration => {
-                    console.log('✅ Click Tracking SW Registered');
-                    setSwStatus("active");
-
-                    const token = localStorage.getItem("access_token") || localStorage.getItem("token");
-                    const config = { token, url: API_BASE_URL };
-
-                    // Function to send config to a specific worker
-                    const sendConfig = (worker: ServiceWorker | null) => {
-                        if (!worker) return;
-                        worker.postMessage({ type: 'SET_API_URL', url: config.url });
-                        if (config.token) worker.postMessage({ type: 'SET_TOKEN', token: config.token });
-                    };
-
-                    // Send to whichever worker is available
-                    sendConfig(registration.active);
-                    sendConfig(registration.waiting);
-                    sendConfig(registration.installing);
-                })
-                .catch(err => console.error('SW Registration failed:', err));
-
-            // Sync token if it changes or when SW becomes active
-            navigator.serviceWorker.oncontrollerchange = () => {
-                const token = localStorage.getItem("access_token") || localStorage.getItem("token");
-                if (navigator.serviceWorker.controller) {
-                    console.log('🔄 SW Control changed, sending config...');
-                    navigator.serviceWorker.controller.postMessage({ type: 'SET_API_URL', url: API_BASE_URL });
-                    if (token) navigator.serviceWorker.controller.postMessage({ type: 'SET_TOKEN', token });
-                }
-            };
-
-            // Periodic config sync
-            const intervalToken = setInterval(() => {
-                const token =
-                    localStorage.getItem("access_token") ||
-                    localStorage.getItem("token") ||
-                    localStorage.getItem("auth_token") ||
-                    localStorage.getItem("bearer_token");
-
-                if (navigator.serviceWorker.controller) {
-                    navigator.serviceWorker.controller.postMessage({ type: 'SET_API_URL', url: API_BASE_URL });
-                    if (token) navigator.serviceWorker.controller.postMessage({ type: 'SET_TOKEN', token });
-                }
-            }, 30000); // every 30s
-
-            return () => clearInterval(intervalToken);
-        }
-
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible' && navigator.serviceWorker.controller) {
-                console.log(' Dashboard visible (tab focused), evaluating sync...');
-                navigator.serviceWorker.controller.postMessage({ type: 'FLUSH' });
-            }
-        };
-
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-    }, []);
-
-    // Every time dashboard loads or rerenders
-    useEffect(() => {
-        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-            navigator.serviceWorker.controller.postMessage({ type: 'FLUSH' });
-        }
-    }, []);
     // ----------------------------
 
     const [loading, setLoading] = useState(true);
@@ -471,7 +402,6 @@ export default function CandidateDashboard() {
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
     const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
     const [jobSearchTerm, setJobSearchTerm] = useState("");
-    const [swStatus, setSwStatus] = useState<string>("initializing");
     const [showAddInterview, setShowAddInterview] = useState(false);
     const [addInterviewForm, setAddInterviewForm] = useState({
         company: "",
