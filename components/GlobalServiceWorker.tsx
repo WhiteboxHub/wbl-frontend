@@ -55,18 +55,6 @@ export default function GlobalServiceWorker() {
         }
     }, []);
 
-    useEffect(() => {
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible' && navigator.serviceWorker?.controller) {
-                console.log('App visible (tab focused), evaluating sync...');
-                navigator.serviceWorker.controller.postMessage({ type: 'FLUSH' });
-            }
-        };
-
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-    }, []);
-
     // Flush on initial app load if SW is already active
     useEffect(() => {
         if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {

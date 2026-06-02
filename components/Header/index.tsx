@@ -49,6 +49,13 @@ const Header = ({
     router.push("/login");
   };
 
+  const handleAvatarClick = () => {
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        console.log('Avatar clicked, evaluating sync...');
+        navigator.serviceWorker.controller.postMessage({ type: 'FLUSH' });
+    }
+  };
+
   const display_user_dashboard = () => {
     if (userRole === "employee") {
       router.push("/avatar/employee/employee-dashboard");
@@ -183,7 +190,10 @@ const Header = ({
                       <Link
                         href={userRole === "employee" ? "/avatar/employee/employee-dashboard" : "/avatar"}
                         className="my-3 block w-full rounded-3xl bg-gradient-to-tl from-indigo-900 to-purple-400 px-3 py-2 text-center text-sm font-bold text-white hover:bg-gradient-to-br sm:text-base"
-                        onClick={closeNavbar}
+                        onClick={() => {
+                          closeNavbar();
+                          handleAvatarClick();
+                        }}
                       >
                         Avatar
                       </Link>
@@ -248,6 +258,7 @@ const Header = ({
                   {(userRole === "admin" || userRole === "employee") && (
                     <Link
                       href={userRole === "employee" ? "/avatar/employee/employee-dashboard" : "/avatar"}
+                      onClick={handleAvatarClick}
                       className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
                     >
                       Avatar
