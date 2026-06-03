@@ -64,16 +64,18 @@ const normalizeType = (type: string) => {
 };
 
 const sortSessionTypes = (types: SessionType[]) => {
-  return types
-    .map((t) => ({ ...t, type: normalizeType(t.type) }))
-    .sort((a, b) => {
-      const indexA = desiredOrder.indexOf(a.type);
-      const indexB = desiredOrder.indexOf(b.type);
-      if (indexA === -1 && indexB === -1) return a.type.localeCompare(b.type); // both unknown
-      if (indexA === -1) return 1; // put unknowns at the end
-      if (indexB === -1) return -1;
-      return indexA - indexB;
-    });
+  const uniqueTypes = Array.from(
+    new Set(types.map((t) => normalizeType(t.type)))
+  ).map((t) => ({ type: t }));
+
+  return uniqueTypes.sort((a, b) => {
+    const indexA = desiredOrder.indexOf(a.type);
+    const indexB = desiredOrder.indexOf(b.type);
+    if (indexA === -1 && indexB === -1) return a.type.localeCompare(b.type); // both unknown
+    if (indexA === -1) return 1; // put unknowns at the end
+    if (indexB === -1) return -1;
+    return indexA - indexB;
+  });
 };
 
 const SessionComp = () => {

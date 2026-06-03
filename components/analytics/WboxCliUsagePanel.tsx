@@ -22,28 +22,96 @@ interface Summary {
   command_counts: Record<string, number>;
 }
 
-interface UserRow {
-  id?: string;
+/** Grid row shape (API still returns `jobs_failed`, mapped to `jobs_skipped` for display). */
+interface AnalyticsRow {
+  user_id: string;
+  jobs_attempted: number;
+  jobs_submitted: number;
+  jobs_skipped: number;
+  last_event_at: string | null;
+  log_history?: string | null;
+  apply_run_log?: Record<string, unknown> | null;
+}
+
+interface AnalyticsUserFromApi {
   user_id: string;
   jobs_attempted: number;
   jobs_submitted: number;
   jobs_failed: number;
   last_event_at: string | null;
-  apply_log_history?: Record<string, unknown>[] | null;
+  apply_run_log_preview?: string | null;
+  apply_run_log?: Record<string, unknown> | null;
 }
+
+const LogHistoryPreviewRenderer = (params: { value?: string | null }) => {
+  const preview = params.value || "—";
+  if (preview === "—") {
+    return <span className="text-gray-400">—</span>;
+  }
+  return (
+    <span
+      className="font-mono text-xs text-violet-700 dark:text-violet-300"
+      title="Select row, then click View (eye) for full log history"
+    >
+      {preview}
+    </span>
+  );
+};
+
+const analyticsColumnDefs: ColDef[] = [
+  { field: "user_id", headerName: "User", flex: 1.6 },
+  {
+    field: "jobs_attempted",
+    headerName: "Jobs attempted (last run)",
+    flex: 0.9,
+    type: "numericColumn",
+  },
+  {
+    field: "jobs_submitted",
+    headerName: "Jobs submitted (last run)",
+    flex: 0.9,
+    type: "numericColumn",
+  },
+  {
+    field: "jobs_skipped",
+    headerName: "Jobs skipped (last run)",
+    flex: 0.8,
+    type: "numericColumn",
+  },
+  {
+    field: "log_history",
+    headerName: "log_history",
+    width: 140,
+    sortable: false,
+    filter: false,
+    cellRenderer: LogHistoryPreviewRenderer,
+  },
+  {
+    field: "last_event_at",
+    headerName: "Last activity",
+    flex: 1.2,
+    valueFormatter: (p) => {
+      if (!p.value) return "—";
+      try {
+        return new Date(p.value).toLocaleString();
+      } catch {
+        return String(p.value);
+      }
+    },
+  },
+];
 
 function userAnalyticsPath(userId: string): string {
   return `/analytics/users/${encodeURIComponent(userId)}`;
 }
 
 interface WboxCliUsagePanelProps {
-  /** When false, skip fetching until the tab is selected */
   active?: boolean;
 }
 
 export function WboxCliUsagePanel({ active = true }: WboxCliUsagePanelProps) {
   const [summary, setSummary] = useState<Summary | null>(null);
-  const [users, setUsers] = useState<UserRow[]>([]);
+  const [rows, setRows] = useState<AnalyticsUserFromApi[]>([]);
   const [loading, setLoading] = useState(false);
   const [userFilter, setUserFilter] = useState("");
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -61,7 +129,7 @@ export function WboxCliUsagePanel({ active = true }: WboxCliUsagePanelProps) {
         params.set("user_id", trimmed);
       }
       const usersData = await apiFetch(`/analytics/users?${params.toString()}`);
-      setUsers(usersData?.users || []);
+      setRows(usersData?.users || []);
       setHasLoaded(true);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to load WboxCLI analytics";
@@ -79,16 +147,22 @@ export function WboxCliUsagePanel({ active = true }: WboxCliUsagePanelProps) {
 
   const gridRows = useMemo(
     () =>
-      users.map((row) => ({
-        ...row,
+      rows.map((row) => ({
+        user_id: row.user_id,
+        jobs_attempted: row.jobs_attempted,
+        jobs_submitted: row.jobs_submitted,
+        jobs_skipped: row.jobs_failed ?? 0,
+        last_event_at: row.last_event_at,
+        log_history: row.apply_run_log_preview ?? null,
+        apply_run_log: row.apply_run_log ?? null,
         id: row.user_id,
       })),
-    [users]
+    [rows]
   );
 
   const handleRowUpdated = useCallback(
-    async (updated: UserRow) => {
-      const userId = (updated.user_id || updated.id || "").trim();
+    async (updated: AnalyticsRow) => {
+      const userId = (updated.user_id || "").trim();
       if (!userId) {
         toast.error("Missing user id");
         return;
@@ -99,7 +173,7 @@ export function WboxCliUsagePanel({ active = true }: WboxCliUsagePanelProps) {
           body: {
             jobs_attempted: Number(updated.jobs_attempted) || 0,
             jobs_submitted: Number(updated.jobs_submitted) || 0,
-            jobs_failed: Number(updated.jobs_failed) || 0,
+            jobs_failed: Number(updated.jobs_skipped) || 0,
           },
         });
         toast.success(`Updated metrics for ${userId}`);
@@ -132,57 +206,6 @@ export function WboxCliUsagePanel({ active = true }: WboxCliUsagePanelProps) {
     [loadData]
   );
 
-  const columnDefs = useMemo<ColDef[]>(
-    () => [
-      { field: "user_id", headerName: "User", flex: 1.6 },
-      {
-        field: "jobs_attempted",
-        headerName: "Jobs attempted",
-        flex: 0.9,
-        type: "numericColumn",
-      },
-      {
-        field: "jobs_submitted",
-        headerName: "Jobs submitted",
-        flex: 0.9,
-        type: "numericColumn",
-      },
-      {
-        field: "jobs_failed",
-        headerName: "Jobs failed",
-        flex: 0.8,
-        type: "numericColumn",
-      },
-      {
-        field: "last_event_at",
-        headerName: "Last activity",
-        flex: 1.2,
-        valueFormatter: (p) => {
-          if (!p.value) return "—";
-          try {
-            return new Date(p.value).toLocaleString();
-          } catch {
-            return String(p.value);
-          }
-        },
-      },
-      {
-        field: "apply_log_history",
-        headerName: "Apply run log (jobs + steps)",
-        flex: 3.2,
-        valueFormatter: (p) => {
-          if (!Array.isArray(p.value) || p.value.length === 0) return "[]";
-          try {
-            return JSON.stringify(p.value);
-          } catch {
-            return "[]";
-          }
-        },
-      },
-    ],
-    []
-  );
-
   if (!active) {
     return null;
   }
@@ -201,9 +224,21 @@ export function WboxCliUsagePanel({ active = true }: WboxCliUsagePanelProps) {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <EnhancedMetricCard title="Total users" value={summary.total_users} variant="indigo" />
           <EnhancedMetricCard title="Active (7d)" value={summary.active_users_7d} variant="indigo" />
-          <EnhancedMetricCard title="Jobs attempted" value={summary.total_jobs_attempted} variant="indigo" />
-          <EnhancedMetricCard title="Jobs submitted" value={summary.total_jobs_submitted} variant="indigo" />
-          <EnhancedMetricCard title="Jobs failed" value={summary.total_jobs_failed} variant="indigo" />
+          <EnhancedMetricCard
+            title="Jobs attempted (last run per user)"
+            value={summary.total_jobs_attempted}
+            variant="indigo"
+          />
+          <EnhancedMetricCard
+            title="Jobs submitted (last run per user)"
+            value={summary.total_jobs_submitted}
+            variant="indigo"
+          />
+          <EnhancedMetricCard
+            title="Jobs skipped (last run per user)"
+            value={summary.total_jobs_failed}
+            variant="indigo"
+          />
         </div>
       )}
 
@@ -232,16 +267,21 @@ export function WboxCliUsagePanel({ active = true }: WboxCliUsagePanelProps) {
         </button>
       </div>
 
+      <p className="text-sm text-muted-foreground">
+        log_history shows a short summary. Select a row and click <strong>View</strong> (eye icon) for
+        the full log JSON.
+      </p>
+
       <AGGridTable
-        title="WboxCLI users"
+        title="WboxCLI apply analytics"
         rowData={gridRows}
-        columnDefs={columnDefs}
+        columnDefs={analyticsColumnDefs}
         height="520px"
         showAddButton={false}
         getRowNodeId={(data) => String(data.user_id || data.id)}
         onRowUpdated={handleRowUpdated}
         onRowDeleted={handleRowDeleted}
-        defaultColDef={{ editable: false }}
+        defaultColDef={{ editable: false, sortable: true, filter: true }}
       />
     </div>
   );
