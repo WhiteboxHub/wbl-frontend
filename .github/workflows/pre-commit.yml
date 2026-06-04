@@ -1,0 +1,33 @@
+name: Pre-commit CI Check
+
+on:
+  pull_request:
+  push:
+    branches: [main, dev]
+
+jobs:
+  # ── Job 1: Standard pre-commit hooks (formatting, lint, yaml check) ───────
+  pre-commit:
+    name: Pre-commit Hooks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: wbl-frontend/package-lock.json
+
+      - name: Run pre-commit hooks (formatting & lint only)
+        uses: pre-commit/action@v3.0.1
+        env:
+          # Skip the Playwright hook in CI — it runs as its own job below
+          SKIP: playwright-regression
