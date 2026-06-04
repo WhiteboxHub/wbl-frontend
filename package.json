@@ -122,6 +122,7 @@
     "zod": "^4.1.11"
   },
   "devDependencies": {
+    "@playwright/test": "^1.48.0",
     "@types/country-data": "^0.0.5",
     "@types/lodash": "^4.17.17",
     "@types/node": "^18.19.112",
