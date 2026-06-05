@@ -40,8 +40,7 @@ jobs:
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
           CANDIDATE_EMAIL: ${{ secrets.CANDIDATE_EMAIL }}
           CANDIDATE_PASSWORD: ${{ secrets.CANDIDATE_PASSWORD }}
-          # Replace this URL with your actual staging/dev backend URL if it is different!
-          NEXT_PUBLIC_API_URL: https://dev-api.whiteboxhub.com/api
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
           NEXTAUTH_URL: http://localhost:3000
           NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
 
