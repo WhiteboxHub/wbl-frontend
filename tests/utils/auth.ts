@@ -37,6 +37,14 @@ export async function smartLogin(page: Page, role: "admin" | "candidate") {
   }
 
   console.log(`[smartLogin] Navigating to /login...`);
+  page.on("pageerror", (error) =>
+    console.log(`[BROWSER ERROR] ${error.message}`),
+  );
+  page.on("console", (msg) => {
+    if (msg.type() === "error" || msg.type() === "warning") {
+      console.log(`[BROWSER CONSOLE] ${msg.type()}: ${msg.text()}`);
+    }
+  });
   await page.goto("/login", { waitUntil: "networkidle" });
 
   // Retry loop for Next.js ChunkLoadErrors or hydration failures
@@ -102,14 +110,16 @@ export async function smartLogin(page: Page, role: "admin" | "candidate") {
   await emailInput.fill(email);
   await passwordInput.fill(password);
 
-  const loginBtn = page
-    .locator('form button[type="submit"], button:has-text("Login")')
-    .first();
+  const loginBtn = page.getByRole("button", { name: "Login", exact: true });
   await loginBtn.waitFor({ state: "visible", timeout: 10000 });
 
   // Wait for button to be enabled (hydration complete)
   console.log(`[smartLogin] Waiting for login button to be enabled...`);
   await expect(loginBtn).toBeEnabled({ timeout: 15000 });
+
+  // Add a slight delay to ensure React hydration has attached the onSubmit handler
+  // Otherwise, Playwright clicks too fast and triggers a native HTML GET form submission.
+  await page.waitForTimeout(2000);
 
   // Set up the result race BEFORE clicking so we don't miss fast responses
   const alertLocator = page.locator(
@@ -206,10 +216,7 @@ export async function smartLogin(page: Page, role: "admin" | "candidate") {
 export async function logout(page: Page) {
   console.log(`[logout] Initiating logout...`);
 
-  const logoutBtn = page
-    .getByRole("button", { name: /logout/i })
-    .or(page.locator('button:has-text("Logout")'))
-    .first();
+  const logoutBtn = page.getByRole("button", { name: "Logout", exact: true });
 
   try {
     if (await logoutBtn.isVisible()) {

@@ -64,7 +64,6 @@ export function getAllGridRoutes(): GridRoute[] {
     "faq",
     "schedule",
     "setup",
-    "credentials",
   ]);
 
   // ── Routes where hasGrid is always false regardless of source analysis ──
