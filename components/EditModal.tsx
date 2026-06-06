@@ -1683,6 +1683,7 @@ export function EditModal({
     const flattened: Record<string, any> = { ...data };
     if (data.candidate) {
       flattened.candidate_full_name = data.candidate.full_name;
+      flattened.candidate_id = data.candidate.id?.toString();
       flattened.workstatus = data.candidate.workstatus || data.workstatus || "";
       if (isJobActivityLogModal) {
         flattened.candidate_name = data.candidate.full_name;
@@ -3137,14 +3138,45 @@ export function EditModal({
                               return (
                                 <div key={key} className="space-y-1 sm:space-y-1.5">
                                   <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
-                                    {toLabel(key)}
+                                    Candidate Full Name <span className="text-red-700">*</span>
                                   </label>
-                                  <input
-                                    type="text"
-                                    value={formData.candidate_full_name || ""}
-                                    readOnly
-                                    className="w-full cursor-not-allowed rounded-lg border border-blue-200 bg-gray-100 dark:bg-gray-800 dark:text-gray-200 px-2 py-1.5 text-xs text-gray-600 shadow-sm sm:px-3 sm:py-2 sm:text-sm"
-                                  />
+                                  <select
+                                    {...register("candidate_id", {
+                                      required: "Candidate is required",
+                                    })}
+                                    value={watch("candidate_id") || formData.candidate_id || ""}
+                                    onChange={(e) => {
+                                      const selectedId = e.target.value;
+                                      setValue("candidate_id", selectedId);
+                                      const selected = marketingCandidates.find(
+                                        (m) => m.candidate.id.toString() === selectedId
+                                      );
+                                      if (selected) {
+                                        setValue("candidate_full_name", selected.candidate.full_name);
+                                        setFormData((prev) => ({
+                                          ...prev,
+                                          candidate_id: selectedId,
+                                          candidate_full_name: selected.candidate.full_name,
+                                          candidate: {
+                                            ...prev.candidate,
+                                            id: parseInt(selectedId),
+                                            full_name: selected.candidate.full_name,
+                                          },
+                                        }));
+                                      }
+                                    }}
+                                    className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                  >
+                                    <option value="">Select Candidate</option>
+                                    {marketingCandidates.map((m) => (
+                                      <option
+                                        key={m.candidate.id}
+                                        value={m.candidate.id.toString()}
+                                      >
+                                        {m.candidate.full_name}
+                                      </option>
+                                    ))}
+                                  </select>
                                 </div>
                               );
                             }
