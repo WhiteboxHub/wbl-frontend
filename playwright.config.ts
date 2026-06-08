@@ -42,8 +42,8 @@ export default defineConfig({
     // Keep video on failure so we can see exactly when the grid disappeared
     video: "off",
 
-    // Always headless in CI; locally show browser for easier debugging
-    headless: isCI,
+    // Always run headless locally and in CI
+    headless: true,
   },
 
   projects: [

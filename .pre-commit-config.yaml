@@ -31,7 +31,7 @@ repos:
     hooks:
       - id: playwright-regression
         name: UI Grid Regression (Playwright)
-        entry: node ../run-playwright-precommit.js
+        entry: node run-playwright-precommit.js
         language: system
         pass_filenames: false
         always_run: true

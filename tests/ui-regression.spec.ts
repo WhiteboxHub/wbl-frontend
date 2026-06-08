@@ -66,9 +66,9 @@ test.describe("Full UI Grid Regression", () => {
 
             if (summary.gridsFound > 0) {
               console.log(
-                `[Regression] Grid(s) found. Waiting for 9 seconds before moving to the next...`,
+                `[Regression] Grid(s) found. Waiting for 4 seconds before moving to the next...`,
               );
-              await page.waitForTimeout(9000);
+              await page.waitForTimeout(4000);
             }
 
             // If static analysis says a grid should be here but none rendered → hard fail
@@ -119,9 +119,9 @@ test.describe("Full UI Grid Regression", () => {
 
                   if (tabSummary.gridsFound > 0) {
                     console.log(
-                      `[Regression] Grid(s) found in tab. Waiting for 9 seconds before moving to the next...`,
+                      `[Regression] Grid(s) found in tab. Waiting for 4 seconds before moving to the next...`,
                     );
-                    await page.waitForTimeout(9000);
+                    await page.waitForTimeout(4000);
                   }
                 });
               }
