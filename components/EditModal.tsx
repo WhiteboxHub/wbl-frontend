@@ -204,6 +204,14 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "Positive", label: "Positive" },
     { value: "Negative", label: "Negative" },
   ],
+  duration_minutes: [
+    { value: 15, label: "15 min" },
+    { value: 30, label: "30 min" },
+    { value: 45, label: "45 min" },
+    { value: 60, label: "60 min" },
+    { value: 90, label: "90 min" },
+    { value: 120, label: "120 min" },
+  ],
   company_type: [
     { value: "client", label: "Client" },
     { value: "third-party-vendor", label: "Third Party Vendor" },
@@ -2177,6 +2185,15 @@ export function EditModal({
       if (values.interviewer_linkedin && !reconstructedData.interviewer_linkedin) reconstructedData.interviewer_linkedin = values.interviewer_linkedin;
     }
 
+    if (isInterviewModal) {
+      if (reconstructedData.duration_minutes !== undefined && reconstructedData.duration_minutes !== null && reconstructedData.duration_minutes !== "") {
+        const parsed = parseInt(reconstructedData.duration_minutes);
+        reconstructedData.duration_minutes = isNaN(parsed) ? 60 : parsed;
+      } else {
+        reconstructedData.duration_minutes = 60;
+      }
+    }
+
     if (reconstructedData.raw_payload && typeof reconstructedData.raw_payload === 'string') {
       try {
         reconstructedData.raw_payload = JSON.parse(reconstructedData.raw_payload);
@@ -2216,6 +2233,11 @@ export function EditModal({
       if (keyLower === "type_of_interview")
         return enumOptions.type_of_interview;
       if (keyLower === "feedback") return enumOptions.feedback;
+      if (keyLower === "duration_minutes") {
+        const mode = currentFormValues.mode_of_interview || formData.mode_of_interview || "";
+        if (mode.toLowerCase() === "in person") return null;
+        return enumOptions.duration_minutes;
+      }
     }
 
     // if (keyLower === "work_status" || keyLower === "workstatus") {
@@ -4365,6 +4387,49 @@ export function EditModal({
                               );
                             }
 
+                            const isDurationField = key === "duration_minutes";
+                            const inputElement = (
+                              <input
+
+                                type={
+                                  (isJobActivityLogModal &&
+                                    key === "activity_count") ||
+                                    key === "duration_minutes"
+                                    ? "number"
+                                    : "text"
+                                }
+                                min={
+                                  (isJobActivityLogModal &&
+                                    key === "activity_count") ||
+                                    key === "duration_minutes"
+                                    ? 0
+                                    : undefined
+                                }
+                                step={
+                                  (isJobActivityLogModal &&
+                                    key === "activity_count") ||
+                                    key === "duration_minutes"
+                                    ? 1
+                                    : undefined
+                                }
+
+                                {...register(key, {
+                                  required: isFieldRequired(
+                                    toLabel(key),
+                                    title,
+                                    isAddMode
+                                  )
+                                    ? "This field is required"
+                                    : false,
+                                })}
+                                defaultValue={currentFormValues[key] ?? formData[key] ?? ""}
+                                readOnly={readonlyFields.includes(key) || (!isAddMode && editOnlyReadonlyFields.includes(key)) || (isCommissionModal && !isAddMode && (key === "candidate_name" || key === "company_name"))}
+                                className={`${
+                                  isDurationField ? "w-28" : "w-full"
+                                } rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm ${(readonlyFields.includes(key) || (!isAddMode && editOnlyReadonlyFields.includes(key)) || (isCommissionModal && !isAddMode && (key === "candidate_name" || key === "company_name"))) ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : ''}`}
+                              />
+                            );
+
                             return (
                               <div
                                 key={key}
@@ -4378,40 +4443,24 @@ export function EditModal({
                                     isAddMode
                                   ) && <span className="text-red-700"> *</span>}
                                 </label>
-                                <input
-
-                                  type={
-                                    isJobActivityLogModal &&
-                                      key === "activity_count"
-                                      ? "number"
-                                      : "text"
-                                  }
-                                  min={
-                                    isJobActivityLogModal &&
-                                      key === "activity_count"
-                                      ? 0
-                                      : undefined
-                                  }
-                                  step={
-                                    isJobActivityLogModal &&
-                                      key === "activity_count"
-                                      ? 1
-                                      : undefined
-                                  }
-
-                                  {...register(key, {
-                                    required: isFieldRequired(
-                                      toLabel(key),
-                                      title,
-                                      isAddMode
-                                    )
-                                      ? "This field is required"
-                                      : false,
-                                  })}
-                                  defaultValue={formData[key] || ""}
-                                  readOnly={readonlyFields.includes(key) || (!isAddMode && editOnlyReadonlyFields.includes(key)) || (isCommissionModal && !isAddMode && (key === "candidate_name" || key === "company_name"))}
-                                  className={`w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm ${(readonlyFields.includes(key) || (!isAddMode && editOnlyReadonlyFields.includes(key)) || (isCommissionModal && !isAddMode && (key === "candidate_name" || key === "company_name"))) ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : ''}`}
-                                />
+                                {isDurationField ? (
+                                  <div className="flex items-center space-x-2">
+                                    {inputElement}
+                                    {(() => {
+                                      const num = parseInt(currentFormValues[key] ?? formData[key]);
+                                      if (isNaN(num) || num <= 0) return null;
+                                      const hrs = num / 60;
+                                      const hrsStr = hrs % 1 === 0 ? hrs.toString() : hrs.toFixed(2);
+                                      return (
+                                        <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                                          {hrsStr} hour{hrs === 1 ? "" : "s"}
+                                        </span>
+                                      );
+                                    })()}
+                                  </div>
+                                ) : (
+                                  inputElement
+                                )}
                               </div>
                             );
                           })}
