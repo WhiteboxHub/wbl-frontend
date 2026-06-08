@@ -94,6 +94,15 @@ export async function validateAllTables(
 
     // 3c. Validate column headers
     const headers = grid.locator(".ag-header-cell");
+    
+    // Wait for at least one header to attach to the DOM to prevent race conditions 
+    // where the grid wrapper is visible but React hasn't injected the headers yet
+    try {
+      await headers.first().waitFor({ state: "attached", timeout: 5000 });
+    } catch {
+      // If none attach, the count below will safely be 0 and throw the appropriate error
+    }
+
     const headerCount = await headers.count();
 
     if (headerCount === 0) {
