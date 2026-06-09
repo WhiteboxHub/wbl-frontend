@@ -67,6 +67,23 @@ jobs:
             --allow-unauthenticated \
             --quiet
 
+      - name: Production Smoke Test
+        run: |
+          echo "Fetching live Cloud Run URL..."
+          SERVICE_URL=$(gcloud run services describe wbl-frontend --region $REGION --format 'value(status.url)')
+          echo "Deployed to: $SERVICE_URL"
+          
+          echo "Pinging $SERVICE_URL/login to verify the app is alive..."
+          STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$SERVICE_URL/login")
+          
+          if [ "$STATUS_CODE" -eq 200 ]; then
+            echo "✅ Smoke test PASSED! App is healthy and returning 200 OK."
+            exit 0
+          else
+            echo "❌ Smoke test FAILED! Expected 200 OK but got HTTP $STATUS_CODE"
+            exit 1
+          fi
+
   playwright-regression:
     name: Playwright UI Grid Regression
     runs-on: ubuntu-latest
