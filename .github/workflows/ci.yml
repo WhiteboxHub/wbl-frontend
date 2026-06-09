@@ -20,53 +20,53 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        # Using npm install instead of npm ci because npm ci fails across different OS environments (Windows vs Linux) for Playwright dependencies.
         run: npm install
 
       - name: Build Next.js
         run: npm run build
 
-#  # playwright-regression:
-#   #  name: Playwright UI Grid Regression
-#    # runs-on: ubuntu-latest
-#     timeout-minutes: 30
-#     # Only block PRs — allow pushes to dev to still land (but still report status)
-#     continue-on-error: ${{ github.event_name == 'push' && github.ref != 'refs/heads/main' }}
+  playwright-regression:
+    name: Playwright UI Grid Regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Only block PRs — allow pushes to dev to still land (but still report status)
+    continue-on-error: ${{ github.event_name == 'push' && github.ref != 'refs/heads/main' }}
 
-#     steps:
-#       - name: Checkout Code
-#         uses: actions/checkout@v4
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-#       - name: Setup Node.js
-#         uses: actions/setup-node@v4
-#         with:
-#           node-version: 20
-#           cache: npm
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
 
-#       - name: Install dependencies
-#         run: npm install
+      - name: Install dependencies
+        # Reverting to npm install because Windows-generated package-lock.json causes npm ci to fail on Linux runners
+        run: npm install
 
-#       - name: Install Playwright Browsers
-#         run: npx playwright install --with-deps chromium
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
 
-#       - name: Run Playwright Grid Regression
-#         run: |
-#           npm run dev &
-#           npx wait-on http://localhost:3000 --timeout 120000
-#           npx playwright test
-#         env:
-#           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
-#           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-#           CANDIDATE_EMAIL: ${{ secrets.CANDIDATE_EMAIL }}
-#           CANDIDATE_PASSWORD: ${{ secrets.CANDIDATE_PASSWORD }}
-#           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
-#           NEXTAUTH_URL: http://localhost:3000
-#           NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+      - name: Run Playwright Grid Regression
+        run: |
+          npm run dev &
+          npx wait-on http://localhost:3000 --timeout 120000
+          npx playwright test
+        env:
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          CANDIDATE_EMAIL: ${{ secrets.CANDIDATE_EMAIL }}
+          CANDIDATE_PASSWORD: ${{ secrets.CANDIDATE_PASSWORD }}
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          NEXTAUTH_URL: http://localhost:3000
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
 
-#       - name: Upload Playwright HTML Report
-#         if: always()
-#         uses: actions/upload-artifact@v4
-#         with:
-#           name: playwright-report
-#           path: playwright-report/
-#           retention-days: 14
+      - name: Upload Playwright HTML Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
