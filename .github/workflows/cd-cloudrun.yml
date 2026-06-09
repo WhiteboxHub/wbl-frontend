@@ -77,10 +77,10 @@ jobs:
           STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$SERVICE_URL/login")
           
           if [ "$STATUS_CODE" -eq 200 ]; then
-            echo "✅ Smoke test PASSED! App is healthy and returning 200 OK."
+            echo " Smoke test PASSED! App is healthy and returning 200 OK."
             exit 0
           else
-            echo "❌ Smoke test FAILED! Expected 200 OK but got HTTP $STATUS_CODE"
+            echo " Smoke test FAILED! Expected 200 OK but got HTTP $STATUS_CODE"
             exit 1
           fi
 
