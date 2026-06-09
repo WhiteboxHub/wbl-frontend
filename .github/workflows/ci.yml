@@ -20,8 +20,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        # Using npm install instead of npm ci because npm ci fails across different OS environments (Windows vs Linux) for Playwright dependencies.
-        run: npm install
+        run: npm ci
 
       - name: Build Next.js
         run: npm run build
@@ -44,7 +43,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
