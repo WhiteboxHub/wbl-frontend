@@ -560,7 +560,7 @@ export default function Index() {
     extraction: "Extraction",
     jobs: "Jobs",
     finance: "Finance",
-    "wbox-cli": "WboxCLI",
+    "wbox-c": "WboxCLI",
   };
 
   const currentTabLabel = tabLabels[activeTab as keyof typeof tabLabels] || "Select Tab";
