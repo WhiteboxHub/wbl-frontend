@@ -28,6 +28,7 @@ type Company = {
     created_userid: string;
     lastmod_datetime: string;
     lastmod_userid: string;
+    
 };
 
 export default function CompaniesPage() {
