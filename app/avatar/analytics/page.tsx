@@ -64,7 +64,7 @@ interface EmployeeTask {
   due_date: string;
   status: string;
   priority: string;
-  notes: string | null;
+  notes : string | null;
 }
 
 interface DashboardMetrics {
