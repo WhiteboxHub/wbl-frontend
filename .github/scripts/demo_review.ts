@@ -394,9 +394,9 @@ async function runReview() {
     baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/"
   });
 
-  const prompt = \`You are a senior code reviewer analyzing a PR.
+  const prompt = `You are a senior code reviewer analyzing a PR.
 
-\${finalContext}
+${finalContext}
 
 INSTRUCTIONS:
 Do not verify AST findings. Assume AST findings are correct.
@@ -409,7 +409,7 @@ Focus only on:
 
 When reviewing, pay special attention to functions with HIGH Blast Radius or Modified Public APIs.
 
-If no bugs found, return empty bugs array.\`;
+If no bugs found, return empty bugs array.`;
 
   const jsonSchema = {
     type: "object",
