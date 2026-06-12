@@ -90,13 +90,13 @@ jobs:
           node-version: '20'
 
       - name: Install Dependencies
-        run: npm install ts-morph openai typescript ts-node --no-save
+        run: npm install ts-morph openai typescript tsx --no-save
 
       - name: Run Smart AI Code Review
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          npx ts-node .github/scripts/demo_review.ts > review_output.txt
+          npx tsx .github/scripts/demo_review.ts > review_output.txt
 
       - name: Post PR Comment
         env:
