@@ -103,4 +103,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr comment ${{ github.event.pull_request.number }} -F review_output.txt
+          if [ -s review_output.txt ]; then
+            gh pr comment ${{ github.event.pull_request.number }} -F review_output.txt
+          else
+            echo "No review output generated or file is empty."
+          fi
