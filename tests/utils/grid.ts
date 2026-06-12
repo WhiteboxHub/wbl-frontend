@@ -1,5 +1,7 @@
 import { expect, Page } from "@playwright/test";
 
+
+
 /** Summary returned after validating all grids on a page. */
 export interface GridValidationSummary {
   gridsFound: number;
@@ -95,21 +97,46 @@ export async function validateAllTables(
     // 3c. Validate column headers
     const headers = grid.locator(".ag-header-cell");
     
-    // Wait for at least one header to attach to the DOM to prevent race conditions 
-    // where the grid wrapper is visible but React hasn't injected the headers yet
-    try {
-      await headers.first().waitFor({ state: "attached", timeout: 5000 });
-    } catch {
-      // If none attach, the count below will safely be 0 and throw the appropriate error
+    // IMPROVED: Wait longer and retry with exponential backoff for column definitions to attach
+    // This prevents race conditions where the grid wrapper is visible but React hasn't injected headers yet
+    let headerCount = 0;
+    let attemptCount = 0;
+    const maxAttempts = 3;
+    
+    while (headerCount === 0 && attemptCount < maxAttempts) {
+      try {
+        // Increase timeout on each retry for slow renders
+        const timeout = 5000 + (attemptCount * 2000);
+        await headers.first().waitFor({ state: "attached", timeout });
+        headerCount = await headers.count();
+        
+        if (headerCount === 0 && attemptCount < maxAttempts - 1) {
+          console.log(
+            `[grid] ${gridLabel}: Headers not yet attached, retrying (attempt ${attemptCount + 2}/${maxAttempts})...`,
+          );
+          // Give React time to render columns
+          await page.waitForTimeout(500);
+          attemptCount++;
+        }
+      } catch {
+        if (attemptCount < maxAttempts - 1) {
+          console.log(
+            `[grid] ${gridLabel}: Header detection failed, retrying...`,
+          );
+          await page.waitForTimeout(500);
+          attemptCount++;
+        } else {
+          break;
+        }
+      }
     }
-
-    const headerCount = await headers.count();
 
     if (headerCount === 0) {
       // This is a hard failure — bail:1 will stop the whole run
       throw new Error(
-        `[grid] FAIL: ${gridLabel} on "${page.url()}" rendered with 0 column headers. ` +
-          `The grid mounted but column definitions appear to be missing or broken.`,
+        `[grid] FAIL: ${gridLabel} on "${page.url()}" rendered with 0 column headers after ${maxAttempts} attempts. ` +
+          `The grid mounted but column definitions appear to be missing or broken. ` +
+          `Check that: (1) columnDefs is properly initialized, (2) rowData loads before render, (3) component state is synced.`,
       );
     }
 
