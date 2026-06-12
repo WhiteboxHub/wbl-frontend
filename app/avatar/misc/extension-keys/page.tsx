@@ -87,7 +87,7 @@ export default function ExtensionKeysPage() {
         }
 
         setFilteredKeys(filtered);
-    }, [allKeys, searchTerm]);
+    }, [allKeys]);
 
     const getPayload = (data: any) => {
         const allowedFields = [

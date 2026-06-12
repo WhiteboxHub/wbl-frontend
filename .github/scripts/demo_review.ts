@@ -262,11 +262,11 @@ const severityValue = {
 
 // 4. Main Review Logic
 async function runReview() {
-  console.log("Building Smart Impact Context for Frontend...");
+  console.error("Building Smart Impact Context for Frontend...");
   
   const changes = getChangedLines();
   if (changes.size === 0) {
-    console.log("No files changed.");
+    console.error("No files changed.");
     return;
   }
 
@@ -381,7 +381,7 @@ async function runReview() {
 
   finalContext += contextParts.join("\n");
 
-  console.log("Context built. Sending to LLM...");
+  console.error("Context built. Sending to LLM...");
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -448,7 +448,32 @@ If no bugs found, return empty bugs array.`;
     }
   });
 
-  console.log(response.choices[0].message.content);
+  const content = response.choices[0].message.content;
+  if (!content) {
+    console.log("## 🤖 AI Code Review\n\nFailed to generate review. No content returned.");
+    return;
+  }
+
+  try {
+    const data = JSON.parse(content);
+    if (data.bugs && data.bugs.length > 0) {
+      let markdown = "## 🤖 AI Code Review Findings\n\n";
+      for (const bug of data.bugs) {
+        markdown += `### 🚨 [${bug.bug_category.toUpperCase()}] ${bug.summary}\n`;
+        markdown += `**File:** \`${bug.changed_file}\` (Lines: ${bug.changed_lines})\n\n`;
+        markdown += `${bug.comment}\n\n`;
+        if (bug.diff_fix_suggestion) {
+          markdown += `**Suggested Fix:**\n\`\`\`diff\n${bug.diff_fix_suggestion}\n\`\`\`\n\n`;
+        }
+        markdown += `---\n\n`;
+      }
+      console.log(markdown);
+    } else {
+      console.log("## 🤖 AI Code Review\n\nNo significant risks or bugs found. LGTM! ✅");
+    }
+  } catch (e) {
+    console.log("## 🤖 AI Code Review\n\nFailed to parse JSON response. Raw output:\n\n```json\n" + content + "\n```");
+  }
 }
 
 runReview().catch(console.error);
