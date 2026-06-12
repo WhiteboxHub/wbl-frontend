@@ -867,6 +867,11 @@ const fieldSections: Record<string, string> = {
   linkedin_post: "Basic Information",
   run_raw_positions_workflow: "Basic Information",
   run_daily_workflow: "Basic Information",
+  outreach_date: "Basic Information",
+  total_outreach_count: "Professional Information",
+  daily_outreach_limit: "Professional Information",
+  max_outreach_limit: "Professional Information",
+  fcount: "Professional Information",
   run_weekly_workflow: "Basic Information",
   run_outreach_emails: "Basic Information",
   recipient_source: "Basic Information",
@@ -1090,6 +1095,11 @@ const labelOverrides: Record<string, string> = {
   run_outreach_emails: "Run Outreach Emails",
   linkedin_post: "LinkedIn Post",
   run_daily_workflow: "Run Daily Outreach Workflow",
+  outreach_date: "Schedule Outreach Date",
+  total_outreach_count: "Total Outreach Count",
+  daily_outreach_limit: "Daily Outreach Limit",
+  max_outreach_limit: "Max Outreach Limit",
+  fcount: "Follow-up Count (fcount)",
   run_weekly_workflow: "Run Weekly Outreach Workflow",
   run_raw_positions_workflow: "Run Raw Positions Workflow",
   payload: "Payload",
@@ -1311,6 +1321,7 @@ const labelOverrides: Record<string, string> = {
 };
 
 const dateFields = [
+  "outreach_date",
   "orientationdate",
   "start_date",
   "startdate",
@@ -4120,8 +4131,26 @@ export function EditModal({
                                   </label>
                                   <input
                                     type="date"
+                                    max={key === "outreach_date" ? (() => {
+                                      const d = new Date();
+                                      d.setDate(d.getDate() + 7);
+                                      return d.toISOString().split("T")[0];
+                                    })() : undefined}
                                     {...(() => {
-                                      const { onChange, ...rest } = register(key);
+                                      const validationRules: any = {};
+                                      if (key === "outreach_date") {
+                                        validationRules.validate = (val: string) => {
+                                          if (!val) return true;
+                                          const d = new Date();
+                                          d.setDate(d.getDate() + 7);
+                                          const maxDateStr = d.toISOString().split("T")[0];
+                                          if (val > maxDateStr) {
+                                            return "Date cannot be more than 7 days from today";
+                                          }
+                                          return true;
+                                        };
+                                      }
+                                      const { onChange, ...rest } = register(key, validationRules);
                                       return {
                                         ...rest,
                                         onChange: (e: any) => {
@@ -4143,6 +4172,11 @@ export function EditModal({
                                     className={`w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm ${(readonlyFields.includes(key) || (!isAddMode && editOnlyReadonlyFields.includes(key))) ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : ''
                                       }`}
                                   />
+                                  {errors[key] && (
+                                    <p className="mt-1 text-xs text-red-600">
+                                      {errors[key].message as string}
+                                    </p>
+                                  )}
                                 </div>
                               );
                             }

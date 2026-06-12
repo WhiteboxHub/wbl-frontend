@@ -204,6 +204,11 @@ const fieldSections: Record<string, string> = {
   is_in_marketing: "Professional Information",
   run_raw_positions_workflow: "Professional Information",
   run_daily_workflow: "Professional Information",
+  outreach_date: "Professional Information",
+  total_outreach_count: "Professional Information",
+  daily_outreach_limit: "Professional Information",
+  max_outreach_limit: "Professional Information",
+  fcount: "Professional Information",
   run_weekly_workflow: "Professional Information",
   run_email_extraction: "Professional Information",
   run_outreach_emails: "Professional Information",
@@ -410,6 +415,11 @@ const labelOverrides: Record<string, string> = {
   extracted_at: "Extracted At",
   processed_at: "Processed At",
   run_daily_workflow: "Run Daily Outreach Workflow",
+  outreach_date: "Schedule Outreach Date",
+  total_outreach_count: "Total Outreach Count",
+  daily_outreach_limit: "Daily Outreach Limit",
+  max_outreach_limit: "Max Outreach Limit",
+  fcount: "Follow-up Count (fcount)",
   run_weekly_workflow: "Run Weekly Outreach Workflow",
   run_raw_positions_workflow: "Run Raw Positions Workflow",
   run_email_extraction: "Run Email Extraction",
@@ -439,6 +449,7 @@ const labelOverrides: Record<string, string> = {
 };
 
 const dateFields = [
+  "outreach_date",
   "orientationdate",
   "start_date",
   "enddate",

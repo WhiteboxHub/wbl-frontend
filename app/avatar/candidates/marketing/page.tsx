@@ -783,6 +783,14 @@ export default function CandidatesMarketingPage() {
         cellEditor: "agCheckboxCellEditor",
       },
       {
+        field: "outreach_date",
+        headerName: "Daily Outreach Date",
+        width: 150,
+        editable: true,
+        cellEditor: "agDateCellEditor",
+        valueFormatter: (params) => params.value ? format(new Date(params.value), "yyyy-MM-dd") : "",
+      },
+      {
         field: "run_weekly_workflow",
         headerName: "Run Weekly Outreach Workflow",
         width: 160,

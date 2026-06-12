@@ -891,7 +891,7 @@ export default function CandidateDashboard() {
     const handleAddInterview = async () => {
         const { company, interview_date, position_title, interviewer_emails, mode_of_interview, type_of_interview, job_description } = addInterviewForm;
 
-        if (!company || !interview_date || !position_title || !interviewer_emails || !mode_of_interview || !type_of_interview || !job_description) {
+        if (!company || !interview_date || !position_title || !mode_of_interview || !type_of_interview) {
             toast.error("Please fill in all mandatory fields (*)");
             return;
         }
@@ -934,10 +934,8 @@ export default function CandidateDashboard() {
             position_title: "Position Title",
             interview_date: "Interview Date",
             interview_time: "Interview Time",
-            interviewer_emails: "Interviewer Emails",
             mode_of_interview: "Mode of Interview",
-            type_of_interview: "Type of Interview",
-            job_description: "Job Description"
+            type_of_interview: "Type of Interview"
         };
         for (const [field, label] of Object.entries(requiredFields)) {
             if (!editInterviewForm[field as keyof typeof editInterviewForm]) {
@@ -1928,17 +1926,17 @@ export default function CandidateDashboard() {
                                                                         <div>
                                                                             <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Company <span className="text-red-500 font-bold">*</span></label>
                                                                             <input type="text" value={addInterviewForm.company} onChange={e => setAddInterviewForm(p => ({ ...p, company: e.target.value }))}
-                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" />
+                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
                                                                         </div>
                                                                         <div>
                                                                             <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Position Title<span className="text-red-600 font-black">*</span></label>
                                                                             <input type="text" value={addInterviewForm.position_title} onChange={e => setAddInterviewForm(p => ({ ...p, position_title: e.target.value }))}
-                                                                                className="w-full rounded-lg border border-blue-100 dark:border-blue-800 bg-gray-50/50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" />
+                                                                                className="w-full rounded-lg border border-blue-100 dark:border-blue-800 bg-gray-50/50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
                                                                         </div>
                                                                         <div>
                                                                             <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Date <span className="text-red-500 font-bold">*</span></label>
                                                                             <input type="date" value={addInterviewForm.interview_date} onChange={e => setAddInterviewForm(p => ({ ...p, interview_date: e.target.value }))}
-                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" />
+                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
                                                                         </div>
                                                                         <div>
                                                                             <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Time <span className="text-red-500 font-bold">*</span></label>
@@ -1957,19 +1955,19 @@ export default function CandidateDashboard() {
                                                                             <h4 className="text-[14px] font-bold text-blue-600">Interviewer Information</h4>
                                                                         </div>
                                                                         <div>
-                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Emails <span className="text-red-500 font-bold">*</span></label>
+                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Emails</label>
                                                                             <input type="email" value={addInterviewForm.interviewer_emails} onChange={e => setAddInterviewForm(p => ({ ...p, interviewer_emails: e.target.value }))}
-                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" />
+                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
                                                                         </div>
                                                                         <div>
                                                                             <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Contact</label>
                                                                             <input type="text" value={addInterviewForm.interviewer_contact} onChange={e => setAddInterviewForm(p => ({ ...p, interviewer_contact: e.target.value }))}
-                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" />
+                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
                                                                         </div>
                                                                         <div>
                                                                             <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer LinkedIn</label>
                                                                             <input type="text" value={addInterviewForm.interviewer_linkedin} onChange={e => setAddInterviewForm(p => ({ ...p, interviewer_linkedin: e.target.value }))}
-                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" />
+                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
                                                                         </div>
                                                                     </div>
 
@@ -1981,14 +1979,14 @@ export default function CandidateDashboard() {
                                                                         <div>
                                                                             <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Mode of Interview <span className="text-red-500 font-bold">*</span></label>
                                                                             <select value={addInterviewForm.mode_of_interview} onChange={e => setAddInterviewForm(p => ({ ...p, mode_of_interview: e.target.value }))}
-                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm">
+                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm">
                                                                                 <option>Virtual</option><option>In Person</option><option>Phone</option><option>Assessment</option><option>AI Interview</option>
                                                                             </select>
                                                                         </div>
                                                                         <div>
                                                                             <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Type of Interview <span className="text-red-500 font-bold">*</span></label>
                                                                             <select value={addInterviewForm.type_of_interview} onChange={e => setAddInterviewForm(p => ({ ...p, type_of_interview: e.target.value }))}
-                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm">
+                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm">
                                                                                 <option>Recruiter Call</option><option>Technical</option><option>HR</option><option>Prep Call</option>
                                                                             </select>
                                                                         </div>
@@ -1998,13 +1996,13 @@ export default function CandidateDashboard() {
                                                                 {/* Job Description Field */}
                                                                 <div className="mt-8 border-t border-blue-50 dark:border-blue-900/50 pt-6">
                                                                     <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">
-                                                                        Job Description <span className="text-red-500 font-bold">*</span>
+                                                                        Job Description
                                                                     </label>
                                                                     <textarea
                                                                         value={addInterviewForm.job_description}
                                                                         onChange={e => setAddInterviewForm(p => ({ ...p, job_description: e.target.value }))}
                                                                         placeholder="Enter Job Description..."
-                                                                        className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm resize-none placeholder:text-gray-400" />
+                                                                        className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm resize-none placeholder:text-gray-400" />
                                                                 </div>
 
                                                                 {/* Footer Buttons */}
@@ -2052,7 +2050,7 @@ export default function CandidateDashboard() {
                                                                     </div>
                                                                     <div className="space-y-4">
                                                                         <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4"><h4 className="text-[14px] font-bold text-blue-600">Interviewer Information</h4></div>
-                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Emails<span className="text-red-600 font-black">*</span></label>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Email</label>
                                                                             <input type="email" readOnly value={viewData.interviewer_emails ?? ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
                                                                         <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Contact</label>
                                                                             <input type="text" readOnly value={viewData.interviewer_contact ?? ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
@@ -2072,7 +2070,7 @@ export default function CandidateDashboard() {
                                                                     </div>
                                                                 </div>
                                                                 <div className="mt-8 border-t border-blue-50 dark:border-blue-900/50 pt-6">
-                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Job Description<span className="text-red-600 font-black">*</span></label>
+                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Job Description</label>
                                                                     <textarea readOnly value={viewData.job_description ?? ''} className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 text-sm focus:outline-none resize-none cursor-default" />
                                                                 </div>
                                                                 <div className="mt-4">
@@ -2106,11 +2104,11 @@ export default function CandidateDashboard() {
                                                                     <div className="space-y-4">
                                                                         <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4"><h4 className="text-[14px] font-bold text-blue-600">Company Information</h4></div>
                                                                         <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Company <span className="text-red-600 font-black">*</span></label>
-                                                                            <input type="text" value={editInterviewForm.company ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, company: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" /></div>
+                                                                            <input type="text" value={editInterviewForm.company ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, company: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" /></div>
                                                                         <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Position Title <span className="text-red-600 font-black">*</span></label>
-                                                                            <input type="text" value={editInterviewForm.position_title ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, position_title: e.target.value }))} className="w-full rounded-lg border border-blue-100 dark:border-blue-800 bg-gray-50/50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" /></div>
+                                                                            <input type="text" value={editInterviewForm.position_title ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, position_title: e.target.value }))} className="w-full rounded-lg border border-blue-100 dark:border-blue-800 bg-gray-50/50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" /></div>
                                                                         <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Date <span className="text-red-600 font-black">*</span></label>
-                                                                            <input type="date" value={editInterviewForm.interview_date ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, interview_date: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" /></div>
+                                                                            <input type="date" value={editInterviewForm.interview_date ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, interview_date: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" /></div>
                                                                         <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Time <span className="text-red-600 font-black">*</span></label>
                                                                             <TimePicker
                                                                                 value={editInterviewForm.interview_time}
@@ -2120,26 +2118,26 @@ export default function CandidateDashboard() {
                                                                     </div>
                                                                     <div className="space-y-4">
                                                                         <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4"><h4 className="text-[14px] font-bold text-blue-600">Interviewer Information</h4></div>
-                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Emails<span className="text-red-600 font-black">*</span></label>
-                                                                            <input type="email" value={editInterviewForm.interviewer_emails ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, interviewer_emails: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" /></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Emails</label>
+                                                                            <input type="email" value={editInterviewForm.interviewer_emails ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, interviewer_emails: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" /></div>
                                                                         <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Contact</label>
-                                                                            <input type="text" value={editInterviewForm.interviewer_contact ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, interviewer_contact: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" /></div>
+                                                                            <input type="text" value={editInterviewForm.interviewer_contact ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, interviewer_contact: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" /></div>
                                                                         <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer LinkedIn</label>
-                                                                            <input type="text" value={editInterviewForm.interviewer_linkedin ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, interviewer_linkedin: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" /></div>
+                                                                            <input type="text" value={editInterviewForm.interviewer_linkedin ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, interviewer_linkedin: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" /></div>
                                                                     </div>
                                                                     <div className="space-y-4">
                                                                         <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4"><h4 className="text-[14px] font-bold text-blue-600">Interview Details</h4></div>
                                                                         <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Mode of Interview <span className="text-red-600 font-black">*</span></label>
-                                                                            <select value={editInterviewForm.mode_of_interview ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, mode_of_interview: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm">
+                                                                            <select value={editInterviewForm.mode_of_interview ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, mode_of_interview: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm">
                                                                                 <option>Virtual</option><option>In Person</option><option>Phone</option><option>Assessment</option><option>AI Interview</option>
                                                                             </select></div>
                                                                         <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Type of Interview <span className="text-red-600 font-black">*</span></label>
-                                                                            <select value={editInterviewForm.type_of_interview ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, type_of_interview: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm">
+                                                                            <select value={editInterviewForm.type_of_interview ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, type_of_interview: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm">
                                                                                 <option>Recruiter Call</option><option>Technical</option><option>HR</option><option>Prep Call</option>
                                                                             </select></div>
                                                                         <div>
                                                                             <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Feedback</label>
-                                                                            <select value={editInterviewForm.feedback ?? 'Pending'} onChange={e => setEditInterviewForm((p: any) => ({ ...p, feedback: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm">
+                                                                            <select value={editInterviewForm.feedback ?? 'Pending'} onChange={e => setEditInterviewForm((p: any) => ({ ...p, feedback: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm">
                                                                                 <option value="Pending">Pending</option>
                                                                                 <option value="Positive">Positive</option>
                                                                                 <option value="Negative">Negative</option>
@@ -2148,12 +2146,12 @@ export default function CandidateDashboard() {
                                                                     </div>
                                                                 </div>
                                                                 <div className="mt-8 border-t border-blue-50 dark:border-blue-900/50 pt-6">
-                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Job Description<span className="text-red-600 font-black">*</span></label>
-                                                                    <textarea value={editInterviewForm.job_description ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, job_description: e.target.value }))} placeholder="Enter Job Description..." className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm resize-none placeholder:text-gray-400" />
+                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Job Description</label>
+                                                                    <textarea value={editInterviewForm.job_description ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, job_description: e.target.value }))} placeholder="Enter Job Description..." className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm resize-none placeholder:text-gray-400" />
                                                                 </div>
                                                                 <div className="mt-4">
                                                                     <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Feedback Text</label>
-                                                                    <textarea value={editInterviewForm.feedback_text ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, feedback_text: e.target.value }))} placeholder="Enter interview feedback..." className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm resize-none placeholder:text-gray-400" />
+                                                                    <textarea value={editInterviewForm.feedback_text ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, feedback_text: e.target.value }))} placeholder="Enter interview feedback..." className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm resize-none placeholder:text-gray-400" />
                                                                 </div>
                                                                 <div className="mt-10 pt-4 border-t border-blue-50 dark:border-blue-900 flex justify-end gap-3">
                                                                     <button onClick={() => setEditData(null)} className="px-6 py-1.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-500 hover:bg-gray-50 transition-all">Cancel</button>
