@@ -1,5 +1,6 @@
-name=tests/utils/grid.ts
 import { expect, Page } from "@playwright/test";
+
+
 
 /** Summary returned after validating all grids on a page. */
 export interface GridValidationSummary {
