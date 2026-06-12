@@ -99,6 +99,7 @@ jobs:
           npx tsx .github/scripts/demo_review.ts > review_output.txt
 
       - name: Post PR Comment
+        if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

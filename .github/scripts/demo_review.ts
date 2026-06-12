@@ -13,7 +13,8 @@ interface Finding {
 
 // 1. Get changed lines from git diff
 function getChangedLines(): Map<string, number[]> {
-  const diffOutput = execSync('git diff --unified=0 HEAD~1', { encoding: 'utf-8' });
+  const targetBranch = process.env.GITHUB_BASE_REF ? `origin/${process.env.GITHUB_BASE_REF}` : 'HEAD~1';
+  const diffOutput = execSync(`git diff --unified=0 ${targetBranch}...HEAD`, { encoding: 'utf-8' });
   const lines = diffOutput.split('\n');
   const changes = new Map<string, number[]>();
   let currentFile = '';
@@ -277,7 +278,8 @@ async function runReview() {
   let contextParts = ["# 5. Code Context\n"];
   
   try {
-    const diffText = execSync('git diff --unified=3 HEAD~1', { encoding: 'utf-8' });
+    const targetBranch = process.env.GITHUB_BASE_REF ? `origin/${process.env.GITHUB_BASE_REF}` : 'HEAD~1';
+    const diffText = execSync(`git diff --unified=3 ${targetBranch}...HEAD`, { encoding: 'utf-8' });
     contextParts.push("## Git Diff\n```diff\n" + diffText + "\n```\n");
   } catch (e) {
     console.error("Failed to get git diff", e);
@@ -350,6 +352,14 @@ async function runReview() {
   if (allCritical.length > 0) {
     console.error("❌ CRITICAL AST FINDINGS DETECTED - FAILING PR IMMEDIATELY");
     allCritical.forEach(c => console.error(" - " + c));
+    
+    let criticalMarkdown = "## 🚨 CRITICAL AST VIOLATIONS\n\n";
+    criticalMarkdown += "The PR has been automatically failed due to critical structural or security violations:\n\n";
+    allCritical.forEach(c => {
+      criticalMarkdown += `- **${c}**\n`;
+    });
+    console.log(criticalMarkdown);
+    
     process.exit(1);
   }
   
