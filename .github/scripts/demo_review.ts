@@ -312,6 +312,9 @@ async function runReview() {
     if (!sourceFile) continue;
 
     const filePath = sourceFile.getFilePath().replace(/\\/g, '/');
+    if (filePath.includes('/dist/') || filePath.includes('/build/') || filePath.includes('/.next/')) {
+      continue;
+    }
     if (filePath.includes('/api/') || filePath.includes('/hooks/') || filePath.includes('/services/')) {
       modifiedPublicApis.push(file);
     }
