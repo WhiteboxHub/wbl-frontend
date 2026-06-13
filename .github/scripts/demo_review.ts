@@ -14,7 +14,7 @@ interface Finding {
 // 1. Get changed lines from git diff
 function getChangedLines(): Map<string, number[]> {
   const targetBranch = process.env.GITHUB_BASE_REF ? `origin/${process.env.GITHUB_BASE_REF}` : 'HEAD~1';
-  const diffOutput = execSync(`git diff --unified=0 ${targetBranch}...HEAD`, { encoding: 'utf-8' });
+  const diffOutput = execSync(`git diff --unified=0 -w -B ${targetBranch}...HEAD`, { encoding: 'utf-8' });
   const lines = diffOutput.split('\n');
   const changes = new Map<string, number[]>();
   let currentFile = '';
@@ -63,7 +63,7 @@ function getSnippet(sourceFile: any, centerLine: number, pad: number = 8): strin
 }
 
 // 3. Static Analysis Rules Engine (AST)
-function runStaticAnalysis(sourceFile: any, changedLines: number[]): { critical: string[], findings: Finding[] } {
+function runStaticAnalysis(sourceFile: any, changedLines: number[], isNewFile: boolean = false): { critical: string[], findings: Finding[] } {
   const critical: string[] = [];
   const findings: Finding[] = [];
   
@@ -135,14 +135,16 @@ function runStaticAnalysis(sourceFile: any, changedLines: number[]): { critical:
       }
 
       // Signature Change Detection
-      const defLine = (fn as Node).getStartLineNumber();
-      if (changedLines.includes(defLine)) {
-         findings.push({
-           severity: 'HIGH',
-           confidence: 'MEDIUM',
-           type: 'Signature Change',
-           evidence: `Function '${name}' definition changed at line ${defLine}. This may break downstream callers.`
-         });
+      if (!isNewFile) {
+        const defLine = (fn as Node).getStartLineNumber();
+        if (changedLines.includes(defLine)) {
+           findings.push({
+             severity: 'HIGH',
+             confidence: 'MEDIUM',
+             type: 'Signature Change',
+             evidence: `Function '${name}' definition changed at line ${defLine}. This may break downstream callers.`
+           });
+        }
       }
     }
   }
@@ -234,7 +236,7 @@ function runStaticAnalysis(sourceFile: any, changedLines: number[]): { critical:
   return { critical, findings };
 }
 
-function calculateBlastRadius(refs: Node[], changedFilePath: string): { score: number, details: string } {
+function calculateImpactScore(refs: Node[], changedFilePath: string): { score: number, details: string } {
   let score = 0;
   for (const ref of refs) {
     const refPath = ref.getSourceFile().getFilePath().replace(/\\/g, '/');
@@ -277,10 +279,18 @@ async function runReview() {
 
   let contextParts = ["# 5. Code Context\n"];
   
+  let addedFiles = new Set<string>();
   try {
     const targetBranch = process.env.GITHUB_BASE_REF ? `origin/${process.env.GITHUB_BASE_REF}` : 'HEAD~1';
     const diffText = execSync(`git diff --unified=3 ${targetBranch}...HEAD`, { encoding: 'utf-8' });
     contextParts.push("## Git Diff\n```diff\n" + diffText + "\n```\n");
+    
+    const addedFilesOut = execSync(`git diff --name-status ${targetBranch}...HEAD`, { encoding: 'utf-8' });
+    addedFilesOut.split('\n').forEach(line => {
+      if (line.startsWith('A\t')) {
+        addedFiles.add(line.split('\t')[1].trim());
+      }
+    });
   } catch (e) {
     console.error("Failed to get git diff", e);
   }
@@ -289,7 +299,7 @@ async function runReview() {
 
   let allCritical: string[] = [];
   let allFindings: Finding[] = [];
-  let blastRadiusAnalysis: string[] = [];
+  let impactAnalysis: string[] = [];
   let modifiedPublicApis: string[] = [];
 
   for (const [file, lines] of changes.entries()) {
@@ -325,8 +335,8 @@ async function runReview() {
           if (nameNode) {
             const refs = nameNode.findReferencesAsNodes();
             if (refs.length > 0) {
-              const { score, details } = calculateBlastRadius(refs, filePath);
-              blastRadiusAnalysis.push(`- Symbol '${nameNode.getText()}' (Score: ${score}, Blast Radius: ${details}, References: ${refs.length})`);
+              const { score, details } = calculateImpactScore(refs, filePath);
+              impactAnalysis.push(`- Symbol '${nameNode.getText()}' (Score: ${score}, Downstream Impact: ${details}, References: ${refs.length})`);
               
               for (const ref of refs) {
                 const refFile = ref.getSourceFile();
@@ -339,7 +349,8 @@ async function runReview() {
       }
     }
     
-    const { critical, findings } = runStaticAnalysis(sourceFile, lines);
+    const isNewFile = addedFiles.has(file);
+    const { critical, findings } = runStaticAnalysis(sourceFile, lines, isNewFile);
     if (critical.length > 0) {
       allCritical.push(...critical.map(c => `[${file}] ${c}`));
     }
@@ -375,11 +386,11 @@ async function runReview() {
     finalContext += "\n";
   }
 
-  finalContext += "# 2. Blast Radius Analysis\n";
-  if (blastRadiusAnalysis.length === 0) {
+  finalContext += "# 2. Downstream Impact Analysis\n";
+  if (impactAnalysis.length === 0) {
     finalContext += "No major downstream impacts detected.\n\n";
   } else {
-    finalContext += blastRadiusAnalysis.join("\n") + "\n\n";
+    finalContext += impactAnalysis.join("\n") + "\n\n";
   }
 
   finalContext += "# 3. Modified Public APIs\n";
@@ -417,7 +428,7 @@ Focus only on:
 - migration concerns
 - testing recommendations
 
-When reviewing, pay special attention to functions with HIGH Blast Radius or Modified Public APIs.
+When reviewing, pay special attention to functions with HIGH Downstream Impact or Modified Public APIs.
 
 If no bugs found, return empty bugs array.`;
 
@@ -488,7 +499,7 @@ If no bugs found, return empty bugs array.`;
   } catch (error: any) {
     console.error("Gemini API Error:", error.message || error);
     let fallbackMarkdown = "## ⚠️ AI Reviewer Unavailable\n\n";
-    fallbackMarkdown += "The AI code reviewer is currently unavailable or timed out. Below are the deterministic AST findings and blast radius analysis gathered by the engine:\n\n";
+    fallbackMarkdown += "The AI code reviewer is currently unavailable or timed out. Below are the deterministic AST findings and downstream impact analysis gathered by the engine:\n\n";
     
     fallbackMarkdown += "### 🔍 AST Findings (Facts)\n";
     if (allFindings.length === 0) {
@@ -500,11 +511,11 @@ If no bugs found, return empty bugs array.`;
       fallbackMarkdown += "\n";
     }
 
-    fallbackMarkdown += "### 💥 Blast Radius Analysis\n";
-    if (blastRadiusAnalysis.length === 0) {
+    fallbackMarkdown += "### 💥 Downstream Impact Analysis\n";
+    if (impactAnalysis.length === 0) {
       fallbackMarkdown += "No major downstream impacts detected.\n\n";
     } else {
-      fallbackMarkdown += blastRadiusAnalysis.join("\n") + "\n\n";
+      fallbackMarkdown += impactAnalysis.join("\n") + "\n\n";
     }
     
     console.log(fallbackMarkdown);
