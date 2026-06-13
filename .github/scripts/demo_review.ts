@@ -409,8 +409,8 @@ async function runReview() {
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    console.error("Error: GEMINI_API_KEY environment variable not found.");
-    process.exit(1);
+    console.warn("Warning: GEMINI_API_KEY environment variable not found. Skipping AI review gracefully.");
+    process.exit(0);
   }
 
   const client = new OpenAI({
