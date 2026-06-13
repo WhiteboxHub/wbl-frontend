@@ -305,7 +305,10 @@ async function runReview() {
   for (const [file, lines] of changes.entries()) {
     if (!file.endsWith('.ts') && !file.endsWith('.tsx')) continue;
     
-    const sourceFile = project.getSourceFile(path.join(process.cwd(), file));
+    let sourceFile = project.getSourceFile(path.join(process.cwd(), file));
+    if (!sourceFile) {
+      sourceFile = project.addSourceFileAtPathIfExists(path.join(process.cwd(), file));
+    }
     if (!sourceFile) continue;
 
     const filePath = sourceFile.getFilePath().replace(/\\/g, '/');
