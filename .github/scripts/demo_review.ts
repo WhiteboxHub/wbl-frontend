@@ -499,6 +499,7 @@ If no bugs found, return empty bugs array.`;
   } catch (error: any) {
     console.error("Gemini API Error:", error.message || error);
     let fallbackMarkdown = "## ⚠️ AI Reviewer Unavailable\n\n";
+    fallbackMarkdown += `**Error Details:** \`${error.message || error}\`\n\n`;
     fallbackMarkdown += "The AI code reviewer is currently unavailable or timed out. Below are the deterministic AST findings and downstream impact analysis gathered by the engine:\n\n";
     
     fallbackMarkdown += "### 🔍 AST Findings (Facts)\n";
