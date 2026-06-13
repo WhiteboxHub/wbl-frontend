@@ -70,3 +70,40 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 14
+  ai-review:
+    name: AI Code Review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm install ts-morph openai typescript tsx --no-save
+
+      - name: Run Smart AI Code Review
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          npx tsx .github/scripts/demo_review.ts > review_output.txt
+
+      - name: Post PR Comment
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -s review_output.txt ]; then
+            gh pr comment ${{ github.event.pull_request.number }} -F review_output.txt
+          else
+            echo "No review output generated or file is empty."
+          fi
