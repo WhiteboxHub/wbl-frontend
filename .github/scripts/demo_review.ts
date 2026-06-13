@@ -364,7 +364,7 @@ async function runReview() {
     console.error("❌ CRITICAL AST FINDINGS DETECTED - FAILING PR IMMEDIATELY");
     allCritical.forEach(c => console.error(" - " + c));
     
-    let criticalMarkdown = "## 🚨 CRITICAL AST VIOLATIONS\n\n";
+    let criticalMarkdown = "##    CRITICAL AST VIOLATIONS\n\n";
     criticalMarkdown += "The PR has been automatically failed due to critical structural or security violations:\n\n";
     allCritical.forEach(c => {
       criticalMarkdown += `- **${c}**\n`;
@@ -472,16 +472,16 @@ If no bugs found, return empty bugs array.`;
 
     const content = response.choices[0].message.content;
     if (!content) {
-      console.log("## 🤖 AI Code Review\n\nFailed to generate review. No content returned.");
+      console.log("##  AI Code Review\n\nFailed to generate review. No content returned.");
       return;
     }
 
     try {
       const data = JSON.parse(content);
       if (data.bugs && data.bugs.length > 0) {
-        let markdown = "## 🤖 AI Code Review Findings\n\n";
+        let markdown = "##  AI Code Review Findings\n\n";
         for (const bug of data.bugs) {
-          markdown += `### 🚨 [${bug.bug_category.toUpperCase()}] ${bug.summary}\n`;
+          markdown += `###    [${bug.bug_category.toUpperCase()}] ${bug.summary}\n`;
           markdown += `**File:** \`${bug.changed_file}\` (Lines: ${bug.changed_lines})\n\n`;
           markdown += `${bug.comment}\n\n`;
           if (bug.diff_fix_suggestion) {
@@ -491,10 +491,10 @@ If no bugs found, return empty bugs array.`;
         }
         console.log(markdown);
       } else {
-        console.log("## 🤖 AI Code Review\n\nNo significant risks or bugs found. LGTM! ✅");
+        console.log("##  AI Code Review\n\nNo significant risks or bugs found. LGTM! ✅");
       }
     } catch (e) {
-      console.log("## 🤖 AI Code Review\n\nFailed to parse JSON response. Raw output:\n\n```json\n" + content + "\n```");
+      console.log("##  AI Code Review\n\nFailed to parse JSON response. Raw output:\n\n```json\n" + content + "\n```");
     }
   } catch (error: any) {
     console.error("Gemini API Error:", error.message || error);
