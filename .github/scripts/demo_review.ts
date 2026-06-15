@@ -136,13 +136,17 @@ function runStaticAnalysis(sourceFile: any, changedLines: number[], isNewFile: b
 
       // Signature Change Detection
       if (!isNewFile) {
-        const defLine = (fn as Node).getStartLineNumber();
-        if (changedLines.includes(defLine)) {
+        const startLine = (fn as Node).getStartLineNumber();
+        const endLine = (fn as Node).getEndLineNumber();
+        const body = (fn as any).getBody?.();
+        const bodyStartLine = body ? body.getStartLineNumber() : startLine;
+        const signatureChanged = changedLines.some(l => l >= startLine && l <= bodyStartLine);
+        if (signatureChanged) {
            findings.push({
              severity: 'HIGH',
              confidence: 'MEDIUM',
              type: 'Signature Change',
-             evidence: `Function '${name}' definition changed at line ${defLine}. This may break downstream callers.`
+             evidence: `Function '${name}' definition changed around line ${startLine}. This may break downstream callers.`
            });
         }
       }
@@ -173,6 +177,11 @@ function runStaticAnalysis(sourceFile: any, changedLines: number[], isNewFile: b
           
           const identifiers = bodyNode.getDescendantsOfKind(SyntaxKind.Identifier);
           for (const id of identifiers) {
+            // Skip identifiers that are the right-hand side of property access expressions
+            const parent = id.getParent();
+            if (Node.isPropertyAccessExpression(parent) && parent.getNameNode() === id) {
+              continue;
+            }
             const idName = id.getText();
             if (['console', 'window', 'document', 'Math', 'JSON', 'Object', 'Array', 'String'].includes(idName)) continue;
             
