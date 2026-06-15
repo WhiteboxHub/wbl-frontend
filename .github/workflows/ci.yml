@@ -95,7 +95,7 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          npx tsx .github/scripts/demo_review.ts > review_output.txt
+          npx tsx .github/scripts/reviewer/demo_review.ts > review_output.txt
 
       - name: Post PR Comment
         if: always()
