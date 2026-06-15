@@ -538,4 +538,7 @@ If no bugs found, return empty bugs array.`;
   }
 }
 
-runReview().catch(console.error);
+runReview().catch(error => {
+  console.error(error);
+  process.exit(1);
+});
