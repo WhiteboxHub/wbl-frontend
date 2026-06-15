@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { Finding } from '../types/finding';
+import { buildPrompt } from '../prompts/reviewPrompt';
 
 export async function postReviewToLLM(finalContext: string, allFindings: Finding[], impactAnalysis: string[]) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -13,7 +14,6 @@ export async function postReviewToLLM(finalContext: string, allFindings: Finding
     baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/"
   });
 
-  const { buildPrompt } = require('../prompts/reviewPrompt');
   const prompt = buildPrompt(finalContext);
 
   const jsonSchema = {
