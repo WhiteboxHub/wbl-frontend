@@ -11,7 +11,9 @@ export async function postReviewToLLM(finalContext: string, allFindings: Finding
 
   const client = new OpenAI({
     apiKey: apiKey,
-    baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/"
+    baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+    timeout: 180000, // 3 minutes timeout for large PRs
+    maxRetries: 5    // Automatically retry up to 5 times on 503s with exponential backoff
   });
 
   const prompt = buildPrompt(finalContext);
