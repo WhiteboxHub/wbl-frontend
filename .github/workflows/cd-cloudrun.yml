@@ -11,6 +11,7 @@ env:
 
 jobs:
   deploy:
+    needs: playwright-regression
     runs-on: ubuntu-latest
 
     steps:
@@ -88,7 +89,6 @@ jobs:
     name: Playwright UI Grid Regression
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    continue-on-error: ${{ github.event_name == 'push' && github.ref != 'refs/heads/main' }}
 
     steps:
       - name: Checkout Code
