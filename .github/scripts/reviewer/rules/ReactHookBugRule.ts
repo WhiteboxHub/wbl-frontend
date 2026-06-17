@@ -32,7 +32,7 @@ export class ReactHookBugRule implements Rule {
           } else if (args.length === 2 && Node.isArrayLiteralExpression(args[1])) {
             const bodyNode = args[0];
             const arrayNode = args[1];
-            const arrayText = arrayNode.getText();
+            const arrayElements = arrayNode.getElements().map((el: any) => el.getText());
             
             const identifiers = bodyNode.getDescendantsOfKind(SyntaxKind.Identifier);
             for (const id of identifiers) {
@@ -47,9 +47,13 @@ export class ReactHookBugRule implements Rule {
               if (symbol) {
                 const declarations = symbol.getDeclarations();
                 if (declarations.length > 0) {
+                  const declKind = declarations[0].getKind();
+                  if (declKind === SyntaxKind.ImportSpecifier || declKind === SyntaxKind.ImportClause || declKind === SyntaxKind.ImportEqualsDeclaration) {
+                    continue;
+                  }
                   const declStart = declarations[0].getStart();
                   if (declStart < bodyNode.getStart() || declStart > bodyNode.getEnd()) {
-                     if (!arrayText.includes(idName)) {
+                     if (!arrayElements.includes(idName)) {
                        findings.push({
                          severity: 'HIGH',
                          confidence: 'MEDIUM',
