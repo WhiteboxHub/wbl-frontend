@@ -33,8 +33,8 @@ export default defineConfig({
   use: {
     baseURL,
 
-    // Capture trace on failure to aid debugging
-    trace: "retain-on-failure",
+    // Trace disabled — set to "retain-on-failure" to re-enable for debugging
+    trace: "off",
 
     // Always capture screenshot on failure for clear evidence
     screenshot: "only-on-failure",
