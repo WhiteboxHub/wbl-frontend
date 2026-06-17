@@ -18,7 +18,7 @@ export class DbImportRule implements Rule {
       sourceFile.getImportDeclarations().forEach((imp: any) => {
         if (isChanged(imp)) {
           const moduleSpecifier = imp.getModuleSpecifierValue();
-          if (moduleSpecifier.match(/db|database|prisma|typeorm|sql/i)) {
+          if (moduleSpecifier.match(/\b(db|database|prisma|typeorm|sql)\b/i)) {
             findings.push({
                severity: 'HIGH',
                confidence: 'HIGH',
