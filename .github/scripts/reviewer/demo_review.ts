@@ -22,7 +22,7 @@ async function runReview() {
 
   // Stage 1: Critical Check (Fail Fast)
   if (analysis.allCritical.length > 0) {
-    console.error("❌ CRITICAL AST FINDINGS DETECTED - FAILING PR IMMEDIATELY");
+    console.error(" CRITICAL AST FINDINGS DETECTED - FAILING PR IMMEDIATELY");
     analysis.allCritical.forEach(c => console.error(" - " + c));
     
     let criticalMarkdown = "##    CRITICAL AST VIOLATIONS\n\n";
