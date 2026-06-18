@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 export function SillyComponent({ userId }: { userId: string }) {
   const [data, setData] = useState(null);
   
@@ -8,7 +8,7 @@ export function SillyComponent({ userId }: { userId: string }) {
   }, []); // silly mistake!
 
   // Hardcoded Secret Rule violation
-  const API_KEY = 'AKIAIOSFODNN7EXAMPLE'; // silly mistake!
+   // silly mistake!
 
   return <div>{data ? data.name : 'Loading...'}</div>;
 }
