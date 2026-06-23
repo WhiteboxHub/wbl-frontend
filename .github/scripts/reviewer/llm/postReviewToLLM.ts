@@ -2,17 +2,75 @@ import OpenAI from 'openai';
 import { Finding } from '../types/finding';
 import { buildPrompt } from '../prompts/reviewPrompt';
 
-function determineModelsToTry(prompt: string): string[] {
-  const isComplex = prompt.includes("Downstream Impact: HIGH") || prompt.includes("Architectural Violation");
-  const lines = prompt.split('\n').length;
-  
-  if (isComplex) {
-    return ["deepseek-reasoner", "gemini-2.5-pro", "gpt-4o", "gemini-2.5-flash"];
-  } else if (lines < 300) {
-    return ["gemini-2.5-flash-lite", "gpt-4o-mini"];
-  } else {
-    return ["gemini-2.5-flash", "gpt-4o-mini", "deepseek-chat"];
+import fs from 'fs';
+import path from 'path';
+
+function loadRegistry(): any {
+  // If a remote URL is provided (e.g. raw github gist URL), fetch it dynamically (mocked here by assuming env passing)
+  // In a real environment, you'd fetch using top-level await or similar. 
+  // For simplicity since this script runs synchronously right now, we will read the local config file
+  // or expect the orchestrator to have fetched and saved it.
+  try {
+    // If testing locally, the file is in the backend repo relative to here, or passed in
+    const registryPath = process.env.MODEL_REGISTRY_PATH || path.join(process.cwd(), "..", "wbl-backend", ".github", "scripts", "model_registry.json");
+    if (fs.existsSync(registryPath)) {
+      return JSON.parse(fs.readFileSync(registryPath, 'utf8'));
+    }
+  } catch (e) {
+    // Ignore error
   }
+  
+  // Ultimate fail-safe
+  return {
+    MODEL_CAPABILITIES: {"gemini-3.5-flash": ["fast", "large_context"]},
+    MODEL_SCORES: {"gemini-3.5-flash": 7},
+    TAG_WEIGHTS: {"reasoning": 5, "coding": 3, "large_context": 2, "balanced": 1, "fast": 1, "cost_efficient": 0}
+  };
+}
+
+const REGISTRY = loadRegistry();
+
+const MODEL_CAPABILITIES: Record<string, Set<string>> = {};
+for (const [k, v] of Object.entries(REGISTRY.MODEL_CAPABILITIES || {})) {
+  MODEL_CAPABILITIES[k] = new Set(v as string[]);
+}
+const MODEL_SCORES: Record<string, number> = REGISTRY.MODEL_SCORES || {};
+const TAG_WEIGHTS: Record<string, number> = REGISTRY.TAG_WEIGHTS || {};
+
+function determineModelsToTry(metadata: any): string[] {
+  const requiredTags = new Set<string>();
+
+  if ((metadata.signature_changes || 0) > 0) {
+    requiredTags.add("reasoning");
+  }
+  if (metadata.impact_score === "HIGH") {
+    requiredTags.add("reasoning");
+  }
+  if ((metadata.architecture_violations || 0) > 0) {
+    requiredTags.add("coding");
+  }
+  if ((metadata.lines_changed || 0) >= 300) {
+    requiredTags.add("large_context");
+  }
+  if (requiredTags.size === 0) {
+    requiredTags.add("fast");
+  }
+
+  function scoreModel(modelName: string): number {
+    const modelTags = MODEL_CAPABILITIES[modelName];
+    const matchedTags = new Set([...requiredTags].filter(x => modelTags.has(x)));
+    
+    let tagScore = 0;
+    matchedTags.forEach(tag => {
+      tagScore += (TAG_WEIGHTS[tag] || 0);
+    });
+    
+    const inherentScore = MODEL_SCORES[modelName] || 0;
+    return tagScore + inherentScore;
+  }
+
+  const sortedModels = Object.keys(MODEL_CAPABILITIES).sort((a, b) => scoreModel(b) - scoreModel(a));
+  return sortedModels.slice(0, 4);
 }
 
 function getProviderConfig(model: string): { baseURL: string | undefined, keys: string[] } {
@@ -32,7 +90,7 @@ function getProviderConfig(model: string): { baseURL: string | undefined, keys: 
   return { baseURL: undefined, keys: [] };
 }
 
-export async function postReviewToLLM(finalContext: string, allFindings: Finding[], impactAnalysis: string[]) {
+export async function postReviewToLLM(finalContext: string, metadata: any, allFindings: Finding[], impactAnalysis: string[]) {
 
   const prompt = buildPrompt(finalContext);
 
@@ -60,7 +118,7 @@ export async function postReviewToLLM(finalContext: string, allFindings: Finding
     additionalProperties: false
   };
 
-  const modelsToTry = determineModelsToTry(prompt);
+  const modelsToTry = determineModelsToTry(metadata);
 
   let content: string | null = null;
   let lastError: any = null;
