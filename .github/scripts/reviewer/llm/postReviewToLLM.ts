@@ -15,9 +15,11 @@ function loadRegistry(): any {
     const registryPath = process.env.MODEL_REGISTRY_PATH || path.join(process.cwd(), "..", "wbl-backend", ".github", "scripts", "model_registry.json");
     if (fs.existsSync(registryPath)) {
       return JSON.parse(fs.readFileSync(registryPath, 'utf8'));
+    } else {
+      console.warn(`[Warning] Registry file not found at ${registryPath}. Falling back to hardcoded defaults.`);
     }
-  } catch (e) {
-    // Ignore error
+  } catch (e: any) {
+    console.warn(`[Warning] Failed to load registry: ${e.message}. Falling back to hardcoded defaults.`);
   }
   
   // Ultimate fail-safe
@@ -70,7 +72,7 @@ function determineModelsToTry(metadata: any): string[] {
   }
 
   const sortedModels = Object.keys(MODEL_CAPABILITIES).sort((a, b) => scoreModel(b) - scoreModel(a));
-  return sortedModels.slice(0, 4);
+  return sortedModels;
 }
 
 function getProviderConfig(model: string): { baseURL: string | undefined, keys: string[] } {
