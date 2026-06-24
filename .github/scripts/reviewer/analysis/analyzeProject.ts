@@ -1,5 +1,6 @@
-import { Project, Node } from 'ts-morph';
+import { Project, Node, FunctionDeclaration } from 'ts-morph';
 import path from 'path';
+import { execSync } from 'child_process';
 import { Finding } from '../types/finding';
 import { rules } from '../rules';
 
@@ -67,21 +68,60 @@ export function analyzeProject(project: Project, changes: Map<string, number[]>,
     if (filePath.includes('/dist/') || filePath.includes('/build/') || filePath.includes('/.next/')) {
       continue;
     }
-    let hasExportedChange = false;
+    let breakingApis = 0;
+    let nonBreakingApis = 0;
+    let oldSourceFile: any = null;
+    let oldFileLoaded = false;
+
+    function isBreakingSignatureChange(oldDecl: FunctionDeclaration, newDecl: FunctionDeclaration): boolean {
+      const oldParams = oldDecl.getParameters();
+      const newParams = newDecl.getParameters();
+      if (oldParams.length > newParams.length) return true;
+      for (let i = 0; i < oldParams.length; i++) {
+          const oldType = oldParams[i].getTypeNode()?.getText();
+          const newType = newParams[i].getTypeNode()?.getText();
+          if (oldType && newType && oldType !== newType) return true;
+      }
+      const addedCount = newParams.length - oldParams.length;
+      if (addedCount > 0) {
+          for (let i = oldParams.length; i < newParams.length; i++) {
+              const p = newParams[i];
+              if (!p.isOptional() && !p.hasInitializer() && !p.isRestParameter()) return true;
+          }
+      }
+      return false;
+    }
+
     for (const [name, declarations] of sourceFile.getExportedDeclarations()) {
       for (const decl of declarations) {
         const startLine = decl.getStartLineNumber();
         const endLine = decl.getEndLineNumber();
         if (lines.some(l => l >= startLine && l <= endLine)) {
-          hasExportedChange = true;
-          break;
+          let isBreaking = true;
+          if (Node.isFunctionDeclaration(decl)) {
+              if (!oldFileLoaded) {
+                  try {
+                      const targetBranch = process.env.GITHUB_BASE_REF ? `origin/${process.env.GITHUB_BASE_REF}` : 'HEAD~1';
+                      const oldContent = execSync(`git show ${targetBranch}:${file}`, { stdio: 'pipe' }).toString();
+                      oldSourceFile = project.createSourceFile(`old_${Math.random()}.ts`, oldContent);
+                  } catch (e) {}
+                  oldFileLoaded = true;
+              }
+              if (oldSourceFile) {
+                  const oldDecl = oldSourceFile.getFunction(decl.getName() || "");
+                  if (oldDecl) isBreaking = isBreakingSignatureChange(oldDecl, decl);
+                  else isBreaking = false; // New function
+              }
+          }
+          if (isBreaking) breakingApis++;
+          else nonBreakingApis++;
         }
       }
-      if (hasExportedChange) break;
     }
 
-    if (hasExportedChange) {
-      modifiedPublicApis.push(file);
+    if (breakingApis > 0 || nonBreakingApis > 0) {
+      if (breakingApis > 0) modifiedPublicApis.push(`${file} (Breaking: True)`);
+      else modifiedPublicApis.push(`${file} (Breaking: False)`);
     }
 
     const functions = sourceFile.getFunctions();

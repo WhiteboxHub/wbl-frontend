@@ -20,6 +20,9 @@ Reject findings that are:
 - Generic maintainability concerns
 - Generic operational concerns
 - Speculative risks without a concrete failure path
+- Signature Changes explicitly marked as (Breaking: False)
+
+Optional parameters, default values, widened types, and backward-compatible overloads are NOT considered breaking signature changes. Only treat (Breaking: True) signature changes as a regression risk.
 
 If you cannot identify a concrete failure path, return no finding (empty array).
 
