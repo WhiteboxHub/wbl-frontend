@@ -67,22 +67,56 @@ export function analyzeProject(project: Project, changes: Map<string, number[]>,
     if (filePath.includes('/dist/') || filePath.includes('/build/') || filePath.includes('/.next/')) {
       continue;
     }
-    if (filePath.includes('/api/') || filePath.includes('/hooks/') || filePath.includes('/services/')) {
+    let hasExportedChange = false;
+    for (const [name, declarations] of sourceFile.getExportedDeclarations()) {
+      for (const decl of declarations) {
+        const startLine = decl.getStartLineNumber();
+        const endLine = decl.getEndLineNumber();
+        if (lines.some(l => l >= startLine && l <= endLine)) {
+          hasExportedChange = true;
+          break;
+        }
+      }
+      if (hasExportedChange) break;
+    }
+
+    if (hasExportedChange) {
       modifiedPublicApis.push(file);
     }
 
-    const lineGroups = groupConsecutiveLines(lines);
+    const functions = sourceFile.getFunctions();
+    const classes = sourceFile.getClasses();
+    const vars = sourceFile.getVariableDeclarations();
+    const interfaces = sourceFile.getInterfaces();
+    const allDeclarations: Node[] = [...functions, ...classes, ...vars, ...interfaces];
+    
+    const coveredLines = new Set<number>();
+    
+    for (const decl of allDeclarations) {
+      const startLine = decl.getStartLineNumber();
+      const endLine = decl.getEndLineNumber();
+      
+      if (lines.some(l => l >= startLine && l <= endLine)) {
+        if (endLine - startLine < 300) {
+           const text = decl.getFullText();
+           let name = "anonymous";
+           if (Node.hasName(decl)) name = decl.getName() || "anonymous";
+           else if (Node.isVariableDeclaration(decl)) name = decl.getName();
+
+           contextParts.push(`### Changed File: ${file} (lines ${startLine}-${endLine} enclosing ${name})\n\`\`\`typescript\n${text}\n\`\`\`\n`);
+           for (let i = startLine; i <= endLine; i++) coveredLines.add(i);
+        }
+      }
+    }
+
+    const uncoveredLines = lines.filter(l => !coveredLines.has(l));
+    const lineGroups = groupConsecutiveLines(uncoveredLines);
     for (const group of lineGroups) {
       const center = group[Math.floor(group.length / 2)];
       const snippet = getSnippet(sourceFile, center, 6);
       contextParts.push(`### Changed File: ${file} (lines ${group[0]}-${group[group.length - 1]})\n\`\`\`typescript\n${snippet}\n\`\`\`\n`);
     }
-    
-    const functions = sourceFile.getFunctions();
-    const classes = sourceFile.getClasses();
-    const vars = sourceFile.getVariableDeclarations();
-    const allDeclarations: Node[] = [...functions, ...classes, ...vars];
-    
+
     for (const decl of allDeclarations) {
       let startLine = decl.getStartLineNumber();
       let endLine = decl.getEndLineNumber();
