@@ -155,8 +155,7 @@ export async function postReviewToLLM(finalContext: string, allFindings: Finding
           type: "json_schema",
           json_schema: {
             name: "bug_report",
-            schema: jsonSchema,
-            strict: true
+            schema: jsonSchema
           }
         }
       });

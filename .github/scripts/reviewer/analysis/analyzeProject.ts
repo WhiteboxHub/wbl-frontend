@@ -97,8 +97,9 @@ export function analyzeProject(project: Project, changes: Map<string, number[]>,
         const startLine = decl.getStartLineNumber();
         const endLine = decl.getEndLineNumber();
         if (lines.some(l => l >= startLine && l <= endLine)) {
-          let isBreaking = true;
+          let isBreaking = false;
           if (Node.isFunctionDeclaration(decl)) {
+              isBreaking = true;
               if (!oldFileLoaded) {
                   try {
                       const targetBranch = process.env.GITHUB_BASE_REF ? `origin/${process.env.GITHUB_BASE_REF}` : 'HEAD~1';
