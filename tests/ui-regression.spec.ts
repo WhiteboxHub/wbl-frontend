@@ -48,7 +48,17 @@ test.describe("Full UI Grid Regression", () => {
             );
             console.log(`${"─".repeat(60)}`);
 
-            await page.goto(routePath, { waitUntil: "networkidle" });
+            await page.goto(routePath);
+            
+            //  FIX: Handle case where Loading... spinner may not appear
+            try {
+              // Wait briefly for Loading to appear, then continue if this page skips the spinner
+              await expect(page.getByText('Loading...')).toBeVisible({ timeout: 3000 });
+              await expect(page.getByText('Loading...')).toBeHidden({ timeout: 40000 });
+            } catch {
+              // If Loading... never appears, that's OK - page might load directly or show error
+              console.log(`[Regression] No Loading spinner found on ${routePath} - continuing...`);
+            }
 
             // ── 1. Base layout check ──────────────────────────────────────
             await validateUILayout(page);

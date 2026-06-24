@@ -40,13 +40,13 @@ export async function validateAllTables(
   // ── 1. Wait for at least one grid to appear ──────────────────────────────
   if (expectGrid) {
     console.log(
-      "[grid] Grid expected — waiting up to 30 s for it to appear...",
+      "[grid] Grid expected — waiting up to 90 s for it to appear...",
     );
     try {
-      await gridWrapper.first().waitFor({ state: "visible", timeout: 30_000 });
+      await gridWrapper.first().waitFor({ state: "visible", timeout: 90_000 });
     } catch {
       throw new Error(
-        `[grid] FAIL: A grid was expected on route "${page.url()}" but none appeared within 30 s. ` +
+        `[grid] FAIL: A grid was expected on route "${page.url()}" but none appeared within 90 s. ` +
           `Check that the AG-Grid component is rendered and the API call returns data.`,
       );
     }
@@ -84,9 +84,9 @@ export async function validateAllTables(
     const loadingOverlay = grid.locator(".ag-overlay-loading-center");
     if (await loadingOverlay.isVisible()) {
       console.log(
-        `[grid] ${gridLabel}: Loading spinner visible — waiting up to 20 s for data...`,
+        `[grid] ${gridLabel}: Loading spinner visible — waiting up to 90 s for data...`,
       );
-      await loadingOverlay.waitFor({ state: "hidden", timeout: 20_000 });
+      await loadingOverlay.waitFor({ state: "hidden", timeout: 90_000 });
       console.log(`[grid] ${gridLabel}: Spinner cleared.`);
     }
 

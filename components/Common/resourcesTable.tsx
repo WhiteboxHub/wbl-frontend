@@ -11,7 +11,7 @@ type ComponentType =
   | "Interactive Visual Explainers"
   | "Newsletters"
   | "Books"
-  | "Assignments"
+  | "Questions"
   | "Git Repo's";
 
 const fetchPresentationData = async (course: string, type: ComponentType) => {
