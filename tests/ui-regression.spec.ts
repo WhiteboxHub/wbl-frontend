@@ -48,7 +48,8 @@ test.describe("Full UI Grid Regression", () => {
             );
             console.log(`${"─".repeat(60)}`);
 
-            await page.goto(routePath, { waitUntil: "networkidle" });
+            await page.goto(routePath);
+            await expect(page.getByText('Loading...')).toBeHidden({ timeout: 40000 });
 
             // ── 1. Base layout check ──────────────────────────────────────
             await validateUILayout(page);
