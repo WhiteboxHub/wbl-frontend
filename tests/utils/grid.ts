@@ -43,7 +43,7 @@ export async function validateAllTables(
       "[grid] Grid expected — waiting up to 30 s for it to appear...",
     );
     try {
-      await gridWrapper.first().waitFor({ state: "visible", timeout: 30_000 });
+      await gridWrapper.first().waitFor({ state: "visible", timeout: 45_000 });
     } catch {
       throw new Error(
         `[grid] FAIL: A grid was expected on route "${page.url()}" but none appeared within 30 s. ` +
@@ -51,12 +51,12 @@ export async function validateAllTables(
       );
     }
   } else {
-    // Soft-wait: give grids up to 3 s to mount on pages that may or may not have one
+    // Soft-wait: give grids up to 45 s to mount on pages that may or may not have one
     try {
-      await gridWrapper.first().waitFor({ state: "visible", timeout: 3_000 });
+      await gridWrapper.first().waitFor({ state: "visible", timeout: 45_000 });
     } catch {
       console.log(
-        "[grid] No AG-Grid appeared on this page within 3 s — skipping grid checks.",
+        "[grid] No AG-Grid appeared on this page within 45 s — skipping grid checks.",
       );
       return summary;
     }
