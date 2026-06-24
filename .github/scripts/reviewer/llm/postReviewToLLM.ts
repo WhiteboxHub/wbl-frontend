@@ -92,7 +92,8 @@ function getProviderConfig(model: string): { baseURL: string | undefined, keys: 
   return { baseURL: undefined, keys: [] };
 }
 
-export async function postReviewToLLM(finalContext: string, metadata: any, allFindings: Finding[], impactAnalysis: string[]) {
+export async function postReviewToLLM(finalContext: string, allFindings: Finding[], impactAnalysis: string[], metadata?: any) {
+  if (!metadata) metadata = { impact_score: "LOW", signature_changes: 0, architecture_violations: 0, lines_changed: 0 };
 
   const prompt = buildPrompt(finalContext);
 

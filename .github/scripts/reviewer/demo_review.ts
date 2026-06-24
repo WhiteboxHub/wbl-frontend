@@ -78,7 +78,7 @@ async function runReview() {
   };
 
   console.error("Context built. Sending to LLM...");
-  await postReviewToLLM(finalContext, metadata, analysis.allFindings, analysis.impactAnalysis);
+  await postReviewToLLM(finalContext, analysis.allFindings, analysis.impactAnalysis, metadata);
 }
 
 runReview().catch(error => {
