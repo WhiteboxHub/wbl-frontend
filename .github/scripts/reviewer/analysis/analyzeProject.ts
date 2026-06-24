@@ -100,8 +100,9 @@ export function analyzeProject(project: Project, changes: Map<string, number[]>,
         if (endLine - startLine < 300) {
            const text = decl.getFullText();
            let name = "anonymous";
-           if (Node.hasName(decl)) name = decl.getName() || "anonymous";
-           else if (Node.isVariableDeclaration(decl)) name = decl.getName();
+           if (typeof (decl as any).getName === "function") {
+             name = (decl as any).getName() || "anonymous";
+           }
 
            contextParts.push(`### Changed File: ${file} (lines ${startLine}-${endLine} enclosing ${name})\n\`\`\`typescript\n${text}\n\`\`\`\n`);
            for (let i = startLine; i <= endLine; i++) coveredLines.add(i);
