@@ -1029,7 +1029,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       'B': 'Books',
       'N': 'Newsletters',
       'M': 'Materials',
-      'A': 'Assignments'
+      'Q': 'Questions'
     };
 
     if (data.type && typeof data.type === 'object') {

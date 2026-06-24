@@ -601,7 +601,7 @@ const materialTypeOptions = [
   { value: "B", label: "Books" },
   { value: "N", label: "Newsletters" },
   { value: "M", label: "Materials" },
-  { value: "A", label: "Assignments" },
+  { value: "A", label: "Questions" },
   { value: "G", label: "Git Repo's" },
 ];
 
