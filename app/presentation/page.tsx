@@ -28,7 +28,7 @@ type ComponentType =
   | "Interactive Visual Explainers"
   | "Newsletters"
   | "Books"
-  | "Assignments"
+  | "Questions"
   | "Git Repo's";
 
 export default function PresentationPage() {
@@ -56,7 +56,7 @@ export default function PresentationPage() {
     },
     { type: "Books", label: "O'Reilly Books", icon: Library },
     { type: "Newsletters", label: "Newsletters", icon: Mail },
-    { type: "Assignments", label: "Assignments", icon: ClipboardList },
+    { type: "Questions", label: "Questions", icon: ClipboardList },
     { type: "Git Repo's", label: "Git Repo's", icon: Github },
   ];
 
