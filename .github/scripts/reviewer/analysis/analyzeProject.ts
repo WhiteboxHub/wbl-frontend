@@ -81,6 +81,8 @@ export function analyzeProject(project: Project, changes: Map<string, number[]>,
           const oldType = oldParams[i].getTypeNode()?.getText();
           const newType = newParams[i].getTypeNode()?.getText();
           if (oldType && newType && oldType !== newType) return true;
+          
+          if (oldParams[i].isOptional() && !newParams[i].isOptional() && !newParams[i].hasInitializer()) return true;
       }
       const addedCount = newParams.length - oldParams.length;
       if (addedCount > 0) {
@@ -112,6 +114,8 @@ export function analyzeProject(project: Project, changes: Map<string, number[]>,
                   const oldDecl = oldSourceFile.getFunction(decl.getName() || "");
                   if (oldDecl) isBreaking = isBreakingSignatureChange(oldDecl, decl);
                   else isBreaking = false; // New function
+              } else {
+                  isBreaking = false; // New file or failed to load old file
               }
           }
           if (isBreaking) breakingApis++;
