@@ -24,8 +24,12 @@ function loadRegistry(): any {
   
   // Ultimate fail-safe
   return {
-    MODEL_CAPABILITIES: {"gemini-3.5-flash": ["fast", "large_context"]},
-    MODEL_SCORES: {"gemini-3.5-flash": 7},
+    MODEL_CAPABILITIES: {
+      "gemini-3.5-flash": ["fast", "large_context"],
+      "deepseek-chat": ["reasoning", "coding", "fast"],
+      "gpt-4o": ["reasoning", "coding", "large_context"]
+    },
+    MODEL_SCORES: {"gemini-3.5-flash": 7, "deepseek-chat": 8, "gpt-4o": 9},
     TAG_WEIGHTS: {"reasoning": 5, "coding": 3, "large_context": 2, "balanced": 1, "fast": 1, "cost_efficient": 0}
   };
 }
@@ -84,7 +88,7 @@ function getProviderConfig(model: string): { baseURL: string | undefined, keys: 
     const key = process.env.DEEPSEEK_API_KEY || "";
     const keys = key.trim() ? [key.trim()] : [];
     return { baseURL: "https://api.deepseek.com", keys };
-  } else if (model.startsWith("gpt") || model.startsWith("o1")) {
+  } else if (model.startsWith("gpt") || model.startsWith("o1") || model.startsWith("o3")) {
     const key = process.env.OPENAI_API_KEY || "";
     const keys = key.trim() ? [key.trim()] : [];
     return { baseURL: undefined, keys };

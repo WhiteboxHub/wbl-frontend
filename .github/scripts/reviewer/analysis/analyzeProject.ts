@@ -73,6 +73,14 @@ export function analyzeProject(project: Project, changes: Map<string, number[]>,
     let oldSourceFile: any = null;
     let oldFileLoaded = false;
 
+    function isCompatibleType(oldType: string, newType: string): boolean {
+        // e.g. 'number' -> 'number | string' is safe.
+        // 'number' -> 'number[]' is unsafe.
+        const newTypes = newType.split('|').map(t => t.trim());
+        const oldTypes = oldType.split('|').map(t => t.trim());
+        return oldTypes.every(ot => newTypes.includes(ot));
+    }
+
     function isBreakingSignatureChange(oldDecl: FunctionDeclaration, newDecl: FunctionDeclaration): boolean {
       const oldParams = oldDecl.getParameters();
       const newParams = newDecl.getParameters();
@@ -80,7 +88,7 @@ export function analyzeProject(project: Project, changes: Map<string, number[]>,
       for (let i = 0; i < oldParams.length; i++) {
           const oldType = oldParams[i].getTypeNode()?.getText();
           const newType = newParams[i].getTypeNode()?.getText();
-          if (oldType && newType && oldType !== newType && !newType.includes(oldType)) return true;
+          if (oldType && newType && oldType !== newType && !isCompatibleType(oldType, newType)) return true;
           
           if (oldParams[i].isOptional() && !newParams[i].isOptional() && !newParams[i].hasInitializer()) return true;
       }
@@ -112,7 +120,8 @@ export function analyzeProject(project: Project, changes: Map<string, number[]>,
                   oldFileLoaded = true;
               }
               if (oldSourceFile) {
-                  const oldDecl = oldSourceFile.getFunction(decl.getName() || "");
+                  const declName = typeof (decl as any).getName === 'function' ? (decl as any).getName() : '';
+                  const oldDecl = oldSourceFile.getFunction(declName || "");
                   if (oldDecl && Node.isFunctionDeclaration(decl)) isBreaking = isBreakingSignatureChange(oldDecl, decl);
                   else isBreaking = false; // New function
               } else {
