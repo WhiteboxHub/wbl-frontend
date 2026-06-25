@@ -972,7 +972,7 @@ const fieldSections: Record<string, string> = {
   state: "Contact Information",
   country: "Contact Information",
   zip: "Contact Information",
-  zip_code:"Contact Information",
+  zip_code: "Contact Information",
   emergcontactname: "Emergency Contact",
   emergcontactemail: "Emergency Contact",
   emergcontactphone: "Emergency Contact",
@@ -1055,7 +1055,7 @@ const fieldSections: Record<string, string> = {
   bounce_type: "Professional Information",
   bounce_reason: "Professional Information",
   bounce_code: "Professional Information",
-  bounced_at: "Professional Information",
+  bounced_at: "Contact Information",
   complaint_flag: "Contact Information",
   complained_at: "Contact Information",
   source_reference: "Basic Information",
@@ -1069,7 +1069,6 @@ const fieldSections: Record<string, string> = {
   installment_amount: "Professional Information",
   payment_status: "Professional Information",
   scheduled_date: "Professional Information",
-
   // Campaign Emails
   vendor_email: "Basic Information",
   retry_count: "Professional Information",
@@ -1077,7 +1076,6 @@ const fieldSections: Record<string, string> = {
   run_log_id: "Professional Information",
   credential_id: "Professional Information",
   message_id: "Professional Information",
-
   current_day_sent: "Professional Information",
   last_reset_date: "Other",
   is_warming_up: "Basic Information",
@@ -1085,6 +1083,17 @@ const fieldSections: Record<string, string> = {
   warmup_daily_limit: "Professional Information",
   last_used_at: "Other",
   is_healthy: "Basic Information",
+
+  // Outreach Emails (workflow/outreach-emails) fields
+  validation_status: "Basic Information",
+  failure_type: "Professional Information",
+  send_attempt_count: "Professional Information",
+  unsubscribed_at: "Contact Information",
+  suppression_source: "Contact Information",
+  provider_message_id: "Professional Information",
+  last_email_sent_at: "Other",
+  last_attempted_at: "Other",
+  failed_at: "Other",
 };
 
 // Override field labels for better readability
@@ -1105,6 +1114,7 @@ const labelOverrides: Record<string, string> = {
   payload: "Payload",
   instructor2_name: "Instructor 2 Name",
   instructor3_name: "Instructor 3 Name",
+  created_at: "Basic Information",
 
   // Workflows
   workflow_key: "Workflow Key",
@@ -1114,7 +1124,7 @@ const labelOverrides: Record<string, string> = {
   delivery_engine_id: "Delivery Engine ID",
   credentials_list_sql: "Credentials List SQL",
   recipient_list_sql: "Recipient List SQL",
-
+  bounced_at: "Others",
   // Campaign Emails
   run_log_id: "Run Log ID",
   credential_id: "Credential ID",
@@ -1251,7 +1261,6 @@ const labelOverrides: Record<string, string> = {
   context: "Context",
   is_active: "Is Active",
   is_immigration_team: "Immigration Team",
-  created_at: "Created On",
   updated_at: "Last Modified",
   recipient_source: "Recipient Source",
   date_filter: "Date Filter",
@@ -1303,9 +1312,9 @@ const labelOverrides: Record<string, string> = {
   bounce_type: "Bounce Type",
   bounce_reason: "Bounce Reason",
   bounce_code: "Bounce Code",
-  bounced_at: "Bounced Date",
+  bounced_at: "Bounced At",
   complaint_flag: "Complaint Flag",
-  complained_at: "Complained Date",
+  complained_at: "Complained At",
   source_reference: "Source Reference",
   classification: "Classification",
   target_table: "Target Table",
@@ -1318,6 +1327,16 @@ const labelOverrides: Record<string, string> = {
   warmup_daily_limit: "Warmup Daily Limit",
   last_used_at: "Last Used At",
   is_healthy: "Is Healthy",
+  // Outreach Emails (workflow/outreach-emails) labels
+  validation_status: "Validation Status",
+  failure_type: "Failure Type",
+  send_attempt_count: "Attempts",
+  unsubscribed_at: "Unsubscribed At",
+  suppression_source: "Suppression Source",
+  provider_message_id: "Provider Message ID",
+  last_email_sent_at: "Last Sent",
+  last_attempted_at: "Last Attempt",
+  failed_at: "Failed At",
 };
 
 const dateFields = [
@@ -1443,6 +1462,7 @@ export function EditModal({
   const isCommissionModal = title.toLowerCase().includes("commission");
   const isDailyContactModal = title.toLowerCase().includes("daily contact");
   const isWorkflowModal = title.toLowerCase().includes("workflow") && !title.toLowerCase().includes("schedule") && !title.toLowerCase().includes("log");
+  const isOutreachEmailModal = title.toLowerCase().includes("outreach email");
 
   // Fields to hide ONLY when adding a new Commission record
   const commissionAddExcludedFields =
@@ -2170,7 +2190,7 @@ export function EditModal({
           "move_to_placement"
         ];
         const isBooleanField = keyLower.endsWith("_flag") || keyLower.startsWith("is_") || keyLower === "moved_to_candidate" || marketingBooleanFields.includes(keyLower);
-        
+
         if (isBooleanField) {
           reconstructedData[key] = val === "true";
         }
@@ -2265,6 +2285,32 @@ export function EditModal({
     const isCampaignEmailModal = title.toLowerCase().includes("campaign email");
     if (isCampaignEmailModal && keyLower === "status") {
       return enumOptions.campaign_email_status;
+    }
+
+    if (isOutreachEmailModal && keyLower === "status") {
+      return [
+        { value: "ACTIVE", label: "Active" },
+        { value: "PAUSED", label: "Paused" },
+        { value: "SUPPRESSED", label: "Suppressed" },
+        { value: "UNSUBSCRIBED", label: "Unsubscribed" },
+        { value: "INVALID", label: "Invalid" },
+        { value: "BOUNCED", label: "Bounced" },
+        { value: "COMPLAINED", label: "Complained" },
+      ];
+    }
+
+    if (isOutreachEmailModal && keyLower === "validation_status") {
+      return [
+        { value: "VALID", label: "Valid" },
+        { value: "EMAIL_INVALID", label: "Email Invalid" },
+        { value: "DOMAIN_INVALID", label: "Domain Invalid" },
+        { value: "MAILBOX_INVALID", label: "Mailbox Invalid" },
+        { value: "UNKNOWN", label: "Unknown" },
+      ];
+    }
+
+    if (isOutreachEmailModal && keyLower === "bounce_type") {
+      return enumOptions.bounce_type;
     }
 
     if (keyLower === "position_type") return enumOptions.position_type;
@@ -2415,6 +2461,7 @@ export function EditModal({
     "Professional Information": [],
     "Contact Information": [],
     "Emergency Contact": [],
+    ...(isOutreachEmailModal ? { "Credentials": [] } : {}),
     Other: [],
     Notes: [],
   };
@@ -2431,10 +2478,13 @@ export function EditModal({
       const isAllowedForPosition = isPositionsModal && [
         'candidate_id', 'company', 'contact', 'error_message', 'processed_at', 'created_at'
       ].includes(key);
+      // Allow created_at and updated_at for Outreach Emails modal
+      const isAllowedForOutreachEmail = isOutreachEmailModal && ['created_at', 'updated_at'].includes(key);
 
       if (!(isBatch && (isPreparationModal || isMarketingModal)) &&
         !(isCandidateNameField && isSpecialModal) &&
-        !isCompanyForInterview && !isAllowedForPosition && !isCompanyForDailyContact) {
+        !isCompanyForInterview && !isAllowedForPosition && !isCompanyForDailyContact &&
+        !isAllowedForOutreachEmail) {
         return;
       }
     }
@@ -4458,9 +4508,8 @@ export function EditModal({
                                 })}
                                 defaultValue={currentFormValues[key] ?? formData[key] ?? ""}
                                 readOnly={readonlyFields.includes(key) || (!isAddMode && editOnlyReadonlyFields.includes(key)) || (isCommissionModal && !isAddMode && (key === "candidate_name" || key === "company_name"))}
-                                className={`${
-                                  isDurationField ? "w-28" : "w-full"
-                                } rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm ${(readonlyFields.includes(key) || (!isAddMode && editOnlyReadonlyFields.includes(key)) || (isCommissionModal && !isAddMode && (key === "candidate_name" || key === "company_name"))) ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : ''}`}
+                                className={`${isDurationField ? "w-28" : "w-full"
+                                  } rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm ${(readonlyFields.includes(key) || (!isAddMode && editOnlyReadonlyFields.includes(key)) || (isCommissionModal && !isAddMode && (key === "candidate_name" || key === "company_name"))) ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : ''}`}
                               />
                             );
 
@@ -4577,11 +4626,10 @@ export function EditModal({
                                         ? 10
                                         : 4
                                 }
-                                className={`w-full ${
-                                  key === "raw_payload" || key === "payload" || key === "candidate_json"
-                                    ? "min-h-[min(420px,50vh)] resize-y font-mono text-[11px] sm:text-xs"
-                                    : "resize-none"
-                                } rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm`}
+                                className={`w-full ${key === "raw_payload" || key === "payload" || key === "candidate_json"
+                                  ? "min-h-[min(420px,50vh)] resize-y font-mono text-[11px] sm:text-xs"
+                                  : "resize-none"
+                                  } rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm`}
                                 placeholder={
                                   key === "raw_payload" || key === "payload" || key === "candidate_json"
                                     ? "Enter JSON payload..."

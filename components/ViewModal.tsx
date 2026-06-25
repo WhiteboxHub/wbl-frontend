@@ -5,6 +5,8 @@ import { X, EyeIcon, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/admin_ui/badge";
 import { formatLinkedInUrl } from "@/lib/utils";
+import { attempt, update } from "lodash";
+import { unsubscribe } from "diagnostics_channel";
 
 interface ViewModalProps {
   isOpen: boolean;
@@ -177,6 +179,13 @@ const fieldSections: Record<string, string> = {
   material_type: "Basic Information",
   job_name: "Basic Information",
   job_description: "Notes",
+  validation_status: "Basic Information",
+  failed_at: "Professional Information",
+  provider_message_id: "Professional Information",
+  last_email_sent_at: "Professional Information",
+  last_attempted_at: "Professional Information",
+
+
   // created_date: "Professional Information",
   activity_date: "Professional Information",
   activity_count: "Professional Information",
@@ -223,6 +232,10 @@ const fieldSections: Record<string, string> = {
   job_url: "Professional Information",
   contact_info: "Contact Information",
   source_uid: "Professional Information",
+  suppression_source: "Contact Information",
+  unsubscribed_at: "Contact Information",
+  bounced_at: "Contact Information",
+  complained_at: "Contact Information",
   // Raw Job Listing fields
   raw_title: "Basic Information",
   raw_company: "Basic Information",
@@ -242,15 +255,13 @@ const fieldSections: Record<string, string> = {
   source_type: "Basic Information",
   source_id: "Basic Information",
   unsubscribe_flag: "Basic Information",
-  unsubscribe_at: "Contact Information",
+  unsubscribe_at: "Others",
   unsubscribe_reason: "Contact Information",
   bounce_flag: "Basic Information",
   bounce_type: "Professional Information",
   bounce_reason: "Professional Information",
   bounce_code: "Professional Information",
-  bounced_at: "Professional Information",
   complaint_flag: "Contact Information",
-  complained_at: "Contact Information",
   address1: "Contact Information",
   address2: "Contact Information",
   postal_code: "Contact Information",
@@ -260,18 +271,15 @@ const fieldSections: Record<string, string> = {
   installment_no: "Professional Information",
   installment_amount: "Professional Information",
   resume_json: "Resume Data",
-  api_key: "Credentials",
-  provider_name: "Credentials",
-  model_name: "Credentials",
+
 
   // Campaign Emails
   vendor_email: "Basic Information",
   retry_count: "Professional Information",
-  last_attempt_at: "Other",
+  last_attempt_at: "Professional Information",
   run_log_id: "Professional Information",
   credential_id: "Professional Information",
   message_id: "Professional Information",
-
   current_day_sent: "Professional Information",
   last_reset_date: "Other",
   is_warming_up: "Basic Information",
@@ -279,6 +287,9 @@ const fieldSections: Record<string, string> = {
   warmup_daily_limit: "Professional Information",
   last_used_at: "Other",
   is_healthy: "Basic Information",
+
+
+
 };
 
 const workVisaStatusOptions = [
@@ -429,11 +440,9 @@ const labelOverrides: Record<string, string> = {
   lastmod_user_id: "Last Modified By",
   resume_json: "Resume JSON",
   api_key: "API Key",
-  provider_name: "LLM Provider",
   model_name: "Model Name",
   resume_created_at: "Resume Added",
   api_key_created_at: "Key Added",
-
   // Campaign Emails
   run_log_id: "Run Log ID",
   credential_id: "Credential ID",
@@ -446,8 +455,11 @@ const labelOverrides: Record<string, string> = {
   warmup_daily_limit: "Warmup Daily Limit",
   last_used_at: "Last Used At",
   is_healthy: "Is Healthy",
-};
+  validation_status: "Basic Information",
+  send_attempt_count: "Professional Information",
+  provider_message_Id: "professional Information",
 
+};
 const dateFields = [
   "outreach_date",
   "orientationdate",
@@ -550,7 +562,7 @@ const ExpandableTextViewer = ({ content }: { content: string }) => {
   const [expanded, setExpanded] = useState(false);
   if (!content) return null;
   const isLong = content.length > 250;
-  
+
   return (
     <div className="relative">
       <div
@@ -879,12 +891,12 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     if (lowerKey === "status") {
       const displayValue = String(value).toUpperCase();
       if (title.toLowerCase().includes("campaign email")) {
-         const valStr = String(value).toLowerCase();
-         if (valStr === "pending") return <Badge className="bg-gray-100 text-gray-800 flex gap-2 w-fit px-2 items-center"><div className="h-1.5 w-1.5 rounded-full bg-gray-500"></div>{displayValue}</Badge>;
-         if (valStr === "processing") return <Badge className="bg-blue-100 text-blue-800 flex gap-2 w-fit px-2 items-center"><div className="h-1.5 w-1.5 rounded-full bg-blue-500"></div>{displayValue}</Badge>;
-         if (valStr === "sent") return <Badge className="bg-green-100 text-green-800 flex gap-2 w-fit px-2 items-center"><div className="h-1.5 w-1.5 rounded-full bg-green-500"></div>{displayValue}</Badge>;
-         if (valStr === "failed") return <Badge className="bg-red-100 text-red-800 flex gap-2 w-fit px-2 items-center"><div className="h-1.5 w-1.5 rounded-full bg-red-500"></div>{displayValue}</Badge>;
-         if (valStr === "bounced") return <Badge className="bg-orange-100 text-orange-800 flex gap-2 w-fit px-2 items-center"><div className="h-1.5 w-1.5 rounded-full bg-orange-500"></div>{displayValue}</Badge>;
+        const valStr = String(value).toLowerCase();
+        if (valStr === "pending") return <Badge className="bg-gray-100 text-gray-800 flex gap-2 w-fit px-2 items-center"><div className="h-1.5 w-1.5 rounded-full bg-gray-500"></div>{displayValue}</Badge>;
+        if (valStr === "processing") return <Badge className="bg-blue-100 text-blue-800 flex gap-2 w-fit px-2 items-center"><div className="h-1.5 w-1.5 rounded-full bg-blue-500"></div>{displayValue}</Badge>;
+        if (valStr === "sent") return <Badge className="bg-green-100 text-green-800 flex gap-2 w-fit px-2 items-center"><div className="h-1.5 w-1.5 rounded-full bg-green-500"></div>{displayValue}</Badge>;
+        if (valStr === "failed") return <Badge className="bg-red-100 text-red-800 flex gap-2 w-fit px-2 items-center"><div className="h-1.5 w-1.5 rounded-full bg-red-500"></div>{displayValue}</Badge>;
+        if (valStr === "bounced") return <Badge className="bg-orange-100 text-orange-800 flex gap-2 w-fit px-2 items-center"><div className="h-1.5 w-1.5 rounded-full bg-orange-500"></div>{displayValue}</Badge>;
       }
       return <Badge className={getStatusColor(value)}>{displayValue}</Badge>;
     }
@@ -1060,7 +1072,6 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     "Contact Information": [],
     "Emergency Contact": [],
     "Resume Data": [],
-    "Credentials": [],
     "Other": [],
     "Notes": [],
   };
@@ -1235,114 +1246,114 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
                   <pre className="w-full text-xs font-mono bg-blue-50/20 dark:bg-darklight p-4 rounded-xl border border-blue-100 dark:border-blue-900 overflow-auto max-h-[70vh] text-gray-700 dark:text-gray-200 whitespace-pre-wrap">
                     {typeof currentData === 'object' && currentData !== null
                       ? JSON.stringify(
-                          'resume_json' in currentData
-                            ? currentData.resume_json
-                            : 'candidate_resume' in currentData
+                        'resume_json' in currentData
+                          ? currentData.resume_json
+                          : 'candidate_resume' in currentData
                             ? currentData.candidate_resume
                             : currentData,
-                          null,
-                          2
-                        )
+                        null,
+                        2
+                      )
                       : String(currentData)}
                   </pre>
                 </div>
               ) : (
                 <form>
                   {/* Content Grid */}
-                <div className={`grid grid-cols-1 ${columnCount >= 2 ? 'md:grid-cols-2' : ''} ${columnCount >= 3 ? 'lg:grid-cols-3' : ''} ${columnCount >= 4 ? 'xl:grid-cols-4' : ''} gap-3 sm:gap-4`}>
-                  {visibleSections.map(section => (
-                    <div key={section} className="space-y-2 sm:space-y-3">
-                      <h3 className="text-sm sm:text-base font-bold text-blue-700 dark:text-blue-400 border-b border-blue-200 dark:border-blue-900 pb-1 sm:pb-2">
-                        {section}
-                      </h3>
-                      <div className="space-y-1.5 sm:space-y-2">
-                        {sectionedFields[section].map(({ key, value }) => (
+                  <div className={`grid grid-cols-1 ${columnCount >= 2 ? 'md:grid-cols-2' : ''} ${columnCount >= 3 ? 'lg:grid-cols-3' : ''} ${columnCount >= 4 ? 'xl:grid-cols-4' : ''} gap-3 sm:gap-4`}>
+                    {visibleSections.map(section => (
+                      <div key={section} className="space-y-2 sm:space-y-3">
+                        <h3 className="text-sm sm:text-base font-bold text-blue-700 dark:text-blue-400 border-b border-blue-200 dark:border-blue-900 pb-1 sm:pb-2">
+                          {section}
+                        </h3>
+                        <div className="space-y-1.5 sm:space-y-2">
+                          {sectionedFields[section].map(({ key, value }) => (
+                            <div key={key} className="space-y-1">
+                              <label className="block text-xs sm:text-sm font-bold text-blue-700 dark:text-blue-400">
+                                {toLabel(key)}
+                              </label>
+                              <div className="w-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm border border-blue-200 rounded-lg bg-white dark:bg-darklight dark:text-gray-200 min-h-[2rem]">
+                                {renderValue(key, value) || <span className="text-gray-400">-</span>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Notes Section */}
+                  {sectionedFields["Notes"]?.length > 0 && (
+                    <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-blue-200 dark:border-blue-900">
+                      {/* <h3 className="text-sm sm:text-base font-bold text-blue-700 dark:text-blue-400 border-b border-blue-200 dark:border-blue-900 pb-1 sm:pb-2 mb-4">
+                      Notes
+                    </h3> */}
+                      <div className="space-y-2 sm:space-y-3">
+                        {sectionedFields["Notes"].map(({ key, value }) => (
                           <div key={key} className="space-y-1">
                             <label className="block text-xs sm:text-sm font-bold text-blue-700 dark:text-blue-400">
                               {toLabel(key)}
                             </label>
-                            <div className="w-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm border border-blue-200 rounded-lg bg-white dark:bg-darklight dark:text-gray-200 min-h-[2rem]">
+                            <div className="w-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm border border-blue-200 rounded-lg bg-white dark:bg-darklight dark:text-gray-200 min-h-[60px]">
                               {renderValue(key, value) || <span className="text-gray-400">-</span>}
                             </div>
                           </div>
                         ))}
                       </div>
                     </div>
-                  ))}
-                </div>
+                  )}
+                  {/* Navigation */}
+                  {hasNavigation && (
+                    <div className="flex justify-between items-center mt-3 p-2 bg-blue-50 dark:bg-darklight rounded-md">
+                      <button
+                        type="button"
+                        onClick={handlePrevious}
+                        disabled={isFirstContact}
+                        className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 min-w-[90px] sm:min-w-[100px] justify-center ${isFirstContact
+                          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                          : "bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-md hover:shadow-lg"
+                          }`}
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-3 w-3 sm:h-4 sm:w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                        Previous
+                      </button>
 
-                {/* Notes Section */}
-                {sectionedFields["Notes"]?.length > 0 && (
-                  <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-blue-200 dark:border-blue-900">
-                    {/* <h3 className="text-sm sm:text-base font-bold text-blue-700 dark:text-blue-400 border-b border-blue-200 dark:border-blue-900 pb-1 sm:pb-2 mb-4">
-                      Notes
-                    </h3> */}
-                    <div className="space-y-2 sm:space-y-3">
-                      {sectionedFields["Notes"].map(({ key, value }) => (
-                        <div key={key} className="space-y-1">
-                          <label className="block text-xs sm:text-sm font-bold text-blue-700 dark:text-blue-400">
-                            {toLabel(key)}
-                          </label>
-                          <div className="w-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm border border-blue-200 rounded-lg bg-white dark:bg-darklight dark:text-gray-200 min-h-[60px]">
-                            {renderValue(key, value) || <span className="text-gray-400">-</span>}
-                          </div>
-                        </div>
-                      ))}
+                      <span className="text-xs sm:text-sm font-bold text-indigo-700 bg-white dark:bg-darklight dark:text-gray-200 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg shadow-sm">
+                        {validIndex + 1} of {dataArray.length}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={handleNext}
+                        disabled={isLastContact}
+                        className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 min-w-[90px] sm:min-w-[100px] justify-center ${isLastContact
+                          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                          : "bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-md hover:shadow-lg"
+                          }`}
+                      >
+                        Next
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-3 w-3 sm:h-4 sm:w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
                     </div>
-                  </div>
-                )}
-                {/* Navigation */}
-                {hasNavigation && (
-                  <div className="flex justify-between items-center mt-3 p-2 bg-blue-50 dark:bg-darklight rounded-md">
-                    <button
-                      type="button"
-                      onClick={handlePrevious}
-                      disabled={isFirstContact}
-                      className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 min-w-[90px] sm:min-w-[100px] justify-center ${isFirstContact
-                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                        : "bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-md hover:shadow-lg"
-                        }`}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-3 w-3 sm:h-4 sm:w-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                      </svg>
-                      Previous
-                    </button>
-
-                    <span className="text-xs sm:text-sm font-bold text-indigo-700 bg-white dark:bg-darklight dark:text-gray-200 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg shadow-sm">
-                      {validIndex + 1} of {dataArray.length}
-                    </span>
-
-                    <button
-                      type="button"
-                      onClick={handleNext}
-                      disabled={isLastContact}
-                      className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 min-w-[90px] sm:min-w-[100px] justify-center ${isLastContact
-                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                        : "bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 shadow-md hover:shadow-lg"
-                        }`}
-                    >
-                      Next
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-3 w-3 sm:h-4 sm:w-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
-              </form>
-            )}
+                  )}
+                </form>
+              )}
             </div>
           </div>
         </div>
