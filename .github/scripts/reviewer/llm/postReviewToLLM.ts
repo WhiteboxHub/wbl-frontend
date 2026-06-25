@@ -173,7 +173,7 @@ export async function postReviewToLLM(finalContext: string, allFindings: Finding
         continue;
       } else {
         console.error(`[Error] Fatal API error with Key ${i + 1}: ${error.message}`);
-        break; // Don't retry on 400 Bad Request or invalid schemas
+        continue; // Try the next available API key in the list
       }
     }
   }

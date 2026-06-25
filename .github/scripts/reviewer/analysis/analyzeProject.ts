@@ -80,7 +80,7 @@ export function analyzeProject(project: Project, changes: Map<string, number[]>,
       for (let i = 0; i < oldParams.length; i++) {
           const oldType = oldParams[i].getTypeNode()?.getText();
           const newType = newParams[i].getTypeNode()?.getText();
-          if (oldType && newType && oldType !== newType) return true;
+          if (oldType && newType && oldType !== newType && !newType.includes(oldType)) return true;
           
           if (oldParams[i].isOptional() && !newParams[i].isOptional() && !newParams[i].hasInitializer()) return true;
       }
