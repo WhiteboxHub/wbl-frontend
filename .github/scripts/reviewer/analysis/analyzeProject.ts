@@ -113,7 +113,7 @@ export function analyzeProject(project: Project, changes: Map<string, number[]>,
               }
               if (oldSourceFile) {
                   const oldDecl = oldSourceFile.getFunction(decl.getName() || "");
-                  if (oldDecl) isBreaking = isBreakingSignatureChange(oldDecl, decl);
+                  if (oldDecl && Node.isFunctionDeclaration(decl)) isBreaking = isBreakingSignatureChange(oldDecl, decl);
                   else isBreaking = false; // New function
               } else {
                   isBreaking = false; // New file or failed to load old file
