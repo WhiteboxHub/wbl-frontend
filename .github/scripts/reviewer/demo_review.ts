@@ -22,7 +22,7 @@ async function runReview() {
 
   // Stage 1: Critical Check (Fail Fast)
   if (analysis.allCritical.length > 0) {
-    console.error("❌ CRITICAL AST FINDINGS DETECTED - FAILING PR IMMEDIATELY");
+    console.error(" CRITICAL AST FINDINGS DETECTED - FAILING PR IMMEDIATELY");
     analysis.allCritical.forEach(c => console.error(" - " + c));
     
     let criticalMarkdown = "##    CRITICAL AST VIOLATIONS\n\n";
@@ -65,8 +65,20 @@ async function runReview() {
   finalContext += "## Git Diff\n```diff\n" + diffText + "\n```\n";
   finalContext += analysis.contextParts.join("\n");
 
+  const impactScore = analysis.impactAnalysis.some(i => i.includes("HIGH")) ? "HIGH" : "LOW";
+  const signatureChanges = analysis.modifiedPublicApis.length;
+  const architectureViolations = analysis.allCritical.length > 0 ? 1 : 0;
+  const linesChanged = Array.from(changes.values()).reduce((sum, lines) => sum + lines.length, 0);
+
+  const metadata = {
+    impact_score: impactScore,
+    signature_changes: signatureChanges,
+    architecture_violations: architectureViolations,
+    lines_changed: linesChanged
+  };
+
   console.error("Context built. Sending to LLM...");
-  await postReviewToLLM(finalContext, analysis.allFindings, analysis.impactAnalysis);
+  await postReviewToLLM(finalContext, analysis.allFindings, analysis.impactAnalysis, metadata);
 }
 
 runReview().catch(error => {

@@ -2,19 +2,102 @@ import OpenAI from 'openai';
 import { Finding } from '../types/finding';
 import { buildPrompt } from '../prompts/reviewPrompt';
 
-export async function postReviewToLLM(finalContext: string, allFindings: Finding[], impactAnalysis: string[]) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    console.warn("Warning: GEMINI_API_KEY environment variable not found. Skipping AI review gracefully.");
-    process.exit(0);
+import fs from 'fs';
+import path from 'path';
+
+function loadRegistry(): any {
+  // If a remote URL is provided (e.g. raw github gist URL), fetch it dynamically (mocked here by assuming env passing)
+  // In a real environment, you'd fetch using top-level await or similar. 
+  // For simplicity since this script runs synchronously right now, we will read the local config file
+  // or expect the orchestrator to have fetched and saved it.
+  try {
+    // If testing locally, the file is in the backend repo relative to here, or passed in
+    const registryPath = process.env.MODEL_REGISTRY_PATH || path.join(process.cwd(), "..", "wbl-backend", ".github", "scripts", "model_registry.json");
+    if (fs.existsSync(registryPath)) {
+      return JSON.parse(fs.readFileSync(registryPath, 'utf8'));
+    } else {
+      console.warn(`[Warning] Registry file not found at ${registryPath}. Falling back to hardcoded defaults.`);
+    }
+  } catch (e: any) {
+    console.warn(`[Warning] Failed to load registry: ${e.message}. Falling back to hardcoded defaults.`);
+  }
+  
+  // Ultimate fail-safe
+  return {
+    MODEL_CAPABILITIES: {
+      "gemini-3.5-flash": ["fast", "large_context"],
+      "deepseek-chat": ["reasoning", "coding", "fast"],
+      "gpt-4o": ["reasoning", "coding", "large_context"]
+    },
+    MODEL_SCORES: {"gemini-3.5-flash": 7, "deepseek-chat": 8, "gpt-4o": 9},
+    TAG_WEIGHTS: {"reasoning": 5, "coding": 3, "large_context": 2, "balanced": 1, "fast": 1, "cost_efficient": 0}
+  };
+}
+
+const REGISTRY = loadRegistry();
+
+const MODEL_CAPABILITIES: Record<string, Set<string>> = {};
+for (const [k, v] of Object.entries(REGISTRY.MODEL_CAPABILITIES || {})) {
+  MODEL_CAPABILITIES[k] = new Set(v as string[]);
+}
+const MODEL_SCORES: Record<string, number> = REGISTRY.MODEL_SCORES || {};
+const TAG_WEIGHTS: Record<string, number> = REGISTRY.TAG_WEIGHTS || {};
+
+function determineModelsToTry(metadata: any): string[] {
+  const requiredTags = new Set<string>();
+
+  if ((metadata.signature_changes || 0) > 0) {
+    requiredTags.add("reasoning");
+  }
+  if (metadata.impact_score === "HIGH") {
+    requiredTags.add("reasoning");
+  }
+  if ((metadata.architecture_violations || 0) > 0) {
+    requiredTags.add("coding");
+  }
+  if ((metadata.lines_changed || 0) >= 300) {
+    requiredTags.add("large_context");
+  }
+  if (requiredTags.size === 0) {
+    requiredTags.add("fast");
   }
 
-  const client = new OpenAI({
-    apiKey: apiKey,
-    baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
-    timeout: 180000, // 3 minutes timeout for large PRs
-    maxRetries: 5    // Automatically retry up to 5 times on 503s with exponential backoff
-  });
+  function scoreModel(modelName: string): number {
+    const modelTags = MODEL_CAPABILITIES[modelName];
+    const matchedTags = new Set([...requiredTags].filter(x => modelTags.has(x)));
+    
+    let tagScore = 0;
+    matchedTags.forEach(tag => {
+      tagScore += (TAG_WEIGHTS[tag] || 0);
+    });
+    
+    const inherentScore = MODEL_SCORES[modelName] || 0;
+    return tagScore + inherentScore;
+  }
+
+  const sortedModels = Object.keys(MODEL_CAPABILITIES).sort((a, b) => scoreModel(b) - scoreModel(a));
+  return sortedModels;
+}
+
+function getProviderConfig(model: string): { baseURL: string | undefined, keys: string[] } {
+  if (model.startsWith("gemini")) {
+    const keysStr = process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || "";
+    const keys = keysStr.split(',').map(k => k.trim()).filter(k => k.length > 0);
+    return { baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/", keys };
+  } else if (model.startsWith("deepseek")) {
+    const key = process.env.DEEPSEEK_API_KEY || "";
+    const keys = key.trim() ? [key.trim()] : [];
+    return { baseURL: "https://api.deepseek.com", keys };
+  } else if (model.startsWith("gpt") || model.startsWith("o1") || model.startsWith("o3")) {
+    const key = process.env.OPENAI_API_KEY || "";
+    const keys = key.trim() ? [key.trim()] : [];
+    return { baseURL: undefined, keys };
+  }
+  return { baseURL: undefined, keys: [] };
+}
+
+export async function postReviewToLLM(finalContext: string, allFindings: Finding[], impactAnalysis: string[], metadata?: any) {
+  if (!metadata) metadata = { impact_score: "LOW", signature_changes: 0, architecture_violations: 0, lines_changed: 0 };
 
   const prompt = buildPrompt(finalContext);
 
@@ -42,51 +125,75 @@ export async function postReviewToLLM(finalContext: string, allFindings: Finding
     additionalProperties: false
   };
 
-  try {
-    const response = await client.chat.completions.create({
-      model: "gemini-3.5-flash",
-      messages: [{ role: "user", content: prompt }],
-      response_format: {
-        type: "json_schema",
-        json_schema: {
-          name: "bug_report",
-          schema: jsonSchema,
-          strict: true
-        }
-      }
-    });
+  const modelsToTry = determineModelsToTry(metadata);
 
-    const content = response.choices[0].message.content;
-    if (!content) {
-      console.log("##  AI Code Review\n\nFailed to generate review. No content returned.");
-      return;
+  let content: string | null = null;
+  let lastError: any = null;
+  let usedModel: string | null = null;
+
+  for (const model of modelsToTry) {
+    const { baseURL, keys } = getProviderConfig(model);
+    if (keys.length === 0) {
+      console.error(`[Warning] Skipping model ${model}: No API key configured for this provider.`);
+      continue;
     }
 
-    try {
-      const data = JSON.parse(content);
-      if (data.bugs && data.bugs.length > 0) {
-        let markdown = "##  AI Code Review Findings\n\n";
-        for (const bug of data.bugs) {
-          markdown += `###    [${bug.bug_category.toUpperCase()}] ${bug.summary}\n`;
-          markdown += `**File:** \`${bug.changed_file}\` (Lines: ${bug.changed_lines})\n\n`;
-          markdown += `${bug.comment}\n\n`;
-          if (bug.diff_fix_suggestion) {
-            markdown += `**Suggested Fix:**\n\`\`\`diff\n${bug.diff_fix_suggestion}\n\`\`\`\n\n`;
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      const clientOptions: any = {
+        apiKey: key,
+        timeout: 180000,
+        maxRetries: 1
+      };
+      if (baseURL) {
+        clientOptions.baseURL = baseURL;
+      }
+      const client = new OpenAI(clientOptions);
+
+      try {
+        console.error(`Attempting AI Review using model ${model} and API Key ${i + 1} of ${keys.length}...`);
+        const response = await client.chat.completions.create({
+          model: model,
+        messages: [{ role: "user", content: prompt }],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "bug_report",
+            schema: jsonSchema
           }
-          markdown += `---\n\n`;
         }
-        console.log(markdown);
-      } else {
-        console.log("##  AI Code Review\n\nNo significant risks or bugs found. LGTM! ✅");
+      });
+
+      content = response.choices[0].message.content;
+      if (content) {
+        usedModel = model;
+        break; // Success! Break out of the keys loop
       }
-    } catch (e) {
-      console.log("##  AI Code Review\n\nFailed to parse JSON response. Raw output:\n\n```json\n" + content + "\n```");
+    } catch (error: any) {
+      lastError = error;
+      const status = error.status || error.statusCode;
+      if (status === 429 || status === 503) {
+        console.error(`[Warning] Model ${model} with API Key ${i + 1} hit rate limit or server busy (Status ${status}). Switching...`);
+        continue;
+      } else {
+        console.error(`[Error] Fatal API error with Key ${i + 1}: ${error.message}`);
+        continue; // Try the next available API key in the list
+      }
     }
-  } catch (error: any) {
-    console.error("Gemini API Error:", error.message || error);
+  }
+
+  if (content) {
+    break; // Success! Break out of the models loop
+  }
+}
+
+  if (!content) {
+    console.error("Gemini API Error: Exhausted all available API keys or hit a fatal error.");
     let fallbackMarkdown = "##  AI Reviewer Unavailable\n\n";
-    fallbackMarkdown += `**Error Details:** \`${error.message || error}\`\n\n`;
-    fallbackMarkdown += "The AI code reviewer is currently unavailable or timed out. Below are the deterministic AST findings and downstream impact analysis gathered by the engine:\n\n";
+    if (lastError) {
+      fallbackMarkdown += `**Error Details:** \`${lastError.message || lastError}\`\n\n`;
+    }
+    fallbackMarkdown += "The AI code reviewer hit rate limits across all keys or timed out. Below are the deterministic AST findings and downstream impact analysis gathered by the engine:\n\n";
     
     fallbackMarkdown += "###  AST Findings (Facts)\n";
     if (allFindings.length === 0) {
@@ -106,5 +213,27 @@ export async function postReviewToLLM(finalContext: string, allFindings: Finding
     }
     
     console.log(fallbackMarkdown);
+    return;
+  }
+
+  try {
+    const data = JSON.parse(content);
+    if (data.bugs && data.bugs.length > 0) {
+      let markdown = `##  AI Code Review Findings (Model: \`${usedModel}\`)\n\n`;
+      for (const bug of data.bugs) {
+        markdown += `###    [${bug.bug_category.toUpperCase()}] ${bug.summary}\n`;
+        markdown += `**File:** \`${bug.changed_file}\` (Lines: ${bug.changed_lines})\n\n`;
+        markdown += `${bug.comment}\n\n`;
+        if (bug.diff_fix_suggestion) {
+          markdown += `**Suggested Fix:**\n\`\`\`diff\n${bug.diff_fix_suggestion}\n\`\`\`\n\n`;
+        }
+        markdown += `---\n\n`;
+      }
+      console.log(markdown);
+    } else {
+      console.log("##  AI Code Review\n\nNo significant risks or bugs found. LGTM! ");
+    }
+  } catch (e) {
+    console.log("##  AI Code Review\n\nFailed to parse JSON response. Raw output:\n\n```json\n" + content + "\n```");
   }
 }
