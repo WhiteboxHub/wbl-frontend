@@ -152,17 +152,24 @@ export async function postReviewToLLM(finalContext: string, allFindings: Finding
 
       try {
         console.error(`Attempting AI Review using model ${model} and API Key ${i + 1} of ${keys.length}...`);
-        const response = await client.chat.completions.create({
-          model: model,
-        messages: [{ role: "user", content: prompt }],
-        response_format: {
+        
+        let responseFormat: any = {
           type: "json_schema",
           json_schema: {
             name: "bug_report",
             schema: jsonSchema
           }
+        };
+        
+        if (model.startsWith("deepseek")) {
+          responseFormat = { type: "json_object" };
         }
-      });
+
+        const response = await client.chat.completions.create({
+          model: model,
+          messages: [{ role: "user", content: prompt }],
+          response_format: responseFormat
+        });
 
       content = response.choices[0].message.content;
       if (content) {
