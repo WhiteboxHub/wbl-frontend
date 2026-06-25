@@ -25,11 +25,23 @@ function loadRegistry(): any {
   // Ultimate fail-safe
   return {
     MODEL_CAPABILITIES: {
+      "deepseek-reasoner": ["reasoning", "coding"],
+      "gemini-2.5-pro": ["reasoning", "large_context"],
+      "gpt-4o": ["reasoning", "coding", "large_context"],
+      "deepseek-chat": ["balanced", "coding"],
       "gemini-3.5-flash": ["fast", "large_context"],
-      "deepseek-chat": ["reasoning", "coding", "fast"],
-      "gpt-4o": ["reasoning", "coding", "large_context"]
+      "gpt-4o-mini": ["fast", "balanced"],
+      "gemini-3.1-flash-lite": ["fast", "cost_efficient"]
     },
-    MODEL_SCORES: {"gemini-3.5-flash": 7, "deepseek-chat": 8, "gpt-4o": 9},
+    MODEL_SCORES: {
+      "deepseek-reasoner": 10,
+      "gemini-2.5-pro": 9,
+      "gpt-4o": 8,
+      "deepseek-chat": 8,
+      "gemini-3.5-flash": 7,
+      "gpt-4o-mini": 6,
+      "gemini-3.1-flash-lite": 5
+    },
     TAG_WEIGHTS: {"reasoning": 5, "coding": 3, "large_context": 2, "balanced": 1, "fast": 1, "cost_efficient": 0}
   };
 }
@@ -152,17 +164,26 @@ export async function postReviewToLLM(finalContext: string, allFindings: Finding
 
       try {
         console.error(`Attempting AI Review using model ${model} and API Key ${i + 1} of ${keys.length}...`);
-        const response = await client.chat.completions.create({
-          model: model,
-        messages: [{ role: "user", content: prompt }],
-        response_format: {
+        
+        let responseFormat: any = {
           type: "json_schema",
           json_schema: {
             name: "bug_report",
             schema: jsonSchema
           }
+        };
+        
+        let finalPrompt = prompt;
+        if (model.startsWith("deepseek")) {
+          responseFormat = { type: "json_object" };
+          finalPrompt += `\n\nYou MUST return your response as a JSON object matching this exact schema:\n${JSON.stringify(jsonSchema)}`;
         }
-      });
+
+        const response = await client.chat.completions.create({
+          model: model,
+          messages: [{ role: "user", content: finalPrompt }],
+          response_format: responseFormat
+        });
 
       content = response.choices[0].message.content;
       if (content) {
