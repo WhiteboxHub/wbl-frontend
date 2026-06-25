@@ -173,13 +173,15 @@ export async function postReviewToLLM(finalContext: string, allFindings: Finding
           }
         };
         
+        let finalPrompt = prompt;
         if (model.startsWith("deepseek")) {
           responseFormat = { type: "json_object" };
+          finalPrompt += `\n\nYou MUST return your response as a JSON object matching this exact schema:\n${JSON.stringify(jsonSchema)}`;
         }
 
         const response = await client.chat.completions.create({
           model: model,
-          messages: [{ role: "user", content: prompt }],
+          messages: [{ role: "user", content: finalPrompt }],
           response_format: responseFormat
         });
 
