@@ -625,16 +625,17 @@ export default function CandidateDashboard() {
             sortable: true,
             filter: "agTextColumnFilter",
             cellRenderer: (params: any) => {
-                const jobId = params.data.source_job_id || params.data.source_uid;
+                const rawJobId = params.data.source_job_id || params.data.source_uid;
+                const jobId = (rawJobId && rawJobId !== 'undefined' && rawJobId !== 'null') ? rawJobId : null;
                 const source = params.data.source?.toLowerCase() || "";
                 const url = params.data.job_url ||
-                    (source.includes('trueup')
+                    (jobId ? (source.includes('trueup')
                         ? `https://trueup.io/jobs/${jobId}`
                         : source.includes('hiring') || source.includes('cafe')
                             ? `https://hiring.cafe/viewjob/${jobId}`
                             : source.includes('jobright')
                                 ? `https://jobright.ai/jobs/info/${jobId}`
-                                : `https://www.linkedin.com/jobs/view/${jobId}`);
+                                : `https://www.linkedin.com/jobs/view/${jobId}`) : null);
 
                 if (!url) {
                     return (
@@ -800,18 +801,19 @@ export default function CandidateDashboard() {
             headerName: "Apply",
             width: 100,
             cellRenderer: (params: any) => {
-                const jobId = params.data.source_job_id || params.data.source_uid;
+                const rawJobId = params.data.source_job_id || params.data.source_uid;
+                const jobId = (rawJobId && rawJobId !== 'undefined' && rawJobId !== 'null') ? rawJobId : null;
                 if (!jobId && !params.data.job_url) return <span className="text-gray-400">-</span>;
 
                 const source = params.data.source?.toLowerCase() || "";
                 const url = params.data.job_url ||
-                    (source.includes('trueup')
+                    (jobId ? (source.includes('trueup')
                         ? `https://trueup.io/jobs/${jobId}`
                         : source.includes('hiring') || source.includes('cafe')
                             ? `https://hiring.cafe/viewjob/${jobId}`
                             : source.includes('jobright')
                                 ? `https://jobright.ai/jobs/info/${jobId}`
-                                : `https://www.linkedin.com/jobs/view/${jobId}`);
+                                : `https://www.linkedin.com/jobs/view/${jobId}`) : null);
 
                 return (
                     <div className="flex items-center h-full">

@@ -177,19 +177,15 @@ export default function CandidateOnboarding({
 
             const filteredProfile = getFilteredProfile();
 
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/candidates/${candidateId}`, {
-                method: "PUT",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(filteredProfile),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
+            try {
+                await apiFetch(`candidates/${candidateId}`, {
+                    method: "PUT",
+                    body: filteredProfile,
+                });
+            } catch (err: any) {
+                const errorData = err.body || {};
                 console.error("Validation Error:", errorData);
-                const detail = typeof errorData.detail === 'string' ? errorData.detail : JSON.stringify(errorData.detail);
+                const detail = typeof errorData.detail === 'string' ? errorData.detail : JSON.stringify(errorData.detail || err.message);
                 toast.error(`Error: ${detail}`);
                 return;
             }
@@ -229,16 +225,13 @@ export default function CandidateOnboarding({
             if (documents.govId) formData.append('govId', documents.govId);
             if (documents.resume) formData.append('resume', documents.resume);
 
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/candidates/${candidateId}/onboarding/upload`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                },
-                body: formData
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
+            try {
+                await apiFetch(`candidates/${candidateId}/onboarding/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+            } catch (err: any) {
+                const error = err.body || {};
                 throw new Error(error.detail || "Upload failed");
             }
 
@@ -304,19 +297,15 @@ export default function CandidateOnboarding({
                 notes: `Agreement signed electronically at ${new Date().toLocaleString()}. Signature: ${signature}`
             };
 
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/candidates/${candidateId}`, {
-                method: "PUT",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(finalPayload),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
+            try {
+                await apiFetch(`candidates/${candidateId}`, {
+                    method: "PUT",
+                    body: finalPayload,
+                });
+            } catch (err: any) {
+                const errorData = err.body || {};
                 console.error("Final Submission Error:", errorData);
-                const detail = typeof errorData.detail === 'string' ? errorData.detail : JSON.stringify(errorData.detail);
+                const detail = typeof errorData.detail === 'string' ? errorData.detail : JSON.stringify(errorData.detail || err.message);
                 toast.error(`Final Error: ${detail}`);
                 return;
             }
