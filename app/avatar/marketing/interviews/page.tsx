@@ -377,6 +377,7 @@ type InterviewFormData = {
   feedback_text?: string;
   position_id?: number | string;
   job_description?: string;
+  duration_minutes?: number;
 };
 
 const initialFormData: InterviewFormData = {
@@ -401,6 +402,7 @@ const initialFormData: InterviewFormData = {
   feedback_text: "",
   position_id: "",
   job_description: "",
+  duration_minutes: 60,
 };
 
 export default function CandidatesInterviews() {
@@ -614,6 +616,9 @@ export default function CandidatesInterviews() {
       if (updatedRow.job_posting_url === undefined && (updatedRow as any).url) {
         payload.job_posting_url = (updatedRow as any).url;
       }
+      if (payload.duration_minutes !== undefined && payload.duration_minutes !== null) {
+        payload.duration_minutes = Number(payload.duration_minutes);
+      }
       if (updatedRow.id) {
         const res = await api.put(`/interviews/${updatedRow.id}`, payload);
         await invalidateCache("/interviews");
@@ -674,6 +679,7 @@ export default function CandidatesInterviews() {
         position_id: data.position_id ? Number(data.position_id) : null,
         position_title: (data as any).position_title || null,
         position_location: (data as any).position_location || null,
+        duration_minutes: data.duration_minutes ? Number(data.duration_minutes) : 60,
       };
       const res = await api.post(`/interviews`, payload);
       await invalidateCache("/interviews");
@@ -775,6 +781,30 @@ export default function CandidatesInterviews() {
       cellRenderer: TimeRenderer,
       cellEditor: TimeCellEditor,
     },
+    {
+      field: "duration_minutes",
+      headerName: "Duration (min)",
+      width: 140,
+      editable: true,
+      cellEditorSelector: (params: any) => {
+        const mode = params.data?.mode_of_interview || "";
+        if (mode.toLowerCase() === "in person") {
+          return {
+            component: "agTextCellEditor",
+          };
+        }
+        return {
+          component: "agSelectCellEditor",
+          params: { values: [15, 30, 45, 60, 90, 120] },
+        };
+      },
+      valueFormatter: (params: any) => {
+        const val = params.value || 60;
+        const hrs = val / 60;
+        const hrsStr = hrs % 1 === 0 ? hrs.toString() : hrs.toFixed(2);
+        return `${val} min (${hrsStr} hour${hrs === 1 ? "" : "s"})`;
+      },
+    },
     { field: "interviewer_emails", headerName: "Interviewer Email", cellRenderer: EmailRenderer, width: 190, editable: true },
     { field: "interviewer_contact", headerName: "Interviewer Phone", cellRenderer: PhoneRenderer, width: 190, editable: true },
     { field: "interviewer_linkedin", headerName: "Interviewer Linkedin", cellRenderer: LinkRenderer, width: 190, editable: true },
@@ -862,6 +892,7 @@ export default function CandidatesInterviews() {
                     position_id: newRow.position_id ? Number(newRow.position_id) : null,
                     position_title: newRow.position_title || null,
                     position_location: newRow.position_location || null,
+                    duration_minutes: newRow.duration_minutes ? Number(newRow.duration_minutes) : 60,
                   };
                   if (!payload.candidate_id || !payload.company) {
                     toast.error("Candidate and Company are required!");

@@ -37,11 +37,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
 
   const allSidebarItems = [
     { title: "Home", href: "/avatar/employee/employee-dashboard", icon: HomeIcon, exact: true },
-    {
-      title: "Analytics",
-      href: "/avatar/analytics",
-      icon: ShieldCheck,
-    },
+    { title: "Analytics", href: "/avatar/analytics", icon: ShieldCheck },
     {
       title: "Leads",
       href: "/avatar/leads",
@@ -221,6 +217,10 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
         {
           title: "Automation Keywords",
           href: "/avatar/workflow/automation-keywords",
+        },
+        {
+          title: "Campaign Emails",
+          href: "/avatar/workflow/campaign-emails",
         },
       ],
     },

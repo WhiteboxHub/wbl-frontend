@@ -1,0 +1,20 @@
+repos:
+  # 1. Playwright UI Grid Regression Tests
+  #
+  #    Behaviour:
+  #      - If the frontend (http://localhost:3000) is NOT reachable → hook WARNS and
+  #        exits 0 (allows the commit — you may be offline or working on non-UI code).
+  #      - If the frontend IS reachable → runs the full Playwright grid regression;
+  #        the commit is BLOCKED if any grid test fails.
+  #
+  #    Prerequisites:
+  #      Start the dev server first:  npm run dev
+  - repo: local
+    hooks:
+      - id: playwright-regression
+        name: UI Grid Regression (Playwright)
+        entry: node run-playwright-precommit.js
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]

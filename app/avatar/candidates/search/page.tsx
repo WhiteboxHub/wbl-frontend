@@ -9,7 +9,7 @@ import { apiFetch } from "@/lib/api";
 import { Badge } from "@/components/admin_ui/badge";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
-import { SearchIcon, User, Phone, DollarSign, BookOpen, Briefcase, Mail, Eye, Settings } from "lucide-react";
+import { SearchIcon, User, Phone, DollarSign, BookOpen, Briefcase, Mail, Eye, Settings, Terminal } from "lucide-react";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 interface CandidateSuggestion {
@@ -34,6 +34,24 @@ interface CandidateData {
   sessions_attended?: any[];
   placement_fee_collection?: any[];
   job_listings_tracking?: any[];
+  coderpad_tracking?: {
+    summary: {
+      questions_solved: number;
+      total_attempts: number;
+      passed: number;
+      failed: number;
+      success_rate: number;
+    };
+    logs: any[];
+  };
+  cli_tracking?: {
+    summary: {
+      jobs_attempted: number;
+      jobs_submitted: number;
+      jobs_failed: number;
+    };
+    logs: any[];
+  };
 }
 
 const StatusRenderer = ({ status }: { status: string }) => {
@@ -105,6 +123,8 @@ export default function CandidateSearchPage() {
     marketing: false,
     interviews: false,
     job_listings_tracking: false,
+    coderpad_tracking: false,
+    cli_tracking: false,
     placement: false,
     sessions: false,
     misc: false
@@ -462,7 +482,7 @@ export default function CandidateSearchPage() {
 
                     if (column.toLowerCase().includes('date')) {
                       value = DateFormatter(value);
-                    } else if (['Last Modified', 'Last Login', 'last_login', 'last_modified'].includes(column) && value) {
+                    } else if (['Last Modified', 'Last Login', 'last_login', 'last_modified', 'created_at'].includes(column) && value) {
                       const date = new Date(value as string | number | Date);
                       value = date.toLocaleString('en-US', {
                         year: 'numeric',
@@ -825,6 +845,69 @@ export default function CandidateSearchPage() {
                       return parseDate(b["interview_date"]) - parseDate(a["interview_date"]);
                     })
                   )}
+                </div>
+              )}
+            </div>
+
+            <div className="accordion-item">
+              <button
+                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-black-50 dark:hover:bg-black-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
+                onClick={() => toggleSection('coderpad_tracking')}
+              >
+                <div className="flex items-center gap-2">
+                  <BookOpen className="h-5 w-5 text-black-600 dark:text-black-400" />
+                  <span className="font-medium text-black-900 dark:text-black-100">CoderPad Tracking Info</span>
+                  <Badge variant="secondary">{selectedCandidate.coderpad_tracking?.logs?.length || 0}</Badge>
+                </div>
+                <span className="text-xl font-bold text-black-400">
+                  {openSections['coderpad_tracking'] ? '−' : '+'}
+                </span>
+              </button>
+              {openSections['coderpad_tracking'] && (
+                <div className="px-6 pb-4 space-y-4">
+                  {selectedCandidate.coderpad_tracking?.summary && (
+                    renderInfoCard("Performance Summary", <SearchIcon className="h-4 w-4" />, {
+                      "Questions Solved": selectedCandidate.coderpad_tracking?.summary?.questions_solved ?? 0,
+                      "Total Attempts": selectedCandidate.coderpad_tracking?.summary?.total_attempts ?? 0,
+                      "Passed": selectedCandidate.coderpad_tracking?.summary?.passed ?? 0,
+                      "Failed": selectedCandidate.coderpad_tracking?.summary?.failed ?? 0,
+                      "Success Rate": `${selectedCandidate.coderpad_tracking?.summary?.success_rate ?? 0}%`
+                    })
+                  )}
+                  {renderTable("Execution Logs", <Eye className="h-4 w-4" />, selectedCandidate.coderpad_tracking?.logs || [])}
+                </div>
+              )}
+            </div>
+
+            <div className="accordion-item">
+              <button
+                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-black-50 dark:hover:bg-black-800 focus:outline-none transition-colors border-l-4 border-transparent hover:border-blue-500"
+                onClick={() => toggleSection('cli_tracking')}
+              >
+                <div className="flex items-center gap-2">
+                  <Terminal className="h-5 w-5 text-black-600 dark:text-black-400" />
+                  <span className="font-medium text-black-900 dark:text-black-100">CLI Tracking Info</span>
+                  <Badge variant="secondary">{selectedCandidate.cli_tracking?.logs?.length || 0}</Badge>
+                </div>
+                <span className="text-xl font-bold text-black-400">
+                  {openSections['cli_tracking'] ? '−' : '+'}
+                </span>
+              </button>
+              {openSections['cli_tracking'] && (
+                <div className="px-6 pb-4 space-y-4">
+                  {selectedCandidate.cli_tracking?.summary && (
+                    renderInfoCard("Performance Summary", <SearchIcon className="h-4 w-4" />, {
+                      "Jobs Attempted": selectedCandidate.cli_tracking?.summary?.jobs_attempted ?? 0,
+                      "Jobs Submitted": selectedCandidate.cli_tracking?.summary?.jobs_submitted ?? 0,
+                      "Jobs Failed": selectedCandidate.cli_tracking?.summary?.jobs_failed ?? 0
+                    })
+                  )}
+                  {renderTable("Execution Logs", <Eye className="h-4 w-4" />, (selectedCandidate.cli_tracking?.logs || []).map(log => {
+                    const l = { ...log };
+                    delete l.metadata;
+                    delete l.event_metadata;
+                    return l;
+                  }))}
                 </div>
               )}
             </div>

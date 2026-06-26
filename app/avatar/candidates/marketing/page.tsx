@@ -761,6 +761,7 @@ export default function CandidatesMarketingPage() {
           <span>{params.value ? "Yes" : "No"}</span>
         ),
       },
+
       {
         field: "candidate_intro",
         headerName: "Candidate Intro",
@@ -780,6 +781,14 @@ export default function CandidatesMarketingPage() {
           <span>{params.value ? "Yes" : "No"}</span>
         ),
         cellEditor: "agCheckboxCellEditor",
+      },
+      {
+        field: "outreach_date",
+        headerName: "Daily Outreach Date",
+        width: 150,
+        editable: true,
+        cellEditor: "agDateCellEditor",
+        valueFormatter: (params) => params.value ? format(new Date(params.value), "yyyy-MM-dd") : "",
       },
       {
         field: "run_weekly_workflow",
@@ -804,6 +813,16 @@ export default function CandidatesMarketingPage() {
       {
         field: "run_email_extraction",
         headerName: "Run Email Extraction",
+        width: 170,
+        editable: true,
+        cellRenderer: (params: any) => (
+          <span>{params.value ? "Yes" : "No"}</span>
+        ),
+        cellEditor: "agCheckboxCellEditor",
+      },
+      {
+        field: "run_outreach_emails",
+        headerName: "Run Outreach Emails",
         width: 170,
         editable: true,
         cellRenderer: (params: any) => (

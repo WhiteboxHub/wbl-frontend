@@ -11,14 +11,20 @@ type ComponentType =
   | "Interactive Visual Explainers"
   | "Newsletters"
   | "Books"
-  | "Assignments";
+  | "Questions"
+  | "Git Repo's";
 
 const fetchPresentationData = async (course: string, type: ComponentType) => {
   const base = (process.env.NEXT_PUBLIC_API_URL || API_BASE_URL || "").replace(/\/$/, "");
-  const endpointsToTry = [
-    `/materials?course=${course}&search=${type}`,
-    `api/materials?course=${course}&search=${type}`,
+  let endpointsToTry = [
+    `/materials?course=${course}&search=${type}`
   ];
+
+  if (type === "Git Repo's") {
+    endpointsToTry = [
+      `/github-classroom-repos?course=${course}`
+    ];
+  }
 
   const normalize = (data: any) => {
     if (!data) return [];

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast, Toaster } from "sonner";
 import { format, parseISO } from "date-fns";
 import Link from "next/link";
+import { ViewModal } from "./ViewModal";
 import {
     Mail,
     Phone,
@@ -42,13 +43,11 @@ import {
     EditIcon,
     KeyRound,
     Eye,
-    EyeOff,
     Code2,
 
 } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { Input } from "@/components/admin_ui/input";
-import { Label } from "@/components/admin_ui/label";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -60,6 +59,7 @@ import { TimePicker } from "@/components/admin_ui/TimePicker";
 import { useAuth } from "@/utils/AuthContext";
 import CandidateGrid from "./CandidateGrid";
 import { CandidateSetupWizard } from "./CandidateSetupWizard";
+import { CandidateLlmKeysPanel } from "./CandidateLlmKeysPanel";
 
 import CandidateOnboarding from "./CandidateOnboarding";
 
@@ -344,75 +344,6 @@ export default function CandidateDashboard() {
         window.open(url, '_blank');
     };
 
-    // Register SW and handle lifecycle
-    useEffect(() => {
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/api/sw.js', { scope: '/' })
-                .then(registration => {
-                    console.log('✅ Click Tracking SW Registered');
-                    setSwStatus("active");
-
-                    const token = localStorage.getItem("access_token") || localStorage.getItem("token");
-                    const config = { token, url: API_BASE_URL };
-
-                    // Function to send config to a specific worker
-                    const sendConfig = (worker: ServiceWorker | null) => {
-                        if (!worker) return;
-                        worker.postMessage({ type: 'SET_API_URL', url: config.url });
-                        if (config.token) worker.postMessage({ type: 'SET_TOKEN', token: config.token });
-                    };
-
-                    // Send to whichever worker is available
-                    sendConfig(registration.active);
-                    sendConfig(registration.waiting);
-                    sendConfig(registration.installing);
-                })
-                .catch(err => console.error('SW Registration failed:', err));
-
-            // Sync token if it changes or when SW becomes active
-            navigator.serviceWorker.oncontrollerchange = () => {
-                const token = localStorage.getItem("access_token") || localStorage.getItem("token");
-                if (navigator.serviceWorker.controller) {
-                    console.log('🔄 SW Control changed, sending config...');
-                    navigator.serviceWorker.controller.postMessage({ type: 'SET_API_URL', url: API_BASE_URL });
-                    if (token) navigator.serviceWorker.controller.postMessage({ type: 'SET_TOKEN', token });
-                }
-            };
-
-            // Periodic config sync
-            const intervalToken = setInterval(() => {
-                const token =
-                    localStorage.getItem("access_token") ||
-                    localStorage.getItem("token") ||
-                    localStorage.getItem("auth_token") ||
-                    localStorage.getItem("bearer_token");
-
-                if (navigator.serviceWorker.controller) {
-                    navigator.serviceWorker.controller.postMessage({ type: 'SET_API_URL', url: API_BASE_URL });
-                    if (token) navigator.serviceWorker.controller.postMessage({ type: 'SET_TOKEN', token });
-                }
-            }, 30000); // every 30s
-
-            return () => clearInterval(intervalToken);
-        }
-
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible' && navigator.serviceWorker.controller) {
-                console.log(' Dashboard visible (tab focused), evaluating sync...');
-                navigator.serviceWorker.controller.postMessage({ type: 'FLUSH' });
-            }
-        };
-
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-    }, []);
-
-    // Every time dashboard loads or rerenders
-    useEffect(() => {
-        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-            navigator.serviceWorker.controller.postMessage({ type: 'FLUSH' });
-        }
-    }, []);
     // ----------------------------
 
     const [loading, setLoading] = useState(true);
@@ -426,90 +357,6 @@ export default function CandidateDashboard() {
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [activeTab, setActiveTab] = useState<TabType>('jobs');
     const [setupWizardOpen, setSetupWizardOpen] = useState(false);
-
-    /** My LLM Key tab — OpenAI row in candidate_llm_api_keys for candidate.id */
-    const [llmKeyPreviewLoading, setLlmKeyPreviewLoading] = useState(false);
-    const [llmHasStoredKey, setLlmHasStoredKey] = useState(false);
-    const [llmNewKeyInput, setLlmNewKeyInput] = useState("");
-    const [llmKeySaving, setLlmKeySaving] = useState(false);
-    /** Full key for the stored-key field (loaded on tab; cleared when leaving). */
-    const [llmStoredKeySecret, setLlmStoredKeySecret] = useState<string | null>(null);
-    const [llmRevealShowPlain, setLlmRevealShowPlain] = useState(false);
-
-    const loadLlmKeyPreview = useCallback(async () => {
-        setLlmKeyPreviewLoading(true);
-        try {
-            const res = await apiFetch("coderpad/me/openai-key-preview");
-            const has = Boolean(res?.has_stored_key);
-            setLlmHasStoredKey(has);
-            if (!has) {
-                setLlmStoredKeySecret(null);
-                setLlmRevealShowPlain(false);
-            } else {
-                try {
-                    const rev = await apiFetch("coderpad/me/openai-key-reveal");
-                    const k = typeof rev?.api_key === "string" ? rev.api_key.trim() : "";
-                    setLlmStoredKeySecret(k || null);
-                    setLlmRevealShowPlain(false);
-                    if (!k) toast.error("No API key returned from server.");
-                } catch {
-                    setLlmStoredKeySecret(null);
-                    toast.error("Could not load your stored API key.");
-                }
-            }
-        } catch {
-            setLlmHasStoredKey(false);
-            setLlmStoredKeySecret(null);
-            setLlmRevealShowPlain(false);
-            toast.error("Could not load your LLM key status.");
-        } finally {
-            setLlmKeyPreviewLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        if (activeTab !== "my_llm_key") {
-            setLlmStoredKeySecret(null);
-            setLlmRevealShowPlain(false);
-        }
-    }, [activeTab]);
-
-    useEffect(() => {
-        if (activeTab !== "my_llm_key") return;
-        void loadLlmKeyPreview();
-    }, [activeTab, loadLlmKeyPreview]);
-
-    const saveLlmKey = async () => {
-        const k = llmNewKeyInput.trim();
-        if (!k) {
-            toast.error("Enter your OpenAI API key.");
-            return;
-        }
-        setLlmKeySaving(true);
-        try {
-            await apiFetch("coderpad/me/openai-api-key", {
-                method: "POST",
-                body: { api_key: k },
-            });
-            setLlmNewKeyInput("");
-            toast.success(llmHasStoredKey ? "OpenAI key updated." : "OpenAI key saved.");
-            setLlmRevealShowPlain(false);
-            await loadLlmKeyPreview();
-        } catch (err: unknown) {
-            let msg = "Could not save API key.";
-            try {
-                const e = err as { body?: { detail?: string }; message?: string };
-                if (typeof e?.body?.detail === "string") msg = e.body.detail;
-                else if (e?.message) {
-                    const parsed = JSON.parse(e.message);
-                    if (typeof parsed?.detail === "string") msg = parsed.detail;
-                }
-            } catch { /* use default */ }
-            toast.error(msg);
-        } finally {
-            setLlmKeySaving(false);
-        }
-    };
 
     const goToTab = (tab: TabType) => {
         setSetupWizardOpen(false);
@@ -531,7 +378,6 @@ export default function CandidateDashboard() {
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
     const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
     const [jobSearchTerm, setJobSearchTerm] = useState("");
-    const [swStatus, setSwStatus] = useState<string>("initializing");
     const [showAddInterview, setShowAddInterview] = useState(false);
     const [addInterviewForm, setAddInterviewForm] = useState({
         company: "",
@@ -543,6 +389,7 @@ export default function CandidateDashboard() {
         type_of_interview: "Recruiter Call",
         interviewer_linkedin: "",
         interviewer_contact: "",
+        job_description: "",
     });
     const [addInterviewLoading, setAddInterviewLoading] = useState(false);
     const [setupStatus, setSetupStatus] = useState<{ resume_uploaded: boolean; api_keys_configured: boolean; setup_complete: boolean } | null>(null);
@@ -550,8 +397,15 @@ export default function CandidateDashboard() {
     const [prefetchedSession, setPrefetchedSession] = useState<{ sessionId: string; summaryData: any } | null>(null);
     const [prefetchDone, setPrefetchDone] = useState(false);
 
+    const [viewResumeOpen, setViewResumeOpen] = useState(false);
+    const [mounted, setMounted] = useState(false);
+    const [editData, setEditData] = useState<any>(null);
+    const [editInterviewForm, setEditInterviewForm] = useState<any>({});
+    const [editInterviewLoading, setEditInterviewLoading] = useState(false);
+    const [viewData, setViewData] = useState<any>(null);
+
     useEffect(() => {
-        // setMounted(true);
+        setMounted(true);
     }, []);
 
 
@@ -1020,9 +874,9 @@ export default function CandidateDashboard() {
     }, [positions, selectedModes, selectedStatuses, selectedTypes, jobSearchTerm]);
 
     const handleAddInterview = async () => {
-        const { company, interview_date, interviewer_emails, mode_of_interview, type_of_interview } = addInterviewForm;
+        const { company, interview_date, interviewer_emails, mode_of_interview, type_of_interview, position_title } = addInterviewForm;
 
-        if (!company || !interview_date || !interviewer_emails || !mode_of_interview || !type_of_interview) {
+        if (!company || !interview_date || !position_title || !mode_of_interview || !type_of_interview) {
             toast.error("Please fill in all mandatory fields (*)");
             return;
         }
@@ -1047,13 +901,50 @@ export default function CandidateDashboard() {
                 company: "", interview_date: "", interview_time: "10:00",
                 interviewer_emails: "", position_title: "",
                 mode_of_interview: "Virtual", type_of_interview: "Recruiter Call",
-                interviewer_linkedin: "", interviewer_contact: "",
+                interviewer_linkedin: "", interviewer_contact: "", job_description: ""
             });
             loadDashboard();
         } catch (err: any) {
             toast.error(err?.message || "Failed to add interview");
         } finally {
             setAddInterviewLoading(false);
+        }
+    };
+
+    const handleEditInterview = async () => {
+        if (!editData?.id) return;
+
+        const requiredFields = {
+            company: "Company",
+            position_title: "Position Title",
+            interview_date: "Interview Date",
+            interview_time: "Interview Time",
+            mode_of_interview: "Mode of Interview",
+            type_of_interview: "Type of Interview"
+        };
+        for (const [field, label] of Object.entries(requiredFields)) {
+            if (!editInterviewForm[field as keyof typeof editInterviewForm]) {
+                toast.error(`${label} is required`);
+                return;
+            }
+        }
+        setEditInterviewLoading(true);
+        try {
+            const {
+                id, candidate_full_name, instructor1_name, instructor2_name, instructor3_name,
+                position_company, gcal_event_id, last_mod_datetime, candidate, ...updatePayload
+            } = editInterviewForm;
+            await apiFetch(`/api/interviews/${editData.id}`, {
+                method: "PUT",
+                body: updatePayload,
+            });
+            toast.success("Interview updated!");
+            setEditData(null);
+            loadDashboard();
+        } catch {
+            toast.error("Failed to update interview.");
+        } finally {
+            setEditInterviewLoading(false);
         }
     };
     const loadUserProfile = async () => {
@@ -2021,17 +1912,17 @@ export default function CandidateDashboard() {
                                                                     <div>
                                                                         <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Company <span className="text-red-500 font-bold">*</span></label>
                                                                         <input type="text" value={addInterviewForm.company} onChange={e => setAddInterviewForm(p => ({ ...p, company: e.target.value }))}
-                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" placeholder="Search company..." />
+                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" placeholder="Search company..." />
                                                                     </div>
                                                                     <div>
                                                                         <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Position Title</label>
                                                                         <input type="text" value={addInterviewForm.position_title} onChange={e => setAddInterviewForm(p => ({ ...p, position_title: e.target.value }))}
-                                                                            className="w-full rounded-lg border border-blue-100 dark:border-blue-800 bg-gray-50/50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" />
+                                                                            className="w-full rounded-lg border border-blue-100 dark:border-blue-800 bg-gray-50/50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
                                                                     </div>
                                                                     <div>
                                                                         <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Date <span className="text-red-500 font-bold">*</span></label>
                                                                         <input type="date" value={addInterviewForm.interview_date} onChange={e => setAddInterviewForm(p => ({ ...p, interview_date: e.target.value }))}
-                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" />
+                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
                                                                     </div>
                                                                     <div>
                                                                         <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Time <span className="text-red-500 font-bold">*</span></label>
@@ -2050,19 +1941,19 @@ export default function CandidateDashboard() {
                                                                         <h4 className="text-[14px] font-bold text-blue-600">Interviewer Information</h4>
                                                                     </div>
                                                                     <div>
-                                                                        <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Emails <span className="text-red-500 font-bold">*</span></label>
+                                                                        <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Emails</label>
                                                                         <input type="email" value={addInterviewForm.interviewer_emails} onChange={e => setAddInterviewForm(p => ({ ...p, interviewer_emails: e.target.value }))}
-                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" />
+                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
                                                                     </div>
                                                                     <div>
                                                                         <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Contact</label>
                                                                         <input type="text" value={addInterviewForm.interviewer_contact} onChange={e => setAddInterviewForm(p => ({ ...p, interviewer_contact: e.target.value }))}
-                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" />
+                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
                                                                     </div>
                                                                     <div>
                                                                         <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer LinkedIn</label>
                                                                         <input type="text" value={addInterviewForm.interviewer_linkedin} onChange={e => setAddInterviewForm(p => ({ ...p, interviewer_linkedin: e.target.value }))}
-                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm" />
+                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
                                                                     </div>
                                                                 </div>
 
@@ -2074,19 +1965,31 @@ export default function CandidateDashboard() {
                                                                     <div>
                                                                         <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Mode of Interview <span className="text-red-500 font-bold">*</span></label>
                                                                         <select value={addInterviewForm.mode_of_interview} onChange={e => setAddInterviewForm(p => ({ ...p, mode_of_interview: e.target.value }))}
-                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm">
+                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm">
                                                                             <option>Virtual</option><option>In Person</option><option>Phone</option><option>Assessment</option><option>AI Interview</option>
                                                                         </select>
                                                                     </div>
                                                                     <div>
                                                                         <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Type of Interview <span className="text-red-500 font-bold">*</span></label>
                                                                         <select value={addInterviewForm.type_of_interview} onChange={e => setAddInterviewForm(p => ({ ...p, type_of_interview: e.target.value }))}
-                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 transition-all shadow-sm">
+                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm">
                                                                             <option>Recruiter Call</option><option>Technical</option><option>HR</option><option>Prep Call</option>
                                                                         </select>
                                                                     </div>
                                                                 </div>
 
+                                                                </div>
+                                                                {/* Job Description Field */}
+                                                                <div className="mt-8 border-t border-blue-50 dark:border-blue-900/50 pt-6">
+                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">
+                                                                        Job Description
+                                                                    </label>
+                                                                    <textarea
+                                                                        value={addInterviewForm.job_description}
+                                                                        onChange={e => setAddInterviewForm(p => ({ ...p, job_description: e.target.value }))}
+                                                                        placeholder="Enter Job Description..."
+                                                                        className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm resize-none placeholder:text-gray-400" />
+                                                                </div>
                                                             </div>
 
                                                             {/* Footer Buttons */}
@@ -2102,7 +2005,149 @@ export default function CandidateDashboard() {
                                                             </div>
                                                         </div>
                                                     </div>
-                                                </div>
+                                                )}
+
+                                            {/* View Interview Modal */}
+                                            {mounted && viewData && createPortal(
+                                                (
+                                                    <div
+                                                        className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+                                                        style={{ backgroundColor: 'rgba(0, 0, 0, 0.2)' }}
+                                                    >
+                                                        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-blue-300 dark:border-blue-800 w-full max-w-4xl overflow-hidden">
+                                                            <div className="flex items-center justify-between px-6 py-2.5 border-b border-blue-200 dark:border-blue-900 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 dark:from-darklight dark:via-dark dark:to-darklight">
+                                                                <h3 className="text-base font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">View Interview</h3>
+                                                                <button onClick={() => setViewData(null)} className="text-blue-300 hover:text-blue-500 transition-colors text-2xl font-light">×</button>
+                                                            </div>
+                                                            <div className="p-6 max-h-[80vh] overflow-y-auto">
+                                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-6">
+                                                                    <div className="space-y-4">
+                                                                        <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4"><h4 className="text-[14px] font-bold text-blue-600">Company Information</h4></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Company <span className="text-red-600 font-black">*</span></label>
+                                                                            <input type="text" readOnly value={viewData.company ?? ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Position Title <span className="text-red-600 font-black">*</span></label>
+                                                                            <input type="text" readOnly value={viewData.position_title ?? ''} className="w-full rounded-lg border border-blue-100 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Date <span className="text-red-600 font-black">*</span></label>
+                                                                            <input type="text" readOnly value={viewData.interview_date ?? ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Time <span className="text-red-600 font-black">*</span></label>
+                                                                            <input type="text" readOnly value={viewData.interview_time ? new Date(`1970-01-01T${viewData.interview_time}`).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true, }) : ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
+                                                                    </div>
+                                                                    <div className="space-y-4">
+                                                                        <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4"><h4 className="text-[14px] font-bold text-blue-600">Interviewer Information</h4></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Email</label>
+                                                                            <input type="email" readOnly value={viewData.interviewer_emails ?? ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Contact</label>
+                                                                            <input type="text" readOnly value={viewData.interviewer_contact ?? ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer LinkedIn</label>
+                                                                            <input type="text" readOnly value={viewData.interviewer_linkedin ?? ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
+                                                                    </div>
+                                                                    <div className="space-y-4">
+                                                                        <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4"><h4 className="text-[14px] font-bold text-blue-600">Interview Details</h4></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Mode of Interview <span className="text-red-600 font-black">*</span></label>
+                                                                            <input type="text" readOnly value={viewData.mode_of_interview ?? ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Type of Interview <span className="text-red-600 font-black">*</span></label>
+                                                                            <input type="text" readOnly value={viewData.type_of_interview ?? ''} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" /></div>
+                                                                        <div>
+                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Feedback</label>
+                                                                            <input type="text" readOnly value={viewData.feedback ?? 'Pending'} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none cursor-default" />
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="mt-8 border-t border-blue-50 dark:border-blue-900/50 pt-6">
+                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Job Description</label>
+                                                                    <textarea readOnly value={viewData.job_description ?? ''} className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 text-sm focus:outline-none resize-none cursor-default" />
+                                                                </div>
+                                                                <div className="mt-4">
+                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Feedback Text</label>
+                                                                    <textarea readOnly value={viewData.feedback_text ?? ''} className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 text-sm focus:outline-none resize-none cursor-default" />
+                                                                </div>
+                                                                <div className="mt-10 pt-4 border-t border-blue-50 dark:border-blue-900 flex justify-end gap-3">
+                                                                    <button onClick={() => setViewData(null)} className="px-8 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-md">Close</button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ),
+                                                document.body
+                                            )}
+
+                                            {/* Edit Interview Modal */}
+                                            {mounted && editData && createPortal(
+                                                (
+                                                    <div
+                                                        className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+                                                        style={{ backgroundColor: 'rgba(0, 0, 0, 0.2)' }}
+                                                    >
+                                                        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-blue-300 dark:border-blue-800 w-full max-w-4xl overflow-hidden">
+                                                            <div className="flex items-center justify-between px-6 py-2.5 border-b border-blue-200 dark:border-blue-900 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 dark:from-darklight dark:via-dark dark:to-darklight">
+                                                                <h3 className="text-base font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">Edit Interview</h3>
+                                                                <button onClick={() => setEditData(null)} className="text-blue-300 hover:text-blue-500 transition-colors text-2xl font-light">×</button>
+                                                            </div>
+                                                            <div className="p-6 max-h-[80vh] overflow-y-auto">
+                                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-6">
+                                                                    <div className="space-y-4">
+                                                                        <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4"><h4 className="text-[14px] font-bold text-blue-600">Company Information</h4></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Company <span className="text-red-600 font-black">*</span></label>
+                                                                            <input type="text" value={editInterviewForm.company ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, company: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" /></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Position Title <span className="text-red-600 font-black">*</span></label>
+                                                                            <input type="text" value={editInterviewForm.position_title ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, position_title: e.target.value }))} className="w-full rounded-lg border border-blue-100 dark:border-blue-800 bg-gray-50/50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" /></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Date <span className="text-red-600 font-black">*</span></label>
+                                                                            <input type="date" value={editInterviewForm.interview_date ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, interview_date: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" /></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Time <span className="text-red-600 font-black">*</span></label>
+                                                                            <TimePicker
+                                                                                value={editInterviewForm.interview_time}
+                                                                                onChange={(time) => setEditInterviewForm((p: any) => ({ ...p, interview_time: time }))}
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="space-y-4">
+                                                                        <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4"><h4 className="text-[14px] font-bold text-blue-600">Interviewer Information</h4></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Emails</label>
+                                                                            <input type="email" value={editInterviewForm.interviewer_emails ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, interviewer_emails: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" /></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Contact</label>
+                                                                            <input type="text" value={editInterviewForm.interviewer_contact ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, interviewer_contact: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" /></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer LinkedIn</label>
+                                                                            <input type="text" value={editInterviewForm.interviewer_linkedin ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, interviewer_linkedin: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" /></div>
+                                                                    </div>
+                                                                    <div className="space-y-4">
+                                                                        <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4"><h4 className="text-[14px] font-bold text-blue-600">Interview Details</h4></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Mode of Interview <span className="text-red-600 font-black">*</span></label>
+                                                                            <select value={editInterviewForm.mode_of_interview ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, mode_of_interview: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm">
+                                                                                <option>Virtual</option><option>In Person</option><option>Phone</option><option>Assessment</option><option>AI Interview</option>
+                                                                            </select></div>
+                                                                        <div><label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Type of Interview <span className="text-red-600 font-black">*</span></label>
+                                                                            <select value={editInterviewForm.type_of_interview ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, type_of_interview: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm">
+                                                                                <option>Recruiter Call</option><option>Technical</option><option>HR</option><option>Prep Call</option>
+                                                                            </select></div>
+                                                                        <div>
+                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Feedback</label>
+                                                                            <select value={editInterviewForm.feedback ?? 'Pending'} onChange={e => setEditInterviewForm((p: any) => ({ ...p, feedback: e.target.value }))} className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm">
+                                                                                <option value="Pending">Pending</option>
+                                                                                <option value="Positive">Positive</option>
+                                                                                <option value="Negative">Negative</option>
+                                                                            </select>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="mt-8 border-t border-blue-50 dark:border-blue-900/50 pt-6">
+                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Job Description</label>
+                                                                    <textarea value={editInterviewForm.job_description ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, job_description: e.target.value }))} placeholder="Enter Job Description..." className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm resize-none placeholder:text-gray-400" />
+                                                                </div>
+                                                                <div className="mt-4">
+                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">Feedback Text</label>
+                                                                    <textarea value={editInterviewForm.feedback_text ?? ''} onChange={e => setEditInterviewForm((p: any) => ({ ...p, feedback_text: e.target.value }))} placeholder="Enter interview feedback..." className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm resize-none placeholder:text-gray-400" />
+                                                                </div>
+                                                                <div className="mt-10 pt-4 border-t border-blue-50 dark:border-blue-900 flex justify-end gap-3">
+                                                                    <button onClick={() => setEditData(null)} className="px-6 py-1.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-500 hover:bg-gray-50 transition-all">Cancel</button>
+                                                                    <button onClick={handleEditInterview} disabled={editInterviewLoading} className="px-6 py-2 rounded-xl bg-gradient-to-r from-[#4facfe] to-[#00f2fe] hover:shadow-lg hover:scale-[1.02] text-white text-sm font-bold transition-all shadow-md active:scale-95 disabled:opacity-50">
+                                                                        {editInterviewLoading ? "Saving..." : "Save Changes"}
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ),
+                                                document.body
                                             )}
 
                                             <div className="space-y-4">
@@ -2129,15 +2174,15 @@ export default function CandidateDashboard() {
                                                         <div className="hidden sm:flex items-center gap-5">
                                                             <div className="flex items-center gap-2">
                                                                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Upcoming</span>
-                                                                <span className={`text-sm font-bold ${data.interviews.filter(i => i.interview_date && new Date(i.interview_date) >= new Date(new Date().setHours(0, 0, 0, 0))).length > 0 ? "text-green-600" : "text-gray-300"}`}>
-                                                                    {data.interviews.filter(i => i.interview_date && new Date(i.interview_date) >= new Date(new Date().setHours(0, 0, 0, 0))).length}
+                                                                <span className={`text-sm font-bold ${data.interviews.filter((i: any) => i.interview_date && new Date(i.interview_date) >= new Date(new Date().setHours(0, 0, 0, 0))).length > 0 ? "text-green-600" : "text-gray-300"}`}>
+                                                                    {data.interviews.filter((i: any) => i.interview_date && new Date(i.interview_date) >= new Date(new Date().setHours(0, 0, 0, 0))).length}
                                                                 </span>
                                                             </div>
                                                         </div>
                                                     </div>
                                                     <div className="h-[400px]">
                                                         <CandidateGrid
-                                                            rowData={data.interviews.filter(i => !i.interview_date || new Date(i.interview_date) < new Date(new Date().setHours(0, 0, 0, 0))).sort((a, b) => new Date(b.interview_date).getTime() - new Date(a.interview_date).getTime())}
+                                                            rowData={data.interviews.filter((i: any) => !i.interview_date || (new Date(i.interview_date).getTime() < new Date(new Date().setHours(0, 0, 0, 0)).getTime())).sort((a: any, b: any) => new Date(b.interview_date).getTime() - new Date(a.interview_date).getTime())}
                                                             columnDefs={interviewColumnDefs}
                                                             height="400px"
                                                             rowHeight={60}
@@ -2229,6 +2274,16 @@ export default function CandidateDashboard() {
                                                             {setupStatus === null ? "Loading..." : setupStatus.resume_uploaded ? "Uploaded ✓" : "Not added"}
                                                         </p>
                                                     </div>
+                                                    {setupStatus?.resume_uploaded && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setViewResumeOpen(true)}
+                                                            className="ml-auto flex items-center gap-1.5 text-xs font-bold text-violet-600 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300 transition-colors px-2.5 py-1.5 bg-violet-50 dark:bg-violet-900/20 rounded-lg"
+                                                        >
+                                                            <Eye className="w-3.5 h-3.5" />
+                                                            View Resume
+                                                        </button>
+                                                    )}
                                                 </div>
                                                 {/* API Keys Status */}
                                                 <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${setupStatus === null
@@ -2253,85 +2308,22 @@ export default function CandidateDashboard() {
                                     </div>
                                 )}
 
-                                {activeTab === 'my_llm_key' && (
-                                    <div className="flex-1 overflow-y-auto p-4 lg:p-6">
-                                        <div className="max-w-xl mx-auto bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 lg:p-8">
-                                            <div className="flex items-center gap-3 mb-2">
-                                                <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center">
-                                                    <KeyRound className="w-5 h-5 text-emerald-600 dark:text-emerald-400" aria-hidden />
-                                                </div>
-                                                <div>
-                                                    <h2 className="text-lg font-extrabold text-gray-900 dark:text-white">My LLM key</h2>
-                                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                                        OpenAI key for CoderPad and WBL tools (stored for your candidate profile).
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            <div className="mt-6 space-y-4">
-                                                <div>
-                                                    <Label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Stored OpenAI key</Label>
-                                                    <div className="flex gap-2 mt-1.5 items-center">
-                                                        <Input
-                                                            type={llmRevealShowPlain ? "text" : "password"}
-                                                            readOnly
-                                                            value={
-                                                                llmKeyPreviewLoading
-                                                                    ? ""
-                                                                    : (llmStoredKeySecret ?? "")
-                                                            }
-                                                            placeholder={llmKeyPreviewLoading ? "Loading…" : "No key saved yet"}
-                                                            className="font-mono text-sm bg-gray-50 dark:bg-gray-800/80 flex-1 min-w-0"
-                                                            autoComplete="off"
-                                                        />
-                                                        {llmHasStoredKey && !llmKeyPreviewLoading && llmStoredKeySecret ? (
-                                                            <Button
-                                                                type="button"
-                                                                variant="outline"
-                                                                size="icon"
-                                                                className="h-10 w-10 shrink-0 rounded-md border border-input"
-                                                                onClick={() => setLlmRevealShowPlain((v) => !v)}
-                                                                title={llmRevealShowPlain ? "Hide key" : "Show key"}
-                                                                aria-label={llmRevealShowPlain ? "Hide API key" : "Show API key"}
-                                                            >
-                                                                {llmRevealShowPlain ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                                            </Button>
-                                                        ) : null}
-                                                    </div>
-                                                    <p className="text-[11px] text-gray-400 mt-1">
-                                                        Anyone with access to this screen can see the full key. Turn off screen sharing if you reveal it.
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <Label className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-                                                        {llmHasStoredKey ? "New OpenAI API key (replaces current)" : "OpenAI API key"}
-                                                    </Label>
-                                                    <Input
-                                                        type="password"
-                                                        value={llmNewKeyInput}
-                                                        onChange={(e) => setLlmNewKeyInput(e.target.value)}
-                                                        placeholder="sk-…"
-                                                        className="mt-1.5 font-mono text-sm"
-                                                        autoComplete="new-password"
-                                                    />
-                                                </div>
-                                                <Button
-                                                    type="button"
-                                                    onClick={() => void saveLlmKey()}
-                                                    disabled={llmKeySaving || !llmNewKeyInput.trim()}
-                                                    className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-                                                >
-                                                    {llmKeySaving ? "Saving…" : llmHasStoredKey ? "Update key" : "Save key"}
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
+                                {activeTab === 'my_llm_key' && <CandidateLlmKeysPanel />}
                             </>
                         )}
                     </div>
                 </main>
             </div>
+            {viewResumeOpen && (
+                <ViewModal
+                    isOpen={true}
+                    onClose={() => setViewResumeOpen(false)}
+                    data={{
+                        resume_json: prefetchedSession?.summaryData?.resume_json || {}
+                    }}
+                    title="View Resume"
+                />
+            )}
         </div>
     );
 }

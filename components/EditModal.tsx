@@ -205,6 +205,14 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "Positive", label: "Positive" },
     { value: "Negative", label: "Negative" },
   ],
+  duration_minutes: [
+    { value: 15, label: "15 min" },
+    { value: 30, label: "30 min" },
+    { value: 45, label: "45 min" },
+    { value: 60, label: "60 min" },
+    { value: 90, label: "90 min" },
+    { value: 120, label: "120 min" },
+  ],
   company_type: [
     { value: "client", label: "Client" },
     { value: "third-party-vendor", label: "Third Party Vendor" },
@@ -484,6 +492,19 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "allow", label: "Allow" },
     { value: "block", label: "Block" },
   ],
+  campaign_email_status: [
+    { value: "pending", label: "Pending" },
+    { value: "processing", label: "Processing" },
+    { value: "sent", label: "Sent" },
+    { value: "failed", label: "Failed" },
+    { value: "bounced", label: "Bounced" },
+  ],
+  bounce_type: [
+    { value: "none", label: "None" },
+    { value: "soft", label: "Soft" },
+    { value: "hard", label: "Hard" },
+    { value: "invalid", label: "Invalid" },
+  ],
 };
 
 // Vendor type options
@@ -538,6 +559,7 @@ const requiredFieldsConfig: Record<string, string[]> = {
   "smtp credentials": ["Name", "Email", "Password", "Daily Limit", "Active"],
   "automation keywords": ["Category", "Source", "Keywords", "Match Type", "Action"],
   "automation-contact-extract": ["Source Type"],
+  "campaign email": ["Workflow ID", "Candidate ID", "Vendor Email"],
 };
 
 // Helper function to check if a field is required based on modal type and mode
@@ -583,7 +605,8 @@ const materialTypeOptions = [
   { value: "B", label: "Books" },
   { value: "N", label: "Newsletters" },
   { value: "M", label: "Materials" },
-  { value: "A", label: "Assignments" },
+  { value: "A", label: "Questions" },
+  { value: "G", label: "Git Repo's" },
 ];
 
 interface Batch {
@@ -606,7 +629,6 @@ interface EditModalProps {
 // Fields to exclude from the form
 const excludedFields = [
   "candidate",
-  "candidate_full_name",
   "candidate.full_name",
   "candidate_name",
   "candidateid",
@@ -675,12 +697,13 @@ const excludedFields = [
   "delivery_engine",
   "workflow",
   "schedule",
-  "mass_email",
-
+  "apply_log_history",
 ];
 
 // Fields that should be read-only (visible but not editable)
 const readonlyFields = [
+  "user_id",
+  "last_event_at",
   "created_at", "processed_at", "candidate_id",
   "extracted_at",
   "created_datetime",
@@ -846,6 +869,14 @@ const fieldSections: Record<string, string> = {
   run_email_extraction: "Basic Information",
   linkedin_post: "Basic Information",
   run_raw_positions_workflow: "Basic Information",
+  run_daily_workflow: "Basic Information",
+  outreach_date: "Basic Information",
+  total_outreach_count: "Professional Information",
+  daily_outreach_limit: "Professional Information",
+  max_outreach_limit: "Professional Information",
+  fcount: "Professional Information",
+  run_weekly_workflow: "Basic Information",
+  run_outreach_emails: "Basic Information",
   recipient_source: "Basic Information",
   date_filter: "Basic Information",
   lookback_days: "Basic Information",
@@ -1046,6 +1077,22 @@ const fieldSections: Record<string, string> = {
   installment_amount: "Professional Information",
   payment_status: "Professional Information",
   scheduled_date: "Professional Information",
+
+  // Campaign Emails
+  vendor_email: "Basic Information",
+  retry_count: "Professional Information",
+  last_attempt_at: "Other",
+  run_log_id: "Professional Information",
+  credential_id: "Professional Information",
+  message_id: "Professional Information",
+
+  current_day_sent: "Professional Information",
+  last_reset_date: "Other",
+  is_warming_up: "Basic Information",
+  warmup_started_at: "Professional Information",
+  warmup_daily_limit: "Professional Information",
+  last_used_at: "Other",
+  is_healthy: "Basic Information",
 };
 
 // Override field labels for better readability
@@ -1054,7 +1101,15 @@ const labelOverrides: Record<string, string> = {
   instructor1_name: "Instructor 1 Name",
   run_email_extraction: "Run Email Extraction",
   agreement: "Agreement(Document)",
+  run_outreach_emails: "Run Outreach Emails",
   linkedin_post: "LinkedIn Post",
+  run_daily_workflow: "Run Daily Outreach Workflow",
+  outreach_date: "Schedule Outreach Date",
+  total_outreach_count: "Total Outreach Count",
+  daily_outreach_limit: "Daily Outreach Limit",
+  max_outreach_limit: "Max Outreach Limit",
+  fcount: "Follow-up Count (fcount)",
+  run_weekly_workflow: "Run Weekly Outreach Workflow",
   run_raw_positions_workflow: "Run Raw Positions Workflow",
   payload: "Payload",
   candidate_json: "Candidate JSON",
@@ -1069,6 +1124,11 @@ const labelOverrides: Record<string, string> = {
   delivery_engine_id: "Delivery Engine ID",
   credentials_list_sql: "Credentials List SQL",
   recipient_list_sql: "Recipient List SQL",
+
+  // Campaign Emails
+  run_log_id: "Run Log ID",
+  credential_id: "Credential ID",
+  message_id: "Message ID",
   parameters_config: "Parameters Config",
 
   id: "ID",
@@ -1262,10 +1322,18 @@ const labelOverrides: Record<string, string> = {
   classification: "Classification",
   target_table: "Target Table",
   target_id: "Target ID",
-  lastmod_user_id: "Last Modified By"
+  lastmod_user_id: "Last Modified By",
+  current_day_sent: "Current Day Sent",
+  last_reset_date: "Last Reset Date",
+  is_warming_up: "Is Warming Up",
+  warmup_started_at: "Warmup Started At",
+  warmup_daily_limit: "Warmup Daily Limit",
+  last_used_at: "Last Used At",
+  is_healthy: "Is Healthy",
 };
 
 const dateFields = [
+  "outreach_date",
   "orientationdate",
   "start_date",
   "startdate",
@@ -1298,7 +1366,10 @@ const dateFields = [
   "created_at",
   "created_datetime",
   "next_run_at",
-  "last_run_at"
+  "last_run_at",
+  "last_reset_date",
+  "warmup_started_at",
+  "last_used_at"
 ];
 
 export function EditModal({
@@ -1643,6 +1714,7 @@ export function EditModal({
     const flattened: Record<string, any> = { ...data };
     if (data.candidate) {
       flattened.candidate_full_name = data.candidate.full_name;
+      flattened.candidate_id = data.candidate.id?.toString();
       flattened.workstatus = data.candidate.workstatus || data.workstatus || "";
       if (isJobActivityLogModal) {
         flattened.candidate_name = data.candidate.full_name;
@@ -2111,7 +2183,23 @@ export function EditModal({
     // - For Creates (isAddMode): Remove the key so backend uses default values (avoids errors on required fields).
     Object.keys(reconstructedData).forEach(key => {
       const val = reconstructedData[key];
-      if (val === "" || val === undefined || (val === null && isAddMode) || (typeof val === 'string' && val.trim() === "")) {
+      if (val === "true" || val === "false") {
+        const keyLower = key.toLowerCase();
+        const marketingBooleanFields = [
+          "run_daily_workflow",
+          "run_weekly_workflow",
+          "run_raw_positions_workflow",
+          "run_email_extraction",
+          "run_outreach_emails",
+          "linkedin_post",
+          "move_to_placement"
+        ];
+        const isBooleanField = keyLower.endsWith("_flag") || keyLower.startsWith("is_") || keyLower === "moved_to_candidate" || marketingBooleanFields.includes(keyLower);
+        
+        if (isBooleanField) {
+          reconstructedData[key] = val === "true";
+        }
+      } else if (val === "" || val === undefined || (val === null && isAddMode) || (typeof val === 'string' && val.trim() === "")) {
         if (isAddMode) {
           delete reconstructedData[key];
         } else {
@@ -2131,6 +2219,15 @@ export function EditModal({
       if (values.interviewer_emails && !reconstructedData.interviewer_emails) reconstructedData.interviewer_emails = values.interviewer_emails;
       if (values.interviewer_contact && !reconstructedData.interviewer_contact) reconstructedData.interviewer_contact = values.interviewer_contact;
       if (values.interviewer_linkedin && !reconstructedData.interviewer_linkedin) reconstructedData.interviewer_linkedin = values.interviewer_linkedin;
+    }
+
+    if (isInterviewModal) {
+      if (reconstructedData.duration_minutes !== undefined && reconstructedData.duration_minutes !== null && reconstructedData.duration_minutes !== "") {
+        const parsed = parseInt(reconstructedData.duration_minutes);
+        reconstructedData.duration_minutes = isNaN(parsed) ? 60 : parsed;
+      } else {
+        reconstructedData.duration_minutes = 60;
+      }
     }
 
     if (reconstructedData.raw_payload && typeof reconstructedData.raw_payload === 'string') {
@@ -2179,6 +2276,11 @@ export function EditModal({
       if (keyLower === "type_of_interview")
         return enumOptions.type_of_interview;
       if (keyLower === "feedback") return enumOptions.feedback;
+      if (keyLower === "duration_minutes") {
+        const mode = currentFormValues.mode_of_interview || formData.mode_of_interview || "";
+        if (mode.toLowerCase() === "in person") return null;
+        return enumOptions.duration_minutes;
+      }
     }
 
     // if (keyLower === "work_status" || keyLower === "workstatus") {
@@ -2190,6 +2292,11 @@ export function EditModal({
 
     if (isPositionsModal && keyLower === "status") {
       return enumOptions.position_status;
+    }
+
+    const isCampaignEmailModal = title.toLowerCase().includes("campaign email");
+    if (isCampaignEmailModal && keyLower === "status") {
+      return enumOptions.campaign_email_status;
     }
 
     if (keyLower === "position_type") return enumOptions.position_type;
@@ -2310,7 +2417,16 @@ export function EditModal({
     }
 
     // Generic Boolean Dropdown Support
-    if (keyLower.endsWith("_flag") || keyLower.startsWith("is_") || keyLower === "moved_to_candidate") {
+    const marketingBooleanFields = [
+      "run_daily_workflow",
+      "run_weekly_workflow",
+      "run_raw_positions_workflow",
+      "run_email_extraction",
+      "run_outreach_emails",
+      "linkedin_post",
+      "move_to_placement"
+    ];
+    if (keyLower.endsWith("_flag") || keyLower.startsWith("is_") || keyLower === "moved_to_candidate" || marketingBooleanFields.includes(keyLower)) {
       return [
         { value: true, label: "Yes" },
         { value: false, label: "No" },
@@ -2337,6 +2453,7 @@ export function EditModal({
 
   const formValues = watch();
   Object.entries(formData).forEach(([key, value]) => {
+    const isCandidateNameField = key === 'candidate_full_name';
 
     // Skip excluded fields, but allow batch for prep and marketing modals, and company for interviews/daily contacts
     if (excludedFields.includes(key)) {
@@ -2348,6 +2465,7 @@ export function EditModal({
       ].includes(key);
 
       if (!(isBatch && (isPreparationModal || isMarketingModal)) &&
+        !(isCandidateNameField && isSpecialModal) &&
         !isCompanyForInterview && !isAllowedForPosition && !isCompanyForDailyContact) {
         return;
       }
@@ -2420,7 +2538,7 @@ export function EditModal({
       return;
     }
 
-    if (isInterviewModal && key === "candidate_full_name" || key === "candidate.full_name") {
+    if (isInterviewModal && (key === "candidate.full_name" || (isAddMode && key === "candidate_full_name"))) {
       return;
     }
 
@@ -3088,9 +3206,54 @@ export function EditModal({
                             if (isInterviewModal && key === "position_id") {
                               return null; // Handled below with company
                             }
-
                             if (isInterviewModal && isCandidateFullName) {
-                              return null;
+                              if (isAddMode) {
+                                return null; // Candidate ID dropdown handles this in Add Mode
+                              }
+                              return (
+                                <div key={key} className="space-y-1 sm:space-y-1.5">
+                                  <label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">
+                                    Candidate Full Name <span className="text-red-700">*</span>
+                                  </label>
+                                  <select
+                                    {...register("candidate_id", {
+                                      required: "Candidate is required",
+                                    })}
+                                    value={watch("candidate_id") || formData.candidate_id || ""}
+                                    onChange={(e) => {
+                                      const selectedId = e.target.value;
+                                      setValue("candidate_id", selectedId);
+                                      const selected = marketingCandidates.find(
+                                        (m) => m.candidate.id.toString() === selectedId
+                                      );
+                                      if (selected) {
+                                        setValue("candidate_full_name", selected.candidate.full_name);
+                                        setFormData((prev) => ({
+                                          ...prev,
+                                          candidate_id: selectedId,
+                                          candidate_full_name: selected.candidate.full_name,
+                                          candidate: {
+                                            ...prev.candidate,
+                                            id: parseInt(selectedId),
+                                            full_name: selected.candidate.full_name,
+                                          },
+                                        }));
+                                      }
+                                    }}
+                                    className="w-full rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                                  >
+                                    <option value="">Select Candidate</option>
+                                    {marketingCandidates.map((m) => (
+                                      <option
+                                        key={m.candidate.id}
+                                        value={m.candidate.id.toString()}
+                                      >
+                                        {m.candidate.full_name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              );
                             }
 
 
@@ -4011,8 +4174,26 @@ export function EditModal({
                                   </label>
                                   <input
                                     type="date"
+                                    max={key === "outreach_date" ? (() => {
+                                      const d = new Date();
+                                      d.setDate(d.getDate() + 7);
+                                      return d.toISOString().split("T")[0];
+                                    })() : undefined}
                                     {...(() => {
-                                      const { onChange, ...rest } = register(key);
+                                      const validationRules: any = {};
+                                      if (key === "outreach_date") {
+                                        validationRules.validate = (val: string) => {
+                                          if (!val) return true;
+                                          const d = new Date();
+                                          d.setDate(d.getDate() + 7);
+                                          const maxDateStr = d.toISOString().split("T")[0];
+                                          if (val > maxDateStr) {
+                                            return "Date cannot be more than 7 days from today";
+                                          }
+                                          return true;
+                                        };
+                                      }
+                                      const { onChange, ...rest } = register(key, validationRules);
                                       return {
                                         ...rest,
                                         onChange: (e: any) => {
@@ -4034,6 +4215,11 @@ export function EditModal({
                                     className={`w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm ${(readonlyFields.includes(key) || (!isAddMode && editOnlyReadonlyFields.includes(key))) ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : ''
                                       }`}
                                   />
+                                  {errors[key] && (
+                                    <p className="mt-1 text-xs text-red-600">
+                                      {errors[key].message as string}
+                                    </p>
+                                  )}
                                 </div>
                               );
                             }
@@ -4278,6 +4464,49 @@ export function EditModal({
                               );
                             }
 
+                            const isDurationField = key === "duration_minutes";
+                            const inputElement = (
+                              <input
+
+                                type={
+                                  (isJobActivityLogModal &&
+                                    key === "activity_count") ||
+                                    key === "duration_minutes"
+                                    ? "number"
+                                    : "text"
+                                }
+                                min={
+                                  (isJobActivityLogModal &&
+                                    key === "activity_count") ||
+                                    key === "duration_minutes"
+                                    ? 0
+                                    : undefined
+                                }
+                                step={
+                                  (isJobActivityLogModal &&
+                                    key === "activity_count") ||
+                                    key === "duration_minutes"
+                                    ? 1
+                                    : undefined
+                                }
+
+                                {...register(key, {
+                                  required: isFieldRequired(
+                                    toLabel(key),
+                                    title,
+                                    isAddMode
+                                  )
+                                    ? "This field is required"
+                                    : false,
+                                })}
+                                defaultValue={currentFormValues[key] ?? formData[key] ?? ""}
+                                readOnly={readonlyFields.includes(key) || (!isAddMode && editOnlyReadonlyFields.includes(key)) || (isCommissionModal && !isAddMode && (key === "candidate_name" || key === "company_name"))}
+                                className={`${
+                                  isDurationField ? "w-28" : "w-full"
+                                } rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm ${(readonlyFields.includes(key) || (!isAddMode && editOnlyReadonlyFields.includes(key)) || (isCommissionModal && !isAddMode && (key === "candidate_name" || key === "company_name"))) ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : ''}`}
+                              />
+                            );
+
                             return (
                               <div
                                 key={key}
@@ -4291,40 +4520,24 @@ export function EditModal({
                                     isAddMode
                                   ) && <span className="text-red-700"> *</span>}
                                 </label>
-                                <input
-
-                                  type={
-                                    isJobActivityLogModal &&
-                                      key === "activity_count"
-                                      ? "number"
-                                      : "text"
-                                  }
-                                  min={
-                                    isJobActivityLogModal &&
-                                      key === "activity_count"
-                                      ? 0
-                                      : undefined
-                                  }
-                                  step={
-                                    isJobActivityLogModal &&
-                                      key === "activity_count"
-                                      ? 1
-                                      : undefined
-                                  }
-
-                                  {...register(key, {
-                                    required: isFieldRequired(
-                                      toLabel(key),
-                                      title,
-                                      isAddMode
-                                    )
-                                      ? "This field is required"
-                                      : false,
-                                  })}
-                                  defaultValue={formData[key] || ""}
-                                  readOnly={readonlyFields.includes(key) || (!isAddMode && editOnlyReadonlyFields.includes(key)) || (isCommissionModal && !isAddMode && (key === "candidate_name" || key === "company_name"))}
-                                  className={`w-full rounded-lg border border-blue-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm ${(readonlyFields.includes(key) || (!isAddMode && editOnlyReadonlyFields.includes(key)) || (isCommissionModal && !isAddMode && (key === "candidate_name" || key === "company_name"))) ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : ''}`}
-                                />
+                                {isDurationField ? (
+                                  <div className="flex items-center space-x-2">
+                                    {inputElement}
+                                    {(() => {
+                                      const num = parseInt(currentFormValues[key] ?? formData[key]);
+                                      if (isNaN(num) || num <= 0) return null;
+                                      const hrs = num / 60;
+                                      const hrsStr = hrs % 1 === 0 ? hrs.toString() : hrs.toFixed(2);
+                                      return (
+                                        <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                                          {hrsStr} hour{hrs === 1 ? "" : "s"}
+                                        </span>
+                                      );
+                                    })()}
+                                  </div>
+                                ) : (
+                                  inputElement
+                                )}
                               </div>
                             );
                           })}
