@@ -223,6 +223,15 @@ const fieldSections: Record<string, string> = {
   job_url: "Professional Information",
   contact_info: "Contact Information",
   source_uid: "Professional Information",
+  validation_status: "Professional Information",
+  send_attempt_count: "Professional Information",
+  provider_message_id: "Professional Information",
+  failure_type: "Professional Information",
+  last_email_sent_at: "Contact Information",
+  unsubscribed_at: "Contact Information",
+  bounced_at: "Contact Information",
+  provider_name: "Professional Information",
+  last_attempted_at: "Contact Information",
   // Raw Job Listing fields
   raw_title: "Basic Information",
   raw_company: "Basic Information",
@@ -248,7 +257,6 @@ const fieldSections: Record<string, string> = {
   bounce_type: "Professional Information",
   bounce_reason: "Professional Information",
   bounce_code: "Professional Information",
-  bounced_at: "Professional Information",
   complaint_flag: "Contact Information",
   complained_at: "Contact Information",
   address1: "Contact Information",
@@ -260,9 +268,7 @@ const fieldSections: Record<string, string> = {
   installment_no: "Professional Information",
   installment_amount: "Professional Information",
   resume_json: "Resume Data",
-  api_key: "Credentials",
-  provider_name: "Credentials",
-  model_name: "Credentials",
+
 
   // Campaign Emails
   vendor_email: "Basic Information",
@@ -429,10 +435,10 @@ const labelOverrides: Record<string, string> = {
   lastmod_user_id: "Last Modified By",
   resume_json: "Resume JSON",
   api_key: "API Key",
-  provider_name: "LLM Provider",
   model_name: "Model Name",
   resume_created_at: "Resume Added",
   api_key_created_at: "Key Added",
+ 
 
   // Campaign Emails
   run_log_id: "Run Log ID",

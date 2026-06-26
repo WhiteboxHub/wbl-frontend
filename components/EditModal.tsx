@@ -834,6 +834,13 @@ const fieldSections: Record<string, string> = {
   error_details: "Other",
   parameters_used: "Other",
   execution_metadata: "Other",
+  validation_status: "Professional Information",
+  last_email_sent_at: "Contact Information",
+  last_attempted_at:"Contact Information",
+  unsubscribed_at: "Contact Information",
+  failure_type: "Professional Information",
+  send_attempt_count: "Professional Information",
+  provider_name: "Professional Information",
 
   candidate_full_name: "Basic Information",
   instructor1_name: "Professional Information",
