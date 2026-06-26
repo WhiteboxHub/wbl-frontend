@@ -594,15 +594,15 @@ const genericStatusOptions = [
 
 const materialTypeOptions = [
   { value: "P", label: "Presentations" },
-  { value: "Y", label: "Must Watch" },
-  { value: "C", label: "Cheatsheets" },
-  { value: "SG", label: "Study Guides" },
-  { value: "I", label: "Interactive Visual Explainers" },
-  { value: "B", label: "Books" },
-  { value: "N", label: "Newsletters" },
-  { value: "M", label: "Materials" },
   { value: "A", label: "Questions" },
+  { value: "SG", label: "Study Guides" },
+  { value: "C", label: "Cheatsheets" },
+  { value: "B", label: "Books" },
+  { value: "Y", label: "Must Watch" },
+  { value: "N", label: "Newsletters" },
+  { value: "I", label: "Interactive Visual Explainers" },
   { value: "G", label: "Git Repo's" },
+  { value: "M", label: "Materials" },
 ];
 
 interface Batch {
