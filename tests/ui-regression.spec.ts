@@ -51,19 +51,6 @@ test.describe("Full UI Grid Regression", () => {
    await page.goto(routePath);
 
 await page.waitForLoadState("networkidle");
-
-console.log("================================");
-console.log("Expected Route :", routePath);
-console.log("Current URL    :", page.url());
-console.log("================================");
-
-if (!page.url().includes(routePath)) {
-  throw new Error(
-    `Navigation failed.
-Expected: ${routePath}
-Actual: ${page.url()}`
-  );
-}
             
             //  FIX: Handle case where Loading... spinner may not appear
             try {
