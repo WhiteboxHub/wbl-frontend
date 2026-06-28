@@ -43,13 +43,28 @@ export async function validateAllTables(
       "[grid] Grid expected — waiting up to 90 s for it to appear...",
     );
     try {
-      await gridWrapper.first().waitFor({ state: "visible", timeout: 90_000 });
-    } catch {
-      throw new Error(
-        `[grid] FAIL: A grid was expected on route "${page.url()}" but none appeared within 90 s. ` +
-          `Check that the AG-Grid component is rendered and the API call returns data.`,
-      );
-    }
+  await gridWrapper.first().waitFor({
+    state: "visible",
+    timeout: 90_000,
+  });
+} catch {
+  console.log("========== GRID DEBUG ==========");
+  console.log("Current URL:", page.url());
+
+  // Save a screenshot
+  await page.screenshot({
+    path: "grid-debug.png",
+    fullPage: true,
+  });
+
+  // Print the page HTML
+  console.log(await page.content());
+
+  throw new Error(
+    `[grid] FAIL: A grid was expected on route "${page.url()}" but none appeared within 90 s. ` +
+      `Check that the AG-Grid component is rendered and the API call returns data.`,
+  );
+}
   } else {
     // Soft-wait: give grids up to 3 s to mount on pages that may or may not have one
     try {

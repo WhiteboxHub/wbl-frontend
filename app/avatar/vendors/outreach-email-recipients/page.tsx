@@ -83,6 +83,7 @@ export default function OutreachEmailRecipientsPage() {
 
             while (hasNext) {
                 const response = await cachedApiFetch(`/outreach-email-recipients/paginated?page=${currentPage}&page_size=${pageSize}`);
+                console.log("Recipients API Response:", response);
                 const { data, has_next } = response.data;
                 allData = [...allData, ...data];
                 hasNext = has_next;
