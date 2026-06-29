@@ -917,7 +917,31 @@ export default function CandidatesInterviews() {
       cellRenderer: (params: any) =>
         params.value ? <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: params.value }} /> : "",
     },
-  ], [selectedModes, selectedTypes, selectedCompanyTypes]);
+  ], [
+    selectedModes,
+    selectedTypes,
+    selectedCompanyTypes,
+    ScheduleMeetRenderer,
+    CandidateNameRenderer,
+    ModeRenderer,
+    FilterHeaderComponent,
+    modeOfInterviewOptions,
+    setSelectedModes,
+    typeOfInterviewOptions,
+    setSelectedTypes,
+    TypeRenderer,
+    companyTypeOptions,
+    setSelectedCompanyTypes,
+    CompanyTypeRenderer,
+    TimeRenderer,
+    TimeCellEditor,
+    EmailRenderer,
+    PhoneRenderer,
+    LinkRenderer,
+    QARenderer,
+    FeedbackRenderer,
+    LinkCellRenderer
+  ]);
 
 
   return (
