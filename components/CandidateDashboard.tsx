@@ -615,7 +615,7 @@ export default function CandidateDashboard() {
 
 
 
-    ], [candidateId, handleJobClick]);
+    ], [candidateId]);
 
     const jobColumnDefs: ColDef[] = useMemo(() => [
         { field: "id", headerName: "ID", width: 80, sortable: true, filter: "agNumberColumnFilter" },
