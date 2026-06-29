@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { WboxCliUsagePanel } from "@/components/analytics/WboxCliUsagePanel";
+import { AiPrepAnalyticsPanel } from "@/components/analytics/AiPrepAnalyticsPanel";
 import { useAuth } from "@/utils/AuthContext";
 import {
   Users, Layers3, CalendarDays, GraduationCap, UserPlus, CalendarPlus, PieChart as PieChartIcon, Wallet, Banknote, TrendingUp, Briefcase, Award, CheckCircle2, Clock, Mic, BarChart2,
@@ -561,6 +562,7 @@ export default function Index() {
     jobs: "Jobs",
     finance: "Finance",
     "wbox-cli": "WboxCLI",
+    "ai-prep": "AI Prep",
   };
 
   const currentTabLabel = tabLabels[activeTab as keyof typeof tabLabels] || "Select Tab";
@@ -622,6 +624,7 @@ export default function Index() {
             <TabsTrigger value="jobs" className="data-[state=active]:bg-amber-100 data-[state=active]:text-amber-800">Jobs</TabsTrigger>
             <TabsTrigger value="finance" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-800">Finance</TabsTrigger>
             <TabsTrigger value="wbox-cli" className="data-[state=active]:bg-violet-100 data-[state=active]:text-violet-800">WboxCLI</TabsTrigger>
+            <TabsTrigger value="ai-prep" className="data-[state=active]:bg-indigo-100 data-[state=active]:text-indigo-800">AI Prep</TabsTrigger>
           </TabsList>
         )}
 
@@ -1376,6 +1379,11 @@ export default function Index() {
         {/* WboxCLI usage */}
         <TabsContent value="wbox-cli" className="mt-0">
           <WboxCliUsagePanel active={activeTab === "wbox-cli"} />
+        </TabsContent>
+
+        {/* AI Prep usage */}
+        <TabsContent value="ai-prep" className="mt-0">
+          <AiPrepAnalyticsPanel active={activeTab === "ai-prep"} />
         </TabsContent>
 
         {/* 9. Jobs */}
