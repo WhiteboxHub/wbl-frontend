@@ -159,8 +159,10 @@ export default function OutreachEmailsPage() {
     try {
       setLoading(true);
       setError("");
-
+      console.log("Fetching outreach emails...");
+      
       const res = await cachedApiFetch("/outreach-emails");
+      console.log("API Response:", res);
 
       const arr = Array.isArray(res) ? res : res?.data ?? [];
 
