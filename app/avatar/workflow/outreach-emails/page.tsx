@@ -7,12 +7,12 @@ import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import { SearchIcon } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import { apiFetch } from "@/lib/api.js";
+import { apiFetch } from "@/lib/api";
 import { cachedApiFetch, invalidateCache } from "@/lib/apiCache";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
 
-export default function OutreachEmailPage() {
+export default function OutreachEmailsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [emails, setEmails] = useState<any[]>([]);
   const [filteredEmails, setFilteredEmails] = useState<any[]>([]);
@@ -20,11 +20,54 @@ export default function OutreachEmailPage() {
   const showLoader = useMinimumLoadingTime(loading);
   const [error, setError] = useState("");
 
+  const statusValues = [
+    "ACTIVE",
+    "PAUSED",
+    "SUPPRESSED",
+    "UNSUBSCRIBED",
+    "INVALID",
+    "BOUNCED",
+    "COMPLAINED",
+  ];
+
+  const validationValues = [
+    "VALID",
+    "EMAIL_INVALID",
+    "DOMAIN_INVALID",
+    "MAILBOX_INVALID",
+    "UNKNOWN",
+  ];
+
+  const bounceValues = [
+    "HARD",
+    "SOFT",
+    "TRANSIENT",
+    "BLOCKED",
+    "POLICY",
+    "SPAM",
+    "UNKNOWN",
+  ];
+
+  const failureValues = [
+    "EMAIL_INVALID",
+    "DOMAIN_INVALID",
+    "MAILBOX_INVALID",
+    "DNS_FAILURE",
+    "SMTP_REJECTED",
+    "SPAM_BLOCKED",
+    "RATE_LIMITED",
+    "TIMEOUT",
+    "PROVIDER_ERROR",
+    "TEMPLATE_ERROR",
+    "SUPPRESSION_LIST",
+    "UNKNOWN",
+  ];
+
   const columnDefs: ColDef[] = [
     {
       field: "id",
       headerName: "ID",
-      width: 100,
+      width: 90,
       pinned: "left",
       editable: false,
     },
@@ -37,54 +80,42 @@ export default function OutreachEmailPage() {
     {
       field: "status",
       headerName: "Status",
-      width: 150,
+      width: 160,
       editable: true,
       cellEditor: "agSelectCellEditor",
       cellEditorParams: {
-        values: [
-          "ACTIVE",
-          "PAUSED",
-          "SUPPRESSED",
-          "UNSUBSCRIBED",
-          "INVALID",
-          "BOUNCED",
-          "COMPLAINED",
-        ],
+        values: statusValues,
       },
     },
     {
       field: "validation_status",
-      headerName: "Validation Status",
-      width: 180,
+      headerName: "Validation",
+      width: 170,
       editable: true,
       cellEditor: "agSelectCellEditor",
       cellEditorParams: {
-        values: [
-          "VALID",
-          "EMAIL_INVALID",
-          "DOMAIN_INVALID",
-          "MAILBOX_INVALID",
-          "UNKNOWN",
-        ],
+        values: validationValues,
       },
     },
     {
       field: "bounce_type",
-      headerName: "Bounce Type",
-      width: 160,
+      headerName: "Bounce",
+      width: 140,
       editable: true,
+      cellEditor: "agSelectCellEditor",
+      cellEditorParams: {
+        values: bounceValues,
+      },
     },
     {
       field: "failure_type",
-      headerName: "Failure Type",
+      headerName: "Failure",
       width: 220,
       editable: true,
-    },
-    {
-      field: "suppression_source",
-      headerName: "Suppression Source",
-      width: 180,
-      editable: true,
+      cellEditor: "agSelectCellEditor",
+      cellEditorParams: {
+        values: failureValues,
+      },
     },
     {
       field: "send_attempt_count",
@@ -95,13 +126,13 @@ export default function OutreachEmailPage() {
     {
       field: "provider_name",
       headerName: "Provider",
-      width: 160,
+      width: 140,
       editable: true,
     },
     {
       field: "provider_message_id",
-      headerName: "Provider Message ID",
-      width: 300,
+      headerName: "Message Id",
+      width: 260,
       editable: true,
     },
     {
@@ -117,38 +148,8 @@ export default function OutreachEmailPage() {
       editable: false,
     },
     {
-      field: "unsubscribed_at",
-      headerName: "Unsubscribed At",
-      width: 180,
-      editable: false,
-    },
-    {
-      field: "bounced_at",
-      headerName: "Bounced At",
-      width: 180,
-      editable: false,
-    },
-    {
-      field: "complained_at",
-      headerName: "Complained At",
-      width: 180,
-      editable: false,
-    },
-    {
-      field: "failed_at",
-      headerName: "Failed At",
-      width: 180,
-      editable: false,
-    },
-    {
       field: "created_at",
-      headerName: "Created At",
-      width: 180,
-      editable: false,
-    },
-    {
-      field: "updated_at",
-      headerName: "Updated At",
+      headerName: "Created",
       width: 180,
       editable: false,
     },
@@ -161,37 +162,23 @@ export default function OutreachEmailPage() {
 
       const res = await cachedApiFetch("/outreach-emails");
 
-      const arr = Array.isArray(res)
-        ? res
-        : res?.data ?? [];
-      const sortedEmails = arr
-        .slice()
-        .sort((a: any, b: any) => b.id - a.id);
+      const arr = Array.isArray(res) ? res : res?.data ?? [];
 
-      setEmails(sortedEmails);
-      setFilteredEmails(sortedEmails);
+      const sorted = arr.sort((a: any, b: any) => b.id - a.id);
 
-      toast.success("Fetched outreach emails successfully.");
-    } catch (e: any) {
-      const msg =
-        e?.body ||
-        e?.message ||
-        "Failed to fetch outreach emails";
+      setEmails(sorted);
+      setFilteredEmails(sorted);
 
-      setError(
-        typeof msg === "string"
-          ? msg
-          : JSON.stringify(msg)
-      );
+    toast.success("Fetched outreach emails.");
+} catch (e: any) {
+  console.error("Outreach Emails API Error:", e);
 
-      toast.error(
-        typeof msg === "string"
-          ? msg
-          : JSON.stringify(msg)
-      );
-    } finally {
-      setLoading(false);
-    }
+  const msg = e?.body || e?.message || "Failed to fetch";
+  setError(msg);
+  toast.error(msg);
+} finally {
+  setLoading(false);
+}  
   };
 
   useEffect(() => {
@@ -199,61 +186,45 @@ export default function OutreachEmailPage() {
   }, []);
 
   useEffect(() => {
-    const lower = searchTerm.trim().toLowerCase();
+    const search = searchTerm.toLowerCase();
 
-    if (!lower) {
+    if (!search) {
       setFilteredEmails(emails);
       return;
     }
 
-    const filtered = emails.filter((row) => {
-      return Object.values(row).some((value) =>
-        String(value ?? "")
-          .toLowerCase()
-          .includes(lower)
-      );
-    });
-
-    setFilteredEmails(filtered);
+    setFilteredEmails(
+      emails.filter((row) =>
+        Object.values(row).some((v) =>
+          String(v ?? "").toLowerCase().includes(search)
+        )
+      )
+    );
   }, [searchTerm, emails]);
 
-  const handleRowUpdated = async (updatedRow: any) => {
+  const handleRowUpdated = async (row: any) => {
     try {
-      await apiFetch(`/outreach-emails/${updatedRow.id}`, {
+      await apiFetch(`/outreach-emails/${row.id}`, {
         method: "PUT",
-        body: updatedRow,
+        body: row,
       });
 
       await invalidateCache("/outreach-emails");
 
-      const updated = emails
-        .map((e) =>
-          e.id === updatedRow.id
-            ? updatedRow
-            : e
-        )
-        .slice()
-        .sort((a, b) => b.id - a.id);
+      const updated = emails.map((e) =>
+        e.id === row.id ? row : e
+      );
 
       setEmails(updated);
       setFilteredEmails(updated);
 
-      toast.success("Row updated successfully.");
+      toast.success("Updated successfully");
     } catch (e: any) {
-      const msg =
-        e?.body ||
-        e?.message ||
-        "Failed to update outreach email";
-
-      toast.error(
-        typeof msg === "string"
-          ? msg
-          : JSON.stringify(msg)
-      );
+      toast.error(e?.body || e?.message);
     }
   };
 
-  const handleRowDeleted = async (id: number) => {
+  const handleDelete = async (id: number) => {
     try {
       await apiFetch(`/outreach-emails/${id}`, {
         method: "DELETE",
@@ -261,131 +232,102 @@ export default function OutreachEmailPage() {
 
       await invalidateCache("/outreach-emails");
 
-      const updated = emails.filter(
-        (e) => e.id !== id
-      );
+      const updated = emails.filter((e) => e.id !== id);
 
       setEmails(updated);
       setFilteredEmails(updated);
 
-      toast.success(`Email ${id} deleted.`);
+      toast.success("Deleted");
     } catch (e: any) {
-      const msg =
-        e?.body ||
-        e?.message ||
-        "Failed to delete outreach email";
-
-      toast.error(
-        typeof msg === "string"
-          ? msg
-          : JSON.stringify(msg)
-      );
+      toast.error(e?.body || e?.message);
     }
   };
 
   if (showLoader) return <Loader />;
 
-  if (error) {
+  if (error)
     return (
-      <p className="text-center mt-8 text-red-600">
+      <p className="text-center mt-10 text-red-500">
         {error}
       </p>
     );
-  }
 
   return (
     <div className="space-y-6">
       <Toaster position="top-center" />
 
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold">
-            Outreach Emails
-          </h1>
-          <p>Manage outreach email records here.</p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold">
+          Outreach Emails
+        </h1>
+        <p>Manage outreach email workflow.</p>
       </div>
 
       <div className="max-w-md">
-        <Label htmlFor="search">Search</Label>
+        <Label>Search</Label>
 
-        <div className="relative mt-1">
-          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <div className="relative mt-2">
+          <SearchIcon className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
 
           <Input
-            id="search"
-            value={searchTerm}
-            onChange={(e) =>
-              setSearchTerm(e.target.value)
-            }
-            placeholder="Search emails..."
             className="pl-10"
+            placeholder="Search..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
       </div>
 
       <AGGridTable
+        title={`Outreach Emails (${filteredEmails.length})`}
         rowData={filteredEmails}
         columnDefs={columnDefs}
-        title={`Outreach Emails (${filteredEmails.length})`}
-        height="calc(70vh)"
+        height="75vh"
         showSearch={false}
         onRowUpdated={handleRowUpdated}
-        onRowDeleted={handleRowDeleted}
-        onRowAdded={async (newRow: any) => {
+        onRowDeleted={handleDelete}
+        onRowAdded={async (row: any) => {
           try {
-            const payload = {
-              email: newRow.email || "",
-              status: newRow.status || "ACTIVE",
-              validation_status:
-                newRow.validation_status || "VALID",
-            };
-
-            if (!payload.email) {
+            if (!row.email) {
               toast.error("Email is required");
               return;
             }
 
-            const res = await apiFetch(
-              "/outreach-emails",
-              {
-                method: "POST",
-                body: payload,
-              }
-            );
+            const payload = {
+              email: row.email,
+              status: row.status || "ACTIVE",
+              validation_status:
+                row.validation_status || "VALID",
+              bounce_type: row.bounce_type,
+              failure_type: row.failure_type,
+              provider_name: row.provider_name,
+              provider_message_id:
+                row.provider_message_id,
+              send_attempt_count:
+                row.send_attempt_count || 0,
+            };
 
-            await invalidateCache(
-              "/outreach-emails"
-            );
+            const res = await apiFetch("/outreach-emails", {
+              method: "POST",
+              body: payload,
+            });
+
+            await invalidateCache("/outreach-emails");
 
             const created = Array.isArray(res)
               ? res
               : res?.data ?? res;
 
-            const updated = [created, ...emails]
-              .slice()
-              .sort(
-                (a: any, b: any) =>
-                  b.id - a.id
-              );
+            const updated = [created, ...emails].sort(
+              (a: any, b: any) => b.id - a.id
+            );
 
             setEmails(updated);
             setFilteredEmails(updated);
 
-            toast.success(
-              "Outreach email created"
-            );
+            toast.success("Email added");
           } catch (e: any) {
-            const msg =
-              e?.body ||
-              e?.message ||
-              "Failed to create outreach email";
-
-            toast.error(
-              typeof msg === "string"
-                ? msg
-                : JSON.stringify(msg)
-            );
+            toast.error(e?.body || e?.message);
           }
         }}
       />
