@@ -25,7 +25,9 @@ const excludedFields = [
   "instructor3_id", "enddate", "batch", "job_id", "employee_id", "job_owner", "job_owner_id",
   "job_owner_1", "job_owner_2", "job_owner_3",
   "isGroup", "isExpanded", "totalDeposit", "originalId",
-  "position_id", "position_company", "agreement",
+
+  "position_id", "position_company", "agreement", "mass_email",
+
 ];
 
 const fieldSections: Record<string, string> = {
@@ -72,6 +74,7 @@ const fieldSections: Record<string, string> = {
   secondary_phone: "Contact Information",
   phone_ext: "Professional Information",
   last_mod_datetime: "Contact Information",
+  agreement: "Professional Information",
   subject_id: "Basic Information",
   subjectid: "Professional Information",
   courseid: "Professional Information",
@@ -176,7 +179,7 @@ const fieldSections: Record<string, string> = {
   cm_subject: "Basic Information",
   material_type: "Basic Information",
   job_name: "Basic Information",
-  job_description: "Notes",
+  job_description: "Professional Information",
   // created_date: "Professional Information",
   activity_date: "Professional Information",
   activity_count: "Professional Information",
@@ -550,7 +553,7 @@ const ExpandableTextViewer = ({ content }: { content: string }) => {
   const [expanded, setExpanded] = useState(false);
   if (!content) return null;
   const isLong = content.length > 250;
-  
+
   return (
     <div className="relative">
       <div
@@ -1172,7 +1175,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
 
   // Custom ordering for Notes section in raw job listings
   if (sectionedFields["Notes"]?.length > 0) {
-    const notesFieldOrder = ['payload', 'raw_payload', 'raw_description', 'description', 'job_description', 'raw_notes', 'notes', 'feedback_text'];
+    const notesFieldOrder = ['payload', 'raw_payload', 'raw_description', 'description', 'raw_notes', 'notes'];
     sectionedFields["Notes"].sort((a, b) => {
       const aIndex = notesFieldOrder.indexOf(a.key);
       const bIndex = notesFieldOrder.indexOf(b.key);
