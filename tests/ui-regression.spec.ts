@@ -48,9 +48,7 @@ test.describe("Full UI Grid Regression", () => {
             );
             console.log(`${"─".repeat(60)}`);
 
-   await page.goto(routePath);
-
-await page.waitForLoadState("networkidle");
+            await page.goto(routePath);
             
             //  FIX: Handle case where Loading... spinner may not appear
             try {
