@@ -408,6 +408,10 @@ export default function JobListingsPage() {
             return textContent === '';
         };
 
+        const isValidJobId = (id: any): boolean => {
+            return id && id !== "undefined" && id !== "null";
+        };
+
         const payload: Record<string, any> = {};
         allowedFields.forEach(field => {
             if (field in data) {
@@ -688,7 +692,18 @@ export default function JobListingsPage() {
             { field: "contact_linkedin", headerName: "Contact LinkedIn", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true, cellRenderer: LinkedinCellRenderer },
             { field: "job_url", headerName: "Job URL", width: 250, sortable: true, filter: "agTextColumnFilter", editable: true, cellRenderer: LinkCellRenderer },
             { field: "job_url_type", headerName: "Job URL Type", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true },
-            { field: "source_job_id", headerName: "Source Job ID", width: 150, sortable: true, filter: "agTextColumnFilter", editable: true },
+            
+                { field: "source_job_id",
+                headerName: "Source Job ID",
+                width: 150,
+                sortable: true,
+                filter: "agTextColumnFilter",
+                editable: true,
+                cellRenderer: (params: any) => {
+                    const id = params.value;
+                    return id && id !== "undefined" && id !== "null" ? <span>{id}</span> : "";
+                },
+                        },
             { field: "normalized_title", headerName: "Normalized Title", width: 200, sortable: true, filter: "agTextColumnFilter", editable: true },
             { field: "company_id", headerName: "Company ID", width: 130, sortable: true, filter: "agNumberColumnFilter", editable: true },
             { field: "confidence_score", headerName: "Conf. Score", width: 130, sortable: true, filter: "agNumberColumnFilter", editable: true },
