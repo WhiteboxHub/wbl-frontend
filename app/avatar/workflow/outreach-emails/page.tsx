@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { ColDef } from "ag-grid-community";
 import { AGGridTable } from "@/components/AGGridTable";
 import { Input } from "@/components/admin_ui/input";
@@ -155,7 +155,7 @@ export default function OutreachEmailsPage() {
     },
   ];
 
-  const fetchEmails = async () => {
+  const fetchEmails = useCallback (async () => {
     try {
       setLoading(true);
       setError("");
@@ -181,11 +181,12 @@ export default function OutreachEmailsPage() {
 } finally {
   setLoading(false);
 }  
-  };
+  }, []);
 
   useEffect(() => {
     fetchEmails();
-  }, []);
+  },  [fetchEmails]);
+  
 
   useEffect(() => {
     const search = searchTerm.toLowerCase();
