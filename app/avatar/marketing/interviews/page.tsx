@@ -405,6 +405,77 @@ const initialFormData: InterviewFormData = {
   duration_minutes: 60,
 };
 
+const ScheduleMeetRenderer = (params: any) => {
+  const [loading, setLoading] = useState(false);
+  const notes = params.data?.notes || "";
+  
+  const meetMatch = notes.match(/https:\/\/meet\.google\.com\/[a-z0-9-]+/i);
+  
+  const handleSchedule = async () => {
+    if (!params.data?.id) return;
+    
+    setLoading(true);
+    try {
+      const res = await api.post(`/interviews/${params.data.id}/generate-meet`);
+      const { meet_link, event_id } = res.data;
+      
+      const newNotes = `${notes}\n\nMeet Link: ${meet_link}\nEvent ID: ${event_id}`.trim();
+      
+      const updatePayload = {
+        ...params.data,
+        notes: newNotes,
+        gcal_event_id: event_id,
+      };
+      
+      if (updatePayload.backup_recording_url === undefined && updatePayload.backup_url) {
+        updatePayload.backup_recording_url = updatePayload.backup_url;
+      }
+      if (updatePayload.job_posting_url === undefined && updatePayload.url) {
+        updatePayload.job_posting_url = updatePayload.url;
+      }
+      if (updatePayload.duration_minutes !== undefined && updatePayload.duration_minutes !== null) {
+        updatePayload.duration_minutes = Number(updatePayload.duration_minutes);
+      }
+      
+      const updateRes = await api.put(`/interviews/${params.data.id}`, updatePayload);
+      
+      toast.success("Meet scheduled and added to notes!");
+      await invalidateCache("/interviews");
+      
+      params.node.setData(updateRes?.data || updateRes);
+    } catch (err: any) {
+      console.error("Failed to schedule meet:", err);
+      toast.error(err.response?.data?.detail || "Failed to schedule meet.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (meetMatch) {
+    return (
+      <a 
+        href={meetMatch[0]} 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors"
+      >
+        Join Meet
+      </a>
+    );
+  }
+
+  return (
+    <Button 
+      onClick={handleSchedule} 
+      disabled={loading}
+      className="h-6 px-2 py-0 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+      size="sm"
+    >
+      {loading ? "Scheduling..." : "Schedule Meet"}
+    </Button>
+  );
+};
+
 export default function CandidatesInterviews() {
   const [searchTerm, setSearchTerm] = useState("");
   const [interviews, setInterviews] = useState<any[]>([]);
@@ -719,6 +790,16 @@ export default function CandidatesInterviews() {
 
   const columnDefs = useMemo<ColDef[]>(() => [
     { field: "id", headerName: "ID", pinned: "left", width: 80 },
+    {
+      field: "action",
+      headerName: "Action",
+      pinned: "left",
+      width: 120,
+      cellRenderer: ScheduleMeetRenderer,
+      editable: false,
+      sortable: false,
+      filter: false,
+    },
     {
       field: "candidate.full_name",
       headerName: "Full Name",
