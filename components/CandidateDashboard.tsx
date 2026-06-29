@@ -878,7 +878,7 @@ export default function CandidateDashboard() {
     }, [positions, selectedModes, selectedStatuses, selectedTypes, jobSearchTerm]);
 
     const handleAddInterview = async () => {
-        const { company, interview_date, interviewer_emails, mode_of_interview, type_of_interview, position_title } = addInterviewForm;
+        const { company, interview_date, interviewer_emails, mode_of_interview, type_of_interview, position_title, job_description } = addInterviewForm;
 
         if (!company || !interview_date || !position_title || !mode_of_interview || !type_of_interview) {
             toast.error("Please fill in all mandatory fields (*)");
