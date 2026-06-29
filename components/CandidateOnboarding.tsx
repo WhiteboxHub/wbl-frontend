@@ -141,8 +141,15 @@ export default function CandidateOnboarding({
         return filtered;
     };
 
+    // Determine if we are in "add mode" (initial missing fields) or editing existing profile
+    const isAddMode = initialHasMissingFields;
+
     const validateProfile = (profile: any): string => {
-        const requiredFields = ['full_name', 'email', 'phone', 'workstatus', 'dob', 'github_link', 'education', 'address', 'linkedin_id', 'zip_code', 'emergcontactname', 'emergcontactemail', 'emergcontactphone', 'emergcontactaddrs'];
+        // Base required fields for all modes
+        const baseRequired = ['full_name', 'email', 'phone', 'workstatus', 'dob', 'github_link', 'education', 'address', 'linkedin_id', 'zip_code'];
+        // Emergency contact fields are only required in add mode
+        const emergencyRequired = isAddMode ? ['emergcontactname', 'emergcontactemail', 'emergcontactphone', 'emergcontactaddrs'] : [];
+        const requiredFields = [...baseRequired, ...emergencyRequired];
         const missing = requiredFields.filter(f => !profile[f]);
         if (missing.length > 0) {
             return `Missing required fields: ${missing.join(', ')}`;
@@ -158,15 +165,13 @@ export default function CandidateOnboarding({
     };
 
     const handleSaveProfile = async () => {
-        const requiredFields = [
-            'full_name', 'email', 'phone', 'workstatus',
-            'dob', 'github_link', 'education', 'address',
-            'linkedin_id', 'zip_code',
-            'emergcontactname', 'emergcontactemail', 'emergcontactphone', 'emergcontactaddrs'
-        ];
-
+        // Base required fields for saving
+        const baseRequired = ['full_name', 'email', 'phone', 'workstatus', 'dob', 'github_link', 'education', 'address', 'linkedin_id', 'zip_code'];
+        const emergencyRequired = isAddMode ? ['emergcontactname', 'emergcontactemail', 'emergcontactphone', 'emergcontactaddrs'] : [];
+        const requiredFields = [...baseRequired, ...emergencyRequired];
+        
         const missingFields = requiredFields.filter(field => !profile[field]);
-
+        
         if (missingFields.length > 0) {
             toast.error("Please fill all required details to continue.");
             return;

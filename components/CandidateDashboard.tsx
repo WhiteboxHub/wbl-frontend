@@ -327,7 +327,7 @@ export default function CandidateDashboard() {
     const { userRole } = useAuth() as { userRole: string };
 
     // --- CLICK TRACKING LOGIC (SW EDITION) ---
-    const handleJobClick = async (jobListingId: number, url: string) => {
+    const handleJobClick = useCallback(async (jobListingId: number, url: string) => {
         // 1. Save to local IndexedDB instantly (main thread)
         const { trackLocalClick } = await import('@/utils/clickTracker');
         await trackLocalClick(jobListingId);
@@ -342,7 +342,9 @@ export default function CandidateDashboard() {
 
         // 3. Open link
         window.open(url, '_blank');
-    };
+    }, []);
+
+    // ----------------------------
 
     // ----------------------------
 
@@ -613,7 +615,7 @@ export default function CandidateDashboard() {
 
 
 
-    ], [candidateId]);
+    ], [candidateId, handleJobClick]);
 
     const jobColumnDefs: ColDef[] = useMemo(() => [
         { field: "id", headerName: "ID", width: 80, sortable: true, filter: "agNumberColumnFilter" },
