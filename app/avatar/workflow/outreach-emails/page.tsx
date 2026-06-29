@@ -166,7 +166,7 @@ export default function OutreachEmailsPage() {
 
       const arr = Array.isArray(res) ? res : res?.data ?? [];
 
-      const sorted = arr.sort((a: any, b: any) => b.id - a.id);
+      const sorted = [...arr].sort((a: any, b: any) => b.id - a.id);
 
       setEmails(sorted);
       setFilteredEmails(sorted);
