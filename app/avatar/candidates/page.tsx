@@ -1241,7 +1241,7 @@ export default function CandidatesPage() {
         if (Object.keys(filters).length > 0) {
           url += `&filters=${encodeURIComponent(JSON.stringify(filters))}`;
         }
-        const res = await cachedApiFetch(url);
+        const res = await cachedApiFetch("/candidates/");
         const payload = res.data;
         const dataArray = payload?.data ?? payload;
         if (!Array.isArray(dataArray)) {
