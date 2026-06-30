@@ -249,7 +249,7 @@ function useCounter(target: number, duration = 1000) {
 
 const VALID_TABS = new Set([
   "batch", "leads", "preparation", "marketing", "interview", "placement",
-  "employee", "extraction", "jobs", "finance", "wbox-cli",
+  "employee", "extraction", "jobs", "finance", "wbox-cli", "ai-prep",
 ]);
 
 export default function Index() {
@@ -832,7 +832,7 @@ export default function Index() {
               <CardHeader className="p-3 pb-1 border-b border-green-200">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Latest 5 batch's fee collection
+                    Latest 5 batches&apos; fee collection
                   </CardTitle>
                   <TrendingUp className="size-4 text-emerald-600" />
                 </div>
