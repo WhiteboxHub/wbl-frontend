@@ -74,49 +74,58 @@ export default function OutreachEmailRecipientsPage() {
     const [searchTerm, setSearchTerm] = useState("");
 
     const fetchRecipients = useCallback(async () => {
-    try {
         setLoading(true);
+        try {
+            const pageSize = 5000;
+            let allData: OutreachEmailRecipient[] = [];
+            let currentPage = 1;
+            let hasNext = true;
 
-        const res = await cachedApiFetch("/outreach-email-recipients");
+            while (hasNext) {
+                const response = await cachedApiFetch(`/outreach-email-recipients/paginated?page=${currentPage}&page_size=${pageSize}`);
+                const { data, has_next } = response.data;
+                allData = [...allData, ...data];
+                hasNext = has_next;
+                currentPage++;
+                if (currentPage > 100) break;
+            }
 
-        const data = Array.isArray(res) ? res : res?.data ?? [];
-
-        setAllRecipients(data);
-        setFilteredRecipients(data);
-
-    } finally {
-        setLoading(false);
-    }
-}, []);
+            setAllRecipients(allData);
+            setFilteredRecipients(allData);
+        } catch (error) {
+            console.error("Error fetching recipients:", error);
+            toast.error("Failed to load recipients");
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
         fetchRecipients();
     }, [fetchRecipients]);
 
     useEffect(() => {
-    if (searchTerm.trim() === "") {
-        setFilteredRecipients(allRecipients);
-    } else {
-        const lower = searchTerm.toLowerCase();
-
-        const filtered = allRecipients.filter((r) => {
-            return (
-                r.email.toLowerCase().includes(lower) ||
-                r.source_type.toLowerCase().includes(lower) ||
-                r.status.toLowerCase().includes(lower)
-            );
-        });
-
-        setFilteredRecipients(filtered);
-    }
-}, [searchTerm, allRecipients, setFilteredRecipients]);
+        if (searchTerm.trim() === "") {
+            setFilteredRecipients(allRecipients);
+        } else {
+            const lower = searchTerm.toLowerCase();
+            const filtered = allRecipients.filter((r) => {
+                return (
+                    (r.email.toLowerCase().includes(lower)) ||
+                    (r.source_type.toLowerCase().includes(lower)) ||
+                    (r.status.toLowerCase().includes(lower))
+                );
+            });
+            setFilteredRecipients(filtered);
+        }
+    }, [searchTerm, allRecipients]);
 
     const handleRowUpdated = async (updatedData: any) => {
         try {
             const id = updatedData.id;
             const { id: _, created_at, updated_at, email_lc, ...dataToSave } = updatedData;
             const response = await api.put(`/outreach-email-recipients/${id}`, dataToSave);
-            await invalidateCache("/outreach-email-recipients");
+            await invalidateCache("/outreach-email-recipients/paginated");
             const updatedRecord = response.data;
             setAllRecipients((prev) =>
                 prev.map((row) => (row.id === id ? { ...row, ...updatedRecord } : row))
@@ -131,7 +140,7 @@ export default function OutreachEmailRecipientsPage() {
     const handleRowDeleted = async (id: string | number) => {
         try {
             await api.delete(`/outreach-email-recipients/${id}`);
-            await invalidateCache("/outreach-email-recipients");
+            await invalidateCache("/outreach-email-recipients/paginated");
             setAllRecipients((prev) => prev.filter((row) => row.id !== id));
             toast.success("Recipient deleted successfully");
         } catch (error: any) {
@@ -143,7 +152,7 @@ export default function OutreachEmailRecipientsPage() {
     const handleRowAdded = async (newData: any) => {
         try {
             const response = await api.post("/outreach-email-recipients/", newData);
-            await invalidateCache("/outreach-email-recipients");
+            await invalidateCache("/outreach-email-recipients/paginated");
             const addedRecord = response.data;
             setAllRecipients((prev) => [addedRecord, ...prev]);
             toast.success("Recipient added successfully");
