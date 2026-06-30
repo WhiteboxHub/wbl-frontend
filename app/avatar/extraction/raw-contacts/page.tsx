@@ -118,27 +118,6 @@ export default function AutomationContactExtractsPage() {
         onConfirm: () => { },
     });
 
-    // const fetchExtracts = useCallback(async () => {
-    //     setLoading(true);
-    //     try {
-    //         const res = await cachedApiFetch("/automation-extracts/paginate?");
-    //         // cachedApiFetch returns { data: [...] }
-    //         const data = res?.data || [];
-    //         setExtracts(data);
-    //     } catch (err: any) {
-    //         console.error("[fetchExtracts] Error:", err);
-    //         // Handle auth errors consistently
-    //         if (err?.status === 401) {
-    //             toast.error("Session expired. Please log in again.");
-    //         } else {
-    //             toast.error(err?.message || "Failed to load extracts");
-    //         }
-    //     } finally {
-    //         setLoading(false);
-    //     }
-    // }, []);
-
-
     const fetchExtracts = useCallback(async () => {
         setLoading(true);
         try {
@@ -147,17 +126,13 @@ export default function AutomationContactExtractsPage() {
             let currentPage = 1;
             let hasNext = true;
             while (hasNext) {
-
                 const res = await cachedApiFetch(`/automation-extracts/paginate?page=${currentPage}&page_size=${pageSize}`);
                 const payload = res?.data || res;
-                const pageData = payload?.data || [];
+                 const pageData = Array.isArray(payload) ? payload : (payload?.data || []);
                 const has_next_page = payload?.has_next || false;
-
                 allData = [...allData, ...pageData];
-
                 hasNext = has_next_page;
                 currentPage++;
-
                 // Safety exit
                 if (currentPage > 100) break;
             }
@@ -174,7 +149,7 @@ export default function AutomationContactExtractsPage() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [setLoading, setExtracts, cachedApiFetch,setLoading]);
 
 
     useEffect(() => {

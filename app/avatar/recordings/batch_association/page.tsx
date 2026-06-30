@@ -40,37 +40,30 @@ const FilterHeaderComponent = ({
                 ? prev.filter((i) => getOptionValue(i) !== value)
                 : [...prev, item];
         });
-        // Close dropdown after selection
-        setFilterVisible(false);
     };
-    const headerRef = useRef<HTMLDivElement>(null);
+    
     const filterButtonRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
     const [filterVisible, setFilterVisible] = useState(false);
-
     const toggleFilter = (e: React.MouseEvent) => {
         e.stopPropagation();
-        const targetRef = filterButtonRef.current || headerRef.current;
+        const targetRef = filterButtonRef.current ;
         if (targetRef) {
             const rect = targetRef.getBoundingClientRect();
-
             setDropdownPos({
                 top: rect.bottom + 8,
-                left: Math.max(0, rect.left - 100),
+                left: rect.left,
             });
         }
         setFilterVisible((v) => !v);
     };
-
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
         e.stopPropagation();
         setSelectedItems(e.target.checked ? [...options] : []);
     };
-
     const isAllSelected = selectedItems.length === options.length && options.length > 0;
     const isIndeterminate = selectedItems.length > 0 && selectedItems.length < options.length;
-
     const colorMap: Record<string, string> = {
         blue: "bg-blue-500",
         green: "bg-green-500",
@@ -129,53 +122,27 @@ const FilterHeaderComponent = ({
                             {selectedItems.length}
                         </span>
                     )}
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-4 w-4"
-                        style={{ color: selectedItems.length > 0 ? "#8b5cf6" : "#6b7280" }}
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                    >
-                        <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z"
-                        />
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" style={{ color: selectedItems.length > 0 ? "#8b5cf6" : "#6b7280" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2l-7 8v5l-4-3v-2L3 6V4z" />
                     </svg>
                 </div>
             </div>
-
             {filterVisible &&
                 createPortal(
                     <div
                         ref={dropdownRef}
                         className="filter-dropdown pointer-events-auto fixed flex w-56 flex-col space-y-2 rounded-lg border bg-white p-3 text-sm shadow-xl dark:border-gray-600 dark:bg-gray-800"
                         style={{
-                            top: dropdownPos.top + 5,
-                            left: dropdownPos.left,
-                            zIndex: 99999,
-                            maxHeight: "300px",
-                            overflowY: "auto",
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                    >
+                            top: dropdownPos.top + 5, left: dropdownPos.left, zIndex: 99999, maxHeight: "300px", overflowY: "auto",
+                        }} onClick={(e) => e.stopPropagation()} >
                         <div className="mb-2 border-b pb-2">
-                            <label
-                                className="font-medium text-sm flex cursor-pointer items-center rounded px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                <input
-                                    type="checkbox"
-                                    checked={isAllSelected}
-                                    ref={(el) => {
-                                        if (el) el.indeterminate = isIndeterminate;
-                                    }}
+                            <label className="font-medium text-sm flex cursor-pointer items-center rounded px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={(e) => e.stopPropagation()}  >
+                                <input type="checkbox" checked={isAllSelected} ref={(el) => {
+                                    if (el) el.indeterminate = isIndeterminate;
+                                }}
                                     onChange={handleSelectAll}
                                     className="mr-3"
-                                />
-                                Select All
+                                />  Select All
                             </label>
                         </div>
                         {options.map((option) => {
@@ -183,32 +150,15 @@ const FilterHeaderComponent = ({
                             const key = getOptionKey(option);
                             const isSelected = selectedItems.some((i) => getOptionValue(i) === value);
                             return (
-                                <label
-                                    key={key}
-                                    className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700"
-                                    onClick={(e) => e.stopPropagation()}
+                                <label key={key} className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={(e) => e.stopPropagation()}
                                 >
-                                    <input
-                                        type="checkbox"
-                                        checked={isSelected}
-                                        onChange={() => handleItemChange(option)}
-                                        className="mr-3"
-                                    />
-                                    {renderOption(option)}
+                                    <input type="checkbox" checked={isSelected} onChange={() => handleItemChange(option)} className="mr-3" /> {renderOption(option)}
                                 </label>
                             );
                         })}
                         {selectedItems.length > 0 && (
                             <div className="mt-2 border-t pt-2">
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedItems([]);
-                                    }}
-                                    className="w-full py-1 text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                                >
-                                    Clear All
-                                </button>
+                                <button onClick={(e) => { e.stopPropagation(); setSelectedItems([]); }} className="w-full py-1 text-sm text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"> Clear All</button>
                             </div>
                         )}
                     </div>,
@@ -229,8 +179,8 @@ export default function RecordingBatchPage() {
     const [selectedBatchNames, setSelectedBatchNames] = useState<string[]>([]);
 
     const batchNameOptions = useMemo(() => {
-        const names = [...new Set(recordingBatches.map((r) => r.batch_name).filter(Boolean))];
-        return names.sort();
+        const names = [...new Set(recordingBatches.map((r) => r.batch_name?.trim()).filter(Boolean))];
+        return names.sort((a, b) => b.localeCompare(a))
     }, [recordingBatches]);
 
     const columnDefs: ColDef[] = useMemo(() => [
@@ -243,7 +193,7 @@ export default function RecordingBatchPage() {
         {
             field: "recording_name",
             headerName: "Recording Name",
-            width: 300,
+            width: 600,
             editable: false,
         },
         {
@@ -272,7 +222,7 @@ export default function RecordingBatchPage() {
                 getOptionKey: (option: string) => option,
             },
         },
-    ], [selectedBatchNames, batchNameOptions]);
+    ], [selectedBatchNames, batchNameOptions,FilterHeaderComponent,setSelectedBatchNames]);
 
     const fetchAllData = async () => {
         try {
@@ -342,7 +292,7 @@ export default function RecordingBatchPage() {
         }
 
         setFilteredData(filtered);
-    }, [searchTerm, recordingBatches, selectedBatchNames]);
+    }, [searchTerm, recordingBatches, selectedBatchNames,setFilteredData]);
 
     const handleRowDeleted = async (compositeId: any) => {
         try {
