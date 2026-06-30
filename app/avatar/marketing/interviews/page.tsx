@@ -423,9 +423,24 @@ const ScheduleMeetRenderer = (params: any) => {
     }
   }
   
-  const handleSchedule = async () => {
+  const handleSchedule = () => {
     if (!params.data?.id) return;
     
+    toast("Schedule Google Meet?", {
+      description: "This will send email invitations to all attendees.",
+      action: {
+        label: "Confirm",
+        onClick: () => executeSchedule(),
+      },
+      cancel: {
+        label: "Cancel",
+        onClick: () => {},
+      },
+      duration: 5000,
+    });
+  };
+
+  const executeSchedule = async () => {
     setLoading(true);
     try {
       const res = await api.post(`/interviews/${params.data.id}/generate-meet`);
