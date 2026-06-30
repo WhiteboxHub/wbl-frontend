@@ -161,7 +161,7 @@ export default function OutreachEmailsPage() {
       setError("");
       console.log("Fetching outreach emails...");
       
-      const res = await cachedApiFetch("/outreach-emails");
+      const res = await cachedApiFetch("/outreach-emails/");
       console.log("API Response:", res);
 
       const arr = Array.isArray(res) ? res : res?.data ?? [];
@@ -207,12 +207,9 @@ export default function OutreachEmailsPage() {
 
   const handleRowUpdated = async (row: any) => {
     try {
-      await apiFetch(`/outreach-emails/${row.id}`, {
-        method: "PUT",
-        body: row,
-      });
+      await apiFetch(`/outreach-emails/${row.id}/`, { method: "PUT", body: row });
 
-      await invalidateCache("/outreach-emails");
+      await invalidateCache("/outreach-emails/");
 
       const updated = emails.map((e) =>
         e.id === row.id ? row : e
@@ -229,11 +226,9 @@ export default function OutreachEmailsPage() {
 
   const handleDelete = async (id: number) => {
     try {
-      await apiFetch(`/outreach-emails/${id}`, {
-        method: "DELETE",
-      });
+    await apiFetch(`/outreach-emails/${id}/`, { method: "DELETE" });  
 
-      await invalidateCache("/outreach-emails");
+      await invalidateCache("/outreach-emails/");
 
       const updated = emails.filter((e) => e.id !== id);
 
@@ -248,38 +243,47 @@ export default function OutreachEmailsPage() {
 
   if (showLoader) return <Loader />;
 
-  if (error)
-    return (
-      <p className="text-center mt-10 text-red-500">
-        {error}
-      </p>
-    );
-
   return (
-    <div className="space-y-6">
-      <Toaster position="top-center" />
+   <div className="space-y-6">
+    <Toaster position="top-center" />
 
-      <div>
-        <h1 className="text-2xl font-bold">
-          Outreach Emails
-        </h1>
-        <p>Manage outreach email workflow.</p>
+    {/* Title */}
+    <div>
+      <h1 className="text-2xl font-bold">
+        Outreach Emails
+      </h1>
+      <p>Manage outreach email workflow.</p>
+    </div>
+
+    {/* ✅ ADD HERE - between title and search */}
+    {error && (
+      <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600 flex items-center justify-between">
+        <span>⚠️ {error}</span>
+        <button
+          className="underline font-medium ml-4"
+          onClick={fetchEmails}
+        >
+          Retry
+        </button>
       </div>
+    )}
 
-      <div className="max-w-md">
-        <Label>Search</Label>
+    {/* Search */}
+    <div className="max-w-md">
+      <Label>Search</Label>
 
-        <div className="relative mt-2">
-          <SearchIcon className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+      <div className="relative mt-2">
+        <SearchIcon className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
 
-          <Input
-            className="pl-10"
-            placeholder="Search..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
+        <Input
+          className="pl-10"
+          placeholder="Search..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
       </div>
+    </div>
+
 
       <AGGridTable
         title={`Outreach Emails (${filteredEmails.length})`}
@@ -310,14 +314,11 @@ export default function OutreachEmailsPage() {
                 row.send_attempt_count || 0,
             };
 
-            const res = await apiFetch("/outreach-emails", {
-              method: "POST",
-              body: payload,
-            });
-
-            await invalidateCache("/outreach-emails");
-
-            const created = Array.isArray(res)
+              // ✅ FIX - store the result
+              const res = await apiFetch("/outreach-emails/", { method: "POST", body: payload });
+              
+              await invalidateCache("/outreach-emails/")
+              const created = Array.isArray(res)
               ? res
               : res?.data ?? res;
 
