@@ -42,21 +42,21 @@ export default function PresentationPage() {
 
   const buttons = [
     { type: "Presentations", label: "Presentations", icon: Presentation },
+    { type: "Questions", label: "Questions", icon: ClipboardList },
+    { type: "Study Guides", label: "Study Guides", icon: BookOpen },
+    { type: "Cheatsheets", label: "Cheatsheets", icon: FileText },
+    { type: "Books", label: "O'Reilly Books", icon: Library },
     {
       type: "Must Watch",
       label: "Must Watch",
       icon: Youtube,
     },
-    { type: "Cheatsheets", label: "Cheatsheets", icon: FileText },
-    { type: "Study Guides", label: "Study Guides", icon: BookOpen },
+    { type: "Newsletters", label: "Newsletters", icon: Mail },
     {
       type: "Interactive Visual Explainers",
       label: "Visual Intuition",
       icon: Sparkles,
     },
-    { type: "Books", label: "O'Reilly Books", icon: Library },
-    { type: "Newsletters", label: "Newsletters", icon: Mail },
-    { type: "Questions", label: "Questions", icon: ClipboardList },
     { type: "Git Repo's", label: "Git Repo's", icon: Github },
   ];
 

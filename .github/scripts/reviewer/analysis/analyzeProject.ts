@@ -1,5 +1,6 @@
-import { Project, Node } from 'ts-morph';
+import { Project, Node, FunctionDeclaration } from 'ts-morph';
 import path from 'path';
+import { execSync } from 'child_process';
 import { Finding } from '../types/finding';
 import { rules } from '../rules';
 
@@ -67,22 +68,111 @@ export function analyzeProject(project: Project, changes: Map<string, number[]>,
     if (filePath.includes('/dist/') || filePath.includes('/build/') || filePath.includes('/.next/')) {
       continue;
     }
-    if (filePath.includes('/api/') || filePath.includes('/hooks/') || filePath.includes('/services/')) {
-      modifiedPublicApis.push(file);
+    let breakingApis = 0;
+    let nonBreakingApis = 0;
+    let oldSourceFile: any = null;
+    let oldFileLoaded = false;
+
+    function isCompatibleType(oldType: string, newType: string): boolean {
+        // e.g. 'number' -> 'number | string' is safe.
+        // 'number' -> 'number[]' is unsafe.
+        const newTypes = newType.split('|').map(t => t.trim());
+        const oldTypes = oldType.split('|').map(t => t.trim());
+        return oldTypes.every(ot => newTypes.includes(ot));
     }
 
-    const lineGroups = groupConsecutiveLines(lines);
+    function isBreakingSignatureChange(oldDecl: FunctionDeclaration, newDecl: FunctionDeclaration): boolean {
+      const oldParams = oldDecl.getParameters();
+      const newParams = newDecl.getParameters();
+      if (oldParams.length > newParams.length) return true;
+      for (let i = 0; i < oldParams.length; i++) {
+          const oldType = oldParams[i].getTypeNode()?.getText();
+          const newType = newParams[i].getTypeNode()?.getText();
+          if (oldType && newType && oldType !== newType && !isCompatibleType(oldType, newType)) return true;
+          
+          if (oldParams[i].isOptional() && !newParams[i].isOptional() && !newParams[i].hasInitializer()) return true;
+      }
+      const addedCount = newParams.length - oldParams.length;
+      if (addedCount > 0) {
+          for (let i = oldParams.length; i < newParams.length; i++) {
+              const p = newParams[i];
+              if (!p.isOptional() && !p.hasInitializer() && !p.isRestParameter()) return true;
+          }
+      }
+      return false;
+    }
+
+    for (const [name, declarations] of sourceFile.getExportedDeclarations()) {
+      for (const decl of declarations) {
+        const startLine = decl.getStartLineNumber();
+        const endLine = decl.getEndLineNumber();
+        if (lines.some(l => l >= startLine && l <= endLine)) {
+          let isBreaking = false;
+          if (Node.isFunctionDeclaration(decl) || Node.isVariableDeclaration(decl)) {
+              isBreaking = true;
+              if (!oldFileLoaded) {
+                  try {
+                      const targetBranch = process.env.GITHUB_BASE_REF ? `origin/${process.env.GITHUB_BASE_REF}` : 'HEAD~1';
+                      try { execSync('git fetch --unshallow', { stdio: 'ignore' }); } catch (e) {}
+                      const oldContent = execSync(`git show ${targetBranch}:${file}`, { stdio: 'pipe' }).toString();
+                      oldSourceFile = project.createSourceFile(`old_${Math.random()}.ts`, oldContent);
+                  } catch (e) {}
+                  oldFileLoaded = true;
+              }
+              if (oldSourceFile) {
+                  const declName = typeof (decl as any).getName === 'function' ? (decl as any).getName() : '';
+                  const oldDecl = oldSourceFile.getFunction(declName || "");
+                  if (oldDecl && Node.isFunctionDeclaration(decl)) isBreaking = isBreakingSignatureChange(oldDecl, decl);
+                  else isBreaking = false; // New function
+              } else {
+                  isBreaking = false; // New file or failed to load old file
+              }
+          }
+          if (isBreaking) breakingApis++;
+          else nonBreakingApis++;
+        }
+      }
+    }
+
+    if (breakingApis > 0 || nonBreakingApis > 0) {
+      if (breakingApis > 0) modifiedPublicApis.push(`${file} (Breaking: True)`);
+      else modifiedPublicApis.push(`${file} (Breaking: False)`);
+    }
+
+    const functions = sourceFile.getFunctions();
+    const classes = sourceFile.getClasses();
+    const vars = sourceFile.getVariableDeclarations();
+    const interfaces = sourceFile.getInterfaces();
+    const allDeclarations: Node[] = [...functions, ...classes, ...vars, ...interfaces];
+    
+    const coveredLines = new Set<number>();
+    
+    for (const decl of allDeclarations) {
+      const startLine = decl.getStartLineNumber();
+      const endLine = decl.getEndLineNumber();
+      
+      if (lines.some(l => l >= startLine && l <= endLine)) {
+        if (endLine - startLine < 300) {
+           const text = decl.getFullText();
+           let name = "anonymous";
+           if (typeof (decl as any).getName === "function") {
+             name = (decl as any).getName() || "anonymous";
+           }
+
+           contextParts.push(`### Changed File: ${file} (lines ${startLine}-${endLine} enclosing ${name})\n\`\`\`typescript\n${text}\n\`\`\`\n`);
+           for (let i = startLine; i <= endLine; i++) coveredLines.add(i);
+        }
+      }
+    }
+
+    const uncoveredLines = lines.filter(l => !coveredLines.has(l));
+    const lineGroups = groupConsecutiveLines(uncoveredLines);
     for (const group of lineGroups) {
       const center = group[Math.floor(group.length / 2)];
       const snippet = getSnippet(sourceFile, center, 6);
       contextParts.push(`### Changed File: ${file} (lines ${group[0]}-${group[group.length - 1]})\n\`\`\`typescript\n${snippet}\n\`\`\`\n`);
     }
-    
-    const functions = sourceFile.getFunctions();
-    const classes = sourceFile.getClasses();
-    const vars = sourceFile.getVariableDeclarations();
-    const allDeclarations: Node[] = [...functions, ...classes, ...vars];
-    
+
     for (const decl of allDeclarations) {
       let startLine = decl.getStartLineNumber();
       let endLine = decl.getEndLineNumber();

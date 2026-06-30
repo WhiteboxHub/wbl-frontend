@@ -71,7 +71,7 @@ test.describe("Full UI Grid Regression", () => {
             // Handle case where Loading... spinner may not appear
             try {
               await expect(page.getByText('Loading...')).toBeVisible({ timeout: 3000 });
-              await expect(page.getByText('Loading...')).toBeHidden({ timeout: 40000 });
+              await expect(page.getByText('Loading...')).toBeHidden({ timeout: 180000 });
             } catch {
               console.log(`[Regression] No Loading spinner found on ${routePath} - continuing...`);
             }

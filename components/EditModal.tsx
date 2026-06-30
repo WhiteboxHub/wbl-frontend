@@ -50,13 +50,14 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "false", label: "No" },
     { value: "true", label: "Yes" },
   ],
-  mass_email_sent: [
-    { value: "false", label: "No" },
-    { value: "true", label: "Yes" },
-  ],
   massemail_unsubscribe: [
     { value: "false", label: "No" },
     { value: "true", label: "Yes" },
+  ],
+  agreement: [
+    { value: "N", label: "Not Submitted" },
+    { value: "Y", label: "Approved" },
+    { value: "P", label: "Pending Review" },
   ],
   is_immigration_team: [
     { value: false, label: "No" },
@@ -296,6 +297,10 @@ const enumOptions: Record<string, { value: any; label: string }[]> = {
     { value: "break", label: "Break" },
     { value: "closed", label: "Closed" },
   ],
+  enrollment_status: [
+    { value: "completed", label: "Completed" },
+    { value: "not completed", label: "Not Completed" },
+  ],
   activity_type: [
     { value: "extraction", label: "extraction" },
     { value: "connection", label: "connection" },
@@ -524,7 +529,7 @@ const vendorStatuses = [
 // Required fields configuration - only for create mode
 const requiredFieldsConfig: Record<string, string[]> = {
   leads: ["Phone", "Email", "Full Name"],
-  candidate: ["Phone", "Email", "Full Name", "Batch"],
+  candidate: ["Phone", "Email", "Full Name", "Date of Birth", "Batch", "Emergency Contact Name", "Emergency Contact Email", "Emergency Contact Phone", "Emergency Contact Address"],
   interviews: [
     "Candidate Name",
     "Company",
@@ -532,7 +537,6 @@ const requiredFieldsConfig: Record<string, string[]> = {
     "Company Type",
     "Mode of Interview",
     "Type of Interview",
-    "Job Description",
   ],
   authuser: ["Phone", "Email", "Full Name", "Registered Date", "Passwd"],
   employee: ["Full Name", "Email", "Phone", "Date of Birth", "Aadhaar"],
@@ -594,15 +598,15 @@ const genericStatusOptions = [
 
 const materialTypeOptions = [
   { value: "P", label: "Presentations" },
-  { value: "Y", label: "Must Watch" },
-  { value: "C", label: "Cheatsheets" },
-  { value: "SG", label: "Study Guides" },
-  { value: "I", label: "Interactive Visual Explainers" },
-  { value: "B", label: "Books" },
-  { value: "N", label: "Newsletters" },
-  { value: "M", label: "Materials" },
   { value: "A", label: "Questions" },
+  { value: "SG", label: "Study Guides" },
+  { value: "C", label: "Cheatsheets" },
+  { value: "B", label: "Books" },
+  { value: "Y", label: "Must Watch" },
+  { value: "N", label: "Newsletters" },
+  { value: "I", label: "Interactive Visual Explainers" },
   { value: "G", label: "Git Repo's" },
+  { value: "M", label: "Materials" },
 ];
 
 interface Batch {
@@ -693,7 +697,6 @@ const excludedFields = [
   "delivery_engine",
   "workflow",
   "schedule",
-  "agreement",
   "apply_log_history",
 ];
 
@@ -899,6 +902,7 @@ const fieldSections: Record<string, string> = {
   phone_number: "Basic Information",
   secondary_phone: "Contact Information",
   last_mod_datetime: "Contact Information",
+  agreement: "Professional Information",
   subject_id: "Basic Information",
   subjectid: "Professional Information",
   courseid: "Professional Information",
@@ -953,6 +957,8 @@ const fieldSections: Record<string, string> = {
   faq: "Professional Information",
   callsmade: "Professional Information",
   fee_paid: "Professional Information",
+  placement_percentage: "Professional Information",
+  enrollment_status: "Professional Information",
   feedue: "Professional Information",
   salary0: "Professional Information",
   salary6: "Professional Information",
@@ -979,7 +985,7 @@ const fieldSections: Record<string, string> = {
   state: "Contact Information",
   country: "Contact Information",
   zip: "Contact Information",
-  zip_code:"Contact Information",
+  zip_code: "Contact Information",
   emergcontactname: "Emergency Contact",
   emergcontactemail: "Emergency Contact",
   emergcontactphone: "Emergency Contact",
@@ -1000,7 +1006,7 @@ const fieldSections: Record<string, string> = {
   cm_subject: "Basic Information",
   material_type: "Basic Information",
   job_name: "Basic Information",
-  job_description: "Notes",
+  job_description: "Professional Information",
   created_date: "Professional Information",
   activity_date: "Professional Information",
   activity_count: "Professional Information",
@@ -1023,6 +1029,8 @@ const fieldSections: Record<string, string> = {
   job_url: "Professional Information",
   contact_info: "Contact Information",
   description: "Notes",
+  /** Marketing (and similar) candidate record JSON — edited at bottom of modal like Payload */
+  candidate_json: "Notes",
 
   // Linkedin Only Contact Fields
   source_uid: "Professional Information",
@@ -1099,6 +1107,7 @@ const labelOverrides: Record<string, string> = {
   candidate_full_name: "Candidate Full Name",
   instructor1_name: "Instructor 1 Name",
   run_email_extraction: "Run Email Extraction",
+  agreement: "Agreement(Document)",
   run_outreach_emails: "Run Outreach Emails",
   linkedin_post: "LinkedIn Post",
   run_daily_workflow: "Run Daily Outreach Workflow",
@@ -1110,6 +1119,7 @@ const labelOverrides: Record<string, string> = {
   run_weekly_workflow: "Run Weekly Outreach Workflow",
   run_raw_positions_workflow: "Run Raw Positions Workflow",
   payload: "Payload",
+  candidate_json: "Candidate JSON",
   instructor2_name: "Instructor 2 Name",
   instructor3_name: "Instructor 3 Name",
 
@@ -1189,6 +1199,8 @@ const labelOverrides: Record<string, string> = {
   faq: "FAQ",
   callsmade: "Calls Made",
   fee_paid: "Fee Paid",
+  placement_percentage: "Placement Percentage",
+  enrollment_status: "Enrollment Status",
   feedue: "Fee Due",
   salary0: "Salary (0 months)",
   salary6: "Salary (6 months)",
@@ -1835,6 +1847,19 @@ export function EditModal({
         }
       }
     }
+    // Marketing candidate_json — same treatment as payload for edit textarea
+    if (data.candidate_json !== undefined && data.candidate_json !== null) {
+      if (typeof data.candidate_json === "object") {
+        flattened.candidate_json = JSON.stringify(data.candidate_json, null, 2);
+      } else if (typeof data.candidate_json === "string") {
+        try {
+          const parsed = JSON.parse(data.candidate_json);
+          flattened.candidate_json = JSON.stringify(parsed, null, 2);
+        } catch {
+          flattened.candidate_json = data.candidate_json;
+        }
+      }
+    }
 
     // Handle parameters_config JSON field - convert to formatted string for display
     if (data.parameters_config !== undefined && data.parameters_config !== null) {
@@ -2226,6 +2251,13 @@ export function EditModal({
         console.error("Failed to parse payload back to JSON:", e);
       }
     }
+    if (reconstructedData.candidate_json && typeof reconstructedData.candidate_json === "string") {
+      try {
+        reconstructedData.candidate_json = JSON.parse(reconstructedData.candidate_json);
+      } catch (e) {
+        console.error("Failed to parse candidate_json back to JSON:", e);
+      }
+    }
 
     // console.log("DEBUG: EditModal onSubmit reconstructedData before save:", reconstructedData);
     onSave(reconstructedData);
@@ -2512,9 +2544,11 @@ export function EditModal({
     if (isEmployeeTaskModal && (key === "employee_name" || key === "project_name")) {
       return;
     }
+
     if (isInterviewModal && (key === "candidate.full_name" || (isAddMode && key === "candidate_full_name"))) {
       return;
     }
+
 
     // Existing filters
     if (isCandidateOrEmployee && key.toLowerCase() === "name") return;
@@ -2574,9 +2608,17 @@ export function EditModal({
   }
 
 
-  // Custom ordering for Notes section in raw job listings
+  // Notes section order: JSON fields first (candidate_json, payload, …), then descriptions, then notes last
   if (sectionedFields["Notes"]?.length > 0) {
-    const notesFieldOrder = ['payload', 'raw_payload', 'raw_description', 'description', 'raw_notes', 'notes'];
+    const notesFieldOrder = [
+      "candidate_json",
+      "payload",
+      "raw_payload",
+      "raw_description",
+      "description",
+      "raw_notes",
+      "notes",
+    ];
     sectionedFields["Notes"].sort((a, b) => {
       const aIndex = notesFieldOrder.indexOf(a.key);
       const bIndex = notesFieldOrder.indexOf(b.key);
@@ -3220,6 +3262,7 @@ export function EditModal({
                                 </div>
                               );
                             }
+
 
                             if (key.toLowerCase() === "interview_time") {
                               return (
@@ -4518,7 +4561,7 @@ export function EditModal({
                         {sectionedFields["Notes"].map(({ key, value }) => (
                           <div key={key} className="space-y-1">
                             <div className="flex items-center justify-between">
-                              <label className={['description', 'raw_payload', 'payload', 'raw_description', 'raw_notes', 'notes', 'note', 'q_a', 'feedback_text', 'candidate_json', 'job_description'].includes(key) ? 'block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm' : 'text-sm font-medium text-gray-600 dark:text-gray-400'}>
+                              <label className={['description', 'raw_payload', 'payload', 'raw_description', 'raw_notes', 'notes', 'note', 'q_a', 'feedback_text', 'candidate_json'].includes(key) ? 'block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm' : 'text-sm font-medium text-gray-600 dark:text-gray-400'}>
                                 {toLabel(key)}
                                 {isFieldRequired(
                                   toLabel(key),
@@ -4571,24 +4614,21 @@ export function EditModal({
                                 </button>
                               )}
                             </div>
-                            {isJobTypeModal || isJobActivityLogModal || key === 'raw_payload' || key === 'payload' || key === 'candidate_json' || key === 'feedback_text' || key === 'email_text' || key === 'job_description' ? (
+                            {isJobTypeModal || isJobActivityLogModal || key === 'raw_payload' || key === 'payload' || key === 'candidate_json' || key === 'feedback_text' || key === 'email_text' ? (
                               <textarea
                                 {...register(key)}
                                 defaultValue={currentFormValues[key] ?? formData[key] ?? ""}
                                 rows={
                                   key === "candidate_json"
                                     ? 22
-                                    : key === "job_description"
-                                      ? 8
-                                      : key === "raw_payload" || key === "payload"
-                                        ? 10
-                                        : 4
+                                    : key === "raw_payload" || key === "payload"
+                                      ? 10
+                                      : 4
                                 }
-                                className={`w-full ${
-                                  key === "raw_payload" || key === "payload" || key === "candidate_json"
-                                    ? "min-h-[min(420px,50vh)] resize-y font-mono text-[11px] sm:text-xs"
-                                    : "resize-none"
-                                } rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm`}
+                                className={`w-full ${key === "raw_payload" || key === "payload" || key === "candidate_json"
+                                  ? "min-h-[min(420px,50vh)] resize-y font-mono text-[11px] sm:text-xs"
+                                  : "resize-none"
+                                  } rounded-lg border border-blue-200 bg-white dark:bg-darklight dark:text-gray-200 px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm`}
                                 placeholder={
                                   key === "raw_payload" || key === "payload" || key === "candidate_json"
                                     ? "Enter JSON payload..."

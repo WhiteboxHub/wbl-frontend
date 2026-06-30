@@ -274,6 +274,22 @@ const WorkStatusRenderer = ({ value }: { value?: string }) => {
   );
 };
 
+const AgreementRenderer = ({ value }: { value?: string }) => {
+  if (!value) return null;
+  const statusMap: Record<string, { label: string; color: string }> = {
+    Y: { label: "Approved", color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" },
+    N: { label: "Not Submitted", color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300" },
+    P: { label: "Pending Review", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300" },
+  };
+
+  const status = statusMap[value] || { label: value, color: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300" };
+
+  return (
+    <Badge className={`${status.color} border font-semibold px-2 py-0.5 rounded-full text-[10px]`}>
+      {status.label}
+    </Badge>
+  );
+};
 
 const CandidateNameRenderer = (params: any) => {
   const candidateId = params.data?.id;
@@ -520,6 +536,7 @@ export default function CandidatesPage() {
   // Filter states
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedWorkStatuses, setSelectedWorkStatuses] = useState<string[]>([]);
+  const [selectedAgreementStatuses, setSelectedAgreementStatuses] = useState<string[]>([]);
   const [selectedBatches, setSelectedBatches] = useState<Batch[]>([]);
 
   const apiPath = "/candidates";
@@ -591,9 +608,16 @@ export default function CandidatesPage() {
       });
     }
 
+    // Filter by agreement status
+    if (selectedAgreementStatuses.length > 0) {
+      filtered = filtered.filter((candidate) => {
+        const candidateAgreement = candidate.agreement || "N";
+        return selectedAgreementStatuses.some((status) => status === candidateAgreement);
+      });
+    }
 
     return filtered;
-  }, [candidates, selectedStatuses, selectedWorkStatuses, selectedBatches]);
+  }, [candidates, selectedStatuses, selectedWorkStatuses, selectedAgreementStatuses, selectedBatches]);
 
   // Calculate counts for display
   const displayCount = filteredCandidates.length;
@@ -601,6 +625,7 @@ export default function CandidatesPage() {
   const hasActiveFilters =
     selectedStatuses.length > 0 ||
     selectedWorkStatuses.length > 0 ||
+    selectedAgreementStatuses.length > 0 ||
     selectedBatches.length > 0;
 
   const columnDefs: ColDef<any, any>[] = useMemo(
@@ -861,6 +886,37 @@ export default function CandidatesPage() {
         filter: "agTextColumnFilter",
       },
       {
+        field: "agreement",
+        headerName: "Agreement Status",
+        width: 150,
+        sortable: true,
+        filter: false,
+        suppressHeaderMenuButton: true,
+        cellRenderer: (params: any) => <AgreementRenderer value={params.value} />,
+        editable: true,
+        cellEditor: "agSelectCellEditor",
+        cellEditorParams: {
+          values: ["Y", "N", "P"],
+        },
+        valueFormatter: (params: any) => {
+          if (params.value === "Y") return "Approved";
+          if (params.value === "P") return "Pending Review";
+          return "Not Submitted";
+        },
+        headerComponent: FilterHeaderComponent,
+        headerComponentParams: {
+          selectedItems: selectedAgreementStatuses,
+          setSelectedItems: setSelectedAgreementStatuses,
+          options: ["Y", "N", "P"],
+          label: "Agreement",
+          displayName: "Agreement",
+          color: "orange",
+          renderOption: (option: string) => <AgreementRenderer value={option} />,
+          getOptionValue: (option: string) => option,
+          getOptionKey: (option: string) => option,
+        },
+      },
+      {
         field: "secondaryemail",
         headerName: "Secondary Email",
         width: 200,
@@ -1077,7 +1133,7 @@ export default function CandidatesPage() {
         cellRenderer: (params: any) => <span>{params.value ? "Yes" : "No"}</span>,
       },
     ],
-    [selectedStatuses, selectedWorkStatuses, selectedBatches, mlBatches]
+    [selectedStatuses, selectedWorkStatuses, selectedAgreementStatuses, selectedBatches, mlBatches]
   );
 
   const gridOptions = useMemo(
@@ -1426,7 +1482,7 @@ export default function CandidatesPage() {
       <div className="flex w-full justify-center">
 
         <AGGridTable
-          key={`grid-${selectedStatuses.join(",")}-${selectedWorkStatuses.join(",")}-${selectedBatches.map((b) => b.batchid).join(",")}`}
+          key={`grid-${selectedStatuses.join(",")}-${selectedWorkStatuses.join(",")}-${selectedAgreementStatuses.join(",")}-${selectedBatches.map((b) => b.batchid).join(",")}`}
           rowData={loading ? [] : filteredCandidates}
           title={`Candidates (${displayCount}${hasActiveFilters ? ` of ${totalCount}` : ""})`}
           columnDefs={columnDefs}
@@ -1674,6 +1730,18 @@ export default function CandidatesPage() {
                     />
                   </div>
 
+                  {/* Agreement */}
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <label className="block text-xs font-bold text-blue-700 sm:text-sm">Agreement</label>
+                    <select
+                      {...register("agreement")}
+                      className="w-full rounded-lg border border-blue-200 bg-white px-2 py-1.5 text-xs shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 sm:px-3 sm:py-2 sm:text-sm"
+                    >
+                      <option value="N">Not Submitted</option>
+                      <option value="Y">Approved</option>
+                      <option value="P">Pending Review</option>
+                    </select>
+                  </div>
 
                   {/* Secondary Email */}
                   <div className="space-y-1 sm:space-y-1.5">
