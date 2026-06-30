@@ -155,37 +155,37 @@ export default function OutreachEmailsPage() {
     },
   ];
 
-  const fetchEmails = useCallback (async () => {
-    try {
-      setLoading(true);
-      setError("");
-      console.log("Fetching outreach emails...");
-      
-      const res = await cachedApiFetch("/outreach-emails/");
-      console.log("API Response:", res);
+  const fetchEmails = useCallback(async () => {
+  try {
+    setLoading(true);
+    setError("");
 
-      const arr = Array.isArray(res) ? res : res?.data ?? [];
+    console.log("Fetching outreach emails...");
 
-      const sorted = arr.sort((a: any, b: any) => b.id - a.id);
+    const res = await cachedApiFetch("/outreach-emails/");
+    console.log("API Response:", res);
 
-      setEmails(sorted);
-      setFilteredEmails(sorted);
+    const arr = Array.isArray(res) ? res : res?.data ?? [];
+
+    const sorted = [...arr].sort((a: any, b: any) => b.id - a.id);
+
+    setEmails(sorted);
+    setFilteredEmails(sorted);
 
     toast.success("Fetched outreach emails.");
-} catch (e: any) {
-  console.error("Outreach Emails API Error:", e);
+  } catch (e: any) {
+    console.error("Outreach Emails API Error:", e);
 
-  const msg = e?.body || e?.message || "Failed to fetch";
-  setError(msg);
-  toast.error(msg);
-} finally {
-  setLoading(false);
-}  
-  }, []);
-
+    const msg = e?.body || e?.message || "Failed to fetch";
+    setError(msg);
+    toast.error(msg);
+  } finally {
+    setLoading(false);
+  }
+}, [cachedApiFetch]);
   useEffect(() => {
     fetchEmails();
-  },[fetchEmails]);
+  }, [fetchEmails]);
   
 
   useEffect(() => {
@@ -203,7 +203,7 @@ export default function OutreachEmailsPage() {
         )
       )
     );
-  }, [searchTerm, emails]);
+  }, [searchTerm, emails, setFilteredEmails]);
 
   const handleRowUpdated = async (row: any) => {
     try {
@@ -268,7 +268,7 @@ export default function OutreachEmailsPage() {
       </div>
     )}
 
-    {/* Search */}
+    {/* Seargit push origin outreach-emails-onlyh */}
     <div className="max-w-md">
       <Label>Search</Label>
 
