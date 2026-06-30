@@ -409,6 +409,11 @@ const ScheduleMeetRenderer = (params: any) => {
   const [loading, setLoading] = useState(false);
   const notes = params.data?.notes || "";
   
+  const today = new Date().toLocaleDateString("en-CA");
+  if (params.data?.interview_date !== today) {
+    return null;
+  }
+  
   const meetMatch = notes.match(/https:\/\/meet\.google\.com\/[a-z0-9-]+/i);
   
   const handleSchedule = async () => {
