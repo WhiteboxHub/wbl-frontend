@@ -182,10 +182,17 @@ export default function OutreachEmailsPage() {
   } finally {
     setLoading(false);
   }
-}, [cachedApiFetch]);
+}, [
+  cachedApiFetch,
+  setLoading,
+  setError,
+  setEmails,
+  setFilteredEmails,
+]);
+
   useEffect(() => {
     fetchEmails();
-  }, [fetchEmails]);
+  },[fetchEmails]);
   
 
   useEffect(() => {
@@ -268,7 +275,7 @@ export default function OutreachEmailsPage() {
       </div>
     )}
 
-    {/* Seargit push origin outreach-emails-onlyh */}
+    {/* Search */}
     <div className="max-w-md">
       <Label>Search</Label>
 
