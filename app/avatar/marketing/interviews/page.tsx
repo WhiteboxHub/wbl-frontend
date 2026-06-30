@@ -409,19 +409,19 @@ const ScheduleMeetRenderer = (params: any) => {
   const [loading, setLoading] = useState(false);
   const notes = params.data?.notes || "";
   
-  const todayLocal = new Date();
-  const interviewDate = params.data?.interview_date ? new Date(params.data.interview_date) : null;
-  if (interviewDate) {
-    // Perform a timezone-safe or threshold-based comparison (e.g. within 24 hours) 
-    // instead of strict local-to-UTC string equality
-    const diffTime = Math.abs(todayLocal.getTime() - interviewDate.getTime());
-    const diffDays = diffTime / (1000 * 60 * 60 * 24);
-    if (diffDays > 1.5) {
-      return null;
+  const meetMatch = notes.match(/https:\/\/meet\.google\.com\/[a-z0-9-]+/i);
+  
+  if (!meetMatch) {
+    const todayLocal = new Date();
+    const interviewDate = params.data?.interview_date ? new Date(params.data.interview_date) : null;
+    if (interviewDate) {
+      const diffTime = Math.abs(todayLocal.getTime() - interviewDate.getTime());
+      const diffDays = diffTime / (1000 * 60 * 60 * 24);
+      if (diffDays > 1.5) {
+        return null;
+      }
     }
   }
-  
-  const meetMatch = notes.match(/https:\/\/meet\.google\.com\/[a-z0-9-]+/i);
   
   const handleSchedule = async () => {
     if (!params.data?.id) return;
