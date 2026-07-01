@@ -135,8 +135,7 @@ const FilterHeaderComponent = ({
         ? prev.filter((i) => getOptionValue(i) !== value)
         : [...prev, item];
     });
-    // Close dropdown after selection
-    setFilterVisible(false);
+
   };
   const headerRef = useRef<HTMLDivElement>(null);
   const filterButtonRef = useRef<HTMLDivElement>(null);
@@ -374,9 +373,13 @@ const StatusHeaderComponent = ({
         setFilterVisible(false);
       }
     };
+
+
     const handleScroll = () => setFilterVisible(false);
-    document.addEventListener("mousedown", handleClickOutside);
-    window.addEventListener("scroll", handleScroll, true);
+    if (filterVisible) {
+      document.addEventListener("mousedown", handleClickOutside);
+      window.addEventListener("scroll", handleScroll, true);
+    }
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
       window.removeEventListener("scroll", handleScroll, true);

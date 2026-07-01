@@ -182,11 +182,11 @@ export default function RecordingBatchPage() {
         const names = [...new Set(recordingBatches.map((r) => r.batch_name?.trim()).filter(Boolean))];
         return names.sort((a, b) => b.localeCompare(a))
     }, [recordingBatches]);
-        const context = useMemo(() => ({
-             selectedBatchNames,
-                setSelectedBatchNames,
-                      batchNameOptions
-                 }), [selectedBatchNames, setSelectedBatchNames, batchNameOptions]);
+    const context = useMemo(() => ({
+        selectedBatchNames,
+        setSelectedBatchNames,
+        batchNameOptions
+    }), [selectedBatchNames, setSelectedBatchNames, batchNameOptions]);
     const columnDefs: ColDef[] = useMemo(() => [
         {
             field: "recording_id",
