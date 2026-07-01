@@ -170,7 +170,7 @@ export default function OutreachEmailsPage() {
     const sorted = [...arr].sort((a: any, b: any) => b.id - a.id);
 
     setEmails(sorted);
-    
+  
 
     toast.success("Fetched outreach emails.");
   } catch (e: any) {
