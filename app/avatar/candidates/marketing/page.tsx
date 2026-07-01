@@ -135,10 +135,9 @@ const FilterHeaderComponent = ({
         ? prev.filter((i) => getOptionValue(i) !== value)
         : [...prev, item];
     });
-    // Close dropdown after selection
-    setFilterVisible(false);
-  };
 
+  };
+  const headerRef = useRef<HTMLDivElement>(null);
   const filterButtonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
@@ -146,11 +145,13 @@ const FilterHeaderComponent = ({
 
   const toggleFilter = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (filterButtonRef.current) {
-      const rect = filterButtonRef.current.getBoundingClientRect();
+    const targetRef = filterButtonRef.current || headerRef.current;
+    if (targetRef) {
+      const rect = targetRef.getBoundingClientRect();
+
       setDropdownPos({
-        top: rect.bottom + window.scrollY,
-        left: Math.max(0, rect.left + window.scrollX - 100),
+        top: rect.bottom + 8,
+        left: Math.max(0, rect.left - 100),
       });
     }
     setFilterVisible((v) => !v);
@@ -372,14 +373,18 @@ const StatusHeaderComponent = ({
         setFilterVisible(false);
       }
     };
+
+
     const handleScroll = () => setFilterVisible(false);
-    document.addEventListener("mousedown", handleClickOutside);
-    window.addEventListener("scroll", handleScroll, true);
+    if (filterVisible) {
+      document.addEventListener("mousedown", handleClickOutside);
+      window.addEventListener("scroll", handleScroll, true);
+    }
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
       window.removeEventListener("scroll", handleScroll, true);
     };
-  }, []);
+  }, [filterVisible]);
 
   const statusOptions: FilterOption[] = [
     { value: "active", label: "Active" },
