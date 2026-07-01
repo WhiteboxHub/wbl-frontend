@@ -226,7 +226,7 @@ export default function RecordingBatchPage() {
                 getOptionKey: (option: string) => option,
             },
         },
-    ], []);
+    ], [selectedBatchNames, batchNameOptions]);
 
     const fetchAllData = async () => {
         try {
