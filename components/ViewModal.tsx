@@ -229,6 +229,7 @@ const fieldSections: Record<string, string> = {
   job_url: "Professional Information",
   contact_info: "Contact Information",
   source_uid: "Professional Information",
+  validation_status: "Basic Information",
   // Raw Job Listing fields
   raw_title: "Basic Information",
   raw_company: "Basic Information",
@@ -267,16 +268,16 @@ const fieldSections: Record<string, string> = {
   installment_amount: "Professional Information",
   resume_json: "Resume Data",
   api_key: "Credentials",
-  provider_name: "Credentials",
-  model_name: "Credentials",
+  provider_name: "Professional Information",
 
   // Campaign Emails
   vendor_email: "Basic Information",
   retry_count: "Professional Information",
   last_attempt_at: "Other",
   run_log_id: "Professional Information",
-  credential_id: "Professional Information",
   message_id: "Professional Information",
+  last_email_sent_at: "Contact Information",
+  last_attempted_at: "Contact Information",
 
   current_day_sent: "Professional Information",
   last_reset_date: "Other",
@@ -285,6 +286,7 @@ const fieldSections: Record<string, string> = {
   warmup_daily_limit: "Professional Information",
   last_used_at: "Other",
   is_healthy: "Basic Information",
+  failure_type: "Professional Information",
 };
 
 const workVisaStatusOptions = [
@@ -435,7 +437,6 @@ const labelOverrides: Record<string, string> = {
   lastmod_user_id: "Last Modified By",
   resume_json: "Resume JSON",
   api_key: "API Key",
-  provider_name: "LLM Provider",
   model_name: "Model Name",
   resume_created_at: "Resume Added",
   api_key_created_at: "Key Added",
