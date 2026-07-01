@@ -41,14 +41,14 @@ const FilterHeaderComponent = ({
                 : [...prev, item];
         });
     };
-    
+
     const filterButtonRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
     const [filterVisible, setFilterVisible] = useState(false);
     const toggleFilter = (e: React.MouseEvent) => {
         e.stopPropagation();
-        const targetRef = filterButtonRef.current ;
+        const targetRef = filterButtonRef.current;
         if (targetRef) {
             const rect = targetRef.getBoundingClientRect();
             setDropdownPos({
@@ -182,7 +182,11 @@ export default function RecordingBatchPage() {
         const names = [...new Set(recordingBatches.map((r) => r.batch_name?.trim()).filter(Boolean))];
         return names.sort((a, b) => b.localeCompare(a))
     }, [recordingBatches]);
-
+        const context = useMemo(() => ({
+             selectedBatchNames,
+                setSelectedBatchNames,
+                      batchNameOptions
+                 }), [selectedBatchNames, setSelectedBatchNames, batchNameOptions]);
     const columnDefs: ColDef[] = useMemo(() => [
         {
             field: "recording_id",
@@ -222,7 +226,7 @@ export default function RecordingBatchPage() {
                 getOptionKey: (option: string) => option,
             },
         },
-    ], [selectedBatchNames, batchNameOptions,FilterHeaderComponent,setSelectedBatchNames]);
+    ], []);
 
     const fetchAllData = async () => {
         try {
@@ -292,7 +296,7 @@ export default function RecordingBatchPage() {
         }
 
         setFilteredData(filtered);
-    }, [searchTerm, recordingBatches, selectedBatchNames,setFilteredData]);
+    }, [searchTerm, recordingBatches, selectedBatchNames, setFilteredData]);
 
     const handleRowDeleted = async (compositeId: any) => {
         try {
