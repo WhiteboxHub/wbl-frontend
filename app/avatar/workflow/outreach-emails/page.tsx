@@ -192,7 +192,7 @@ export default function OutreachEmailsPage() {
 
   useEffect(() => {
     fetchEmails();
-  },[fetchEmails]);
+  }, [fetchEmails]);
   
 
   useEffect(() => {
@@ -329,8 +329,10 @@ export default function OutreachEmailsPage() {
               ? res
               : res?.data ?? res;
 
-            const updated = [created, ...emails].sort(
-              (a: any, b: any) => b.id - a.id
+            const createdList = Array.isArray(created) ? created : [created];
+
+            const updated = [...createdList, ...emails].sort(
+            (a: any, b: any) => b.id - a.id
             );
 
             setEmails(updated);
