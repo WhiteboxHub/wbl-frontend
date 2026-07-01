@@ -769,7 +769,12 @@ const fieldSections: Record<string, string> = {
   recipient_list_sql: "Other",
   parameters_config: "Other",
   version: "Basic Information",
-
+  validation_status: "Basic Information",
+  failure_type: "Professional Information",
+  suppression_source: "Professional Information",
+  last_email_sent_at: "Contact Information",
+  last_attempted_at: "Contact Information",
+  unsubscribed_at: "Contact Information",
   // Workflow Schedule
   automation_workflow_id: "Basic Information",
   timezone: "Basic Information",
