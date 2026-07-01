@@ -170,7 +170,7 @@ export default function OutreachEmailsPage() {
     const sorted = [...arr].sort((a: any, b: any) => b.id - a.id);
 
     setEmails(sorted);
-    setFilteredEmails(sorted);
+    
 
     toast.success("Fetched outreach emails.");
   } catch (e: any) {
@@ -218,12 +218,9 @@ export default function OutreachEmailsPage() {
 
       await invalidateCache("/outreach-emails/");
 
-      const updated = emails.map((e) =>
-        e.id === row.id ? row : e
-      );
-
-      setEmails(updated);
-      setFilteredEmails(updated);
+      setEmails((prev) =>
+      prev.map((e) => (e.id === row.id ? row : e))
+    );  
 
       toast.success("Updated successfully");
     } catch (e: any) {
@@ -237,10 +234,9 @@ export default function OutreachEmailsPage() {
 
       await invalidateCache("/outreach-emails/");
 
-      const updated = emails.filter((e) => e.id !== id);
-
-      setEmails(updated);
-      setFilteredEmails(updated);
+      setEmails((prev) =>
+        prev.filter((e) => e.id !== id)
+      );
 
       toast.success("Deleted");
     } catch (e: any) {
@@ -329,14 +325,13 @@ export default function OutreachEmailsPage() {
               ? res
               : res?.data ?? res;
 
-            const createdList = Array.isArray(created) ? created : [created];
+              const createdList = Array.isArray(created) ? created : [created];
 
-            const updated = [...createdList, ...emails].sort(
-            (a: any, b: any) => b.id - a.id
-            );
-
-            setEmails(updated);
-            setFilteredEmails(updated);
+              setEmails((prev) =>
+                [...createdList, ...prev].sort(
+                  (a: any, b: any) => b.id - a.id
+                )
+                );
 
             toast.success("Email added");
           } catch (e: any) {
