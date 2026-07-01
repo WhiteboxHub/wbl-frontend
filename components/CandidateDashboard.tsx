@@ -44,7 +44,7 @@ import {
     KeyRound,
     Eye,
     Code2,
-
+    FileText,
 } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { Input } from "@/components/admin_ui/input";
@@ -1434,6 +1434,23 @@ export default function CandidateDashboard() {
 
                     </div>
 
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (setupStatus?.resume_uploaded) {
+                                    setViewResumeOpen(true);
+                                } else {
+                                    setSetupWizardManageMode(false);
+                                    setSetupWizardOpen(true);
+                                }
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm"
+                        >
+                            <FileText className="w-4 h-4 text-violet-500" />
+                            Resume
+                        </button>
+
                     <a
                         href="https://chromewebstore.google.com/detail/talentscreen-autofill/bebdlhhpgmegdebdballinfmfnlpmeio"
                         target="_blank"
@@ -1443,6 +1460,7 @@ export default function CandidateDashboard() {
                         <Puzzle className="w-4 h-4 text-blue-500" />
                         Autofill Extension
                     </a>
+                    </div>
 
                 </header>
 
