@@ -44,7 +44,7 @@ import {
     KeyRound,
     Eye,
     Code2,
-
+    FileText,
 } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { Input } from "@/components/admin_ui/input";
@@ -1315,7 +1315,6 @@ export default function CandidateDashboard() {
 
     const firstName = data.basic_info.full_name.split(" ")[0];
 
-
     const tabs = [
         { id: 'jobs' as TabType, name: 'Job Board', icon: Briefcase },
         { id: 'overview' as TabType, name: 'Overview', icon: Home },
@@ -1325,6 +1324,10 @@ export default function CandidateDashboard() {
 
     return (
         <div className="flex h-screen bg-[#f4f6f9] dark:bg-gray-950 overflow-hidden">
+            {/* Hidden identity tag for browser extension telemetry */}
+            {data?.basic_info?.email && (
+                <div id="wbl-user-identity" data-email={data.basic_info.email} style={{ display: 'none' }} />
+            )}
 
             {/* ==================== SIDEBAR ==================== */}
             <aside className="hidden lg:flex w-60 flex-col flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 z-30 shadow-sm">
@@ -1434,6 +1437,23 @@ export default function CandidateDashboard() {
 
                     </div>
 
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (setupStatus?.resume_uploaded) {
+                                    setViewResumeOpen(true);
+                                } else {
+                                    setSetupWizardManageMode(false);
+                                    setSetupWizardOpen(true);
+                                }
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm"
+                        >
+                            <FileText className="w-4 h-4 text-violet-500" />
+                            Resume
+                        </button>
+
                     <a
                         href="https://chromewebstore.google.com/detail/talentscreen-autofill/bebdlhhpgmegdebdballinfmfnlpmeio"
                         target="_blank"
@@ -1443,6 +1463,7 @@ export default function CandidateDashboard() {
                         <Puzzle className="w-4 h-4 text-blue-500" />
                         Autofill Extension
                     </a>
+                    </div>
 
                 </header>
 
