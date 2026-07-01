@@ -128,7 +128,7 @@ export default function AutomationContactExtractsPage() {
             while (hasNext) {
                 const res = await cachedApiFetch(`/automation-extracts/paginate?page=${currentPage}&page_size=${pageSize}`);
                 const payload = res?.data || res;
-                 const pageData = Array.isArray(payload) ? payload : (payload?.data || []);
+                const pageData = Array.isArray(payload) ? payload : (payload?.data || []);
                 const has_next_page = payload?.has_next || false;
                 allData = [...allData, ...pageData];
                 hasNext = has_next_page;
@@ -149,7 +149,7 @@ export default function AutomationContactExtractsPage() {
         } finally {
             setLoading(false);
         }
-    }, [setLoading, setExtracts, cachedApiFetch,setLoading]);
+    }, [setLoading, setExtracts, cachedApiFetch]);
 
 
     useEffect(() => {

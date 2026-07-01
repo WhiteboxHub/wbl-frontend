@@ -199,7 +199,7 @@ const FilterHeaderComponent = ({
       document.removeEventListener("mousedown", handleClickOutside);
       window.removeEventListener("scroll", handleScroll, true);
     };
-  }, [filterVisible, filterButtonRef, dropdownRef, setFilterVisible]);
+  }, [filterVisible]);
 
   return (
     <div className="ag-cell-label-container" role="presentation">
@@ -381,9 +381,7 @@ const StatusHeaderComponent = ({
       document.removeEventListener("mousedown", handleClickOutside);
       window.removeEventListener("scroll", handleScroll, true);
     };
-  }, [filterButtonRef,
-  dropdownRef,
-  setFilterVisible,]);
+  }, [filterVisible]);
 
   const statusOptions: FilterOption[] = [
     { value: "active", label: "Active" },
