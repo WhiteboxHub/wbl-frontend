@@ -197,8 +197,8 @@ export default function InternalDocumentsPage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Internal Documents</h1>
-        <p className="text-gray-600 mt-2">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Internal Documents</h1>
+        <p className="text-gray-600 dark:text-gray-300 mt-2">
           Manage and organize your internal documents
         </p>
       </div>
