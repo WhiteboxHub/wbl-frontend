@@ -40,13 +40,6 @@ interface CandidateRow {
   interview_sessions: number;
   interview_completed: boolean;
   case_studies_generated: number;
-  coderpad_questions_solved: number;
-  coderpad_total_submissions: number;
-  coderpad_pass_rate: number;
-  coderpad_passed: number;
-  coderpad_failed: number;
-  coderpad_languages: string[];
-  coderpad_last_synced: string | null;
   prep_completion_pct: number;
   prep_status_label: string;
 }
@@ -56,11 +49,9 @@ interface Summary {
   active_this_week: number;
   intro_pass_rate: number;
   interview_completion_rate: number;
-  coderpad_adoption_rate: number;
   total_case_studies: number;
   intro_passed_count: number;
   interview_completed_count: number;
-  coderpad_active_count: number;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -193,7 +184,6 @@ const DetailDrawer = ({
               <button
                 onClick={() => {
                   const c = detail.candidate;
-                  const cp = detail.coderpad || {};
                   const rows = [
                     ["Candidate Name", c.name],
                     ["Email", c.email],
@@ -201,11 +191,6 @@ const DetailDrawer = ({
                     ["Login Count", c.login_count],
                     ["Joined Date", fmtDate(c.created_at)],
                     ["Last Active Date", fmtDate(c.last_login)],
-                    [],
-                    ["CODERPAD STATS"],
-                    ["Questions Solved", cp.questions_solved ?? 0],
-                    ["Total Submissions", cp.total_submissions ?? 0],
-                    ["Pass Rate", cp.pass_rate ? `${cp.pass_rate}%` : "0%"],
                     [],
                     ["INTRO SCORE TIMELINE"],
                     ["Attempt", "Score", "Passed", "Date"],
@@ -321,27 +306,7 @@ const DetailDrawer = ({
                 </div>
               )}
 
-              {/* CoderPad */}
-              {detail.coderpad && (
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                    <Terminal className="w-4 h-4 text-emerald-500" />
-                    CoderPad Stats
-                  </h4>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      ["Questions Solved", detail.coderpad.questions_solved ?? "—"],
-                      ["Total Submissions", detail.coderpad.total_submissions ?? "—"],
-                      ["Pass Rate", detail.coderpad.pass_rate ? `${detail.coderpad.pass_rate}%` : "—"],
-                    ].map(([k, v]) => (
-                      <div key={k as string} className="bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900 rounded-lg p-2.5 text-center">
-                        <p className="text-gray-500 dark:text-gray-400 text-[10px] uppercase font-bold">{k}</p>
-                        <p className="text-emerald-600 dark:text-emerald-400 font-extrabold text-lg mt-0.5">{v}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* CoderPad removed */}
 
               {/* Case Studies */}
               {detail.case_studies?.length > 0 && (
@@ -395,7 +360,6 @@ export function AiPrepAnalyticsPanel({ active = true }: AiPrepAnalyticsPanelProp
   const [search, setSearch] = useState("");
   const [filterIntroPassed, setFilterIntroPassed] = useState<boolean | null>(null);
   const [filterInterviewDone, setFilterInterviewDone] = useState<boolean | null>(null);
-  const [filterHasCoderpad, setFilterHasCoderpad] = useState<boolean | null>(null);
   const [filterActiveWeek, setFilterActiveWeek] = useState<boolean | null>(null);
 
   // Drawer
@@ -452,12 +416,6 @@ export function AiPrepAnalyticsPanel({ active = true }: AiPrepAnalyticsPanelProp
       rows = rows.filter(r => !r.interview_completed);
     }
 
-    if (filterHasCoderpad === true) {
-      rows = rows.filter(r => r.coderpad_questions_solved > 0);
-    } else if (filterHasCoderpad === false) {
-      rows = rows.filter(r => r.coderpad_questions_solved === 0);
-    }
-
     if (filterActiveWeek === true) {
       const weekAgo = new Date();
       weekAgo.setDate(weekAgo.getDate() - 7);
@@ -465,7 +423,7 @@ export function AiPrepAnalyticsPanel({ active = true }: AiPrepAnalyticsPanelProp
     }
 
     return rows;
-  }, [candidates, search, filterIntroPassed, filterInterviewDone, filterHasCoderpad, filterActiveWeek]);
+  }, [candidates, search, filterIntroPassed, filterInterviewDone, filterActiveWeek]);
 
   // AG-Grid Columns Definitions
   const analyticsColumnDefs = useMemo<ColDef[]>(
@@ -499,36 +457,6 @@ export function AiPrepAnalyticsPanel({ active = true }: AiPrepAnalyticsPanelProp
         minWidth: 120,
         type: "numericColumn",
       },
-      {
-        headerName: "Questions Solved",
-        field: "coderpad_questions_solved",
-        minWidth: 140,
-        type: "numericColumn",
-      },
-      {
-        headerName: "Total Attempts",
-        field: "coderpad_total_submissions",
-        minWidth: 120,
-        type: "numericColumn",
-      },
-      {
-        headerName: "Passed",
-        field: "coderpad_passed",
-        minWidth: 100,
-        type: "numericColumn",
-      },
-      {
-        headerName: "Failed",
-        field: "coderpad_failed",
-        minWidth: 100,
-        type: "numericColumn",
-      },
-      {
-        headerName: "Success Rate",
-        field: "coderpad_pass_rate",
-        cellRenderer: SuccessRateRenderer,
-        minWidth: 130,
-      },
     ],
     []
   );
@@ -538,14 +466,14 @@ export function AiPrepAnalyticsPanel({ active = true }: AiPrepAnalyticsPanelProp
       "Name","Email","WBL Email","Login Count","Last Active",
       "Resume","Project","Intro Attempts","Best Intro Score","Intro Cleared",
       "Questions Answered","Avg Interview Score","Interview Completed",
-      "CoderPad Solved","CoderPad Pass Rate","Case Studies","Prep Status"
+      "Case Studies","Prep Status"
     ];
     const rows = displayed.map(r => [
       r.name, r.email, r.wbl_email, r.login_count, fmtDate(r.last_login),
       r.has_resume ? "Yes" : "No", r.has_project ? "Yes" : "No",
       r.intro_attempts, r.best_intro_score, r.intro_passed ? "Yes" : "No",
       r.questions_answered, r.avg_interview_score, r.interview_completed ? "Yes" : "No",
-      r.coderpad_questions_solved, r.coderpad_pass_rate, r.case_studies_generated,
+      r.case_studies_generated,
       r.prep_status_label
     ]);
     const csv = [headers, ...rows].map(row => row.join(",")).join("\n");
@@ -633,12 +561,6 @@ export function AiPrepAnalyticsPanel({ active = true }: AiPrepAnalyticsPanelProp
             variant="purple"
           />
           <EnhancedMetricCard
-            title="CoderPad Adoption"
-            value={`${summary.coderpad_adoption_rate}%`}
-            icon={<Terminal className="size-4" />}
-            variant="purple"
-          />
-          <EnhancedMetricCard
             title="Case Studies"
             value={summary.total_case_studies}
             icon={<BookOpen className="size-4" />}
@@ -680,20 +602,14 @@ export function AiPrepAnalyticsPanel({ active = true }: AiPrepAnalyticsPanelProp
             onChange={setFilterInterviewDone}
           />
           <FilterToggle
-            label="Has CoderPad"
-            value={filterHasCoderpad}
-            onChange={setFilterHasCoderpad}
-            trueColor="bg-purple-50 border-purple-200 text-purple-600 dark:bg-purple-950/20 dark:border-purple-900 dark:text-purple-400 font-semibold"
-          />
-          <FilterToggle
             label="Active 7d"
             value={filterActiveWeek}
             onChange={setFilterActiveWeek}
             trueColor="bg-cyan-50 border-cyan-200 text-cyan-600 dark:bg-cyan-950/20 dark:border-cyan-900 dark:text-cyan-400 font-semibold"
           />
-          {(filterIntroPassed !== null || filterInterviewDone !== null || filterHasCoderpad !== null || filterActiveWeek !== null) && (
+          {(filterIntroPassed !== null || filterInterviewDone !== null || filterActiveWeek !== null) && (
             <button
-              onClick={() => { setFilterIntroPassed(null); setFilterInterviewDone(null); setFilterHasCoderpad(null); setFilterActiveWeek(null); }}
+              onClick={() => { setFilterIntroPassed(null); setFilterInterviewDone(null); setFilterActiveWeek(null); }}
               className="text-xs text-rose-500 hover:text-rose-600 hover:underline flex items-center gap-1 font-semibold transition-colors"
             >
               <X className="w-3.5 h-3.5" /> Clear Filters
