@@ -45,30 +45,27 @@ interface MaterialFormData {
 
 const TYPE_MAPPING = {
   P: "Presentations",
-  Y: "Must See Youtube Videos",
-  C: "Cheatsheets",
+  A: "Questions",
   SG: "Study Guides",
-  D: "Diagrams",
-  S: "Softwares",
-  I: "Interactive Visual Explainers",
+  C: "Cheatsheets",
   B: "Books",
+  Y: "Must Watch",
   N: "Newsletters",
-  M: "Materials",
-  A: 'Assignments'
+  I: "Interactive Visual Explainers",
+  G: "Git Repo's",
+  M: "Materials"
 };
 
 const TYPE_OPTIONS = [
   { value: "P", label: "Presentations" },
-  { value: "Y", label: "Must See Youtube Videos" },
-  { value: "C", label: "Cheatsheets" },
+  { value: "A", label: "Questions" },
   { value: "SG", label: "Study Guides" },
-  { value: "D", label: "Diagrams" },
-  { value: "S", label: "Softwares" },
-  { value: "I", label: "Interactive Visual Explainers" },
+  { value: "C", label: "Cheatsheets" },
   { value: "B", label: "Books" },
+  { value: "Y", label: "Must Watch" },
   { value: "N", label: "Newsletters" },
-  { value: "M", label: "Materials" },
-  { value: "A", label: "Assignments" },
+  { value: "I", label: "Interactive Visual Explainers" },
+  { value: "G", label: "Git Repo's" },
 ];
 
 export default function CourseMaterialPage() {

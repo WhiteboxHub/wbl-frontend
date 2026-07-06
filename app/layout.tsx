@@ -15,6 +15,7 @@ import "ag-grid-community/styles/ag-theme-alpine.css";
 import NewEvent from "@/components/NewEvent";
 import ReferralNotificationButton from "@/components/ReferralNotificationButton";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
+import GlobalServiceWorker from "@/components/GlobalServiceWorker";
 
 export default function RootLayout({
   children,
@@ -23,6 +24,7 @@ export default function RootLayout({
 }) {
   const pathname = usePathname();
   const isAvatarSection = pathname.startsWith("/avatar");
+  const isCoderpad = pathname.startsWith("/coderpad");
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
@@ -62,7 +64,8 @@ export default function RootLayout({
         <SessionProvider>
           <AuthProvider>
             <Providers>
-              {isAvatarSection ? (
+              <GlobalServiceWorker />
+              {isAvatarSection || isCoderpad ? (
                 <>{children}</>
               ) : (
                 <>

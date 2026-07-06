@@ -156,7 +156,7 @@ export default function PlacementFeeCollectionPage() {
         if (data.isGroup) {
             return (
                 <div
-                    className="flex items-center cursor-pointer font-bold text-gray-800"
+                    className="flex items-center cursor-pointer font-bold text-gray-800 dark:text-gray-200"
                     onClick={() => toggleGroup(data.candidate_name)}
                 >
                     {data.isExpanded || searchTerm ? (
@@ -170,8 +170,8 @@ export default function PlacementFeeCollectionPage() {
         } else {
             // Individual row - show only company name
             return (
-                <div className="pl-6 text-sm text-gray-600">
-                    {data.company_name || <span className="text-gray-400">N/A</span>}
+                <div className="pl-6 text-sm text-gray-600 dark:text-gray-300">
+                    {data.company_name || <span className="text-gray-400 dark:text-gray-500">N/A</span>}
                 </div>
             );
         }
@@ -181,12 +181,12 @@ export default function PlacementFeeCollectionPage() {
         const val = params.value;
         if (params.data.isGroup) {
             return (
-                <span className="font-bold text-gray-900">
+                <span className="font-bold text-gray-900 dark:text-gray-100">
                     Total: ${Number(val).toLocaleString()}
                 </span>
             );
         }
-        return val == null ? "$0.00" : `$${Number(val).toLocaleString()}`;
+        return <span className="dark:text-gray-200">{val == null ? "$0.00" : `$${Number(val).toLocaleString()}`}</span>;
     };
 
     const DepositDateRenderer = (params: any) => {
@@ -194,18 +194,18 @@ export default function PlacementFeeCollectionPage() {
             // Show last deposit date for group row
             const lastDate = params.data.lastDepositDate;
             if (!lastDate) return null;
-            return <span className="font-semibold text-gray-700">{String(lastDate).split("T")[0]}</span>;
+            return <span className="font-semibold text-gray-700 dark:text-gray-300">{String(lastDate).split("T")[0]}</span>;
         }
         const v = params.value;
-        if (!v) return <span className="text-gray-500">N/A</span>;
-        return <span>{String(v).split("T")[0]}</span>;
+        if (!v) return <span className="text-gray-500 dark:text-gray-400">N/A</span>;
+        return <span className="dark:text-gray-200">{String(v).split("T")[0]}</span>;
     };
 
     const LastModDateRenderer = (params: any) => {
         if (params.data.isGroup) return null;
         const v = params.value;
         if (!v) return null;
-        return <span>{String(v).split("T")[0]}</span>;
+        return <span className="dark:text-gray-200">{String(v).split("T")[0]}</span>;
     };
 
     const InstallmentRenderer = (params: any) => {
@@ -219,7 +219,7 @@ export default function PlacementFeeCollectionPage() {
                 </span>
             );
         }
-        return <span>{params.value}</span>;
+        return <span className="dark:text-gray-200">{params.value}</span>;
     };
 
     const CollectedAmountRenderer = (params: any) => {

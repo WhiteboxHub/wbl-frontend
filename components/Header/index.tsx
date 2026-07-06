@@ -49,6 +49,13 @@ const Header = ({
     router.push("/login");
   };
 
+  const handleAvatarClick = () => {
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        console.log('Avatar clicked, evaluating sync...');
+        navigator.serviceWorker.controller.postMessage({ type: 'FLUSH' });
+    }
+  };
+
   const display_user_dashboard = () => {
     if (userRole === "employee") {
       router.push("/avatar/employee/employee-dashboard");
@@ -125,6 +132,8 @@ const Header = ({
                       {menuItem.path ? (
                         <Link
                           href={menuItem.path}
+                          target={menuItem.newTab ? "_blank" : undefined}
+                          rel={menuItem.newTab ? "noopener noreferrer" : undefined}
                           className="relative flex px-3 py-2 text-sm font-semibold text-dark duration-1000 before:absolute before:bottom-0 before:left-1/2 before:h-1 before:w-0 before:-translate-x-1/2 before:transform before:bg-primary before:transition-all before:duration-300 before:ease-out hover:before:w-full dark:text-white dark:hover:bg-black/70 sm:text-base sm:hover:bg-transparent sm:dark:hover:bg-transparent lg:mr-0 lg:inline-flex lg:px-0 lg:py-6"
                           onClick={closeNavbar}
                         >
@@ -150,19 +159,26 @@ const Header = ({
                             className={`submenu relative left-0 top-full rounded-md bg-white transition-[top] duration-300 group-hover:opacity-100 dark:bg-dark lg:invisible lg:absolute lg:top-[110%] lg:block lg:w-[250px] lg:p-4 lg:opacity-0 lg:shadow-lg lg:group-hover:visible lg:group-hover:top-full ${openIndex === index ? "block" : "hidden"
                               }`}
                           >
-                            {menuItem.submenu.map((submenuItem) => (
-                              <Link
-                                href={submenuItem.path}
-                                key={submenuItem.id}
-                                className={`block rounded py-2.5 text-center text-sm font-semibold text-dark duration-500 hover:bg-gray-200 hover:font-semibold dark:text-white dark:hover:bg-black/70 sm:text-base lg:px-5 ${submenuItem.title === "Resume"
-                                  ? "hidden lg:block"
-                                  : ""
-                                  }`}
-                                onClick={closeNavbar}
-                              >
-                                {submenuItem.title}
-                              </Link>
-                            ))}
+                            {menuItem.submenu.map((submenuItem) => {
+                              if (submenuItem.title === "CoderPad" && userRole !== "employee" && userRole !== "admin") {
+                                return null;
+                              }
+                              return (
+                                <Link
+                                  href={submenuItem.path}
+                                  target={submenuItem.newTab ? "_blank" : undefined}
+                                  rel={submenuItem.newTab ? "noopener noreferrer" : undefined}
+                                  key={submenuItem.id}
+                                  className={`block rounded py-2.5 text-center text-sm font-semibold text-dark duration-500 hover:bg-gray-200 hover:font-semibold dark:text-white dark:hover:bg-black/70 sm:text-base lg:px-5 ${submenuItem.title === "Resume"
+                                    ? "hidden lg:block"
+                                    : ""
+                                    }`}
+                                  onClick={closeNavbar}
+                                >
+                                  {submenuItem.title}
+                                </Link>
+                              );
+                            })}
                           </div>
                         </>
                       )}
@@ -174,7 +190,10 @@ const Header = ({
                       <Link
                         href={userRole === "employee" ? "/avatar/employee/employee-dashboard" : "/avatar"}
                         className="my-3 block w-full rounded-3xl bg-gradient-to-tl from-indigo-900 to-purple-400 px-3 py-2 text-center text-sm font-bold text-white hover:bg-gradient-to-br sm:text-base"
-                        onClick={closeNavbar}
+                        onClick={() => {
+                          closeNavbar();
+                          handleAvatarClick();
+                        }}
                       >
                         Avatar
                       </Link>
@@ -239,6 +258,7 @@ const Header = ({
                   {(userRole === "admin" || userRole === "employee") && (
                     <Link
                       href={userRole === "employee" ? "/avatar/employee/employee-dashboard" : "/avatar"}
+                      onClick={handleAvatarClick}
                       className="whitespace-nowrap rounded-md bg-gradient-to-br from-indigo-900 to-purple-400 px-6 py-3 text-sm font-bold text-white transition duration-500 hover:bg-opacity-90 hover:bg-gradient-to-tl hover:from-indigo-900 hover:to-purple-400 lg:text-base"
                     >
                       Avatar

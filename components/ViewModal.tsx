@@ -1,9 +1,13 @@
 "use client";
 import { useForm } from "react-hook-form";
-import { useEffect, useRef } from "react";
-import { X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { X, EyeIcon, Copy, Check, Download } from "lucide-react";
+import { toast } from "sonner";
 import { Badge } from "@/components/admin_ui/badge";
 import { formatLinkedInUrl } from "@/lib/utils";
+import { ResumeRenderer } from "@/components/templates/ResumeRenderer";
+import { normalizeResume } from "@/utils/resumeNormalizer";
+
 
 interface ViewModalProps {
   isOpen: boolean;
@@ -15,6 +19,8 @@ interface ViewModalProps {
 }
 
 const excludedFields = [
+  "apply_run_log_preview",
+  "log_history",
   "candidate", "instructor1", "instructor2", "instructor3", "id", "sessionid",
   "vendor_type", "last_modified", "logincount", "googleId",
   "subject_id", "course_id", "new_subject_id", "instructor_1id",
@@ -22,7 +28,9 @@ const excludedFields = [
   "instructor3_id", "enddate", "batch", "job_id", "employee_id", "job_owner", "job_owner_id",
   "job_owner_1", "job_owner_2", "job_owner_3",
   "isGroup", "isExpanded", "totalDeposit", "originalId",
-  "position_id", "position_company",
+
+  "position_id", "position_company", "agreement", "mass_email",
+
 ];
 
 const fieldSections: Record<string, string> = {
@@ -49,6 +57,8 @@ const fieldSections: Record<string, string> = {
   status: "Basic Information",
   batchid: "Contact Information",
   amount_collected: "Contact Information",
+  feedback_text: "Notes",
+  q_a: "Notes",
   batch: "Basic Information",
   start_date: "Basic Information",
   batchname: "Basic Information",
@@ -106,6 +116,8 @@ const fieldSections: Record<string, string> = {
   github_link: "Contact Information",
   resume: "Contact Information",
   resume_url: "Contact Information",
+  apply_run_log: "log_history",
+  jobs_skipped: "Other",
   client_id: "Professional Information",
   client_name: "Professional Information",
   interview_time: "Professional Information",
@@ -196,6 +208,17 @@ const fieldSections: Record<string, string> = {
   is_immigration_team: "Basic Information",
   is_in_prep: "Basic Information",
   is_in_marketing: "Professional Information",
+  run_raw_positions_workflow: "Professional Information",
+  run_daily_workflow: "Professional Information",
+  outreach_date: "Professional Information",
+  total_outreach_count: "Professional Information",
+  daily_outreach_limit: "Professional Information",
+  max_outreach_limit: "Professional Information",
+  fcount: "Professional Information",
+  run_weekly_workflow: "Professional Information",
+  run_email_extraction: "Professional Information",
+  run_outreach_emails: "Professional Information",
+  linkedin_post: "Professional Information",
   normalized_title: "Basic Information",
   position_type: "Basic Information",
   employment_mode: "Basic Information",
@@ -242,6 +265,26 @@ const fieldSections: Record<string, string> = {
   placement_commission_id: "Basic Information",
   installment_no: "Professional Information",
   installment_amount: "Professional Information",
+  resume_json: "Resume Data",
+  api_key: "Credentials",
+  provider_name: "Credentials",
+  model_name: "Credentials",
+
+  // Campaign Emails
+  vendor_email: "Basic Information",
+  retry_count: "Professional Information",
+  last_attempt_at: "Other",
+  run_log_id: "Professional Information",
+  credential_id: "Professional Information",
+  message_id: "Professional Information",
+
+  current_day_sent: "Professional Information",
+  last_reset_date: "Other",
+  is_warming_up: "Basic Information",
+  warmup_started_at: "Professional Information",
+  warmup_daily_limit: "Professional Information",
+  last_used_at: "Other",
+  is_healthy: "Basic Information",
 };
 
 const workVisaStatusOptions = [
@@ -372,15 +415,47 @@ const labelOverrides: Record<string, string> = {
   raw_contact_info: "Raw Contact Info",
   raw_notes: "Raw Notes",
   raw_payload: "Raw Payload",
+  q_a: "Q & A",
   processing_status: "Processing Status",
   extractor_version: "Extractor Version",
   extracted_at: "Extracted At",
   processed_at: "Processed At",
+  run_daily_workflow: "Run Daily Outreach Workflow",
+  outreach_date: "Schedule Outreach Date",
+  total_outreach_count: "Total Outreach Count",
+  daily_outreach_limit: "Daily Outreach Limit",
+  max_outreach_limit: "Max Outreach Limit",
+  fcount: "Follow-up Count (fcount)",
+  run_weekly_workflow: "Run Weekly Outreach Workflow",
+  run_raw_positions_workflow: "Run Raw Positions Workflow",
+  run_email_extraction: "Run Email Extraction",
+  run_outreach_emails: "Run Outreach Emails",
+  linkedin_post: "LinkedIn Post",
   error_message: "Error Message",
-  lastmod_user_id: "Last Modified By"
+  lastmod_user_id: "Last Modified By",
+  resume_json: "Resume JSON",
+  api_key: "API Key",
+  provider_name: "LLM Provider",
+  model_name: "Model Name",
+  resume_created_at: "Resume Added",
+  api_key_created_at: "Key Added",
+
+  // Campaign Emails
+  run_log_id: "Run Log ID",
+  credential_id: "Credential ID",
+  message_id: "Message ID",
+
+  current_day_sent: "Current Day Sent",
+  last_reset_date: "Last Reset Date",
+  is_warming_up: "Is Warming Up",
+  warmup_started_at: "Warmup Started At",
+  warmup_daily_limit: "Warmup Daily Limit",
+  last_used_at: "Last Used At",
+  is_healthy: "Is Healthy",
 };
 
 const dateFields = [
+  "outreach_date",
   "orientationdate",
   "start_date",
   "enddate",
@@ -396,6 +471,9 @@ const dateFields = [
   "target_date_of_marketing",
   "created_datetime",
   "lastmod_datetime",
+  "last_reset_date",
+  "warmup_started_at",
+  "last_used_at"
 ];
 
 const courseMaterialHiddenFields = ["subjectid", "courseid", "type"];
@@ -464,15 +542,112 @@ const getTitleSpecificExclusions = (title: string): string[] => {
     exclusions.push('scheduler_entries');
   }
 
+  if (lowerTitle.includes('credential')) {
+    exclusions.push('resume_updated_at', 'api_key_updated_at', 'model_name', 'linkedin_id', 'workstatus', 'phone');
+  }
+
   return exclusions;
 };
 
 // Priority fields that should be displayed first
 const priorityFields = ['candidate_full_name', 'full_name', 'fullname', 'candidate_name'];
 
+const ExpandableTextViewer = ({ content }: { content: string }) => {
+  const [expanded, setExpanded] = useState(false);
+  if (!content) return null;
+  const isLong = content.length > 250;
+
+  return (
+    <div className="relative">
+      <div
+        className={`whitespace-pre-wrap transition-all duration-300 ${expanded ? '' : 'max-h-[100px] overflow-hidden line-clamp-4'}`}
+        dangerouslySetInnerHTML={{ __html: content }}
+      />
+      {isLong && !expanded && (
+        <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white dark:from-slate-900 to-transparent pointer-events-none" />
+      )}
+      {isLong && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="text-blue-500 text-sm mt-1 hover:underline focus:outline-none block"
+        >
+          {expanded ? 'Show Less' : 'Show More'}
+        </button>
+      )}
+    </div>
+  );
+};
+
 export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate, title }: ViewModalProps) {
   const { register, watch, setValue, reset } = useForm();
   const modalRef = useRef<HTMLDivElement>(null);
+  const resumeRef = useRef<HTMLDivElement>(null);
+  const [jsonVisible, setJsonVisible] = useState<Record<string, boolean>>({});
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("academic");
+
+  const toggleJson = (key: string) => {
+    setJsonVisible(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const [copiedKeys, setCopiedKeys] = useState<Record<string, boolean>>({});
+
+  const handleCopy = (key: string, value: string) => {
+    navigator.clipboard.writeText(value);
+    setCopiedKeys(prev => ({ ...prev, [key]: true }));
+    toast.success(`${key.replace(/_/g, " ")} copied to clipboard`);
+    setTimeout(() => {
+      setCopiedKeys(prev => ({ ...prev, [key]: false }));
+    }, 2000);
+  };
+
+  const handleDownload = () => {
+    if (!resumeRef.current) return;
+
+    let candidateName = "Candidate";
+    try {
+      const rawResumeJson = typeof currentData === 'object' && currentData !== null
+        ? ('resume_json' in currentData
+            ? currentData.resume_json
+            : 'candidate_resume' in currentData
+            ? currentData.candidate_resume
+            : currentData)
+        : null;
+      if (rawResumeJson) {
+        const parsed = normalizeResume(rawResumeJson);
+        if (parsed?.fullName) {
+          candidateName = parsed.fullName;
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    const opt = {
+      margin:       0,
+      filename:     `${candidateName.replace(/\s+/g, "_")}_Resume.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { 
+        scale: 2, 
+        useCORS: true,
+        letterRendering: true
+      },
+      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+
+    const runHtml2Pdf = () => {
+      const element = resumeRef.current;
+      (window as any).html2pdf().set(opt).from(element).save();
+    };
+
+    if (!(window as any).html2pdf) {
+      const script = document.createElement("script");
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+      script.onload = runHtml2Pdf;
+      document.head.appendChild(script);
+    } else {
+      runHtml2Pdf();
+    }
+  };
 
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
@@ -611,7 +786,114 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       return <p>{displayValue}</p>;
     }
 
-    // Handle raw_payload and payload JSON fields - MUST come before generic object handler
+    // WboxCLI apply run log (full JSON in view modal only)
+    if (lowerKey === "apply_run_log") {
+      const isVisible = jsonVisible[key];
+      const displayValue =
+        typeof value === "object" && value !== null
+          ? JSON.stringify(value, null, 2)
+          : String(value ?? "");
+
+      return (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => toggleJson(key)}
+              className="flex items-center gap-2 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition"
+            >
+              {isVisible ? (
+                <>
+                  <X size={14} /> Hide log history
+                </>
+              ) : (
+                <>
+                  <EyeIcon size={14} /> View log history
+                </>
+              )}
+            </button>
+            {isVisible && (
+              <button
+                type="button"
+                onClick={() => handleCopy(key, displayValue)}
+                className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-500 hover:text-blue-600 hover:bg-gray-50 rounded transition border border-transparent hover:border-gray-100"
+              >
+                {copiedKeys[key] ? (
+                  <>
+                    <Check size={12} className="text-green-500" />
+                    <span className="text-green-600">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={12} />
+                    Copy JSON
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+          {isVisible && (
+            <pre className="whitespace-pre-wrap min-h-[40px] max-h-[300px] overflow-y-auto bg-gray-50 dark:bg-gray-800 p-2 rounded text-xs font-mono border border-blue-100">
+              {displayValue}
+            </pre>
+          )}
+        </div>
+      );
+    }
+
+    // Handle resume_json with eye icon toggle
+    if (lowerKey === "resume_json") {
+      const isVisible = jsonVisible[key];
+      const displayValue = typeof value === 'object' ? JSON.stringify(value, null, 2) : value;
+
+      return (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => toggleJson(key)}
+              className="flex items-center gap-2 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition"
+            >
+              {isVisible ? (
+                <>
+                  <X size={14} /> Hide JSON
+                </>
+              ) : (
+                <>
+                  <EyeIcon size={14} /> Show JSON
+                </>
+              )}
+            </button>
+            {isVisible && (
+              <button
+                type="button"
+                onClick={() => handleCopy(key, displayValue)}
+                className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-500 hover:text-blue-600 hover:bg-gray-50 rounded transition border border-transparent hover:border-gray-100"
+              >
+                {copiedKeys[key] ? (
+                  <>
+                    <Check size={12} className="text-green-500" />
+                    <span className="text-green-600">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={12} />
+                    Copy JSON
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+          {isVisible && (
+            <pre className="whitespace-pre-wrap min-h-[40px] max-h-[300px] overflow-y-auto bg-gray-50 dark:bg-gray-800 p-2 rounded text-xs font-mono border border-blue-100">
+              {displayValue}
+            </pre>
+          )}
+        </div>
+      );
+    }
+
+    // Handle raw_payload and payload JSON fields
     if (lowerKey === "raw_payload" || lowerKey === "payload") {
       let displayValue = value;
       if (typeof value === 'object' && value !== null) {
@@ -641,22 +923,69 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       const date = new Date(value);
       if (!isNaN(date.getTime())) return <p>{date.toISOString().split("T")[0]}</p>;
     }
+    if (lowerKey === "bounce_type") {
+      const displayValue = String(value).toUpperCase();
+      const valStr = String(value).toLowerCase();
+      if (valStr === "none") return <Badge className="bg-gray-100 text-gray-800">{displayValue}</Badge>;
+      if (valStr === "soft") return <Badge className="bg-yellow-100 text-yellow-800">{displayValue}</Badge>;
+      if (valStr === "hard") return <Badge className="bg-red-100 text-red-800">{displayValue}</Badge>;
+      if (valStr === "invalid") return <Badge className="bg-purple-100 text-purple-800">{displayValue}</Badge>;
+      return <Badge>{displayValue}</Badge>;
+    }
 
     if (lowerKey === "status") {
       const displayValue = String(value).toUpperCase();
+      if (title.toLowerCase().includes("campaign email")) {
+         const valStr = String(value).toLowerCase();
+         if (valStr === "pending") return <Badge className="bg-gray-100 text-gray-800 flex gap-2 w-fit px-2 items-center"><div className="h-1.5 w-1.5 rounded-full bg-gray-500"></div>{displayValue}</Badge>;
+         if (valStr === "processing") return <Badge className="bg-blue-100 text-blue-800 flex gap-2 w-fit px-2 items-center"><div className="h-1.5 w-1.5 rounded-full bg-blue-500"></div>{displayValue}</Badge>;
+         if (valStr === "sent") return <Badge className="bg-green-100 text-green-800 flex gap-2 w-fit px-2 items-center"><div className="h-1.5 w-1.5 rounded-full bg-green-500"></div>{displayValue}</Badge>;
+         if (valStr === "failed") return <Badge className="bg-red-100 text-red-800 flex gap-2 w-fit px-2 items-center"><div className="h-1.5 w-1.5 rounded-full bg-red-500"></div>{displayValue}</Badge>;
+         if (valStr === "bounced") return <Badge className="bg-orange-100 text-orange-800 flex gap-2 w-fit px-2 items-center"><div className="h-1.5 w-1.5 rounded-full bg-orange-500"></div>{displayValue}</Badge>;
+      }
       return <Badge className={getStatusColor(value)}>{displayValue}</Badge>;
+    }
+    if (lowerKey === "api_key") {
+      const isVisible = jsonVisible[key];
+      const valueStr = String(value);
+      const masked = "*".repeat(valueStr.length || 10);
+
+      return (
+        <div className="flex items-center justify-between gap-2 w-full">
+          <div className="flex-1 overflow-hidden">
+            <p className={`font-mono text-sm ${isVisible ? "whitespace-nowrap overflow-x-auto" : "truncate"}`}>
+              {isVisible ? valueStr : masked}
+            </p>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            {isVisible && (
+              <button
+                type="button"
+                onClick={() => handleCopy(key, valueStr)}
+                className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition text-gray-500 hover:text-blue-600"
+                title="Copy Key"
+              >
+                {copiedKeys[key] ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => toggleJson(key)}
+              className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition text-gray-500"
+              title={isVisible ? "Hide Key" : "Show Key"}
+            >
+              {isVisible ? <X size={14} /> : <EyeIcon size={14} />}
+            </button>
+          </div>
+        </div>
+      );
     }
     if (["visa_status", "workstatus"].includes(lowerKey)) return <Badge className={getVisaColor(value)}>{value}</Badge>;
     if (["feepaid", "feedue", "salary0", "salary6", "salary12"].includes(lowerKey)) return <p>${Number(value).toLocaleString()}</p>;
     if (lowerKey.includes("rating")) return <p>{value} </p>;
 
-    if (["notes", "task", "description", "job_description"].includes(lowerKey)) {
-      return (
-        <div
-          className="whitespace-pre-wrap min-h-[40px] max-h-[300px] overflow-y-auto"
-          dangerouslySetInnerHTML={{ __html: value }}
-        />
-      );
+    if (["notes", "task", "description", "job_description", "q_a", "feedback_text", "email_text"].includes(lowerKey)) {
+      return <ExpandableTextViewer content={value} />;
     }
 
     if (lowerKey === "linkedin_id" || lowerKey === "linkedin" || lowerKey === "interviewer_linkedin") {
@@ -750,16 +1079,14 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
 
     const typeMap: Record<string, string> = {
       'P': 'Presentations',
-      'Y': 'Must See Youtube Videos',
+      'Y': 'Must Watch',
       'C': 'Cheatsheets',
       'SG': 'Study Guides',
-      'D': 'Diagrams',
-      'S': 'Softwares',
       'I': 'Interactive Visual Explainers',
       'B': 'Books',
       'N': 'Newsletters',
       'M': 'Materials',
-      'A': 'Assignments'
+      'Q': 'Questions'
     };
 
     if (data.type && typeof data.type === 'object') {
@@ -789,6 +1116,8 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     "Professional Information": [],
     "Contact Information": [],
     "Emergency Contact": [],
+    "Resume Data": [],
+    "Credentials": [],
     "Other": [],
     "Notes": [],
   };
@@ -923,6 +1252,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
   const columnCount = Math.min(visibleSections.length, 4);
 
   const getModalWidth = () => {
+    if (title.toLowerCase() === "view resume") return 'max-w-4xl';
     switch (columnCount) {
       case 1: return 'max-w-md';
       case 2: return 'max-w-2xl';
@@ -940,12 +1270,12 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
         <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center p-2 sm:p-4 z-50">
           <div
             ref={modalRef}
-            className={`bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full ${getModalWidth()} max-h-[90vh] overflow-y-auto`}
+            className={`bg-white dark:bg-dark rounded-xl sm:rounded-2xl shadow-2xl w-full ${getModalWidth()} max-h-[90vh] overflow-y-auto`}
           >
             {/* Header */}
-            <div className="sticky top-0 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 px-3 sm:px-4 md:px-6 py-1 sm:py-1.5 border-b border-blue-200 flex justify-between items-center">
+            <div className="sticky top-0 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 dark:from-darklight dark:via-dark dark:to-darklight px-3 sm:px-4 md:px-6 py-1 sm:py-1.5 border-b border-blue-200 dark:border-blue-900 flex justify-between items-center">
               <h2 className="text-sm sm:text-base md:text-lg font-semibold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-                {title} - View Details
+                {title.toLowerCase() === "view resume" ? title : `${title} - View Details`}
               </h2>
               <button
                 onClick={onClose}
@@ -956,22 +1286,113 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
             </div>
 
             {/* Content */}
-            <div className="p-3 sm:p-4 md:p-5 bg-white">
-              <form>
-                {/* Content Grid */}
+            <div className="p-3 sm:p-4 md:p-5 bg-white dark:bg-dark">
+              {title.toLowerCase() === "view resume" ? (() => {
+                const rawResumeJson = typeof currentData === 'object' && currentData !== null
+                  ? ('resume_json' in currentData
+                      ? currentData.resume_json
+                      : 'candidate_resume' in currentData
+                      ? currentData.candidate_resume
+                      : currentData)
+                  : null;
+
+                let normalizedData = null;
+                let parseError = null;
+                if (rawResumeJson) {
+                  try {
+                    normalizedData = normalizeResume(rawResumeJson);
+                  } catch (e: any) {
+                    parseError = e.message || String(e);
+                  }
+                }
+
+                const templatesList = [
+                  { id: "academic", name: "Academic" },
+                  { id: "classy", name: "Classy" },
+                  { id: "elegant", name: "Elegant" },
+                  { id: "even", name: "Even" },
+                  { id: "flat", name: "Flat" },
+                  { id: "lowmess", name: "Lowmess" },
+                  { id: "macchiato", name: "Macchiato" },
+                  { id: "onepage-plus", name: "Onepage Plus" },
+                  { id: "professional", name: "Professional" },
+                  { id: "ats-friendly", name: "ATS Friendly" },
+                  { id: "stackoverflow", name: "Stackoverflow" },
+                  { id: "stackoverflowed", name: "Stackoverflowed" },
+                  { id: "straightforward", name: "Straightforward" },
+                  { id: "waterfall", name: "Waterfall" }
+                ];
+
+                return (
+                  <div className="p-1 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-100 pb-3 dark:border-gray-800">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider dark:text-gray-400">Template:</span>
+                        <select
+                          value={selectedTemplate}
+                          onChange={(e) => setSelectedTemplate(e.target.value)}
+                          className="text-xs font-semibold bg-gray-50 dark:bg-darklight text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                        >
+                          {templatesList.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {rawResumeJson && selectedTemplate !== "raw" && !parseError && (
+                        <button
+                          type="button"
+                          onClick={handleDownload}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-violet-600 hover:bg-violet-700 active:bg-violet-800 transition-colors rounded-lg shadow-sm"
+                        >
+                          <Download size={14} />
+                          Download PDF
+                        </button>
+                      )}
+                    </div>
+
+                    {!rawResumeJson ? (
+                      <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
+                        No resume data found.
+                      </div>
+                    ) : parseError || selectedTemplate === "raw" ? (
+                      <div>
+                        {parseError && selectedTemplate !== "raw" && (
+                          <div className="mb-3 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-lg text-xs text-amber-700 dark:text-amber-400">
+                            Failed to parse/normalize resume JSON ({parseError}). Showing Raw JSON view instead.
+                          </div>
+                        )}
+                        <pre className="w-full text-xs font-mono bg-blue-50/20 dark:bg-darklight p-4 rounded-xl border border-blue-100 dark:border-blue-900 overflow-auto max-h-[70vh] text-gray-700 dark:text-gray-200 whitespace-pre-wrap">
+                          {JSON.stringify(rawResumeJson, null, 2)}
+                        </pre>
+                      </div>
+                    ) : (
+                      <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden bg-white max-h-[70vh] overflow-y-auto p-4 shadow-inner">
+                        <div ref={resumeRef}>
+                          <ResumeRenderer templateId={selectedTemplate} data={normalizedData!} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })() : (
+                <form>
+                  {/* Content Grid */}
                 <div className={`grid grid-cols-1 ${columnCount >= 2 ? 'md:grid-cols-2' : ''} ${columnCount >= 3 ? 'lg:grid-cols-3' : ''} ${columnCount >= 4 ? 'xl:grid-cols-4' : ''} gap-3 sm:gap-4`}>
                   {visibleSections.map(section => (
                     <div key={section} className="space-y-2 sm:space-y-3">
-                      <h3 className="text-sm sm:text-base font-bold text-blue-700 border-b border-blue-200 pb-1 sm:pb-2">
+                      <h3 className="text-sm sm:text-base font-bold text-blue-700 dark:text-blue-400 border-b border-blue-200 dark:border-blue-900 pb-1 sm:pb-2">
                         {section}
                       </h3>
                       <div className="space-y-1.5 sm:space-y-2">
                         {sectionedFields[section].map(({ key, value }) => (
                           <div key={key} className="space-y-1">
-                            <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                            <label className="block text-xs sm:text-sm font-bold text-blue-700 dark:text-blue-400">
                               {toLabel(key)}
                             </label>
-                            <div className="w-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm border border-blue-200 rounded-lg bg-white min-h-[2rem]">
+                            <div className="w-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm border border-blue-200 rounded-lg bg-white dark:bg-darklight dark:text-gray-200 min-h-[2rem]">
                               {renderValue(key, value) || <span className="text-gray-400">-</span>}
                             </div>
                           </div>
@@ -983,17 +1404,17 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
 
                 {/* Notes Section */}
                 {sectionedFields["Notes"]?.length > 0 && (
-                  <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-blue-200">
-                    {/* <h3 className="text-sm sm:text-base font-bold text-blue-700 border-b border-blue-200 pb-1 sm:pb-2 mb-4">
+                  <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-blue-200 dark:border-blue-900">
+                    {/* <h3 className="text-sm sm:text-base font-bold text-blue-700 dark:text-blue-400 border-b border-blue-200 dark:border-blue-900 pb-1 sm:pb-2 mb-4">
                       Notes
                     </h3> */}
                     <div className="space-y-2 sm:space-y-3">
                       {sectionedFields["Notes"].map(({ key, value }) => (
                         <div key={key} className="space-y-1">
-                          <label className="block text-xs sm:text-sm font-bold text-blue-700">
+                          <label className="block text-xs sm:text-sm font-bold text-blue-700 dark:text-blue-400">
                             {toLabel(key)}
                           </label>
-                          <div className="w-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm border border-blue-200 rounded-lg bg-white min-h-[60px]">
+                          <div className="w-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm border border-blue-200 rounded-lg bg-white dark:bg-darklight dark:text-gray-200 min-h-[60px]">
                             {renderValue(key, value) || <span className="text-gray-400">-</span>}
                           </div>
                         </div>
@@ -1003,7 +1424,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
                 )}
                 {/* Navigation */}
                 {hasNavigation && (
-                  <div className="flex justify-between items-center mt-3 p-2 bg-blue-50 rounded-md">
+                  <div className="flex justify-between items-center mt-3 p-2 bg-blue-50 dark:bg-darklight rounded-md">
                     <button
                       type="button"
                       onClick={handlePrevious}
@@ -1025,7 +1446,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
                       Previous
                     </button>
 
-                    <span className="text-xs sm:text-sm font-bold text-indigo-700 bg-white px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg shadow-sm">
+                    <span className="text-xs sm:text-sm font-bold text-indigo-700 bg-white dark:bg-darklight dark:text-gray-200 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg shadow-sm">
                       {validIndex + 1} of {dataArray.length}
                     </span>
 
@@ -1052,6 +1473,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
                   </div>
                 )}
               </form>
+            )}
             </div>
           </div>
         </div>

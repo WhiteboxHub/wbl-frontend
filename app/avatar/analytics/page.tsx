@@ -1,11 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { WboxCliUsagePanel } from "@/components/analytics/WboxCliUsagePanel";
+import { AutofillExtensionUsagePanel } from "@/components/analytics/AutofillExtensionUsagePanel";
 import { useAuth } from "@/utils/AuthContext";
 import {
   Users, Layers3, CalendarDays, GraduationCap, UserPlus, CalendarPlus, PieChart as PieChartIcon, Wallet, Banknote, TrendingUp, Briefcase, Award, CheckCircle2, Clock, Mic, BarChart2,
   ClipboardList, XCircle, Target, CakeIcon, PiggyBank, Handshake, Trophy, NotebookIcon, Pen, PencilOff,
-  PenIcon, ChevronDown,
+  PenIcon, ChevronDown, Mail, List
 } from "lucide-react";
 import { EnhancedMetricCard } from "@/components/EnhancedMetricCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin_ui/card";
@@ -209,10 +211,15 @@ interface PreparationMetrics {
   inactive_candidates: number;
 }
 
-interface VendorMetrics {
+interface ExtractionMetrics {
   total_vendors: number;
-  today_extracted: number;
-  week_extracted: number;
+  raw_contacts_today: number;
+  raw_contacts_week: number;
+  email_positions_today: number;
+  email_positions_week: number;
+  raw_contacts_by_source_today?: Record<string, number>;
+  raw_contacts_by_source_week?: Record<string, number>;
+  raw_contacts_by_source_total?: Record<string, number>;
 }
 
 
@@ -240,8 +247,14 @@ function useCounter(target: number, duration = 1000) {
   return count;
 }
 
+const VALID_TABS = new Set([
+  "batch", "leads", "preparation", "marketing", "interview", "placement",
+  "employee", "extraction", "jobs", "finance", "wbox-cli", "autofill-extension",
+]);
+
 export default function Index() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { userRole } = useAuth() as { userRole: string };
 
   const [data, setData] = useState<CandidateInterviewPerformance[]>([]);
@@ -258,11 +271,20 @@ export default function Index() {
   const [preparationMetrics, setPreparationMetrics] = useState<PreparationMetrics | null>(null);
 
   const [leadMetrics, setLeadMetrics] = useState<LeadMetrics | null>(null);
-  const [activeTab, setActiveTab] = useState("batch");
-  const [vendorMetrics, setVendorMetrics] = useState<VendorMetrics | null>(null);
+  const tabFromUrl = searchParams.get("tab");
+  const initialTab = tabFromUrl && VALID_TABS.has(tabFromUrl) ? tabFromUrl : "batch";
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const [extractionMetrics, setExtractionMetrics] = useState<ExtractionMetrics | null>(null);
   // const [emailReads, setEmailReads] = useState<EmailExtraction[]>([]);
   const [isMobileDropdownOpen, setIsMobileDropdownOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab && VALID_TABS.has(tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -411,19 +433,19 @@ export default function Index() {
   }, []);
 
   useEffect(() => {
-    const fetchVendorMetrics = async () => {
+    const fetchExtractionMetrics = async () => {
       try {
         const token = localStorage.getItem("access_token");
         const res = await fetch(`${API_BASE_URL}/vendors/metrics`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
-        setVendorMetrics(data);
+        setExtractionMetrics(data);
       } catch (err) {
-        console.error("Error fetching vendor metrics:", err);
+        console.error("Error fetching extraction metrics:", err);
       }
     };
-    fetchVendorMetrics();
+    fetchExtractionMetrics();
   }, []);
 
 
@@ -490,8 +512,10 @@ export default function Index() {
   const currentDate = new Date();
   const currentMonth = currentDate.toLocaleString("default", { month: "long" });
   const currentYear = currentDate.getFullYear();
-  const todayextracted = useCounter(vendorMetrics?.today_extracted || 0);
-  const weekextracted = useCounter(vendorMetrics?.week_extracted || 0);
+  const rawToday = useCounter(extractionMetrics?.raw_contacts_today || 0);
+  const rawWeek = useCounter(extractionMetrics?.raw_contacts_week || 0);
+  const emailToday = useCounter(extractionMetrics?.email_positions_today || 0);
+  const emailWeek = useCounter(extractionMetrics?.email_positions_week || 0);
   const totalJobTypes = useCounter(metrics?.jobs_metrics?.total_job_types || 0);
   const totalJobActivities = useCounter(metrics?.jobs_metrics?.total_activities || 0);
   const activitiesToday = useCounter(metrics?.jobs_metrics?.activities_today || 0);
@@ -534,9 +558,11 @@ export default function Index() {
     interview: "Interview",
     placement: "Placement",
     employee: "Employee",
-    vendor: "Vendor",
+    extraction: "Extraction",
     jobs: "Jobs",
-    finance: "Finance"
+    finance: "Finance",
+    "wbox-cli": "WboxCLI",
+    "autofill-extension": "Autofill Extension",
   };
 
   const currentTabLabel = tabLabels[activeTab as keyof typeof tabLabels] || "Select Tab";
@@ -549,10 +575,10 @@ export default function Index() {
             <div className="relative mb-4 w-full">
               <button
                 onClick={() => setIsMobileDropdownOpen(!isMobileDropdownOpen)}
-                className="w-full flex items-center justify-between p-3 bg-white border-2 border-gray-200 rounded-xl shadow-sm touch-manipulation"
+                className="w-full flex items-center justify-between p-3 bg-white dark:bg-dark dark:border-darklight border-2 border-gray-200 rounded-xl shadow-sm touch-manipulation"
                 style={{ WebkitTapHighlightColor: 'transparent' }}
               >
-                <span className="font-semibold text-gray-700 text-sm">{currentTabLabel}</span>
+                <span className="font-semibold dark:text-white text-gray-700 text-sm">{currentTabLabel}</span>
                 <ChevronDown
                   className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${isMobileDropdownOpen ? 'rotate-180' : ''
                     }`}
@@ -560,7 +586,7 @@ export default function Index() {
               </button>
 
               {isMobileDropdownOpen && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border-2 border-gray-200 rounded-xl shadow-lg z-50 max-h-64 overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-dark dark:border-darklight border-2 border-gray-200 rounded-xl shadow-lg z-50 max-h-64 overflow-y-auto">
                   {Object.entries(tabLabels).map(([value, label]) => (
                     <button
                       key={value}
@@ -586,7 +612,7 @@ export default function Index() {
         )}
 
         {!isMobile && (
-          <TabsList className="border-2 border-gray-200 rounded-xl bg-gradient-to-br from-blue-50/50 via-white to-purple-50/50 p-2 shadow-sm">
+          <TabsList className="border-2 border-gray-200 rounded-xl bg-gradient-to-br from-blue-50/50 via-white to-purple-50/50 dark:border-darklight dark:from-dark dark:via-darklight dark:to-dark p-2 shadow-sm">
             <TabsTrigger value="batch" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-800">Batch</TabsTrigger>
             <TabsTrigger value="leads" className="data-[state=active]:bg-teal-100 data-[state=active]:text-teal-800">Leads</TabsTrigger>
             <TabsTrigger value="preparation" className="data-[state=active]:bg-pink-100 data-[state=active]:text-pink-800">Preparation</TabsTrigger>
@@ -594,9 +620,11 @@ export default function Index() {
             <TabsTrigger value="interview" className="data-[state=active]:bg-orange-100 data-[state=active]:text-orange-800">Interview</TabsTrigger>
             <TabsTrigger value="placement" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-800">Placement</TabsTrigger>
             <TabsTrigger value="employee" className="data-[state=active]:bg-fuchsia-100 data-[state=active]:text-fuchsia-800">Employee</TabsTrigger>
-            <TabsTrigger value="vendor" className="data-[state=active]:bg-cyan-100 data-[state=active]:text-cyan-800">Vendor</TabsTrigger>
+            <TabsTrigger value="extraction" className="data-[state=active]:bg-cyan-100 data-[state=active]:text-cyan-800">Extraction</TabsTrigger>
             <TabsTrigger value="jobs" className="data-[state=active]:bg-amber-100 data-[state=active]:text-amber-800">Jobs</TabsTrigger>
             <TabsTrigger value="finance" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-800">Finance</TabsTrigger>
+            <TabsTrigger value="wbox-cli" className="data-[state=active]:bg-violet-100 data-[state=active]:text-violet-800">WboxCLI</TabsTrigger>
+            <TabsTrigger value="autofill-extension" className="data-[state=active]:bg-fuchsia-100 data-[state=active]:text-fuchsia-800">Autofill Ext</TabsTrigger>
           </TabsList>
         )}
 
@@ -627,7 +655,7 @@ export default function Index() {
               icon={<CalendarPlus className="size-4" />}
               variant="purple"
             />
-            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-1 border-b border-purple-300">
+            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-1 dark:bg-dark border-b-darklight border-b border-purple-300">
               <CardHeader className="p-3 pb-1">
                 <div className="flex items-center justify-between border-b border-purple-200 pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">Upcoming Batch Start Dates</CardTitle>
@@ -638,7 +666,7 @@ export default function Index() {
                 <ul className="divide-y rounded-md border">
                   {upcomingBatches.map((batch) => (
                     <li key={batch.name} className="flex items-center justify-between p-2">
-                      <span className="text-sm font-medium border-b border-purple-200">{batch.name}</span>
+                      <span className="text-sm font-medium dark:text-white border-b border-purple-200">{batch.name}</span>
                       <span className="text-xs text-muted-foreground">
                         {formatDateFromDB(batch.startdate)}
                       </span>
@@ -647,7 +675,7 @@ export default function Index() {
                 </ul>
               </CardContent>
             </Card>
-            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-purple-300">
+            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 dark:bg-dark border-b-darklight border-b border-purple-300">
               <CardHeader className="p-3 pb-1">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-semibold text-muted-foreground border-b border-purple-200">
@@ -698,25 +726,25 @@ export default function Index() {
                   <div className="flex flex-col justify-center gap-3 w-full sm:w-auto">
                     <div className="flex items-center gap-2 justify-center sm:justify-start">
                       <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#4f46e5" }}></span>
-                      <span className="text-sm">Active: {metrics?.batch_metrics.candidate_status_breakdown.active || 0}</span>
+                      <span className="text-sm dark:text-white">Active: {metrics?.batch_metrics.candidate_status_breakdown.active || 0}</span>
                     </div>
                     <div className="flex items-center gap-2 justify-center sm:justify-start">
                       <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#f59e0b" }}></span>
-                      <span className="text-sm">Break: {metrics?.batch_metrics.candidate_status_breakdown.break || 0}</span>
+                      <span className="text-sm dark:text-white">Break: {metrics?.batch_metrics.candidate_status_breakdown.break || 0}</span>
                     </div>
                     <div className="flex items-center gap-2 justify-center sm:justify-start">
                       <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#ef4444" }}></span>
-                      <span className="text-sm">Discontinued: {metrics?.batch_metrics.candidate_status_breakdown.discontinued || 0}</span>
+                      <span className="text-sm dark:text-white">Discontinued: {metrics?.batch_metrics.candidate_status_breakdown.discontinued || 0}</span>
                     </div>
                     <div className="flex items-center gap-2 justify-center sm:justify-start">
                       <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#10b981" }}></span>
-                      <span className="text-sm">Placements: {metrics?.batch_metrics.candidate_status_breakdown.Placements || 0}</span>
+                      <span className="text-sm dark:text-white">Placements: {metrics?.batch_metrics.candidate_status_breakdown.Placements || 0}</span>
                     </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
-            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-1 border-b border-purple-300">
+            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-1 dark:bg-dark border-b-darklight border-b border-purple-300">
               <CardTitle className="text-sm font-semibold text-purple-700 flex items-center gap-1 p-2">
                 <Layers3 className="size-4 text-purple-500" />
                 Classes Count
@@ -724,7 +752,7 @@ export default function Index() {
               <CardContent className="p-2">
                 <div className="overflow-x-auto">
                   <table className="w-full border border-gray-300 rounded-md text-xs">
-                    <thead className="bg-purple-50">
+                    <thead className="bg-purple-50 dark:bg-darklight">
                       <tr>
                         <th className="text-left px-2 py-1 font-bold text-gray-700 border-b w-2/3">
                           Batch Name
@@ -736,7 +764,7 @@ export default function Index() {
                     </thead>
                     <tbody>
                       {batchClasses.map((b) => (
-                        <tr key={b.batchname} className="hover:bg-purple-50">
+                        <tr key={b.batchname} className="hover:bg-purple-50 dark:hover:bg-darklight/50">
                           <td className="px-2 py-1 border-b">{b.batchname}</td>
                           <td className="px-2 py-1 border-b text-center">{b.classes_count}</td>
                         </tr>
@@ -800,7 +828,7 @@ export default function Index() {
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-green-300">
+            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-green-300 dark:bg-dark dark:border-darklight">
               <CardHeader className="p-3 pb-1 border-b border-green-200">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -843,7 +871,7 @@ export default function Index() {
               </CardContent>
             </Card>
 
-            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-emerald-300">
+            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-emerald-300 dark:bg-dark dark:border-darklight">
               <CardHeader className="p-3 pb-1 border-b border-emerald-200">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-semibold text-muted-foreground border-b border-emerald-200">
@@ -884,11 +912,11 @@ export default function Index() {
                     <div className="flex flex-col justify-center gap-3 w-full sm:w-auto">
                       <div className="flex items-center gap-2 justify-center sm:justify-start">
                         <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#10b981" }}></span>
-                        <span className="text-sm">Completed: {completedInstallmentsCount}</span>
+                        <span className="text-sm dark:text-white">Completed: {completedInstallmentsCount}</span>
                       </div>
                       <div className="flex items-center gap-2 justify-center sm:justify-start">
                         <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#ef4444" }}></span>
-                        <span className="text-sm">Pending: {pendingInstallmentsCount}</span>
+                        <span className="text-sm dark:text-white">Pending: {pendingInstallmentsCount}</span>
                       </div>
                     </div>
                   </div>
@@ -911,7 +939,7 @@ export default function Index() {
             <EnhancedMetricCard title="Active Placements" value={activePlacements} icon={<CheckCircle2 className="size-4" />} variant="blue" />
 
             {metrics?.placement_metrics.last_placement && (
-              <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-blue-200">
+              <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-blue-200 dark:bg-dark dark:border-darklight">
                 <CardHeader className="p-3 pb-1">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium text-muted-foreground">Last Placement</CardTitle>
@@ -919,13 +947,13 @@ export default function Index() {
                   </div>
                 </CardHeader>
                 <CardContent className="p-3 pt-0">
-                  <div className="flex flex-col sm:flex-row items-center justify-between p-2 bg-violet-50 rounded-md gap-2">
+                  <div className="flex flex-col sm:flex-row items-center justify-between p-2 bg-violet-50 dark:bg-darklight rounded-md gap-2">
                     <div className="text-center sm:text-left">
-                      <div className="font-medium text-sm">{metrics.placement_metrics.last_placement.candidate_name}</div>
+                      <div className="font-medium text-sm dark:text-white">{metrics.placement_metrics.last_placement.candidate_name}</div>
                       <div className="text-xs text-muted-foreground">{metrics.placement_metrics.last_placement.position}</div>
                     </div>
                     <div className="text-center sm:text-right">
-                      <div className="font-medium text-sm">{metrics.placement_metrics.last_placement.company}</div>
+                      <div className="font-medium text-sm dark:text-white">{metrics.placement_metrics.last_placement.company}</div>
                       <div className="text-xs text-muted-foreground">
                         {formatDateWithMonth(metrics.placement_metrics.last_placement.placement_date)}
                       </div>
@@ -947,7 +975,7 @@ export default function Index() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="border-b border-orange-300">
+            <Card className="border-b border-orange-300 dark:bg-dark dark:border-darkline">
               <CardHeader className="p-3 pb-1">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -962,7 +990,7 @@ export default function Index() {
                 ) : data.length > 0 ? (
                   <div className="overflow-x-auto max-h-[250px] overflow-y-auto custom-scrollbar">
                     <table className="w-full text-sm border-separate border-spacing-0 border border-orange-100 rounded-lg">
-                      <thead className="bg-orange-50/90 text-orange-900 sticky top-0 z-10 backdrop-blur-sm shadow-sm">
+                      <thead className="bg-orange-50/90 text-orange-900 dark:bg-darklight dark:text-gray-300 sticky top-0 z-10 backdrop-blur-sm shadow-sm">
                         <tr>
                           <th className="p-3 text-left font-semibold min-w-[200px] border-b border-orange-100">Candidate</th>
                           <th className="p-3 text-center font-semibold w-32 border-b border-orange-100">Interviews</th>
@@ -972,8 +1000,8 @@ export default function Index() {
                       <tbody className="divide-y divide-gray-100">
                         {data.map((c) => (
                           <tr key={c.candidate_id} className="hover:bg-orange-50/30 transition-colors">
-                            <td className="p-3 font-medium text-gray-700">{c.candidate_name}</td>
-                            <td className="p-3 text-center text-gray-600 font-semibold">{c.total_interviews}</td>
+                            <td className="p-3 font-medium text-gray-700 dark:text-white">{c.candidate_name}</td>
+                            <td className="p-3 text-center text-gray-600 dark:text-white font-semibold">{c.total_interviews}</td>
                             <td
                               className={`p-3 text-center font-bold ${c.success_count > 0 ? "text-green-600 bg-green-50/50" : "text-gray-400"
                                 }`}
@@ -992,7 +1020,7 @@ export default function Index() {
             </Card>
 
             {/* Breakdown Chart */}
-            <Card className="border-b border-orange-300">
+            <Card className="border-b border-orange-300 dark:bg-dark dark:border-darkline">
               <CardHeader className="p-3 pb-1">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-semibold text-muted-foreground border-b border-orange-200">
@@ -1037,7 +1065,7 @@ export default function Index() {
                       <div className="flex flex-col justify-center gap-3 w-full sm:w-auto">
                         <div className="flex items-center gap-2 justify-center sm:justify-start">
                           <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#10b981" }}></span>
-                          <span className="text-sm font-medium">Positive: {positive}</span>
+                          <span className="text-sm font-medium dark:text-white">Positive: {positive}</span>
                         </div>
                         <div className="flex items-center gap-2 justify-center sm:justify-start">
                           <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#ef4444" }}></span>
@@ -1045,7 +1073,7 @@ export default function Index() {
                         </div>
                         <div className="flex items-center gap-2 justify-center sm:justify-start">
                           <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#f59e0b" }}></span>
-                          <span className="text-sm font-medium">Pending: {pending}</span>
+                          <span className="text-sm font-medium dark:text-white">Pending: {pending}</span>
                         </div>
                       </div>
                     </div>
@@ -1072,7 +1100,7 @@ export default function Index() {
             <EnhancedMetricCard title="Leads In This Month" value={leadsThisMonth} icon={<CalendarDays className="size-4" />} variant="teal" />
             <EnhancedMetricCard title="Lead In This Week" value={leads_this_week} icon={<Target className="size-4" />} variant="teal" />
             {leadMetrics?.latest_lead && (
-              <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-teal-200">
+              <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-teal-200 dark:bg-dark dark:border-darklight">
                 <CardHeader className="p-3 pb-1">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium text-muted-foreground ">Latest Lead</CardTitle>
@@ -1080,9 +1108,9 @@ export default function Index() {
                   </div>
                 </CardHeader>
                 <CardContent className="p-3 pt-0">
-                  <div className="flex flex-col sm:flex-row items-center justify-between p-2 bg-sky-50 rounded-md gap-2">
+                  <div className="flex flex-col sm:flex-row items-center justify-between p-2 bg-sky-50 dark:bg-darklight rounded-md gap-2">
                     <div className="text-center sm:text-left">
-                      <div className="font-medium text-sm">{leadMetrics.latest_lead.full_name}</div>
+                      <div className="font-medium text-sm dark:text-white">{leadMetrics.latest_lead.full_name}</div>
                       <div className="text-sm text-muted-foreground">{leadMetrics.latest_lead.email}</div>
                     </div>
                     <div className="text-center sm:text-right">
@@ -1095,7 +1123,7 @@ export default function Index() {
                 </CardContent>
               </Card>
             )}
-            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-teal-300">
+            <Card className="sm:col-span-2 lg:col-span-2 xl:col-span-2 border-b border-teal-300 dark:bg-dark dark:border-darklight">
               <CardHeader className="p-3 pb-1">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-semibold text-muted-foreground border-b border-teal-200">
@@ -1140,7 +1168,7 @@ export default function Index() {
                   <div className="flex flex-col justify-center gap-3 w-full sm:w-auto">
                     <div className="flex items-center gap-2 justify-center sm:justify-start">
                       <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#11bfebff" }}></span>
-                      <span className="text-sm">Open: {open_leads}</span>
+                      <span className="text-sm dark:text-white">Open: {open_leads}</span>
                     </div>
                     <div className="flex items-center gap-2 justify-center sm:justify-start">
                       <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#0bf50bff" }}></span>
@@ -1148,7 +1176,7 @@ export default function Index() {
                     </div>
                     <div className="flex items-center gap-2 justify-center sm:justify-start">
                       <span className="w-3 h-3 rounded-full" style={{ backgroundColor: "#e7c500ff" }}></span>
-                      <span className="text-sm">Future: {future_leads}</span>
+                      <span className="text-sm dark:text-white">Future: {future_leads}</span>
                     </div>
                   </div>
                 </div>
@@ -1194,7 +1222,7 @@ export default function Index() {
           <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* My Assigned Tasks Section */}
             {metrics?.my_tasks && metrics.my_tasks.length > 0 && (
-              <Card className="border-b border-indigo-200">
+              <Card className="border-b border-indigo-200 dark:bg-dark dark:border-darklight">
                 <CardHeader className="p-3 pb-1">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -1209,7 +1237,7 @@ export default function Index() {
                       <tbody>
                         {metrics.my_tasks.map((task) => (
                           <tr key={task.id} className="border-b transition-colors hover:bg-muted/30">
-                            <td className="px-3 py-2 font-medium">{task.task}</td>
+                            <td className="dark:text-white px-3 py-2 font-medium">{task.task}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1220,7 +1248,7 @@ export default function Index() {
             )}
 
             <div className={metrics?.my_tasks && metrics.my_tasks.length > 0 ? "" : "lg:col-span-2"}>
-              <Card className="border-b border-red-200 h-full">
+              <Card className="border-b border-red-200 dark:bg-dark dark:border-darklight h-full">
                 <CardHeader className="p-3 pb-1">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium text-muted-foreground">Employee Birthdays</CardTitle>
@@ -1233,7 +1261,7 @@ export default function Index() {
                       {birthdays.today.map((emp, idx) => (
                         <div
                           key={idx}
-                          className="p-4 bg-gradient-to-r from-pink-100 via-purple-100 to-indigo-100 rounded-lg border border-pink-200 shadow-md text-center"
+                          className="p-4 bg-gradient-to-r from-pink-100 via-purple-100 to-indigo-100 rounded-lg border border-pink-200 dark:bg-darklight dark:from-darklight dark:via-dark dark:to-darklight shadow-md text-center"
                         >
                           <h3 className="text-lg font-bold text-indigo-700">
                             {emp.wish || `🎂 🎉 Happy Birthday ${emp.name}! 🎂 🎉`}
@@ -1247,9 +1275,9 @@ export default function Index() {
                         birthdays.upcoming.map((emp, idx) => (
                           <div
                             key={idx}
-                            className="flex justify-between items-center p-3 bg-purple-50 rounded border border-purple-100"
+                            className="flex justify-between items-center p-3 bg-purple-50 rounded border border-purple-100 dark:bg-darklight dark:from-darklight dark:via-dark dark:to-darklight"
                           >
-                            <span className="font-medium">{emp.name}</span>
+                            <span className="dark:text-white font-medium">{emp.name}</span>
                             <span className="text-purple-600 font-semibold">
                               {formatDateWithMonth(emp.dob)}
                             </span>
@@ -1290,13 +1318,72 @@ export default function Index() {
             />
           </div>
         </TabsContent>
-        {/* 8.Vendors */}
-        <TabsContent value="vendor" className="mt-0">
+        {/* 8.Extraction */}
+        <TabsContent value="extraction" className="mt-0">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-            <EnhancedMetricCard title="Total Vendors" value={vendorMetrics?.total_vendors || 0} icon={<Layers3 className="size-4" />} variant="cyan" />
-            <EnhancedMetricCard title="Extracted Today" value={vendorMetrics?.today_extracted || 0} icon={<CalendarDays className="size-4" />} variant="cyan" />
-            <EnhancedMetricCard title="Extracted This Week" value={vendorMetrics?.week_extracted || 0} icon={<TrendingUp className="size-4" />} variant="cyan" />
+            <EnhancedMetricCard title="Total Vendors" value={extractionMetrics?.total_vendors || 0} icon={<Layers3 className="size-4" />} variant="cyan" />
+            <EnhancedMetricCard title="Raw Contacts Today" value={rawToday} icon={<List className="size-4" />} variant="cyan" />
+            <EnhancedMetricCard title="Raw Contacts Last Week" value={rawWeek} icon={<CalendarDays className="size-4" />} variant="cyan" />
+            <EnhancedMetricCard title="Email Position Today" value={emailToday} icon={<Mail className="size-4" />} variant="cyan" />
+            <EnhancedMetricCard title="Email Position Last Week" value={emailWeek} icon={<TrendingUp className="size-4" />} variant="cyan" />
           </div>
+
+          {/* Raw Contacts Breakdown Table */}
+          <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card className="border-b border-cyan-300 dark:bg-slate-900 dark:border-slate-800 overflow-hidden">
+              <CardHeader className="p-3 pb-1">
+                <div className="flex items-center justify-between border-b border-cyan-200 dark:border-slate-800 pb-2">
+                  <CardTitle className="text-sm font-semibold text-cyan-700 dark:text-cyan-400">Raw Contacts Breakdown</CardTitle>
+                  <Layers3 className="size-4 text-cyan-600" />
+                </div>
+              </CardHeader>
+              <CardContent className="p-3 pt-2">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left border border-gray-200 dark:border-slate-700 rounded-lg overflow-hidden">
+                    <thead className="bg-cyan-50 dark:bg-slate-800 text-xs font-bold text-cyan-800 dark:text-cyan-400 uppercase tracking-wider">
+                      <tr>
+                        <th className="px-4 py-2 border-b dark:border-slate-700">Source Type</th>
+                        <th className="px-4 py-2 border-b dark:border-slate-700 text-center">Today</th>
+                        <th className="px-4 py-2 border-b dark:border-slate-700 text-center">Last Week</th>
+                        <th className="px-4 py-2 border-b dark:border-slate-700 text-center">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+                      {[
+                        { key: "email", label: "Email" },
+                        { key: "manual", label: "Manual" },
+                        { key: "bot_linkedin_message_extraction", label: "LinkedIn Message Extraction" },
+                        { key: "bot_linkedin_post_contact_extractor", label: "LinkedIn Post Contact Extractor" }
+                      ].map((source) => (
+                        <tr key={source.key} className="hover:bg-cyan-50/30 dark:hover:bg-slate-800 transition-colors">
+                          <td className="px-4 py-2.5 font-medium text-gray-700 dark:text-gray-300">{source.label}</td>
+                          <td className="px-4 py-2.5 text-center text-cyan-700 dark:text-cyan-400 font-semibold bg-cyan-50/20 dark:bg-slate-800/50">
+                            {extractionMetrics?.raw_contacts_by_source_today?.[source.key] || 0}
+                          </td>
+                          <td className="px-4 py-2.5 text-center text-blue-700 dark:text-blue-400 font-semibold bg-blue-50/20 dark:bg-slate-800/50">
+                            {extractionMetrics?.raw_contacts_by_source_week?.[source.key] || 0}
+                          </td>
+                          <td className="px-4 py-2.5 text-center text-indigo-700 dark:text-indigo-400 font-semibold bg-indigo-50/20 dark:bg-slate-800/50">
+                            {extractionMetrics?.raw_contacts_by_source_total?.[source.key] || 0}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* WboxCLI usage */}
+        <TabsContent value="wbox-cli" className="mt-0">
+          <WboxCliUsagePanel active={activeTab === "wbox-cli"} />
+        </TabsContent>
+
+        {/* Autofill Extension usage */}
+        <TabsContent value="autofill-extension" className="mt-0">
+          <AutofillExtensionUsagePanel active={activeTab === "autofill-extension"} />
         </TabsContent>
 
         {/* 9. Jobs */}
@@ -1331,7 +1418,7 @@ export default function Index() {
           <div className="mt-4 max-w-md">
             {/* My Assigned Jobs Section */}
             {metrics?.my_jobs && metrics.my_jobs.length > 0 && (
-              <Card className="border-b border-blue-200">
+              <Card className="border-b border-blue-200 dark:bg-dark dark:border-darklight">
                 <CardHeader className="p-3 pb-1">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -1343,7 +1430,7 @@ export default function Index() {
                 <CardContent className="p-3 pt-2">
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
-                      <thead className="bg-blue-50 text-xs font-semibold text-blue-700">
+                      <thead className="bg-blue-50 text-xs font-semibold text-blue-700 dark:bg-darklight dark:text-gray-300">
                         <tr>
                           <th className="px-3 py-2">Job Name</th>
                         </tr>
@@ -1351,7 +1438,7 @@ export default function Index() {
                       <tbody>
                         {metrics.my_jobs.map((job) => (
                           <tr key={job.id} className="border-b transition-colors hover:bg-muted/30">
-                            <td className="px-3 py-2 font-medium">{job.name}</td>
+                            <td className="dark:text-white px-3 py-2 font-medium">{job.name}</td>
                           </tr>
                         ))}
                       </tbody>

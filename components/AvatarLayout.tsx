@@ -20,6 +20,7 @@ import {
 import { cn } from "lib/utils";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/utils/AuthContext";
+import ThemeToggler from "@/components/Header/ThemeToggler";
 
 interface AvatarLayoutProps {
   children: React.ReactNode;
@@ -34,36 +35,9 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
 
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window !== "undefined") {
-      return (
-        localStorage.getItem("darkMode") === "true" ||
-        document.documentElement.classList.contains("dark")
-      );
-    }
-    return false;
-  });
-
-  const toggleDarkMode = () => {
-    const newDarkMode = !darkMode;
-    setDarkMode(newDarkMode);
-    localStorage.setItem("darkMode", newDarkMode.toString());
-    document.documentElement.classList.toggle("dark", newDarkMode);
-  };
-
-  useEffect(() => {
-    const isDark = localStorage.getItem("darkMode") === "true";
-    setDarkMode(isDark);
-    document.documentElement.classList.toggle("dark", isDark);
-  }, []);
-
   const allSidebarItems = [
     { title: "Home", href: "/avatar/employee/employee-dashboard", icon: HomeIcon, exact: true },
-    {
-      title: "Analytics",
-      href: "/avatar/analytics",
-      icon: ShieldCheck,
-    },
+    { title: "Analytics", href: "/avatar/analytics", icon: ShieldCheck },
     {
       title: "Leads",
       href: "/avatar/leads",
@@ -108,8 +82,10 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
         { title: "List", href: "/avatar/candidates" },
         { title: "Search", href: "/avatar/candidates/search" },
         { title: "Prep", href: "/avatar/candidates/prep" },
-        { title: "Marketing", href: "/avatar/candidates/marketing" },
-        { title: "Job Listings Tracking", href: "/avatar/candidates/job-clicks" }
+        { title: "Non-Marketing", href: "/avatar/candidates/non-marketing" },
+        { title: "Credentials", href: "/avatar/candidates/credentials" },
+        { title: "Job Listings Tracking", href: "/avatar/candidates/job-clicks" },
+        { title: "CoderPad Tracking", href: "/avatar/candidates/coderpad-tracking" }
       ],
     },
     {
@@ -140,6 +116,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       href: "/avatar/marketing/job-listings",
       icon: Briefcase,
       children: [
+        { title: "Candidates", href: "/avatar/candidates/marketing" },
         { title: "Job Listings", href: "/avatar/marketing/job-listings" },
         { title: "Applications", href: "/avatar/marketing/applications" },
         { title: "Interviews", href: "/avatar/marketing/interviews" },
@@ -241,6 +218,10 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
           title: "Automation Keywords",
           href: "/avatar/workflow/automation-keywords",
         },
+        {
+          title: "Campaign Emails",
+          href: "/avatar/workflow/campaign-emails",
+        },
       ],
     },
 
@@ -251,6 +232,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
       children: [
         { title: "Documents", href: "/avatar/misc/documents" },
         { title: "Authuser", href: "/avatar/misc/authuser" },
+        { title: "Extension Keys", href: "/avatar/misc/extension-keys" },
       ],
     },
   ];
@@ -267,7 +249,6 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
   };
 
   const isActive = (item: (typeof sidebarItems)[number]) => {
-    // If any item has an exact match with the current pathname, only that item should be active
     const hasExactMatch = sidebarItems.some(i => i.exact && i.href === pathname);
 
     if (hasExactMatch) {
@@ -276,10 +257,22 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
 
     if (item.exact) return pathname === item.href;
     if (pathname === item.href) return true;
+
+    // Aggressive fix for "Candidates" collision
+    if (item.title === "Candidates") {
+      if (pathname.includes("/marketing") || pathname.includes("/placements") || pathname.includes("/leads")) {
+        return false;
+      }
+    }
+
     if (item.children) {
-      return item.children.some(
-        (child) => pathname === child.href || pathname.startsWith(child.href + "/")
-      );
+      return item.children.some((child) => {
+        if (pathname === child.href) return true;
+        if (child.href !== "/avatar/candidates" && pathname.startsWith(child.href + "/")) {
+          return true;
+        }
+        return false;
+      });
     }
     return false;
   };
@@ -336,6 +329,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
                 Avatar
               </h1>
             </Link>
+            <ThemeToggler />
           </div>
         </div>
       </header>
@@ -368,7 +362,7 @@ export function AvatarLayout({ children }: AvatarLayoutProps) {
                   }}
                 >
                   <Link
-                    href={item.href}
+                    href={hasChildren && item.children ? item.children[0].href : item.href}
                     className={cn(
                       "flex items-center justify-between space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
                       itemIsActive

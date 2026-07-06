@@ -10,6 +10,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isViewSection = pathname.startsWith("/view");
+  const isCoderpad = pathname.startsWith("/coderpad");
 
   const [holdLoad, setHoldLoad] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -35,14 +36,14 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   return holdLoad ? (
     <>
-      {!isViewSection && <Header />}
-      {!isViewSection && (
+      {!isViewSection && !isCoderpad && <Header />}
+      {!isViewSection && !isCoderpad && (
         <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
       )}
       {/* <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} /> */}
       <main className="w-full">{children}</main>
-      {!isViewSection && <Footer />}
-      {!isViewSection && <ScrollToTop />}
+      {!isViewSection && !isCoderpad && <Footer />}
+      {!isViewSection && !isCoderpad && <ScrollToTop />}
     </>
   ) : null;
 }

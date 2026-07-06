@@ -451,7 +451,7 @@ export default function CandidatesMarketingPage() {
   const fetchCandidates = async () => {
     try {
       setLoading(true);
-      const res = await cachedApiFetch("/candidate/marketing?page=1&limit=100");
+      const res = await cachedApiFetch("/candidate/marketing?page=1&limit=1000");
       const data = Array.isArray(res.data?.data)
         ? res.data.data
         : Array.isArray(res.data?.results)
@@ -600,6 +600,7 @@ export default function CandidatesMarketingPage() {
       {
         field: "candidate_name",
         headerName: "Full Name",
+        pinned: "left",
         sortable: true,
         width: 200,
         editable: true,
@@ -760,16 +761,7 @@ export default function CandidatesMarketingPage() {
           <span>{params.value ? "Yes" : "No"}</span>
         ),
       },
-      {
-        field: "mass_email",
-        headerName: "Mass Email",
-        width: 120,
-        editable: true,
-        cellRenderer: (params: any) => (
-          <span>{params.value ? "Yes" : "No"}</span>
-        ),
-        cellEditor: "agCheckboxCellEditor",
-      },
+
       {
         field: "candidate_intro",
         headerName: "Candidate Intro",
@@ -782,7 +774,7 @@ export default function CandidatesMarketingPage() {
       },
       {
         field: "run_daily_workflow",
-        headerName: "Run Daily Workflow",
+        headerName: "Run Daily Outreach Workflow",
         width: 150,
         editable: true,
         cellRenderer: (params: any) => (
@@ -791,9 +783,27 @@ export default function CandidatesMarketingPage() {
         cellEditor: "agCheckboxCellEditor",
       },
       {
+        field: "outreach_date",
+        headerName: "Daily Outreach Date",
+        width: 150,
+        editable: true,
+        cellEditor: "agDateCellEditor",
+        valueFormatter: (params) => params.value ? format(new Date(params.value), "yyyy-MM-dd") : "",
+      },
+      {
         field: "run_weekly_workflow",
-        headerName: "Run Weekly Workflow",
+        headerName: "Run Weekly Outreach Workflow",
         width: 160,
+        editable: true,
+        cellRenderer: (params: any) => (
+          <span>{params.value ? "Yes" : "No"}</span>
+        ),
+        cellEditor: "agCheckboxCellEditor",
+      },
+      {
+        field: "run_raw_positions_workflow",
+        headerName: "Run Raw Positions Workflow",
+        width: 170,
         editable: true,
         cellRenderer: (params: any) => (
           <span>{params.value ? "Yes" : "No"}</span>
@@ -803,6 +813,16 @@ export default function CandidatesMarketingPage() {
       {
         field: "run_email_extraction",
         headerName: "Run Email Extraction",
+        width: 170,
+        editable: true,
+        cellRenderer: (params: any) => (
+          <span>{params.value ? "Yes" : "No"}</span>
+        ),
+        cellEditor: "agCheckboxCellEditor",
+      },
+      {
+        field: "run_outreach_emails",
+        headerName: "Run Outreach Emails",
         width: 170,
         editable: true,
         cellRenderer: (params: any) => (

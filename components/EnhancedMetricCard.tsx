@@ -16,79 +16,79 @@ interface EnhancedMetricCardProps {
 
 const variantStyles = {
   default: {
-    bg: "bg-white",
+    bg: "bg-white dark:bg-dark",
     iconBg: "bg-gray-100",
     iconColor: "text-gray-600",
     border: "border-gray-200"
   },
   purple: {
-    bg: "bg-white",
+    bg: "bg-white dark:bg-dark",
     iconBg: "bg-purple-100",
     iconColor: "text-purple-600",
     border: "border-purple-200"
   },
   blue: {
-    bg: "bg-white",
+    bg: "bg-white dark:bg-dark",
     iconBg: "bg-blue-100",
     iconColor: "text-blue-600",
     border: "border-blue-200"
   },
   green: {
-    bg: "bg-white",
+    bg: "bg-white dark:bg-dark",
     iconBg: "bg-green-100",
     iconColor: "text-green-600",
     border: "border-green-200"
   },
   orange: {
-    bg: "bg-white",
+    bg: "bg-white dark:bg-dark",
     iconBg: "bg-orange-100",
     iconColor: "text-orange-600",
     border: "border-orange-200"
   },
   red: {
-    bg: "bg-white",
+    bg: "bg-white dark:bg-dark",
     iconBg: "bg-rose-200 shadow-md shadow-rose-400/40",
     iconColor: "text-rose-700",
     border: "border-rose-300"
   },
   teal: {
-    bg: "bg-white",
+    bg: "bg-white dark:bg-dark",
     iconBg: "bg-teal-100",
     iconColor: "text-teal-600",
     border: "border-teal-200"
   },
   pink: {
-    bg: "bg-white",
+    bg: "bg-white dark:bg-dark",
     iconBg: "bg-pink-100",
     iconColor: "text-pink-600",
     border: "border-pink-200"
   },
   emerald: {
-    bg: "bg-white",
+    bg: "bg-white dark:bg-dark",
     iconBg: "bg-emerald-100",
     iconColor: "text-emerald-600",
     border: "border-emerald-200"
   },
   indigo: {
-    bg: "bg-white",
+    bg: "bg-white dark:bg-dark",
     iconBg: "bg-indigo-100",
     iconColor: "text-indigo-600",
     border: "border-indigo-200"
   },
   fuchsia: {
-    bg: "bg-white",
+    bg: "bg-white dark:bg-dark",
     iconBg: "bg-fuchsia-100",
     iconColor: "text-fuchsia-600",
     border: "border-fuchsia-200"
   },
   cyan: {
-    bg: "bg-white",
+    bg: "bg-white dark:bg-dark",
     iconBg: "bg-cyan-100",
     iconColor: "text-cyan-600",
     border: "border-cyan-200"
   },
   amber: {
-    bg: "bg-white",
+    bg: "bg-white dark:bg-dark",
     iconBg: "bg-amber-100",
     iconColor: "text-amber-600",
     border: "border-amber-200"
@@ -115,8 +115,8 @@ export function EnhancedMetricCard({
       <CardContent className="p-4">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <div className="text-sm text-gray-600 mb-2">{title}</div>
-            <div className="text-2xl font-bold text-gray-900">{value}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-300 mb-2">{title}</div>
+            <div className="text-2xl font-bold text-gray-900 dark:text-white">{value}</div>
             {trend && (
               <div className={cn(
                 "flex items-center text-xs mt-2 font-medium",
