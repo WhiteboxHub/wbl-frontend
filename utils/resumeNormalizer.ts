@@ -117,9 +117,11 @@ export function normalizeResume(raw: unknown): ResumeData {
         exp.tasks
     ).map(str).filter(Boolean);
 
+    const companyName = pick(exp, "company", "name", "client");
+
     return {
       id: String(i + 1),
-      company: pick(exp, "company", "employer", "organization", "org"),
+      company: companyName,
       title: pick(exp, "role", "title", "position", "jobTitle", "job_title", "designation"),
       location: pick(exp, "location", "city", "place"),
       startDate: str(exp.startDate ?? exp.start_date ?? "").trim() || startDate,

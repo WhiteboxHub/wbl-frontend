@@ -35,7 +35,7 @@ export function AcademicTemplate({ data }: TemplateProps) {
           {data.experience.map((exp) => (
             <div key={exp.id} className="mb-3 ml-2">
               <div className="flex justify-between">
-                <span><strong>{exp.title}</strong>, {exp.company}</span>
+                <span><strong>{exp.company}</strong> — {exp.title}</span>
                 <span className="text-gray-500">{formatDateRange(exp.startDate, exp.endDate, exp.current)}</span>
               </div>
               <ul className="mt-1 text-gray-700 space-y-1">

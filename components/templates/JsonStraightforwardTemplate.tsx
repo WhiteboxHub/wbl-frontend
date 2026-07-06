@@ -24,7 +24,7 @@ export function JsonStraightforwardTemplate({ data }: TemplateProps) {
             {data.experience.map((exp) => (
               <div key={exp.id}>
                 <div className="flex flex-wrap justify-between items-baseline gap-1">
-                  <strong className="text-[11px]">{exp.title} @ {exp.company}</strong>
+                  <strong className="text-[11px]">{exp.company} — {exp.title}</strong>
                   <span className="text-[10px] text-gray-500">{formatDateRange(exp.startDate, exp.endDate, exp.current)}</span>
                 </div>
                 {exp.location && <div className="text-[10px] text-gray-500">{exp.location}</div>}
