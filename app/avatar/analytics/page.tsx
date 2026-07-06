@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { WboxCliUsagePanel } from "@/components/analytics/WboxCliUsagePanel";
+import { AutofillExtensionUsagePanel } from "@/components/analytics/AutofillExtensionUsagePanel";
 import { AiPrepAnalyticsPanel } from "@/components/analytics/AiPrepAnalyticsPanel";
 import { useAuth } from "@/utils/AuthContext";
 import {
@@ -249,7 +250,7 @@ function useCounter(target: number, duration = 1000) {
 
 const VALID_TABS = new Set([
   "batch", "leads", "preparation", "marketing", "interview", "placement",
-  "employee", "extraction", "jobs", "finance", "wbox-cli", "ai-prep",
+  "employee", "extraction", "jobs", "finance", "wbox-cli", "autofill-extension", "ai-prep",
 ]);
 
 export default function Index() {
@@ -562,6 +563,7 @@ export default function Index() {
     jobs: "Jobs",
     finance: "Finance",
     "wbox-cli": "WboxCLI",
+    "autofill-extension": "Autofill Extension",
     "ai-prep": "AI Prep",
   };
 
@@ -624,6 +626,7 @@ export default function Index() {
             <TabsTrigger value="jobs" className="data-[state=active]:bg-amber-100 data-[state=active]:text-amber-800">Jobs</TabsTrigger>
             <TabsTrigger value="finance" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-800">Finance</TabsTrigger>
             <TabsTrigger value="wbox-cli" className="data-[state=active]:bg-violet-100 data-[state=active]:text-violet-800">WboxCLI</TabsTrigger>
+            <TabsTrigger value="autofill-extension" className="data-[state=active]:bg-fuchsia-100 data-[state=active]:text-fuchsia-800">Autofill Ext</TabsTrigger>
             <TabsTrigger value="ai-prep" className="data-[state=active]:bg-indigo-100 data-[state=active]:text-indigo-800">AI Prep</TabsTrigger>
           </TabsList>
         )}
@@ -1379,6 +1382,11 @@ export default function Index() {
         {/* WboxCLI usage */}
         <TabsContent value="wbox-cli" className="mt-0">
           <WboxCliUsagePanel active={activeTab === "wbox-cli"} />
+        </TabsContent>
+
+        {/* Autofill Extension usage */}
+        <TabsContent value="autofill-extension" className="mt-0">
+          <AutofillExtensionUsagePanel active={activeTab === "autofill-extension"} />
         </TabsContent>
 
         {/* AI Prep usage */}

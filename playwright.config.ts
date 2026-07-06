@@ -28,16 +28,16 @@ export default defineConfig({
 
   workers: 1,
 
-  reporter: [["list"]],
+  reporter: [["list"], ["html"]],
 
   use: {
     baseURL,
 
-    // Capture trace on first retry to aid debugging
+    // Trace disabled — set to "retain-on-failure" to re-enable for debugging
     trace: "off",
 
-    // Always capture screenshot on failure for clear evidence of broken grid
-    screenshot: "off",
+    // Always capture screenshot on failure for clear evidence
+    screenshot: "only-on-failure",
 
     // Keep video on failure so we can see exactly when the grid disappeared
     video: "off",

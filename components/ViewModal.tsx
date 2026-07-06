@@ -1,10 +1,13 @@
 "use client";
 import { useForm } from "react-hook-form";
 import { useEffect, useRef, useState } from "react";
-import { X, EyeIcon, Copy, Check } from "lucide-react";
+import { X, EyeIcon, Copy, Check, Download } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/admin_ui/badge";
 import { formatLinkedInUrl } from "@/lib/utils";
+import { ResumeRenderer } from "@/components/templates/ResumeRenderer";
+import { normalizeResume } from "@/utils/resumeNormalizer";
+
 
 interface ViewModalProps {
   isOpen: boolean;
@@ -25,7 +28,9 @@ const excludedFields = [
   "instructor3_id", "enddate", "batch", "job_id", "employee_id", "job_owner", "job_owner_id",
   "job_owner_1", "job_owner_2", "job_owner_3",
   "isGroup", "isExpanded", "totalDeposit", "originalId",
-  "position_id", "position_company", "agreement",
+
+  "position_id", "position_company", "agreement", "mass_email",
+
 ];
 
 const fieldSections: Record<string, string> = {
@@ -72,6 +77,7 @@ const fieldSections: Record<string, string> = {
   secondary_phone: "Contact Information",
   phone_ext: "Professional Information",
   last_mod_datetime: "Contact Information",
+  agreement: "Professional Information",
   subject_id: "Basic Information",
   subjectid: "Professional Information",
   courseid: "Professional Information",
@@ -176,7 +182,7 @@ const fieldSections: Record<string, string> = {
   cm_subject: "Basic Information",
   material_type: "Basic Information",
   job_name: "Basic Information",
-  job_description: "Notes",
+  job_description: "Professional Information",
   // created_date: "Professional Information",
   activity_date: "Professional Information",
   activity_count: "Professional Information",
@@ -550,7 +556,7 @@ const ExpandableTextViewer = ({ content }: { content: string }) => {
   const [expanded, setExpanded] = useState(false);
   if (!content) return null;
   const isLong = content.length > 250;
-  
+
   return (
     <div className="relative">
       <div
@@ -575,7 +581,9 @@ const ExpandableTextViewer = ({ content }: { content: string }) => {
 export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate, title }: ViewModalProps) {
   const { register, watch, setValue, reset } = useForm();
   const modalRef = useRef<HTMLDivElement>(null);
+  const resumeRef = useRef<HTMLDivElement>(null);
   const [jsonVisible, setJsonVisible] = useState<Record<string, boolean>>({});
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("academic");
 
   const toggleJson = (key: string) => {
     setJsonVisible(prev => ({ ...prev, [key]: !prev[key] }));
@@ -590,6 +598,55 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
     setTimeout(() => {
       setCopiedKeys(prev => ({ ...prev, [key]: false }));
     }, 2000);
+  };
+
+  const handleDownload = () => {
+    if (!resumeRef.current) return;
+
+    let candidateName = "Candidate";
+    try {
+      const rawResumeJson = typeof currentData === 'object' && currentData !== null
+        ? ('resume_json' in currentData
+            ? currentData.resume_json
+            : 'candidate_resume' in currentData
+            ? currentData.candidate_resume
+            : currentData)
+        : null;
+      if (rawResumeJson) {
+        const parsed = normalizeResume(rawResumeJson);
+        if (parsed?.fullName) {
+          candidateName = parsed.fullName;
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    const opt = {
+      margin:       0,
+      filename:     `${candidateName.replace(/\s+/g, "_")}_Resume.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { 
+        scale: 2, 
+        useCORS: true,
+        letterRendering: true
+      },
+      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+
+    const runHtml2Pdf = () => {
+      const element = resumeRef.current;
+      (window as any).html2pdf().set(opt).from(element).save();
+    };
+
+    if (!(window as any).html2pdf) {
+      const script = document.createElement("script");
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+      script.onload = runHtml2Pdf;
+      document.head.appendChild(script);
+    } else {
+      runHtml2Pdf();
+    }
   };
 
   useEffect(() => {
@@ -1029,7 +1086,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
       'B': 'Books',
       'N': 'Newsletters',
       'M': 'Materials',
-      'A': 'Assignments'
+      'Q': 'Questions'
     };
 
     if (data.type && typeof data.type === 'object') {
@@ -1172,7 +1229,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
 
   // Custom ordering for Notes section in raw job listings
   if (sectionedFields["Notes"]?.length > 0) {
-    const notesFieldOrder = ['payload', 'raw_payload', 'raw_description', 'description', 'job_description', 'raw_notes', 'notes', 'feedback_text'];
+    const notesFieldOrder = ['payload', 'raw_payload', 'raw_description', 'description', 'raw_notes', 'notes'];
     sectionedFields["Notes"].sort((a, b) => {
       const aIndex = notesFieldOrder.indexOf(a.key);
       const bIndex = notesFieldOrder.indexOf(b.key);
@@ -1230,23 +1287,97 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
 
             {/* Content */}
             <div className="p-3 sm:p-4 md:p-5 bg-white dark:bg-dark">
-              {title.toLowerCase() === "view resume" ? (
-                <div className="p-1">
-                  <pre className="w-full text-xs font-mono bg-blue-50/20 dark:bg-darklight p-4 rounded-xl border border-blue-100 dark:border-blue-900 overflow-auto max-h-[70vh] text-gray-700 dark:text-gray-200 whitespace-pre-wrap">
-                    {typeof currentData === 'object' && currentData !== null
-                      ? JSON.stringify(
-                          'resume_json' in currentData
-                            ? currentData.resume_json
-                            : 'candidate_resume' in currentData
-                            ? currentData.candidate_resume
-                            : currentData,
-                          null,
-                          2
-                        )
-                      : String(currentData)}
-                  </pre>
-                </div>
-              ) : (
+              {title.toLowerCase() === "view resume" ? (() => {
+                const rawResumeJson = typeof currentData === 'object' && currentData !== null
+                  ? ('resume_json' in currentData
+                      ? currentData.resume_json
+                      : 'candidate_resume' in currentData
+                      ? currentData.candidate_resume
+                      : currentData)
+                  : null;
+
+                let normalizedData = null;
+                let parseError = null;
+                if (rawResumeJson) {
+                  try {
+                    normalizedData = normalizeResume(rawResumeJson);
+                  } catch (e: any) {
+                    parseError = e.message || String(e);
+                  }
+                }
+
+                const templatesList = [
+                  { id: "academic", name: "Academic" },
+                  { id: "classy", name: "Classy" },
+                  { id: "elegant", name: "Elegant" },
+                  { id: "even", name: "Even" },
+                  { id: "flat", name: "Flat" },
+                  { id: "lowmess", name: "Lowmess" },
+                  { id: "macchiato", name: "Macchiato" },
+                  { id: "onepage-plus", name: "Onepage Plus" },
+                  { id: "professional", name: "Professional" },
+                  { id: "ats-friendly", name: "ATS Friendly" },
+                  { id: "stackoverflow", name: "Stackoverflow" },
+                  { id: "stackoverflowed", name: "Stackoverflowed" },
+                  { id: "straightforward", name: "Straightforward" },
+                  { id: "waterfall", name: "Waterfall" }
+                ];
+
+                return (
+                  <div className="p-1 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-4 border-b border-gray-100 pb-3 dark:border-gray-800">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider dark:text-gray-400">Template:</span>
+                        <select
+                          value={selectedTemplate}
+                          onChange={(e) => setSelectedTemplate(e.target.value)}
+                          className="text-xs font-semibold bg-gray-50 dark:bg-darklight text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                        >
+                          {templatesList.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {rawResumeJson && selectedTemplate !== "raw" && !parseError && (
+                        <button
+                          type="button"
+                          onClick={handleDownload}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-violet-600 hover:bg-violet-700 active:bg-violet-800 transition-colors rounded-lg shadow-sm"
+                        >
+                          <Download size={14} />
+                          Download PDF
+                        </button>
+                      )}
+                    </div>
+
+                    {!rawResumeJson ? (
+                      <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm">
+                        No resume data found.
+                      </div>
+                    ) : parseError || selectedTemplate === "raw" ? (
+                      <div>
+                        {parseError && selectedTemplate !== "raw" && (
+                          <div className="mb-3 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-lg text-xs text-amber-700 dark:text-amber-400">
+                            Failed to parse/normalize resume JSON ({parseError}). Showing Raw JSON view instead.
+                          </div>
+                        )}
+                        <pre className="w-full text-xs font-mono bg-blue-50/20 dark:bg-darklight p-4 rounded-xl border border-blue-100 dark:border-blue-900 overflow-auto max-h-[70vh] text-gray-700 dark:text-gray-200 whitespace-pre-wrap">
+                          {JSON.stringify(rawResumeJson, null, 2)}
+                        </pre>
+                      </div>
+                    ) : (
+                      <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden bg-white max-h-[70vh] overflow-y-auto p-4 shadow-inner">
+                        <div ref={resumeRef}>
+                          <ResumeRenderer templateId={selectedTemplate} data={normalizedData!} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })() : (
                 <form>
                   {/* Content Grid */}
                 <div className={`grid grid-cols-1 ${columnCount >= 2 ? 'md:grid-cols-2' : ''} ${columnCount >= 3 ? 'lg:grid-cols-3' : ''} ${columnCount >= 4 ? 'xl:grid-cols-4' : ''} gap-3 sm:gap-4`}>
