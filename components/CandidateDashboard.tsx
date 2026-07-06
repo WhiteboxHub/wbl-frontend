@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast, Toaster } from "sonner";
 import { format, parseISO } from "date-fns";
 import Link from "next/link";
+import { ViewModal } from "./ViewModal";
 import {
     Mail,
     Phone,
@@ -29,25 +30,23 @@ import {
     Video,
     Check,
     ChevronRight,
-    ChevronLeft,
-    ChevronsLeft,
-    ChevronsRight,
     LogOut,
     Settings,
     LayoutDashboard,
     Puzzle,
-    Code2,
     Sparkles,
     Plus,
+
     ClipboardCheck,
     CalendarCheck,
     EyeIcon,
     EditIcon,
     KeyRound,
     Eye,
+    Code2,
+    FileText,
 } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
-import { ViewModal } from "@/components/ViewModal";
 import { Input } from "@/components/admin_ui/input";
 import {
     DropdownMenu,
@@ -61,26 +60,10 @@ import { useAuth } from "@/utils/AuthContext";
 import CandidateGrid from "./CandidateGrid";
 import { CandidateSetupWizard } from "./CandidateSetupWizard";
 import { CandidateLlmKeysPanel } from "./CandidateLlmKeysPanel";
+
+import CandidateOnboarding from "./CandidateOnboarding";
+
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
-
-// Build the outbound apply URL for a job_listing row. Prefers an explicit
-// ``job_url`` and otherwise synthesizes one from ``source_job_id`` based on the
-// row's ``source`` (LinkedIn, TrueUp, Hiring Cafe, Jobright). Kept inline so
-// CandidateDashboard has zero external utility dependencies.
-function resolveJobListingApplyUrl(row: Record<string, unknown> | null | undefined): string | null {
-    if (!row) return null;
-    const raw = String(row.job_url ?? "").trim();
-    if (raw) return raw;
-
-    const jobId = (row.source_job_id ?? row.source_uid) as string | undefined;
-    if (!jobId) return null;
-
-    const source = String(row.source ?? "").toLowerCase();
-    if (source.includes("trueup")) return `https://trueup.io/jobs/${jobId}`;
-    if (source.includes("hiring") || source.includes("cafe")) return `https://hiring.cafe/viewjob/${jobId}`;
-    if (source.includes("jobright")) return `https://jobright.ai/jobs/info/${jobId}`;
-    return `https://www.linkedin.com/jobs/view/${jobId}`;
-}
 
 interface DashboardData {
     basic_info: {
@@ -124,7 +107,6 @@ interface DashboardData {
         type_of_interview: string;
         feedback: string;
         source_job_id?: string;
-        job_description?: string;
     }>;
     alerts: Array<{ type: string; phase: string; message: string }>;
 }
@@ -345,7 +327,7 @@ export default function CandidateDashboard() {
     const { userRole } = useAuth() as { userRole: string };
 
     // --- CLICK TRACKING LOGIC (SW EDITION) ---
-    const handleJobClick = async (jobListingId: number, url: string) => {
+    const handleJobClick = useCallback(async (jobListingId: number, url: string) => {
         // 1. Save to local IndexedDB instantly (main thread)
         const { trackLocalClick } = await import('@/utils/clickTracker');
         await trackLocalClick(jobListingId);
@@ -360,7 +342,9 @@ export default function CandidateDashboard() {
 
         // 3. Open link
         window.open(url, '_blank');
-    };
+    }, []);
+
+    // ----------------------------
 
     // ----------------------------
 
@@ -368,12 +352,13 @@ export default function CandidateDashboard() {
     const [error, setError] = useState<string | null>(null);
     const [data, setData] = useState<DashboardData | null>(null);
     const [candidateId, setCandidateId] = useState<number | null>(null);
-
+    const [showOnboarding, setShowOnboarding] = useState(false);
+    const [hasMissingFields, setHasMissingFields] = useState(true);
+    const [agreementStatus, setAgreementStatus] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [activeTab, setActiveTab] = useState<TabType>('jobs');
     const [setupWizardOpen, setSetupWizardOpen] = useState(false);
-    const [mounted, setMounted] = useState(false);
 
     const goToTab = (tab: TabType) => {
         setSetupWizardOpen(false);
@@ -391,13 +376,6 @@ export default function CandidateDashboard() {
     const [positions, setPositions] = useState<any[]>([]);
     const [filteredPositions, setFilteredPositions] = useState<any[]>([]);
     const [positionsLoading, setPositionsLoading] = useState(false);
-    const [jobsPage, setJobsPage] = useState(1);
-    const [jobsPageSize, setJobsPageSize] = useState(100);
-    const [jobsTotalRecords, setJobsTotalRecords] = useState(0);
-    const [jobsTotalPages, setJobsTotalPages] = useState(0);
-    const [jobsHasNext, setJobsHasNext] = useState(false);
-    const [jobsHasPrev, setJobsHasPrev] = useState(false);
-    const [debouncedJobSearch, setDebouncedJobSearch] = useState("");
     const [selectedModes, setSelectedModes] = useState<string[]>([]);
     const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
     const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
@@ -416,25 +394,29 @@ export default function CandidateDashboard() {
         job_description: "",
     });
     const [addInterviewLoading, setAddInterviewLoading] = useState(false);
-    const [selectedRow, setSelectedRow] = useState<any | null>(null);
-    const [viewData, setViewData] = useState<any | null>(null);
-    const [editData, setEditData] = useState<any | null>(null);
-    const [editInterviewForm, setEditInterviewForm] = useState<any>({});
-    const [editInterviewLoading, setEditInterviewLoading] = useState(false);
     const [setupStatus, setSetupStatus] = useState<{ resume_uploaded: boolean; api_keys_configured: boolean; setup_complete: boolean } | null>(null);
     const [setupWizardManageMode, setSetupWizardManageMode] = useState(false);
     const [prefetchedSession, setPrefetchedSession] = useState<{ sessionId: string; summaryData: any } | null>(null);
     const [prefetchDone, setPrefetchDone] = useState(false);
+
     const [viewResumeOpen, setViewResumeOpen] = useState(false);
+    const [mounted, setMounted] = useState(false);
+    const [editData, setEditData] = useState<any>(null);
+    const [editInterviewForm, setEditInterviewForm] = useState<any>({});
+    const [editInterviewLoading, setEditInterviewLoading] = useState(false);
+    const [viewData, setViewData] = useState<any>(null);
+
     useEffect(() => {
         setMounted(true);
     }, []);
+
 
     useEffect(() => {
         setupApi.getStatus()
             .then((d: any) => setSetupStatus(d))
             .catch(() => setSetupStatus(null));
     }, []);
+
     // Pre-fetch AI prep session as soon as candidateId is available so the
     // wizard opens instantly when user clicks "Manage" (no 4-5s wait).
     useEffect(() => {
@@ -579,6 +561,9 @@ export default function CandidateDashboard() {
 
                 return (
                     <div className="flex items-center h-full gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center flex-shrink-0">
+                            <MessageSquare className="w-3.5 h-3.5 text-gray-400" />
+                        </div>
                         <select
                             defaultValue={params.value || "Pending"}
                             onChange={handleChange}
@@ -598,8 +583,8 @@ export default function CandidateDashboard() {
             flex: 2,
             minWidth: 250,
             editable: true,
-            cellEditor: "agTextCellEditor",
-            cellEditorPopup: false,
+            cellEditor: "agLargeTextCellEditor",
+            cellEditorPopup: true,
             onCellValueChanged: async (params: any) => {
                 const newVal = params.newValue;
                 if (newVal === params.oldValue) return;
@@ -617,43 +602,16 @@ export default function CandidateDashboard() {
             },
             cellRenderer: (params: any) => (
                 <div className="flex items-center h-full gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center flex-shrink-0">
+                        <MessageSquare className="w-3.5 h-3.5 text-gray-400" />
+                    </div>
                     <div className="text-[11px] font-medium text-gray-600 dark:text-gray-400 truncate">
                         {params.value || <span className="italic opacity-50">Click to add feedback...</span>}
                     </div>
                 </div>
             )
         },
-        {
-            field: "job_description",
-            headerName: "Job Description",
-            flex: 2,
-            minWidth: 250,
-            editable: true,
-            cellEditor: "agLargeTextCellEditor",
-            cellEditorPopup: true,
-            onCellValueChanged: async (params: any) => {
-                const newVal = params.newValue;
-                if (newVal == params.oldValue) return;
 
-                try {
-                    await apiFetch(`/api/interviews/${params.data.id}`, {
-                        method: "PUT",
-                        body: { job_description: newVal }
-                    });
-                    toast.success("Job Description saved!");
-                } catch (err) {
-                    console.error("Failed to update job description", err);
-                    toast.error("Failed to save Job Description.");
-                }
-            },
-            cellRenderer: (params: any) => (
-                <div className="flex items-center h-full gap-2.5">
-                    <div className="text-[11px] font-medium text-gray-600 dark:text-gray-400 truncate">
-                        {params.value || <span className="italic opacity-50">Click to add Job description...</span>}
-                    </div>
-                </div>
-            )
-        },
 
 
 
@@ -669,7 +627,17 @@ export default function CandidateDashboard() {
             sortable: true,
             filter: "agTextColumnFilter",
             cellRenderer: (params: any) => {
-                const url = resolveJobListingApplyUrl(params.data);
+                const rawJobId = params.data.source_job_id || params.data.source_uid;
+                const jobId = (rawJobId && rawJobId !== 'undefined' && rawJobId !== 'null') ? rawJobId : null;
+                const source = params.data.source?.toLowerCase() || "";
+                const url = params.data.job_url ||
+                    (jobId ? (source.includes('trueup')
+                        ? `https://trueup.io/jobs/${jobId}`
+                        : source.includes('hiring') || source.includes('cafe')
+                            ? `https://hiring.cafe/viewjob/${jobId}`
+                            : source.includes('jobright')
+                                ? `https://jobright.ai/jobs/info/${jobId}`
+                                : `https://www.linkedin.com/jobs/view/${jobId}`) : null);
 
                 if (!url) {
                     return (
@@ -835,8 +803,19 @@ export default function CandidateDashboard() {
             headerName: "Apply",
             width: 100,
             cellRenderer: (params: any) => {
-                const url = resolveJobListingApplyUrl(params.data);
-                if (!url) return <span className="text-gray-400">-</span>;
+                const rawJobId = params.data.source_job_id || params.data.source_uid;
+                const jobId = (rawJobId && rawJobId !== 'undefined' && rawJobId !== 'null') ? rawJobId : null;
+                if (!jobId && !params.data.job_url) return <span className="text-gray-400">-</span>;
+
+                const source = params.data.source?.toLowerCase() || "";
+                const url = params.data.job_url ||
+                    (jobId ? (source.includes('trueup')
+                        ? `https://trueup.io/jobs/${jobId}`
+                        : source.includes('hiring') || source.includes('cafe')
+                            ? `https://hiring.cafe/viewjob/${jobId}`
+                            : source.includes('jobright')
+                                ? `https://jobright.ai/jobs/info/${jobId}`
+                                : `https://www.linkedin.com/jobs/view/${jobId}`) : null);
 
                 return (
                     <div className="flex items-center h-full">
@@ -883,13 +862,23 @@ export default function CandidateDashboard() {
             );
         }
 
-        // Apply Search Term Filter (server-side via debouncedJobSearch; no client substring filter here)
+        // Apply Source Filter
+
+        // Apply Search Term Filter
+        if (jobSearchTerm.trim() !== "") {
+            const lower = jobSearchTerm.toLowerCase();
+            filtered = filtered.filter((p) =>
+                (p.title?.toLowerCase().includes(lower)) ||
+                (p.company_name?.toLowerCase().includes(lower)) ||
+                (p.location?.toLowerCase().includes(lower))
+            );
+        }
 
         setFilteredPositions(filtered);
-    }, [positions, selectedModes, selectedStatuses, selectedTypes]);
+    }, [positions, selectedModes, selectedStatuses, selectedTypes, jobSearchTerm]);
 
     const handleAddInterview = async () => {
-        const { company, interview_date, position_title, interviewer_emails, mode_of_interview, type_of_interview, job_description } = addInterviewForm;
+        const { company, interview_date, interviewer_emails, mode_of_interview, type_of_interview, position_title, job_description } = addInterviewForm;
 
         if (!company || !interview_date || !position_title || !mode_of_interview || !type_of_interview) {
             toast.error("Please fill in all mandatory fields (*)");
@@ -916,7 +905,7 @@ export default function CandidateDashboard() {
                 company: "", interview_date: "", interview_time: "10:00",
                 interviewer_emails: "", position_title: "",
                 mode_of_interview: "Virtual", type_of_interview: "Recruiter Call",
-                interviewer_linkedin: "", interviewer_contact: "", job_description: "",
+                interviewer_linkedin: "", interviewer_contact: "", job_description: ""
             });
             loadDashboard();
         } catch (err: any) {
@@ -1081,74 +1070,45 @@ export default function CandidateDashboard() {
         }
     };
 
-    const loadPositionsPage = useCallback(
-        async (page: number) => {
-            try {
-                setPositionsLoading(true);
-                const token = localStorage.getItem("access_token") || localStorage.getItem("token");
-                if (!token) return;
+    const loadPositions = async () => {
+        try {
+            setPositionsLoading(true);
+            const token = localStorage.getItem("access_token") || localStorage.getItem("token");
+            const posData = await apiFetch("positions/?limit=500", {
+                headers: { Authorization: `Bearer ${token}` },
+            });
 
-                const params = new URLSearchParams({
-                    page: String(page),
-                    page_size: String(jobsPageSize),
-                    require_apply_link: "true",  // candidate dashboard: only show jobs with apply links
-                });
-                const s = debouncedJobSearch.trim();
-                if (s) params.set("search", s);
+            console.log("🔍 API Response - Total jobs received:", posData?.length || 0);
+            console.log("🔍 API Response - Sample job data:", posData?.[0] || {});
 
-                const res: any = await apiFetch(`positions/paginated?${params.toString()}`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
+            // Filter to show jobs from LinkedIn, Hiring Cafe, TrueUp, or Jobright
+            const filteredData = (posData || []).filter((pos: any) => {
+                const src = pos.source?.toLowerCase() || "";
+                const shouldInclude = src.includes('linkedin') || src.includes('hiring') || src.includes('cafe') || src.includes('trueup') || src.includes('jobright');
 
-                const rows = Array.isArray(res.data) ? res.data : [];
-                setPositions(rows);
-                setJobsTotalRecords(res.total_records ?? 0);
-                setJobsTotalPages(res.total_pages ?? 0);
-                setJobsHasNext(Boolean(res.has_next));
-                setJobsHasPrev(Boolean(res.has_prev));
-                setJobsPage(res.page ?? page);
-            } catch (err) {
-                console.error("❌ Error loading positions:", err);
-            } finally {
-                setPositionsLoading(false);
-            }
-        },
-        [debouncedJobSearch, jobsPageSize]
-    );
+                // Add a check to confirm the job actually has an actionable link id or url
+                const hasLink = Boolean(pos.source_job_id || pos.source_uid || pos.job_url);
+                return shouldInclude && hasLink;
+            });
 
-    const prevJobsDebouncedSearchRef = useRef<string | null>(null);
+            console.log("📊 Final filtered positions count:", filteredData.length);
 
-    useEffect(() => {
-        const t = window.setTimeout(() => setDebouncedJobSearch(jobSearchTerm), 400);
-        return () => window.clearTimeout(t);
-    }, [jobSearchTerm]);
+            // Debug: Show source distribution
+            const sourceCounts = filteredData.reduce((acc: any, pos: any) => {
+                const src = pos.source?.toLowerCase() || 'unknown';
+                acc[src] = (acc[src] || 0) + 1;
+                return acc;
+            }, {});
 
-    useEffect(() => {
-        if (activeTab !== "jobs") {
-            prevJobsDebouncedSearchRef.current = null;
-            return;
+            console.log("📈 Source distribution:", sourceCounts);
+
+            setPositions(filteredData);
+        } catch (err) {
+            console.error("❌ Error loading positions:", err);
+        } finally {
+            setPositionsLoading(false);
         }
-
-        const prev = prevJobsDebouncedSearchRef.current;
-        const searchChanged = prev !== null && prev !== debouncedJobSearch;
-
-        if (prev === null) {
-            prevJobsDebouncedSearchRef.current = debouncedJobSearch;
-            setJobsPage(1);
-            void loadPositionsPage(1);
-            return;
-        }
-
-        if (searchChanged) {
-            prevJobsDebouncedSearchRef.current = debouncedJobSearch;
-            setJobsPage(1);
-            void loadPositionsPage(1);
-            return;
-        }
-
-        prevJobsDebouncedSearchRef.current = debouncedJobSearch;
-        void loadPositionsPage(jobsPage);
-    }, [activeTab, jobsPage, debouncedJobSearch, loadPositionsPage]);
+    };
 
 
     const loadDashboard = async (retryCount = 0) => {
@@ -1171,7 +1131,64 @@ export default function CandidateDashboard() {
                 throw new Error("Could not retrieve candidate ID");
             }
 
+            // Fetch full profile to check for missing required fields
+            const fullProfile = await apiFetch(`candidates/${id}/profile`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
 
+            const requiredFields = [
+                'full_name', 'email', 'phone', 'workstatus',
+                'dob', 'github_link', 'workexperience', 'address',
+                'linkedin_id', 'secondaryemail', 'secondaryphone'
+            ];
+
+            const profileData = {
+                full_name: fullProfile?.personal_info?.full_name,
+                email: fullProfile?.personal_info?.email,
+                phone: fullProfile?.personal_info?.phone,
+                workstatus: fullProfile?.personal_info?.workstatus,
+                dob: fullProfile?.personal_info?.dob,
+                github_link: fullProfile?.personal_info?.github_link,
+                workexperience: fullProfile?.personal_info?.workexperience,
+                address: fullProfile?.personal_info?.address,
+                linkedin_id: fullProfile?.personal_info?.linkedin_id,
+                secondaryemail: fullProfile?.personal_info?.secondaryemail,
+                secondaryphone: fullProfile?.personal_info?.secondaryphone
+            };
+
+            // Use login_count from profile (UserDashboard) or Candidate profile
+            const loginCount = profile?.login_count ?? profile?.logincount ?? 0;
+
+            const isMissingRequiredFields = (loginCount <= 1) || requiredFields.some(field => !profileData[field as keyof typeof profileData]);
+
+            setHasMissingFields(isMissingRequiredFields);
+
+            const status = fullProfile?.enrollment?.agreement || 'N';
+            setAgreementStatus(status);
+            const isApproved = status === 'Y';
+            const isSkipped = sessionStorage.getItem('onboarding_skipped') === 'true';
+
+
+            // GATING LOGIC:
+            // 1. If approved, only show onboarding if fields are missing (Step 1).
+            // 2. If not approved, always show onboarding unless skipped in this session.
+            // 3. After 10 logins, skip is no longer allowed.
+
+            if (!isApproved) {
+                // Not approved yet (N or P)
+                if (!isSkipped || loginCount >= 10) {
+                    setShowOnboarding(true);
+                } else {
+                    setShowOnboarding(false);
+                }
+            } else {
+                // Approved (Y)
+                if (isMissingRequiredFields) {
+                    setShowOnboarding(true);
+                } else {
+                    setShowOnboarding(false);
+                }
+            }
 
             const dashboardData = await apiFetch(`candidates/${id}/dashboard/overview`, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -1181,12 +1198,6 @@ export default function CandidateDashboard() {
                 throw new Error("No data received from server");
             }
 
-            if (dashboardData?.interviews) {
-                dashboardData.interviews = dashboardData.interviews.map((int: any) => ({
-                    ...int,
-                    job_description: int.job_description || ""
-                }));
-            }
             setData(dashboardData);
         } catch (err: any) {
             console.error("Dashboard loading error:", err);
@@ -1219,6 +1230,9 @@ export default function CandidateDashboard() {
     }, [data]);
 
     useEffect(() => {
+        if (activeTab === 'jobs' && positions.length === 0) {
+            loadPositions();
+        }
         if (activeTab === 'interviews') {
             // Auto-refresh interview data when switching to this tab
             // so employee UI changes (feedback, notes) are visible immediately
@@ -1241,6 +1255,7 @@ export default function CandidateDashboard() {
     }, [isProfileOpen]);
 
     useEffect(() => {
+        sessionStorage.removeItem('onboarding_skipped');
         loadDashboard();
     }, []);
 
@@ -1278,20 +1293,41 @@ export default function CandidateDashboard() {
         );
     }
 
-
+    if (showOnboarding && candidateId) {
+        return (
+            <CandidateOnboarding
+                candidateId={candidateId}
+                loginCount={userProfile?.login_count || 0}
+                currentAgreementStatus={agreementStatus || 'N'}
+                initialHasMissingFields={hasMissingFields}
+                onComplete={() => {
+                    localStorage.setItem('onboarding_completed', 'true');
+                    setShowOnboarding(false);
+                    loadDashboard(); // Reload to see if approved
+                }}
+                onSkip={() => {
+                    sessionStorage.setItem('onboarding_skipped', 'true');
+                    setShowOnboarding(false);
+                }}
+            />
+        );
+    }
 
     const firstName = data.basic_info.full_name.split(" ")[0];
-
 
     const tabs = [
         { id: 'jobs' as TabType, name: 'Job Board', icon: Briefcase },
         { id: 'overview' as TabType, name: 'Overview', icon: Home },
         { id: 'sessions' as TabType, name: 'Sessions', icon: PlayCircle },
-        { id: 'interviews' as TabType, name: 'Interviews', icon: CalendarCheck }
+        { id: 'interviews' as TabType, name: 'Interviews', icon: MessageSquare },
     ];
 
     return (
         <div className="flex h-screen bg-[#f4f6f9] dark:bg-gray-950 overflow-hidden">
+            {/* Hidden identity tag for browser extension telemetry */}
+            {data?.basic_info?.email && (
+                <div id="wbl-user-identity" data-email={data.basic_info.email} style={{ display: 'none' }} />
+            )}
 
             {/* ==================== SIDEBAR ==================== */}
             <aside className="hidden lg:flex w-60 flex-col flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 z-30 shadow-sm">
@@ -1338,7 +1374,7 @@ export default function CandidateDashboard() {
                                 <span>Coderpad</span>
                             </a>
                             <button
-                                onClick={() => setActiveTab('smartprep')}
+                                onClick={() => goToTab('smartprep')}
                                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${activeTab === 'smartprep'
                                     ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
                                     : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
@@ -1347,18 +1383,6 @@ export default function CandidateDashboard() {
                                 <Sparkles className={`w-4 h-4 flex-shrink-0 ${activeTab === 'smartprep' ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400"}`} />
                                 <span>WBL SmartPrep</span>
                                 {activeTab === 'smartprep' && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500" />}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => goToTab('my_llm_key')}
-                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${activeTab === 'my_llm_key'
-                                    ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400"
-                                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
-                                    }`}
-                            >
-                                <KeyRound className={`w-4 h-4 flex-shrink-0 ${activeTab === 'my_llm_key' ? "text-emerald-600 dark:text-emerald-400" : "text-gray-400"}`} aria-hidden />
-                                <span>My LLM Key</span>
-                                {activeTab === 'my_llm_key' && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-500" />}
                             </button>
                         </div>
                     </div>
@@ -1413,6 +1437,23 @@ export default function CandidateDashboard() {
 
                     </div>
 
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (setupStatus?.resume_uploaded) {
+                                    setViewResumeOpen(true);
+                                } else {
+                                    setSetupWizardManageMode(false);
+                                    setSetupWizardOpen(true);
+                                }
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm"
+                        >
+                            <FileText className="w-4 h-4 text-violet-500" />
+                            Resume
+                        </button>
+
                     <a
                         href="https://chromewebstore.google.com/detail/talentscreen-autofill/bebdlhhpgmegdebdballinfmfnlpmeio"
                         target="_blank"
@@ -1422,6 +1463,7 @@ export default function CandidateDashboard() {
                         <Puzzle className="w-4 h-4 text-blue-500" />
                         Autofill Extension
                     </a>
+                    </div>
 
                 </header>
 
@@ -1433,7 +1475,7 @@ export default function CandidateDashboard() {
                         return (
                             <button
                                 key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
+                                onClick={() => goToTab(tab.id)}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${isActive
                                     ? "bg-blue-600 text-white shadow-sm"
                                     : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
@@ -1462,17 +1504,6 @@ export default function CandidateDashboard() {
                     >
                         <Sparkles className="w-3.5 h-3.5" />
                         WBL SmartPrep
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => goToTab('my_llm_key')}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${activeTab === 'my_llm_key'
-                            ? "bg-emerald-600 text-white shadow-sm"
-                            : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
-                            }`}
-                    >
-                        <KeyRound className="w-3.5 h-3.5" />
-                        My LLM Key
                     </button>
                 </div>
 
@@ -1528,7 +1559,8 @@ export default function CandidateDashboard() {
                                                 if (token) {
                                                     window.open(`${baseUrl}/auth?token=${token}`, '_blank');
                                                 } else {
-                                                    alert("Preparing your secure session... Please click again in a moment.");
+                                                    // Fallback if no token (shouldn't happen if setup complete)
+                                                    window.open(baseUrl, '_blank');
                                                 }
                                             }}
                                             className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
@@ -1537,7 +1569,6 @@ export default function CandidateDashboard() {
                                             Start Preparation
                                         </button>
                                     ) : (
-
                                         <button
                                             type="button"
                                             onClick={() => {
@@ -1860,32 +1891,10 @@ export default function CandidateDashboard() {
                                         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
                                             <div className="flex items-center justify-between mb-6">
                                                 <div className="flex items-center gap-2">
-                                                    <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2.5">
-                                                        <CalendarCheck className="w-5 h-5 text-blue-500" />Interviews</h2>
+                                                    <MessageSquare className="w-5 h-5 text-blue-600" />
+                                                    <h2 className="text-lg font-bold text-gray-900 dark:text-white">Interviews</h2>
                                                 </div>
-                                                <div className="flex items-center gap-2 relative z-50">
-                                                    <button
-                                                        onClick={() => setShowAddInterview(true)}
-                                                        className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-all shadow-md active:scale-95"
-                                                    >
-                                                        <Plus className="w-4 h-4" /> Add New Interview
-                                                    </button>
-                                                    <button
-                                                        onClick={() => { if (selectedRow) setViewData(selectedRow); }}
-                                                        disabled={!selectedRow}
-                                                        className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-500 hover:text-blue-600 hover:border-blue-300 transition-all shadow-sm active:scale-95 disabled:opacity-30"
-                                                        title="View Interview"
-                                                    >
-                                                        <EyeIcon className="w-5 h-5" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => { if (selectedRow) { setEditData(selectedRow); setEditInterviewForm({ ...selectedRow }); } }}
-                                                        disabled={!selectedRow}
-                                                        className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-500 hover:text-purple-600 hover:border-purple-300 transition-all shadow-sm active:scale-95 disabled:opacity-30"
-                                                        title="Edit Interview"
-                                                    >
-                                                        <EditIcon className="w-5 h-5" />
-                                                    </button>
+                                                <div className="flex items-center gap-2">
                                                     <button
                                                         onClick={() => loadDashboard()}
                                                         disabled={loading}
@@ -1897,100 +1906,102 @@ export default function CandidateDashboard() {
                                                         </svg>
                                                         Refresh
                                                     </button>
+                                                    <button
+                                                        onClick={() => setShowAddInterview(true)}
+                                                        className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-all shadow-md active:scale-95"
+                                                    >
+                                                        <Plus className="w-4 h-4" /> Schedule Interview
+                                                    </button>
                                                 </div>
                                             </div>
 
                                             {/* Add Interview Modal Overlay */}
-                                            {mounted && showAddInterview && createPortal(
-                                                (
-                                                    <div
-                                                        className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
-                                                        style={{ backgroundColor: 'rgba(0, 0, 0, 0.2)' }}
-                                                    >
-                                                        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-blue-300 dark:border-blue-800 w-full max-w-4xl overflow-hidden">
+                                            {showAddInterview && (
+                                                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                                                    <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-blue-300 dark:border-blue-800 w-full max-w-4xl overflow-hidden">
 
-                                                            {/* Header: matches Employee UI exactly */}
-                                                            <div className="flex items-center justify-between px-6 py-2.5 border-b border-blue-200 dark:border-blue-900 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 dark:from-darklight dark:via-dark dark:to-darklight">
-                                                                <h3 className="text-base font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">Add New Interviews</h3>
-                                                                <button onClick={() => setShowAddInterview(false)} className="text-blue-300 hover:text-blue-500 transition-colors text-2xl font-light">×</button>
-                                                            </div>
+                                                        {/* Header: matches Employee UI exactly */}
+                                                        <div className="flex items-center justify-between px-6 py-3 border-b border-blue-100 dark:border-blue-900 bg-white dark:bg-gray-900">
+                                                            <h3 className="text-[15px] font-bold text-blue-600 dark:text-blue-400">Add New Interviews</h3>
+                                                            <button onClick={() => setShowAddInterview(false)} className="text-blue-300 hover:text-blue-500 transition-colors text-2xl font-light">×</button>
+                                                        </div>
 
-                                                            <div className="p-6 max-h-[80vh] overflow-y-auto">
-                                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-6">
+                                                        <div className="p-6 max-h-[80vh] overflow-y-auto">
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-6">
 
-                                                                    {/* Column 1: Basic Information */}
-                                                                    <div className="space-y-4">
-                                                                        <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4">
-                                                                            <h4 className="text-[14px] font-bold text-blue-600">Company Information</h4>
-                                                                        </div>
-                                                                        <div>
-                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Company <span className="text-red-500 font-bold">*</span></label>
-                                                                            <input type="text" value={addInterviewForm.company} onChange={e => setAddInterviewForm(p => ({ ...p, company: e.target.value }))}
-                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
-                                                                        </div>
-                                                                        <div>
-                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Position Title<span className="text-red-600 font-black">*</span></label>
-                                                                            <input type="text" value={addInterviewForm.position_title} onChange={e => setAddInterviewForm(p => ({ ...p, position_title: e.target.value }))}
-                                                                                className="w-full rounded-lg border border-blue-100 dark:border-blue-800 bg-gray-50/50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
-                                                                        </div>
-                                                                        <div>
-                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Date <span className="text-red-500 font-bold">*</span></label>
-                                                                            <input type="date" value={addInterviewForm.interview_date} onChange={e => setAddInterviewForm(p => ({ ...p, interview_date: e.target.value }))}
-                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
-                                                                        </div>
-                                                                        <div>
-                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Time <span className="text-red-500 font-bold">*</span></label>
-                                                                            <TimePicker
-                                                                                value={addInterviewForm.interview_time}
-                                                                                onChange={(time) => setAddInterviewForm(p => ({ ...p, interview_time: time }))}
-                                                                            />
-                                                                        </div>
+                                                                {/* Column 1: Basic Information */}
+                                                                <div className="space-y-4">
+                                                                    <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4">
+                                                                        <h4 className="text-[14px] font-bold text-blue-600">Company Information</h4>
                                                                     </div>
-
-
-
-                                                                    {/* Column 2: Contact Information */}
-                                                                    <div className="space-y-4">
-                                                                        <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4">
-                                                                            <h4 className="text-[14px] font-bold text-blue-600">Interviewer Information</h4>
-                                                                        </div>
-                                                                        <div>
-                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Emails</label>
-                                                                            <input type="email" value={addInterviewForm.interviewer_emails} onChange={e => setAddInterviewForm(p => ({ ...p, interviewer_emails: e.target.value }))}
-                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
-                                                                        </div>
-                                                                        <div>
-                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Contact</label>
-                                                                            <input type="text" value={addInterviewForm.interviewer_contact} onChange={e => setAddInterviewForm(p => ({ ...p, interviewer_contact: e.target.value }))}
-                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
-                                                                        </div>
-                                                                        <div>
-                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer LinkedIn</label>
-                                                                            <input type="text" value={addInterviewForm.interviewer_linkedin} onChange={e => setAddInterviewForm(p => ({ ...p, interviewer_linkedin: e.target.value }))}
-                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
-                                                                        </div>
+                                                                    <div>
+                                                                        <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Company <span className="text-red-500 font-bold">*</span></label>
+                                                                        <input type="text" value={addInterviewForm.company} onChange={e => setAddInterviewForm(p => ({ ...p, company: e.target.value }))}
+                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" placeholder="Search company..." />
                                                                     </div>
-
-                                                                    {/* Column 4: Other */}
-                                                                    <div className="space-y-4">
-                                                                        <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4">
-                                                                            <h4 className="text-[14px] font-bold text-blue-600">Interview Details</h4>
-                                                                        </div>
-                                                                        <div>
-                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Mode of Interview <span className="text-red-500 font-bold">*</span></label>
-                                                                            <select value={addInterviewForm.mode_of_interview} onChange={e => setAddInterviewForm(p => ({ ...p, mode_of_interview: e.target.value }))}
-                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm">
-                                                                                <option>Virtual</option><option>In Person</option><option>Phone</option><option>Assessment</option><option>AI Interview</option>
-                                                                            </select>
-                                                                        </div>
-                                                                        <div>
-                                                                            <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Type of Interview <span className="text-red-500 font-bold">*</span></label>
-                                                                            <select value={addInterviewForm.type_of_interview} onChange={e => setAddInterviewForm(p => ({ ...p, type_of_interview: e.target.value }))}
-                                                                                className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm">
-                                                                                <option>Recruiter Call</option><option>Technical</option><option>HR</option><option>Prep Call</option>
-                                                                            </select>
-                                                                        </div>
+                                                                    <div>
+                                                                        <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Position Title</label>
+                                                                        <input type="text" value={addInterviewForm.position_title} onChange={e => setAddInterviewForm(p => ({ ...p, position_title: e.target.value }))}
+                                                                            className="w-full rounded-lg border border-blue-100 dark:border-blue-800 bg-gray-50/50 dark:bg-gray-800/50 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
                                                                     </div>
+                                                                    <div>
+                                                                        <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Date <span className="text-red-500 font-bold">*</span></label>
+                                                                        <input type="date" value={addInterviewForm.interview_date} onChange={e => setAddInterviewForm(p => ({ ...p, interview_date: e.target.value }))}
+                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interview Time <span className="text-red-500 font-bold">*</span></label>
+                                                                        <TimePicker
+                                                                            value={addInterviewForm.interview_time}
+                                                                            onChange={(time) => setAddInterviewForm(p => ({ ...p, interview_time: time }))}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+
+
+
+                                                                {/* Column 2: Contact Information */}
+                                                                <div className="space-y-4">
+                                                                    <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4">
+                                                                        <h4 className="text-[14px] font-bold text-blue-600">Interviewer Information</h4>
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Emails</label>
+                                                                        <input type="email" value={addInterviewForm.interviewer_emails} onChange={e => setAddInterviewForm(p => ({ ...p, interviewer_emails: e.target.value }))}
+                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer Contact</label>
+                                                                        <input type="text" value={addInterviewForm.interviewer_contact} onChange={e => setAddInterviewForm(p => ({ ...p, interviewer_contact: e.target.value }))}
+                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Interviewer LinkedIn</label>
+                                                                        <input type="text" value={addInterviewForm.interviewer_linkedin} onChange={e => setAddInterviewForm(p => ({ ...p, interviewer_linkedin: e.target.value }))}
+                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm" />
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Column 4: Other */}
+                                                                <div className="space-y-4">
+                                                                    <div className="border-b border-blue-100 dark:border-blue-900 pb-1 mb-4">
+                                                                        <h4 className="text-[14px] font-bold text-blue-600">Interview Details</h4>
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Mode of Interview <span className="text-red-500 font-bold">*</span></label>
+                                                                        <select value={addInterviewForm.mode_of_interview} onChange={e => setAddInterviewForm(p => ({ ...p, mode_of_interview: e.target.value }))}
+                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm">
+                                                                            <option>Virtual</option><option>In Person</option><option>Phone</option><option>Assessment</option><option>AI Interview</option>
+                                                                        </select>
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-1">Type of Interview <span className="text-red-500 font-bold">*</span></label>
+                                                                        <select value={addInterviewForm.type_of_interview} onChange={e => setAddInterviewForm(p => ({ ...p, type_of_interview: e.target.value }))}
+                                                                            className="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm">
+                                                                            <option>Recruiter Call</option><option>Technical</option><option>HR</option><option>Prep Call</option>
+                                                                        </select>
+                                                                    </div>
+                                                                </div>
 
                                                                 </div>
                                                                 {/* Job Description Field */}
@@ -2004,24 +2015,22 @@ export default function CandidateDashboard() {
                                                                         placeholder="Enter Job Description..."
                                                                         className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm resize-none placeholder:text-gray-400" />
                                                                 </div>
+                                                            </div>
 
-                                                                {/* Footer Buttons */}
-                                                                <div className="mt-10 pt-4 border-t border-blue-50 dark:border-blue-900 flex justify-end gap-3">
-                                                                    <button onClick={() => setShowAddInterview(false)}
-                                                                        className="px-6 py-1.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-500 hover:bg-gray-50 transition-all">
-                                                                        Cancel
-                                                                    </button>
-                                                                    <button onClick={handleAddInterview} disabled={addInterviewLoading}
-                                                                        className="px-6 py-2 rounded-xl bg-gradient-to-r from-[#4facfe] to-[#00f2fe] hover:shadow-lg hover:scale-[1.02] text-white text-sm font-bold transition-all shadow-md active:scale-95 disabled:opacity-50">
-                                                                        {addInterviewLoading ? "Saving..." : "Add Interview"}
-                                                                    </button>
-                                                                </div>
+                                                            {/* Footer Buttons */}
+                                                            <div className="mt-10 pt-4 border-t border-blue-50 dark:border-blue-900 flex justify-end gap-3">
+                                                                <button onClick={() => setShowAddInterview(false)}
+                                                                    className="px-6 py-1.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-500 hover:bg-gray-50 transition-all">
+                                                                    Cancel
+                                                                </button>
+                                                                <button onClick={handleAddInterview} disabled={addInterviewLoading}
+                                                                    className="px-8 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-md disabled:opacity-50">
+                                                                    {addInterviewLoading ? "Saving..." : "Schedule Interview"}
+                                                                </button>
                                                             </div>
                                                         </div>
                                                     </div>
-                                                ),
-                                                document.body
-                                            )}
+                                                )}
 
                                             {/* View Interview Modal */}
                                             {mounted && viewData && createPortal(
@@ -2179,7 +2188,6 @@ export default function CandidateDashboard() {
                                                                 columnDefs={interviewColumnDefs.filter(col => col.field !== 'feedback_text')}
                                                                 height="300px"
                                                                 rowHeight={60}
-                                                                onRowClicked={(data) => setSelectedRow(data)}
                                                             />
                                                         </div>
                                                     </div>
@@ -2191,19 +2199,18 @@ export default function CandidateDashboard() {
                                                         <div className="hidden sm:flex items-center gap-5">
                                                             <div className="flex items-center gap-2">
                                                                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Upcoming</span>
-                                                                <span className={`text-sm font-bold ${data.interviews.filter(i => i.interview_date && new Date(i.interview_date) >= new Date(new Date().setHours(0, 0, 0, 0))).length > 0 ? "text-green-600" : "text-gray-300"}`}>
-                                                                    {data.interviews.filter(i => i.interview_date && new Date(i.interview_date) >= new Date(new Date().setHours(0, 0, 0, 0))).length}
+                                                                <span className={`text-sm font-bold ${data.interviews.filter((i: any) => i.interview_date && new Date(i.interview_date) >= new Date(new Date().setHours(0, 0, 0, 0))).length > 0 ? "text-green-600" : "text-gray-300"}`}>
+                                                                    {data.interviews.filter((i: any) => i.interview_date && new Date(i.interview_date) >= new Date(new Date().setHours(0, 0, 0, 0))).length}
                                                                 </span>
                                                             </div>
                                                         </div>
                                                     </div>
                                                     <div className="h-[400px]">
                                                         <CandidateGrid
-                                                            rowData={data.interviews.filter(i => !i.interview_date || new Date(i.interview_date) < new Date(new Date().setHours(0, 0, 0, 0))).sort((a, b) => new Date(b.interview_date).getTime() - new Date(a.interview_date).getTime())}
+                                                            rowData={data.interviews.filter((i: any) => !i.interview_date || (new Date(i.interview_date).getTime() < new Date(new Date().setHours(0, 0, 0, 0)).getTime())).sort((a: any, b: any) => new Date(b.interview_date).getTime() - new Date(a.interview_date).getTime())}
                                                             columnDefs={interviewColumnDefs}
                                                             height="400px"
                                                             rowHeight={60}
-                                                            onRowClicked={(data) => setSelectedRow(data)}
                                                         />
                                                     </div>
                                                 </div>
@@ -2220,10 +2227,7 @@ export default function CandidateDashboard() {
                                                     <Briefcase className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                                                 </div>
                                                 <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                                                    Jobs{" "}
-                                                    <span className="text-gray-400 font-medium">
-                                                        ({jobsTotalRecords.toLocaleString()})
-                                                    </span>
+                                                    Jobs <span className="text-gray-400 font-medium">({positions.length})</span>
                                                 </h2>
                                             </div>
                                             <div className="w-full sm:w-[400px]">
@@ -2241,97 +2245,12 @@ export default function CandidateDashboard() {
                                             </div>
 
                                         </div>
-                                        <div className="flex-1 w-full bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 min-h-0 flex flex-col overflow-hidden">
-                                            {/* Grid uses server-side pagination — AG Grid's own bottom pagination panel is suppressed
-                                        so the rich pagination bar below is the only pagination UI.
-                                        ``flex-1 min-h-[300px]`` shares space with the pagination bar; pagination uses
-                                        ``flex-shrink-0`` so it ALWAYS renders, never gets pushed below the viewport. */}
-                                            <div className="flex-1 min-h-[300px] min-w-0">
-                                                <CandidateGrid
-                                                    rowData={filteredPositions}
-                                                    columnDefs={jobColumnDefs}
-                                                    loading={positionsLoading}
-                                                    suppressClientPagination={true}
-                                                />
-                                            </div>
-                                            {/* Bottom pagination bar — mirrors AG Grid's rich pagination control
-                                        (page-size dropdown · "1 to N of M" range · first/prev/next/last buttons). */}
-                                            <div className="flex-shrink-0 flex flex-wrap items-center justify-end gap-4 px-4 py-2.5 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-xs text-gray-500 dark:text-gray-400">Page Size:</span>
-                                                    <select
-                                                        value={jobsPageSize}
-                                                        disabled={positionsLoading}
-                                                        onChange={(e) => {
-                                                            const next = Number(e.target.value) || 100;
-                                                            setJobsPageSize(next);
-                                                            setJobsPage(1);
-                                                        }}
-                                                        className="rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                                                    >
-                                                        {[10, 25, 50, 100].map((sz) => (
-                                                            <option key={sz} value={sz}>{sz}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-
-                                                <span className="text-xs text-gray-600 dark:text-gray-300">
-                                                    <span className="font-bold">
-                                                        {jobsTotalRecords === 0
-                                                            ? 0
-                                                            : (jobsPage - 1) * jobsPageSize + 1}
-                                                    </span>
-                                                    {" to "}
-                                                    <span className="font-bold">
-                                                        {Math.min(jobsPage * jobsPageSize, jobsTotalRecords)}
-                                                    </span>
-                                                    {" of "}
-                                                    <span className="font-bold">{jobsTotalRecords.toLocaleString()}</span>
-                                                </span>
-
-                                                <div className="flex items-center gap-1">
-                                                    <button
-                                                        type="button"
-                                                        aria-label="First page"
-                                                        disabled={!jobsHasPrev || positionsLoading}
-                                                        onClick={() => setJobsPage(1)}
-                                                        className="inline-flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-1.5 text-gray-700 dark:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                                                    >
-                                                        <ChevronsLeft className="h-4 w-4" />
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        aria-label="Previous page"
-                                                        disabled={!jobsHasPrev || positionsLoading}
-                                                        onClick={() => setJobsPage((p) => Math.max(1, p - 1))}
-                                                        className="inline-flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-1.5 text-gray-700 dark:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                                                    >
-                                                        <ChevronLeft className="h-4 w-4" />
-                                                    </button>
-                                                    <span className="text-xs text-gray-600 dark:text-gray-300 px-2">
-                                                        Page <span className="font-bold">{jobsPage}</span> of{" "}
-                                                        <span className="font-bold">{Math.max(1, jobsTotalPages)}</span>
-                                                    </span>
-                                                    <button
-                                                        type="button"
-                                                        aria-label="Next page"
-                                                        disabled={!jobsHasNext || positionsLoading}
-                                                        onClick={() => setJobsPage((p) => p + 1)}
-                                                        className="inline-flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-1.5 text-gray-700 dark:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                                                    >
-                                                        <ChevronRight className="h-4 w-4" />
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        aria-label="Last page"
-                                                        disabled={!jobsHasNext || positionsLoading}
-                                                        onClick={() => setJobsPage(Math.max(1, jobsTotalPages))}
-                                                        className="inline-flex items-center justify-center rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-1.5 text-gray-700 dark:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                                                    >
-                                                        <ChevronsRight className="h-4 w-4" />
-                                                    </button>
-                                                </div>
-                                            </div>
+                                        <div className="flex-1 w-full bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 min-h-0 flex flex-col">
+                                            <CandidateGrid
+                                                rowData={filteredPositions}
+                                                columnDefs={jobColumnDefs}
+                                                loading={positionsLoading}
+                                            />
                                         </div>
                                     </div>
                                 )}
@@ -2417,7 +2336,6 @@ export default function CandidateDashboard() {
                                 {activeTab === 'my_llm_key' && <CandidateLlmKeysPanel />}
                             </>
                         )}
-
                     </div>
                 </main>
             </div>

@@ -72,6 +72,12 @@ export function getAllGridRoutes(): GridRoute[] {
     "/avatar/hr-contacts", // known false positive
   ]);
 
+  // ── Routes we do not want Playwright to visit in the regression suite ──
+  const SKIP_ROUTES = new Set([
+    "/avatar/companies",
+    "/avatar/company_contacts",
+  ]);
+
   const walk = (dir: string) => {
     if (!fs.existsSync(dir)) return;
     const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -96,6 +102,7 @@ export function getAllGridRoutes(): GridRoute[] {
         if (routePath === "") routePath = "/";
 
         if (routePath.startsWith("/avatar")) {
+          if (SKIP_ROUTES.has(routePath)) return;
           const hasGrid = FORCE_NO_GRID.has(routePath)
             ? false
             : pageHasGrid(fullPath);
