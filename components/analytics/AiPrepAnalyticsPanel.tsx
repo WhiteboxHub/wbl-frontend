@@ -32,6 +32,7 @@ interface CandidateRow {
   has_project: boolean;
   intro_attempts: number;
   best_intro_score: number;
+  intro_score?: number;
   latest_intro_score: number;
   intro_passed: boolean;
   latest_video_url: string | null;
