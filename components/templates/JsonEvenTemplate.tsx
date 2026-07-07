@@ -31,8 +31,8 @@ export function JsonEvenTemplate({ data }: TemplateProps) {
                   <div className="font-mono">{formatDateRange(exp.startDate, exp.endDate, exp.current)}</div>
                 </div>
                 <div className="flex-1">
-                  <strong className="text-[12px] text-gray-900">{exp.title}</strong>
-                  <div className="text-gray-600 text-[10px]">{exp.company}{exp.location ? ` · ${exp.location}` : ""}</div>
+                  <strong className="text-[12px] text-gray-900">{exp.company}</strong>
+                  <div className="text-gray-600 text-[10px]">{exp.title}{exp.location ? ` · ${exp.location}` : ""}</div>
                   <ul className="mt-1.5 space-y-1 text-gray-600">
                     {exp.bullets.filter(Boolean).map((b, i) => (
                       <li key={i} className="flex items-start gap-2">
