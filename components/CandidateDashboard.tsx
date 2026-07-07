@@ -1318,8 +1318,8 @@ export default function CandidateDashboard() {
     const tabs = [
         { id: 'jobs' as TabType, name: 'Job Board', icon: Briefcase },
         { id: 'overview' as TabType, name: 'Overview', icon: Home },
-        { id: 'sessions' as TabType, name: 'Sessions', icon: PlayCircle },
-        { id: 'interviews' as TabType, name: 'Interviews', icon: MessageSquare },
+        { id: 'sessions' as TabType, name: 'My Sessions', icon: PlayCircle },
+        { id: 'interviews' as TabType, name: 'My Interviews', icon: MessageSquare },
     ];
 
     return (
@@ -1350,18 +1350,36 @@ export default function CandidateDashboard() {
                                 const Icon = tab.icon;
                                 const isActive = activeTab === tab.id;
                                 return (
-                                    <button
-                                        key={tab.id}
-                                        onClick={() => goToTab(tab.id)}
-                                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${isActive
-                                            ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-                                            : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
-                                            }`}
-                                    >
-                                        <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-blue-600 dark:text-blue-400" : "text-gray-400"}`} />
-                                        <span>{tab.name}</span>
-                                        {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500" />}
-                                    </button>
+                                    <React.Fragment key={tab.id}>
+                                        <button
+                                            onClick={() => goToTab(tab.id)}
+                                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${isActive
+                                                ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                                                : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
+                                                }`}
+                                        >
+                                            <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-blue-600 dark:text-blue-400" : "text-gray-400"}`} />
+                                            <span>{tab.name}</span>
+                                            {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500" />}
+                                        </button>
+                                        {tab.id === 'overview' && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (setupStatus?.resume_uploaded) {
+                                                        setViewResumeOpen(true);
+                                                    } else {
+                                                        setSetupWizardManageMode(false);
+                                                        setSetupWizardOpen(true);
+                                                    }
+                                                }}
+                                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
+                                            >
+                                                <FileText className="w-4 h-4 flex-shrink-0 text-violet-500" />
+                                                <span>My Resume</span>
+                                            </button>
+                                        )}
+                                    </React.Fragment>
                                 );
                             })}
                             <a
@@ -1438,22 +1456,6 @@ export default function CandidateDashboard() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                if (setupStatus?.resume_uploaded) {
-                                    setViewResumeOpen(true);
-                                } else {
-                                    setSetupWizardManageMode(false);
-                                    setSetupWizardOpen(true);
-                                }
-                            }}
-                            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm"
-                        >
-                            <FileText className="w-4 h-4 text-violet-500" />
-                            Resume
-                        </button>
-
                     <a
                         href="https://chromewebstore.google.com/detail/talentscreen-autofill/bebdlhhpgmegdebdballinfmfnlpmeio"
                         target="_blank"
@@ -1473,17 +1475,35 @@ export default function CandidateDashboard() {
                         const Icon = tab.icon;
                         const isActive = activeTab === tab.id;
                         return (
-                            <button
-                                key={tab.id}
-                                onClick={() => goToTab(tab.id)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${isActive
-                                    ? "bg-blue-600 text-white shadow-sm"
-                                    : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
-                                    }`}
-                            >
-                                <Icon className="w-3.5 h-3.5" />
-                                {tab.name}
-                            </button>
+                            <React.Fragment key={tab.id}>
+                                <button
+                                    onClick={() => goToTab(tab.id)}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${isActive
+                                        ? "bg-blue-600 text-white shadow-sm"
+                                        : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
+                                        }`}
+                                >
+                                    <Icon className="w-3.5 h-3.5" />
+                                    {tab.name}
+                                </button>
+                                {tab.id === 'overview' && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (setupStatus?.resume_uploaded) {
+                                                setViewResumeOpen(true);
+                                            } else {
+                                                setSetupWizardManageMode(false);
+                                                setSetupWizardOpen(true);
+                                            }
+                                        }}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
+                                    >
+                                        <FileText className="w-3.5 h-3.5 text-violet-500" />
+                                        My Resume
+                                    </button>
+                                )}
+                            </React.Fragment>
                         );
                     })}
                     <a
