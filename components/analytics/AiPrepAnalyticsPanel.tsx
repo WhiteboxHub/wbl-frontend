@@ -452,11 +452,44 @@ export function AiPrepAnalyticsPanel({ active = true }: AiPrepAnalyticsPanelProp
       },
       {
         headerName: "Intro Score",
-        field: "best_intro_score",
+        field: "intro_score",
         cellRenderer: ScoreRenderer,
         minWidth: 120,
         type: "numericColumn",
       },
+      {
+        headerName: "Intro Status",
+        field: "intro_passed",
+        minWidth: 130,
+        cellRenderer: (params: any) => {
+          const status = params.data?.intro_status;
+          if (!status || status === "not_started") return <span className="text-gray-400 dark:text-gray-600 font-medium">—</span>;
+          const passed = params.value;
+          if (passed) {
+            return <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Cleared</span>;
+          }
+          return <span className="text-rose-500 dark:text-rose-400 font-semibold">Not Cleared</span>;
+        }
+      },
+      {
+        headerName: "Login Count",
+        field: "login_count",
+        minWidth: 110,
+        type: "numericColumn",
+      },
+      {
+        headerName: "Last Active",
+        field: "last_login",
+        minWidth: 180,
+        valueFormatter: (params) => {
+          if (!params.value) return "—";
+          try {
+            return new Date(params.value).toLocaleString();
+          } catch {
+            return params.value;
+          }
+        }
+      }
     ],
     []
   );
@@ -464,14 +497,14 @@ export function AiPrepAnalyticsPanel({ active = true }: AiPrepAnalyticsPanelProp
   const exportCSV = () => {
     const headers = [
       "Name","Email","WBL Email","Login Count","Last Active",
-      "Resume","Project","Intro Attempts","Best Intro Score","Intro Cleared",
+      "Resume","Project","Intro Attempts","Intro Score","Intro Cleared",
       "Questions Answered","Avg Interview Score","Interview Completed",
       "Case Studies","Prep Status"
     ];
     const rows = displayed.map(r => [
       r.name, r.email, r.wbl_email, r.login_count, fmtDate(r.last_login),
       r.has_resume ? "Yes" : "No", r.has_project ? "Yes" : "No",
-      r.intro_attempts, r.best_intro_score, r.intro_passed ? "Yes" : "No",
+      r.intro_attempts, r.intro_score, r.intro_passed ? "Yes" : "No",
       r.questions_answered, r.avg_interview_score, r.interview_completed ? "Yes" : "No",
       r.case_studies_generated,
       r.prep_status_label
