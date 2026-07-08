@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { toast, Toaster } from "sonner";
 import { format, parseISO } from "date-fns";
 import Link from "next/link";
@@ -324,6 +324,7 @@ const StatusRenderer = ({ value }: { value?: string }) => {
 
 export default function CandidateDashboard() {
     const router = useRouter();
+    const pathname = usePathname();
     const { userRole } = useAuth() as { userRole: string };
 
     // --- CLICK TRACKING LOGIC (SW EDITION) ---
@@ -1413,7 +1414,7 @@ export default function CandidateDashboard() {
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
                 {/* Top Bar */}
-                <header className="min-h-[80px] lg:min-h-[100px] flex items-center justify-between px-4 lg:px-6 bg-[#f4f6f9] dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 z-20 flex-shrink-0 py-3">
+                <header className={`${activeTab === 'overview' ? 'min-h-[80px] lg:min-h-[100px] py-3' : 'min-h-[56px] lg:min-h-[64px] py-2'} flex items-center justify-between px-4 lg:px-6 bg-[#f4f6f9] dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 z-20 flex-shrink-0`}>
                     <div className="flex items-center gap-4 flex-1">
                         {/* Mobile logo */}
                         <div className="lg:hidden flex items-center gap-2">
@@ -1422,16 +1423,23 @@ export default function CandidateDashboard() {
                             </div>
                         </div>
 
-                        {/* Candidate Details Card */}
-                        <div className="hidden sm:flex items-center gap-8 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl px-8 py-5 shadow-sm">
+                        {/* Candidate Details Card - show only on Overview tab */}
+                        {activeTab === 'overview' && !viewResumeOpen && !setupWizardOpen && !pathname?.includes('resume') && (
+                            <div className="hidden sm:flex items-center gap-8 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl px-8 py-5 shadow-sm">
                             {/* Greeting + Name + Email */}
                             <div className="flex items-center gap-4 pr-6 border-r border-gray-100 dark:border-gray-700">
                                 <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-base flex-shrink-0 shadow-md">
                                     {data.basic_info.full_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-0.5">Welcome back</p>
-                                    <h1 className="text-lg font-extrabold text-gray-900 dark:text-white leading-none whitespace-nowrap">Hi, {firstName}</h1>
+                                    {activeTab === 'overview' ? (
+                                        <>
+                                            <p className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-0.5">Welcome back</p>
+                                            <h1 className="text-lg font-extrabold text-gray-900 dark:text-white leading-none whitespace-nowrap">Hi, {firstName}</h1>
+                                        </>
+                                    ) : (
+                                        <h1 className="text-lg font-extrabold text-gray-900 dark:text-white leading-none whitespace-nowrap">{data.basic_info.full_name}</h1>
+                                    )}
                                     <p className="text-xs text-gray-400 mt-1 truncate">{data.basic_info.email}</p>
                                 </div>
                             </div>
@@ -1451,7 +1459,8 @@ export default function CandidateDashboard() {
                                     </div>
                                 </div>
                             ))}
-                        </div>
+                            </div>
+                        )}
 
                     </div>
 
