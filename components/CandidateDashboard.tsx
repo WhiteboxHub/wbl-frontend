@@ -1482,15 +1482,40 @@ export default function CandidateDashboard() {
                     </div>
 
                     <div className="flex items-center gap-3">
+<<<<<<< Updated upstream
                     <a
+=======
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (setupStatus?.resume_uploaded) {
+                                    setViewResumeOpen(true);
+                                } else {
+                                    setSetupWizardManageMode(false);
+                                    setSetupWizardOpen(true);
+                                }
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm"
+                        >
+                            <FileText className="w-4 h-4 text-violet-500" />
+                            Resume
+                        </button>
+
+                   {activeTab === "jobs" && ( <a
+>>>>>>> Stashed changes
                         href="https://chromewebstore.google.com/detail/talentscreen-autofill/bebdlhhpgmegdebdballinfmfnlpmeio"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm"
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 ${
+    activeTab === "jobs"
+        ? "bg-gradient-to-br from-[#4F6EF5] to-[#6A5AF9] text-white border border-[#5977EC] shadow-lg hover:shadow-xl hover:scale-105"
+        : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+}`}
+
                     >
-                        <Puzzle className="w-4 h-4 text-blue-500" />
+                        <Puzzle className={`w-4 h-4 ${activeTab === "jobs" ? "text-white" : "text-blue-500"}`} />
                         Autofill Extension
-                    </a>
+                    </a>)}
                     </div>
 
                 </header>
