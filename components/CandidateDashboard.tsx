@@ -45,6 +45,10 @@ import {
     Eye,
     Code2,
     FileText,
+    MousePointerClick,
+    Send,
+    Zap,
+    ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { Input } from "@/components/admin_ui/input";
@@ -109,6 +113,17 @@ interface DashboardData {
         source_job_id?: string;
     }>;
     alerts: Array<{ type: string; phase: string; message: string }>;
+    candidate_stats?: {
+        total_days_in_system: number;
+        days_in_preparation: number;
+        days_in_marketing: number;
+        days_since_placement: number;
+        total_interviews: number;
+        interview_success_rate: number;
+        job_listings_clicked: number;
+        outreach_counter: number;
+        easy_apply_counter: number;
+    };
 }
 
 interface UserProfile {
@@ -140,7 +155,7 @@ interface ApiError {
     status?: number;
 }
 
-type TabType = 'overview' | 'sessions' | 'interviews' | 'jobs' | 'smartprep' | 'my_llm_key';
+type TabType = 'overview' | 'sessions' | 'interviews' | 'jobs' | 'smartprep' | 'my_llm_key' | 'my_applications';
 
 const extractErrorMessage = (err: ApiError, defaultMessage: string): string => {
     return err.body?.detail || err.body?.message || err.detail || err.message || defaultMessage;
@@ -1317,9 +1332,11 @@ export default function CandidateDashboard() {
 
     const tabs = [
         { id: 'jobs' as TabType, name: 'Job Board', icon: Briefcase },
+       
         { id: 'overview' as TabType, name: 'Overview', icon: Home },
-        { id: 'sessions' as TabType, name: 'My Sessions', icon: PlayCircle },
-        { id: 'interviews' as TabType, name: 'My Interviews', icon: MessageSquare },
+        { id: 'sessions' as TabType, name: 'Sessions', icon: PlayCircle },
+        { id: 'interviews' as TabType, name: 'Interviews', icon: MessageSquare },
+        { id: 'my_applications' as TabType, name: 'My Applications', icon: ClipboardList },
     ];
 
     return (
@@ -2354,6 +2371,78 @@ export default function CandidateDashboard() {
                                 )}
 
                                 {activeTab === 'my_llm_key' && <CandidateLlmKeysPanel />}
+
+                                {activeTab === 'my_applications' && (
+                                    <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6">
+                                        <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-800 p-6 lg:p-8">
+                                            {/* Header */}
+                                            <div className="mb-8">
+                                                <h2 className="text-xl font-extrabold text-gray-900 dark:text-white flex items-center gap-2">
+                                                    <BarChart3 className="w-5 h-5 text-blue-500" />
+                                                    Application Analytics
+                                                </h2>
+                                                <p className="text-xs text-gray-400 mt-1">Real-time statistics for your job search, outreaches, and applications.</p>
+                                            </div>
+
+                                            {/* Cards Grid */}
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                                {/* Card 1: Job Listing Clicked */}
+                                                <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-blue-100/50 dark:border-gray-700/50 rounded-2xl p-6 transition-all duration-300 hover:shadow-md hover:scale-[1.02] group">
+                                                    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
+                                                        <MousePointerClick className="w-24 h-24 text-blue-500" />
+                                                    </div>
+                                                    <div className="flex items-center justify-between mb-4">
+                                                        <div className="w-10 h-10 bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center">
+                                                            <MousePointerClick className="w-5 h-5" />
+                                                        </div>
+                                                        <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-full">Clicks</span>
+                                                    </div>
+                                                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Job Board Clicks</h3>
+                                                    <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
+                                                        {data.candidate_stats?.job_listings_clicked ?? 0}
+                                                    </p>
+                                                    <p className="text-[10px] text-gray-400 mt-2">Total clicks on job listings from the Job Board</p>
+                                                </div>
+
+                                                {/* Card 2: Outreach Counter */}
+                                                <div className="relative overflow-hidden bg-gradient-to-br from-purple-50 to-pink-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-purple-100/50 dark:border-gray-700/50 rounded-2xl p-6 transition-all duration-300 hover:shadow-md hover:scale-[1.02] group">
+                                                    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
+                                                        <Send className="w-24 h-24 text-purple-500" />
+                                                    </div>
+                                                    <div className="flex items-center justify-between mb-4">
+                                                        <div className="w-10 h-10 bg-purple-500/10 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 rounded-xl flex items-center justify-center">
+                                                            <Send className="w-5 h-5" />
+                                                        </div>
+                                                        <span className="text-[10px] font-bold text-purple-500 uppercase tracking-widest bg-purple-500/10 px-2 py-0.5 rounded-full">Outreach</span>
+                                                    </div>
+                                                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Campaign Outreaches</h3>
+                                                    <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
+                                                        {data.candidate_stats?.outreach_counter ?? 0}
+                                                    </p>
+                                                    <p className="text-[10px] text-gray-400 mt-2">Emails sent to vendors and hiring managers</p>
+                                                </div>
+
+                                                {/* Card 3: Easy Apply Counter */}
+                                                <div className="relative overflow-hidden bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-emerald-100/50 dark:border-gray-700/50 rounded-2xl p-6 transition-all duration-300 hover:shadow-md hover:scale-[1.02] group">
+                                                    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
+                                                        <Zap className="w-24 h-24 text-emerald-500" />
+                                                    </div>
+                                                    <div className="flex items-center justify-between mb-4">
+                                                        <div className="w-10 h-10 bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl flex items-center justify-center">
+                                                            <Zap className="w-5 h-5" />
+                                                        </div>
+                                                        <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded-full">Easy Apply</span>
+                                                    </div>
+                                                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Easy Applies</h3>
+                                                    <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
+                                                        {data.candidate_stats?.easy_apply_counter ?? 0}
+                                                    </p>
+                                                    <p className="text-[10px] text-gray-400 mt-2">Auto-filled forms and quick-applied positions</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </>
                         )}
                     </div>
