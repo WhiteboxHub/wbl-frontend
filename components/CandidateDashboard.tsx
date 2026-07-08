@@ -1480,19 +1480,20 @@ export default function CandidateDashboard() {
                         )}
 
                     </div>
-
+                        {activeTab === "jobs" && (
                     <div className="flex items-center gap-3">
                     <a
                         href="https://chromewebstore.google.com/detail/talentscreen-autofill/bebdlhhpgmegdebdballinfmfnlpmeio"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm"
+                        className="group flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:scale-105 hover:-translate-y-0.5 hover:shadow-xl"
                     >
-                        <Puzzle className="w-4 h-4 text-blue-500" />
+                        <Puzzle className="w-4 h-4 text-white transition-transform duration-300 group-hover:rotate-12 group-hover:scale-110"
+/>
                         Autofill Extension
                     </a>
                     </div>
-
+    )}
                 </header>
 
                 {/* Mobile Tab Bar */}
