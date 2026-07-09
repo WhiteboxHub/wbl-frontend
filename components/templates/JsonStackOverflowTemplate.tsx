@@ -52,10 +52,10 @@ export function JsonStackOverflowTemplate({ data }: TemplateProps) {
                 {data.experience.map((exp) => (
                   <div key={exp.id} className="bg-white border border-gray-200 rounded p-3 shadow-sm">
                     <div className="flex justify-between items-baseline">
-                      <strong className="text-[12px] text-gray-900">{exp.title}</strong>
+                      <strong className="text-[12px] text-gray-900">{exp.company}</strong>
                       <span className="text-[10px] text-[#f48024]">{formatDateRange(exp.startDate, exp.endDate, exp.current)}</span>
                     </div>
-                    <div className="text-gray-500 text-[10px]">{exp.company}{exp.location ? ` · ${exp.location}` : ""}</div>
+                    <div className="text-gray-500 text-[10px]">{exp.title}{exp.location ? ` · ${exp.location}` : ""}</div>
                     <ul className="mt-1.5 space-y-1 text-gray-600">
                       {exp.bullets.filter(Boolean).map((b, i) => (
                         <li key={i} className="flex items-start gap-2">

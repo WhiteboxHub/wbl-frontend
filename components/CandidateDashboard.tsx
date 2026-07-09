@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { toast, Toaster } from "sonner";
 import { format, parseISO } from "date-fns";
 import Link from "next/link";
@@ -45,6 +45,10 @@ import {
     Eye,
     Code2,
     FileText,
+    MousePointerClick,
+    Send,
+    Zap,
+    ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { Input } from "@/components/admin_ui/input";
@@ -109,6 +113,17 @@ interface DashboardData {
         source_job_id?: string;
     }>;
     alerts: Array<{ type: string; phase: string; message: string }>;
+    candidate_stats?: {
+        total_days_in_system: number;
+        days_in_preparation: number;
+        days_in_marketing: number;
+        days_since_placement: number;
+        total_interviews: number;
+        interview_success_rate: number;
+        job_listings_clicked: number;
+        outreach_counter: number;
+        easy_apply_counter: number;
+    };
 }
 
 interface UserProfile {
@@ -140,7 +155,7 @@ interface ApiError {
     status?: number;
 }
 
-type TabType = 'overview' | 'sessions' | 'interviews' | 'jobs' | 'smartprep' | 'my_llm_key';
+type TabType = 'overview' | 'sessions' | 'interviews' | 'jobs' | 'smartprep' | 'my_llm_key' | 'my_applications';
 
 const extractErrorMessage = (err: ApiError, defaultMessage: string): string => {
     return err.body?.detail || err.body?.message || err.detail || err.message || defaultMessage;
@@ -324,6 +339,7 @@ const StatusRenderer = ({ value }: { value?: string }) => {
 
 export default function CandidateDashboard() {
     const router = useRouter();
+    const pathname = usePathname();
     const { userRole } = useAuth() as { userRole: string };
 
     // --- CLICK TRACKING LOGIC (SW EDITION) ---
@@ -1317,9 +1333,11 @@ export default function CandidateDashboard() {
 
     const tabs = [
         { id: 'jobs' as TabType, name: 'Job Board', icon: Briefcase },
+       
         { id: 'overview' as TabType, name: 'Overview', icon: Home },
         { id: 'sessions' as TabType, name: 'Sessions', icon: PlayCircle },
         { id: 'interviews' as TabType, name: 'Interviews', icon: MessageSquare },
+        { id: 'my_applications' as TabType, name: 'My Applications', icon: ClipboardList },
     ];
 
     return (
@@ -1350,18 +1368,36 @@ export default function CandidateDashboard() {
                                 const Icon = tab.icon;
                                 const isActive = activeTab === tab.id;
                                 return (
-                                    <button
-                                        key={tab.id}
-                                        onClick={() => goToTab(tab.id)}
-                                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${isActive
-                                            ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
-                                            : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
-                                            }`}
-                                    >
-                                        <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-blue-600 dark:text-blue-400" : "text-gray-400"}`} />
-                                        <span>{tab.name}</span>
-                                        {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500" />}
-                                    </button>
+                                    <React.Fragment key={tab.id}>
+                                        <button
+                                            onClick={() => goToTab(tab.id)}
+                                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${isActive
+                                                ? "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400"
+                                                : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
+                                                }`}
+                                        >
+                                            <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-blue-600 dark:text-blue-400" : "text-gray-400"}`} />
+                                            <span>{tab.name}</span>
+                                            {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500" />}
+                                        </button>
+                                        {tab.id === 'overview' && (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (setupStatus?.resume_uploaded) {
+                                                        setViewResumeOpen(true);
+                                                    } else {
+                                                        setSetupWizardManageMode(false);
+                                                        setSetupWizardOpen(true);
+                                                    }
+                                                }}
+                                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
+                                            >
+                                                <FileText className="w-4 h-4 flex-shrink-0 text-violet-500" />
+                                                <span>My Resume</span>
+                                            </button>
+                                        )}
+                                    </React.Fragment>
                                 );
                             })}
                             <a
@@ -1395,7 +1431,7 @@ export default function CandidateDashboard() {
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
                 {/* Top Bar */}
-                <header className="min-h-[80px] lg:min-h-[100px] flex items-center justify-between px-4 lg:px-6 bg-[#f4f6f9] dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 z-20 flex-shrink-0 py-3">
+                <header className={`${activeTab === 'overview' ? 'min-h-[80px] lg:min-h-[100px] py-3' : 'min-h-[56px] lg:min-h-[64px] py-2'} flex items-center justify-between px-4 lg:px-6 bg-[#f4f6f9] dark:bg-gray-950 border-b border-gray-100 dark:border-gray-800 z-20 flex-shrink-0`}>
                     <div className="flex items-center gap-4 flex-1">
                         {/* Mobile logo */}
                         <div className="lg:hidden flex items-center gap-2">
@@ -1404,16 +1440,23 @@ export default function CandidateDashboard() {
                             </div>
                         </div>
 
-                        {/* Candidate Details Card */}
-                        <div className="hidden sm:flex items-center gap-8 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl px-8 py-5 shadow-sm">
+                        {/* Candidate Details Card - show only on Overview tab */}
+                        {activeTab === 'overview' && !viewResumeOpen && !setupWizardOpen && !pathname?.includes('resume') && (
+                            <div className="hidden sm:flex items-center gap-8 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl px-8 py-5 shadow-sm">
                             {/* Greeting + Name + Email */}
                             <div className="flex items-center gap-4 pr-6 border-r border-gray-100 dark:border-gray-700">
                                 <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-base flex-shrink-0 shadow-md">
                                     {data.basic_info.full_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-0.5">Welcome back</p>
-                                    <h1 className="text-lg font-extrabold text-gray-900 dark:text-white leading-none whitespace-nowrap">Hi, {firstName}</h1>
+                                    {activeTab === 'overview' ? (
+                                        <>
+                                            <p className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-0.5">Welcome back</p>
+                                            <h1 className="text-lg font-extrabold text-gray-900 dark:text-white leading-none whitespace-nowrap">Hi, {firstName}</h1>
+                                        </>
+                                    ) : (
+                                        <h1 className="text-lg font-extrabold text-gray-900 dark:text-white leading-none whitespace-nowrap">{data.basic_info.full_name}</h1>
+                                    )}
                                     <p className="text-xs text-gray-400 mt-1 truncate">{data.basic_info.email}</p>
                                 </div>
                             </div>
@@ -1433,27 +1476,12 @@ export default function CandidateDashboard() {
                                     </div>
                                 </div>
                             ))}
-                        </div>
+                            </div>
+                        )}
 
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                if (setupStatus?.resume_uploaded) {
-                                    setViewResumeOpen(true);
-                                } else {
-                                    setSetupWizardManageMode(false);
-                                    setSetupWizardOpen(true);
-                                }
-                            }}
-                            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm"
-                        >
-                            <FileText className="w-4 h-4 text-violet-500" />
-                            Resume
-                        </button>
-
                     <a
                         href="https://chromewebstore.google.com/detail/talentscreen-autofill/bebdlhhpgmegdebdballinfmfnlpmeio"
                         target="_blank"
@@ -1473,17 +1501,35 @@ export default function CandidateDashboard() {
                         const Icon = tab.icon;
                         const isActive = activeTab === tab.id;
                         return (
-                            <button
-                                key={tab.id}
-                                onClick={() => goToTab(tab.id)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${isActive
-                                    ? "bg-blue-600 text-white shadow-sm"
-                                    : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
-                                    }`}
-                            >
-                                <Icon className="w-3.5 h-3.5" />
-                                {tab.name}
-                            </button>
+                            <React.Fragment key={tab.id}>
+                                <button
+                                    onClick={() => goToTab(tab.id)}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 ${isActive
+                                        ? "bg-blue-600 text-white shadow-sm"
+                                        : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
+                                        }`}
+                                >
+                                    <Icon className="w-3.5 h-3.5" />
+                                    {tab.name}
+                                </button>
+                                {tab.id === 'overview' && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (setupStatus?.resume_uploaded) {
+                                                setViewResumeOpen(true);
+                                            } else {
+                                                setSetupWizardManageMode(false);
+                                                setSetupWizardOpen(true);
+                                            }
+                                        }}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
+                                    >
+                                        <FileText className="w-3.5 h-3.5 text-violet-500" />
+                                        My Resume
+                                    </button>
+                                )}
+                            </React.Fragment>
                         );
                     })}
                     <a
@@ -1509,82 +1555,6 @@ export default function CandidateDashboard() {
 
                 {/* Scrollable Content */}
                 <main className="flex-1 overflow-hidden flex flex-col">
-
-                    {/* Setup Status Banner */}
-                    {setupStatus && !setupWizardOpen && (
-                        <div className="px-4 lg:px-6 pt-4 flex-shrink-0 animate-in fade-in slide-in-from-top-2">
-                            <div className="relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4 px-6 py-3 border border-indigo-200 dark:border-indigo-800 rounded-xl shadow-sm bg-white dark:bg-gray-900 group">
-                                {/* Radiant Background Effect (matches the glowing corner effect from the reference) */}
-                                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_left,_var(--tw-gradient-stops))] from-indigo-100/50 via-white to-white dark:from-indigo-900/20 dark:via-gray-900 dark:to-gray-900 opacity-100"></div>
-
-                                {/* Left Section: Branding + Divider + Message */}
-                                <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-4 md:gap-6 flex-1">
-                                    {/* Brand Label */}
-                                    <div className="flex items-center gap-1.5 shrink-0">
-                                        <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                                        <span className="text-xl font-extrabold text-indigo-950 dark:text-indigo-100 tracking-tight">WBL <span className="text-indigo-600 dark:text-indigo-400 font-black">SmartPrep</span></span>
-                                    </div>
-
-                                    {/* Vertical Divider (Hidden on small screens) */}
-                                    <div className="hidden md:block w-px h-8 bg-indigo-200 dark:bg-indigo-800"></div>
-
-                                    {/* Messaging */}
-                                    <div className="flex-1">
-                                        <div className="flex flex-wrap items-center gap-x-1.5 leading-tight">
-                                            <p className="text-gray-900 dark:text-gray-100 font-bold text-sm lg:text-[15px]">
-                                                Your AI-powered interview practice
-                                            </p>
-                                        </div>
-                                        {!setupStatus.setup_complete && (
-                                            <p className="text-gray-500 dark:text-gray-400 text-xs font-medium mt-0.5">
-                                                Missing: {!setupStatus.resume_uploaded ? "Resume" : ""}
-                                                {!setupStatus.resume_uploaded && !setupStatus.api_keys_configured ? " & " : ""}
-                                                {!setupStatus.api_keys_configured ? "API Keys" : ""}
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Right Section: Action Button */}
-                                <div className="relative z-10 shrink-0">
-                                    {setupStatus.setup_complete ? (
-                                        <button
-                                            onClick={async () => {
-                                                const getAiPrepUrl = () => {
-                                                    return process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL || "https://ai-prep.whitebox-learning.com";
-                                                };
-                                                const baseUrl = getAiPrepUrl();
-                                                const token = localStorage.getItem("prep_token");
-
-                                                if (token) {
-                                                    window.open(`${baseUrl}/auth?token=${token}`, '_blank');
-                                                } else {
-                                                    // Fallback if no token (shouldn't happen if setup complete)
-                                                    window.open(baseUrl, '_blank');
-                                                }
-                                            }}
-                                            className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
-                                        >
-                                            <PlayCircle className="w-3.5 h-3.5" />
-                                            Start Preparation
-                                        </button>
-                                    ) : (
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setSetupWizardManageMode(false);
-                                                setSetupWizardOpen(true);
-                                            }}
-                                            className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-indigo-900 to-purple-600 hover:from-indigo-800 hover:to-purple-500 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
-                                        >
-                                            <Sparkles className="w-3.5 h-3.5" />
-                                            Complete Setup
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
 
                     {/* Alerts Banner */}
                     {data.alerts && data.alerts.length > 0 && (
@@ -2257,6 +2227,79 @@ export default function CandidateDashboard() {
 
                                 {activeTab === 'smartprep' && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
+                                        {setupStatus && !setupWizardOpen && (
+                                            <div className="flex-shrink-0 animate-in fade-in slide-in-from-top-2">
+                                                <div className="relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4 px-6 py-3 border border-indigo-200 dark:border-indigo-800 rounded-xl shadow-sm bg-white dark:bg-gray-900 group">
+                                                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_left,_var(--tw-gradient-stops))] from-indigo-100/50 via-white to-white dark:from-indigo-900/20 dark:via-gray-900 dark:to-gray-900 opacity-100"></div>
+
+                                                    <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-4 md:gap-6 flex-1">
+                                                        <div className="flex items-center gap-1.5 shrink-0">
+                                                            <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                                                            <span className="text-xl font-extrabold text-indigo-950 dark:text-indigo-100 tracking-tight">WBL <span className="text-indigo-600 dark:text-indigo-400 font-black">SmartPrep</span></span>
+                                                        </div>
+
+                                                        <div className="hidden md:block w-px h-8 bg-indigo-200 dark:bg-indigo-800"></div>
+
+                                                        <div className="flex-1">
+                                                            <div className="flex flex-wrap items-center gap-x-1.5 leading-tight">
+                                                                <p className="text-gray-900 dark:text-gray-100 font-bold text-sm lg:text-[15px]">
+                                                                    Your AI-powered interview practice
+                                                                </p>
+                                                            </div>
+                                                            {!setupStatus.setup_complete && (
+                                                                <p className="text-gray-500 dark:text-gray-400 text-xs font-medium mt-0.5">
+                                                                    Missing: {!setupStatus.resume_uploaded ? "Resume" : ""}
+                                                                    {!setupStatus.resume_uploaded && !setupStatus.api_keys_configured ? " & " : ""}
+                                                                    {!setupStatus.api_keys_configured ? "API Keys" : ""}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="relative z-10 shrink-0">
+                                                        {setupStatus.setup_complete ? (
+                                                            <button
+                                                                onClick={async () => {
+                                                                    const getAiPrepUrl = () => {
+                                                                        const url = process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL;
+
+                                                                        if (url) {
+                                                                            return url;
+                                                                        }
+                                                                        
+                                                                        return "https://ai-prep.whitebox-learning.com";
+                                                                    };
+                                                                    const baseUrl = getAiPrepUrl();
+                                                                    const token = localStorage.getItem("prep_token");
+
+                                                                    if (token) {
+                                                                        window.open(`${baseUrl}/auth?token=${token}`, '_blank');
+                                                                    } else {
+                                                                        window.open(baseUrl, '_blank');
+                                                                    }
+                                                                }}
+                                                                className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
+                                                            >
+                                                                <PlayCircle className="w-3.5 h-3.5" />
+                                                                Start Preparation
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setSetupWizardManageMode(false);
+                                                                    setSetupWizardOpen(true);
+                                                                }}
+                                                                className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-indigo-900 to-purple-600 hover:from-indigo-800 hover:to-purple-500 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
+                                                            >
+                                                                <Sparkles className="w-3.5 h-3.5" />
+                                                                Complete Setup
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
 
                                         {/* AI Profile Setup Card */}
                                         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
@@ -2334,6 +2377,78 @@ export default function CandidateDashboard() {
                                 )}
 
                                 {activeTab === 'my_llm_key' && <CandidateLlmKeysPanel />}
+
+                                {activeTab === 'my_applications' && (
+                                    <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6">
+                                        <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-800 p-6 lg:p-8">
+                                            {/* Header */}
+                                            <div className="mb-8">
+                                                <h2 className="text-xl font-extrabold text-gray-900 dark:text-white flex items-center gap-2">
+                                                    <BarChart3 className="w-5 h-5 text-blue-500" />
+                                                    Application Analytics
+                                                </h2>
+                                                <p className="text-xs text-gray-400 mt-1">Real-time statistics for your job search, outreaches, and applications.</p>
+                                            </div>
+
+                                            {/* Cards Grid */}
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                                {/* Card 1: Job Listing Clicked */}
+                                                <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-blue-100/50 dark:border-gray-700/50 rounded-2xl p-6 transition-all duration-300 hover:shadow-md hover:scale-[1.02] group">
+                                                    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
+                                                        <MousePointerClick className="w-24 h-24 text-blue-500" />
+                                                    </div>
+                                                    <div className="flex items-center justify-between mb-4">
+                                                        <div className="w-10 h-10 bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-xl flex items-center justify-center">
+                                                            <MousePointerClick className="w-5 h-5" />
+                                                        </div>
+                                                        <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-full">Clicks</span>
+                                                    </div>
+                                                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Job Board Clicks</h3>
+                                                    <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
+                                                        {data.candidate_stats?.job_listings_clicked ?? 0}
+                                                    </p>
+                                                    <p className="text-[10px] text-gray-400 mt-2">Total clicks on job listings from the Job Board</p>
+                                                </div>
+
+                                                {/* Card 2: Outreach Counter */}
+                                                <div className="relative overflow-hidden bg-gradient-to-br from-purple-50 to-pink-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-purple-100/50 dark:border-gray-700/50 rounded-2xl p-6 transition-all duration-300 hover:shadow-md hover:scale-[1.02] group">
+                                                    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
+                                                        <Send className="w-24 h-24 text-purple-500" />
+                                                    </div>
+                                                    <div className="flex items-center justify-between mb-4">
+                                                        <div className="w-10 h-10 bg-purple-500/10 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 rounded-xl flex items-center justify-center">
+                                                            <Send className="w-5 h-5" />
+                                                        </div>
+                                                        <span className="text-[10px] font-bold text-purple-500 uppercase tracking-widest bg-purple-500/10 px-2 py-0.5 rounded-full">Outreach</span>
+                                                    </div>
+                                                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Campaign Outreaches</h3>
+                                                    <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
+                                                        {data.candidate_stats?.outreach_counter ?? 0}
+                                                    </p>
+                                                    <p className="text-[10px] text-gray-400 mt-2">Emails sent to vendors and hiring managers</p>
+                                                </div>
+
+                                                {/* Card 3: Easy Apply Counter */}
+                                                <div className="relative overflow-hidden bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-emerald-100/50 dark:border-gray-700/50 rounded-2xl p-6 transition-all duration-300 hover:shadow-md hover:scale-[1.02] group">
+                                                    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
+                                                        <Zap className="w-24 h-24 text-emerald-500" />
+                                                    </div>
+                                                    <div className="flex items-center justify-between mb-4">
+                                                        <div className="w-10 h-10 bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl flex items-center justify-center">
+                                                            <Zap className="w-5 h-5" />
+                                                        </div>
+                                                        <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded-full">Easy Apply</span>
+                                                    </div>
+                                                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Easy Applies</h3>
+                                                    <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
+                                                        {data.candidate_stats?.easy_apply_counter ?? 0}
+                                                    </p>
+                                                    <p className="text-[10px] text-gray-400 mt-2">Auto-filled forms and quick-applied positions</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </>
                         )}
                     </div>

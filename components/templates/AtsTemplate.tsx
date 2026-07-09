@@ -37,13 +37,13 @@ export function AtsTemplate({ data }: TemplateProps) {
             {data.experience.map((exp) => (
               <div key={exp.id}>
                 <div className="flex justify-between items-baseline font-semibold">
-                  <span className="text-[12px] text-gray-900">{exp.title}</span>
+                  <span className="text-[12px] text-gray-900">{exp.company}</span>
                   <span className="text-gray-800 text-[10px] font-mono">
                     {formatDateRange(exp.startDate, exp.endDate, exp.current)}
                   </span>
                 </div>
                 <div className="flex justify-between text-gray-700 text-[10px] mt-0.5">
-                  <span className="italic">{exp.company}</span>
+                  <span className="italic">{exp.title}</span>
                   <span>{exp.location}</span>
                 </div>
                 <ul className="mt-1.5 text-gray-800 space-y-1 pl-4 list-disc">
