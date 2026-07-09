@@ -1556,82 +1556,6 @@ export default function CandidateDashboard() {
                 {/* Scrollable Content */}
                 <main className="flex-1 overflow-hidden flex flex-col">
 
-                    {/* Setup Status Banner */}
-                    {setupStatus && !setupWizardOpen && (
-                        <div className="px-4 lg:px-6 pt-4 flex-shrink-0 animate-in fade-in slide-in-from-top-2">
-                            <div className="relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4 px-6 py-3 border border-indigo-200 dark:border-indigo-800 rounded-xl shadow-sm bg-white dark:bg-gray-900 group">
-                                {/* Radiant Background Effect (matches the glowing corner effect from the reference) */}
-                                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_left,_var(--tw-gradient-stops))] from-indigo-100/50 via-white to-white dark:from-indigo-900/20 dark:via-gray-900 dark:to-gray-900 opacity-100"></div>
-
-                                {/* Left Section: Branding + Divider + Message */}
-                                <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-4 md:gap-6 flex-1">
-                                    {/* Brand Label */}
-                                    <div className="flex items-center gap-1.5 shrink-0">
-                                        <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                                        <span className="text-xl font-extrabold text-indigo-950 dark:text-indigo-100 tracking-tight">WBL <span className="text-indigo-600 dark:text-indigo-400 font-black">SmartPrep</span></span>
-                                    </div>
-
-                                    {/* Vertical Divider (Hidden on small screens) */}
-                                    <div className="hidden md:block w-px h-8 bg-indigo-200 dark:bg-indigo-800"></div>
-
-                                    {/* Messaging */}
-                                    <div className="flex-1">
-                                        <div className="flex flex-wrap items-center gap-x-1.5 leading-tight">
-                                            <p className="text-gray-900 dark:text-gray-100 font-bold text-sm lg:text-[15px]">
-                                                Your AI-powered interview practice
-                                            </p>
-                                        </div>
-                                        {!setupStatus.setup_complete && (
-                                            <p className="text-gray-500 dark:text-gray-400 text-xs font-medium mt-0.5">
-                                                Missing: {!setupStatus.resume_uploaded ? "Resume" : ""}
-                                                {!setupStatus.resume_uploaded && !setupStatus.api_keys_configured ? " & " : ""}
-                                                {!setupStatus.api_keys_configured ? "API Keys" : ""}
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Right Section: Action Button */}
-                                <div className="relative z-10 shrink-0">
-                                    {setupStatus.setup_complete ? (
-                                        <button
-                                            onClick={async () => {
-                                                const getAiPrepUrl = () => {
-                                                    return process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL || "https://ai-prep.whitebox-learning.com";
-                                                };
-                                                const baseUrl = getAiPrepUrl();
-                                                const token = localStorage.getItem("prep_token");
-
-                                                if (token) {
-                                                    window.open(`${baseUrl}/auth?token=${token}`, '_blank');
-                                                } else {
-                                                    // Fallback if no token (shouldn't happen if setup complete)
-                                                    window.open(baseUrl, '_blank');
-                                                }
-                                            }}
-                                            className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
-                                        >
-                                            <PlayCircle className="w-3.5 h-3.5" />
-                                            Start Preparation
-                                        </button>
-                                    ) : (
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setSetupWizardManageMode(false);
-                                                setSetupWizardOpen(true);
-                                            }}
-                                            className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-indigo-900 to-purple-600 hover:from-indigo-800 hover:to-purple-500 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
-                                        >
-                                            <Sparkles className="w-3.5 h-3.5" />
-                                            Complete Setup
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
                     {/* Alerts Banner */}
                     {data.alerts && data.alerts.length > 0 && (
                         <div className="flex flex-wrap gap-2 px-4 lg:px-6 pt-4">
@@ -2303,6 +2227,73 @@ export default function CandidateDashboard() {
 
                                 {activeTab === 'smartprep' && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
+                                        {setupStatus && !setupWizardOpen && (
+                                            <div className="flex-shrink-0 animate-in fade-in slide-in-from-top-2">
+                                                <div className="relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4 px-6 py-3 border border-indigo-200 dark:border-indigo-800 rounded-xl shadow-sm bg-white dark:bg-gray-900 group">
+                                                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_left,_var(--tw-gradient-stops))] from-indigo-100/50 via-white to-white dark:from-indigo-900/20 dark:via-gray-900 dark:to-gray-900 opacity-100"></div>
+
+                                                    <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-4 md:gap-6 flex-1">
+                                                        <div className="flex items-center gap-1.5 shrink-0">
+                                                            <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                                                            <span className="text-xl font-extrabold text-indigo-950 dark:text-indigo-100 tracking-tight">WBL <span className="text-indigo-600 dark:text-indigo-400 font-black">SmartPrep</span></span>
+                                                        </div>
+
+                                                        <div className="hidden md:block w-px h-8 bg-indigo-200 dark:bg-indigo-800"></div>
+
+                                                        <div className="flex-1">
+                                                            <div className="flex flex-wrap items-center gap-x-1.5 leading-tight">
+                                                                <p className="text-gray-900 dark:text-gray-100 font-bold text-sm lg:text-[15px]">
+                                                                    Your AI-powered interview practice
+                                                                </p>
+                                                            </div>
+                                                            {!setupStatus.setup_complete && (
+                                                                <p className="text-gray-500 dark:text-gray-400 text-xs font-medium mt-0.5">
+                                                                    Missing: {!setupStatus.resume_uploaded ? "Resume" : ""}
+                                                                    {!setupStatus.resume_uploaded && !setupStatus.api_keys_configured ? " & " : ""}
+                                                                    {!setupStatus.api_keys_configured ? "API Keys" : ""}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="relative z-10 shrink-0">
+                                                        {setupStatus.setup_complete ? (
+                                                            <button
+                                                                onClick={async () => {
+                                                                    const getAiPrepUrl = () => {
+                                                                        return process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL || "https://ai-prep.whitebox-learning.com";
+                                                                    };
+                                                                    const baseUrl = getAiPrepUrl();
+                                                                    const token = localStorage.getItem("prep_token");
+
+                                                                    if (token) {
+                                                                        window.open(`${baseUrl}/auth?token=${token}`, '_blank');
+                                                                    } else {
+                                                                        window.open(baseUrl, '_blank');
+                                                                    }
+                                                                }}
+                                                                className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
+                                                            >
+                                                                <PlayCircle className="w-3.5 h-3.5" />
+                                                                Start Preparation
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setSetupWizardManageMode(false);
+                                                                    setSetupWizardOpen(true);
+                                                                }}
+                                                                className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-indigo-900 to-purple-600 hover:from-indigo-800 hover:to-purple-500 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
+                                                            >
+                                                                <Sparkles className="w-3.5 h-3.5" />
+                                                                Complete Setup
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
 
                                         {/* AI Profile Setup Card */}
                                         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
