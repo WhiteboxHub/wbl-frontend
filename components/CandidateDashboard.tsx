@@ -2261,7 +2261,13 @@ export default function CandidateDashboard() {
                                                             <button
                                                                 onClick={async () => {
                                                                     const getAiPrepUrl = () => {
-                                                                        return process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL || "https://ai-prep.whitebox-learning.com";
+                                                                        const url = process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL;
+
+                                                                        if (url) {
+                                                                            return url;
+                                                                        }
+                                                                        
+                                                                        return "https://ai-prep.whitebox-learning.com";
                                                                     };
                                                                     const baseUrl = getAiPrepUrl();
                                                                     const token = localStorage.getItem("prep_token");
