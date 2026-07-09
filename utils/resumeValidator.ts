@@ -11,35 +11,32 @@ export const validateResumeStructure = (data: any) => {
   const errors: string[] = [];
   const warnings: string[] = [];
 
+  // ─── Helpers ───────────────────────────────────────────────────────────────
+
+  /** BFS deep-search for a key with a non-empty value */
   const findKeyDeepBFS = (obj: any, keyName: string): any => {
     if (!obj || typeof obj !== 'object') return undefined;
-    
     let queue: any[] = [obj];
     while (queue.length > 0) {
       const current = queue.shift();
       if (!current || typeof current !== 'object') continue;
-      
       if (keyName in current) {
         const val = current[keyName];
         if (typeof val === 'string' && val.trim() !== '') return val;
         if (Array.isArray(val) && val.length > 0) return val;
         if (typeof val === 'object' && val !== null && Object.keys(val).length > 0) return val;
       }
-      
       for (const k of Object.keys(current)) {
-        if (typeof current[k] === 'object') {
-          queue.push(current[k]);
-        }
+        if (typeof current[k] === 'object') queue.push(current[k]);
       }
     }
     return undefined;
   };
 
+  /** Check if any string value in the object contains a linkedin.com URL */
   const hasLinkedInDeep = (obj: any): boolean => {
     if (!obj) return false;
-    if (typeof obj === 'string') {
-      return obj.toLowerCase().includes('linkedin.com');
-    }
+    if (typeof obj === 'string') return obj.toLowerCase().includes('linkedin.com');
     if (typeof obj === 'object') {
       for (const k of Object.keys(obj)) {
         if (hasLinkedInDeep(obj[k])) return true;
@@ -48,65 +45,103 @@ export const validateResumeStructure = (data: any) => {
     return false;
   };
 
-  const highBasics = ['name', 'email'];
-  highBasics.forEach(field => {
-    if (!findKeyDeepBFS(data, field)) errors.push(field);
-  });
+  // ─── Detect format ─────────────────────────────────────────────────────────
+  // Custom format uses `personal` block; standard JSON Resume uses `basics`
+  const isCustomFormat = !!(data.personal && typeof data.personal === 'object');
 
-  if (!findKeyDeepBFS(data, 'summary')) {
-    warnings.push('summary');
+  // ─── Name (mandatory) ──────────────────────────────────────────────────────
+  if (isCustomFormat) {
+    const p = data.personal as Record<string, any>;
+    const firstName = (p.first_name || p.firstName || '').toString().trim();
+    const lastName  = (p.last_name  || p.lastName  || '').toString().trim();
+    if (!firstName && !lastName) errors.push('name (personal.first_name / personal.last_name)');
+  } else {
+    if (!findKeyDeepBFS(data, 'name')) errors.push('name');
   }
 
-  if (!hasLinkedInDeep(data)) {
-    errors.push('linkedin profile (valid LinkedIn URL is required)');
-  }
+  // ─── Email (mandatory) ─────────────────────────────────────────────────────
+  if (!findKeyDeepBFS(data, 'email')) errors.push('email');
 
-  const workData = findKeyDeepBFS(data, 'work') || data.work;
-  if (!Array.isArray(workData) || workData.length === 0) {
-    warnings.push("work (recommended to have at least one job entry)");
+  // ─── LinkedIn (mandatory) ──────────────────────────────────────────────────
+  if (!hasLinkedInDeep(data)) errors.push('linkedin profile (valid LinkedIn URL is required)');
+
+  // ─── Summary (recommended) ─────────────────────────────────────────────────
+  if (!findKeyDeepBFS(data, 'summary')) warnings.push('summary');
+
+  // ─── Work / Experience ─────────────────────────────────────────────────────
+  // Accept: work[] (standard) OR experience[] (custom)
+  const workData: any[] | null =
+    (Array.isArray(data.work) && data.work.length > 0)
+      ? data.work
+      : (Array.isArray(data.experience) && data.experience.length > 0)
+        ? data.experience
+        : null;
+
+  if (!workData) {
+    warnings.push('work (recommended to have at least one job entry)');
   } else {
     workData.forEach((w: any, idx: number) => {
-      ['name', 'position'].forEach(field => {
-        if (w[field] === undefined || w[field] === null) errors.push(`work[${idx}].${field}`);
-      });
-      
-      ['startDate', 'endDate'].forEach(field => {
-        if (w[field] === undefined || w[field] === null) warnings.push(`work[${idx}].${field}`);
-      });
+      // Standard: name + position  |  Custom: company + title
+      const hasCompany   = !!(w.name     || w.company);
+      const hasPosition  = !!(w.position || w.title);
+      if (!hasCompany)  errors.push(`work[${idx}].name`);
+      if (!hasPosition) errors.push(`work[${idx}].position`);
 
-      if (!Array.isArray(w.highlights) || w.highlights.length === 0) {
+      // Dates — recommended
+      const hasStart = !!(w.startDate || w.start_date);
+      const hasEnd   = !!(w.endDate   || w.end_date);
+      if (!hasStart) warnings.push(`work[${idx}].startDate`);
+      if (!hasEnd)   warnings.push(`work[${idx}].endDate`);
+
+      // Highlights / achievements — recommended
+      const highlights = w.highlights || w.achievements || w.bullets;
+      if (!Array.isArray(highlights) || highlights.length === 0) {
         warnings.push(`work[${idx}].highlights`);
       }
     });
   }
 
-  const skillsData = findKeyDeepBFS(data, 'skills') || data.skills;
-  if (!Array.isArray(skillsData) || skillsData.length === 0) {
-    warnings.push("skills (recommended to list your skills)");
+  // ─── Skills ────────────────────────────────────────────────────────────────
+  const skillsData: any[] | null =
+    (Array.isArray(data.skills) && data.skills.length > 0) ? data.skills : null;
+
+  if (!skillsData) {
+    warnings.push('skills (recommended to list your skills)');
   } else {
     skillsData.forEach((s: any, idx: number) => {
       if (!s.name) errors.push(`skills[${idx}].name`);
-      if (!Array.isArray(s.keywords) || s.keywords.length === 0) {
+      // keywords are optional in the custom format (each entry is {name: "..."})
+      // Only warn if we're in standard format and keywords are missing
+      if (!isCustomFormat && (!Array.isArray(s.keywords) || s.keywords.length === 0)) {
         warnings.push(`skills[${idx}].keywords`);
       }
     });
   }
 
-  const educationData = findKeyDeepBFS(data, 'education') || data.education;
-  if (!Array.isArray(educationData) || educationData.length === 0) {
-    warnings.push("education");
+  // ─── Education ─────────────────────────────────────────────────────────────
+  const educationData: any[] | null =
+    (Array.isArray(data.education) && data.education.length > 0) ? data.education : null;
+
+  if (!educationData) {
+    warnings.push('education');
   } else {
     educationData.forEach((e: any, idx: number) => {
-      ['institution', 'studyType', 'area'].forEach(field => {
-        if (!e[field]) warnings.push(`education[${idx}].${field}`);
-      });
+      // institution is in both formats
+      if (!e.institution) warnings.push(`education[${idx}].institution`);
+      // Standard JSON Resume uses studyType + area; custom uses degree + location
+      if (isCustomFormat) {
+        if (!e.degree) warnings.push(`education[${idx}].degree`);
+      } else {
+        if (!e.studyType) warnings.push(`education[${idx}].studyType`);
+        if (!e.area)      warnings.push(`education[${idx}].area`);
+      }
     });
   }
-  
-  if (!findKeyDeepBFS(data, 'technical_screening')) {
-    warnings.push("custom_fields.technical_screening");
-  }
 
+  // ─── Custom fields (recommended, only relevant if present in schema) ────────
+  if (!findKeyDeepBFS(data, 'technical_screening')) {
+    warnings.push('custom_fields.technical_screening');
+  }
   ['application_logistics', 'legal', 'eeo'].forEach(field => {
     if (!findKeyDeepBFS(data, field)) warnings.push(`custom_fields.${field}`);
   });
