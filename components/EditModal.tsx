@@ -565,7 +565,7 @@ const requiredFieldsConfig: Record<string, string[]> = {
 // Helper function to check if a field is required based on modal type and mode
 
 const isFieldRequired = (fieldName: string, modalType: string, isAddMode: boolean): boolean => {
-  if (!isAddMode) return false;
+  // if (!isAddMode) return false;
   const modalKey = modalType.toLowerCase();
 
   const fieldConfigMap: Record<string, string[]> = {};
