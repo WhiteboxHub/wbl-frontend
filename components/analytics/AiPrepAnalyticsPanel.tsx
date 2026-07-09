@@ -25,6 +25,7 @@ import { EnhancedMetricCard } from "@/components/EnhancedMetricCard";
 import { Input } from "@/components/admin_ui/input";
 import { Loader } from "@/components/admin_ui/loader";
 import { useMinimumLoadingTime } from "@/hooks/useMinimumLoadingTime";
+import { apiFetch } from "@/lib/api";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -336,29 +337,9 @@ export function AiPrepAnalyticsPanel({ active = true }: AiPrepAnalyticsPanelProp
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const token =
-        typeof window !== "undefined"
-          ? localStorage.getItem("access_token") ||
-            localStorage.getItem("token") ||
-            localStorage.getItem("auth_token") ||
-            null
-          : null;
-
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-
-      const res = await fetch(`${AI_PREP_API}/api/analytics/ai-prep-report`, {
-        headers,
-      });
-
-      if (!res.ok) {
-        const body = await res.text();
-        throw new Error(`AI-Prep API error ${res.status}: ${body}`);
-      }
-
-      const data: ReportSummary = await res.json();
+      const data = await apiFetch(
+        `${AI_PREP_API}/api/analytics/ai-prep-report`
+      ) as ReportSummary;
       setReport(data);
       setHasLoaded(true);
     } catch (err: unknown) {

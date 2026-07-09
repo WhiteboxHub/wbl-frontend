@@ -54,7 +54,10 @@ export const validateResumeStructure = (data: any) => {
     const p = data.personal as Record<string, any>;
     const firstName = (p.first_name || p.firstName || '').toString().trim();
     const lastName  = (p.last_name  || p.lastName  || '').toString().trim();
-    if (!firstName && !lastName) errors.push('name (personal.first_name / personal.last_name)');
+    const singleName = (p.name || '').toString().trim();
+    if (!firstName && !lastName && !singleName) {
+      errors.push('name (personal.first_name / personal.last_name)');
+    }
   } else {
     if (!findKeyDeepBFS(data, 'name')) errors.push('name');
   }
