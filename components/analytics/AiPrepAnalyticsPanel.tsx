@@ -324,10 +324,13 @@ export function AiPrepAnalyticsPanel({ active = true }: AiPrepAnalyticsPanelProp
   // AI-Prep backend base URL — configured per environment via NEXT_PUBLIC_AIPREP_API_URL.
   // Strip a trailing /api if present so we can append /api/analytics/ai-prep-report consistently.
   // Falls back to the same default production URL as other components in this project.
-  const AI_PREP_API = (
-    process.env.NEXT_PUBLIC_AIPREP_API_URL ||
-    "https://ai-backend-560359652969.us-central1.run.app/api"
-  ).replace(/\/api\/?$/, "");
+  const getApiUrl = () => {
+    if (process.env.NEXT_PUBLIC_AIPREP_API_URL) {
+      return process.env.NEXT_PUBLIC_AIPREP_API_URL;
+    }
+    return "https://ai-backend-560359652969.us-central1.run.app/api";
+  };
+  const AI_PREP_API = getApiUrl().replace(/\/api\/?$/, "");
 
   // ── Fetch data from AI-Prep backend ────────────────────────────────────────
   const loadData = useCallback(async () => {
@@ -545,7 +548,7 @@ export function AiPrepAnalyticsPanel({ active = true }: AiPrepAnalyticsPanelProp
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Click the <strong>View</strong> (eye) icon on any row to see the full
+        Click on any row to see the full
         LLM evaluation breakdown, strengths, weaknesses, and AI suggestions.
       </p>
 
@@ -560,7 +563,7 @@ export function AiPrepAnalyticsPanel({ active = true }: AiPrepAnalyticsPanelProp
         onRowUpdated={undefined}
         onRowDeleted={undefined}
         defaultColDef={{ editable: false, sortable: true, filter: true }}
-        onRowViewed={(row: AiPrepUserRow) => setSelectedUser(row)}
+        onRowClicked={(row: AiPrepUserRow) => setSelectedUser(row)}
       />
 
       {/* Detail drawer / modal */}
