@@ -411,9 +411,36 @@ const ScheduleMeetRenderer = (params: any) => {
   
   const meetMatch = notes.match(/https:\/\/meet\.google\.com\/[a-z0-9-]+/i);
   
-  const handleSchedule = async () => {
+  if (!meetMatch) {
+    const todayLocal = new Date();
+    const interviewDate = params.data?.interview_date ? new Date(params.data.interview_date) : null;
+    if (interviewDate) {
+      const diffTime = Math.abs(todayLocal.getTime() - interviewDate.getTime());
+      const diffDays = diffTime / (1000 * 60 * 60 * 24);
+      if (diffDays > 1.5) {
+        return null;
+      }
+    }
+  }
+  
+  const handleSchedule = () => {
     if (!params.data?.id) return;
     
+    toast("Schedule Google Meet?", {
+      description: "This will send email invitations to all attendees.",
+      action: {
+        label: "Confirm",
+        onClick: () => executeSchedule(),
+      },
+      cancel: {
+        label: "Cancel",
+        onClick: () => {},
+      },
+      duration: 5000,
+    });
+  };
+
+  const executeSchedule = async () => {
     setLoading(true);
     try {
       const res = await api.post(`/interviews/${params.data.id}/generate-meet`);

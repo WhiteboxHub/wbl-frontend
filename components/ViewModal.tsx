@@ -1320,7 +1320,8 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
                   { id: "stackoverflow", name: "Stackoverflow" },
                   { id: "stackoverflowed", name: "Stackoverflowed" },
                   { id: "straightforward", name: "Straightforward" },
-                  { id: "waterfall", name: "Waterfall" }
+                  { id: "waterfall", name: "Waterfall" },
+                  { id: "raw", name: "Raw JSON" }
                 ];
 
                 return (

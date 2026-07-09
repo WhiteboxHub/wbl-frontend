@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { WboxCliUsagePanel } from "@/components/analytics/WboxCliUsagePanel";
 import { AutofillExtensionUsagePanel } from "@/components/analytics/AutofillExtensionUsagePanel";
+import { AiPrepAnalyticsPanel } from "@/components/analytics/AiPrepAnalyticsPanel";
 import { useAuth } from "@/utils/AuthContext";
 import {
   Users, Layers3, CalendarDays, GraduationCap, UserPlus, CalendarPlus, PieChart as PieChartIcon, Wallet, Banknote, TrendingUp, Briefcase, Award, CheckCircle2, Clock, Mic, BarChart2,
@@ -249,7 +250,7 @@ function useCounter(target: number, duration = 1000) {
 
 const VALID_TABS = new Set([
   "batch", "leads", "preparation", "marketing", "interview", "placement",
-  "employee", "extraction", "jobs", "finance", "wbox-cli", "autofill-extension",
+  "employee", "extraction", "jobs", "finance", "wbox-cli", "autofill-extension", "ai-prep",
 ]);
 
 export default function Index() {
@@ -563,6 +564,7 @@ export default function Index() {
     finance: "Finance",
     "wbox-cli": "WboxCLI",
     "autofill-extension": "Autofill Extension",
+    "ai-prep": "AI-Prep",
   };
 
   const currentTabLabel = tabLabels[activeTab as keyof typeof tabLabels] || "Select Tab";
@@ -625,6 +627,7 @@ export default function Index() {
             <TabsTrigger value="finance" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-800">Finance</TabsTrigger>
             <TabsTrigger value="wbox-cli" className="data-[state=active]:bg-violet-100 data-[state=active]:text-violet-800">WboxCLI</TabsTrigger>
             <TabsTrigger value="autofill-extension" className="data-[state=active]:bg-fuchsia-100 data-[state=active]:text-fuchsia-800">Autofill Ext</TabsTrigger>
+            <TabsTrigger value="ai-prep" className="data-[state=active]:bg-emerald-100 data-[state=active]:text-emerald-800">AI-Prep</TabsTrigger>
           </TabsList>
         )}
 
@@ -1381,9 +1384,14 @@ export default function Index() {
           <WboxCliUsagePanel active={activeTab === "wbox-cli"} />
         </TabsContent>
 
-        {/* Autofill Extension usage */}
         <TabsContent value="autofill-extension" className="mt-0">
           <AutofillExtensionUsagePanel active={activeTab === "autofill-extension"} />
+        </TabsContent>
+
+
+        {/* ── AI-Prep Tab ── */}
+        <TabsContent value="ai-prep" className="mt-0">
+          <AiPrepAnalyticsPanel active={activeTab === "ai-prep"} />
         </TabsContent>
 
         {/* 9. Jobs */}
