@@ -49,6 +49,7 @@ import {
     Send,
     Zap,
     ClipboardList,
+    X,
 } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { Input } from "@/components/admin_ui/input";
@@ -373,12 +374,15 @@ export default function CandidateDashboard() {
     const [agreementStatus, setAgreementStatus] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-    const [activeTab, setActiveTab] = useState<TabType>('jobs');
+    const [activeTab, setActiveTab] = useState<TabType>('overview');
     const [setupWizardOpen, setSetupWizardOpen] = useState(false);
 
     const goToTab = (tab: TabType) => {
         setSetupWizardOpen(false);
         setActiveTab(tab);
+        if (tab === 'overview') {
+            setEasyApplyPopupOpen(true);
+        }
     };
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const profileRef = useRef<HTMLDivElement>(null);
@@ -416,6 +420,7 @@ export default function CandidateDashboard() {
     const [prefetchDone, setPrefetchDone] = useState(false);
 
     const [viewResumeOpen, setViewResumeOpen] = useState(false);
+    const [easyApplyPopupOpen, setEasyApplyPopupOpen] = useState(true);
     const [mounted, setMounted] = useState(false);
     const [editData, setEditData] = useState<any>(null);
     const [editInterviewForm, setEditInterviewForm] = useState<any>({});
@@ -1711,6 +1716,54 @@ export default function CandidateDashboard() {
                                         </div>
 
 
+
+                                        {/* Easy Applies Card */}
+                                        {(() => {
+                                            const easyApplyCount = data.candidate_stats?.easy_apply_counter ?? 0;
+                                            const isEasyApplyLow = easyApplyCount < 30;
+                                            return (
+                                                <div
+                                                    className={`relative overflow-hidden border rounded-2xl p-5 ${
+                                                        isEasyApplyLow
+                                                            ? "bg-gradient-to-br from-red-50 to-rose-50/50 dark:from-red-950/10 dark:to-rose-950/10 border-red-100 dark:border-red-900/30"
+                                                            : "bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border-emerald-100/50 dark:border-gray-700/50"
+                                                    }`}
+                                                >
+                                                    <div className="absolute -right-4 -bottom-4 opacity-5 pointer-events-none">
+                                                        <Zap className={`w-20 h-20 ${isEasyApplyLow ? "text-red-500" : "text-emerald-500"}`} />
+                                                    </div>
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                                                                isEasyApplyLow
+                                                                    ? "bg-red-500/10 text-red-600 dark:text-red-400"
+                                                                    : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                                            }`}>
+                                                                <Zap className="w-4 h-4" />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Easy Applies Today</p>
+                                                                <p className={`text-2xl font-extrabold leading-none mt-0.5 ${isEasyApplyLow ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-white"}`}>
+                                                                    {easyApplyCount}
+                                                                    <span className="text-xs font-medium text-gray-400 ml-1">/ 30</span>
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full ${
+                                                                isEasyApplyLow ? "text-red-500 bg-red-500/10" : "text-emerald-500 bg-emerald-500/10"
+                                                            }`}>
+                                                                {isEasyApplyLow ? "Below Target" : "✓ Reached"}
+                                                            </span>
+                                                            <p className={`text-[10px] font-semibold mt-1.5 ${isEasyApplyLow ? "text-red-500" : "text-emerald-500"}`}>
+                                                                {isEasyApplyLow ? `⚠ You need ${30 - easyApplyCount} applications to reach the daily objective` : "Daily objective met"}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+
                                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                                             {/* JOURNEY SECTION */}
                                             <div className="lg:col-span-8 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
@@ -2432,22 +2485,47 @@ export default function CandidateDashboard() {
                                                 </div>
 
                                                 {/* Card 3: Easy Apply Counter */}
-                                                <div className="relative overflow-hidden bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border border-emerald-100/50 dark:border-gray-700/50 rounded-2xl p-6 transition-all duration-300 hover:shadow-md hover:scale-[1.02] group">
-                                                    <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
-                                                        <Zap className="w-24 h-24 text-emerald-500" />
-                                                    </div>
-                                                    <div className="flex items-center justify-between mb-4">
-                                                        <div className="w-10 h-10 bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl flex items-center justify-center">
-                                                            <Zap className="w-5 h-5" />
+                                                {(() => {
+                                                    const easyApplyCount = data.candidate_stats?.easy_apply_counter ?? 0;
+                                                    const isEasyApplyLow = easyApplyCount < 30;
+                                                    return (
+                                                        <div
+                                                            className={`relative overflow-hidden border rounded-2xl p-6 transition-all duration-300 group ${
+                                                                isEasyApplyLow
+                                                                    ? "bg-gradient-to-br from-red-50 to-rose-50/50 dark:from-red-950/10 dark:to-rose-950/10 border-red-100 dark:border-red-900/30"
+                                                                    : "bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border-emerald-100/50 dark:border-gray-700/50"
+                                                            }`}
+                                                        >
+                                                            <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-300">
+                                                                <Zap className={`w-24 h-24 ${isEasyApplyLow ? "text-red-500" : "text-emerald-500"}`} />
+                                                            </div>
+                                                            <div className="flex items-center justify-between mb-4">
+                                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                                                                    isEasyApplyLow
+                                                                        ? "bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400"
+                                                                        : "bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                                                                }`}>
+                                                                    <Zap className="w-5 h-5" />
+                                                                </div>
+                                                                <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                                                                    isEasyApplyLow
+                                                                        ? "text-red-500 bg-red-500/10"
+                                                                        : "text-emerald-500 bg-emerald-500/10"
+                                                                }`}>
+                                                                    Easy Apply
+                                                                </span>
+                                                            </div>
+                                                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Easy Applies</h3>
+                                                            <p className={`text-3xl font-extrabold ${isEasyApplyLow ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-white"}`}>
+                                                                {easyApplyCount}
+                                                            </p>
+                                                            <p className="text-[10px] text-gray-400 mt-2">Auto-filled forms and quick-applied positions</p>
+                                                            <p className={`text-[10px] font-semibold mt-1 ${isEasyApplyLow ? "text-red-500" : "text-emerald-500"}`}>
+                                                                {isEasyApplyLow ? `⚠ ${30 - easyApplyCount} more needed to reach target` : "✓ Target reached"}
+                                                            </p>
                                                         </div>
-                                                        <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded-full">Easy Apply</span>
-                                                    </div>
-                                                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Easy Applies</h3>
-                                                    <p className="text-3xl font-extrabold text-gray-900 dark:text-white">
-                                                        {data.candidate_stats?.easy_apply_counter ?? 0}
-                                                    </p>
-                                                    <p className="text-[10px] text-gray-400 mt-2">Auto-filled forms and quick-applied positions</p>
-                                                </div>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
                                     </div>
@@ -2467,6 +2545,64 @@ export default function CandidateDashboard() {
                     title="View Resume"
                 />
             )}
+
+            {activeTab === 'overview' && easyApplyPopupOpen && data && (() => {
+                const easyApplyCount = data.candidate_stats?.easy_apply_counter ?? 0;
+                const isEasyApplyLow = easyApplyCount < 30;
+                return (
+                    <div
+                        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                        style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
+                        onClick={() => setEasyApplyPopupOpen(false)}
+                    >
+                        <div
+                            className={`relative overflow-hidden border rounded-2xl p-6 shadow-2xl w-full max-w-sm animate-in fade-in zoom-in-95 duration-200 ${
+                                isEasyApplyLow
+                                    ? "bg-gradient-to-br from-red-50 to-rose-50/50 dark:from-red-950/10 dark:to-rose-950/10 border-red-100 dark:border-red-900/30"
+                                    : "bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-gray-800/40 dark:to-gray-900/40 border-emerald-100/50 dark:border-gray-700/50"
+                            }`}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <button
+                                onClick={() => setEasyApplyPopupOpen(false)}
+                                className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center bg-transparent hover:bg-gray-200/50 dark:hover:bg-gray-700/50 text-gray-500 dark:text-gray-400 transition-colors z-10"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+
+                            <div className="absolute -right-4 -bottom-4 opacity-5 pointer-events-none">
+                                <Zap className={`w-24 h-24 ${isEasyApplyLow ? "text-red-500" : "text-emerald-500"}`} />
+                            </div>
+                            <div className="flex items-center justify-between mb-4 pr-8">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                                    isEasyApplyLow
+                                        ? "bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400"
+                                        : "bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                                }`}>
+                                    <Zap className="w-5 h-5" />
+                                </div>
+                                <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                                    isEasyApplyLow
+                                        ? "text-red-500 bg-red-500/10"
+                                        : "text-emerald-500 bg-emerald-500/10"
+                                }`}>
+                                    Easy Apply
+                                </span>
+                            </div>
+                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Easy Applies</h3>
+                            <p className={`text-3xl font-extrabold ${isEasyApplyLow ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-white"}`}>
+                                {easyApplyCount}
+                            </p>
+                            <p className="text-[10px] text-gray-400 mt-2">Auto-filled forms and quick-applied positions</p>
+                            <p className={`text-[10px] font-semibold mt-1 ${isEasyApplyLow ? "text-red-500" : "text-emerald-500"}`}>
+                                {isEasyApplyLow ? `⚠ You need ${30 - easyApplyCount} applications to reach the daily objective` : "✓ Target reached"}
+                            </p>
+                        </div>
+                    </div>
+                );
+            })()}
+
+
         </div>
     );
 }
