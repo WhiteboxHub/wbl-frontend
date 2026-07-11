@@ -148,7 +148,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("prep_token");
     
     // Clear the domain-wide SSO cookie
-    document.cookie = "wbl_access_token=; domain=.whitebox-learning.com; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+    document.cookie = "wbl_access_token=; domain=.whitebox-learning.com; path=/; secure; samesite=lax; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
 
     // write a `logout` key so other tabs receive the `storage` event
     try {
