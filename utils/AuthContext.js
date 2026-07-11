@@ -129,7 +129,8 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem("access_token", token);
       
       // Set domain-wide cookie for SSO with ai-prep
-      document.cookie = `wbl_access_token=${token}; domain=.whitebox-learning.com; path=/; secure; samesite=lax`;
+      const domain = window.location.hostname.endsWith('whitebox-learning.com') ? '.whitebox-learning.com' : window.location.hostname;
+      document.cookie = `wbl_access_token=${token}; domain=${domain}; path=/; secure; samesite=lax`;
 
       setAuthToken(token);
       setIsAuthenticated(true);
@@ -148,7 +149,8 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("prep_token");
     
     // Clear the domain-wide SSO cookie
-    document.cookie = "wbl_access_token=; domain=.whitebox-learning.com; path=/; secure; samesite=lax; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+    const domain = window.location.hostname.endsWith('whitebox-learning.com') ? '.whitebox-learning.com' : window.location.hostname;
+    document.cookie = `wbl_access_token=; domain=${domain}; path=/; secure; samesite=lax; expires=Thu, 01 Jan 1970 00:00:00 UTC;`;
 
     // write a `logout` key so other tabs receive the `storage` event
     try {
