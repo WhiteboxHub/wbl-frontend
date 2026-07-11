@@ -283,8 +283,14 @@ export default function CandidateOnboarding({
     const isValidPhone = (phone: string) => {
         const trimmed = phone.trim();
         if (!trimmed) return false;
-        const phoneRegex = /^(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}$/;
-        return phoneRegex.test(trimmed);
+        const phoneRegex = /^(\+?1[-.\s]?)?(\(\d{3}\)|\d{3})[-.\s]?\d{3}[-.\s]?\d{4}$/;
+        if (!phoneRegex.test(trimmed)) return false;
+        const digitsOnly = trimmed.replace(/\D/g, '').replace(/^1(?=\d{10}$)/, '');
+        const areaCode = digitsOnly.slice(0, 3);
+        const exchangeCode = digitsOnly.slice(3, 6);
+        if (/^[01]/.test(areaCode) || /^[01]/.test(exchangeCode)) return false;
+        return true;
+
     };
 
     const handleFinishOnboarding = async () => {
