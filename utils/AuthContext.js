@@ -129,8 +129,10 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem("access_token", token);
       
       // Set domain-wide cookie for SSO with ai-prep
-      const domain = window.location.hostname.endsWith('whitebox-learning.com') ? '.whitebox-learning.com' : window.location.hostname;
-      document.cookie = `wbl_access_token=${token}; domain=${domain}; path=/; secure; samesite=lax`;
+      const isProd = window.location.hostname.endsWith('whitebox-learning.com');
+      const domain = isProd ? '.whitebox-learning.com' : '';
+      const domainAttr = domain ? `; domain=${domain}` : '';
+      document.cookie = `wbl_access_token=${token}${domainAttr}; path=/; secure; samesite=lax`;
 
       setAuthToken(token);
       setIsAuthenticated(true);
@@ -149,8 +151,10 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("prep_token");
     
     // Clear the domain-wide SSO cookie
-    const domain = window.location.hostname.endsWith('whitebox-learning.com') ? '.whitebox-learning.com' : window.location.hostname;
-    document.cookie = `wbl_access_token=; domain=${domain}; path=/; secure; samesite=lax; expires=Thu, 01 Jan 1970 00:00:00 UTC;`;
+    const isProd = window.location.hostname.endsWith('whitebox-learning.com');
+    const domain = isProd ? '.whitebox-learning.com' : '';
+    const domainAttr = domain ? `; domain=${domain}` : '';
+    document.cookie = `wbl_access_token=;${domainAttr}; path=/; secure; samesite=lax; expires=Thu, 01 Jan 1970 00:00:00 UTC;`;
 
     // write a `logout` key so other tabs receive the `storage` event
     try {
