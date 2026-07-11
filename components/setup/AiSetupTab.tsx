@@ -10,6 +10,7 @@ type SetupStep = "llm-key" | "audio" | "video" | "done";
 
 export default function AiSetupTab({ candidateId }: { candidateId?: number }) {
   const [currentStep, setCurrentStep] = useState<SetupStep>("llm-key");
+  const [isValidLlm, setIsValidLlm] = useState(false);
 
   const finishSetup = async () => {
     toast.success("All AI setup checks completed!");
@@ -28,11 +29,19 @@ export default function AiSetupTab({ candidateId }: { candidateId?: number }) {
         {/* Step: LLM Key */}
         {currentStep === "llm-key" && (
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-            <CandidateLlmKeysPanel />
+            <CandidateLlmKeysPanel onValidationChange={setIsValidLlm} />
             <div className="flex justify-end pr-4 lg:pr-6">
               <button 
-                onClick={() => setCurrentStep("audio")}
-                className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-base flex items-center justify-center gap-2 shadow-sm transition-all"
+                onClick={() => {
+                  if (!isValidLlm) {
+                    toast.error("Please have at least one valid API key");
+                    return;
+                  }
+                  setCurrentStep("audio");
+                }}
+                className={`px-6 py-2.5 rounded-xl text-white font-semibold text-base flex items-center justify-center gap-2 shadow-sm transition-all ${
+                  isValidLlm ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-400 cursor-not-allowed opacity-75"
+                }`}
               >
                 Continue to Audio Check <ArrowRight className="w-4 h-4" />
               </button>
