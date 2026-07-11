@@ -48,6 +48,7 @@ The client application will now be accessible in your web browser at `http://loc
 
 #testing cicd 
 
+
 # playwright install dependences
 
 # 1. Install Playwright browsers and system dependencies (required for UI tests)--regression tests
@@ -84,12 +85,13 @@ Because the pre-commit hook runs the UI tests, both your frontend (npm run dev) 
 
 ### Git Commit & Push Workflow
 
-The repository uses pre-commit hooks to check configuration sanity and run tests before allowing commits.
+The repository uses `pre-commit` hooks to check configuration sanity and run tests before allowing commits.
 
-* *Standard Commit (Runs local tests and checks)*:
-  bash
+* **Standard Commit (Runs local tests and checks)**:
+  ```bash
   git commit -m "your commit message"
-  
-* *Bypass / Skip tests in urgent situations*:
-  bash
+  ```
+* **Bypass / Skip tests in urgent situations**:
+  ```bash
   git commit --no-verify -m "your commit message"
+  ```
