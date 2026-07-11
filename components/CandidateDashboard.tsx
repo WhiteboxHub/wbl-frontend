@@ -156,7 +156,7 @@ interface ApiError {
     status?: number;
 }
 
-type TabType = 'overview' | 'sessions' | 'interviews' | 'jobs' | 'smartprep' | 'my_llm_key' | 'my_applications';
+type TabType = 'overview' | 'sessions' | 'interviews' | 'jobs' | 'smartprep' | 'my_llm_key' | 'my_applications' | 'ai_setup';
 
 const extractErrorMessage = (err: ApiError, defaultMessage: string): string => {
     return err.body?.detail || err.body?.message || err.detail || err.message || defaultMessage;
