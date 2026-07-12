@@ -46,14 +46,37 @@ function loadRegistry(): any {
   };
 }
 
+const hardcodedDefaults = {
+    MODEL_SCORES: {
+      "deepseek-reasoner": 10,
+      "gemini-2.5-pro": 9,
+      "gpt-4o": 8,
+      "deepseek-chat": 8,
+      "gemini-3.5-flash": 7,
+      "gpt-4o-mini": 6,
+      "gemini-3.1-flash-lite": 5
+    },
+    TAG_WEIGHTS: {"reasoning": 5, "coding": 3, "large_context": 2, "balanced": 1, "fast": 1, "cost_efficient": 0}
+};
+
 const REGISTRY = loadRegistry();
 
 const MODEL_CAPABILITIES: Record<string, Set<string>> = {};
-for (const [k, v] of Object.entries(REGISTRY.MODEL_CAPABILITIES || {})) {
-  MODEL_CAPABILITIES[k] = new Set(v as string[]);
+if (REGISTRY.models) {
+  for (const [k, v] of Object.entries(REGISTRY.models)) {
+    const model = v as any;
+    if (model.verified) {
+      MODEL_CAPABILITIES[k] = new Set(model.caps || []);
+    }
+  }
+} else if (REGISTRY.MODEL_CAPABILITIES) {
+  for (const [k, v] of Object.entries(REGISTRY.MODEL_CAPABILITIES)) {
+    MODEL_CAPABILITIES[k] = new Set(v as string[]);
+  }
 }
-const MODEL_SCORES: Record<string, number> = REGISTRY.MODEL_SCORES || {};
-const TAG_WEIGHTS: Record<string, number> = REGISTRY.TAG_WEIGHTS || {};
+
+const MODEL_SCORES: Record<string, number> = REGISTRY.MODEL_SCORES || hardcodedDefaults.MODEL_SCORES;
+const TAG_WEIGHTS: Record<string, number> = REGISTRY.TAG_WEIGHTS || hardcodedDefaults.TAG_WEIGHTS;
 
 function determineModelsToTry(metadata: any): string[] {
   const requiredTags = new Set<string>();
