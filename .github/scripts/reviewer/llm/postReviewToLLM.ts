@@ -108,8 +108,17 @@ function getProviderConfig(model: string): { baseURL: string | undefined, keys: 
   return { baseURL: undefined, keys: [] };
 }
 
-export async function postReviewToLLM(finalContext: string, allFindings: Finding[], impactAnalysis: string[], metadata?: any) {
+export async function postReviewToLLM(finalContext: string, allFindings: Finding[], impactAnalysis: string[], metadata?: any, securityPrimitives: any[] = []) {
   if (!metadata) metadata = { impact_score: "LOW", signature_changes: 0, architecture_violations: 0, lines_changed: 0 };
+
+  if (securityPrimitives.length > 0) {
+    finalContext += "\n# 6. AST Security Primitives\n";
+    finalContext += "These are deterministic sinks found by the AST. Treat them as factual.\n```json\n";
+    const minifiedPrimitives = securityPrimitives.map(p => ({
+      id: p.id, kind: p.kind, owasp: p.owasp, line: p.line, evidence: p.evidence
+    }));
+    finalContext += JSON.stringify(minifiedPrimitives, null, 2) + "\n```\n\n";
+  }
 
   const prompt = buildPrompt(finalContext);
 
@@ -126,7 +135,11 @@ export async function postReviewToLLM(finalContext: string, allFindings: Finding
             bug_category: { type: "string" },
             summary: { type: "string" },
             comment: { type: "string" },
-            diff_fix_suggestion: { type: "string" }
+            diff_fix_suggestion: { type: "string" },
+            confidence: { type: "number" },
+            owasp_category: { type: "string" },
+            concrete_exploit_path: { type: "string" },
+            ast_primitive_id: { type: "string" }
           },
           required: ["changed_file", "changed_lines", "bug_category", "summary", "comment", "diff_fix_suggestion"],
           additionalProperties: false
@@ -240,6 +253,35 @@ export async function postReviewToLLM(finalContext: string, allFindings: Finding
   try {
     const data = JSON.parse(content);
     if (data.bugs && data.bugs.length > 0) {
+      let hasCriticalSecurity = false;
+      let blockingBug: any = null;
+
+      for (const bug of data.bugs) {
+        if (bug.bug_category.toLowerCase() === "security" && bug.confidence >= 0.95 && bug.owasp_category && bug.concrete_exploit_path && bug.ast_primitive_id) {
+          const primitive = securityPrimitives.find(p => p.id === bug.ast_primitive_id);
+          if (primitive) {
+            const isFileMatch = bug.changed_file.replace(/\\/g, '/').endsWith(primitive.file.split('/').pop());
+            const lineMatch = bug.changed_lines.includes(primitive.line.toString()) || Math.abs(parseInt(bug.changed_lines.split('-')[0]) - primitive.line) <= 10;
+            
+            if (isFileMatch || lineMatch) {
+              hasCriticalSecurity = true;
+              blockingBug = bug;
+              break;
+            }
+          }
+        }
+      }
+
+      if (hasCriticalSecurity && blockingBug) {
+        console.error(`\n[!] FATAL: Blocking merge.`);
+        console.error(`SEC ID: ${blockingBug.ast_primitive_id}`);
+        console.error(`File: ${blockingBug.changed_file}:${blockingBug.changed_lines}`);
+        console.error(`OWASP: ${blockingBug.owasp_category}`);
+        console.error(`Confidence: ${blockingBug.confidence}`);
+        console.error(`\nAI Reviewer detected a high-confidence OWASP violation that perfectly matches a deterministic AST sink. Exploit Path:\n${blockingBug.concrete_exploit_path}`);
+        process.exit(1);
+      }
+
       let markdown = `##  AI Code Review Findings (Model: \`${usedModel}\`)\n\n`;
       for (const bug of data.bugs) {
         markdown += `###    [${bug.bug_category.toUpperCase()}] ${bug.summary}\n`;
