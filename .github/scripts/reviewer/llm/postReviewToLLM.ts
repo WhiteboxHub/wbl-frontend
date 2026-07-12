@@ -303,7 +303,7 @@ export async function postReviewToLLM(finalContext: string, allFindings: Finding
             const isFileMatch = bug.changed_file.replace(/\\/g, '/').endsWith(primitive.file.split('/').pop());
             const lineMatch = bug.changed_lines.includes(primitive.line.toString()) || Math.abs(parseInt(bug.changed_lines.split('-')[0]) - primitive.line) <= 10;
             
-            if (isFileMatch || lineMatch) {
+            if (isFileMatch && lineMatch) {
               hasCriticalSecurity = true;
               blockingBug = bug;
               break;
