@@ -33,13 +33,17 @@ export class SignatureChangeRule implements Rule {
         const bodyStartLine = body ? body.getStartLineNumber() : startLine;
         const signatureChanged = changedLines.some(l => l >= startLine && l <= bodyStartLine);
         
-        if (signatureChanged) {
-           findings.push({
-             severity: 'HIGH',
-             confidence: 'MEDIUM',
-             type: 'Signature Change',
-             evidence: `Function '${name}' definition changed around line ${startLine}. This may break downstream callers.`
-           });
+        if (signatureChanged && name !== 'anonymous') {
+           // Only report if it's exported
+           const isExported = fn.hasExportKeyword ? fn.hasExportKeyword() : false;
+           if (isExported) {
+             findings.push({
+               severity: 'HIGH',
+               confidence: 'MEDIUM',
+               type: 'Signature Change',
+               evidence: `Exported function '${name}' definition changed around line ${startLine}. This may break downstream callers.`
+             });
+           }
         }
       }
     }
