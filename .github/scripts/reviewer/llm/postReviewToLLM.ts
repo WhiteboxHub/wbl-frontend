@@ -47,6 +47,15 @@ function loadRegistry(): any {
 }
 
 const hardcodedDefaults = {
+    MODEL_CAPABILITIES: {
+      "deepseek-reasoner": ["reasoning", "coding"],
+      "gemini-2.5-pro": ["reasoning", "coding", "large_context"],
+      "gpt-4o": ["reasoning", "coding", "large_context"],
+      "deepseek-chat": ["balanced", "coding"],
+      "gemini-3.5-flash": ["fast", "large_context"],
+      "gpt-4o-mini": ["fast", "balanced"],
+      "gemini-3.1-flash-lite": ["fast", "cost_efficient"]
+    },
     MODEL_SCORES: {
       "deepseek-reasoner": 10,
       "gemini-2.5-pro": 9,
@@ -61,7 +70,7 @@ const hardcodedDefaults = {
 
 const REGISTRY = loadRegistry();
 
-const MODEL_CAPABILITIES: Record<string, Set<string>> = {};
+let MODEL_CAPABILITIES: Record<string, Set<string>> = {};
 if (REGISTRY.models) {
   for (const [k, v] of Object.entries(REGISTRY.models)) {
     const model = v as any;
@@ -71,6 +80,14 @@ if (REGISTRY.models) {
   }
 } else if (REGISTRY.MODEL_CAPABILITIES) {
   for (const [k, v] of Object.entries(REGISTRY.MODEL_CAPABILITIES)) {
+    MODEL_CAPABILITIES[k] = new Set(v as string[]);
+  }
+}
+
+// If the registry provided zero verified models (or the JSON was empty/invalid), fallback to hardcoded defaults
+if (Object.keys(MODEL_CAPABILITIES).length === 0) {
+  console.warn("[Warning] Registry provided zero verified models. Falling back to internal hardcoded models.");
+  for (const [k, v] of Object.entries(hardcodedDefaults.MODEL_CAPABILITIES)) {
     MODEL_CAPABILITIES[k] = new Set(v as string[]);
   }
 }
