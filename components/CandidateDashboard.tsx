@@ -1156,7 +1156,7 @@ export default function CandidateDashboard() {
             const requiredFields = [
                 'full_name', 'email', 'phone', 'workstatus',
                 'dob', 'github_link', 'workexperience', 'address',
-                'linkedin_id', 'secondaryemail', 'secondaryphone'
+                'linkedin_id'
             ];
 
             const profileData = {
@@ -1168,9 +1168,7 @@ export default function CandidateDashboard() {
                 github_link: fullProfile?.personal_info?.github_link,
                 workexperience: fullProfile?.personal_info?.workexperience,
                 address: fullProfile?.personal_info?.address,
-                linkedin_id: fullProfile?.personal_info?.linkedin_id,
-                secondaryemail: fullProfile?.personal_info?.secondaryemail,
-                secondaryphone: fullProfile?.personal_info?.secondaryphone
+                linkedin_id: fullProfile?.personal_info?.linkedin_id
             };
 
             // Use login_count from profile (UserDashboard) or Candidate profile
