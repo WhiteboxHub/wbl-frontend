@@ -241,8 +241,13 @@ function removeKeyFromValidationCache(keyId: number) {
 }
 
 /** Keys from ``candidate_llm_api_keys`` for the logged-in candidate (via ``candidate.id``). */
-export function CandidateLlmKeysPanel() {
-    const [rows, setRows] = useState<LlmKeyRow[]>([]);
+type CandidateLlmKeysPanelProps = {
+    onSuccess?: () => void;
+};
+
+export function CandidateLlmKeysPanel({
+    onSuccess,
+}: CandidateLlmKeysPanelProps) {    const [rows, setRows] = useState<LlmKeyRow[]>([]);
     const [loading, setLoading] = useState(false);
     const [revealed, setRevealed] = useState<Record<number, string>>({});
     const [revealingId, setRevealingId] = useState<number | null>(null);
