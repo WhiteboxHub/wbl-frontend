@@ -132,7 +132,8 @@ export const AuthProvider = ({ children }) => {
       const isProd = window.location.hostname.endsWith('whitebox-learning.com');
       const domain = isProd ? '.whitebox-learning.com' : '';
       const domainAttr = domain ? `; domain=${domain}` : '';
-      document.cookie = `wbl_access_token=${token}${domainAttr}; path=/; secure; samesite=lax`;
+      const secureAttr = window.location.protocol === 'https:' ? '; secure' : '';
+      document.cookie = `wbl_access_token=${token}${domainAttr}; path=/${secureAttr}; samesite=lax`;
 
       setAuthToken(token);
       setIsAuthenticated(true);
@@ -154,7 +155,8 @@ export const AuthProvider = ({ children }) => {
     const isProd = window.location.hostname.endsWith('whitebox-learning.com');
     const domain = isProd ? '.whitebox-learning.com' : '';
     const domainAttr = domain ? `; domain=${domain}` : '';
-    document.cookie = `wbl_access_token=; path=/; secure; samesite=lax; expires=Thu, 01 Jan 1970 00:00:00 UTC${domainAttr};`;
+    const secureAttr = window.location.protocol === 'https:' ? '; secure' : '';
+    document.cookie = `wbl_access_token=; path=/${secureAttr}; samesite=lax; expires=Thu, 01 Jan 1970 00:00:00 UTC${domainAttr};`;
 
     // write a `logout` key so other tabs receive the `storage` event
     try {
