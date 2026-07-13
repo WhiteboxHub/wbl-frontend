@@ -1334,10 +1334,6 @@ export default function CandidateDashboard() {
 
     const tabs = [
         { id: 'jobs' as TabType, name: 'Job Board', icon: Briefcase },
-<<<<<<< HEAD
-       
-=======
->>>>>>> bb21cabd4729d4cf7c666a99dc865df9fe2e24fd
         { id: 'overview' as TabType, name: 'Overview', icon: Home },
         { id: 'ai_setup' as TabType, name: 'My LLM Setup', icon: Settings },
         { id: 'sessions' as TabType, name: 'Sessions', icon: PlayCircle },
