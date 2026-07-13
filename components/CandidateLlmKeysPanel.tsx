@@ -29,7 +29,7 @@ import { apiFetch } from "@/lib/api";
 
 type ValidationStatus = "active" | "inactive" | "invalid" | "checking";
 
-type ProviderId = "OpenAI" | "Claude" | "Mistral" | "Gemini";
+type ProviderId = "OpenAI" | "Claude" | "Mistral" | "Gemini" | "Azure OpenAI" | "Groq" | "Together AI" | "Cohere";
 
 type LlmKeyRow = {
     id: number;
@@ -48,17 +48,108 @@ const PROVIDERS: { id: ProviderId; label: string }[] = [
     { id: "Claude", label: "Claude" },
     { id: "Mistral", label: "Mistral" },
     { id: "Gemini", label: "Gemini" },
+    { id: "Azure OpenAI", label: "Azure OpenAI" },
+    { id: "Groq", label: "Groq" },
+    { id: "Together AI", label: "Together AI" },
+    { id: "Cohere", label: "Cohere" },
 ];
 
 const MODELS_BY_PROVIDER: Record<ProviderId, string[]> = {
-    OpenAI: ["gpt-4o-mini", "gpt-4o", "gpt-4.1", "o1-mini", "o3-mini"],
-    Claude: [
-        "claude-3-5-haiku-20241022",
-        "claude-3-5-sonnet-20241022",
-        "claude-3-opus-20240229",
-    ],
-    Mistral: ["mistral-small-latest", "mistral-large-latest", "open-mistral-nemo"],
-    Gemini: ["gemini-2.0-flash", "gemini-1.5-pro", "gemini-1.5-flash"],
+  OpenAI: [
+    "gpt-4o",
+    "gpt-4.1",
+    "gpt-4o-mini",
+    "o3",
+    "o4-mini"
+  ],
+
+  "Azure OpenAI": [
+    "gpt-4o",
+    "gpt-4.1",
+    "gpt-35-turbo"
+  ],
+
+  Claude: [
+    "Claude Sonnet 4",
+    "Claude Opus 4",
+    "Claude Haiku 3.5"
+  ],
+
+  Gemini: [
+    "Gemini 2.5 Pro",
+    "Gemini 2.5 Flash",
+    "Gemini 2.0 Flash"
+  ],
+
+  Mistral: [
+    "Mistral Large",
+    "Mistral Medium",
+    "Mistral Small"
+  ],
+
+  Groq: [
+    "Llama 3 70B",
+    "Mixtral 8x7B",
+    "Gemma 2"
+  ],
+
+  "Together AI": [
+    "Llama 3.3 70B",
+    "DeepSeek V3",
+    "Qwen 2.5"
+  ],
+
+  Cohere: [
+    "Command R",
+    "Command R+"
+  ]
+};
+const PROVIDER_FIELDS: Record<
+  ProviderId,
+  {
+    projectId?: boolean;
+    organization?: boolean;
+    endpoint?: boolean;
+    deployment?: boolean;
+    workspace?: boolean;
+    region?: boolean;
+    safety?: boolean;
+    speed?: boolean;
+  }
+> = {
+
+  OpenAI: {
+    projectId: true,
+    organization: true,
+  },
+
+  "Azure OpenAI": {
+    endpoint: true,
+    deployment: true,
+  },
+
+  Claude: {
+    workspace: true,
+  },
+
+  Gemini: {
+    region: true,
+    safety: true,
+  },
+
+  Mistral: {
+    endpoint: true,
+  },
+
+  Groq: {
+    speed: true,
+  },
+
+  "Together AI": {
+    endpoint: true,
+  },
+
+  Cohere: {}
 };
 
 const fieldSelectClassName =
@@ -161,6 +252,14 @@ export function CandidateLlmKeysPanel() {
     const [modalOpen, setModalOpen] = useState(false);
     const [editRow, setEditRow] = useState<LlmKeyRow | null>(null);
     const [formProvider, setFormProvider] = useState<ProviderId>("OpenAI");
+    const [projectId, setProjectId] = useState("");
+    const [organizationId, setOrganizationId] = useState("");
+    const [endpoint, setEndpoint] = useState("");
+    const [deployment, setDeployment] = useState(""); 
+    const [workspace, setWorkspace] = useState("");
+    const [region, setRegion] = useState("");
+    const [safetyLevel, setSafetyLevel] = useState("Medium");
+    const [speedMode, setSpeedMode] = useState("Balanced");
     const [formKey, setFormKey] = useState("");
     const [formModel, setFormModel] = useState(MODELS_BY_PROVIDER.OpenAI[0]);
     const [formVoice, setFormVoice] = useState<"yes" | "no">("no");

@@ -7,6 +7,7 @@ import { toast, Toaster } from "sonner";
 import { format, parseISO } from "date-fns";
 import Link from "next/link";
 import { ViewModal } from "./ViewModal";
+import MyAISetup from "./MyAISetup";
 import {
     Mail,
     Phone,
@@ -140,7 +141,7 @@ interface ApiError {
     status?: number;
 }
 
-type TabType = 'overview' | 'sessions' | 'interviews' | 'jobs' | 'smartprep' | 'my_llm_key';
+type TabType = 'overview' | 'sessions' | 'interviews' | 'jobs' | 'smartprep' | 'my_llm_key' | 'my_ai_setup';
 
 const extractErrorMessage = (err: ApiError, defaultMessage: string): string => {
     return err.body?.detail || err.body?.message || err.detail || err.message || defaultMessage;
@@ -358,6 +359,8 @@ export default function CandidateDashboard() {
     const [retryCount, setRetryCount] = useState(0);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [activeTab, setActiveTab] = useState<TabType>('jobs');
+    const [setupStep, setSetupStep] = useState<
+    "llm" | "reasoning" | "audio" | "camera" | "video">("llm");
     const [setupWizardOpen, setSetupWizardOpen] = useState(false);
 
     const goToTab = (tab: TabType) => {
@@ -1374,6 +1377,17 @@ export default function CandidateDashboard() {
                                 <span>Coderpad</span>
                             </a>
                             <button
+                                onClick={() => goToTab('my_ai_setup')}
+                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${activeTab === 'my_ai_setup'
+                                    ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
+                                    }`}
+                            >
+                                <Sparkles className={`w-4 h-4 flex-shrink-0 ${activeTab === 'smartprep' ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400"}`} />
+                                <span>My AI Setup</span>
+                                {activeTab === 'my_ai_setup' && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500" />}
+                            </button>
+                            <button
                                 onClick={() => goToTab('smartprep')}
                                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${activeTab === 'smartprep'
                                     ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
@@ -1551,7 +1565,7 @@ export default function CandidateDashboard() {
                                         <button
                                             onClick={async () => {
                                                 const getAiPrepUrl = () => {
-                                                    return process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL || "https://ai-prep.whitebox-learning.com";
+                                                    return process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL || "http://localhost:3000";
                                                 };
                                                 const baseUrl = getAiPrepUrl();
                                                 const token = localStorage.getItem("prep_token");
@@ -2332,7 +2346,14 @@ export default function CandidateDashboard() {
 
                                     </div>
                                 )}
-
+                                {activeTab === "my_ai_setup" && (
+                                   <MyAISetup
+                                        goToTab={goToTab}
+                                        setupStep={setupStep}
+                                        setSetupStep={setSetupStep}
+                                    />
+                                )}
+ 
                                 {activeTab === 'my_llm_key' && <CandidateLlmKeysPanel />}
                             </>
                         )}
