@@ -35,7 +35,21 @@ export class SignatureChangeRule implements Rule {
         
         if (signatureChanged && name !== 'anonymous') {
            // Only report if it's exported
-           const isExported = fn.hasExportKeyword ? fn.hasExportKeyword() : false;
+           let isExported = false;
+           if (fn.hasExportKeyword && fn.hasExportKeyword()) {
+             isExported = true;
+           } else if (Node.isArrowFunction(fn)) {
+             const varDec = fn.getFirstAncestorByKind(SyntaxKind.VariableDeclaration);
+             const varStmt = varDec?.getFirstAncestorByKind(SyntaxKind.VariableStatement);
+             if (varStmt && varStmt.hasExportKeyword()) {
+               isExported = true;
+             }
+           } else if (Node.isMethodDeclaration(fn)) {
+             const classDecl = fn.getFirstAncestorByKind(SyntaxKind.ClassDeclaration);
+             if (classDecl && classDecl.hasExportKeyword()) {
+               isExported = true;
+             }
+           }
            if (isExported) {
              findings.push({
                severity: 'HIGH',
