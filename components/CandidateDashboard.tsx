@@ -374,7 +374,8 @@ export default function CandidateDashboard() {
     const [agreementStatus, setAgreementStatus] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-    const [activeTab, setActiveTab] = useState<TabType>('jobs');
+    const [activeTab, setActiveTab] = useState<TabType>('overview');
+
     const [setupWizardOpen, setSetupWizardOpen] = useState(false);
 
     const goToTab = (tab: TabType) => {
@@ -425,7 +426,16 @@ export default function CandidateDashboard() {
 
     useEffect(() => {
         setMounted(true);
-    }, []);
+        const handleNavEvent = () => {
+            if (activeTab !== 'overview') {
+                goToTab('overview');
+            }
+        };
+        window.addEventListener('nav-to-overview', handleNavEvent);
+        return () => {
+            window.removeEventListener('nav-to-overview', handleNavEvent);
+        };
+    }, [activeTab]);
 
 
     useEffect(() => {
@@ -1330,12 +1340,12 @@ export default function CandidateDashboard() {
 
     const firstName = data.basic_info.full_name.split(" ")[0];
 
-    const tabs = [
-        { id: 'jobs' as TabType, name: 'Job Board', icon: Briefcase },
+     const tabs = [
         { id: 'overview' as TabType, name: 'Overview', icon: Home },
+        { id: 'jobs' as TabType, name: 'Job Board', icon: Briefcase },
         { id: 'ai_setup' as TabType, name: 'My LLM Setup', icon: Settings },
-        { id: 'sessions' as TabType, name: 'Sessions', icon: PlayCircle },
-        { id: 'interviews' as TabType, name: 'Interviews', icon: MessageSquare },
+        { id: 'sessions' as TabType, name: 'My Sessions', icon: PlayCircle },
+        { id: 'interviews' as TabType, name: 'My Interviews', icon: MessageSquare },
         { id: 'my_applications' as TabType, name: 'My Applications', icon: ClipboardList },
     ];
 
@@ -1348,14 +1358,18 @@ export default function CandidateDashboard() {
 
             {/* ==================== SIDEBAR ==================== */}
             <aside className="hidden lg:flex w-60 flex-col flex-shrink-0 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 z-30 shadow-sm">
-                {/* Logo */}
+                {/* Logo — clicking navigates to Overview (Dashboard home) */}
                 <div className="p-5 pb-4 border-b border-gray-100 dark:border-gray-800">
-                    <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => goToTab('overview')}
+                        className="flex items-center gap-3 w-full hover:opacity-80 transition-opacity"
+                        title="Go to Dashboard"
+                    >
                         <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-blue-500/20 flex-shrink-0">
                             <Briefcase className="w-5 h-5" />
                         </div>
                         <span className="text-lg font-extrabold tracking-tight text-gray-900 dark:text-white">Whitebox</span>
-                    </div>
+                    </button>
                 </div>
 
                 {/* Navigation */}
@@ -2217,13 +2231,14 @@ export default function CandidateDashboard() {
                                                     />
                                                 </div>
                                             </div>
-
                                         </div>
-                                        <div className="flex-1 w-full bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 min-h-0 flex flex-col">
+                                        <div className="w-full bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800" style={{ height: '380px' }}>
                                             <CandidateGrid
                                                 rowData={filteredPositions}
                                                 columnDefs={jobColumnDefs}
                                                 loading={positionsLoading}
+                                                height="380px"
+                                                paginationPageSize={100}
                                             />
                                         </div>
                                     </div>
@@ -2231,103 +2246,19 @@ export default function CandidateDashboard() {
 
                                 {activeTab === 'smartprep' && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
-                                        {setupStatus && !setupWizardOpen && (
-                                            <div className="flex-shrink-0 animate-in fade-in slide-in-from-top-2">
-                                                <div className="relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4 px-6 py-3 border border-indigo-200 dark:border-indigo-800 rounded-xl shadow-sm bg-white dark:bg-gray-900 group">
-                                                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_left,_var(--tw-gradient-stops))] from-indigo-100/50 via-white to-white dark:from-indigo-900/20 dark:via-gray-900 dark:to-gray-900 opacity-100"></div>
 
-                                                    <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-4 md:gap-6 flex-1">
-                                                        <div className="flex items-center gap-1.5 shrink-0">
-                                                            <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                                                            <span className="text-xl font-extrabold text-indigo-950 dark:text-indigo-100 tracking-tight">WBL <span className="text-indigo-600 dark:text-indigo-400 font-black">SmartPrep</span></span>
-                                                        </div>
-
-                                                        <div className="hidden md:block w-px h-8 bg-indigo-200 dark:bg-indigo-800"></div>
-
-                                                        <div className="flex-1">
-                                                            <div className="flex flex-wrap items-center gap-x-1.5 leading-tight">
-                                                                <p className="text-gray-900 dark:text-gray-100 font-bold text-sm lg:text-[15px]">
-                                                                    Your AI-powered interview practice
-                                                                </p>
-                                                            </div>
-                                                            {!setupStatus.setup_complete && (
-                                                                <p className="text-gray-500 dark:text-gray-400 text-xs font-medium mt-0.5">
-                                                                    Missing: {!setupStatus.resume_uploaded ? "Resume" : ""}
-                                                                    {!setupStatus.resume_uploaded && !setupStatus.api_keys_configured ? " & " : ""}
-                                                                    {!setupStatus.api_keys_configured ? "API Keys" : ""}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="relative z-10 shrink-0">
-                                                        {setupStatus.setup_complete ? (
-                                                            <button
-                                                                onClick={async () => {
-                                                                    const getAiPrepUrl = () => {
-                                                                        const url = process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL;
-
-                                                                        if (url) {
-                                                                            return url;
-                                                                        }
-                                                                        
-                                                                        return "https://ai-prep.whitebox-learning.com";
-                                                                    };
-                                                                    const baseUrl = getAiPrepUrl();
-                                                                    const token = localStorage.getItem("prep_token");
-
-                                                                    if (token) {
-                                                                        window.open(`${baseUrl}/auth?token=${token}`, '_blank');
-                                                                    } else {
-                                                                        window.open(baseUrl, '_blank');
-                                                                    }
-                                                                }}
-                                                                className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
-                                                            >
-                                                                <PlayCircle className="w-3.5 h-3.5" />
-                                                                Start Preparation
-                                                            </button>
-                                                        ) : (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    setSetupWizardManageMode(false);
-                                                                    setSetupWizardOpen(true);
-                                                                }}
-                                                                className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 bg-gradient-to-br from-indigo-900 to-purple-600 hover:from-indigo-800 hover:to-purple-500 text-white font-bold rounded-full text-sm transition-all shadow-md hover:shadow-lg whitespace-nowrap"
-                                                            >
-                                                                <Sparkles className="w-3.5 h-3.5" />
-                                                                Complete Setup
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* AI Profile Setup Card */}
+                                        {/* Setup Status Card */}
                                         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
-                                            <div className="flex items-center justify-between mb-4">
+                                            <div className="flex items-center mb-4">
                                                 <div className="flex items-center gap-2.5">
                                                     <div className="w-8 h-8 rounded-lg bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center">
                                                         <Settings className="w-4 h-4 text-violet-500" />
                                                     </div>
                                                     <div>
-                                                        <span className="text-sm font-bold text-gray-800 dark:text-white">Manage AI Profile</span>
-                                                        <p className="text-[11px] text-gray-400 mt-0.5">Configure your resume and API keys for AI interviews</p>
+                                                        <span className="text-sm font-bold text-gray-800 dark:text-white">Setup Status</span>
+                                                        <p className="text-[11px] text-gray-400 mt-0.5">Your resume and API keys for AI preparation</p>
                                                     </div>
                                                 </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setSetupWizardManageMode(Boolean(setupStatus?.setup_complete));
-                                                        setSetupWizardOpen(true);
-                                                    }}
-                                                    className="inline-flex items-center gap-1 text-xs font-bold text-violet-600 hover:text-violet-700 transition-colors px-3 py-1.5 bg-violet-50 dark:bg-violet-900/20 rounded-lg"
-                                                >
-                                                    {setupStatus?.setup_complete ? "Manage" : "Complete Setup"}
-                                                    <ChevronRight className="w-3.5 h-3.5" />
-                                                </button>
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 {/* Resume Status */}
@@ -2346,17 +2277,7 @@ export default function CandidateDashboard() {
                                                             {setupStatus === null ? "Loading..." : setupStatus.resume_uploaded ? "Uploaded ✓" : "Not added"}
                                                         </p>
                                                     </div>
-                                                    {setupStatus?.resume_uploaded && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setViewResumeOpen(true)}
-                                                            className="ml-auto flex items-center gap-1.5 text-xs font-bold text-violet-600 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300 transition-colors px-2.5 py-1.5 bg-violet-50 dark:bg-violet-900/20 rounded-lg"
-                                                        >
-                                                            <Eye className="w-3.5 h-3.5" />
-                                                            View Resume
-                                                        </button>
-                                                    )}
-                                                </div>
+                                                    </div>
                                                 {/* API Keys Status */}
                                                 <div className={`flex-1 flex items-center gap-2.5 p-3 rounded-xl border transition-all ${setupStatus === null
                                                     ? "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700"
@@ -2377,8 +2298,113 @@ export default function CandidateDashboard() {
                                             </div>
                                         </div>
 
+                                        {/* Go to Preparation Card */}
+                                        <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+                                            {/* Background decoration */}
+                                            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                                                <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full opacity-[0.07] dark:opacity-[0.12]" style={{ background: 'radial-gradient(circle, #6366f1, transparent)' }} />
+                                                <div className="absolute -bottom-10 -left-10 w-40 h-40 rounded-full opacity-[0.05] dark:opacity-[0.08]" style={{ background: 'radial-gradient(circle, #a855f7, transparent)' }} />
+                                            </div>
+
+                                            <div className="relative z-10 p-6 flex flex-col items-center text-center gap-5">
+                                                {/* Icon */}
+                                                <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg" style={{ background: 'linear-gradient(135deg, #6366f1, #a855f7)' }}>
+                                                    <Sparkles className="w-7 h-7 text-white" />
+                                                </div>
+
+                                                <div>
+                                                    <h3 className="text-base font-extrabold text-gray-900 dark:text-white mb-1">AI Interview Preparation</h3>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400 max-w-xs mx-auto">
+                                                        Practice with AI-powered mock interviews tailored to your resume and target roles.
+                                                    </p>
+                                                </div>
+
+                                                {/* Locked state — blurred button with overlay message */}
+                                                {!setupStatus?.setup_complete ? (
+                                                    <div className="flex flex-col items-center gap-3 w-full">
+                                                        {/* Blurred button underneath */}
+                                                        <div className="relative w-full max-w-xs">
+                                                            <div className="blur-sm pointer-events-none select-none">
+                                                                <div className="inline-flex items-center justify-center gap-2.5 w-full px-8 py-3 rounded-xl text-sm font-bold text-white" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6, #a855f7)' }}>
+                                                                    <PlayCircle className="w-4 h-4" />
+                                                                    Go to Preparation
+                                                                </div>
+                                                            </div>
+                                                            {/* Lock icon overlay */}
+                                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                                <div className="bg-white/90 dark:bg-gray-900/90 rounded-full p-1.5 shadow-sm">
+                                                                    <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                                                                    </svg>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* What's missing */}
+                                                        <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold">
+                                                            Complete your setup to unlock preparation
+                                                        </p>
+                                                        <div className="flex items-center gap-2 flex-wrap justify-center">
+                                                            {!setupStatus?.resume_uploaded && (
+                                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                                                                    <AlertTriangle className="w-3 h-3" />
+                                                                    Resume missing
+                                                                </span>
+                                                            )}
+                                                            {!setupStatus?.api_keys_configured && (
+                                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                                                                    <AlertTriangle className="w-3 h-3" />
+                                                                    LLM key missing
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setSetupWizardManageMode(false);
+                                                                setSetupWizardOpen(true);
+                                                            }}
+                                                            className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800 hover:bg-violet-100 dark:hover:bg-violet-900/40 transition-all"
+                                                        >
+                                                            <Settings className="w-3.5 h-3.5" />
+                                                            Complete Setup
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    /* Unlocked — active Go to Preparation button */
+                                                    <button
+                                                        onClick={async () => {
+                                                            const baseUrl = process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL || "https://ai-prep.whitebox-learning.com";
+                                                            const token = localStorage.getItem("prep_token");
+                                                            if (token) {
+                                                                window.open(`${baseUrl}/auth?token=${token}`, '_blank');
+                                                            } else {
+                                                                window.open(baseUrl, '_blank');
+                                                            }
+                                                        }}
+                                                        className="group relative inline-flex items-center justify-center gap-2.5 w-full max-w-xs px-8 py-3.5 rounded-xl text-sm font-bold text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.03] active:scale-95 overflow-hidden"
+                                                        style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%)', boxShadow: '0 6px 24px rgba(99,102,241,0.4)' }}
+                                                    >
+                                                        {/* Shimmer */}
+                                                        <span className="absolute inset-0 overflow-hidden rounded-xl">
+                                                            <span
+                                                                className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"
+                                                                style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent)' }}
+                                                            />
+                                                        </span>
+                                                        <span className="relative flex items-center gap-2.5">
+                                                            <PlayCircle className="w-4 h-4" />
+                                                            Go to Preparation
+                                                            <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-200" />
+                                                        </span>
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+
                                     </div>
                                 )}
+
 
                                 {activeTab === 'my_llm_key' && <CandidateLlmKeysPanel />}
 
