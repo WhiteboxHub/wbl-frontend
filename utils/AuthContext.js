@@ -1,6 +1,3 @@
-
-
-
 // frontend/utils/AuthContext.js
 "use client";
 
@@ -130,6 +127,13 @@ export const AuthProvider = ({ children }) => {
 
       // Store token and update auth state
       localStorage.setItem("access_token", token);
+      
+      // Set domain-wide cookie for SSO with ai-prep
+      const isProd = window.location.hostname.endsWith('whitebox-learning.com');
+      const domain = isProd ? '.whitebox-learning.com' : '';
+      const domainAttr = domain ? `; domain=${domain}` : '';
+      document.cookie = `wbl_access_token=${token}${domainAttr}; path=/; secure; samesite=lax`;
+
       setAuthToken(token);
       setIsAuthenticated(true);
       setUserRole(teamRole || role || "candidate");
@@ -145,6 +149,13 @@ export const AuthProvider = ({ children }) => {
     // clear local storage + notify other tabs
     localStorage.removeItem("access_token");
     localStorage.removeItem("prep_token");
+    
+    // Clear the domain-wide SSO cookie
+    const isProd = window.location.hostname.endsWith('whitebox-learning.com');
+    const domain = isProd ? '.whitebox-learning.com' : '';
+    const domainAttr = domain ? `; domain=${domain}` : '';
+    document.cookie = `wbl_access_token=; path=/; secure; samesite=lax; expires=Thu, 01 Jan 1970 00:00:00 UTC${domainAttr};`;
+
     // write a `logout` key so other tabs receive the `storage` event
     try {
       localStorage.setItem("logout", Date.now().toString());
