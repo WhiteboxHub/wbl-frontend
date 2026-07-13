@@ -5,7 +5,7 @@ import { ColDef, ValueFormatterParams } from "ag-grid-community";
 import { Badge } from "@/components/admin_ui/badge";
 import { toast, Toaster } from "sonner";
 import { AGGridTable } from "@/components/AGGridTable";
-import { Check, Filter, X, SearchIcon, Linkedin, Puzzle, Video, ExternalLink } from "lucide-react";
+import { Check, Filter, X, SearchIcon, Linkedin, Puzzle, Video, ExternalLink, Sparkles, ChevronRight } from "lucide-react";
 import { Input } from "@/components/admin_ui/input";
 import { Label } from "@/components/admin_ui/label";
 import {
@@ -756,10 +756,15 @@ export default function JobListingsPage() {
                             href="https://chromewebstore.google.com/detail/talentscreen-autofill/bebdlhhpgmegdebdballinfmfnlpmeio"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm h-8 mr-2"
+                            className="group relative flex items-center justify-center p-[1px] rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-300 hover:shadow-[0_4px_15px_-3px_rgba(168,85,247,0.7)] active:scale-95 mr-2 h-8"
                         >
-                            <Puzzle className="w-4 h-4 text-blue-500" />
-                            <span className="hidden sm:inline">Autofill Extension</span>
+                            <div className="flex items-center gap-2 px-3 py-1 bg-purple-100 dark:bg-[#1c1822] rounded-full group-hover:bg-transparent transition-colors duration-300 w-full h-full">
+                                <Sparkles className="w-3.5 h-3.5 text-purple-600 group-hover:text-white transition-colors duration-300" />
+                                <span className="hidden sm:inline font-medium text-purple-600 group-hover:text-white text-xs whitespace-nowrap transition-colors duration-300">
+                                    Autofill Extension
+                                </span>
+                                <ChevronRight className="w-3.5 h-3.5 text-purple-600 group-hover:text-white transition-colors duration-300" />
+                            </div>
                         </a>
                     }
                 />

@@ -26,6 +26,11 @@
   animation: fadeInOut 3s ease-in-out infinite;
 }
 
+@keyframes shimmer {
+  0% { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+
 @layer components {
   input[type="checkbox"]:checked ~ label span svg {
     @apply inline-flex;
