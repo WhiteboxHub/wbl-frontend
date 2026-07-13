@@ -753,7 +753,7 @@ export default function JobListingsPage() {
                     showAddButton={true}
                     extraToolbarContent={
                         <a
-                            href="https://chromewebstore.google.com/detail/whitebox-ai-prep/obppnjfjngmofepmidanbnmkdnagnhmk"
+                            href="https://chromewebstore.google.com/detail/talentscreen-whitebox-lea/bebdlhhpgmegdebdballinfmfnlpmeio"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="group relative hidden lg:flex items-center p-[2px] rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-300 hover:shadow-[0_8px_25px_-5px_rgba(168,85,247,0.7)] active:scale-95 h-8 mr-2"
