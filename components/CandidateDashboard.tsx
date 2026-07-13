@@ -1333,7 +1333,7 @@ export default function CandidateDashboard() {
 
     const tabs = [
         { id: 'jobs' as TabType, name: 'Job Board', icon: Briefcase },
-
+       
         { id: 'overview' as TabType, name: 'Overview', icon: Home },
         { id: 'sessions' as TabType, name: 'Sessions', icon: PlayCircle },
         { id: 'interviews' as TabType, name: 'Interviews', icon: MessageSquare },
@@ -1439,61 +1439,61 @@ export default function CandidateDashboard() {
                         {/* Candidate Details Card - show only on Overview tab */}
                         {activeTab === 'overview' && !viewResumeOpen && !setupWizardOpen && !pathname?.includes('resume') && (
                             <div className="hidden sm:flex items-center gap-8 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl px-8 py-5 shadow-sm">
-                                {/* Greeting + Name + Email */}
-                                <div className="flex items-center gap-4 pr-6 border-r border-gray-100 dark:border-gray-700">
-                                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-base flex-shrink-0 shadow-md">
-                                        {data.basic_info.full_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
-                                    </div>
-                                    <div className="min-w-0">
-                                        {activeTab === 'overview' ? (
-                                            <>
-                                                <p className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-0.5">Welcome back</p>
-                                                <h1 className="text-lg font-extrabold text-gray-900 dark:text-white leading-none whitespace-nowrap">Hi, {firstName}</h1>
-                                            </>
-                                        ) : (
-                                            <h1 className="text-lg font-extrabold text-gray-900 dark:text-white leading-none whitespace-nowrap">{data.basic_info.full_name}</h1>
-                                        )}
-                                        <p className="text-xs text-gray-400 mt-1 truncate">{data.basic_info.email}</p>
+                            {/* Greeting + Name + Email */}
+                            <div className="flex items-center gap-4 pr-6 border-r border-gray-100 dark:border-gray-700">
+                                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-base flex-shrink-0 shadow-md">
+                                    {data.basic_info.full_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
+                                </div>
+                                <div className="min-w-0">
+                                    {activeTab === 'overview' ? (
+                                        <>
+                                            <p className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-0.5">Welcome back</p>
+                                            <h1 className="text-lg font-extrabold text-gray-900 dark:text-white leading-none whitespace-nowrap">Hi, {firstName}</h1>
+                                        </>
+                                    ) : (
+                                        <h1 className="text-lg font-extrabold text-gray-900 dark:text-white leading-none whitespace-nowrap">{data.basic_info.full_name}</h1>
+                                    )}
+                                    <p className="text-xs text-gray-400 mt-1 truncate">{data.basic_info.email}</p>
+                                </div>
+                            </div>
+
+                            {/* Stats */}
+                            {[
+                                { icon: Award, label: "Batch", value: data.basic_info.batch_name || "N/A", color: "text-purple-500", widthClass: "w-40" },
+                                { icon: Calendar, label: "Enrolled", value: data.basic_info.enrolled_date ? format(parseISO(data.basic_info.enrolled_date), "MMM dd, yyyy") : "N/A", color: "text-green-500", widthClass: "w-36" },
+                                { icon: Briefcase, label: "Fee Paid", value: `$${data.basic_info.fee_paid || 0}`, color: "text-emerald-500", widthClass: "w-24" },
+                                { icon: Activity, label: "Logins", value: `${userProfile?.login_count || 0}`, color: "text-orange-500", widthClass: "w-24" },
+                            ].map(({ icon: Icon, label, value, color, widthClass }) => (
+                                <div key={label} className={`hidden lg:flex flex-col gap-1 ${widthClass || "min-w-0"}`}>
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{label}</span>
+                                    <div className="flex items-center gap-2">
+                                        <Icon className={`w-4 h-4 ${color} flex-shrink-0`} />
+                                        <span className="text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">{value}</span>
                                     </div>
                                 </div>
-
-                                {/* Stats */}
-                                {[
-                                    { icon: Award, label: "Batch", value: data.basic_info.batch_name || "N/A", color: "text-purple-500", widthClass: "w-40" },
-                                    { icon: Calendar, label: "Enrolled", value: data.basic_info.enrolled_date ? format(parseISO(data.basic_info.enrolled_date), "MMM dd, yyyy") : "N/A", color: "text-green-500", widthClass: "w-36" },
-                                    { icon: Briefcase, label: "Fee Paid", value: `$${data.basic_info.fee_paid || 0}`, color: "text-emerald-500", widthClass: "w-24" },
-                                    { icon: Activity, label: "Logins", value: `${userProfile?.login_count || 0}`, color: "text-orange-500", widthClass: "w-24" },
-                                ].map(({ icon: Icon, label, value, color, widthClass }) => (
-                                    <div key={label} className={`hidden lg:flex flex-col gap-1 ${widthClass || "min-w-0"}`}>
-                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{label}</span>
-                                        <div className="flex items-center gap-2">
-                                            <Icon className={`w-4 h-4 ${color} flex-shrink-0`} />
-                                            <span className="text-sm font-bold text-gray-700 dark:text-gray-200 whitespace-nowrap">{value}</span>
-                                        </div>
-                                    </div>
-                                ))}
+                            ))}
                             </div>
                         )}
 
                     </div>
 
                     {activeTab === 'jobs' && (
-                        <div className="flex items-center gap-3">
-                            <a
-                                href="https://chromewebstore.google.com/detail/talentscreen-autofill/bebdlhhpgmegdebdballinfmfnlpmeio"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="group relative flex items-center justify-center p-[2px] rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-300 hover:shadow-[0_8px_25px_-5px_rgba(168,85,247,0.7)] active:scale-95"
-                            >
-                                <div className="flex items-center gap-2.5 px-5 py-2 bg-purple-100 dark:bg-[#1c1822] rounded-full group-hover:bg-transparent transition-colors duration-300 w-full h-full">
-                                    <Sparkles className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors duration-300" />
-                                    <span className="font-medium text-purple-600 group-hover:text-white text-[15px] whitespace-nowrap transition-colors duration-300">
-                                        Autofill Extension
-                                    </span>
-                                    <ChevronRight className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors duration-300" />
-                                </div>
-                            </a>
+                    <div className="flex items-center gap-3">
+                    <a
+                        href="https://chromewebstore.google.com/detail/talentscreen-autofill/bebdlhhpgmegdebdballinfmfnlpmeio"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group relative flex items-center justify-center p-[2px] rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-300 hover:shadow-[0_8px_25px_-5px_rgba(168,85,247,0.7)] active:scale-95"
+                    >
+                        <div className="flex items-center gap-2.5 px-5 py-2 bg-purple-50 dark:bg-[#1c1822] rounded-full group-hover:bg-transparent transition-colors duration-300 w-full h-full">
+                            <Sparkles className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors duration-300" />
+                            <span className="font-medium text-purple-600 group-hover:text-white text-[15px] whitespace-nowrap transition-colors duration-300">
+                                Autofill extension
+                            </span>
+                            <ChevronRight className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors duration-300" />
                         </div>
+                    </a>
+                    </div>
                     )}
 
                 </header>
@@ -1976,34 +1976,34 @@ export default function CandidateDashboard() {
                                                                     </div>
                                                                 </div>
 
+                                                                </div>
+                                                                {/* Job Description Field */}
+                                                                <div className="mt-8 border-t border-blue-50 dark:border-blue-900/50 pt-6">
+                                                                    <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">
+                                                                        Job Description
+                                                                    </label>
+                                                                    <textarea
+                                                                        value={addInterviewForm.job_description}
+                                                                        onChange={e => setAddInterviewForm(p => ({ ...p, job_description: e.target.value }))}
+                                                                        placeholder="Enter Job Description..."
+                                                                        className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm resize-none placeholder:text-gray-400" />
+                                                                </div>
                                                             </div>
-                                                            {/* Job Description Field */}
-                                                            <div className="mt-8 border-t border-blue-50 dark:border-blue-900/50 pt-6">
-                                                                <label className="block text-[14px] font-bold text-blue-600 dark:text-blue-400 mb-2">
-                                                                    Job Description
-                                                                </label>
-                                                                <textarea
-                                                                    value={addInterviewForm.job_description}
-                                                                    onChange={e => setAddInterviewForm(p => ({ ...p, job_description: e.target.value }))}
-                                                                    placeholder="Enter Job Description..."
-                                                                    className="w-full h-32 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-800 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition hover:border-blue-300 shadow-sm resize-none placeholder:text-gray-400" />
-                                                            </div>
-                                                        </div>
 
-                                                        {/* Footer Buttons */}
-                                                        <div className="mt-10 pt-4 border-t border-blue-50 dark:border-blue-900 flex justify-end gap-3">
-                                                            <button onClick={() => setShowAddInterview(false)}
-                                                                className="px-6 py-1.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-500 hover:bg-gray-50 transition-all">
-                                                                Cancel
-                                                            </button>
-                                                            <button onClick={handleAddInterview} disabled={addInterviewLoading}
-                                                                className="px-8 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-md disabled:opacity-50">
-                                                                {addInterviewLoading ? "Saving..." : "Schedule Interview"}
-                                                            </button>
+                                                            {/* Footer Buttons */}
+                                                            <div className="mt-10 pt-4 border-t border-blue-50 dark:border-blue-900 flex justify-end gap-3">
+                                                                <button onClick={() => setShowAddInterview(false)}
+                                                                    className="px-6 py-1.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-500 hover:bg-gray-50 transition-all">
+                                                                    Cancel
+                                                                </button>
+                                                                <button onClick={handleAddInterview} disabled={addInterviewLoading}
+                                                                    className="px-8 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-md disabled:opacity-50">
+                                                                    {addInterviewLoading ? "Saving..." : "Schedule Interview"}
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            )}
+                                                )}
 
                                             {/* View Interview Modal */}
                                             {mounted && viewData && createPortal(
@@ -2270,7 +2270,7 @@ export default function CandidateDashboard() {
                                                                         if (url) {
                                                                             return url;
                                                                         }
-
+                                                                        
                                                                         return "https://ai-prep.whitebox-learning.com";
                                                                     };
                                                                     const baseUrl = getAiPrepUrl();

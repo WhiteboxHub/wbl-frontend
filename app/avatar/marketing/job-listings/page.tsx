@@ -758,10 +758,10 @@ export default function JobListingsPage() {
                             rel="noopener noreferrer"
                             className="group relative flex items-center justify-center p-[1px] rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-300 hover:shadow-[0_4px_15px_-3px_rgba(168,85,247,0.7)] active:scale-95 mr-2 h-8"
                         >
-                            <div className="flex items-center gap-2 px-3 py-1 bg-purple-100 dark:bg-[#1c1822] rounded-full group-hover:bg-transparent transition-colors duration-300 w-full h-full">
+                            <div className="flex items-center gap-2 px-3 py-1 bg-purple-50 dark:bg-[#1c1822] rounded-full group-hover:bg-transparent transition-colors duration-300 w-full h-full">
                                 <Sparkles className="w-3.5 h-3.5 text-purple-600 group-hover:text-white transition-colors duration-300" />
                                 <span className="hidden sm:inline font-medium text-purple-600 group-hover:text-white text-xs whitespace-nowrap transition-colors duration-300">
-                                    Autofill Extension
+                                    Autofill extension
                                 </span>
                                 <ChevronRight className="w-3.5 h-3.5 text-purple-600 group-hover:text-white transition-colors duration-300" />
                             </div>
