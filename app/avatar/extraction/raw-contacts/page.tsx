@@ -126,7 +126,7 @@ export default function AutomationContactExtractsPage() {
             let currentPage = 1;
             let hasNext = true;
             while (hasNext) {
-                const res = await cachedApiFetch(`/automation-extracts/paginate?page=${currentPage}&page_size=${pageSize}`);
+                const res = await cachedApiFetch(`/automation-extracts/paginated?page=${currentPage}&page_size=${pageSize}`);
                 const payload = res?.data || res;
                 const pageData = Array.isArray(payload) ? payload : (payload?.data || []);
                 const has_next_page = payload?.has_next || false;
