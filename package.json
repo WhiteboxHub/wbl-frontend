@@ -54,6 +54,7 @@
     "@radix-ui/react-toast": "^1.2.14",
     "@radix-ui/react-toggle-group": "^1.1.10",
     "@radix-ui/react-tooltip": "^1.2.7",
+    "@tabler/icons-react": "^3.34.1",
     "ag-grid-community": "^33.3.2",
     "ag-grid-react": "^33.3.2",
     "axios": "^1.7.2",
