@@ -2374,7 +2374,11 @@ export default function CandidateDashboard() {
                                                     /* Unlocked — active Go to Preparation button */
                                                     <button
                                                         onClick={async () => {
-                                                            const baseUrl = process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL || "https://ai-prep.whitebox-learning.com";
+                                                            const baseUrl = process.env.NEXT_PUBLIC_AIPREP_FRONTEND_URL || '';
+                                                            if (!baseUrl) {
+                                                                toast.error("Preparation URL is not configured. Please contact support.");
+                                                                return;
+                                                            }
                                                             const token = localStorage.getItem("prep_token");
                                                             if (token) {
                                                                 window.open(`${baseUrl}/auth?token=${token}`, '_blank');
