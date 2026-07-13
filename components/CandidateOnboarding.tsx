@@ -389,21 +389,34 @@ export default function CandidateOnboarding({
                             { key: 'emergcontactaddrs', label: 'Emergency Contact Address *' }
                         ];
                         const missing = requiredFields.filter(f => !profile[f.key]);
+                        const invalidFields = [];
+                        if (profile.email && !isValidEmail(profile.email)) invalidFields.push('Email');
+
+                        if (profile.emergcontactemail && !isValidEmail(profile.emergcontactemail)) invalidFields.push('Emergency Contact Email');
+                        if (profile.linkedin_id && !isValidURL(profile.linkedin_id)) invalidFields.push('LinkedIn ID');
+                        if (profile.github_link && !isValidURL(profile.github_link)) invalidFields.push('Github Link');
+
+                        const hasErrors = missing.length > 0 || invalidFields.length > 0;
 
                         return (
                             <div className="p-8 animate-in fade-in slide-in-from-bottom-4">
                                 <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Action Required: Complete Your Profile</h2>
 
-                                {missing.length > 0 ? (
+                                {hasErrors ? (
                                     <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6 text-sm text-red-800 dark:text-red-200 flex items-start gap-3">
                                         <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-600" />
                                         <div>
-                                            <p className="font-bold mb-1">Action Required: Missing Information</p>
-                                            <p className="mb-2">You must complete your profile before you can access the dashboard. Please fill in the following missing fields below:</p>
+                                            <p className="font-bold mb-1">Action Required: Missing or Invalid Information</p>
+                                            <p className="mb-2">You must complete your profile with valid information before you can access the dashboard. Please check the following fields below:</p>
                                             <div className="flex flex-wrap gap-2">
                                                 {missing.map(f => (
                                                     <span key={f.key} className="bg-red-100 dark:bg-red-800/50 px-2 py-0.5 rounded text-xs font-semibold">
-                                                        {f.label}
+                                                        Missing: {f.label.replace(' *', '')}
+                                                    </span>
+                                                ))}
+                                                {invalidFields.map(f => (
+                                                    <span key={f} className="bg-red-100 dark:bg-red-800/50 px-2 py-0.5 rounded text-xs font-semibold">
+                                                        Invalid: {f}
                                                     </span>
                                                 ))}
                                             </div>
@@ -418,7 +431,7 @@ export default function CandidateOnboarding({
                                         )}
                                         <div>
                                             <p className="font-bold mb-1">{loginCount <= 1 ? "Action Required" : "Profile Complete"}</p>
-                                            <p>{loginCount <= 1 ? "Please fill all required details to proceed." : "All required fields are filled. You can now proceed to the next step."}</p>
+                                            <p>{loginCount <= 1 ? "Please fill all required details to proceed." : "All required fields are filled and valid. You can now proceed to the next step."}</p>
                                         </div>
                                     </div>
                                 )}
@@ -540,7 +553,7 @@ export default function CandidateOnboarding({
                                                     </div>
                                                     <div className="space-y-1.5">
                                                         <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">Secondary Email</Label>
-                                                        <Input name="secondaryemail" type="email" value={profile.secondaryemail} onChange={handleProfileChange} onBlur={() => { const err = isValidEmail(profile.secondaryemail) ? null : "Please provide a valid secondary email address."; if (err) toast.error(err); }} placeholder="alt-email@example.com" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
+                                                        <Input name="secondaryemail" type="text" value={profile.secondaryemail} onChange={handleProfileChange} placeholder="alt-email@example.com" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
                                                     </div>
                                                     <div className="space-y-1.5">
                                                         <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">Secondary Phone</Label>

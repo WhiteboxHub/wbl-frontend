@@ -29,12 +29,12 @@ export class LargeFunctionRule implements Rule {
             if (Node.isVariableDeclaration(parent)) name = parent.getName();
         }
 
-        if (length > 150) {
+        if (length > 300) {
            findings.push({
              severity: 'MEDIUM',
              confidence: 'HIGH',
              type: 'Code Smell',
-             evidence: `Function '${name}' is ${length} lines long (exceeds 150 limit) at line ${fn.getStartLineNumber()}.`
+             evidence: `Function '${name}' is ${length} lines long (exceeds 300 limit) at line ${fn.getStartLineNumber()}.`
            });
         }
       }

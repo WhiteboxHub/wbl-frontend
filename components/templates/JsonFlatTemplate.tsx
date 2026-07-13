@@ -26,10 +26,10 @@ export function JsonFlatTemplate({ data }: TemplateProps) {
                   <div className="w-1 bg-[#16a085] rounded-full self-stretch flex-shrink-0" />
                   <div className="flex-1">
                     <div className="flex justify-between items-baseline">
-                      <strong className="text-[12px] text-gray-900">{exp.title}</strong>
+                      <strong className="text-[12px] text-gray-900">{exp.company}</strong>
                       <span className="text-[10px] text-[#16a085] bg-green-50 px-2 py-0.5 rounded">{formatDateRange(exp.startDate, exp.endDate, exp.current)}</span>
                     </div>
-                    <div className="text-[#16a085] text-[10px] font-medium">{exp.company}{exp.location ? ` · ${exp.location}` : ""}</div>
+                    <div className="text-[#16a085] text-[10px] font-medium">{exp.title}{exp.location ? ` · ${exp.location}` : ""}</div>
                     <ul className="mt-1.5 space-y-1 text-gray-600">
                       {exp.bullets.filter(Boolean).map((b, i) => (
                         <li key={i} className="flex items-start gap-2">

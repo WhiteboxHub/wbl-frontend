@@ -34,8 +34,8 @@ export function JsonProfessionalTemplate({ data }: TemplateProps) {
                 <div key={exp.id}>
                   <div className="flex justify-between items-start">
                     <div>
-                      <strong className="text-[12px] text-gray-900">{exp.title}</strong>
-                      <div className="text-[#1a237e] font-semibold text-[10.5px]">{exp.company}{exp.location ? ` · ${exp.location}` : ""}</div>
+                      <strong className="text-[12px] text-gray-900">{exp.company}</strong>
+                      <div className="text-[#1a237e] font-semibold text-[10.5px]">{exp.title}{exp.location ? ` · ${exp.location}` : ""}</div>
                     </div>
                     <span className="text-[10px] text-white bg-[#1a237e] px-2 py-0.5 rounded shrink-0 ml-2">{formatDateRange(exp.startDate, exp.endDate, exp.current)}</span>
                   </div>

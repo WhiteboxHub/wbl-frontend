@@ -32,10 +32,10 @@ export function JsonWaterfallTemplate({ data }: TemplateProps) {
                 <div key={exp.id} className="relative pl-4 border-l-2" style={{ borderColor: idx % 2 === 0 ? "#0f3460" : "#e94560" }}>
                   <div className="absolute -left-1.5 top-0 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: idx % 2 === 0 ? "#0f3460" : "#e94560" }} />
                   <div className="flex justify-between items-baseline">
-                    <strong className="text-[12px] text-gray-900">{exp.title}</strong>
+                    <strong className="text-[12px] text-gray-900">{exp.company}</strong>
                     <span className="text-[10px] text-gray-400">{formatDateRange(exp.startDate, exp.endDate, exp.current)}</span>
                   </div>
-                  <div className="text-[#0f3460] text-[10px] font-medium">{exp.company}{exp.location ? ` · ${exp.location}` : ""}</div>
+                  <div className="text-[#0f3460] text-[10px] font-medium">{exp.title}{exp.location ? ` · ${exp.location}` : ""}</div>
                   <ul className="mt-1.5 space-y-1 text-gray-600">
                     {exp.bullets.filter(Boolean).map((b, i) => (
                       <li key={i} className="flex items-start gap-2">

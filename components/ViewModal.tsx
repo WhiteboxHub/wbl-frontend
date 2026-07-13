@@ -584,7 +584,7 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
   const modalRef = useRef<HTMLDivElement>(null);
   const resumeRef = useRef<HTMLDivElement>(null);
   const [jsonVisible, setJsonVisible] = useState<Record<string, boolean>>({});
-  const [selectedTemplate, setSelectedTemplate] = useState<string>("classic");
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("academic");
 
   const toggleJson = (key: string) => {
     setJsonVisible(prev => ({ ...prev, [key]: !prev[key] }));
@@ -1308,41 +1308,20 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
                 }
 
                 const templatesList = [
-                  { id: "classic", name: "Classic" },
-                  { id: "modern", name: "Modern" },
-                  { id: "minimal", name: "Minimal" },
-                  { id: "professional", name: "Professional" },
-                  { id: "creative", name: "Creative" },
-                  { id: "executive", name: "Executive" },
-                  { id: "technical", name: "Technical" },
-                  { id: "elegant", name: "Elegant" },
-                  { id: "compact", name: "Compact" },
-                  { id: "sidebar", name: "Sidebar" },
-                  { id: "bold", name: "Bold" },
                   { id: "academic", name: "Academic" },
-                  { id: "startup", name: "Startup" },
-                  { id: "timeline", name: "Timeline" },
-                  { id: "ats", name: "ATS" },
-                  { id: "json-elegant", name: "JSON Elegant" },
-                  { id: "json-modern", name: "JSON Modern" },
-                  { id: "json-cora", name: "JSON Cora" },
-                  { id: "json-classy", name: "JSON Classy" },
-                  { id: "json-minyma", name: "JSON Minyma" },
-                  { id: "json-straightforward", name: "JSON Straightforward" },
-                  { id: "json-waterfall", name: "JSON Waterfall" },
-                  { id: "json-sceptile", name: "JSON Sceptile" },
-                  { id: "json-modern-extended", name: "JSON Modern Extended" },
-                  { id: "json-elephant", name: "JSON Elephant" },
-                  { id: "json-elite", name: "JSON Elite" },
-                  { id: "json-jupe", name: "JSON Jupe" },
-                  { id: "json-msresume", name: "JSON MS Resume" },
-                  { id: "json-stackoverflow", name: "JSON Stack Overflow" },
-                  { id: "json-tan-responsive", name: "JSON Tan Responsive" },
-                  { id: "json-kendall", name: "JSON Kendall" },
-                  { id: "json-flat", name: "JSON Flat" },
-                  { id: "json-even", name: "JSON Even" },
-                  { id: "json-professional", name: "JSON Professional" },
-                  { id: "json-react", name: "JSON React" },
+                  { id: "classy", name: "Classy" },
+                  { id: "elegant", name: "Elegant" },
+                  { id: "even", name: "Even" },
+                  { id: "flat", name: "Flat" },
+                  { id: "lowmess", name: "Lowmess" },
+                  { id: "macchiato", name: "Macchiato" },
+                  { id: "onepage-plus", name: "Onepage Plus" },
+                  { id: "professional", name: "Professional" },
+                  { id: "ats-friendly", name: "ATS Friendly" },
+                  { id: "stackoverflow", name: "Stackoverflow" },
+                  { id: "stackoverflowed", name: "Stackoverflowed" },
+                  { id: "straightforward", name: "Straightforward" },
+                  { id: "waterfall", name: "Waterfall" },
                   { id: "raw", name: "Raw JSON" }
                 ];
 

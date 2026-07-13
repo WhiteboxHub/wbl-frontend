@@ -565,10 +565,8 @@ const requiredFieldsConfig: Record<string, string[]> = {
 // Helper function to check if a field is required based on modal type and mode
 
 const isFieldRequired = (fieldName: string, modalType: string, isAddMode: boolean): boolean => {
+  // if (!isAddMode) return false;
   const modalKey = modalType.toLowerCase();
-
-  // Removed condition that previously disabled required fields in Edit Mode globally
-  // if (!isAddMode && !modalKey.includes("position") && !modalKey.includes("job listing")) return false;
 
   const fieldConfigMap: Record<string, string[]> = {};
 

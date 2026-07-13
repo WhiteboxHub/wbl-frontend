@@ -36,10 +36,10 @@ export function JsonClassyTemplate({ data }: TemplateProps) {
             {data.experience.map((exp) => (
               <div key={exp.id}>
                 <div className="flex justify-between items-baseline">
-                  <strong className="text-[12px]">{exp.title}</strong>
+                  <strong className="text-[12px]">{exp.company}</strong>
                   <span className="text-[10px] text-gray-400 italic">{formatDateRange(exp.startDate, exp.endDate, exp.current)}</span>
                 </div>
-                <div className="text-gray-500 text-[10px] italic">{exp.company}{exp.location ? `, ${exp.location}` : ""}</div>
+                <div className="text-gray-500 text-[10px] italic">{exp.title}{exp.location ? `, ${exp.location}` : ""}</div>
                 <ul className="mt-2 space-y-1 text-gray-600 text-[10px]">
                   {exp.bullets.filter(Boolean).map((b, i) => (
                     <li key={i} className="flex items-start gap-2">
