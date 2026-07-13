@@ -425,7 +425,7 @@ export default function CandidateDashboard() {
 
     useEffect(() => {
         setMounted(true);
-    }, []);
+    }, [setMounted]);
 
 
     useEffect(() => {
