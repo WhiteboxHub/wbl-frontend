@@ -4,7 +4,7 @@ import { LargeFunctionRule } from './LargeFunctionRule';
 import { SignatureChangeRule } from './SignatureChangeRule';
 import { ReactHookBugRule } from './ReactHookBugRule';
 import { DangerousApiRule } from './DangerousApiRule';
-import { HardcodedSecretRule } from './HardcodedSecretRule';
+import { SecuritySinkRule } from './SecuritySinkRule';
 
 export const rules = [
   new DbImportRule(),
@@ -13,5 +13,5 @@ export const rules = [
   new SignatureChangeRule(),
   new ReactHookBugRule(),
   new DangerousApiRule(),
-  new HardcodedSecretRule()
+  new SecuritySinkRule()
 ];
