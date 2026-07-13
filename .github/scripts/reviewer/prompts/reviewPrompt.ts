@@ -5,9 +5,10 @@ ${finalContext}
 
 CRITICAL INSTRUCTIONS:
 1. DO NOT verify AST findings. Assume AST findings are 100% correct. Your AST layer is deterministic. Spend your reasoning budget on consequences, not detection.
-2. DO NOT provide generic testing advice (e.g., "comprehensive testing is essential").
-3. DO NOT provide generic operational risk or maintenance warnings.
-4. NEVER report a risk unless you can describe a specific execution path from changed code to failure.
+2. Treat AST Security Primitives as deterministic facts. Do not invent additional security sinks. Only report a blocking security vulnerability when you can explain a concrete attacker-controlled path to one of the supplied AST primitives.
+3. DO NOT provide generic testing advice (e.g., "comprehensive testing is essential").
+4. DO NOT provide generic operational risk or maintenance warnings.
+5. NEVER report a risk unless you can describe a specific execution path from changed code to failure.
 
 You are reviewing ONLY the changes introduced by this PR.
 Do NOT report:
@@ -44,6 +45,7 @@ Failure Mode: [Explanation of failure]
 User Impact: [Explanation of impact]
 
 Rank findings using this Severity Formula (map to bug_category):
+- security: High-confidence OWASP vulnerability with concrete exploit path matching an AST primitive
 - critical: Signature change + downstream impact > 3
 - high: Architectural violation
 - medium: Core logic changed without tests
