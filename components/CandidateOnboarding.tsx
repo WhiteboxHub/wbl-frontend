@@ -391,7 +391,7 @@ export default function CandidateOnboarding({
                         const missing = requiredFields.filter(f => !profile[f.key]);
                         const invalidFields = [];
                         if (profile.email && !isValidEmail(profile.email)) invalidFields.push('Email');
-                        if (profile.secondaryemail && !isValidEmail(profile.secondaryemail)) invalidFields.push('Secondary Email');
+
                         if (profile.emergcontactemail && !isValidEmail(profile.emergcontactemail)) invalidFields.push('Emergency Contact Email');
                         if (profile.linkedin_id && !isValidURL(profile.linkedin_id)) invalidFields.push('LinkedIn ID');
                         if (profile.github_link && !isValidURL(profile.github_link)) invalidFields.push('Github Link');
@@ -553,7 +553,7 @@ export default function CandidateOnboarding({
                                                     </div>
                                                     <div className="space-y-1.5">
                                                         <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">Secondary Email</Label>
-                                                        <Input name="secondaryemail" type="email" value={profile.secondaryemail} onChange={handleProfileChange} onBlur={() => { const err = isValidEmail(profile.secondaryemail) ? null : "Please provide a valid secondary email address."; if (err) toast.error(err); }} placeholder="alt-email@example.com" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
+                                                        <Input name="secondaryemail" type="text" value={profile.secondaryemail} onChange={handleProfileChange} placeholder="alt-email@example.com" className="w-full rounded-lg border border-blue-200 px-3 py-2 text-sm shadow-sm transition hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50/30" />
                                                     </div>
                                                     <div className="space-y-1.5">
                                                         <Label className="block text-xs font-bold text-blue-700 dark:text-blue-400 sm:text-sm">Secondary Phone</Label>
