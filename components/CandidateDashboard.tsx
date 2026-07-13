@@ -425,7 +425,7 @@ export default function CandidateDashboard() {
 
     useEffect(() => {
         setMounted(true);
-    }, []);
+    }, [setMounted]);
 
 
     useEffect(() => {
@@ -1480,17 +1480,24 @@ export default function CandidateDashboard() {
 
                     </div>
 
-                    <div className="flex items-center gap-3">
-                    <a
-                        href="https://chromewebstore.google.com/detail/talentscreen-autofill/bebdlhhpgmegdebdballinfmfnlpmeio"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm"
-                    >
-                        <Puzzle className="w-4 h-4 text-blue-500" />
-                        Autofill Extension
-                    </a>
-                    </div>
+                    {activeTab === 'jobs' && (
+                        <div className="flex items-center gap-3">
+                            <a
+                                href="https://chromewebstore.google.com/detail/talentscreen-whitebox-lea/bebdlhhpgmegdebdballinfmfnlpmeio"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="group relative hidden lg:flex items-center p-[2px] rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-300 hover:shadow-[0_8px_25px_-5px_rgba(168,85,247,0.7)] active:scale-95"
+                            >
+                                <div className="flex items-center gap-2.5 px-5 py-2 bg-purple-100 dark:bg-[#1c1822] rounded-full group-hover:bg-transparent transition-colors duration-300 w-full h-full">
+                                    <Sparkles className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors duration-300" />
+                                    <span className="font-medium text-purple-600 group-hover:text-white text-[15px] whitespace-nowrap transition-colors duration-300">
+                                        Autofill Extension
+                                    </span>
+                                    <ChevronRight className="w-5 h-5 text-purple-600 group-hover:text-white transition-colors duration-300" />
+                                </div>
+                            </a>
+                        </div>
+                    )}
 
                 </header>
 
