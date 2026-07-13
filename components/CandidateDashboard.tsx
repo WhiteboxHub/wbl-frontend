@@ -7,6 +7,7 @@ import { toast, Toaster } from "sonner";
 import { format, parseISO } from "date-fns";
 import Link from "next/link";
 import { ViewModal } from "./ViewModal";
+import AiSetupTab from "./setup/AiSetupTab";
 import {
     Mail,
     Phone,
@@ -155,7 +156,7 @@ interface ApiError {
     status?: number;
 }
 
-type TabType = 'overview' | 'sessions' | 'interviews' | 'jobs' | 'smartprep' | 'my_llm_key' | 'my_applications';
+type TabType = 'overview' | 'sessions' | 'interviews' | 'jobs' | 'smartprep' | 'my_llm_key' | 'my_applications' | 'ai_setup';
 
 const extractErrorMessage = (err: ApiError, defaultMessage: string): string => {
     return err.body?.detail || err.body?.message || err.detail || err.message || defaultMessage;
@@ -1333,8 +1334,8 @@ export default function CandidateDashboard() {
 
     const tabs = [
         { id: 'jobs' as TabType, name: 'Job Board', icon: Briefcase },
-
         { id: 'overview' as TabType, name: 'Overview', icon: Home },
+        { id: 'ai_setup' as TabType, name: 'My LLM Setup', icon: Settings },
         { id: 'sessions' as TabType, name: 'Sessions', icon: PlayCircle },
         { id: 'interviews' as TabType, name: 'Interviews', icon: MessageSquare },
         { id: 'my_applications' as TabType, name: 'My Applications', icon: ClipboardList },
@@ -1376,7 +1377,7 @@ export default function CandidateDashboard() {
                                             <span>{tab.name}</span>
                                             {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500" />}
                                         </button>
-                                        {tab.id === 'overview' && (
+                                        {tab.id === 'ai_setup' && (
                                             <button
                                                 type="button"
                                                 onClick={() => {
@@ -1515,7 +1516,7 @@ export default function CandidateDashboard() {
                                     <Icon className="w-3.5 h-3.5" />
                                     {tab.name}
                                 </button>
-                                {tab.id === 'overview' && (
+                                {tab.id === 'ai_setup' && (
                                     <button
                                         type="button"
                                         onClick={() => {
@@ -1597,6 +1598,11 @@ export default function CandidateDashboard() {
                             </div>
                         ) : (
                             <>
+                                {activeTab === 'ai_setup' && (
+                                    <div className="flex-1 overflow-y-auto h-full w-full">
+                                        <AiSetupTab candidateId={candidateId ?? undefined} />
+                                    </div>
+                                )}
                                 {activeTab === 'overview' && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4">
                                         {/* Phase Cards Row */}

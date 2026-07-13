@@ -150,7 +150,7 @@ function removeKeyFromValidationCache(keyId: number) {
 }
 
 /** Keys from ``candidate_llm_api_keys`` for the logged-in candidate (via ``candidate.id``). */
-export function CandidateLlmKeysPanel() {
+export function CandidateLlmKeysPanel({ onValidationChange }: { onValidationChange?: (isValid: boolean) => void }) {
     const [rows, setRows] = useState<LlmKeyRow[]>([]);
     const [loading, setLoading] = useState(false);
     const [revealed, setRevealed] = useState<Record<number, string>>({});
@@ -192,6 +192,50 @@ export function CandidateLlmKeysPanel() {
         []
     );
 
+    const validateAllKeys = useCallback(async (keysToValidate: LlmKeyRow[]) => {
+        if (keysToValidate.length === 0) return;
+        setRows((prev) =>
+            prev.map((r) => ({
+                ...r,
+                validation_status: "checking",
+                validation_message: "Auto-validating…",
+            }))
+        );
+        try {
+            const batch = await apiFetch("coderpad/me/llm-keys/validate-batch", {
+                method: "POST",
+                body: {
+                    keys: keysToValidate.map((k) => ({
+                        id: k.id,
+                        provider_name: k.provider_name,
+                        source: "wbl",
+                    })),
+                },
+            });
+            const results = batch?.results;
+            if (results && Array.isArray(results)) {
+                applyValidationResults(results);
+            } else {
+                setRows((prev) =>
+                    prev.map((r) =>
+                        r.validation_status === "checking"
+                            ? { ...r, validation_status: "inactive", validation_message: null }
+                            : r
+                    )
+                );
+            }
+        } catch (err: unknown) {
+            console.error("Auto validation failed:", err);
+            setRows((prev) =>
+                prev.map((r) =>
+                    r.validation_status === "checking"
+                        ? { ...r, validation_status: "inactive", validation_message: null }
+                        : r
+                )
+            );
+        }
+    }, [applyValidationResults]);
+
     const loadKeys = useCallback(async () => {
         setLoading(true);
         setRevealed({});
@@ -218,7 +262,11 @@ export function CandidateLlmKeysPanel() {
                     validation_message: null,
                 })
             );
-            setRows(applyValidationCache(list));
+            const loadedList = applyValidationCache(list);
+            setRows(loadedList);
+            if (loadedList.length > 0) {
+                void validateAllKeys(loadedList);
+            }
         } catch (err: unknown) {
             const e = err as { body?: { detail?: string }; status?: number };
             const detail =
@@ -237,6 +285,11 @@ export function CandidateLlmKeysPanel() {
     useEffect(() => {
         void loadKeys();
     }, [loadKeys]);
+
+    useEffect(() => {
+        const hasActiveKey = rows.some((r) => r.validation_status === "active");
+        onValidationChange?.(hasActiveKey);
+    }, [rows, onValidationChange]);
 
     const closeModal = () => {
         setModalOpen(false);
