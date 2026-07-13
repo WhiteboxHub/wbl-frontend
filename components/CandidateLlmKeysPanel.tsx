@@ -395,6 +395,9 @@ export function CandidateLlmKeysPanel() {
             setRevealingId(null);
         }
     };
+    const validateKey = async () => {
+    console.log("Validate button clicked");
+    };
 
     const validateRow = async (row: LlmKeyRow) => {
         const previousStatus =
@@ -729,25 +732,32 @@ export function CandidateLlmKeysPanel() {
                                 </div>
                             </div>
 
-                            <div className="min-w-0">
-                                <Label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">
-                                    {editRow ? "API key (optional)" : "API key"}
-                                </Label>
-                                <Input
-                                    type="password"
-                                    value={formKey}
-                                    onChange={(e) => setFormKey(e.target.value)}
-                                    placeholder={
-                                        editRow
-                                            ? "Leave blank to keep current key"
-                                            : formProvider === "OpenAI"
-                                              ? "sk-…"
-                                              : "Paste API key"
-                                    }
-                                    className="mt-1 h-9 font-mono text-sm"
-                                    autoComplete="new-password"
-                                />
-                            </div>
+                        <div className="relative mt-1">
+                            <Input
+                                type="password"
+                                value={formKey}
+                                onChange={(e) => setFormKey(e.target.value)}
+                                placeholder={
+                                    editRow
+                                         ? "Leave blank to keep current key"
+                                         : formProvider === "OpenAI"
+                                         ? "sk-..."
+                                         : "Paste API key"
+                                }
+                                className="h-9 pr-24 font-mono text-sm"
+                                autoComplete="new-password"
+                            />
+
+                             <Button
+                                 type="button"
+                                 variant="outline"
+                                 size="sm"
+                                 className="absolute right-1 top-1/2 -translate-y-1/2 h-7 px-2 text-xs"
+                                 onClick={() => validateKey()}
+                            >
+                                  Validate
+                            </Button>
+                        </div>   
                         </div>
 
                         <DialogFooter className="px-6 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-900/50 flex-row justify-end gap-2 sm:space-x-2">
@@ -933,24 +943,7 @@ export function CandidateLlmKeysPanel() {
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td className="px-4 py-3 text-center">
-                                                    {validatingId === row.id ? (
-                                                        <span className="inline-flex items-center gap-1 text-xs text-gray-500">
-                                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                                            Validating…
-                                                        </span>
-                                                    ) : (
-                                                        <Button
-                                                            type="button"
-                                                            variant="outline"
-                                                            size="sm"
-                                                            className="h-8 px-3 text-xs font-semibold"
-                                                            onClick={() => void validateRow(row)}
-                                                        >
-                                                            Validate
-                                                        </Button>
-                                                    )}
-                                                </td>
+                                                
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center justify-end gap-1">
                                                         <button
