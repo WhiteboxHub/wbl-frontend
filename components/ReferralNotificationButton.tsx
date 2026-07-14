@@ -34,12 +34,12 @@ const ReferralNotificationButton = () => {
     return null;
   }
 
-  console.log("ReferralNotificationButton: Rendering button for authenticated user");
+  if (process.env.NODE_ENV === 'development') { console.log("ReferralNotificationButton: Rendering button for authenticated user"); }
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log("Button clicked, navigating to /refer-and-earn");
+    if (process.env.NODE_ENV === 'development') { console.log("Button clicked, navigating to /refer-and-earn"); }
 
     // Try router.push first, then fallback to window.location
     try {
@@ -51,7 +51,7 @@ const ReferralNotificationButton = () => {
   };
 
   const handleMainButtonClick = (e: React.MouseEvent) => {
-    console.log("MAIN BUTTON CLICKED - this should appear in console");
+    if (process.env.NODE_ENV === 'development') { console.log("MAIN BUTTON CLICKED - this should appear in console"); }
     handleClick(e);
   };
 
