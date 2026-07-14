@@ -96,11 +96,11 @@ test.describe("Full UI Grid Regression", () => {
               const candidateTabs = [
                 "Job Board",
                 "Overview",
+                "My LLM Setup",
+                "My Resume",
                 "Sessions",
                 "Interviews",
-                "Coderpad",
-                "WBL SmartPrep",
-                "My LLM Key",
+                "My Applications",
               ];
 
               for (const tab of candidateTabs) {

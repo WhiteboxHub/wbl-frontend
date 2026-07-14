@@ -75,6 +75,7 @@ import { CandidateSetupWizard } from "./CandidateSetupWizard";
 import { CandidateLlmKeysPanel } from "./CandidateLlmKeysPanel";
 
 import CandidateOnboarding from "./CandidateOnboarding";
+import ResumeTab from "./ResumeTab";
 
 import { ColDef, ValueFormatterParams } from "ag-grid-community";
 
@@ -573,6 +574,24 @@ export default function CandidateDashboard() {
                 });
             }
             setIsEditingJson(false);
+
+            // Also sync the edited JSON back to the WBL database
+            if (candidateId) {
+                try {
+                    const backendUrl = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+                    const wblPutUrl = backendUrl.endsWith("/api")
+                        ? `${backendUrl}/candidates/${candidateId}/marketing/resume-json`
+                        : `${backendUrl}/api/candidates/${candidateId}/marketing/resume-json`;
+                    const wblToken = typeof window !== "undefined" ? localStorage.getItem("access_token") || "" : "";
+                    await fetch(wblPutUrl, {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${wblToken}` },
+                        body: JSON.stringify({ resume_json: parsed }),
+                    });
+                } catch (syncErr) {
+                    console.warn("[ResumeTab] WBL DB sync failed (non-blocking):", syncErr);
+                }
+            }
         } catch (err: any) {
             setEditJsonError(err.message || "An unexpected error occurred while saving.");
         } finally {
@@ -1852,6 +1871,26 @@ export default function CandidateDashboard() {
                                     <div className="flex-1 overflow-y-auto h-full w-full">
                                         <AiSetupTab candidateId={candidateId ?? undefined} />
                                     </div>
+                                )}
+                                {activeTab === 'my_resume' && (
+                                    <ResumeTab
+                                        candidateId={candidateId}
+                                        setupStatus={setupStatus}
+                                        prefetchedSession={prefetchedSession}
+                                        selectedTemplate={selectedTemplate}
+                                        setSelectedTemplate={setSelectedTemplate}
+                                        onUpload={handleInlineUpload}
+                                        resumeUploadLoading={resumeUploadLoading}
+                                        onSaveJson={handleSaveEditedJson}
+                                        onValidateJson={handleValidateJson}
+                                        onDownloadPdf={handleInlineDownload}
+                                        onDownloadJson={handleDownloadJson}
+                                        editJsonText={editJsonText}
+                                        setEditJsonText={setEditJsonText}
+                                        editJsonError={editJsonError}
+                                        editJsonSaving={editJsonSaving}
+                                        inlineResumeRef={inlineResumeRef}
+                                    />
                                 )}
                                 {activeTab === 'overview' && (
                                     <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4">
