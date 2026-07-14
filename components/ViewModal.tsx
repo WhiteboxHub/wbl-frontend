@@ -16,6 +16,7 @@ interface ViewModalProps {
   currentIndex?: number;
   onNavigate?: (index: number) => void;
   title: string;
+  onReupload?: () => void;
 }
 
 const excludedFields = [
@@ -579,7 +580,7 @@ const ExpandableTextViewer = ({ content }: { content: string }) => {
   );
 };
 
-export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate, title }: ViewModalProps) {
+export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate, title, onReupload }: ViewModalProps) {
   const { register, watch, setValue, reset } = useForm();
   const modalRef = useRef<HTMLDivElement>(null);
   const resumeRef = useRef<HTMLDivElement>(null);
@@ -1343,16 +1344,27 @@ export function ViewModal({ isOpen, onClose, data, currentIndex = 0, onNavigate,
                         </select>
                       </div>
 
-                      {rawResumeJson && selectedTemplate !== "raw" && !parseError && (
-                        <button
-                          type="button"
-                          onClick={handleDownload}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-violet-600 hover:bg-violet-700 active:bg-violet-800 transition-colors rounded-lg shadow-sm"
-                        >
-                          <Download size={14} />
-                          Download PDF
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {onReupload && (
+                          <button
+                            type="button"
+                            onClick={onReupload}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10 border border-blue-200 dark:border-blue-800 transition-colors rounded-lg"
+                          >
+                            Change Resume
+                          </button>
+                        )}
+                        {rawResumeJson && selectedTemplate !== "raw" && !parseError && (
+                          <button
+                            type="button"
+                            onClick={handleDownload}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-violet-600 hover:bg-violet-700 active:bg-violet-800 transition-colors rounded-lg shadow-sm"
+                          >
+                            <Download size={14} />
+                            Download PDF
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {!rawResumeJson ? (

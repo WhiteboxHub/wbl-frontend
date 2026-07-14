@@ -6,7 +6,6 @@ export function JsonElegantTemplate({ data }: TemplateProps) {
     <div className="bg-white text-gray-800 min-h-[842px] font-sans p-10 text-[11px]">
       <header className="border-b-2 border-gray-800 pb-4 mb-6">
         <h1 className="text-4xl font-light text-gray-900 tracking-tight">{data.fullName || "Your Name"}</h1>
-        <p className="text-base text-gray-500 mt-1 font-light">{data.title || "Professional Title"}</p>
         <div className="flex flex-wrap gap-x-5 gap-y-1 mt-3 text-[10px] text-gray-500">
           {contact.map((c, i) => <span key={i}>{c}</span>)}
         </div>
