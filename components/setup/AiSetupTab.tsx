@@ -1,20 +1,22 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { CheckCircle2, ArrowRight, Sparkles, PlayCircle } from "lucide-react";
-import AudioCheckStep from "./AudioCheckStep";
-import VideoCheckStep from "./VideoCheckStep";
+
 import { toast } from "sonner";
 import { CandidateLlmKeysPanel } from "../CandidateLlmKeysPanel";
 
-type SetupStep = "llm-key" | "audio" | "video" | "done";
+type SetupStep = "llm-key" | "done";
 
-export default function AiSetupTab({ candidateId }: { candidateId?: number }) {
+export default function AiSetupTab({ candidateId, onFinishSetup }: { candidateId?: number, onFinishSetup?: () => void }) {
   const [currentStep, setCurrentStep] = useState<SetupStep>("llm-key");
   const [isValidLlm, setIsValidLlm] = useState(false);
 
   const finishSetup = async () => {
-    toast.success("All AI setup checks completed!");
-    setCurrentStep("done");
+    if (onFinishSetup) {
+      onFinishSetup();
+    } else {
+      setCurrentStep("done");
+    }
   };
 
   return (
@@ -37,29 +39,19 @@ export default function AiSetupTab({ candidateId }: { candidateId?: number }) {
                     toast.error("Please have at least one valid API key");
                     return;
                   }
-                  setCurrentStep("audio");
+                  finishSetup();
                 }}
                 className={`px-6 py-2.5 rounded-xl text-white font-semibold text-base flex items-center justify-center gap-2 shadow-sm transition-all ${
                   isValidLlm ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-400 cursor-not-allowed opacity-75"
                 }`}
               >
-                Continue to Audio Check <ArrowRight className="w-4 h-4" />
+                Finish Setup <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           </motion.div>
         )}
 
 
-
-        {/* Step: Audio Check */}
-        {currentStep === "audio" && (
-          <AudioCheckStep onNext={() => setCurrentStep("video")} />
-        )}
-
-        {/* Step: Video Check */}
-        {currentStep === "video" && (
-          <VideoCheckStep onNext={finishSetup} />
-        )}
 
         {/* Step: Done */}
         {currentStep === "done" && (

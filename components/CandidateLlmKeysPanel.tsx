@@ -25,11 +25,18 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/admin_ui/dialog";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/admin_ui/select";
 import { apiFetch } from "@/lib/api";
 
 type ValidationStatus = "active" | "inactive" | "invalid" | "checking";
 
-type ProviderId = "OpenAI" | "Claude" | "Mistral" | "Gemini" | "Azure OpenAI" | "Groq" | "Together AI" | "Cohere";
+type ProviderId = "OpenAI" | "Claude" | "Gemini" | "Mistral" | "Llama" | "Grok" | "DeepSeek" | "Cohere" | "Together" | "Perplexity" | "Groq" | "AzureOpenAI" | "AWSBedrock" | "VertexAI" | "OpenRouter" | "HuggingFace" | "NvidiaNIM" | "Fireworks" | "Cerebras" | "AI21" | "SambaNova" | "IBMWatsonx" | "Qwen" | "Moonshot" | "ZeroOneAI" | "Ollama" | "LMStudio" | "vLLM";
 
 type LlmKeyRow = {
     id: number;
@@ -45,111 +52,64 @@ type LlmKeyRow = {
 
 const PROVIDERS: { id: ProviderId; label: string }[] = [
     { id: "OpenAI", label: "OpenAI" },
-    { id: "Claude", label: "Claude" },
-    { id: "Mistral", label: "Mistral" },
-    { id: "Gemini", label: "Gemini" },
-    { id: "Azure OpenAI", label: "Azure OpenAI" },
-    { id: "Groq", label: "Groq" },
-    { id: "Together AI", label: "Together AI" },
+    { id: "Claude", label: "Anthropic (Claude)" },
+    { id: "Gemini", label: "Google Gemini" },
+    { id: "Mistral", label: "Mistral AI" },
+    { id: "Llama", label: "Meta Llama" },
+    { id: "Grok", label: "xAI (Grok)" },
+    { id: "DeepSeek", label: "DeepSeek" },
     { id: "Cohere", label: "Cohere" },
+    { id: "Together", label: "Together AI" },
+    { id: "Perplexity", label: "Perplexity AI" },
+    { id: "Groq", label: "Groq" },
+    { id: "AzureOpenAI", label: "Azure OpenAI" },
+    { id: "AWSBedrock", label: "AWS Bedrock" },
+    { id: "VertexAI", label: "Google Vertex AI" },
+    { id: "OpenRouter", label: "OpenRouter" },
+    { id: "HuggingFace", label: "Hugging Face" },
+    { id: "NvidiaNIM", label: "NVIDIA NIM" },
+    { id: "Fireworks", label: "Fireworks AI" },
+    { id: "Cerebras", label: "Cerebras" },
+    { id: "AI21", label: "AI21 Labs" },
+    { id: "SambaNova", label: "SambaNova" },
+    { id: "IBMWatsonx", label: "IBM Watsonx" },
+    { id: "Qwen", label: "Alibaba Qwen" },
+    { id: "Moonshot", label: "Moonshot AI (Kimi)" },
+    { id: "ZeroOneAI", label: "01.AI (Yi)" },
+    { id: "Ollama", label: "Ollama (Local)" },
+    { id: "LMStudio", label: "LM Studio (Local)" },
+    { id: "vLLM", label: "vLLM (Self Hosted)" },
 ];
 
 const MODELS_BY_PROVIDER: Record<ProviderId, string[]> = {
-  OpenAI: [
-    "gpt-4o",
-    "gpt-4.1",
-    "gpt-4o-mini",
-    "o3",
-    "o4-mini"
-  ],
-
-  "Azure OpenAI": [
-    "gpt-4o",
-    "gpt-4.1",
-    "gpt-35-turbo"
-  ],
-
-  Claude: [
-    "Claude Sonnet 4",
-    "Claude Opus 4",
-    "Claude Haiku 3.5"
-  ],
-
-  Gemini: [
-    "Gemini 2.5 Pro",
-    "Gemini 2.5 Flash",
-    "Gemini 2.0 Flash"
-  ],
-
-  Mistral: [
-    "Mistral Large",
-    "Mistral Medium",
-    "Mistral Small"
-  ],
-
-  Groq: [
-    "Llama 3 70B",
-    "Mixtral 8x7B",
-    "Gemma 2"
-  ],
-
-  "Together AI": [
-    "Llama 3.3 70B",
-    "DeepSeek V3",
-    "Qwen 2.5"
-  ],
-
-  Cohere: [
-    "Command R",
-    "Command R+"
-  ]
-};
-const PROVIDER_FIELDS: Record<
-  ProviderId,
-  {
-    projectId?: boolean;
-    organization?: boolean;
-    endpoint?: boolean;
-    deployment?: boolean;
-    workspace?: boolean;
-    region?: boolean;
-    safety?: boolean;
-    speed?: boolean;
-  }
-> = {
-
-  OpenAI: {
-    projectId: true,
-    organization: true,
-  },
-
-  "Azure OpenAI": {
-    endpoint: true,
-    deployment: true,
-  },
-
-  Claude: {
-    workspace: true,
-  },
-
-  Gemini: {
-    region: true,
-    safety: true,
-  },
-
-  Mistral: {
-    endpoint: true,
-  },
-
-  Groq: {
-    speed: true,
-  },
-
-  "Together AI": {
-    endpoint: true,
-  },
-
-  Cohere: {}
+    OpenAI: ["gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano", "gpt-4o", "gpt-4o-mini", "o1", "o1-mini", "o3", "o3-mini", "o4-mini"],
+    Claude: ["Claude Opus 4", "Claude Sonnet 4", "Claude Haiku 3.5", "Claude Sonnet 3.7", "Claude Opus 3"],
+    Gemini: ["Gemini 2.5 Pro", "Gemini 2.5 Flash", "Gemini 2.5 Flash Lite", "Gemini 2.0 Flash", "Gemini 1.5 Pro", "Gemini 1.5 Flash"],
+    Mistral: ["Mistral Large", "Mistral Medium", "Mistral Small", "Codestral", "Pixtral", "Devstral", "Mixtral 8x7B", "Mixtral 8x22B"],
+    Llama: ["Llama 3.3 70B", "Llama 3.2 90B Vision", "Llama 3.2 11B Vision", "Llama 3.2 3B", "Llama 3.2 1B", "Llama 3.1 405B", "Llama 3.1 70B", "Llama 3.1 8B"],
+    Grok: ["Grok 4", "Grok 3", "Grok 3 Mini"],
+    DeepSeek: ["DeepSeek R1", "DeepSeek V3", "DeepSeek Coder"],
+    Cohere: ["Command R", "Command R+", "Command A", "Embed English", "Embed Multilingual"],
+    Together: ["Llama Models", "Qwen Models", "DeepSeek Models", "Mistral Models", "Gemma Models", "Mixtral Models"],
+    Perplexity: ["Sonar", "Sonar Pro", "Sonar Reasoning", "Sonar Deep Research"],
+    Groq: ["Llama 3.3 70B", "Llama 3.1 8B", "Mixtral 8x7B", "Gemma 2", "DeepSeek R1"],
+    AzureOpenAI: ["gpt-4o", "gpt-4o-mini", "gpt-35-turbo"],
+    AWSBedrock: ["Claude", "Llama", "Nova", "Titan", "Mistral", "Cohere", "AI21"],
+    VertexAI: ["Gemini", "Claude", "Llama", "Mistral", "Imagen"],
+    OpenRouter: ["OpenAI Models", "Claude Models", "Gemini Models", "Llama Models", "Qwen Models", "DeepSeek Models", "Mistral Models"],
+    HuggingFace: ["Llama", "Qwen", "Mistral", "Gemma", "Falcon", "Phi", "DeepSeek", "FLAN-T5"],
+    NvidiaNIM: ["Llama", "Nemotron", "Mistral", "DeepSeek"],
+    Fireworks: ["Llama", "Mixtral", "DeepSeek", "Qwen", "Mistral"],
+    Cerebras: ["llama3.1-8b", "llama3.1-70b"],
+    AI21: ["Jamba", "Jurassic"],
+    SambaNova: ["Meta-Llama-3.1-70B-Instruct", "Meta-Llama-3.1-8B-Instruct"],
+    IBMWatsonx: ["Granite", "Llama", "Mixtral"],
+    Qwen: ["Qwen 3", "Qwen 2.5", "Qwen Coder", "Qwen VL"],
+    Moonshot: ["Kimi K2", "Kimi Chat"],
+    ZeroOneAI: ["Yi Large", "Yi Vision", "Yi Coder"],
+    Ollama: ["llama3", "llama3.1", "llama3.2", "mistral", "deepseek-r1", "phi4", "qwen3", "gemma3"],
+    LMStudio: ["Any GGUF Model", "Llama", "Qwen", "Mistral", "Gemma", "Phi", "DeepSeek"],
+    vLLM: ["Any HuggingFace compatible model"]
 };
 
 const fieldSelectClassName =
@@ -161,10 +121,34 @@ function parseBoolFlag(value: unknown): boolean {
 
 function normalizeProvider(name: string): ProviderId {
     const k = (name || "").trim().toLowerCase();
-    if (k === "openai" || k === "gpt") return "OpenAI";
-    if (k === "claude" || k === "anthropic") return "Claude";
-    if (k === "mistral") return "Mistral";
-    if (k === "gemini" || k === "google") return "Gemini";
+    if (k.includes("azure")) return "AzureOpenAI";
+    if (k.includes("openai") || k.includes("gpt")) return "OpenAI";
+    if (k.includes("claude") || k.includes("anthropic")) return "Claude";
+    if (k.includes("vertex")) return "VertexAI";
+    if (k.includes("gemini") || k.includes("google")) return "Gemini";
+    if (k.includes("mistral")) return "Mistral";
+    if (k.includes("llama") || k.includes("meta")) return "Llama";
+    if (k.includes("grok") || k.includes("xai")) return "Grok";
+    if (k.includes("deepseek")) return "DeepSeek";
+    if (k.includes("groq")) return "Groq";
+    if (k.includes("cohere")) return "Cohere";
+    if (k.includes("together")) return "Together";
+    if (k.includes("perplexity")) return "Perplexity";
+    if (k.includes("openrouter")) return "OpenRouter";
+    if (k.includes("hugging")) return "HuggingFace";
+    if (k.includes("nvidia") || k.includes("nim")) return "NvidiaNIM";
+    if (k.includes("fireworks")) return "Fireworks";
+    if (k.includes("cerebras")) return "Cerebras";
+    if (k.includes("ai21")) return "AI21";
+    if (k.includes("samba")) return "SambaNova";
+    if (k.includes("watson") || k.includes("ibm")) return "IBMWatsonx";
+    if (k.includes("bedrock") || k.includes("aws")) return "AWSBedrock";
+    if (k.includes("qwen") || k.includes("alibaba")) return "Qwen";
+    if (k.includes("moonshot") || k.includes("kimi")) return "Moonshot";
+    if (k.includes("yi") || k.includes("01.ai")) return "ZeroOneAI";
+    if (k.includes("ollama")) return "Ollama";
+    if (k.includes("lm studio") || k.includes("lmstudio")) return "LMStudio";
+    if (k.includes("vllm")) return "vLLM";
     return "OpenAI";
 }
 
@@ -591,7 +575,7 @@ export function CandidateLlmKeysPanel({
         }
     };
 
-    const saveKey = async () => {
+    const saveKey = async (shouldClose = true) => {
         const k = formKey.trim();
         const voiceEnabled = formVoice === "yes";
 
@@ -602,6 +586,7 @@ export function CandidateLlmKeysPanel({
 
         setFormSaving(true);
         try {
+            let savedId = editRow?.id;
             if (editRow) {
                 const body: {
                     provider_name: string;
@@ -620,7 +605,7 @@ export function CandidateLlmKeysPanel({
                 });
                 toast.success("LLM key updated.");
             } else {
-                await apiFetch("coderpad/me/llm-keys", {
+                const res = await apiFetch("coderpad/me/llm-keys", {
                     method: "POST",
                     body: {
                         provider_name: formProvider,
@@ -629,13 +614,29 @@ export function CandidateLlmKeysPanel({
                         voice_enabled: voiceEnabled,
                     },
                 });
+                savedId = res.id;
                 toast.success("LLM key saved.");
+                setEditRow({
+                    id: savedId,
+                    provider_name: formProvider,
+                    masked_key: "***",
+                    model_name: formModel,
+                    entry_date: new Date().toISOString(),
+                    voice_enabled: voiceEnabled,
+                    is_default: false,
+                    validation_status: "checking",
+                    validation_message: null
+                });
+                setFormKey("");
             }
             if (editRow && k) {
                 removeKeyFromValidationCache(editRow.id);
             }
-            closeModal();
+            if (shouldClose) {
+                closeModal();
+            }
             await loadKeys();
+            return savedId;
         } catch (err: unknown) {
             let msg = "Could not save API key.";
             try {
@@ -647,6 +648,41 @@ export function CandidateLlmKeysPanel({
             toast.error(msg);
         } finally {
             setFormSaving(false);
+        }
+    };
+
+    const validateFormKey = async () => {
+        const k = formKey.trim();
+        if (!editRow && !k) {
+            toast.error("Enter your API key to validate.");
+            return;
+        }
+
+        const savedId = await saveKey(false);
+        if (!savedId) return;
+
+        toast.loading("Validating...", { id: "validate-toast" });
+        try {
+            const batch = await apiFetch("coderpad/me/llm-keys/validate-batch", {
+                method: "POST",
+                body: {
+                    keys: [{ id: savedId, provider_name: formProvider, source: "wbl" }],
+                },
+            });
+            const hit = batch?.results?.[0];
+            if (!hit) throw new Error("No validation result");
+            
+            applyValidationResults([hit]);
+            
+            if (hit.status === "active") {
+                toast.success(`${formProvider} key is active.`, { id: "validate-toast" });
+            } else if (hit.status === "invalid") {
+                toast.error(hit.message || "Invalid API key", { id: "validate-toast" });
+            } else {
+                toast.error(hit.message || "Key inactive", { id: "validate-toast" });
+            }
+        } catch (err) {
+            toast.error("Validation failed.", { id: "validate-toast" });
         }
     };
 
@@ -739,36 +775,42 @@ export function CandidateLlmKeysPanel({
                                     <Label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">
                                         Provider
                                     </Label>
-                                <select
-                                    className={fieldSelectClassName}
-                                    value={formProvider}
-                                    onChange={(e) =>
-                                        onProviderChange(e.target.value as ProviderId)
-                                    }
-                                >
-                                    {PROVIDERS.map((p) => (
-                                        <option key={p.id} value={p.id}>
-                                            {p.label}
-                                        </option>
-                                    ))}
-                                </select>
+                                    <Select
+                                        value={formProvider}
+                                        onValueChange={(val) => onProviderChange(val as ProviderId)}
+                                    >
+                                        <SelectTrigger className="mt-1 h-9 w-full bg-white dark:bg-gray-800">
+                                            <SelectValue placeholder="Select provider" />
+                                        </SelectTrigger>
+                                        <SelectContent nativeScroll>
+                                            {PROVIDERS.map((p) => (
+                                                <SelectItem key={p.id} value={p.id}>
+                                                    {p.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
 
                                 <div className="min-w-0 sm:col-span-1">
                                     <Label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">
                                         Model
                                     </Label>
-                                    <select
-                                        className={fieldSelectClassName}
+                                    <Select
                                         value={formModel}
-                                        onChange={(e) => setFormModel(e.target.value)}
+                                        onValueChange={setFormModel}
                                     >
-                                        {MODELS_BY_PROVIDER[formProvider].map((m) => (
-                                            <option key={m} value={m}>
-                                                {m}
-                                            </option>
-                                        ))}
-                                    </select>
+                                        <SelectTrigger className="mt-1 h-9 w-full bg-white dark:bg-gray-800">
+                                            <SelectValue placeholder="Select model" />
+                                        </SelectTrigger>
+                                        <SelectContent nativeScroll>
+                                            {MODELS_BY_PROVIDER[formProvider].map((m) => (
+                                                <SelectItem key={m} value={m}>
+                                                    {m}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
 
                                 <div className="min-w-0">
@@ -782,45 +824,59 @@ export function CandidateLlmKeysPanel({
                                             }`}
                                         />
                                     </Label>
-                                    <select
-                                        className={fieldSelectClassName}
+                                    <Select
                                         value={formVoice}
-                                        onChange={(e) =>
-                                            setFormVoice(e.target.value as "yes" | "no")
-                                        }
+                                        onValueChange={(val) => setFormVoice(val as "yes" | "no")}
                                     >
-                                        <option value="no">No</option>
-                                        <option value="yes">Yes</option>
-                                    </select>
+                                        <SelectTrigger className="mt-1 h-9 w-full bg-white dark:bg-gray-800">
+                                            <SelectValue placeholder="Select" />
+                                        </SelectTrigger>
+                                        <SelectContent className="max-h-44">
+                                            <SelectItem value="no">No</SelectItem>
+                                            <SelectItem value="yes">Yes</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                             </div>
 
-                        <div className="relative mt-1">
-                            <Input
-                                type="password"
-                                value={formKey}
-                                onChange={(e) => setFormKey(e.target.value)}
-                                placeholder={
-                                    editRow
-                                         ? "Leave blank to keep current key"
-                                         : formProvider === "OpenAI"
-                                         ? "sk-..."
-                                         : "Paste API key"
-                                }
-                                className="h-9 pr-24 font-mono text-sm"
-                                autoComplete="new-password"
-                            />
+                            <div className="min-w-0">
+                                <Label className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">
+                                    {editRow ? "API key (optional)" : "API key"}
+                                </Label>
+                                <Input
+                                    type="password"
+                                    value={formKey}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setFormKey(val);
+                                        
+                                        // Auto-detect provider based on API key prefix
+                                        const trimmed = val.trim();
+                                        let detectedProvider = null;
+                                        if (trimmed.startsWith("sk-ant-")) detectedProvider = "Claude";
+                                        else if (trimmed.startsWith("sk-proj-")) detectedProvider = "OpenAI";
+                                        else if (trimmed.startsWith("sk-or-")) detectedProvider = "OpenRouter";
+                                        else if (trimmed.startsWith("gsk_")) detectedProvider = "Groq";
+                                        else if (trimmed.startsWith("xai-")) detectedProvider = "Grok";
+                                        else if (trimmed.startsWith("AIza")) detectedProvider = "Gemini";
+                                        else if (trimmed.startsWith("sk-") && trimmed.length > 40 && !trimmed.includes(" ")) detectedProvider = "OpenAI";
 
-                             <Button
-                                 type="button"
-                                 variant="outline"
-                                 size="sm"
-                                 className="absolute right-1 top-1/2 -translate-y-1/2 h-7 px-2 text-xs"
-                                 onClick={() => void validateModalKey()}
-                            >
-                                  Validate
-                            </Button>
-                        </div>   
+                                        if (detectedProvider && detectedProvider !== formProvider) {
+                                            setFormProvider(detectedProvider as any);
+                                            setFormModel(MODELS_BY_PROVIDER[detectedProvider as any][0]);
+                                        }
+                                    }}
+                                    placeholder={
+                                        editRow
+                                            ? "Leave blank to keep current key"
+                                            : formProvider === "OpenAI"
+                                              ? "sk-…"
+                                              : "Paste API key"
+                                    }
+                                    className="mt-1 h-9 font-mono text-sm"
+                                    autoComplete="new-password"
+                                />
+                            </div>
                         </div>
 
                         <DialogFooter className="px-6 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-900/50 flex-row justify-end gap-2 sm:space-x-2">
@@ -832,6 +888,16 @@ export function CandidateLlmKeysPanel({
                                 disabled={formSaving}
                             >
                                 Cancel
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="min-w-[7rem]"
+                                disabled={formSaving || (!editRow && !formKey.trim())}
+                                onClick={() => void validateFormKey()}
+                            >
+                                Validate
                             </Button>
                             <Button
                                 type="button"
@@ -1005,7 +1071,6 @@ export function CandidateLlmKeysPanel({
                                                         )}
                                                     </div>
                                                 </td>
-                                                
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center justify-end gap-1">
                                                         <button
