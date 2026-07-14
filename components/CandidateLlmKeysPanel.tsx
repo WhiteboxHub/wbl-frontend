@@ -225,7 +225,13 @@ function removeKeyFromValidationCache(keyId: number) {
 }
 
 /** Keys from ``candidate_llm_api_keys`` for the logged-in candidate (via ``candidate.id``). */
-export function CandidateLlmKeysPanel({ onValidationChange }: { onValidationChange?: (isValid: boolean) => void }) {
+export function CandidateLlmKeysPanel({ 
+    onValidationChange,
+    children 
+}: { 
+    onValidationChange?: (isValid: boolean) => void;
+    children?: React.ReactNode;
+}) {
     const [rows, setRows] = useState<LlmKeyRow[]>([]);
     const [loading, setLoading] = useState(false);
     const [revealed, setRevealed] = useState<Record<number, string>>({});
@@ -480,23 +486,22 @@ export function CandidateLlmKeysPanel({ onValidationChange }: { onValidationChan
 
     const updateIsDefault = async (row: LlmKeyRow, isDefault: boolean) => {
         if (row.is_default === isDefault) return;
-        if (!isDefault && row.is_default) {
-            toast.error("Set another key as default before turning this off.");
-            return;
-        }
         setDefaultUpdatingId(row.id);
         setRows((prev) =>
-            prev.map((r) => ({
-                ...r,
-                is_default: r.id === row.id ? true : false,
-            }))
+            prev.map((r) => {
+                if (isDefault) {
+                    return { ...r, is_default: r.id === row.id };
+                } else {
+                    return r.id === row.id ? { ...r, is_default: false } : r;
+                }
+            })
         );
         try {
             await apiFetch(`coderpad/me/llm-keys/${row.id}/is-default`, {
                 method: "PATCH",
-                body: { is_default: true },
+                body: { is_default: isDefault },
             });
-            toast.success("Default key updated.");
+            toast.success("Default status updated.");
         } catch {
             await loadKeys();
             toast.error("Could not update default key.");
@@ -530,12 +535,6 @@ export function CandidateLlmKeysPanel({ onValidationChange }: { onValidationChan
     };
 
     const deleteRow = async (row: LlmKeyRow) => {
-        if (row.is_default) {
-            toast.error(
-                "Cannot delete the default API key. Set another key as default first."
-            );
-            return;
-        }
         if (!confirm(`Delete ${row.provider_name} key?`)) return;
         try {
             await apiFetch(`coderpad/me/llm-keys/${row.id}`, { method: "DELETE" });
@@ -710,28 +709,34 @@ export function CandidateLlmKeysPanel({ onValidationChange }: { onValidationChan
 
     return (
         <div className="flex-1 overflow-y-auto p-4 lg:p-6">
-            <div className="max-w-5xl mx-auto space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                    <div>
-                        <h2 className="text-lg font-extrabold text-gray-900 dark:text-white flex items-center gap-2">
-                            <KeyRound className="w-5 h-5 text-emerald-600 dark:text-emerald-400" aria-hidden />
-                            My LLM key
-                        </h2>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                            Add and manage multiple API keys (OpenAI, Claude, Mistral, Gemini).
-                        </p>
+            <div className="max-w-7xl mx-auto">
+                <div className="p-6 md:p-8 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl shadow-sm space-y-6">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 border-b border-gray-50 dark:border-gray-800/80 pb-5">
+                        <div>
+                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                <KeyRound className="w-5 h-5 text-emerald-600 dark:text-emerald-400" aria-hidden />
+                                My LLM Setup
+                            </h2>
+                            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+                                Configure and verify your environment before starting an AI interview.
+                            </p>
+                            {rows.length > 0 && (
+                                <p className="text-xs font-medium text-gray-400 mt-2">
+                                    Found <span className="font-bold text-blue-600">{rows.length}</span> {rows.length === 1 ? "key" : "keys"}
+                                </p>
+                            )}
+                        </div>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="shrink-0 font-semibold"
+                            onClick={openAddModal}
+                        >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Add key
+                        </Button>
                     </div>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="shrink-0 font-semibold"
-                        onClick={openAddModal}
-                    >
-                        <Plus className="h-4 w-4 mr-1" />
-                        Add key
-                    </Button>
-                </div>
 
                 <Dialog open={modalOpen} onOpenChange={(open) => !open && closeModal()}>
                     <DialogContent className="max-w-[min(42rem,95vw)] sm:max-w-3xl gap-0 p-0 overflow-hidden">
@@ -895,11 +900,10 @@ export function CandidateLlmKeysPanel({ onValidationChange }: { onValidationChan
                     </DialogContent>
                 </Dialog>
 
-                <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full min-w-[820px] text-sm">
+                <div className="overflow-x-auto border border-gray-100 dark:border-gray-800 rounded-xl bg-gray-50/50 dark:bg-gray-950/20">
+                        <table className="w-full min-w-[820px] text-base">
                             <thead>
-                                <tr className="border-b border-gray-100 dark:border-gray-800 text-left text-xs font-bold text-gray-500 uppercase tracking-wide">
+                                <tr className="border-b border-gray-100 dark:border-gray-800 text-left text-sm font-bold text-gray-500 uppercase tracking-wide">
                                     <th className="px-4 py-3">Provider</th>
                                     <th className="px-4 py-3">Key</th>
                                     <th className="px-4 py-3">Status</th>
@@ -939,12 +943,9 @@ export function CandidateLlmKeysPanel({ onValidationChange }: { onValidationChan
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-center gap-2 w-full max-w-[280px]">
                                                         <div
-                                                            className="flex-1 min-w-0 overflow-x-auto overflow-y-hidden rounded-md border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 scroll-smooth overscroll-x-contain [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-400 dark:[&::-webkit-scrollbar-thumb]:bg-gray-500 [&::-webkit-scrollbar-track]:bg-transparent"
-                                                            title={
-                                                                showPlain
-                                                                    ? "Scroll left or right to view the full key"
-                                                                    : undefined
-                                                            }
+                                                            onClick={() => openEditModal(row)}
+                                                            className="flex-1 min-w-0 overflow-x-auto overflow-y-hidden rounded-md border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 scroll-smooth overscroll-x-contain cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-400 dark:[&::-webkit-scrollbar-thumb]:bg-gray-500 [&::-webkit-scrollbar-track]:bg-transparent"
+                                                            title="Click to edit key"
                                                         >
                                                             {showPlain ? (
                                                                 <span
@@ -1030,10 +1031,7 @@ export function CandidateLlmKeysPanel({ onValidationChange }: { onValidationChan
                                                                     : "border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
                                                             }`}
                                                             value={row.is_default ? "yes" : "no"}
-                                                            disabled={
-                                                                defaultUpdatingId === row.id ||
-                                                                row.is_default
-                                                            }
+                                                            disabled={defaultUpdatingId === row.id}
                                                             onChange={(e) =>
                                                                 void updateIsDefault(
                                                                     row,
@@ -1062,17 +1060,8 @@ export function CandidateLlmKeysPanel({ onValidationChange }: { onValidationChan
                                                         </button>
                                                         <button
                                                             type="button"
-                                                            className={`p-1.5 rounded-md ${
-                                                                row.is_default
-                                                                    ? "text-gray-300 dark:text-gray-600 cursor-not-allowed"
-                                                                    : "text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                                            }`}
-                                                            title={
-                                                                row.is_default
-                                                                    ? "Cannot delete the default key"
-                                                                    : "Delete key"
-                                                            }
-                                                            disabled={row.is_default}
+                                                            className="p-1.5 rounded-md text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                            title="Delete key"
                                                             onClick={() => void deleteRow(row)}
                                                         >
                                                             <Trash2 className="h-4 w-4" />
@@ -1086,10 +1075,10 @@ export function CandidateLlmKeysPanel({ onValidationChange }: { onValidationChan
                             </tbody>
                         </table>
                     </div>
-                    <p className="px-4 py-3 text-[11px] text-gray-400 border-t border-gray-100 dark:border-gray-800">
-                        Status is remembered until you click Validate. Keys are loaded from your
-                        profile.
+                    <p className="px-4 py-3 text-[11px] text-gray-400">
+                        Status is remembered until you click Validate. Keys are loaded from your profile.
                     </p>
+                    {children}
                 </div>
             </div>
         </div>
