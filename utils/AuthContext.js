@@ -1,7 +1,7 @@
 // frontend/utils/AuthContext.js
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -18,7 +18,10 @@ export const AuthProvider = ({ children }) => {
   const { data: session } = useSession();
   const router = useRouter();
 
-  // On mount try to restore token
+  // Ref to always hold the latest logout function — avoids stale closures
+  // in long-lived interval/event callbacks that capture the initial render.
+  const logoutRef = useRef(null);
+
   // Helper: check if the SSO cookie still exists
   const _isSsoCookiePresent = () => {
     return document.cookie.split(";").some((c) => c.trim().startsWith("wbl_access_token="));
@@ -42,7 +45,7 @@ export const AuthProvider = ({ children }) => {
         // force a full logout so both services stay in sync.
         const isProd = typeof window !== "undefined" && window.location.hostname.endsWith("whitebox-learning.com");
         if (isProd && !_isSsoCookiePresent()) {
-          logout();
+          if (typeof logoutRef.current === "function") logoutRef.current();
           return;
         }
         _checkToken(t);
@@ -61,7 +64,7 @@ export const AuthProvider = ({ children }) => {
       if (!t) return; // already logged out
       const isProd = typeof window !== "undefined" && window.location.hostname.endsWith("whitebox-learning.com");
       if (isProd && !_isSsoCookiePresent()) {
-        logout();
+        if (typeof logoutRef.current === "function") logoutRef.current();
       }
     };
 
@@ -220,6 +223,9 @@ export const AuthProvider = ({ children }) => {
       window.location.href = "/login";
     }
   };
+
+  // Keep the ref in sync with the latest logout function on every render
+  logoutRef.current = logout;
 
   function clearNextAuthCookies() {
     if (typeof window !== "undefined") {
