@@ -9,9 +9,6 @@ export function AtsTemplate({ data }: TemplateProps) {
         <h1 className="text-2xl font-bold text-gray-900 tracking-wide uppercase">
           {data.fullName || "Your Name"}
         </h1>
-        <p className="text-xs font-semibold text-gray-700 mt-1 uppercase tracking-wider">
-          {data.title || "Professional Title"}
-        </p>
         <p className="text-[10px] text-gray-600 mt-2 font-mono">
           {contact.join("   |   ")}
         </p>

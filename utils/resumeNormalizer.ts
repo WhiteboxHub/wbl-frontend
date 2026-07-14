@@ -76,7 +76,12 @@ export function normalizeResume(raw: unknown): ResumeData {
   const r = raw as Record<string, unknown>;
   const basics = (r.basics ?? {}) as Record<string, unknown>;
 
-  const fullName = pick(r, "fullName", "full_name", "name") || pick(basics, "fullName", "full_name", "name");
+  const personal = (r.personal ?? r.basics ?? {}) as Record<string, unknown>;
+  const firstName = pick(personal, "first_name", "firstName");
+  const lastName = pick(personal, "last_name", "lastName");
+  const parsedName = (firstName && lastName) ? `${firstName} ${lastName}`.trim() : (firstName || lastName || "");
+
+  const fullName = pick(r, "fullName", "full_name", "name") || pick(basics, "fullName", "full_name", "name") || parsedName;
   const title = pick(r, "title", "jobTitle", "job_title", "role", "position", "headline") || 
                 pick(basics, "label", "title", "jobTitle", "job_title");
   const summary = pick(r, "summary", "profile", "objective", "about", "bio") || 
