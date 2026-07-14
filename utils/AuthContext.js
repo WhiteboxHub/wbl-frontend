@@ -19,6 +19,11 @@ export const AuthProvider = ({ children }) => {
   const router = useRouter();
 
   // On mount try to restore token
+  // Helper: check if the SSO cookie still exists
+  const _isSsoCookiePresent = () => {
+    return document.cookie.split(";").some((c) => c.trim().startsWith("wbl_access_token="));
+  };
+
   useEffect(() => {
     const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
     if (token) {
@@ -29,13 +34,45 @@ export const AuthProvider = ({ children }) => {
       setUserRole(null);
     }
 
-    // periodic check (optional)
+    // periodic check — also detects if SSO cookie was cleared by another service
     const interval = setInterval(() => {
       const t = localStorage.getItem("access_token");
-      if (t) _checkToken(t);
+      if (t) {
+        // If the shared SSO cookie was cleared (e.g. by AI Prep Tool sign-out),
+        // force a full logout so both services stay in sync.
+        const isProd = typeof window !== "undefined" && window.location.hostname.endsWith("whitebox-learning.com");
+        if (isProd && !_isSsoCookiePresent()) {
+          logout();
+          return;
+        }
+        _checkToken(t);
+      }
     }, 60 * 1000);
 
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Instant SSO sync: when user switches back to this tab, check the cookie immediately
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== "visible") return;
+      const t = localStorage.getItem("access_token");
+      if (!t) return; // already logged out
+      const isProd = typeof window !== "undefined" && window.location.hostname.endsWith("whitebox-learning.com");
+      if (isProd && !_isSsoCookiePresent()) {
+        logout();
+      }
+    };
+
+    if (typeof window !== "undefined") {
+      document.addEventListener("visibilitychange", onVisibilityChange);
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        document.removeEventListener("visibilitychange", onVisibilityChange);
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
