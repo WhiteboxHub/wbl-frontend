@@ -2237,10 +2237,10 @@ export default function CandidateDashboard() {
                                 )}
 
                                 {activeTab === 'smartprep' && (
-                                    <div className="flex-1 overflow-y-auto p-4 lg:p-6 flex flex-col min-h-0">
+                                    <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-5">
 
                                         {/* AI Profile Setup Card */}
-                                        <div className="flex-1 bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-6 flex flex-col">
+                                        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5">
                                             <div className="flex items-center justify-between mb-4">
                                                 <div className="flex items-center gap-2.5">
                                                     <div className="w-8 h-8 rounded-lg bg-violet-50 dark:bg-violet-900/20 flex items-center justify-center">
