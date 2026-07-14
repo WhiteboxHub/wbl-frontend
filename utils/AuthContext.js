@@ -150,7 +150,9 @@ export const AuthProvider = ({ children }) => {
     try {
       router.push("/login");
     } catch (e) {
-      console.warn("Router push failed:", e);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Router push failed:", e);
+      }
     }
   };
 
@@ -172,7 +174,7 @@ export const AuthProvider = ({ children }) => {
 
       // Store token and update auth state
       localStorage.setItem("access_token", token);
-      
+
       // Set domain-wide cookie for SSO with ai-prep
       const isProd = window.location.hostname.endsWith('whitebox-learning.com');
       const domain = isProd ? '.whitebox-learning.com' : '';
@@ -185,8 +187,14 @@ export const AuthProvider = ({ children }) => {
       setSidebarOpen(true);
       return { success: true };
     } catch (error) {
-      console.error("Login error:", error);
-      return { success: false, message: "Login failed" };
+      if (process.env.NODE_ENV === "development") {
+        console.error("Login error:", error);
+      }
+
+      return {
+        success: false,
+        message: "Login failed",
+      };
     }
   };
 
@@ -194,7 +202,7 @@ export const AuthProvider = ({ children }) => {
     // clear local storage + notify other tabs
     localStorage.removeItem("access_token");
     localStorage.removeItem("prep_token");
-    
+
     // Clear the domain-wide SSO cookie
     const isProd = window.location.hostname.endsWith('whitebox-learning.com');
     const domain = isProd ? '.whitebox-learning.com' : '';

@@ -19,7 +19,7 @@ const SigninPage = () => {
   const [loading, setLoading] = useState(false);
   const [gloading, setGLoading] = useState(false);
   const [responseStatus, setResponseStatus] = useState("");
-  const [loggedIn, setLoggedIn] = useState(false);
+  // const [loggedIn, setLoggedIn] = useState(false);
   const { data: session } = useSession();
   const [googleMessage, setGoogleMessage] = useState("");
   const [googleStatus, setGoogleStatus] = useState("");
@@ -28,7 +28,7 @@ const SigninPage = () => {
   const { login } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("redirect") || "/";
+  // const callbackUrl = searchParams.get("redirect") || "/";
 
   interface ExtendedSignInResponse extends SignInResponse {
     message?: string;
@@ -138,7 +138,7 @@ const SigninPage = () => {
       if (response.ok) {
         // Store token in localStorage first
         localStorage.setItem("access_token", data.access_token);
-        login(data.access_token);
+        await login(data.access_token);
 
         // Get role from token
         const role = getUserTeamRole(data.access_token);
@@ -169,10 +169,19 @@ const SigninPage = () => {
         setLoading(false);
       }
     } catch (error) {
+      if (process.env.NODE_ENV === "development") {
+        console.error(error);
+      }
+
       setResponseStatus("error");
       setMessage("An error occurred during login");
       setLoading(false);
     }
+    // } catch (error) {
+    //   setResponseStatus("error");
+    //   setMessage("An error occurred during login");
+    //   setLoading(false);
+    // }
 
     setEmail("");
     setPassword("");
@@ -209,19 +218,19 @@ const SigninPage = () => {
     }
   }, [router]);
 
-  if (loggedIn) {
-    // You might want to redirect instead of rendering a different component
-    const accessToken = localStorage.getItem("access_token");
-    const role = getUserTeamRole(accessToken || "");
-    if (role === "admin") {
-      router.push("/avatar");
-    } else if (role === "employee") {
-      router.push("/");
-    } else {
-      router.push("/user_dashboard");
-    }
-    return null;
-  }
+  // if (loggedIn) {
+  //   // You might want to redirect instead of rendering a different component
+  //   const accessToken = localStorage.getItem("access_token");
+  //   const role = getUserTeamRole(accessToken || "");
+  //   if (role === "admin") {
+  //     router.push("/avatar");
+  //   } else if (role === "employee") {
+  //     router.push("/");
+  //   } else {
+  //     router.push("/user_dashboard");
+  //   }
+  //   return null;
+  // }
 
   return (
     <Suspense fallback={<div>LOADING...</div>}>
