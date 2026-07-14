@@ -249,7 +249,8 @@ type CandidateLlmKeysPanelProps = {
 export function CandidateLlmKeysPanel({
     onSuccess,
     onValidationChange,
-}: CandidateLlmKeysPanelProps) {    const [rows, setRows] = useState<LlmKeyRow[]>([]);
+}: CandidateLlmKeysPanelProps) {
+    const [rows, setRows] = useState<LlmKeyRow[]>([]);
     const [loading, setLoading] = useState(false);
     const [revealed, setRevealed] = useState<Record<number, string>>({});
     const [revealingId, setRevealingId] = useState<number | null>(null);
