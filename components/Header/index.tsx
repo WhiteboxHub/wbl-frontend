@@ -60,7 +60,11 @@ const Header = ({
     if (userRole === "employee") {
       router.push("/avatar/employee/employee-dashboard");
     } else {
-      router.push("/user_dashboard");
+      if (window.location.pathname === "/user_dashboard") {
+        window.dispatchEvent(new CustomEvent('nav-to-overview'));
+      } else {
+        router.push("/user_dashboard");
+      }
     }
   };
 
