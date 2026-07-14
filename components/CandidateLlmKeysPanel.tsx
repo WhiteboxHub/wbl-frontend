@@ -243,13 +243,13 @@ function removeKeyFromValidationCache(keyId: number) {
 /** Keys from ``candidate_llm_api_keys`` for the logged-in candidate (via ``candidate.id``). */
 type CandidateLlmKeysPanelProps = {
     onSuccess?: () => void;
+    onValidationChange?: (isValid: boolean) => void;
 };
 
 export function CandidateLlmKeysPanel({
     onSuccess,
+    onValidationChange,
 }: CandidateLlmKeysPanelProps) {    const [rows, setRows] = useState<LlmKeyRow[]>([]);
-export function CandidateLlmKeysPanel({ onValidationChange }: { onValidationChange?: (isValid: boolean) => void }) {
-    const [rows, setRows] = useState<LlmKeyRow[]>([]);
     const [loading, setLoading] = useState(false);
     const [revealed, setRevealed] = useState<Record<number, string>>({});
     const [revealingId, setRevealingId] = useState<number | null>(null);
@@ -259,14 +259,6 @@ export function CandidateLlmKeysPanel({ onValidationChange }: { onValidationChan
     const [modalOpen, setModalOpen] = useState(false);
     const [editRow, setEditRow] = useState<LlmKeyRow | null>(null);
     const [formProvider, setFormProvider] = useState<ProviderId>("OpenAI");
-    const [projectId, setProjectId] = useState("");
-    const [organizationId, setOrganizationId] = useState("");
-    const [endpoint, setEndpoint] = useState("");
-    const [deployment, setDeployment] = useState(""); 
-    const [workspace, setWorkspace] = useState("");
-    const [region, setRegion] = useState("");
-    const [safetyLevel, setSafetyLevel] = useState("Medium");
-    const [speedMode, setSpeedMode] = useState("Balanced");
     const [formKey, setFormKey] = useState("");
     const [formModel, setFormModel] = useState(MODELS_BY_PROVIDER.OpenAI[0]);
     const [formVoice, setFormVoice] = useState<"yes" | "no">("no");
@@ -455,10 +447,6 @@ export function CandidateLlmKeysPanel({ onValidationChange }: { onValidationChan
             setRevealingId(null);
         }
     };
-    const validateKey = async () => {
-    console.log("Validate button clicked");
-    };
-
     const validateRow = async (row: LlmKeyRow) => {
         const previousStatus =
             row.validation_status === "checking" ? "inactive" : row.validation_status;
@@ -510,6 +498,20 @@ export function CandidateLlmKeysPanel({ onValidationChange }: { onValidationChan
         } finally {
             setValidatingId(null);
         }
+    };
+
+    const validateModalKey = async () => {
+        if (editRow) {
+            await validateRow(editRow);
+            return;
+        }
+
+        if (!formKey.trim()) {
+            toast.error("Enter your API key before validating.");
+            return;
+        }
+
+        toast.success("Basic key check passed. Save the key to validate it fully.");
     };
 
     const updateIsDefault = async (row: LlmKeyRow, isDefault: boolean) => {
@@ -813,7 +815,7 @@ export function CandidateLlmKeysPanel({ onValidationChange }: { onValidationChan
                                  variant="outline"
                                  size="sm"
                                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 px-2 text-xs"
-                                 onClick={() => validateKey()}
+                                 onClick={() => void validateModalKey()}
                             >
                                   Validate
                             </Button>
@@ -858,21 +860,20 @@ export function CandidateLlmKeysPanel({ onValidationChange }: { onValidationChan
                                     <th className="px-4 py-3">Entry Date</th>
                                     <th className="px-4 py-3">Speech Enabled</th>
                                     <th className="px-4 py-3">Default</th>
-                                    <th className="px-4 py-3 text-center">Validate</th>
                                     <th className="px-4 py-3 w-20" />
                                 </tr>
                             </thead>
                             <tbody>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
+                                        <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
                                             <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
                                             Loading…
                                         </td>
                                     </tr>
                                 ) : rows.length === 0 ? (
                                     <tr>
-                                        <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
+                                        <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
                                             No LLM keys yet. Click Add key to save your first API key.
                                         </td>
                                     </tr>
@@ -1041,8 +1042,7 @@ export function CandidateLlmKeysPanel({ onValidationChange }: { onValidationChan
                         </table>
                     </div>
                     <p className="px-4 py-3 text-[11px] text-gray-400 border-t border-gray-100 dark:border-gray-800">
-                        Status is remembered until you click Validate. Keys are loaded from your
-                        profile.
+                        Status is remembered after validation. Keys are loaded from your profile.
                     </p>
                 </div>
             </div>
