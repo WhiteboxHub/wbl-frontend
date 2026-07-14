@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useAuth } from "@/utils/AuthContext";
 
 /**
@@ -13,9 +13,12 @@ import { useAuth } from "@/utils/AuthContext";
  */
 export default function LogoutPage() {
   const { logout, isAuthenticated } = useAuth();
+  const logoutExecuted = useRef(false);
 
-  
   useEffect(() => {
+    if (logoutExecuted.current) return;
+    logoutExecuted.current = true;
+
     // Call the full WBL logout which clears localStorage, next-auth session,
     // cookies, and redirects to /login
     if (typeof logout === "function") {
