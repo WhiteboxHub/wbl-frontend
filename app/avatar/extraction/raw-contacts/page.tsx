@@ -121,10 +121,23 @@ export default function AutomationContactExtractsPage() {
     const fetchExtracts = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await cachedApiFetch("/automation-extracts");
-            // cachedApiFetch returns { data: [...] }
-            const data = res?.data || [];
-            setExtracts(data);
+            const pageSize = 5000;
+            let allData: any[] = [];
+            let currentPage = 1;
+            let hasNext = true;
+            while (hasNext) {
+                const res = await cachedApiFetch(`/automation-extracts/paginated?page=${currentPage}&page_size=${pageSize}`);
+                // cachedApiFetch returns { data: [...] }
+                const data = res?.data || res || [];
+                const pageData = Array.isArray(data) ? data : (data?.data || []);
+                const has_next_page = data.has_next || false;
+                allData = [...allData, ...pageData];
+                hasNext = has_next_page;
+                currentPage++;
+                if (currentPage > 100) break;
+            }
+            setExtracts(allData);
+
         } catch (err: any) {
             console.error("[fetchExtracts] Error:", err);
             // Handle auth errors consistently
@@ -136,7 +149,7 @@ export default function AutomationContactExtractsPage() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [setLoading, setExtracts, cachedApiFetch]);
 
     useEffect(() => {
         fetchExtracts();
