@@ -1095,8 +1095,8 @@ export default function CandidateDashboard() {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
-            console.log("🔍 API Response - Total jobs received:", posData?.length || 0);
-            console.log("🔍 API Response - Sample job data:", posData?.[0] || {});
+                if (process.env.NODE_ENV === 'development') { console.log("🔍 API Response - Total jobs received:", posData?.length || 0); }
+            if (process.env.NODE_ENV === 'development') { console.log("🔍 API Response - Sample job data:", posData?.[0] || {}); }
 
             // Filter to show jobs from LinkedIn, Hiring Cafe, TrueUp, or Jobright
             const filteredData = (posData || []).filter((pos: any) => {
@@ -1108,7 +1108,7 @@ export default function CandidateDashboard() {
                 return shouldInclude && hasLink;
             });
 
-            console.log("📊 Final filtered positions count:", filteredData.length);
+            if (process.env.NODE_ENV === 'development') { console.log("📊 Final filtered positions count:", filteredData.length); }
 
             // Debug: Show source distribution
             const sourceCounts = filteredData.reduce((acc: any, pos: any) => {
@@ -1117,7 +1117,7 @@ export default function CandidateDashboard() {
                 return acc;
             }, {});
 
-            console.log("📈 Source distribution:", sourceCounts);
+            if (process.env.NODE_ENV === 'development') { console.log("📈 Source distribution:", sourceCounts); }
 
             setPositions(filteredData);
         } catch (err) {

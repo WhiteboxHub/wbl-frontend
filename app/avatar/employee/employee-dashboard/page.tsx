@@ -219,7 +219,7 @@ function EmployeeDashboardContent() {
     useEffect(() => {
         const fetchMetrics = async () => {
             try {
-                console.log(" Fetching employee dashboard data...");
+                if (process.env.NODE_ENV === 'development') { console.log("Fetching employee dashboard data..."); }
                 setLoading(true);
                 setError(null);
                 
@@ -229,7 +229,7 @@ function EmployeeDashboardContent() {
                     cachedApiFetch("/interviews")
                 ]);
 
-                console.log(" Employee dashboard data received:", metrics);
+                if (process.env.NODE_ENV === 'development') { console.log(" Employee dashboard data received:", metrics); }
                 setData(metrics);
                 setInterviews(interviewsRes?.data || []);
             } catch (err: any) {
