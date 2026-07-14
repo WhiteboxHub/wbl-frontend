@@ -7,9 +7,13 @@ import { toast, Toaster } from "sonner";
 import { format, parseISO } from "date-fns";
 import Link from "next/link";
 import { ViewModal } from "./ViewModal";
+import { ResumeRenderer } from "@/components/templates/ResumeRenderer";
+import { normalizeResume } from "@/utils/resumeNormalizer";
+import { validateResumeStructure } from "@/utils/resumeValidator";
 import AiSetupTab from "./setup/AiSetupTab";
 import {
     Mail,
+    Upload,
     Phone,
     Calendar,
     Award,
@@ -50,6 +54,10 @@ import {
     Send,
     Zap,
     ClipboardList,
+    Download,
+    RefreshCw,
+    Loader2,
+    Edit3,
 } from "lucide-react";
 import { Button } from "@/components/admin_ui/button";
 import { Input } from "@/components/admin_ui/input";
@@ -156,7 +164,7 @@ interface ApiError {
     status?: number;
 }
 
-type TabType = 'overview' | 'sessions' | 'interviews' | 'jobs' | 'smartprep' | 'my_llm_key' | 'my_applications' | 'ai_setup';
+type TabType = 'overview' | 'sessions' | 'interviews' | 'jobs' | 'smartprep' | 'my_llm_key' | 'my_applications' | 'ai_setup' | 'my_resume';
 
 const extractErrorMessage = (err: ApiError, defaultMessage: string): string => {
     return err.body?.detail || err.body?.message || err.detail || err.message || defaultMessage;
@@ -411,17 +419,240 @@ export default function CandidateDashboard() {
         job_description: "",
     });
     const [addInterviewLoading, setAddInterviewLoading] = useState(false);
-    const [setupStatus, setSetupStatus] = useState<{ resume_uploaded: boolean; api_keys_configured: boolean; setup_complete: boolean } | null>(null);
+    const [setupStatus, setSetupStatus] = useState<{ resume_uploaded: boolean; api_keys_configured: boolean; setup_complete: boolean; has_binary_resume?: boolean; binary_resume_filename?: string | null } | null>(null);
     const [setupWizardManageMode, setSetupWizardManageMode] = useState(false);
     const [prefetchedSession, setPrefetchedSession] = useState<{ sessionId: string; summaryData: any } | null>(null);
     const [prefetchDone, setPrefetchDone] = useState(false);
 
     const [viewResumeOpen, setViewResumeOpen] = useState(false);
+    const [uploadResumeOpen, setUploadResumeOpen] = useState(false);
+    
+    // Inline Resume states & refs
+    const [resumeFile, setResumeFile] = useState<File | null>(null);
+    const [resumeUploadLoading, setResumeUploadLoading] = useState(false);
+    const [resumeDragOver, setResumeDragOver] = useState(false);
+    const [selectedTemplate, setSelectedTemplate] = useState("elegant");
+    const [showTemplates, setShowTemplates] = useState(false);
+    const inlineFileInputRef = useRef<HTMLInputElement>(null);
+    const inlineResumeRef = useRef<HTMLDivElement>(null);
     const [mounted, setMounted] = useState(false);
+    const [isEditingJson, setIsEditingJson] = useState(false);
+    const [editJsonText, setEditJsonText] = useState("");
+    const [editJsonError, setEditJsonError] = useState<string | null>(null);
+    const [editJsonSaving, setEditJsonSaving] = useState(false);
     const [editData, setEditData] = useState<any>(null);
     const [editInterviewForm, setEditInterviewForm] = useState<any>({});
     const [editInterviewLoading, setEditInterviewLoading] = useState(false);
     const [viewData, setViewData] = useState<any>(null);
+
+    const handleInlineFileValidate = (file: File): boolean => {
+        const allowedExtensions = [".pdf", ".doc", ".docx"];
+        const ext = "." + file.name.split(".").pop()?.toLowerCase();
+        if (!allowedExtensions.includes(ext)) {
+            toast.error("Invalid file format. Please upload a PDF, DOC, or DOCX file.");
+            return false;
+        }
+        return true;
+    };
+
+    const handleInlineFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            const selectedFile = e.target.files[0];
+            if (handleInlineFileValidate(selectedFile)) {
+                void handleInlineUpload(selectedFile);
+            }
+        }
+    };
+
+    const handleInlineUpload = async (fileToUpload: File) => {
+        setResumeUploadLoading(true);
+        const token = typeof window !== "undefined" ? localStorage.getItem("access_token") || "" : "";
+        const backendUrl = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+        const uploadUrl = backendUrl.endsWith("/api")
+            ? `${backendUrl}/candidates/${candidateId}/marketing/upload-resume`
+            : `${backendUrl}/api/candidates/${candidateId}/marketing/upload-resume`;
+            
+        const formData = new FormData();
+        formData.append("file", fileToUpload);
+
+        try {
+            const response = await fetch(uploadUrl, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || "Failed to upload resume");
+            }
+
+            toast.success("Resume uploaded successfully!");
+            setResumeFile(fileToUpload);
+            setShowTemplates(false);
+            setSetupStatus(prev => {
+                const base = prev || { resume_uploaded: false, api_keys_configured: false, setup_complete: false };
+                return {
+                    ...base,
+                    has_binary_resume: true,
+                    binary_resume_filename: fileToUpload.name
+                };
+            });
+
+            // Reload setup summary to fetch parsed JSON immediately
+            const AIPREP_API = process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api";
+            try {
+                const payload = JSON.parse(atob(token.split(".")[1]));
+                const email = payload.sub || payload.email || payload.uname || "candidate";
+                const resSummary = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
+                });
+                if (resSummary.ok) {
+                    const dataSummary = await resSummary.json();
+                    if (dataSummary.summary) {
+                        setPrefetchedSession({ sessionId: dataSummary.session_id, summaryData: dataSummary.summary });
+                    }
+                }
+            } catch (reloadErr) {
+                console.error("Failed to reload summary after upload:", reloadErr);
+            }
+        } catch (err: any) {
+            toast.error(err.message || "Something went wrong during upload.");
+            setResumeFile(null);
+        } finally {
+            setResumeUploadLoading(false);
+        }
+    };
+
+    const handleSaveEditedJson = async () => {
+        try {
+            let parsed = null;
+            try {
+                parsed = JSON.parse(editJsonText);
+            } catch (err: any) {
+                setEditJsonError(`Syntax Error: ${err.message}`);
+                return;
+            }
+
+            setEditJsonSaving(true);
+            const prepToken = typeof window !== "undefined" ? localStorage.getItem("prep_token") : null;
+            if (!prepToken) {
+                throw new Error("No active session found.");
+            }
+
+            const AIPREP_API = process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api";
+            
+            const formData = new FormData();
+            const blob = new Blob([editJsonText], { type: "application/json" });
+            formData.append("file", blob, "resume.json");
+            formData.append("session_id", prepToken);
+
+            const res = await fetch(`${AIPREP_API}/setup/resume`, {
+                method: "POST",
+                body: formData,
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.detail || "Failed to update resume JSON on server.");
+            }
+
+            toast.success("Resume JSON updated successfully!");
+            
+            if (prefetchedSession) {
+                setPrefetchedSession({
+                    ...prefetchedSession,
+                    summaryData: {
+                        ...prefetchedSession.summaryData,
+                        resume_json: parsed,
+                    }
+                });
+            }
+            setIsEditingJson(false);
+        } catch (err: any) {
+            setEditJsonError(err.message || "An unexpected error occurred while saving.");
+        } finally {
+            setEditJsonSaving(false);
+        }
+    };
+
+    const handleValidateJson = () => {
+        const resumeJson = prefetchedSession?.summaryData?.resume_json;
+        if (!resumeJson) {
+            toast.error("No resume JSON data found to validate.");
+            return;
+        }
+
+        const { isValid, errors, warnings } = validateResumeStructure(resumeJson);
+
+        if (!isValid) {
+            toast.error(`Validation Failed. Missing mandatory fields: ${errors.join(", ")}`);
+        } else if (warnings.length > 0) {
+            toast.warning(`Validation Passed with Warnings. Recommended fields missing: ${warnings.join(", ")}`);
+        } else {
+            toast.success("Validation Passed! JSON resume structure is perfectly valid.");
+        }
+    };
+
+    const handleDownloadJson = () => {
+        const jsonStr = JSON.stringify(prefetchedSession?.summaryData?.resume_json || {}, null, 2);
+        const blob = new Blob([jsonStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = (prefetchedSession?.summaryData?.binary_resume_filename?.replace(/\.[^/.]+$/, "") || "resume") + ".json";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleInlineDownload = () => {
+        if (!inlineResumeRef.current) return;
+
+        let candidateName = "Candidate";
+        const rawResumeJson = prefetchedSession?.summaryData?.resume_json || null;
+        if (rawResumeJson) {
+            try {
+                const parsed = normalizeResume(rawResumeJson);
+                if (parsed?.fullName) {
+                    candidateName = parsed.fullName;
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
+
+        const opt = {
+            margin:       0,
+            filename:     `${candidateName.replace(/\s+/g, "_")}_Resume.pdf`,
+            image:        { type: "jpeg", quality: 0.98 },
+            html2canvas:  { 
+                scale: 2, 
+                useCORS: true,
+                letterRendering: true
+            },
+            jsPDF:        { unit: "in", format: "letter", orientation: "portrait" }
+        };
+
+        const runHtml2Pdf = () => {
+            const element = inlineResumeRef.current;
+            (window as any).html2pdf().set(opt).from(element).save();
+        };
+
+        if (!(window as any).html2pdf) {
+            const script = document.createElement("script");
+            script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+            script.onload = runHtml2Pdf;
+            document.head.appendChild(script);
+        } else {
+            runHtml2Pdf();
+        }
+    };
 
     useEffect(() => {
         setMounted(true);
@@ -433,6 +664,12 @@ export default function CandidateDashboard() {
             .then((d: any) => setSetupStatus(d))
             .catch(() => setSetupStatus(null));
     }, []);
+
+    useEffect(() => {
+        if (setupStatus?.has_binary_resume) {
+            setShowTemplates(true);
+        }
+    }, [setupStatus]);
 
     // Pre-fetch AI prep session as soon as candidateId is available so the
     // wizard opens instantly when user clicks "Manage" (no 4-5s wait).
@@ -465,7 +702,13 @@ export default function CandidateDashboard() {
                 // Also update status badges
                 const hasKeys = summaryData.has_api_key === true || (Array.isArray(summaryData.llm_keys) && summaryData.llm_keys.length > 0);
                 const hasResume = summaryData.resume_text === "Exists" || (summaryData.resume_json != null && typeof summaryData.resume_json === "object");
-                setSetupStatus({ resume_uploaded: hasResume, api_keys_configured: hasKeys, setup_complete: hasResume && hasKeys });
+                setSetupStatus({
+                    resume_uploaded: hasResume,
+                    api_keys_configured: hasKeys,
+                    setup_complete: hasResume && hasKeys,
+                    has_binary_resume: !!summaryData.has_binary_resume,
+                    binary_resume_filename: summaryData.binary_resume_filename || null,
+                });
             } catch {
                 // Silently fail — wizard will fall back to its own fetch
             }
@@ -1255,7 +1498,46 @@ export default function CandidateDashboard() {
             // so employee UI changes (feedback, notes) are visible immediately
             loadDashboard();
         }
-    }, [activeTab]);
+        if (activeTab === 'my_resume' && candidateId) {
+            // Auto-reload the setup status & summary when opening the My Resume tab
+            const run = async () => {
+                const AIPREP_API = process.env.NEXT_PUBLIC_AIPREP_API_URL || "https://ai-backend-560359652969.us-central1.run.app/api";
+                try {
+                    const token = localStorage.getItem("access_token") || "";
+                    const payload = JSON.parse(atob(token.split(".")[1]));
+                    const email = payload.sub || payload.email || payload.uname || "candidate";
+
+                    const res = await fetch(`${AIPREP_API}/setup/init-and-summary`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ candidate_id: candidateId, wbl_email: email, name: email }),
+                    });
+                    if (res.ok) {
+                        const dataSummary = await res.json();
+                        const sid = dataSummary.session_id;
+                        const summaryData = dataSummary.summary;
+                        if (sid) {
+                            localStorage.setItem("prep_token", sid);
+                            setPrefetchedSession({ sessionId: sid, summaryData });
+                            
+                            const hasKeys = summaryData.has_api_key === true || (Array.isArray(summaryData.llm_keys) && summaryData.llm_keys.length > 0);
+                            const hasResume = summaryData.resume_text === "Exists" || (summaryData.resume_json != null && typeof summaryData.resume_json === "object");
+                            setSetupStatus({
+                                resume_uploaded: hasResume,
+                                api_keys_configured: hasKeys,
+                                setup_complete: hasResume && hasKeys,
+                                has_binary_resume: !!summaryData.has_binary_resume,
+                                binary_resume_filename: summaryData.binary_resume_filename || null,
+                            });
+                        }
+                    }
+                } catch (err) {
+                    console.error("Failed to refresh setup status on tab switch:", err);
+                }
+            };
+            void run();
+        }
+    }, [activeTab, candidateId]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -1336,6 +1618,7 @@ export default function CandidateDashboard() {
         { id: 'jobs' as TabType, name: 'Job Board', icon: Briefcase },
         { id: 'overview' as TabType, name: 'Overview', icon: Home },
         { id: 'ai_setup' as TabType, name: 'My LLM Setup', icon: Settings },
+        { id: 'my_resume' as TabType, name: 'My Resume', icon: FileText },
         { id: 'sessions' as TabType, name: 'Sessions', icon: PlayCircle },
         { id: 'interviews' as TabType, name: 'Interviews', icon: MessageSquare },
         { id: 'my_applications' as TabType, name: 'My Applications', icon: ClipboardList },
@@ -1381,23 +1664,7 @@ export default function CandidateDashboard() {
                                             <span>{tab.name}</span>
                                             {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500" />}
                                         </button>
-                                        {tab.id === 'ai_setup' && (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    if (setupStatus?.resume_uploaded) {
-                                                        setViewResumeOpen(true);
-                                                    } else {
-                                                        setSetupWizardManageMode(false);
-                                                        setSetupWizardOpen(true);
-                                                    }
-                                                }}
-                                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-white"
-                                            >
-                                                <FileText className="w-4 h-4 flex-shrink-0 text-violet-500" />
-                                                <span>My Resume</span>
-                                            </button>
-                                        )}
+
                                     </React.Fragment>
                                 );
                             })}
@@ -1482,17 +1749,19 @@ export default function CandidateDashboard() {
 
                     </div>
 
-                    <div className="flex items-center gap-3">
-                    <a
-                        href="https://chromewebstore.google.com/detail/talentscreen-autofill/bebdlhhpgmegdebdballinfmfnlpmeio"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm"
-                    >
-                        <Puzzle className="w-4 h-4 text-blue-500" />
-                        Autofill Extension
-                    </a>
-                    </div>
+                    {activeTab !== 'my_resume' && (
+                        <div className="flex items-center gap-3">
+                            <a
+                                href="https://chromewebstore.google.com/detail/talentscreen-autofill/bebdlhhpgmegdebdballinfmfnlpmeio"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm"
+                            >
+                                <Puzzle className="w-4 h-4 text-blue-500" />
+                                Autofill Extension
+                            </a>
+                        </div>
+                    )}
 
                 </header>
 
@@ -1513,23 +1782,7 @@ export default function CandidateDashboard() {
                                     <Icon className="w-3.5 h-3.5" />
                                     {tab.name}
                                 </button>
-                                {tab.id === 'ai_setup' && (
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            if (setupStatus?.resume_uploaded) {
-                                                setViewResumeOpen(true);
-                                            } else {
-                                                setSetupWizardManageMode(false);
-                                                setSetupWizardOpen(true);
-                                            }
-                                        }}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl whitespace-nowrap text-xs font-bold transition-all flex-shrink-0 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
-                                    >
-                                        <FileText className="w-3.5 h-3.5 text-violet-500" />
-                                        My Resume
-                                    </button>
-                                )}
+
                             </React.Fragment>
                         );
                     })}
@@ -2455,6 +2708,368 @@ export default function CandidateDashboard() {
                                         </div>
                                     </div>
                                 )}
+
+                                {activeTab === 'my_resume' && (
+                                    <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-6">
+                                        <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg border border-gray-100 dark:border-gray-800 p-6 lg:p-8 animate-in fade-in duration-200">
+                                            {!showTemplates ? (
+                                                <div className="space-y-6 animate-in fade-in duration-200">
+                                                    {/* Header */}
+                                                    <div className="mb-6">
+                                                        <h2 className="text-xl font-extrabold text-gray-900 dark:text-white flex items-center gap-2.5">
+                                                            Upload Resume
+                                                        </h2>
+                                                        <p className="text-xs text-gray-400 mt-1">
+                                                            Provide your resume in pdf, doc, docx format.
+                                                        </p>
+                                                    </div>
+
+                                                    {/* Conditional display based on LLM setup status */}
+                                                    {!(setupStatus?.api_keys_configured || prefetchedSession?.summaryData?.has_api_key || (prefetchedSession?.summaryData?.llm_keys && prefetchedSession.summaryData.llm_keys.length > 0)) ? (
+                                                        <div className="flex flex-col items-center justify-center border border-dashed border-red-200 dark:border-red-900/50 rounded-2xl p-10 min-h-[300px] bg-red-50/5 dark:bg-red-950/5 text-center">
+                                                            <div className="w-12 h-12 bg-red-100 dark:bg-red-950/40 text-red-500 rounded-full flex items-center justify-center mb-4">
+                                                                <KeyRound size={22} className="text-red-600 dark:text-red-400" />
+                                                            </div>
+                                                            <h3 className="text-base font-bold text-gray-900 dark:text-white mb-2">
+                                                                LLM API Key Required
+                                                            </h3>
+                                                            <p className="text-xs text-gray-400 dark:text-gray-400 max-w-md mb-6 leading-relaxed">
+                                                                To upload and parse your resume using AI, you must configure at least one active API key in the LLM setup tab first.
+                                                            </p>
+                                                            <button
+                                                                onClick={() => setActiveTab('ai_setup')}
+                                                                className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition-colors rounded-xl shadow-md cursor-pointer"
+                                                            >
+                                                                <Settings size={14} />
+                                                                <span>Configure LLM Key</span>
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        /* Full-width dashed uploader zone */
+                                                        <div className="w-full">
+                                                            <div
+                                                                onDragOver={(e) => { e.preventDefault(); setResumeDragOver(true); }}
+                                                                onDragLeave={() => setResumeDragOver(false)}
+                                                                onDrop={(e) => {
+                                                                    e.preventDefault();
+                                                                    setResumeDragOver(false);
+                                                                    if (resumeUploadLoading || setupStatus?.has_binary_resume) return;
+                                                                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                                                        const droppedFile = e.dataTransfer.files[0];
+                                                                        if (handleInlineFileValidate(droppedFile)) {
+                                                                            void handleInlineUpload(droppedFile);
+                                                                        }
+                                                                    }
+                                                                }}
+                                                                onClick={() => {
+                                                                    if (resumeUploadLoading || setupStatus?.has_binary_resume) return;
+                                                                    inlineFileInputRef.current?.click();
+                                                                }}
+                                                                className={`flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-20 min-h-[350px] transition-all duration-200 group ${
+                                                                    setupStatus?.has_binary_resume
+                                                                        ? "border-emerald-500/80 bg-emerald-50/10 dark:bg-emerald-900/5 cursor-default"
+                                                                        : resumeDragOver
+                                                                        ? "border-blue-500 bg-blue-50/50 dark:bg-blue-900/10 cursor-pointer"
+                                                                        : "border-gray-300 dark:border-gray-700 hover:border-blue-500 hover:bg-gray-50/50 dark:hover:bg-gray-800/20 cursor-pointer"
+                                                                }`}
+                                                            >
+                                                                <input
+                                                                    type="file"
+                                                                    ref={inlineFileInputRef}
+                                                                    onChange={handleInlineFileChange}
+                                                                    accept=".pdf,.doc,.docx"
+                                                                    className="hidden"
+                                                                />
+
+                                                                {resumeUploadLoading ? (
+                                                                    <div className="flex flex-col items-center text-center animate-in fade-in duration-150">
+                                                                        <Loader2 className="w-10 h-10 text-blue-500 animate-spin mb-4" />
+                                                                        <p className="text-sm font-extrabold text-gray-900 dark:text-gray-100">
+                                                                            Uploading resume...
+                                                                        </p>
+                                                                        <p className="text-xs text-gray-400 mt-1">
+                                                                            Please wait while we store your resume.
+                                                                        </p>
+                                                                    </div>
+                                                                ) : setupStatus?.has_binary_resume ? (
+                                                                    <div className="flex flex-col items-center text-center animate-in fade-in duration-200">
+                                                                        <div className="relative mb-4">
+                                                                            <div className="w-14 h-14 bg-blue-50 dark:bg-blue-950/30 text-blue-500 rounded-2xl flex items-center justify-center">
+                                                                                <FileText className="w-7 h-7 text-blue-600 dark:text-blue-400" />
+                                                                            </div>
+                                                                            <div className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-2 border-white dark:border-gray-900 flex items-center justify-center text-white text-[10px] font-bold shadow-sm">
+                                                                                ✓
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <p className="text-sm font-extrabold text-gray-900 dark:text-gray-100 mb-3">
+                                                                            Selected file uploaded
+                                                                        </p>
+
+                                                                        <div className="inline-flex items-center bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-450 font-semibold px-4 py-1.5 rounded-full text-xs border border-blue-100 dark:border-blue-800/60 mb-6 max-w-xs truncate">
+                                                                            {setupStatus.binary_resume_filename || "Uploaded Resume"}
+                                                                        </div>
+
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setSetupStatus(prev => prev ? { ...prev, has_binary_resume: false } : null);
+                                                                                setShowTemplates(false);
+                                                                                setResumeFile(null);
+                                                                                setTimeout(() => inlineFileInputRef.current?.click(), 50);
+                                                                            }}
+                                                                            className="flex items-center gap-1.5 px-6 py-2.5 border border-dashed border-gray-300 dark:border-gray-700 hover:border-blue-500 rounded-xl text-xs font-bold text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900 hover:bg-gray-50/50 hover:text-blue-600 dark:hover:text-blue-400 transition-colors shadow-sm cursor-pointer"
+                                                                        >
+                                                                            <Upload size={14} className="text-gray-405" />
+                                                                            Upload another file
+                                                                        </button>
+
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setSetupStatus(prev => prev ? { ...prev, has_binary_resume: false } : null);
+                                                                                setShowTemplates(false);
+                                                                                setResumeFile(null);
+                                                                            }}
+                                                                            className="text-xs font-semibold text-gray-400 hover:text-gray-500 dark:text-gray-500 hover:dark:text-gray-455 underline cursor-pointer mt-4"
+                                                                        >
+                                                                            Start over or upload a different file
+                                                                        </button>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="flex flex-col items-center text-center">
+                                                                        <div className="p-4 bg-blue-50/40 dark:bg-blue-950/20 text-blue-500 rounded-2xl mb-4 group-hover:scale-110 transition-transform">
+                                                                            <Upload className="w-8 h-8" />
+                                                                        </div>
+                                                                        <p className="text-sm font-extrabold text-gray-900 dark:text-gray-100">
+                                                                            Upload pdf, doc, docx
+                                                                        </p>
+                                                                        <p className="text-xs text-gray-400 mt-1">
+                                                                            Click to browse your computer
+                                                                        </p>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Bottom Navigation Buttons */}
+                                                    <div className="flex justify-end items-center pt-4 border-t border-gray-150 dark:border-gray-800/80 mt-6">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setShowTemplates(true)}
+                                                            disabled={!setupStatus?.has_binary_resume || resumeUploadLoading}
+                                                            className="flex items-center gap-1.5 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-blue-400 disabled:to-indigo-400 disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm shadow-md shadow-blue-500/10 hover:shadow-blue-500/20 transition-all"
+                                                        >
+                                                            <span>Next</span>
+                                                            <span>&gt;</span>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : isEditingJson ? (
+                                                <div className="space-y-6 animate-in fade-in duration-200">
+                                                    {/* Editor Header */}
+                                                    <div className="flex items-center justify-between border-b border-gray-150 dark:border-gray-800 pb-4">
+                                                        <div>
+                                                            <h2 className="text-xl font-extrabold text-gray-900 dark:text-white flex items-center gap-2.5">
+                                                                Edit Resume JSON
+                                                            </h2>
+                                                            <p className="text-xs text-gray-400 mt-1">
+                                                                Edit your structured resume fields directly. Changes will update the template rendering in real-time.
+                                                            </p>
+                                                        </div>
+                                                        <div className="flex items-center gap-3">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setIsEditingJson(false)}
+                                                                disabled={editJsonSaving}
+                                                                className="px-4 py-2 border border-gray-300 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-600 disabled:opacity-50 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 hover:bg-gray-50/50 dark:hover:bg-gray-800 transition-all shadow-sm cursor-pointer"
+                                                            >
+                                                                Cancel
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleSaveEditedJson}
+                                                                disabled={editJsonSaving}
+                                                                className="flex items-center gap-1.5 px-5 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 transition-colors rounded-xl shadow-md cursor-pointer"
+                                                            >
+                                                                {editJsonSaving ? (
+                                                                    <>
+                                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                                        <span>Saving...</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <span>Save Changes</span>
+                                                                )}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    {editJsonError && (
+                                                        <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-2xl text-xs font-bold text-red-650 dark:text-red-400 flex items-center gap-2">
+                                                            <span>⚠️</span>
+                                                            <span>{editJsonError}</span>
+                                                        </div>
+                                                    )}
+
+                                                    <div className="border border-gray-200 dark:border-gray-800 rounded-3xl overflow-hidden shadow-inner">
+                                                        <textarea
+                                                            value={editJsonText}
+                                                            onChange={(e) => {
+                                                                setEditJsonText(e.target.value);
+                                                                setEditJsonError(null);
+                                                            }}
+                                                            disabled={editJsonSaving}
+                                                            className="w-full min-h-[500px] text-xs font-mono p-6 bg-white text-sky-600 dark:bg-white dark:text-sky-600 focus:outline-none resize-y leading-relaxed"
+                                                            placeholder="{}"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-4">
+                                                    {/* Header */}
+                                                    <div className="mb-3 flex items-center justify-between">
+                                                        <div>
+                                                            <h2 className="text-xl font-extrabold text-gray-900 dark:text-white flex items-center gap-2.5">
+                                                                My Resume
+                                                            </h2>
+                                                            <p className="text-xs text-gray-400 mt-1">
+                                                                Choose your template and Download the resume
+                                                            </p>
+                                                        </div>
+                                                        {prefetchedSession?.summaryData?.resume_json && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleValidateJson}
+                                                                className="flex items-center gap-2 px-5 py-2.5 text-xs font-extrabold text-white bg-gradient-to-br from-indigo-900 to-purple-400 hover:opacity-90 active:opacity-85 transition-all rounded-xl shadow-md cursor-pointer"
+                                                            >
+                                                                <ClipboardCheck size={14} />
+                                                                <span>Validate JSON</span>
+                                                            </button>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Control bar */}
+                                                    <div className="flex flex-wrap items-center justify-between gap-4 bg-gray-50 dark:bg-gray-800/40 p-4 rounded-2xl border border-gray-100 dark:border-gray-800/80">
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                                                Template Layout:
+                                                            </span>
+                                                            <select
+                                                                value={selectedTemplate}
+                                                                onChange={(e) => setSelectedTemplate(e.target.value)}
+                                                                className="text-sm font-semibold bg-white dark:bg-gray-900 text-gray-850 dark:text-gray-250 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-sm"
+                                                            >
+                                                                {[
+                                                                    { id: "academic", name: "Academic" },
+                                                                    { id: "classy", name: "Classy" },
+                                                                    { id: "elegant", name: "Elegant" },
+                                                                    { id: "even", name: "Even" },
+                                                                    { id: "flat", name: "Flat" },
+                                                                    { id: "lowmess", name: "Lowmess" },
+                                                                    { id: "macchiato", name: "Macchiato" },
+                                                                    { id: "onepage-plus", name: "Onepage Plus" },
+                                                                    { id: "professional", name: "Professional" },
+                                                                    { id: "ats-friendly", name: "ATS Friendly" },
+                                                                    { id: "stackoverflow", name: "Stackoverflow" },
+                                                                    { id: "stackoverflowed", name: "Stackoverflowed" },
+                                                                    { id: "straightforward", name: "Straightforward" },
+                                                                    { id: "waterfall", name: "Waterfall" },
+                                                                    { id: "raw", name: "Raw JSON" }
+                                                                ].map((t) => (
+                                                                    <option key={t.id} value={t.id}>
+                                                                        {t.name}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+
+                                                        <div className="flex items-center gap-2.5">
+                                                            {prefetchedSession?.summaryData?.resume_json && (
+                                                                <>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setSetupStatus(prev => prev ? { ...prev, has_binary_resume: false } : null);
+                                                                            setShowTemplates(false);
+                                                                        }}
+                                                                        className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-gray-755 dark:text-gray-305 hover:bg-gray-105 dark:hover:bg-gray-805 border border-gray-200 dark:border-gray-700 transition-colors rounded-xl shadow-sm cursor-pointer"
+                                                                    >
+                                                                        <RefreshCw size={14} className="text-gray-500" />
+                                                                        <span>Change PDF</span>
+                                                                    </button>
+
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setEditJsonText(JSON.stringify(prefetchedSession?.summaryData?.resume_json || {}, null, 2));
+                                                                            setEditJsonError(null);
+                                                                            setIsEditingJson(true);
+                                                                        }}
+                                                                        className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-gray-755 dark:text-gray-305 hover:bg-gray-105 dark:hover:bg-gray-805 border border-gray-200 dark:border-gray-700 transition-colors rounded-xl shadow-sm"
+                                                                    >
+                                                                        <Edit3 size={15} className="text-blue-500" />
+                                                                        <span>Edit JSON</span>
+                                                                    </button>
+
+                                                                    {selectedTemplate === "raw" ? (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={handleDownloadJson}
+                                                                            className="flex items-center gap-1.5 px-5 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition-colors rounded-xl shadow-md shadow-blue-500/10 hover:shadow-blue-500/20"
+                                                                        >
+                                                                            <Download size={15} />
+                                                                            <span>Download JSON</span>
+                                                                        </button>
+                                                                    ) : (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={handleInlineDownload}
+                                                                            className="flex items-center gap-1.5 px-5 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition-colors rounded-xl shadow-md shadow-blue-500/10 hover:shadow-blue-500/20"
+                                                                        >
+                                                                            <Download size={15} />
+                                                                            <span>Download PDF</span>
+                                                                        </button>
+                                                                    )}
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Main viewer block */}
+                                                    {!prefetchedSession?.summaryData?.resume_json ? (
+                                                        <div className="text-center py-16 bg-gray-50/50 dark:bg-gray-900/10 border border-dashed border-gray-200 dark:border-gray-800 rounded-3xl text-gray-400 dark:text-gray-500 text-sm">
+                                                            No structured resume data found.
+                                                        </div>
+                                                    ) : selectedTemplate === "raw" ? (
+                                                        <div className="space-y-4">
+                                                            <pre className="w-full text-xs font-mono bg-gray-50/80 dark:bg-darklight p-5 rounded-2xl border border-gray-100 dark:border-gray-850 overflow-auto max-h-[70vh] text-gray-700 dark:text-gray-250 whitespace-pre-wrap">
+                                                                {JSON.stringify(prefetchedSession.summaryData.resume_json, null, 2)}
+                                                            </pre>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="border border-gray-200 dark:border-gray-800/80 rounded-3xl overflow-hidden bg-white max-h-[80vh] overflow-y-auto p-4 md:p-6 shadow-inner">
+                                                            <div ref={inlineResumeRef} className="origin-top transform scale-[0.95] w-full">
+                                                                <ResumeRenderer 
+                                                                    data={(() => {
+                                                                        try {
+                                                                            return normalizeResume(prefetchedSession.summaryData.resume_json);
+                                                                        } catch (e) {
+                                                                            return null;
+                                                                        }
+                                                                    })()} 
+                                                                    templateId={selectedTemplate} 
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </>
                         )}
                     </div>
@@ -2468,7 +3083,117 @@ export default function CandidateDashboard() {
                         resume_json: prefetchedSession?.summaryData?.resume_json || {}
                     }}
                     title="View Resume"
+                    onReupload={() => {
+                        setViewResumeOpen(false);
+                        setUploadResumeOpen(true);
+                    }}
                 />
+            )}
+            {uploadResumeOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="relative w-full max-w-md overflow-hidden bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 p-6">
+                        <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-4 mb-4">
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Upload Resume</h3>
+                            <button onClick={() => setUploadResumeOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">✕</button>
+                        </div>
+                        <div className="w-full space-y-5">
+                            <div
+                                onDragOver={(e) => { e.preventDefault(); setResumeDragOver(true); }}
+                                onDragLeave={() => setResumeDragOver(false)}
+                                onDrop={(e) => {
+                                    e.preventDefault();
+                                    setResumeDragOver(false);
+                                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                        const droppedFile = e.dataTransfer.files[0];
+                                        if (handleInlineFileValidate(droppedFile)) {
+                                            setResumeFile(droppedFile);
+                                        }
+                                    }
+                                }}
+                                onClick={() => inlineFileInputRef.current?.click()}
+                                className={`flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-10 cursor-pointer transition-all duration-200 group ${
+                                    resumeDragOver
+                                        ? "border-blue-500 bg-blue-50/50 dark:bg-blue-900/10"
+                                        : resumeFile
+                                        ? "border-emerald-500/80 bg-emerald-50/20 dark:bg-emerald-900/5"
+                                        : "border-gray-300 dark:border-gray-700 hover:border-blue-500 hover:bg-gray-50/50 dark:hover:bg-gray-800/20"
+                                }`}
+                            >
+                                <input
+                                    type="file"
+                                    ref={inlineFileInputRef}
+                                    onChange={handleInlineFileChange}
+                                    accept=".pdf,.doc,.docx"
+                                    className="hidden"
+                                />
+
+                                {resumeFile ? (
+                                    <div className="flex flex-col items-center text-center">
+                                        <div className="p-4 bg-emerald-100 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 rounded-2xl mb-3">
+                                            <FileText className="w-8 h-8 animate-pulse" />
+                                        </div>
+                                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-250 max-w-[240px] truncate">
+                                            {resumeFile.name}
+                                        </p>
+                                        <p className="text-xs text-gray-400 mt-1">
+                                            {(resumeFile.size / (1024 * 1024)).toFixed(2)} MB
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center text-center">
+                                        <Upload className="w-8 h-8 text-blue-500 mb-2" />
+                                        <p className="text-sm font-bold text-gray-700 dark:text-gray-300">
+                                            Drag and drop your resume here
+                                        </p>
+                                        <p className="text-xs text-gray-400 mt-1">
+                                            or <span className="text-blue-500 font-semibold">browse files</span>
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex items-center justify-end gap-3 pt-2">
+                                <button
+                                    onClick={async () => {
+                                        if (!resumeFile) return;
+                                        setResumeUploadLoading(true);
+                                        const token = typeof window !== "undefined" ? localStorage.getItem("access_token") || "" : "";
+                                        const backendUrl = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+                                        const uploadUrl = backendUrl.endsWith("/api")
+                                            ? `${backendUrl}/candidates/${candidateId}/marketing/upload-resume`
+                                            : `${backendUrl}/api/candidates/${candidateId}/marketing/upload-resume`;
+                                        const formData = new FormData();
+                                        formData.append("file", resumeFile);
+                                        try {
+                                            const response = await fetch(uploadUrl, {
+                                                method: "POST",
+                                                headers: { Authorization: `Bearer ${token}` },
+                                                body: formData,
+                                            });
+                                            if (!response.ok) throw new Error("Failed to upload");
+                                            toast.success("Resume uploaded successfully!");
+                                            setResumeFile(null);
+                                            setUploadResumeOpen(false);
+                                            setupApi.getStatus()
+                                                .then((d: any) => {
+                                                    setSetupStatus(d);
+                                                    setViewResumeOpen(true);
+                                                });
+                                        } catch (err: any) {
+                                            toast.error(err.message || "Upload failed");
+                                        } finally {
+                                            setResumeUploadLoading(false);
+                                        }
+                                    }}
+                                    disabled={!resumeFile || resumeUploadLoading}
+                                    className="w-full flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl text-sm font-bold shadow-md"
+                                >
+                                    {resumeUploadLoading ? "Uploading..." : "Upload Resume"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
